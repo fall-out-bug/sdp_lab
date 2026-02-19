@@ -41,5 +41,7 @@ Private planning and orchestration workspace for SDP evolution.
 - `scripts/check_remote_k8s.sh` - runs namespace health checks on remote cluster via SSH.
 - `scripts/apply_control_manifests.sh` - applies baseline control-plane manifests to remote cluster.
 - `scripts/apply_worker_manifests.sh` - applies baseline worker manifests to remote cluster.
+- `scripts/build_push_opencode_agent_image.sh` - builds and pushes opencode-agent image to GHCR.
+- `scripts/build_push_opencode_agent_image_remote.sh` - builds and pushes opencode-agent image from remote builder host.
 
 - `cmd/flow-inspect/` - inspects protocol flow state from run packets.
