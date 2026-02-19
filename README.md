@@ -31,6 +31,8 @@ Private planning and orchestration workspace for SDP evolution.
 - `cmd/beads-fsm/` - validates/applies guarded state transitions.
 - `cmd/pr-gate/` - blocks PR progression when strict evidence is incomplete.
 - `cmd/pr-publish/` - creates PR via `gh` and writes `trace.pr_url` into evidence.
+- `cmd/swarm-worker/` - worker role that claims and implements eligible coding tasks.
+- `cmd/swarm-reviewer/` - reviewer role that validates review flow and finalizes tasks.
 - `cmd/redaction-check/` - scans candidate OSS exports for forbidden private terms.
 - `cmd/runtime-parity-check/` - compares runtime capability sets for contract parity.
 - `scripts/bootstrap_remote_k8s.sh` - creates required namespaces on remote cluster via SSH.
