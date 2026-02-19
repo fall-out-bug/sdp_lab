@@ -22,6 +22,7 @@ Private planning and orchestration workspace for SDP evolution.
 - `docs/REDACTION_CHECKLIST.md` - pre-export redaction steps.
 - `docs/CONTRACT_PARITY_REPORT.md` - OpenCode/OpenClaw contract parity baseline.
 - `docs/GIT_REMOTE_BOOTSTRAP.md` - initialize remote default branch for PR publishing.
+- `docs/REAL_FEATURE_TO_PR_RUNBOOK.md` - live operator flow from task claim to PR.
 - `specs/autonomy-runtime-contract.yaml` - runtime contract baseline.
 - `specs/brain-decision-api.yaml` - brain decision request/response contract.
 - `specs/strict-evidence-template.json` - mandatory PR evidence structure.
