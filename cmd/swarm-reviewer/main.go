@@ -43,6 +43,24 @@ func runComponent(binary string, goPkg string, args ...string) ([]byte, error) {
 	return run("go", goArgs...)
 }
 
+func commitBeadsState(issueID string, outcome string) error {
+	if _, err := run("git", "add", ".beads/issues.jsonl", ".beads/metadata.json"); err != nil {
+		return err
+	}
+	msg := "reviewer: update " + issueID
+	body := "Record reviewer outcome: " + outcome + "."
+	if _, err := run("git", "commit", "-m", msg, "-m", body); err != nil {
+		if strings.Contains(err.Error(), "nothing to commit") {
+			return nil
+		}
+		return err
+	}
+	if _, err := run("git", "push"); err != nil {
+		return err
+	}
+	return nil
+}
+
 func listOpenTasks() ([]issue, error) {
 	out, err := run("bd", "list", "--json")
 	if err != nil {
@@ -194,12 +212,20 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+		if err := commitBeadsState(target, "approved"); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	} else {
 		if _, err := runComponent("beads-fsm", "./cmd/beads-fsm", "--issue", target, "--to", "blocked", "--apply"); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		_, _ = run("bd", "update", target, "--append-notes", "reviewer verdict: needs_changes (missing test changes)")
+		if err := commitBeadsState(target, "blocked"); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	}
 
 	out, _ := json.MarshalIndent(map[string]any{
