@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verifier-worker
+  namespace: sdp-workers
+  labels:
+    app: verifier-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: verifier-worker
+  template:
+    metadata:
+      labels:
+        app: verifier-worker
+    spec:
+      containers:
+        - name: verifier
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c", "sleep infinity"]

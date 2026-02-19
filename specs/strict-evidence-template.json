@@ -1,0 +1,40 @@
+{
+  "intent": {
+    "issue_id": "",
+    "trigger": "user|agent",
+    "acceptance": [],
+    "risk_class": "low|medium|high|critical"
+  },
+  "plan": {
+    "workstreams": [],
+    "ordering_rationale": ""
+  },
+  "execution": {
+    "claimed_issue_ids": [],
+    "branch": "",
+    "changed_files": []
+  },
+  "verification": {
+    "tests": [],
+    "lint": [],
+    "contracts": [],
+    "coverage": {
+      "value": 0,
+      "threshold": 80
+    }
+  },
+  "review": {
+    "self_review": [],
+    "adversarial_review": []
+  },
+  "risk_notes": {
+    "residual_risks": [],
+    "out_of_scope": []
+  },
+  "trace": {
+    "beads_ids": [],
+    "branch": "",
+    "commits": [],
+    "pr_url": ""
+  }
+}

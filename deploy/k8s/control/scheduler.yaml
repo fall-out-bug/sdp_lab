@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autonomy-scheduler
+  namespace: sdp-control
+  labels:
+    app: autonomy-scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: autonomy-scheduler
+  template:
+    metadata:
+      labels:
+        app: autonomy-scheduler
+    spec:
+      containers:
+        - name: scheduler
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SDP_MODEL_ALLOWLIST
+              value: "glm-5,glm-4.7"
+          command: ["/bin/sh", "-c", "sleep infinity"]

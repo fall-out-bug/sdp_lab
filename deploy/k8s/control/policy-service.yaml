@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: policy-service
+  namespace: sdp-control
+  labels:
+    app: policy-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: policy-service
+  template:
+    metadata:
+      labels:
+        app: policy-service
+    spec:
+      containers:
+        - name: policy
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SDP_MODEL_ALLOWLIST
+              value: "glm-5,glm-4.7"
+            - name: SDP_STRICT_EVIDENCE
+              value: "true"
+          command: ["/bin/sh", "-c", "sleep infinity"]

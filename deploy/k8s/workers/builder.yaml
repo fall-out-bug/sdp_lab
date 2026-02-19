@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: builder-worker
+  namespace: sdp-workers
+  labels:
+    app: builder-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: builder-worker
+  template:
+    metadata:
+      labels:
+        app: builder-worker
+    spec:
+      containers:
+        - name: builder
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c", "sleep infinity"]

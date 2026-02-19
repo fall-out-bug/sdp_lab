@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: brain-gateway
+  namespace: sdp-control
+  labels:
+    app: brain-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: brain-gateway
+  template:
+    metadata:
+      labels:
+        app: brain-gateway
+    spec:
+      containers:
+        - name: brain-gateway
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c", "sleep infinity"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: brain-gateway
+  namespace: sdp-control
+spec:
+  selector:
+    app: brain-gateway
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http

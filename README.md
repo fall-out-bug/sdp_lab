@@ -1,0 +1,38 @@
+# SDP Dev Control Workspace
+
+Private planning and orchestration workspace for SDP evolution.
+
+## Rules
+
+- This repo is the default place for strategic planning.
+- Do not publish private architecture, enterprise scope, or commercial details into OSS repos.
+- Export to OSS only through sanitized artifacts.
+
+## Folders
+
+- `docs/PRIVATE_BLUEPRINT.md` - full private architecture and roadmap.
+- `docs/OSS_EXPORT_TEMPLATE.md` - sanitized structure for public RFCs.
+- `docs/REDACTION_RULES.md` - what must never leak to OSS.
+- `docs/OPENCODE_BRAIN_INTEGRATION_PLAN.md` - Stage A execution plan.
+- `docs/K8S_SWARM_BOOTSTRAP.md` - remote cluster bootstrap over SSH.
+- `docs/OPENCLAW_ADAPTER_PLAN.md` - Stage B parity plan.
+- `docs/ADR-0001-go-first-stack.md` - stack decision: Go-first, Python research lane.
+- `docs/PR_GATE_RUNBOOK.md` - strict evidence gate workflow.
+- `docs/REPO_BOUNDARY_MAP.md` - private/OSS capability boundary map.
+- `docs/REDACTION_CHECKLIST.md` - pre-export redaction steps.
+- `docs/CONTRACT_PARITY_REPORT.md` - OpenCode/OpenClaw contract parity baseline.
+- `docs/GIT_REMOTE_BOOTSTRAP.md` - initialize remote default branch for PR publishing.
+- `specs/autonomy-runtime-contract.yaml` - runtime contract baseline.
+- `specs/brain-decision-api.yaml` - brain decision request/response contract.
+- `specs/strict-evidence-template.json` - mandatory PR evidence structure.
+- `cmd/autonomy-worker/` - picks next autonomy task from Beads and prepares execution packet.
+- `cmd/brain-gateway/` - evaluates policy/risk/model/branch decision.
+- `cmd/beads-fsm/` - validates/applies guarded state transitions.
+- `cmd/pr-gate/` - blocks PR progression when strict evidence is incomplete.
+- `cmd/pr-publish/` - creates PR via `gh` and writes `trace.pr_url` into evidence.
+- `cmd/redaction-check/` - scans candidate OSS exports for forbidden private terms.
+- `cmd/runtime-parity-check/` - compares runtime capability sets for contract parity.
+- `scripts/bootstrap_remote_k8s.sh` - creates required namespaces on remote cluster via SSH.
+- `scripts/check_remote_k8s.sh` - runs namespace health checks on remote cluster via SSH.
+- `scripts/apply_control_manifests.sh` - applies baseline control-plane manifests to remote cluster.
+- `scripts/apply_worker_manifests.sh` - applies baseline worker manifests to remote cluster.

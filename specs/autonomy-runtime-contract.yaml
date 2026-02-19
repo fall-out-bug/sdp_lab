@@ -1,0 +1,44 @@
+version: v1
+name: AutonomousRuntimeModule
+
+operations:
+  - claimTask
+  - loadTask
+  - createBranch
+  - executeTask
+  - runVerification
+  - buildEvidence
+  - publishPR
+  - updateTaskState
+  - escalate
+
+state_machine:
+  canonical:
+    - open
+    - in_progress
+    - review
+    - verified
+    - done
+  side_states:
+    - blocked
+    - escalated
+    - cancelled
+
+evidence:
+  required_sections:
+    - intent
+    - plan
+    - execution
+    - verification
+    - review
+    - risk_notes
+    - trace
+
+model_policy:
+  allowlist:
+    - glm-5
+    - glm-4.7
+  fallback_chain:
+    - glm-5
+    - glm-4.7
+    - escalated

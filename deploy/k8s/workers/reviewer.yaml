@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reviewer-worker
+  namespace: sdp-workers
+  labels:
+    app: reviewer-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reviewer-worker
+  template:
+    metadata:
+      labels:
+        app: reviewer-worker
+    spec:
+      containers:
+        - name: reviewer
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c", "sleep infinity"]
