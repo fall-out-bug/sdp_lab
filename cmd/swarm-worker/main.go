@@ -48,6 +48,18 @@ func runComponent(binary string, goPkg string, args ...string) ([]byte, error) {
 	return run("go", goArgs...)
 }
 
+func hasStagedChanges() (bool, error) {
+	cmd := exec.Command("git", "diff", "--cached", "--quiet")
+	err := cmd.Run()
+	if err == nil {
+		return false, nil
+	}
+	if _, ok := err.(*exec.ExitError); ok {
+		return true, nil
+	}
+	return false, err
+}
+
 func parseClaim(out []byte) (claimResult, error) {
 	var r claimResult
 	if err := json.Unmarshal(extractJSON(out), &r); err != nil {
@@ -161,6 +173,44 @@ func addModelChainRegressionTest(repo string) error {
 	return os.WriteFile(path, []byte(content), 0o644)
 }
 
+func patchRiskK8sHigh(repo string) error {
+	path := filepath.Join(repo, "internal", "policy", "decision.go")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	content := string(b)
+	if strings.Contains(content, "regexp.MustCompile(`k8s`)") {
+		return nil
+	}
+	needle := "\tregexp.MustCompile(`git`),\n"
+	insert := "\tregexp.MustCompile(`git`),\n\tregexp.MustCompile(`k8s`),\n"
+	if !strings.Contains(content, needle) {
+		return errors.New("decision high risk pattern block not found")
+	}
+	content = strings.Replace(content, needle, insert, 1)
+	return os.WriteFile(path, []byte(content), 0o644)
+}
+
+func addRiskK8sRegressionTest(repo string) error {
+	path := filepath.Join(repo, "internal", "policy", "decision_test.go")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	content := string(b)
+	if strings.Contains(content, "TestDecideK8sPathIsHighRisk") {
+		return nil
+	}
+	needle := "func TestDecideCriticalEscalates(t *testing.T) {"
+	insert := "func TestDecideK8sPathIsHighRisk(t *testing.T) {\n\tres := Decide(DecisionRequest{IssueID: \"id-k8s\", Title: \"Update worker manifests\", PreferredModel: \"glm-5\", ChangedPaths: []string{\"deploy/k8s/workers/opencode-agent.yaml\"}})\n\tif res.RiskClass != \"high\" {\n\t\tt.Fatalf(\"expected high risk, got %s\", res.RiskClass)\n\t}\n\tif res.PolicyVerdict != \"allow\" {\n\t\tt.Fatalf(\"expected allow, got %s\", res.PolicyVerdict)\n\t}\n}\n\n"
+	if !strings.Contains(content, needle) {
+		return errors.New("decision test insertion point not found")
+	}
+	content = strings.Replace(content, needle, insert+needle, 1)
+	return os.WriteFile(path, []byte(content), 0o644)
+}
+
 func updateEvidence(issueID, branch string, changedFiles []string) error {
 	path := filepath.Join(".sdp", "evidence", issueID+".json")
 	b, err := os.ReadFile(path)
@@ -235,6 +285,9 @@ func main() {
 	if hasLabel(issue.Labels, "workstream:model-chain-default-fallback") {
 		workstream = "model-chain-default-fallback"
 	}
+	if hasLabel(issue.Labels, "workstream:policy-k8s-risk-high") {
+		workstream = "policy-k8s-risk-high"
+	}
 	if workstream == "" {
 		fmt.Fprintf(os.Stderr, "unsupported workstream labels for issue %s\n", claim.IssueID)
 		os.Exit(1)
@@ -270,6 +323,16 @@ func main() {
 			os.Exit(1)
 		}
 		changedFiles = []string{"internal/policy/model_chain.go", "internal/policy/model_chain_test.go"}
+	case "policy-k8s-risk-high":
+		if err := patchRiskK8sHigh("."); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if err := addRiskK8sRegressionTest("."); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		changedFiles = []string{"internal/policy/decision.go", "internal/policy/decision_test.go"}
 	}
 
 	if _, err := run("go", "test", "./..."); err != nil {
@@ -294,9 +357,27 @@ func main() {
 	args := []string{"add"}
 	args = append(args, changedFiles...)
 	args = append(args, ".beads/issues.jsonl")
+	args = append(args, ".beads/metadata.json")
 	if _, err := run("git", args...); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
+	}
+
+	staged, err := hasStagedChanges()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if !staged {
+		_, _ = run("bd", "update", claim.IssueID, "--append-notes", "worker: no code diff produced; likely already implemented")
+		_, _ = runComponent("beads-fsm", "./cmd/beads-fsm", "--issue", claim.IssueID, "--to", "blocked", "--apply")
+		out, _ := json.MarshalIndent(map[string]any{
+			"issue":  claim.IssueID,
+			"branch": claim.Branch,
+			"status": "blocked",
+		}, "", "  ")
+		fmt.Println(string(out))
+		return
 	}
 	commitBody := "Implement workstream changes with regression coverage."
 	if workstream == "policy-slugify-trim" {

@@ -48,6 +48,20 @@ func syncWorkspace() error {
 	}
 	dirty := strings.TrimSpace(string(dirtyRaw)) != ""
 
+	if dirty {
+		namesRaw, err := run("git", "diff", "--name-only")
+		if err != nil {
+			return err
+		}
+		names := strings.Fields(strings.TrimSpace(string(namesRaw)))
+		if len(names) == 1 && names[0] == ".beads/metadata.json" {
+			if _, err := run("git", "checkout", "--", ".beads/metadata.json"); err != nil {
+				return err
+			}
+			dirty = false
+		}
+	}
+
 	if current != branch {
 		if dirty {
 			return fmt.Errorf("workspace dirty on branch %s; cannot switch to %s", current, branch)
