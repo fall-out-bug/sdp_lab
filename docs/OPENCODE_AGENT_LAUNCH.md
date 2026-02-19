@@ -48,3 +48,19 @@ The runtime image includes `opencode-agent`, `swarm-worker`, `swarm-reviewer`, `
 
 - Deployment uses local host image `sdp-dev-opencode-agent:local` with `imagePullPolicy: Never`.
 - Deployment uses image `ENTRYPOINT` (`/usr/local/bin/opencode-agent --loop --interval 30s`) and does not override container command.
+
+## Orchestrated k8s run
+
+To orchestrate a specific task through in-cluster worker+reviewer and wait for terminal status:
+
+```bash
+./scripts/orchestrate_k8s_issue.sh --host fall_out_bug@192.168.50.219 --port 2222 --issue <issue-id>
+```
+
+Behavior:
+
+- verifies deployment health
+- runs `bd sync --import-only` inside the pod
+- triggers an explicit single `opencode-agent` cycle
+- polls task status (`closed` success, `blocked` failure)
+- extracts PR URL from issue notes when present

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -26,7 +27,50 @@ func runComponent(binary string, goPkg string) ([]byte, error) {
 	return run("go", "run", goPkg)
 }
 
+func syncWorkspace() error {
+	if _, err := os.Stat(filepath.Join(".", ".git")); err != nil {
+		return nil
+	}
+	branch := os.Getenv("SDP_REPO_BRANCH")
+	if branch == "" {
+		branch = "master"
+	}
+
+	currentRaw, err := run("git", "rev-parse", "--abbrev-ref", "HEAD")
+	if err != nil {
+		return err
+	}
+	current := strings.TrimSpace(string(currentRaw))
+
+	dirtyRaw, err := run("git", "status", "--porcelain")
+	if err != nil {
+		return err
+	}
+	dirty := strings.TrimSpace(string(dirtyRaw)) != ""
+
+	if current != branch {
+		if dirty {
+			return fmt.Errorf("workspace dirty on branch %s; cannot switch to %s", current, branch)
+		}
+		if _, err := run("git", "checkout", branch); err != nil {
+			return err
+		}
+	}
+
+	if dirty {
+		return nil
+	}
+	if _, err := run("git", "pull", "--rebase", "origin", branch); err != nil {
+		return err
+	}
+	return nil
+}
+
 func runCycle() error {
+	if err := syncWorkspace(); err != nil {
+		return err
+	}
+
 	if _, err := run("bd", "sync", "--import-only"); err != nil {
 		return err
 	}
