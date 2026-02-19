@@ -105,7 +105,45 @@ func addSlugifyRegressionTest(repo string) error {
 	return os.WriteFile(path, []byte(content), 0o644)
 }
 
-func updateEvidence(issueID, branch string) error {
+func patchModelChainUnknownFallback(repo string) error {
+	path := filepath.Join(repo, "internal", "policy", "model_chain.go")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	content := string(b)
+	old := "func ResolveFallbackSequence(start string) []string {\n\tsequence := []string{start}\n\tcurrent := start\n"
+	new := "func ResolveFallbackSequence(start string) []string {\n\tif start == \"\" || !AllowedModel(start) {\n\t\tstart = DefaultModel()\n\t}\n\tsequence := []string{start}\n\tcurrent := start\n"
+	if strings.Contains(content, "!AllowedModel(start)") {
+		return nil
+	}
+	if !strings.Contains(content, old) {
+		return errors.New("model_chain sequence block not found")
+	}
+	content = strings.Replace(content, old, new, 1)
+	return os.WriteFile(path, []byte(content), 0o644)
+}
+
+func addModelChainRegressionTest(repo string) error {
+	path := filepath.Join(repo, "internal", "policy", "model_chain_test.go")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	content := string(b)
+	if strings.Contains(content, "TestResolveFallbackSequenceUnknownStartsFromDefault") {
+		return nil
+	}
+	needle := "func TestResolveFallbackSequence(t *testing.T) {"
+	insert := "func TestResolveFallbackSequenceUnknownStartsFromDefault(t *testing.T) {\n\tseq := ResolveFallbackSequence(\"unknown-model\")\n\tif len(seq) != 3 {\n\t\tt.Fatalf(\"expected 3 steps, got %d\", len(seq))\n\t}\n\tif seq[0] != \"glm-5\" || seq[1] != \"glm-4.7\" || seq[2] != \"escalated\" {\n\t\tt.Fatalf(\"unexpected sequence: %#v\", seq)\n\t}\n}\n\n"
+	if !strings.Contains(content, needle) {
+		return errors.New("model_chain test insertion point not found")
+	}
+	content = strings.Replace(content, needle, insert+needle, 1)
+	return os.WriteFile(path, []byte(content), 0o644)
+}
+
+func updateEvidence(issueID, branch string, changedFiles []string) error {
 	path := filepath.Join(".sdp", "evidence", issueID+".json")
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -121,7 +159,7 @@ func updateEvidence(issueID, branch string) error {
 		payload["execution"] = execSection
 	}
 	execSection["branch"] = branch
-	execSection["changed_files"] = []string{"internal/policy/decision.go", "internal/policy/decision_test.go"}
+	execSection["changed_files"] = changedFiles
 	execSection["claimed_issue_ids"] = []string{issueID}
 
 	trace, _ := payload["trace"].(map[string]any)
@@ -168,7 +206,14 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if !hasLabel(issue.Labels, "workstream:policy-slugify-trim") {
+	workstream := ""
+	if hasLabel(issue.Labels, "workstream:policy-slugify-trim") {
+		workstream = "policy-slugify-trim"
+	}
+	if hasLabel(issue.Labels, "workstream:model-chain-default-fallback") {
+		workstream = "model-chain-default-fallback"
+	}
+	if workstream == "" {
 		fmt.Fprintf(os.Stderr, "unsupported workstream labels for issue %s\n", claim.IssueID)
 		os.Exit(1)
 	}
@@ -181,13 +226,28 @@ func main() {
 		}
 	}
 
-	if err := patchSlugifyForTrim("."); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	if err := addSlugifyRegressionTest("."); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	changedFiles := []string{}
+	switch workstream {
+	case "policy-slugify-trim":
+		if err := patchSlugifyForTrim("."); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if err := addSlugifyRegressionTest("."); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		changedFiles = []string{"internal/policy/decision.go", "internal/policy/decision_test.go"}
+	case "model-chain-default-fallback":
+		if err := patchModelChainUnknownFallback("."); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if err := addModelChainRegressionTest("."); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		changedFiles = []string{"internal/policy/model_chain.go", "internal/policy/model_chain_test.go"}
 	}
 
 	if _, err := run("go", "test", "./..."); err != nil {
@@ -195,7 +255,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := updateEvidence(claim.IssueID, claim.Branch); err != nil {
+	if err := updateEvidence(claim.IssueID, claim.Branch, changedFiles); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -209,11 +269,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err := run("git", "add", "internal/policy/decision.go", "internal/policy/decision_test.go", ".beads/issues.jsonl"); err != nil {
+	args := []string{"add"}
+	args = append(args, changedFiles...)
+	args = append(args, ".beads/issues.jsonl")
+	if _, err := run("git", args...); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if _, err := run("git", "commit", "-m", "worker: implement "+claim.IssueID, "-m", "Fix slugify truncation and add regression coverage."); err != nil {
+	commitBody := "Implement workstream changes with regression coverage."
+	if workstream == "policy-slugify-trim" {
+		commitBody = "Fix slugify truncation and add regression coverage."
+	}
+	if workstream == "model-chain-default-fallback" {
+		commitBody = "Make unknown model fallback deterministic and add regression coverage."
+	}
+	if _, err := run("git", "commit", "-m", "worker: implement "+claim.IssueID, "-m", commitBody); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -223,7 +293,7 @@ func main() {
 	}
 
 	bodyPath := filepath.Join(".sdp", "pr-body-"+claim.IssueID+".md")
-	body := "## Summary\n\n- worker workflow execution for " + claim.IssueID + "\n- fixed slugify truncation and added regression test\n"
+	body := "## Summary\n\n- worker workflow execution for " + claim.IssueID + "\n- implemented workstream: " + workstream + "\n"
 	if err := os.WriteFile(bodyPath, []byte(body), 0o644); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opencode-agent
+  namespace: sdp-workers
+  labels:
+    app: opencode-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opencode-agent
+  template:
+    metadata:
+      labels:
+        app: opencode-agent
+    spec:
+      containers:
+        - name: opencode-agent
+          image: ghcr.io/fall-out-bug/sdp-dev-opencode-agent:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SDP_RUNTIME
+              value: opencode
+            - name: SDP_MODEL
+              value: glm-5
+          command: ["/app/opencode-agent", "--loop", "--interval", "30s"]

@@ -23,6 +23,7 @@ Private planning and orchestration workspace for SDP evolution.
 - `docs/CONTRACT_PARITY_REPORT.md` - OpenCode/OpenClaw contract parity baseline.
 - `docs/GIT_REMOTE_BOOTSTRAP.md` - initialize remote default branch for PR publishing.
 - `docs/REAL_FEATURE_TO_PR_RUNBOOK.md` - live operator flow from task claim to PR.
+- `docs/OPENCODE_AGENT_LAUNCH.md` - launch procedure for opencode agent runtime.
 - `specs/autonomy-runtime-contract.yaml` - runtime contract baseline.
 - `specs/brain-decision-api.yaml` - brain decision request/response contract.
 - `specs/strict-evidence-template.json` - mandatory PR evidence structure.
@@ -33,6 +34,7 @@ Private planning and orchestration workspace for SDP evolution.
 - `cmd/pr-publish/` - creates PR via `gh` and writes `trace.pr_url` into evidence.
 - `cmd/swarm-worker/` - worker role that claims and implements eligible coding tasks.
 - `cmd/swarm-reviewer/` - reviewer role that validates review flow and finalizes tasks.
+- `cmd/opencode-agent/` - orchestrates worker+reviewer cycle using OpenCode + glm-5 runtime policy.
 - `cmd/redaction-check/` - scans candidate OSS exports for forbidden private terms.
 - `cmd/runtime-parity-check/` - compares runtime capability sets for contract parity.
 - `scripts/bootstrap_remote_k8s.sh` - creates required namespaces on remote cluster via SSH.
