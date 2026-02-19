@@ -24,6 +24,7 @@ Private planning and orchestration workspace for SDP evolution.
 - `docs/GIT_REMOTE_BOOTSTRAP.md` - initialize remote default branch for PR publishing.
 - `docs/REAL_FEATURE_TO_PR_RUNBOOK.md` - live operator flow from task claim to PR.
 - `docs/OPENCODE_AGENT_LAUNCH.md` - launch procedure for opencode agent runtime.
+- `docs/FEATURE_SHORTCUT_RUNBOOK.md` - one-command path from feature request to PR URL.
 - `specs/autonomy-runtime-contract.yaml` - runtime contract baseline.
 - `specs/brain-decision-api.yaml` - brain decision request/response contract.
 - `specs/strict-evidence-template.json` - mandatory PR evidence structure.
@@ -44,6 +45,7 @@ Private planning and orchestration workspace for SDP evolution.
 - `scripts/build_push_opencode_agent_image.sh` - builds and pushes opencode-agent image to GHCR.
 - `scripts/build_push_opencode_agent_image_remote.sh` - builds opencode-agent image on remote host for local k8s runtime.
 - `scripts/orchestrate_k8s_issue.sh` - triggers an in-cluster agent cycle and waits for issue close/blocked with PR extraction.
+- `scripts/feature_to_pr.sh` - creates a task and orchestrates k8s worker+reviewer to return PR URL.
 - `deploy/images/opencode-agent/Dockerfile.runtime` - runtime image with agent binaries plus `bd`/`git`/`gh` for in-pod execution.
 
 - `cmd/flow-inspect/` - inspects protocol flow state from run packets.
