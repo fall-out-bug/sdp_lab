@@ -19,14 +19,25 @@ func run(name string, args ...string) ([]byte, error) {
 	return out, nil
 }
 
+func runComponent(binary string, goPkg string) ([]byte, error) {
+	if _, err := exec.LookPath(binary); err == nil {
+		return run(binary)
+	}
+	return run("go", "run", goPkg)
+}
+
 func runCycle() error {
-	if out, err := run("go", "run", "./cmd/swarm-worker"); err != nil {
+	if _, err := run("bd", "sync", "--import-only"); err != nil {
+		return err
+	}
+
+	if out, err := runComponent("swarm-worker", "./cmd/swarm-worker"); err != nil {
 		return err
 	} else {
 		fmt.Print(string(out))
 	}
 
-	if out, err := run("go", "run", "./cmd/swarm-reviewer"); err != nil {
+	if out, err := runComponent("swarm-reviewer", "./cmd/swarm-reviewer"); err != nil {
 		return err
 	} else {
 		fmt.Print(string(out))

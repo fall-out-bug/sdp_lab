@@ -41,9 +41,10 @@ If local Docker engine is unavailable, use remote builder host:
 ./scripts/build_push_opencode_agent_image_remote.sh --host fall_out_bug@192.168.50.219 --port 2222
 ```
 
-This remote script cross-compiles a linux/amd64 binary locally and builds a `scratch` image remotely.
+This remote script cross-compiles linux binaries locally into `.tmp/opencode-runtime`, syncs repository context, and builds a runtime image on the k8s host (`sdp-dev-opencode-agent:local`) without pushing to GHCR.
+The runtime image includes `opencode-agent`, `swarm-worker`, `swarm-reviewer`, `autonomy-worker`, `beads-fsm`, `pr-gate`, `pr-publish`, and CLI dependencies (`bd`, `git`, `gh`).
 
 ## Notes
 
-- Deployment expects image `ghcr.io/fall-out-bug/sdp-dev-opencode-agent:latest`.
-- If image is unavailable, deployment will show `ErrImagePull` until image publication.
+- Deployment uses local host image `sdp-dev-opencode-agent:local` with `imagePullPolicy: Never`.
+- Deployment uses image `ENTRYPOINT` (`/usr/local/bin/opencode-agent --loop --interval 30s`) and does not override container command.

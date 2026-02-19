@@ -26,13 +26,30 @@ func run(name string, args ...string) ([]byte, error) {
 	return out, nil
 }
 
+func extractJSON(out []byte) []byte {
+	for i, b := range out {
+		if b == '[' || b == '{' {
+			return out[i:]
+		}
+	}
+	return out
+}
+
+func runComponent(binary string, goPkg string, args ...string) ([]byte, error) {
+	if _, err := exec.LookPath(binary); err == nil {
+		return run(binary, args...)
+	}
+	goArgs := append([]string{"run", goPkg}, args...)
+	return run("go", goArgs...)
+}
+
 func listOpenTasks() ([]issue, error) {
 	out, err := run("bd", "list", "--json")
 	if err != nil {
 		return nil, err
 	}
 	var items []issue
-	if err := json.Unmarshal(out, &items); err != nil {
+	if err := json.Unmarshal(extractJSON(out), &items); err != nil {
 		return nil, err
 	}
 	result := make([]issue, 0)
@@ -165,20 +182,20 @@ func main() {
 	}
 
 	if approved {
-		if _, err := run("go", "run", "./cmd/beads-fsm", "--issue", target, "--to", "verified", "--apply"); err != nil {
+		if _, err := runComponent("beads-fsm", "./cmd/beads-fsm", "--issue", target, "--to", "verified", "--apply"); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		if _, err := run("go", "run", "./cmd/pr-gate", "--issue", target); err != nil {
+		if _, err := runComponent("pr-gate", "./cmd/pr-gate", "--issue", target); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		if _, err := run("go", "run", "./cmd/beads-fsm", "--issue", target, "--to", "done", "--apply"); err != nil {
+		if _, err := runComponent("beads-fsm", "./cmd/beads-fsm", "--issue", target, "--to", "done", "--apply"); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 	} else {
-		if _, err := run("go", "run", "./cmd/beads-fsm", "--issue", target, "--to", "blocked", "--apply"); err != nil {
+		if _, err := runComponent("beads-fsm", "./cmd/beads-fsm", "--issue", target, "--to", "blocked", "--apply"); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}

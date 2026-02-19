@@ -42,6 +42,7 @@ Private planning and orchestration workspace for SDP evolution.
 - `scripts/apply_control_manifests.sh` - applies baseline control-plane manifests to remote cluster.
 - `scripts/apply_worker_manifests.sh` - applies baseline worker manifests to remote cluster.
 - `scripts/build_push_opencode_agent_image.sh` - builds and pushes opencode-agent image to GHCR.
-- `scripts/build_push_opencode_agent_image_remote.sh` - builds and pushes opencode-agent image from remote builder host.
+- `scripts/build_push_opencode_agent_image_remote.sh` - builds opencode-agent image on remote host for local k8s runtime.
+- `deploy/images/opencode-agent/Dockerfile.runtime` - runtime image with agent binaries plus `bd`/`git`/`gh` for in-pod execution.
 
 - `cmd/flow-inspect/` - inspects protocol flow state from run packets.

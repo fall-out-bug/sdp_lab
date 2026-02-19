@@ -31,9 +31,26 @@ func run(name string, args ...string) ([]byte, error) {
 	return out, nil
 }
 
+func extractJSON(out []byte) []byte {
+	for i, b := range out {
+		if b == '[' || b == '{' {
+			return out[i:]
+		}
+	}
+	return out
+}
+
+func runComponent(binary string, goPkg string, args ...string) ([]byte, error) {
+	if _, err := exec.LookPath(binary); err == nil {
+		return run(binary, args...)
+	}
+	goArgs := append([]string{"run", goPkg}, args...)
+	return run("go", goArgs...)
+}
+
 func parseClaim(out []byte) (claimResult, error) {
 	var r claimResult
-	if err := json.Unmarshal(out, &r); err != nil {
+	if err := json.Unmarshal(extractJSON(out), &r); err != nil {
 		return r, err
 	}
 	if r.IssueID == "" || r.Branch == "" {
@@ -48,11 +65,12 @@ func loadIssue(issueID string) (issueDetail, error) {
 		return issueDetail{}, err
 	}
 	var list []issueDetail
-	if err := json.Unmarshal(out, &list); err == nil && len(list) > 0 {
+	jsonOut := extractJSON(out)
+	if err := json.Unmarshal(jsonOut, &list); err == nil && len(list) > 0 {
 		return list[0], nil
 	}
 	var it issueDetail
-	if err := json.Unmarshal(out, &it); err != nil {
+	if err := json.Unmarshal(jsonOut, &it); err != nil {
 		return issueDetail{}, err
 	}
 	return it, nil
@@ -186,7 +204,7 @@ func updateEvidence(issueID, branch string, changedFiles []string) error {
 }
 
 func main() {
-	claimOut, err := run("go", "run", "./cmd/autonomy-worker")
+	claimOut, err := runComponent("autonomy-worker", "./cmd/autonomy-worker")
 	if err != nil {
 		if strings.Contains(err.Error(), "No eligible autonomy tasks found") {
 			fmt.Println("No eligible autonomy tasks found")
@@ -194,6 +212,10 @@ func main() {
 		}
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
+	}
+	if strings.Contains(string(claimOut), "No eligible autonomy tasks found") {
+		fmt.Println("No eligible autonomy tasks found")
+		return
 	}
 	claim, err := parseClaim(claimOut)
 	if err != nil {
@@ -260,11 +282,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err := run("go", "run", "./cmd/beads-fsm", "--issue", claim.IssueID, "--to", "review", "--apply"); err != nil {
+	if _, err := runComponent("beads-fsm", "./cmd/beads-fsm", "--issue", claim.IssueID, "--to", "review", "--apply"); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if _, err := run("go", "run", "./cmd/pr-gate", "--issue", claim.IssueID, "--prepublish"); err != nil {
+	if _, err := runComponent("pr-gate", "./cmd/pr-gate", "--issue", claim.IssueID, "--prepublish"); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -298,7 +320,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	if _, err := run("go", "run", "./cmd/pr-publish", "--issue", claim.IssueID, "--title", "Worker: "+claim.Title, "--head", claim.Branch, "--base", "master", "--body-file", bodyPath); err != nil {
+	if _, err := runComponent("pr-publish", "./cmd/pr-publish", "--issue", claim.IssueID, "--title", "Worker: "+claim.Title, "--head", claim.Branch, "--base", "master", "--body-file", bodyPath); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

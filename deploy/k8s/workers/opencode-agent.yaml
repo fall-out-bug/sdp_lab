@@ -15,13 +15,79 @@ spec:
       labels:
         app: opencode-agent
     spec:
+      volumes:
+        - name: workspace
+          emptyDir: {}
+      initContainers:
+        - name: init-workspace
+          image: sdp-dev-opencode-agent:local
+          imagePullPolicy: Never
+          env:
+            - name: SDP_REPO_URL
+              value: https://github.com/fall-out-bug/sdp_private.git
+            - name: SDP_REPO_BRANCH
+              value: master
+            - name: GH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: sdp-agent-credentials
+                  key: github_token
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: sdp-agent-credentials
+                  key: github_token
+          command: ["/bin/sh", "-lc"]
+          args:
+            - |
+              set -eu
+              rm -rf /workspace/* /workspace/.[!.]* /workspace/..?* || true
+              clone_url="${SDP_REPO_URL}"
+              case "${clone_url}" in
+                https://github.com/*)
+                  if [ -n "${GH_TOKEN:-}" ]; then
+                    clone_url="https://x-access-token:${GH_TOKEN}@${clone_url#https://}"
+                  fi
+                  ;;
+              esac
+              git clone --branch "${SDP_REPO_BRANCH}" --single-branch "${clone_url}" /workspace
+              cd /workspace
+              git config user.name "sdp-opencode-agent"
+              git config user.email "sdp-opencode-agent@local"
+              if [ -f /workspace/.beads/issues.jsonl ] && [ ! -f /workspace/.beads/beads.db ]; then
+                bd init --from-jsonl
+              fi
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
       containers:
         - name: opencode-agent
-          image: ghcr.io/fall-out-bug/sdp-dev-opencode-agent:latest
-          imagePullPolicy: IfNotPresent
+          image: sdp-dev-opencode-agent:local
+          imagePullPolicy: Never
           env:
             - name: SDP_RUNTIME
               value: opencode
             - name: SDP_MODEL
               value: glm-5
-          command: ["/app/opencode-agent", "--loop", "--interval", "30s"]
+            - name: SDP_REPO_URL
+              value: https://github.com/fall-out-bug/sdp_private.git
+            - name: SDP_REPO_BRANCH
+              value: master
+            - name: GH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: sdp-agent-credentials
+                  key: github_token
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: sdp-agent-credentials
+                  key: github_token
+            - name: Z_AI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sdp-agent-credentials
+                  key: z_ai_api_key
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
