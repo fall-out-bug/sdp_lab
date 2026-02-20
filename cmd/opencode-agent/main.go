@@ -63,6 +63,15 @@ func preflightGitHubHealth() error {
 	if repoURL == "" {
 		repoURL = "https://github.com/fall-out-bug/sdp_private.git"
 	}
+	if strings.HasPrefix(repoURL, "https://github.com/") {
+		token := strings.TrimSpace(os.Getenv("GH_TOKEN"))
+		if token == "" {
+			token = strings.TrimSpace(os.Getenv("GITHUB_TOKEN"))
+		}
+		if token != "" {
+			repoURL = "https://x-access-token:" + token + "@" + strings.TrimPrefix(repoURL, "https://")
+		}
+	}
 
 	var lastErr error
 	for attempt := 1; attempt <= 3; attempt++ {
