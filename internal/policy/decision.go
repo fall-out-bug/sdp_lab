@@ -24,6 +24,7 @@ var highPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`beads`),
 	regexp.MustCompile(`evidence`),
 	regexp.MustCompile(`git`),
+	regexp.MustCompile(`k8s`),
 }
 
 type DecisionRequest struct {
