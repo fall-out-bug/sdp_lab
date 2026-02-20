@@ -53,7 +53,21 @@ func syncWorkspace() error {
 		if err != nil {
 			return err
 		}
-		names := strings.Fields(strings.TrimSpace(string(namesRaw)))
+		cachedRaw, err := run("git", "diff", "--cached", "--name-only")
+		if err != nil {
+			return err
+		}
+		nameSet := make(map[string]struct{})
+		for _, n := range strings.Fields(strings.TrimSpace(string(namesRaw))) {
+			nameSet[n] = struct{}{}
+		}
+		for _, n := range strings.Fields(strings.TrimSpace(string(cachedRaw))) {
+			nameSet[n] = struct{}{}
+		}
+		names := make([]string, 0, len(nameSet))
+		for n := range nameSet {
+			names = append(names, n)
+		}
 		if len(names) > 0 {
 			onlyBeadsSyncNoise := true
 			for _, n := range names {
@@ -63,6 +77,7 @@ func syncWorkspace() error {
 				}
 			}
 			if onlyBeadsSyncNoise {
+				_, _ = run("git", "reset", "HEAD", "--", ".beads/metadata.json", ".beads/issues.jsonl")
 				if _, err := run("git", "checkout", "--", ".beads/metadata.json", ".beads/issues.jsonl"); err != nil {
 					return err
 				}
