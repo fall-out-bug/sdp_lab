@@ -52,6 +52,14 @@ if !report.OK() {
 - [x] `go test ./...` passes
 - [x] beads notes updated with implementation evidence
 
+## PR Callback Shipping Checklist (sdp_dev-2aq.17)
+
+- [x] `cmd/pr-publish` emits callback payload conforming to `internal/pr/payload_contract.go`
+- [x] callback payload includes `trace.run_context_link` and `trace.evidence_context_link`
+- [x] callback dispatch retries retryable outcomes and dead-letters on retry-window exhaustion
+- [x] callback dispatch report is appended to issue notes for auditability
+- [x] tests cover payload structure, dispatch retries/non-retryable behavior, and run/evidence linkage
+
 ## Gate Transition Enforcement Rollout (sdp_dev-2aq.14)
 
 ### Transition Controller Scope

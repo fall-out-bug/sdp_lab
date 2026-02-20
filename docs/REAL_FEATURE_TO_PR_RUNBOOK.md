@@ -40,6 +40,8 @@ git push -u origin <feature-branch>
 go run ./cmd/pr-publish --issue <issue-id> --title "..." --head <feature-branch> --base master --body-file <body.md>
 ```
 
+`pr-publish` now also writes `trace.run_context_link` + `trace.evidence_context_link` and appends a callback dispatch report note for `pr-callbacks.v1` recipients.
+
 6. Validate publish gate:
 
 ```bash
@@ -57,6 +59,29 @@ go run ./cmd/beads-fsm --issue <issue-id> --to done --apply
 
 - merge is always manual (human gate)
 - model allowlist remains `glm-5`, `glm-4.7`
+
+## Callback retry semantics and policy controls
+
+Before `pr-publish`, verify callback routing policy aligns with the default contract (`callback-routing-reliability/v1`):
+
+- ack timeout `30s`
+- deterministic retry delays `5s, 15s, 30s, 60s, 120s, 240s, 420s` (total budget `<= 15m`)
+- dead-letter fallback enabled with reason `retry-window-exhausted`
+- required recipient fallback order `issue-owner -> orchestrator-audit`
+
+When policy override is required (incident or rollout), record the override and justification in issue notes before publish:
+
+- `callback.route.mode`: `required-first` (default) or `fanout-all`
+- `callback.retry.profile`: `standard-15m` (default) or `aggressive-5m`
+- `callback.notify.watchers`: `enabled` (default) or `disabled`
+- `callback.escalate.on.deadletter`: `enabled` (default) or `disabled`
+
+If callback delivery exhausts retry budget, append an explicit escalation note with:
+
+- issue id and run id
+- last callback status/transport error
+- dead-letter reason (`retry-window-exhausted`)
+- follow-up action owner
 
 ## OneShot evidence packaging (PR body minimum)
 

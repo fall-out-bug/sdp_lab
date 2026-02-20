@@ -101,6 +101,61 @@ This keeps design inputs and runtime enforcement aligned: intake defines prerequ
 - verifies required provenance keys are present in payloads for required artifact classes;
 - emits deterministic denial reason codes in policy order (`missing-gate-signal`, `gate-not-passed`, `missing-artifact`, `missing-provenance-key`) plus per-signal gate decisions for traceability.
 
+## PR Payload and Callback Channel Intake Contract
+
+`internal/pr/payload_contract.go` defines the publish intake contract for PR callbacks.
+
+- PR payload schema contract version: `pr-payload/v1`
+- callback channel contract version: `callback-channel/v1`
+- callback channel: `pr-callbacks.v1`
+
+Required PR payload paths:
+
+- `event`
+- `issue.id`
+- `trace.run_id`
+- `trace.pr_url`
+- `trace.commit_ids`
+- `trace.run_context_link`
+- `trace.evidence_context_link`
+- `pr.title`
+- `pr.repository`
+- `pr.base_branch`
+- `pr.head_branch`
+- `gates.pr_gate_passed`
+- `gates.signals`
+- `published_at`
+
+Callback routing contract:
+
+- required recipients: `issue-owner`, `orchestrator-audit`
+- optional recipient group: `watchers`
+- required headers: `x-sdp-event`, `x-sdp-issue-id`, `x-sdp-run-id`, `x-sdp-idempotency-key`, `x-sdp-published-at`
+- required delivery guarantees:
+  - delivery mode `at-least-once`
+  - ordering `per-issue-ordered`
+  - idempotency key derived from `issue.id + trace.run_id + trace.pr_url`
+  - bounded retry window (`max-15m`)
+  - dead-letter fallback required for expired deliveries
+
+## Callback Routing Reliability and Notification Policy Contract
+
+`internal/pr/callback_policy_contract.go` defines callback retry semantics and user notification controls.
+
+- callback routing reliability contract version: `callback-routing-reliability/v1`
+- user notification policy contract version: `user-notification-policy/v1`
+- ack timeout: `30s`
+- retry budget profile (`standard-15m`): attempts `1..7` with deterministic delays `5s, 15s, 30s, 60s, 120s, 240s, 420s`
+- max retry window: `900s` (`15m`) with dead-letter reason `retry-window-exhausted`
+- fallback route order for required recipients: `issue-owner -> orchestrator-audit`
+
+Policy controls (default set):
+
+- `callback.route.mode` (`required-first`, `fanout-all`)
+- `callback.retry.profile` (`aggressive-5m`, `standard-15m`)
+- `callback.notify.watchers` (`enabled`, `disabled`)
+- `callback.escalate.on.deadletter` (`enabled`, `disabled`)
+
 ## Implementation Baseline
 
 - `internal/artifact/intake.go` is the canonical intake map for class IDs, retention windows, and provenance requirements.
@@ -109,6 +164,10 @@ This keeps design inputs and runtime enforcement aligned: intake defines prerequ
 - `internal/artifact/gate_policy_contract_test.go` verifies strict aggregation defaults, prerequisite parity, and deterministic transition denial reason codes.
 - `internal/artifact/transition_controller.go` enforces policy-backed transition gating against issue artifact intake evidence.
 - `internal/artifact/transition_controller_test.go` verifies allowed transitions, denied transitions, and deterministic denial reason sequencing.
+- `internal/pr/payload_contract.go` defines required PR payload fields and callback channel delivery guarantees for publish notifications.
+- `internal/pr/payload_contract_test.go` verifies schema coverage, required recipients/headers, and delivery guarantee invariants.
+- `internal/pr/callback_policy_contract.go` defines routing retry stages, dead-letter requirements, and user notification policy controls.
+- `internal/pr/callback_policy_contract_test.go` verifies bounded retry budget, control coverage, required audiences, and retryable status classification.
 - Hash-chain and append-only storage contract is formalized in `docs/ARTIFACT_PROVENANCE_HASH_CHAIN_CONTRACT.md`.
 - Artifact bus ingestion/retrieval lifecycle and provenance index APIs are implemented in `internal/artifact/bus_service.go`.
 - Tamper/retention verification checks for audit gates are implemented in `internal/artifact/bus_verify.go`.
