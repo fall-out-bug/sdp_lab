@@ -33,6 +33,53 @@ func runComponent(binary string, goPkg string) ([]byte, error) {
 	return run("go", "run", goPkg)
 }
 
+func isTransientNetworkError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	needles := []string{
+		"could not resolve host",
+		"failed to connect",
+		"i/o timeout",
+		"no such host",
+		"connection reset",
+		"connection refused",
+	}
+	for _, needle := range needles {
+		if strings.Contains(msg, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+func preflightGitHubHealth() error {
+	if _, err := run("gh", "auth", "status", "--hostname", "github.com"); err != nil {
+		return fmt.Errorf("preflight gh auth status: %w", err)
+	}
+
+	repoURL := os.Getenv("SDP_REPO_URL")
+	if repoURL == "" {
+		repoURL = "https://github.com/fall-out-bug/sdp_private.git"
+	}
+
+	var lastErr error
+	for attempt := 1; attempt <= 3; attempt++ {
+		if _, err := run("git", "ls-remote", "--exit-code", repoURL, "HEAD"); err == nil {
+			return nil
+		} else {
+			lastErr = err
+			if !isTransientNetworkError(err) || attempt == 3 {
+				break
+			}
+			time.Sleep(time.Duration(attempt*2) * time.Second)
+		}
+	}
+
+	return fmt.Errorf("preflight git ls-remote %s: %w", repoURL, lastErr)
+}
+
 func syncWorkspace() error {
 	if _, err := os.Stat(filepath.Join(".", ".git")); err != nil {
 		return nil
@@ -121,6 +168,10 @@ func syncWorkspace() error {
 
 func runCycle() error {
 	if err := syncWorkspace(); err != nil {
+		return err
+	}
+
+	if err := preflightGitHubHealth(); err != nil {
 		return err
 	}
 

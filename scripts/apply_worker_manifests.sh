@@ -3,6 +3,7 @@ set -euo pipefail
 
 HOST=""
 PORT="22"
+IMAGE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -14,16 +15,20 @@ while [[ $# -gt 0 ]]; do
       PORT="$2"
       shift 2
       ;;
+    --image)
+      IMAGE="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown argument: $1"
-      echo "Usage: $0 --host <user@ip-or-host> [--port <port>]"
+      echo "Usage: $0 --host <user@ip-or-host> [--port <port>] [--image <image>]"
       exit 2
       ;;
   esac
 done
 
 if [[ -z "${HOST}" ]]; then
-  echo "Usage: $0 --host <user@ip-or-host> [--port <port>]"
+  echo "Usage: $0 --host <user@ip-or-host> [--port <port>] [--image <image>]"
   exit 2
 fi
 
@@ -64,4 +69,10 @@ EOF
 
 echo "[apply] applying worker kustomization on remote"
 ssh -p "${PORT}" "${HOST}" "kubectl apply -k /tmp/sdp-dev-workers"
+
+if [[ -n "${IMAGE}" ]]; then
+  echo "[apply] pinning opencode-agent image ${IMAGE}"
+  ssh -p "${PORT}" "${HOST}" "kubectl -n sdp-workers set image deployment/opencode-agent opencode-agent=${IMAGE} init-workspace=${IMAGE}"
+fi
+
 ssh -p "${PORT}" "${HOST}" "kubectl -n sdp-workers get deploy,pod"
