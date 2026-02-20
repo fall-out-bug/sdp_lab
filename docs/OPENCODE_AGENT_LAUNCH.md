@@ -89,3 +89,12 @@ If orchestration logs show intermittent `Could not resolve host: github.com`, pa
 
 This updates CoreDNS `forward` to `/etc/resolv.conf` with `force_tcp`, then rolls CoreDNS.
 It mitigates common WSL2 UDP DNS flakiness seen with direct upstreams like `1.1.1.1`/`8.8.8.8`.
+
+## Autonomy SLO report
+
+Generate current autonomy closure/intervention metrics from Beads:
+
+```bash
+./scripts/autonomy_slo_report.sh
+./scripts/autonomy_slo_report.sh --json
+```
