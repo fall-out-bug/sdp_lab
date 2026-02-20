@@ -3,7 +3,7 @@ set -euo pipefail
 
 HOST=""
 PORT="22"
-IMAGE="sdp-dev-opencode-agent:local"
+IMAGE=""
 REMOTE_DIR="/tmp/sdp_dev_image_build"
 RETRIES="5"
 BD_VERSION="v0.49.6"
@@ -43,6 +43,11 @@ done
 if [[ -z "${HOST}" ]]; then
   echo "Usage: $0 --host <user@ip-or-host> [--port <port>] [--image <image>] [--retries <n>] [--bd-version <vX.Y.Z>]"
   exit 2
+fi
+
+if [[ -z "${IMAGE}" ]]; then
+  COMMIT_SHA="$(git -C "${ROOT_DIR}" rev-parse --short=12 HEAD)"
+  IMAGE="sdp-dev-opencode-agent:git-${COMMIT_SHA}"
 fi
 
 BD_SRC_DIR="${ROOT_DIR}/.tmp/beads-src-${BD_VERSION}"
@@ -95,3 +100,4 @@ EOF
 ssh -p "${PORT}" "${HOST}" "docker image ls ${IMAGE}"
 
 echo "[remote-image] done"
+echo "[remote-image] image=${IMAGE}"

@@ -12,6 +12,7 @@ import (
 
 type issue struct {
 	ID        string   `json:"id"`
+	Title     string   `json:"title"`
 	IssueType string   `json:"issue_type"`
 	Status    string   `json:"status"`
 	Labels    []string `json:"labels"`
@@ -166,6 +167,57 @@ func reviewerApprove(issueID string) (bool, error) {
 	return hasTest, nil
 }
 
+func issueBranchFromEvidence(issueID string) (string, error) {
+	b, err := os.ReadFile(evidencePath(issueID))
+	if err != nil {
+		return "", err
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(b, &payload); err != nil {
+		return "", err
+	}
+	trace, _ := payload["trace"].(map[string]any)
+	if trace == nil {
+		return "", errors.New("missing trace section")
+	}
+	branch, _ := trace["branch"].(string)
+	if strings.TrimSpace(branch) == "" {
+		return "", errors.New("missing trace.branch")
+	}
+	return strings.TrimSpace(branch), nil
+}
+
+func issueTitle(issueID string) (string, error) {
+	out, err := run("bd", "show", issueID, "--json")
+	if err != nil {
+		return "", err
+	}
+	var items []issue
+	if err := json.Unmarshal(extractJSON(out), &items); err != nil {
+		return "", err
+	}
+	if len(items) == 0 || strings.TrimSpace(items[0].Title) == "" {
+		return "", fmt.Errorf("unable to resolve title for %s", issueID)
+	}
+	return strings.TrimSpace(items[0].Title), nil
+}
+
+func recoverMissingPR(issueID string) error {
+	branch, err := issueBranchFromEvidence(issueID)
+	if err != nil {
+		return err
+	}
+	title, err := issueTitle(issueID)
+	if err != nil {
+		return err
+	}
+	_, err = runComponent("pr-publish", "./cmd/pr-publish", "--issue", issueID, "--title", "Worker: "+title, "--head", branch, "--base", "master")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func main() {
 	items, err := listOpenTasks()
 	if err != nil {
@@ -205,8 +257,19 @@ func main() {
 			os.Exit(1)
 		}
 		if _, err := runComponent("pr-gate", "./cmd/pr-gate", "--issue", target); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+			if strings.Contains(err.Error(), "missing trace.pr_url") {
+				if recErr := recoverMissingPR(target); recErr != nil {
+					fmt.Fprintln(os.Stderr, recErr)
+					os.Exit(1)
+				}
+				if _, err := runComponent("pr-gate", "./cmd/pr-gate", "--issue", target); err != nil {
+					fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+			} else {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
 		}
 		if _, err := runComponent("beads-fsm", "./cmd/beads-fsm", "--issue", target, "--to", "done", "--apply"); err != nil {
 			fmt.Fprintln(os.Stderr, err)
