@@ -15,6 +15,7 @@ Private planning and orchestration workspace for SDP evolution.
 - `docs/REDACTION_RULES.md` - what must never leak to OSS.
 - `docs/OPENCODE_BRAIN_INTEGRATION_PLAN.md` - Stage A execution plan.
 - `docs/K8S_SWARM_BOOTSTRAP.md` - remote cluster bootstrap over SSH.
+- `docs/OBSERVABILITY_STACK_DEPLOY_RUNBOOK.md` - deploy/sanity workflow for Prometheus/Loki/Tempo/Grafana stack.
 - `docs/OPENCLAW_ADAPTER_PLAN.md` - Stage B parity plan.
 - `docs/ADR-0001-go-first-stack.md` - stack decision: Go-first, Python research lane.
 - `docs/PR_GATE_RUNBOOK.md` - strict evidence gate workflow.
@@ -37,6 +38,7 @@ Private planning and orchestration workspace for SDP evolution.
 - `docs/EVALUATOR_TRIAL_RUN_CALIBRATION.md` - deterministic trial-run methodology, quality thresholds, and calibration evidence format.
 - `docs/EVALUATOR_PR_LOOP_BACKLOG_INJECTION.md` - continuous-improvement PR-loop contract and deterministic backlog-injection guardrails.
 - `docs/AGENT_ARTIFACT_COMMUNICATION_PROTOCOL.md` - semantic success gates and artifact communication protocol.
+- `docs/OBSERVABILITY_METRICS_TRACE_SCHEMA_INTAKE.md` - unified metrics+trace schema for system/protocol/model tags.
 - `specs/autonomy-runtime-contract.yaml` - runtime contract baseline.
 - `specs/brain-decision-api.yaml` - brain decision request/response contract.
 - `specs/strict-evidence-template.json` - mandatory PR evidence structure.
@@ -54,6 +56,8 @@ Private planning and orchestration workspace for SDP evolution.
 - `scripts/check_remote_k8s.sh` - runs namespace health checks on remote cluster via SSH.
 - `scripts/apply_control_manifests.sh` - applies baseline control-plane manifests to remote cluster.
 - `scripts/apply_worker_manifests.sh` - applies baseline worker manifests to remote cluster.
+- `scripts/apply_observability_manifests.sh` - applies observability stack manifests to remote cluster.
+- `scripts/sanity_check_observability_remote.sh` - validates observability telemetry pipeline on remote cluster.
 - `scripts/build_push_opencode_agent_image.sh` - builds and pushes opencode-agent image to GHCR.
 - `scripts/build_push_opencode_agent_image_remote.sh` - builds opencode-agent image on remote host for local k8s runtime.
 - `scripts/orchestrate_k8s_issue.sh` - triggers an in-cluster agent cycle and waits for issue close/blocked with PR extraction.
@@ -61,5 +65,6 @@ Private planning and orchestration workspace for SDP evolution.
 - `scripts/install_kubeopencode_remote.sh` - installs/upgrades kubeopencode operator on remote cluster.
 - `scripts/run_kubeopencode_multi_role_probe.sh` - runs analyst/coder/reviewer operator task probe and prints summary.
 - `deploy/images/opencode-agent/Dockerfile.runtime` - runtime image with agent binaries plus `bd`/`git`/`gh` for in-pod execution.
+- `deploy/k8s/observability/` - deployable observability stack and telemetry ingestion pipeline manifests.
 
 - `cmd/flow-inspect/` - inspects protocol flow state from run packets.

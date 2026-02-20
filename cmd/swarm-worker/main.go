@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"sdp_dev/internal/observability"
 	"sdp_dev/internal/oneshot"
 )
 
@@ -44,12 +45,80 @@ func extractJSON(out []byte) []byte {
 	return out
 }
 
+func emitWorkerObservability(issueID string, phase string, status string, model string, startedAt time.Time, retryCount int, fallbackUsed bool, escalated bool, evidenceContextLink string, prURL string) {
+	if strings.TrimSpace(evidenceContextLink) == "" && strings.TrimSpace(issueID) != "" {
+		evidenceContextLink = filepath.Join(".sdp", "evidence", issueID+".json")
+	}
+	_ = observability.EmitIntakeRecords(os.Stderr, observability.IntakeEventInput{
+		RunID:               strings.TrimSpace(os.Getenv("SDP_RUN_ID")),
+		IssueID:             issueID,
+		Phase:               phase,
+		Status:              status,
+		Component:           "swarm-worker",
+		AgentRole:           "worker",
+		ModelName:           model,
+		Elapsed:             time.Since(startedAt),
+		RetryCount:          retryCount,
+		FallbackUsed:        fallbackUsed,
+		Escalated:           escalated,
+		EvidenceContextLink: evidenceContextLink,
+		PRURL:               prURL,
+	})
+}
+
+func buildWorkerObservabilityRecords(issueID string, phase string, status string, model string, retryCount int, fallbackUsed bool, escalated bool, evidenceContextLink string, prURL string, elapsed time.Duration) []map[string]any {
+	return observability.BuildIntakeRecords(observability.IntakeEventInput{
+		RunID:               "worker-run-test",
+		IssueID:             issueID,
+		Phase:               phase,
+		Status:              status,
+		Component:           "swarm-worker",
+		AgentRole:           "worker",
+		ModelName:           model,
+		Elapsed:             elapsed,
+		RetryCount:          retryCount,
+		FallbackUsed:        fallbackUsed,
+		Escalated:           escalated,
+		EvidenceContextLink: evidenceContextLink,
+		PRURL:               prURL,
+	})
+}
+
+func extractLinkage(issueID string) (string, string) {
+	path := filepath.Join(".sdp", "evidence", issueID+".json")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return path, ""
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(b, &payload); err != nil {
+		return path, ""
+	}
+	trace, _ := payload["trace"].(map[string]any)
+	if trace == nil {
+		return path, ""
+	}
+	evidence, _ := trace["evidence_context_link"].(string)
+	if strings.TrimSpace(evidence) == "" {
+		evidence = path
+	}
+	prURL, _ := trace["pr_url"].(string)
+	return evidence, strings.TrimSpace(prURL)
+}
+
 func runComponent(binary string, goPkg string, args ...string) ([]byte, error) {
+	out, _, err := runComponentWithFallback(binary, goPkg, args...)
+	return out, err
+}
+
+func runComponentWithFallback(binary string, goPkg string, args ...string) ([]byte, bool, error) {
 	if _, err := exec.LookPath(binary); err == nil {
-		return run(binary, args...)
+		out, runErr := run(binary, args...)
+		return out, false, runErr
 	}
 	goArgs := append([]string{"run", goPkg}, args...)
-	return run("go", goArgs...)
+	out, runErr := run("go", goArgs...)
+	return out, true, runErr
 }
 
 func discardBeadsSyncNoise() {
@@ -956,27 +1025,35 @@ func uniqueStrings(items []string) []string {
 }
 
 func main() {
-	claimOut, err := runComponent("autonomy-worker", "./cmd/autonomy-worker")
+	flowStartedAt := time.Now()
+	claimOut, claimFallback, err := runComponentWithFallback("autonomy-worker", "./cmd/autonomy-worker")
 	if err != nil {
 		if strings.Contains(err.Error(), "No eligible autonomy tasks found") {
 			fmt.Println("No eligible autonomy tasks found")
+			emitWorkerObservability("", "plan", "blocked", "unknown", flowStartedAt, 0, claimFallback, false, "", "")
 			return
 		}
+		emitWorkerObservability("", "plan", "failed", "unknown", flowStartedAt, 0, claimFallback, true, "", "")
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	if strings.Contains(string(claimOut), "No eligible autonomy tasks found") {
 		fmt.Println("No eligible autonomy tasks found")
+		emitWorkerObservability("", "plan", "blocked", "unknown", flowStartedAt, 0, claimFallback, false, "", "")
 		return
 	}
 	claim, err := parseClaim(claimOut)
 	if err != nil {
+		emitWorkerObservability("", "plan", "failed", "unknown", flowStartedAt, 0, claimFallback, true, "", "")
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	evidenceContextLink, prURL := extractLinkage(claim.IssueID)
+	emitWorkerObservability(claim.IssueID, "plan", "running", claim.Model, flowStartedAt, 0, claimFallback, false, evidenceContextLink, prURL)
 
 	issue, err := loadIssue(claim.IssueID)
 	if err != nil {
+		emitWorkerObservability(claim.IssueID, "intake", "failed", claim.Model, flowStartedAt, 0, claimFallback, true, evidenceContextLink, prURL)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -1000,6 +1077,7 @@ func main() {
 		workstream = "oneshot-swarm-orchestrator"
 	}
 	if workstream == "" {
+		emitWorkerObservability(claim.IssueID, "plan", "escalated", claim.Model, flowStartedAt, 0, claimFallback, true, evidenceContextLink, prURL)
 		fmt.Fprintf(os.Stderr, "unsupported workstream labels for issue %s\n", claim.IssueID)
 		os.Exit(1)
 	}
@@ -1069,10 +1147,14 @@ func main() {
 	testsPassed := true
 	if _, err := run("go", "test", "./..."); err != nil {
 		testsPassed = false
+		emitWorkerObservability(claim.IssueID, "verify", "failed", claim.Model, flowStartedAt, 0, claimFallback, workstream == "oneshot-swarm-orchestrator", evidenceContextLink, prURL)
 		if workstream != "oneshot-swarm-orchestrator" {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+	}
+	if testsPassed {
+		emitWorkerObservability(claim.IssueID, "verify", "success", claim.Model, flowStartedAt, 0, claimFallback, false, evidenceContextLink, prURL)
 	}
 
 	onesNote, err := updateEvidence(claim.IssueID, claim.Branch, workstream, changedFiles, testsPassed)
@@ -1084,16 +1166,19 @@ func main() {
 		_, _ = run("bd", "update", claim.IssueID, "--append-notes", onesNote)
 	}
 	if !testsPassed {
+		emitWorkerObservability(claim.IssueID, "verify", "escalated", claim.Model, flowStartedAt, 0, claimFallback, true, evidenceContextLink, prURL)
 		_, _ = run("bd", "update", claim.IssueID, "--append-notes", "worker: go test failed; oneshot verification emitted recovery plan")
 		fmt.Fprintln(os.Stderr, "go test ./... failed")
 		os.Exit(1)
 	}
 
 	if _, err := runComponent("beads-fsm", "./cmd/beads-fsm", "--issue", claim.IssueID, "--to", "review", "--apply"); err != nil {
+		emitWorkerObservability(claim.IssueID, "review", "failed", claim.Model, flowStartedAt, 0, claimFallback, true, evidenceContextLink, prURL)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	if _, err := runComponent("pr-gate", "./cmd/pr-gate", "--issue", claim.IssueID, "--prepublish"); err != nil {
+		emitWorkerObservability(claim.IssueID, "review", "blocked", claim.Model, flowStartedAt, 0, claimFallback, false, evidenceContextLink, prURL)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -1113,6 +1198,7 @@ func main() {
 		os.Exit(1)
 	}
 	if !staged {
+		emitWorkerObservability(claim.IssueID, "execute", "blocked", claim.Model, flowStartedAt, 0, claimFallback, false, evidenceContextLink, prURL)
 		_, _ = run("bd", "update", claim.IssueID, "--append-notes", "worker: no code diff produced; likely already implemented")
 		_, _ = runComponent("beads-fsm", "./cmd/beads-fsm", "--issue", claim.IssueID, "--to", "blocked", "--apply")
 		out, _ := json.MarshalIndent(map[string]any{
@@ -1131,6 +1217,7 @@ func main() {
 		commitBody = "Make unknown model fallback deterministic and add regression coverage."
 	}
 	if _, err := run("git", "commit", "-m", "worker: implement "+claim.IssueID, "-m", commitBody); err != nil {
+		emitWorkerObservability(claim.IssueID, "execute", "failed", claim.Model, flowStartedAt, 0, claimFallback, true, evidenceContextLink, prURL)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -1146,9 +1233,12 @@ func main() {
 		os.Exit(1)
 	}
 	if _, err := runComponent("pr-publish", "./cmd/pr-publish", "--issue", claim.IssueID, "--title", "Worker: "+claim.Title, "--head", claim.Branch, "--base", "master", "--body-file", bodyPath); err != nil {
+		emitWorkerObservability(claim.IssueID, "publish", "failed", claim.Model, flowStartedAt, 0, claimFallback, true, evidenceContextLink, prURL)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	_, prURL = extractLinkage(claim.IssueID)
+	emitWorkerObservability(claim.IssueID, "publish", "success", claim.Model, flowStartedAt, 0, claimFallback, false, evidenceContextLink, prURL)
 
 	out, _ := json.MarshalIndent(map[string]any{
 		"issue":  claim.IssueID,

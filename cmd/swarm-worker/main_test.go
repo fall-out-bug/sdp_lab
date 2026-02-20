@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"testing"
+	"time"
+
+	"sdp_dev/internal/observability"
+)
 
 func TestEvaluateOneShotVerificationPassesWithTests(t *testing.T) {
 	result, err := evaluateOneShotVerification([]string{"internal/oneshot/manifest.go", "internal/oneshot/manifest_test.go"}, true)
@@ -61,5 +66,34 @@ func TestApplyOneShotVerificationWritesMachineReadableSections(t *testing.T) {
 	}
 	if _, ok := runPacket["oneshot_verification"]; !ok {
 		t.Fatal("missing run packet oneshot_verification section")
+	}
+}
+
+func TestBuildWorkerObservabilityRecordsValidatorCompatible(t *testing.T) {
+	records := buildWorkerObservabilityRecords(
+		"sdp_dev-2aq.20.2",
+		"verify",
+		"fallback",
+		"glm-4.7",
+		1,
+		true,
+		false,
+		".sdp/evidence/sdp_dev-2aq.20.2.json",
+		"https://example.invalid/org/repo/pull/50",
+		230*time.Millisecond,
+	)
+	if len(records) != 2 {
+		t.Fatalf("expected 2 records, got %d", len(records))
+	}
+	event, ok := records[0]["event"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing event payload: %#v", records[0])
+	}
+	if errs := observability.ValidateUnifiedMetricsTraceEvent(event); len(errs) != 0 {
+		t.Fatalf("event failed schema validation: %v", errs)
+	}
+	resilience, _ := event["resilience"].(map[string]any)
+	if fallback, _ := resilience["fallback_used"].(bool); !fallback {
+		t.Fatal("expected fallback_used=true")
 	}
 }

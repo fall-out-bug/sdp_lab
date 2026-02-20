@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -8,7 +9,39 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"sdp_dev/internal/observability"
 )
+
+func emitObservability(phase string, status string, model string, startedAt time.Time, retryCount int, fallbackUsed bool, escalated bool) {
+	issueID := strings.TrimSpace(os.Getenv("SDP_ISSUE_ID"))
+	evidenceLink := strings.TrimSpace(os.Getenv("SDP_EVIDENCE_CONTEXT_LINK"))
+	prURL := strings.TrimSpace(os.Getenv("SDP_PR_URL"))
+	if issueID != "" && evidenceLink == "" {
+		evidenceLink = filepath.Join(".sdp", "evidence", issueID+".json")
+	}
+	if strings.TrimSpace(model) == "" {
+		model = strings.TrimSpace(os.Getenv("SDP_MODEL"))
+	}
+	if strings.TrimSpace(model) == "" {
+		model = "glm-4.7"
+	}
+	_ = observability.EmitIntakeRecords(os.Stderr, observability.IntakeEventInput{
+		RunID:               strings.TrimSpace(os.Getenv("SDP_RUN_ID")),
+		IssueID:             issueID,
+		Phase:               phase,
+		Status:              status,
+		Component:           "opencode-agent",
+		AgentRole:           "orchestrator",
+		ModelName:           model,
+		Elapsed:             time.Since(startedAt),
+		RetryCount:          retryCount,
+		FallbackUsed:        fallbackUsed,
+		Escalated:           escalated,
+		EvidenceContextLink: evidenceLink,
+		PRURL:               prURL,
+	})
+}
 
 func run(name string, args ...string) ([]byte, error) {
 	return runWithModel("", name, args...)
@@ -32,6 +65,7 @@ func runWithModel(model string, name string, args ...string) ([]byte, error) {
 }
 
 func runComponent(binary string, goPkg string) ([]byte, error) {
+	startedAt := time.Now()
 	model := "glm-4.7"
 	if binary == "swarm-reviewer" {
 		model = "glm-5"
@@ -39,14 +73,30 @@ func runComponent(binary string, goPkg string) ([]byte, error) {
 
 	if os.Getenv("SDP_RUNTIME") == "opencode" && (binary == "swarm-worker" || binary == "swarm-reviewer") {
 		if _, err := exec.LookPath("go"); err == nil {
-			return runWithModel(model, "go", "run", goPkg)
+			out, runErr := runWithModel(model, "go", "run", goPkg)
+			emitObservability("execute", statusForError(runErr, false), model, startedAt, 0, true, false)
+			return out, runErr
 		}
 	}
 
 	if _, err := exec.LookPath(binary); err == nil {
-		return runWithModel(model, binary)
+		out, runErr := runWithModel(model, binary)
+		emitObservability("execute", statusForError(runErr, false), model, startedAt, 0, false, false)
+		return out, runErr
 	}
-	return runWithModel(model, "go", "run", goPkg)
+	out, runErr := runWithModel(model, "go", "run", goPkg)
+	emitObservability("execute", statusForError(runErr, false), model, startedAt, 0, true, false)
+	return out, runErr
+}
+
+func statusForError(err error, escalated bool) string {
+	if err == nil {
+		return "success"
+	}
+	if escalated {
+		return "escalated"
+	}
+	return "failed"
 }
 
 func isTransientNetworkError(err error) bool {
@@ -71,7 +121,9 @@ func isTransientNetworkError(err error) bool {
 }
 
 func preflightGitHubHealth() error {
+	startedAt := time.Now()
 	if _, err := run("gh", "auth", "status", "--hostname", "github.com"); err != nil {
+		emitObservability("intake", "failed", "glm-4.7", startedAt, 0, false, true)
 		return fmt.Errorf("preflight gh auth status: %w", err)
 	}
 
@@ -92,16 +144,19 @@ func preflightGitHubHealth() error {
 	var lastErr error
 	for attempt := 1; attempt <= 3; attempt++ {
 		if _, err := run("git", "ls-remote", "--exit-code", repoURL, "HEAD"); err == nil {
+			emitObservability("intake", "success", "glm-4.7", startedAt, attempt-1, false, false)
 			return nil
 		} else {
 			lastErr = err
 			if !isTransientNetworkError(err) || attempt == 3 {
 				break
 			}
+			emitObservability("intake", "retrying", "glm-4.7", startedAt, attempt, false, false)
 			time.Sleep(time.Duration(attempt*2) * time.Second)
 		}
 	}
 
+	emitObservability("intake", "escalated", "glm-4.7", startedAt, 3, false, true)
 	return fmt.Errorf("preflight git ls-remote %s: %w", repoURL, lastErr)
 }
 
@@ -192,15 +247,20 @@ func syncWorkspace() error {
 }
 
 func runCycle() error {
+	cycleStart := time.Now()
+	emitObservability("plan", "running", strings.TrimSpace(os.Getenv("SDP_MODEL")), cycleStart, 0, false, false)
 	if err := syncWorkspace(); err != nil {
+		emitObservability("plan", "blocked", strings.TrimSpace(os.Getenv("SDP_MODEL")), cycleStart, 0, false, true)
 		return err
 	}
 
 	if err := preflightGitHubHealth(); err != nil {
+		emitObservability("intake", "failed", strings.TrimSpace(os.Getenv("SDP_MODEL")), cycleStart, 0, false, true)
 		return err
 	}
 
 	if _, err := run("bd", "sync", "--import-only"); err != nil {
+		emitObservability("intake", "failed", strings.TrimSpace(os.Getenv("SDP_MODEL")), cycleStart, 0, false, true)
 		return err
 	}
 
@@ -211,12 +271,37 @@ func runCycle() error {
 	}
 
 	if out, err := runComponent("swarm-reviewer", "./cmd/swarm-reviewer"); err != nil {
+		emitObservability("review", "failed", "glm-5", cycleStart, 0, false, true)
 		return err
 	} else {
 		fmt.Print(string(out))
 	}
 
+	emitObservability("publish", "success", strings.TrimSpace(os.Getenv("SDP_MODEL")), cycleStart, 0, false, false)
 	return nil
+}
+
+func buildOpencodeObservabilityRecords(issueID string, model string, status string, retryCount int, fallbackUsed bool, escalated bool, evidenceContextLink string, prURL string, elapsed time.Duration) []map[string]any {
+	return observability.BuildIntakeRecords(observability.IntakeEventInput{
+		RunID:               "opencode-run-test",
+		IssueID:             issueID,
+		Phase:               "execute",
+		Status:              status,
+		Component:           "opencode-agent",
+		AgentRole:           "orchestrator",
+		ModelName:           model,
+		Elapsed:             elapsed,
+		RetryCount:          retryCount,
+		FallbackUsed:        fallbackUsed,
+		Escalated:           escalated,
+		EvidenceContextLink: evidenceContextLink,
+		PRURL:               prURL,
+	})
+}
+
+func observabilityRecordsJSON(records []map[string]any) []byte {
+	b, _ := json.Marshal(records)
+	return b
 }
 
 func main() {
