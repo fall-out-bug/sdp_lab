@@ -27,6 +27,7 @@ Private planning and orchestration workspace for SDP evolution.
 - `docs/FEATURE_SHORTCUT_RUNBOOK.md` - one-command path from feature request to PR URL.
 - `docs/MULTI_ROLE_OPERATOR_ORCHESTRATION.md` - multi-agent role orchestration and communication contract.
 - `docs/KUBEOPENCODE_MULTI_ROLE_PROBE_RUNBOOK.md` - operator multi-role probe commands and known blockers.
+- `docs/PARALLEL_LOCK_DOMAIN_INTAKE.md` - lock domains and hazard catalog for parallel execution controls.
 - `docs/AGENT_ARTIFACT_COMMUNICATION_PROTOCOL.md` - semantic success gates and artifact communication protocol.
 - `specs/autonomy-runtime-contract.yaml` - runtime contract baseline.
 - `specs/brain-decision-api.yaml` - brain decision request/response contract.
