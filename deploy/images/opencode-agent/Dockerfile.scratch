@@ -1,0 +1,5 @@
+FROM scratch
+WORKDIR /app
+COPY opencode-agent /app/opencode-agent
+ENTRYPOINT ["/app/opencode-agent"]
+CMD ["--loop", "--interval", "30s"]

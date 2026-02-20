@@ -1,0 +1,22 @@
+FROM debian:bookworm-slim
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates git gh golang-go \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+COPY . /workspace
+COPY .tmp/opencode-runtime/opencode-agent /usr/local/bin/opencode-agent
+COPY .tmp/opencode-runtime/swarm-worker /usr/local/bin/swarm-worker
+COPY .tmp/opencode-runtime/swarm-reviewer /usr/local/bin/swarm-reviewer
+COPY .tmp/opencode-runtime/autonomy-worker /usr/local/bin/autonomy-worker
+COPY .tmp/opencode-runtime/beads-fsm /usr/local/bin/beads-fsm
+COPY .tmp/opencode-runtime/pr-gate /usr/local/bin/pr-gate
+COPY .tmp/opencode-runtime/pr-publish /usr/local/bin/pr-publish
+COPY .tmp/opencode-runtime/bd /usr/local/bin/bd
+
+ENV SDP_RUNTIME=opencode
+ENV SDP_MODEL=glm-5
+
+ENTRYPOINT ["/usr/local/bin/opencode-agent"]
+CMD ["--loop", "--interval", "30s"]

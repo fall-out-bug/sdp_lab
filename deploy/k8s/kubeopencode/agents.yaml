@@ -1,0 +1,164 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubeopencode-agent
+  namespace: kubeopencode-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kubeopencode-agent
+  namespace: kubeopencode-system
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["kubeopencode.io"]
+    resources: ["tasks", "agents"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kubeopencode-agent
+  namespace: kubeopencode-system
+subjects:
+  - kind: ServiceAccount
+    name: kubeopencode-agent
+    namespace: kubeopencode-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kubeopencode-agent
+---
+apiVersion: kubeopencode.io/v1alpha1
+kind: Agent
+metadata:
+  name: sdp-analyst
+  namespace: kubeopencode-system
+spec:
+  executorImage: quay.io/kubeopencode/kubeopencode-agent-attach:latest
+  workspaceDir: /workspace
+  serviceAccountName: kubeopencode-agent
+  config: |
+    {
+      "$schema": "https://opencode.ai/config.json",
+      "model": "zhipuai-coding-plan/glm-5"
+    }
+  credentials:
+    - name: github-token
+      secretRef:
+        name: sdp-kubeopencode-credentials
+        key: github_token
+      env: GITHUB_TOKEN
+    - name: z-ai-key
+      secretRef:
+        name: sdp-kubeopencode-credentials
+        key: z_ai_api_key
+      env: Z_AI_API_KEY
+    - name: zai-key
+      secretRef:
+        name: sdp-kubeopencode-credentials
+        key: z_ai_api_key
+      env: ZAI_API_KEY
+    - name: zhipu-key
+      secretRef:
+        name: sdp-kubeopencode-credentials
+        key: z_ai_api_key
+      env: ZHIPU_API_KEY
+  contexts:
+    - type: Text
+      text: |
+        You are role=analyst in an SDP multi-agent run.
+        Produce structured analysis, risk notes, and task decomposition.
+        End output with a JSON envelope exactly in this format:
+        {"run_id":"<run>","role":"analyst","status":"ok","summary":"...","artifacts":[{"id":"a1","type":"analysis","content":"..."}]}
+        Allowed status values: ok, needs_changes. Do not use status=completed.
+---
+apiVersion: kubeopencode.io/v1alpha1
+kind: Agent
+metadata:
+  name: sdp-coder
+  namespace: kubeopencode-system
+spec:
+  executorImage: quay.io/kubeopencode/kubeopencode-agent-attach:latest
+  workspaceDir: /workspace
+  serviceAccountName: kubeopencode-agent
+  config: |
+    {
+      "$schema": "https://opencode.ai/config.json",
+      "model": "zhipuai-coding-plan/glm-5"
+    }
+  credentials:
+    - name: github-token
+      secretRef:
+        name: sdp-kubeopencode-credentials
+        key: github_token
+      env: GITHUB_TOKEN
+    - name: z-ai-key
+      secretRef:
+        name: sdp-kubeopencode-credentials
+        key: z_ai_api_key
+      env: Z_AI_API_KEY
+    - name: zai-key
+      secretRef:
+        name: sdp-kubeopencode-credentials
+        key: z_ai_api_key
+      env: ZAI_API_KEY
+    - name: zhipu-key
+      secretRef:
+        name: sdp-kubeopencode-credentials
+        key: z_ai_api_key
+      env: ZHIPU_API_KEY
+  contexts:
+    - type: Text
+      text: |
+        You are role=coder in an SDP multi-agent run.
+        Produce an implementation plan and proposed code changes.
+        End output with a JSON envelope exactly in this format:
+        {"run_id":"<run>","role":"coder","status":"ok","summary":"...","artifacts":[{"id":"c1","type":"plan","content":"..."}]}
+        Allowed status values: ok, needs_changes. Do not use status=completed.
+---
+apiVersion: kubeopencode.io/v1alpha1
+kind: Agent
+metadata:
+  name: sdp-reviewer
+  namespace: kubeopencode-system
+spec:
+  executorImage: quay.io/kubeopencode/kubeopencode-agent-attach:latest
+  workspaceDir: /workspace
+  serviceAccountName: kubeopencode-agent
+  config: |
+    {
+      "$schema": "https://opencode.ai/config.json",
+      "model": "zhipuai-coding-plan/glm-5"
+    }
+  credentials:
+    - name: github-token
+      secretRef:
+        name: sdp-kubeopencode-credentials
+        key: github_token
+      env: GITHUB_TOKEN
+    - name: z-ai-key
+      secretRef:
+        name: sdp-kubeopencode-credentials
+        key: z_ai_api_key
+      env: Z_AI_API_KEY
+    - name: zai-key
+      secretRef:
+        name: sdp-kubeopencode-credentials
+        key: z_ai_api_key
+      env: ZAI_API_KEY
+    - name: zhipu-key
+      secretRef:
+        name: sdp-kubeopencode-credentials
+        key: z_ai_api_key
+      env: ZHIPU_API_KEY
+  contexts:
+    - type: Text
+      text: |
+        You are role=reviewer in an SDP multi-agent run.
+        Consume analyst and coder outputs, then provide a verdict and next actions.
+        End output with a JSON envelope exactly in this format:
+        {"run_id":"<run>","role":"reviewer","status":"ok","summary":"...","artifacts":[{"id":"r1","type":"verdict","content":"..."}]}
+        Allowed status values: ok, needs_changes. Do not use status=completed.
