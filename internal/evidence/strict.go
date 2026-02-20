@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-var requiredSections = []string{"intent", "plan", "execution", "verification", "review", "risk_notes", "trace"}
+var requiredSections = []string{"intent", "plan", "execution", "verification", "review", "risk_notes", "boundary", "provenance", "trace"}
 
 type Result struct {
 	OK      bool     `json:"ok"`
@@ -35,6 +35,13 @@ func ValidateStrictFile(path string, requirePRURL bool) (Result, error) {
 		return Result{OK: false, Missing: missing, Reason: "missing strict evidence sections"}, nil
 	}
 
+	if !hasBoundaryContract(payload["boundary"]) {
+		return Result{OK: false, Reason: "invalid boundary contract"}, nil
+	}
+	if !hasProvenanceContract(payload["provenance"]) {
+		return Result{OK: false, Reason: "invalid provenance contract"}, nil
+	}
+
 	if requirePRURL {
 		trace, _ := payload["trace"].(map[string]any)
 		prURL, _ := trace["pr_url"].(string)
@@ -44,6 +51,70 @@ func ValidateStrictFile(path string, requirePRURL bool) (Result, error) {
 	}
 
 	return Result{OK: true, Reason: "ok"}, nil
+}
+
+func hasBoundaryContract(v any) bool {
+	b, ok := v.(map[string]any)
+	if !ok {
+		return false
+	}
+	declared, ok := b["declared"].(map[string]any)
+	if !ok {
+		return false
+	}
+	observed, ok := b["observed"].(map[string]any)
+	if !ok {
+		return false
+	}
+	compliance, ok := b["compliance"].(map[string]any)
+	if !ok {
+		return false
+	}
+	if _, ok := declared["allowed_path_prefixes"]; !ok {
+		return false
+	}
+	if _, ok := declared["control_path_prefixes"]; !ok {
+		return false
+	}
+	if _, ok := declared["forbidden_path_prefixes"]; !ok {
+		return false
+	}
+	if _, ok := observed["touched_paths"]; !ok {
+		return false
+	}
+	if _, ok := observed["out_of_boundary_paths"]; !ok {
+		return false
+	}
+	if _, ok := compliance["ok"].(bool); !ok {
+		return false
+	}
+	if _, ok := compliance["reason"].(string); !ok {
+		return false
+	}
+	return true
+}
+
+func hasProvenanceContract(v any) bool {
+	p, ok := v.(map[string]any)
+	if !ok {
+		return false
+	}
+	if _, ok := p["run_id"].(string); !ok {
+		return false
+	}
+	if _, ok := p["orchestrator"].(string); !ok {
+		return false
+	}
+	if _, ok := p["runtime"].(string); !ok {
+		return false
+	}
+	if _, ok := p["model"].(string); !ok {
+		return false
+	}
+	if _, ok := p["gate_results"]; !ok {
+		return false
+	}
+	return true
 }
 
 func FormatMissing(missing []string) string {

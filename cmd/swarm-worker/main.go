@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -245,12 +246,114 @@ func updateEvidence(issueID, branch string, changedFiles []string) error {
 	}
 	verification["tests"] = []string{"go test ./..."}
 
+	boundary, _ := payload["boundary"].(map[string]any)
+	if boundary == nil {
+		boundary = map[string]any{}
+		payload["boundary"] = boundary
+	}
+	declared, _ := boundary["declared"].(map[string]any)
+	if declared == nil {
+		declared = map[string]any{}
+		boundary["declared"] = declared
+	}
+	allowed := toStringSlice(declared["allowed_path_prefixes"])
+	control := toStringSlice(declared["control_path_prefixes"])
+	forbidden := toStringSlice(declared["forbidden_path_prefixes"])
+
+	outOfBoundary := make([]string, 0)
+	for _, f := range changedFiles {
+		if hasPrefixAny(f, control) {
+			continue
+		}
+		if hasPrefixAny(f, forbidden) {
+			outOfBoundary = append(outOfBoundary, f)
+			continue
+		}
+		if len(allowed) > 0 && !hasPrefixAny(f, allowed) {
+			outOfBoundary = append(outOfBoundary, f)
+		}
+	}
+	sort.Strings(outOfBoundary)
+
+	observed, _ := boundary["observed"].(map[string]any)
+	if observed == nil {
+		observed = map[string]any{}
+		boundary["observed"] = observed
+	}
+	observed["touched_paths"] = changedFiles
+	observed["out_of_boundary_paths"] = outOfBoundary
+
+	compliance, _ := boundary["compliance"].(map[string]any)
+	if compliance == nil {
+		compliance = map[string]any{}
+		boundary["compliance"] = compliance
+	}
+	compliance["ok"] = len(outOfBoundary) == 0
+	if len(outOfBoundary) == 0 {
+		compliance["reason"] = "changed paths within declared boundary"
+	} else {
+		compliance["reason"] = "changed paths exceed declared boundary"
+	}
+
+	provenance, _ := payload["provenance"].(map[string]any)
+	if provenance == nil {
+		provenance = map[string]any{}
+		payload["provenance"] = provenance
+	}
+	provenance["orchestrator"] = "swarm-worker"
+	provenance["runtime"] = os.Getenv("SDP_RUNTIME")
+	if model := os.Getenv("SDP_MODEL"); model != "" {
+		provenance["model"] = model
+	}
+	gates := toStringSlice(provenance["gate_results"])
+	gates = append(gates, "verification:go test ./...", fmt.Sprintf("boundary:ok=%t", len(outOfBoundary) == 0))
+	provenance["gate_results"] = uniqueStrings(gates)
+
 	out, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
 		return err
 	}
 	out = append(out, '\n')
 	return os.WriteFile(path, out, 0o644)
+}
+
+func toStringSlice(v any) []string {
+	arr, ok := v.([]any)
+	if !ok {
+		if s, ok := v.([]string); ok {
+			return s
+		}
+		return nil
+	}
+	out := make([]string, 0, len(arr))
+	for _, item := range arr {
+		if s, ok := item.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+func hasPrefixAny(path string, prefixes []string) bool {
+	for _, p := range prefixes {
+		if strings.HasPrefix(path, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func uniqueStrings(items []string) []string {
+	seen := make(map[string]struct{}, len(items))
+	out := make([]string, 0, len(items))
+	for _, s := range items {
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	return out
 }
 
 func main() {

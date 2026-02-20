@@ -142,6 +142,16 @@ func laneFromLabels(labels []string) string {
 	return "commit"
 }
 
+func allowedPrefixesFromLabels(labels []string) []string {
+	for _, label := range labels {
+		switch label {
+		case "workstream:policy-slugify-trim", "workstream:model-chain-default-fallback", "workstream:policy-k8s-risk-high":
+			return []string{"internal/policy/", "internal/evidence/", "cmd/", "docs/", "specs/", "scripts/"}
+		}
+	}
+	return []string{"internal/", "cmd/", "docs/", "specs/", "scripts/", "deploy/"}
+}
+
 func depsSatisfied(it issue, byID map[string]issue) bool {
 	for _, d := range it.Dependencies {
 		if d.IssueID != "" && d.IssueID != it.ID {
@@ -343,6 +353,49 @@ func main() {
 	}
 	execSection["branch"] = branch
 	execSection["claimed_issue_ids"] = []string{picked.ID}
+
+	boundary, ok := tmpl["boundary"].(map[string]any)
+	if !ok {
+		fmt.Fprintln(os.Stderr, errors.New("invalid evidence template: boundary"))
+		os.Exit(1)
+	}
+	declared, _ := boundary["declared"].(map[string]any)
+	if declared == nil {
+		declared = map[string]any{}
+		boundary["declared"] = declared
+	}
+	declared["allowed_path_prefixes"] = allowedPrefixesFromLabels(picked.Labels)
+	declared["control_path_prefixes"] = []string{".beads/", ".sdp/"}
+	declared["forbidden_path_prefixes"] = []string{".git/"}
+	declared["role"] = "builder"
+	declared["lane"] = decision.Lane
+
+	observed, _ := boundary["observed"].(map[string]any)
+	if observed == nil {
+		observed = map[string]any{}
+		boundary["observed"] = observed
+	}
+	observed["touched_paths"] = []string{}
+	observed["out_of_boundary_paths"] = []string{}
+
+	compliance, _ := boundary["compliance"].(map[string]any)
+	if compliance == nil {
+		compliance = map[string]any{}
+		boundary["compliance"] = compliance
+	}
+	compliance["ok"] = true
+	compliance["reason"] = "declared boundary initialized"
+
+	provenance, ok := tmpl["provenance"].(map[string]any)
+	if !ok {
+		fmt.Fprintln(os.Stderr, errors.New("invalid evidence template: provenance"))
+		os.Exit(1)
+	}
+	provenance["run_id"] = picked.ID
+	provenance["orchestrator"] = "autonomy-worker"
+	provenance["runtime"] = os.Getenv("SDP_RUNTIME")
+	provenance["model"] = decision.SelectedModel
+	provenance["gate_results"] = []string{"policy:allow"}
 
 	trace, ok := tmpl["trace"].(map[string]any)
 	if !ok {

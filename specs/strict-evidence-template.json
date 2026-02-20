@@ -31,6 +31,30 @@
     "residual_risks": [],
     "out_of_scope": []
   },
+  "boundary": {
+    "declared": {
+      "allowed_path_prefixes": [],
+      "control_path_prefixes": [],
+      "forbidden_path_prefixes": [],
+      "role": "",
+      "lane": ""
+    },
+    "observed": {
+      "touched_paths": [],
+      "out_of_boundary_paths": []
+    },
+    "compliance": {
+      "ok": false,
+      "reason": ""
+    }
+  },
+  "provenance": {
+    "run_id": "",
+    "orchestrator": "",
+    "runtime": "",
+    "model": "",
+    "gate_results": []
+  },
   "trace": {
     "beads_ids": [],
     "branch": "",

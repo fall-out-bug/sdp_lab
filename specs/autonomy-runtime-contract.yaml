@@ -32,7 +32,35 @@ evidence:
     - verification
     - review
     - risk_notes
+    - boundary
+    - provenance
     - trace
+
+boundary_contract:
+  required:
+    - declared
+    - observed
+    - compliance
+  declared_fields:
+    - allowed_path_prefixes
+    - control_path_prefixes
+    - forbidden_path_prefixes
+    - role
+    - lane
+  observed_fields:
+    - touched_paths
+    - out_of_boundary_paths
+  compliance_fields:
+    - ok
+    - reason
+
+provenance:
+  required:
+    - run_id
+    - orchestrator
+    - runtime
+    - model
+    - gate_results
 
 model_policy:
   allowlist:
