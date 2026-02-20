@@ -75,10 +75,31 @@ The `hash` + `hash_prev` pair establishes an append-only hash chain for artifact
 | `verify` -> `review` | `verify:tests-passed`, `verify:boundary-ok`, `verify:evidence-contract-pass` | `verification-report`, `trace-link` | `gate_name`, `gate_status` |
 | `review` -> `publish` | `review:decision-recorded`, `review:risk-signoff`, `publish:pr-gate-pass`, `publish:callback-published` | `review-verdict`, `trace-link` | `reviewer_role`, `decision`, `pr_url` |
 
+## Gate Aggregation and Transition Policy Contract
+
+`internal/artifact/gate_policy_contract.go` defines the strict adjudication contract that the transition controller must enforce.
+
+- aggregation contract version: `gate-aggregation/v1`
+- mode: `all-required-signals-pass`
+- pass statuses: `pass`
+- blocking statuses: `fail`, `missing`
+- unknown status handling: `block`
+
+The transition policy contract (`transition-policy/v1`) is derived from `TransitionPrerequisites()` and carries, per phase edge:
+
+- required gate signals
+- required artifact classes
+- required provenance keys
+- deterministic denial reason codes (`missing-gate-signal`, `gate-not-passed`, `missing-artifact`, `missing-provenance-key`)
+
+This keeps design inputs and runtime enforcement aligned: intake defines prerequisites and the policy contract projects those prerequisites into a machine-enforceable transition rule set.
+
 ## Implementation Baseline
 
 - `internal/artifact/intake.go` is the canonical intake map for class IDs, retention windows, and provenance requirements.
 - `internal/artifact/intake_test.go` enforces unique class IDs, retention coverage, phase-to-class validity, gate signal integrity, and transition prerequisite consistency.
+- `internal/artifact/gate_policy_contract.go` builds strict gate aggregation semantics and transition policy rules from intake prerequisites.
+- `internal/artifact/gate_policy_contract_test.go` verifies strict aggregation defaults, prerequisite parity, and deterministic transition denial reason codes.
 - Hash-chain and append-only storage contract is formalized in `docs/ARTIFACT_PROVENANCE_HASH_CHAIN_CONTRACT.md`.
 - Artifact bus ingestion/retrieval lifecycle and provenance index APIs are implemented in `internal/artifact/bus_service.go`.
 - Tamper/retention verification checks for audit gates are implemented in `internal/artifact/bus_verify.go`.
