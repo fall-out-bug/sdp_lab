@@ -110,7 +110,10 @@ func syncWorkspace() error {
 	if dirty {
 		return nil
 	}
-	if _, err := run("git", "pull", "--rebase", "origin", branch); err != nil {
+	if _, err := run("git", "fetch", "origin", branch); err != nil {
+		return err
+	}
+	if _, err := run("git", "rebase", "FETCH_HEAD"); err != nil {
 		return err
 	}
 	return nil

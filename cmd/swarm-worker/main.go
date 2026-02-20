@@ -49,6 +49,34 @@ func runComponent(binary string, goPkg string, args ...string) ([]byte, error) {
 	return run("go", goArgs...)
 }
 
+func discardBeadsSyncNoise() {
+	namesRaw, err := run("git", "diff", "--name-only")
+	if err != nil {
+		return
+	}
+	cachedRaw, err := run("git", "diff", "--cached", "--name-only")
+	if err != nil {
+		return
+	}
+	nameSet := make(map[string]struct{})
+	for _, n := range strings.Fields(strings.TrimSpace(string(namesRaw))) {
+		nameSet[n] = struct{}{}
+	}
+	for _, n := range strings.Fields(strings.TrimSpace(string(cachedRaw))) {
+		nameSet[n] = struct{}{}
+	}
+	if len(nameSet) == 0 {
+		return
+	}
+	for n := range nameSet {
+		if n != ".beads/metadata.json" && n != ".beads/issues.jsonl" {
+			return
+		}
+	}
+	_, _ = run("git", "reset", "HEAD", "--", ".beads/metadata.json", ".beads/issues.jsonl")
+	_, _ = run("git", "checkout", "--", ".beads/metadata.json", ".beads/issues.jsonl")
+}
+
 func hasStagedChanges() (bool, error) {
 	cmd := exec.Command("git", "diff", "--cached", "--quiet")
 	err := cmd.Run()
@@ -675,6 +703,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "unsupported workstream labels for issue %s\n", claim.IssueID)
 		os.Exit(1)
 	}
+
+	discardBeadsSyncNoise()
 
 	if _, err := run("git", "checkout", "-b", claim.Branch); err != nil {
 		_, err = run("git", "checkout", claim.Branch)
