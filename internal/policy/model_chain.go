@@ -21,6 +21,9 @@ func NextFallback(current string) (string, bool) {
 
 // ResolveFallbackSequence returns the runtime sequence ending with "escalated".
 func ResolveFallbackSequence(start string) []string {
+	if start == "" || !AllowedModel(start) {
+		start = DefaultModel()
+	}
 	sequence := []string{start}
 	current := start
 	for {

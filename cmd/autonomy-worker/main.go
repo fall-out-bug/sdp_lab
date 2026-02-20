@@ -66,13 +66,22 @@ func runBD(args ...string) ([]byte, error) {
 	return out, nil
 }
 
+func extractJSON(out []byte) []byte {
+	for i, b := range out {
+		if b == '[' || b == '{' {
+			return out[i:]
+		}
+	}
+	return out
+}
+
 func listIssues() (map[string]issue, error) {
 	out, err := runBD("list", "--json")
 	if err != nil {
 		return nil, err
 	}
 	var items []issue
-	if err := json.Unmarshal(out, &items); err != nil {
+	if err := json.Unmarshal(extractJSON(out), &items); err != nil {
 		return nil, err
 	}
 	byID := make(map[string]issue, len(items))
@@ -88,11 +97,12 @@ func loadIssueDetail(issueID string) (issue, error) {
 		return issue{}, err
 	}
 	var list []issue
-	if err := json.Unmarshal(out, &list); err == nil && len(list) > 0 {
+	jsonOut := extractJSON(out)
+	if err := json.Unmarshal(jsonOut, &list); err == nil && len(list) > 0 {
 		return list[0], nil
 	}
 	var it issue
-	if err := json.Unmarshal(out, &it); err != nil {
+	if err := json.Unmarshal(jsonOut, &it); err != nil {
 		return issue{}, err
 	}
 	return it, nil
