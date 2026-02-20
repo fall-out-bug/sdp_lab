@@ -33,7 +33,7 @@ func TestValidateStrictFileMissingPRURL(t *testing.T) {
 	body := `{
 		"intent":{},"plan":{},"execution":{},"verification":{},"review":{},"risk_notes":{},
 		"boundary":{"declared":{"allowed_path_prefixes":[],"control_path_prefixes":[],"forbidden_path_prefixes":[]},"observed":{"touched_paths":[],"out_of_boundary_paths":[]},"compliance":{"ok":true,"reason":"ok"}},
-		"provenance":{"run_id":"run-1","orchestrator":"autonomy-worker","runtime":"opencode","model":"glm-5","gate_results":[]},
+		"provenance":{"run_id":"run-1","orchestrator":"autonomy-worker","runtime":"opencode","model":"glm-5","gate_results":[],"phase":"verify","role":"reviewer","captured_at":"2026-02-20T00:00:00Z","source_issue_id":"sdp_dev-2aq.16.1","artifact_id":"artifact-1","contract_version":"artifact-provenance/v1","hash_algorithm":"sha256","sequence":0,"payload_digest":"","hash":"","hash_prev":""},
 		"trace":{}
 	}`
 	path := writeFile(t, dir, "evidence.json", body)
@@ -52,7 +52,7 @@ func TestValidateStrictFileOK(t *testing.T) {
 	body := `{
 		"intent":{},"plan":{},"execution":{},"verification":{},"review":{},"risk_notes":{},
 		"boundary":{"declared":{"allowed_path_prefixes":[],"control_path_prefixes":[],"forbidden_path_prefixes":[]},"observed":{"touched_paths":[],"out_of_boundary_paths":[]},"compliance":{"ok":true,"reason":"ok"}},
-		"provenance":{"run_id":"run-1","orchestrator":"autonomy-worker","runtime":"opencode","model":"glm-5","gate_results":[]},
+		"provenance":{"run_id":"run-1","orchestrator":"autonomy-worker","runtime":"opencode","model":"glm-5","gate_results":[],"phase":"verify","role":"reviewer","captured_at":"2026-02-20T00:00:00Z","source_issue_id":"sdp_dev-2aq.16.1","artifact_id":"artifact-1","contract_version":"artifact-provenance/v1","hash_algorithm":"sha256","sequence":0,"payload_digest":"","hash":"","hash_prev":""},
 		"trace":{"pr_url":"https://example/pr/1"}
 	}`
 	path := writeFile(t, dir, "evidence.json", body)
@@ -71,7 +71,7 @@ func TestValidateStrictFileVerifiedModeAllowsMissingPRURL(t *testing.T) {
 	body := `{
 		"intent":{},"plan":{},"execution":{},"verification":{},"review":{},"risk_notes":{},
 		"boundary":{"declared":{"allowed_path_prefixes":[],"control_path_prefixes":[],"forbidden_path_prefixes":[]},"observed":{"touched_paths":[],"out_of_boundary_paths":[]},"compliance":{"ok":true,"reason":"ok"}},
-		"provenance":{"run_id":"run-1","orchestrator":"autonomy-worker","runtime":"opencode","model":"glm-5","gate_results":[]},
+		"provenance":{"run_id":"run-1","orchestrator":"autonomy-worker","runtime":"opencode","model":"glm-5","gate_results":[],"phase":"verify","role":"reviewer","captured_at":"2026-02-20T00:00:00Z","source_issue_id":"sdp_dev-2aq.16.1","artifact_id":"artifact-1","contract_version":"artifact-provenance/v1","hash_algorithm":"sha256","sequence":0,"payload_digest":"","hash":"","hash_prev":""},
 		"trace":{}
 	}`
 	path := writeFile(t, dir, "evidence.json", body)
@@ -90,7 +90,7 @@ func TestValidateStrictFileInvalidBoundaryContract(t *testing.T) {
 	body := `{
 		"intent":{},"plan":{},"execution":{},"verification":{},"review":{},"risk_notes":{},
 		"boundary":{"declared":{},"observed":{},"compliance":{}},
-		"provenance":{"run_id":"run-1","orchestrator":"autonomy-worker","runtime":"opencode","model":"glm-5","gate_results":[]},
+		"provenance":{"run_id":"run-1","orchestrator":"autonomy-worker","runtime":"opencode","model":"glm-5","gate_results":[],"phase":"verify","role":"reviewer","captured_at":"2026-02-20T00:00:00Z","source_issue_id":"sdp_dev-2aq.16.1","artifact_id":"artifact-1","contract_version":"artifact-provenance/v1","hash_algorithm":"sha256","sequence":0,"payload_digest":"","hash":"","hash_prev":""},
 		"trace":{}
 	}`
 	path := writeFile(t, dir, "evidence.json", body)

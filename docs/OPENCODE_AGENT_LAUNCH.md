@@ -3,7 +3,9 @@
 ## Runtime contract
 
 - runtime: `opencode`
-- model: `glm-5`
+- model routing:
+  - `swarm-worker`: `glm-4.7` (default execution lane)
+  - `swarm-reviewer`: `glm-5` (high-responsibility gate)
 - roles orchestrated: `swarm-worker` then `swarm-reviewer`
 
 ## Local launch
@@ -70,14 +72,22 @@ To orchestrate a specific task through in-cluster worker+reviewer and wait for t
 ./scripts/orchestrate_k8s_issue.sh --host fall_out_bug@192.168.50.219 --port 2222 --issue <issue-id>
 ```
 
+Optional reliability knobs:
+
+```bash
+./scripts/orchestrate_k8s_issue.sh --host <user@host> --issue <issue-id> --retries 5 --retry-delay 8
+```
+
 Behavior:
 
 - verifies deployment health
 - runs preflight GitHub health gate (`gh auth status` + `git ls-remote` with transient retry)
 - runs `bd sync --import-only` inside the pod
 - triggers an explicit single `opencode-agent` cycle
+- guards explicit dispatch with per-issue lock (`/tmp/sdp-orchestrate-<issue>.lock`) to avoid duplicate cycles
 - polls task status (`closed` success, `blocked` failure)
 - extracts PR URL from issue notes when present
+- writes run trace artifact to `.sdp/runs/orchestrate-<issue>-<timestamp>.json`
 
 ## DNS stability (WSL2)
 

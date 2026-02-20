@@ -27,6 +27,8 @@ Private planning and orchestration workspace for SDP evolution.
 - `docs/FEATURE_SHORTCUT_RUNBOOK.md` - one-command path from feature request to PR URL.
 - `docs/MULTI_ROLE_OPERATOR_ORCHESTRATION.md` - multi-agent role orchestration and communication contract.
 - `docs/KUBEOPENCODE_MULTI_ROLE_PROBE_RUNBOOK.md` - operator multi-role probe commands and known blockers.
+- `docs/PARALLEL_LOCK_DOMAIN_INTAKE.md` - lock domains and hazard catalog for parallel execution controls.
+- `docs/PARALLEL_SCHEDULER_POLICY.md` - lock hierarchy, merge queue semantics, incident safeguards, and tuning guidance.
 - `docs/AGENT_ARTIFACT_COMMUNICATION_PROTOCOL.md` - semantic success gates and artifact communication protocol.
 - `specs/autonomy-runtime-contract.yaml` - runtime contract baseline.
 - `specs/brain-decision-api.yaml` - brain decision request/response contract.
@@ -38,7 +40,7 @@ Private planning and orchestration workspace for SDP evolution.
 - `cmd/pr-publish/` - creates PR via `gh` and writes `trace.pr_url` into evidence.
 - `cmd/swarm-worker/` - worker role that claims and implements eligible coding tasks.
 - `cmd/swarm-reviewer/` - reviewer role that validates review flow and finalizes tasks.
-- `cmd/opencode-agent/` - orchestrates worker+reviewer cycle using OpenCode + glm-5 runtime policy.
+- `cmd/opencode-agent/` - orchestrates worker+reviewer cycle using OpenCode with model routing (`swarm-worker`: `glm-4.7`, `swarm-reviewer`: `glm-5`).
 - `cmd/redaction-check/` - scans candidate OSS exports for forbidden private terms.
 - `cmd/runtime-parity-check/` - compares runtime capability sets for contract parity.
 - `scripts/bootstrap_remote_k8s.sh` - creates required namespaces on remote cluster via SSH.

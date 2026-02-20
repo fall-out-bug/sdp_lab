@@ -396,6 +396,17 @@ func main() {
 	provenance["runtime"] = os.Getenv("SDP_RUNTIME")
 	provenance["model"] = decision.SelectedModel
 	provenance["gate_results"] = []string{"policy:allow"}
+	provenance["phase"] = "intake"
+	provenance["role"] = "builder"
+	provenance["captured_at"] = time.Now().UTC().Format(time.RFC3339)
+	provenance["source_issue_id"] = picked.ID
+	provenance["artifact_id"] = picked.ID + ":strict-evidence"
+	provenance["contract_version"] = "artifact-provenance/v1"
+	provenance["hash_algorithm"] = "sha256"
+	provenance["sequence"] = 0
+	provenance["payload_digest"] = ""
+	provenance["hash"] = ""
+	provenance["hash_prev"] = ""
 
 	trace, ok := tmpl["trace"].(map[string]any)
 	if !ok {

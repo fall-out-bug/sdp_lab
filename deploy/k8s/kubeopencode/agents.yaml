@@ -43,7 +43,7 @@ spec:
   config: |
     {
       "$schema": "https://opencode.ai/config.json",
-      "model": "zhipuai-coding-plan/glm-5"
+      "model": "zhipuai-coding-plan/glm-4.7"
     }
   credentials:
     - name: github-token
@@ -87,7 +87,7 @@ spec:
   config: |
     {
       "$schema": "https://opencode.ai/config.json",
-      "model": "zhipuai-coding-plan/glm-5"
+      "model": "zhipuai-coding-plan/glm-4.7"
     }
   credentials:
     - name: github-token

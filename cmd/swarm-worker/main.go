@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"sdp_dev/internal/oneshot"
 )
@@ -860,6 +861,33 @@ func updateEvidence(issueID, branch, workstream string, changedFiles []string, t
 	provenance["runtime"] = os.Getenv("SDP_RUNTIME")
 	if model := os.Getenv("SDP_MODEL"); model != "" {
 		provenance["model"] = model
+	}
+	provenance["phase"] = "verify"
+	provenance["role"] = workstream
+	provenance["captured_at"] = time.Now().UTC().Format(time.RFC3339)
+	provenance["source_issue_id"] = issueID
+	if _, ok := provenance["artifact_id"].(string); !ok {
+		provenance["artifact_id"] = issueID + ":strict-evidence"
+	}
+	if _, ok := provenance["contract_version"].(string); !ok {
+		provenance["contract_version"] = "artifact-provenance/v1"
+	}
+	if _, ok := provenance["hash_algorithm"].(string); !ok {
+		provenance["hash_algorithm"] = "sha256"
+	}
+	if _, ok := provenance["sequence"].(float64); !ok {
+		if _, intOK := provenance["sequence"].(int); !intOK {
+			provenance["sequence"] = 0
+		}
+	}
+	if _, ok := provenance["payload_digest"].(string); !ok {
+		provenance["payload_digest"] = ""
+	}
+	if _, ok := provenance["hash"].(string); !ok {
+		provenance["hash"] = ""
+	}
+	if _, ok := provenance["hash_prev"].(string); !ok {
+		provenance["hash_prev"] = ""
 	}
 	gates := toStringSlice(provenance["gate_results"])
 	gates = append(gates, "verification:go test ./...", fmt.Sprintf("boundary:ok=%t", len(outOfBoundary) == 0))

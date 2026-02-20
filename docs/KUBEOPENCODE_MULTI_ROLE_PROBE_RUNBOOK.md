@@ -30,7 +30,9 @@ Run probe:
 
 ## Provider mapping used
 
-- Agent model is set to `zhipuai-coding-plan/glm-5`.
+- Agent model routing is split by responsibility:
+  - `analyst` and `coder`: `zhipuai-coding-plan/glm-4.7`
+  - `reviewer`: `zhipuai-coding-plan/glm-5`
 - Credentials include `ZHIPU_API_KEY` (plus `ZAI_API_KEY`/`Z_AI_API_KEY` aliases).
 - This avoids the prior `Model not found: zai/glm-5` resolution failure.
 

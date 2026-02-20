@@ -68,7 +68,7 @@ spec:
             - name: SDP_RUNTIME
               value: opencode
             - name: SDP_MODEL
-              value: glm-5
+              value: glm-4.7
             - name: SDP_REPO_URL
               value: https://github.com/fall-out-bug/sdp_private.git
             - name: SDP_REPO_BRANCH
