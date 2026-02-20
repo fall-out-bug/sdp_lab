@@ -30,6 +30,7 @@ Private planning and orchestration workspace for SDP evolution.
 - `docs/PARALLEL_LOCK_DOMAIN_INTAKE.md` - lock domains and hazard catalog for parallel execution controls.
 - `docs/PARALLEL_SCHEDULER_POLICY.md` - lock hierarchy, merge queue semantics, incident safeguards, and tuning guidance.
 - `docs/EVALUATOR_INTAKE_BASELINE.md` - happy-path operability gate and baseline evaluator scope.
+- `docs/EVALUATOR_SWARM_DEEP_THINKING_PLAN.md` - deep-thinking evaluator cycle, persona roles, and collaboration protocol.
 - `docs/AGENT_ARTIFACT_COMMUNICATION_PROTOCOL.md` - semantic success gates and artifact communication protocol.
 - `specs/autonomy-runtime-contract.yaml` - runtime contract baseline.
 - `specs/brain-decision-api.yaml` - brain decision request/response contract.
