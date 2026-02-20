@@ -34,3 +34,11 @@ go run ./cmd/pr-publish --issue <issue-id> --title "..." --head <branch> --body-
 - `0`: gate passed
 - `2`: gate failed (evidence incomplete)
 - `1`: operational/runtime error
+
+## Live publish validation
+
+For real validation of `cmd/pr-publish`:
+
+1. create a feature branch with at least one commit
+2. prepare evidence file for the target issue in `.sdp/evidence/<issue-id>.json`
+3. run `cmd/pr-publish` and confirm it writes `trace.pr_url`

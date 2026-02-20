@@ -5,3 +5,4 @@ resources:
   - builder.yaml
   - verifier.yaml
   - reviewer.yaml
+  - opencode-agent.yaml

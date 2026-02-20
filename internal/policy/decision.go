@@ -85,7 +85,11 @@ func slugify(text string) string {
 		return "task"
 	}
 	if len(t) > 48 {
-		return t[:48]
+		t = t[:48]
+		t = strings.Trim(t, "-")
+	}
+	if t == "" {
+		return "task"
 	}
 	return t
 }

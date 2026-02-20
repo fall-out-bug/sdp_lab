@@ -1,3 +1,4 @@
 .sdp/
 __pycache__/
 *.pyc
+.tmp/
