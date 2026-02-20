@@ -54,6 +54,21 @@ func syncWorkspace() error {
 			return err
 		}
 		names := strings.Fields(strings.TrimSpace(string(namesRaw)))
+		if len(names) > 0 {
+			onlyBeadsSyncNoise := true
+			for _, n := range names {
+				if n != ".beads/metadata.json" && n != ".beads/issues.jsonl" {
+					onlyBeadsSyncNoise = false
+					break
+				}
+			}
+			if onlyBeadsSyncNoise {
+				if _, err := run("git", "checkout", "--", ".beads/metadata.json", ".beads/issues.jsonl"); err != nil {
+					return err
+				}
+				dirty = false
+			}
+		}
 		if len(names) == 1 && names[0] == ".beads/metadata.json" {
 			if _, err := run("git", "checkout", "--", ".beads/metadata.json"); err != nil {
 				return err
