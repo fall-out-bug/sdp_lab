@@ -11,8 +11,19 @@ import (
 )
 
 func run(name string, args ...string) ([]byte, error) {
+	return runWithModel("", name, args...)
+}
+
+func runWithModel(model string, name string, args ...string) ([]byte, error) {
+	selectedModel := strings.TrimSpace(model)
+	if selectedModel == "" {
+		selectedModel = strings.TrimSpace(os.Getenv("SDP_MODEL"))
+	}
+	if selectedModel == "" {
+		selectedModel = "glm-4.7"
+	}
 	cmd := exec.Command(name, args...)
-	cmd.Env = append(os.Environ(), "SDP_RUNTIME=opencode", "SDP_MODEL=glm-5")
+	cmd.Env = append(os.Environ(), "SDP_RUNTIME=opencode", "SDP_MODEL="+selectedModel)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("%s %s failed: %w: %s", name, strings.Join(args, " "), err, string(out))
@@ -21,16 +32,21 @@ func run(name string, args ...string) ([]byte, error) {
 }
 
 func runComponent(binary string, goPkg string) ([]byte, error) {
+	model := "glm-4.7"
+	if binary == "swarm-reviewer" {
+		model = "glm-5"
+	}
+
 	if os.Getenv("SDP_RUNTIME") == "opencode" && (binary == "swarm-worker" || binary == "swarm-reviewer") {
 		if _, err := exec.LookPath("go"); err == nil {
-			return run("go", "run", goPkg)
+			return runWithModel(model, "go", "run", goPkg)
 		}
 	}
 
 	if _, err := exec.LookPath(binary); err == nil {
-		return run(binary)
+		return runWithModel(model, binary)
 	}
-	return run("go", "run", goPkg)
+	return runWithModel(model, "go", "run", goPkg)
 }
 
 func isTransientNetworkError(err error) bool {

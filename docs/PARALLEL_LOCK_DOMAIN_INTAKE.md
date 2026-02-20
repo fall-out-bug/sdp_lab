@@ -16,8 +16,10 @@ This intake captures the first-pass concurrency hazard catalog for the autonomy 
 - `internal/parallel/locks.go` provides deterministic hazard detection from touched paths.
 - `BuildLockRequests` emits sorted lock requests suitable for scheduler preflight checks.
 - Branch lock scope is set to the active branch name to prevent concurrent ref updates.
+- `internal/parallel/policy.go` canonicalizes locks using a fixed hierarchy and emits merge queue class + aging-adjusted priority.
+- `BuildSchedulerPlan` composes intake + policy into a deterministic scheduling artifact for downstream execution.
 
 ## Notes for Next Design Step
 
-- This intake establishes lock domains and trigger rules only.
-- Scheduler policy (ordering, starvation prevention, fairness) is intentionally deferred to `sdp_dev-2aq.19.2`.
+- Intake hazards now feed scheduler policy semantics documented in `docs/PARALLEL_SCHEDULER_POLICY.md`.
+- Remaining work moves to implementation/integration (`sdp_dev-2aq.19.4`) and validation of runtime lock-manager behavior.
