@@ -51,10 +51,16 @@ func BuildExecutionManifest(graph PlannerGraph) (ExecutionManifest, error) {
 
 		deps := append([]string(nil), n.DependsOn...)
 		sort.Strings(deps)
-		arts := append([]string(nil), n.Artifacts...)
-		sort.Strings(arts)
+		artifacts := append([]string(nil), n.Artifacts...)
+		sort.Strings(artifacts)
 
-		tasks = append(tasks, ExecutionTask{ID: id, Role: owner, DependsOn: deps, Artifacts: arts, Contract: strings.TrimSpace(n.ContractID)})
+		tasks = append(tasks, ExecutionTask{
+			ID:        id,
+			Role:      owner,
+			DependsOn: deps,
+			Artifacts: artifacts,
+			Contract:  strings.TrimSpace(n.ContractID),
+		})
 		lanes[owner] = append(lanes[owner], id)
 	}
 

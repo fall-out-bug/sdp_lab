@@ -57,3 +57,20 @@ go run ./cmd/beads-fsm --issue <issue-id> --to done --apply
 
 - merge is always manual (human gate)
 - model allowlist remains `glm-5`, `glm-4.7`
+
+## OneShot evidence packaging (PR body minimum)
+
+When shipping `workstream:oneshot-swarm-orchestrator`, include a short artifact table in PR body:
+
+- run artifact path: `.sdp/runs/<issue-id>.json`
+- evidence artifact path: `.sdp/evidence/<issue-id>.json`
+- verification fields confirmed:
+  - `verification.go_test_passed`
+  - `verification.oneshot.report`
+  - `verification.oneshot.recovery_plan` (if verification failed)
+- run summary fields confirmed:
+  - `oneshot_verification`
+  - `oneshot_recovery` (if recovery required)
+- issue note proof: JSON payload with `kind=oneshot_verify`
+- gate outputs captured: `go test ./cmd/swarm-worker`, `go test ./internal/oneshot`, `go test ./...`, and `pr-gate` output
+- publish link: `trace.pr_url` and matching PR URL in Beads notes
