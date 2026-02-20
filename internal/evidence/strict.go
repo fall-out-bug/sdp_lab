@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"sdp_dev/internal/artifact"
 )
 
 var requiredSections = []string{"intent", "plan", "execution", "verification", "review", "risk_notes", "boundary", "provenance", "trace"}
@@ -99,16 +101,25 @@ func hasProvenanceContract(v any) bool {
 	if !ok {
 		return false
 	}
-	if _, ok := p["run_id"].(string); !ok {
+	for _, key := range []string{"run_id", "orchestrator", "runtime", "model", "phase", "role", "captured_at", "source_issue_id", "artifact_id", "contract_version", "hash_algorithm", "payload_digest", "hash", "hash_prev"} {
+		if _, ok := p[key].(string); !ok {
+			return false
+		}
+	}
+	sequence, ok := p["sequence"].(float64)
+	if !ok || sequence < 0 {
 		return false
 	}
-	if _, ok := p["orchestrator"].(string); !ok {
+	hash, _ := p["hash"].(string)
+	if strings.TrimSpace(hash) != "" && !artifact.IsSHA256Hex(hash) {
 		return false
 	}
-	if _, ok := p["runtime"].(string); !ok {
+	hashPrev, _ := p["hash_prev"].(string)
+	if strings.TrimSpace(hashPrev) != "" && !artifact.IsSHA256Hex(hashPrev) {
 		return false
 	}
-	if _, ok := p["model"].(string); !ok {
+	payloadDigest, _ := p["payload_digest"].(string)
+	if strings.TrimSpace(payloadDigest) != "" && !artifact.IsSHA256Hex(payloadDigest) {
 		return false
 	}
 	if _, ok := p["gate_results"]; !ok {

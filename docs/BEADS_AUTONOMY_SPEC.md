@@ -100,7 +100,7 @@ Boundary and provenance are mandatory SDP invariants for autonomous runs:
 - `boundary.declared`: allowed/control/forbidden path prefixes and role/lane intent
 - `boundary.observed`: touched paths and out-of-boundary paths
 - `boundary.compliance`: boolean verdict with reason
-- `provenance`: run_id, orchestrator/runtime/model identifiers, and gate results
+- `provenance`: run_id, orchestrator/runtime/model identifiers, gate results, phase+role capture, source_issue_id, contract_version/hash_algorithm/sequence/payload_digest, and hash/hash_prev linkage
 
 ## 6. Retry and failure handling
 
