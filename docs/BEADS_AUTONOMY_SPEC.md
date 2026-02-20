@@ -89,9 +89,18 @@ Attach a structured bundle with keys:
 - `verification`
 - `review`
 - `risk_notes`
+- `boundary`
+- `provenance`
 - `trace`
 
 Any missing key blocks `verified`.
+
+Boundary and provenance are mandatory SDP invariants for autonomous runs:
+
+- `boundary.declared`: allowed/control/forbidden path prefixes and role/lane intent
+- `boundary.observed`: touched paths and out-of-boundary paths
+- `boundary.compliance`: boolean verdict with reason
+- `provenance`: run_id, orchestrator/runtime/model identifiers, and gate results
 
 ## 6. Retry and failure handling
 
