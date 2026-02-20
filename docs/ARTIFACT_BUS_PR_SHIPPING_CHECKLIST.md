@@ -51,3 +51,24 @@ if !report.OK() {
 - [x] `gofmt` run on touched Go files
 - [x] `go test ./...` passes
 - [x] beads notes updated with implementation evidence
+
+## Gate Transition Enforcement Rollout (sdp_dev-2aq.14)
+
+### Transition Controller Scope
+
+- `internal/artifact/transition_controller.go` enforces `transition-policy/v1` rules from `BuildTransitionPolicyContract()`.
+- Transition adjudication requires all contract gate signals to pass, required artifact classes to exist, and required provenance keys to be present on required-class payloads.
+- Denials emit deterministic reason codes in policy order with per-signal gate decision trace output for auditability.
+
+### Migration Guardrails
+
+1. Keep phase progression in monitor mode first: record `TransitionDecision` outputs before wiring hard-fail behavior in orchestrators.
+2. Require parity checks between controller denials and existing gate outcomes for at least one full issue cycle per phase edge.
+3. Fail closed only after parity is stable: block transition when `Allowed=false` and persist `ReasonCodes` plus `GateDecisions` in verification artifacts.
+4. Treat unknown gate statuses as denied (`gate-not-passed`) and surface them as explicit operator action items.
+
+### Rollback Strategy
+
+1. Roll back to monitor mode by disabling hard-fail transition blocking while continuing to emit decision traces.
+2. Keep policy contract and controller logic intact so evidence remains comparable before/after rollback.
+3. Use deterministic reason codes to diff rollback-period denials against pre-rollback baseline and isolate noisy gates.

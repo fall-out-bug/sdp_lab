@@ -94,12 +94,21 @@ The transition policy contract (`transition-policy/v1`) is derived from `Transit
 
 This keeps design inputs and runtime enforcement aligned: intake defines prerequisites and the policy contract projects those prerequisites into a machine-enforceable transition rule set.
 
+`internal/artifact/transition_controller.go` applies that contract at runtime. For a requested phase edge, it:
+
+- adjudicates required gate signals with the strict aggregation policy (`pass` required; `fail`, `missing`, and unknown statuses block);
+- verifies required artifact classes exist in the issue artifact stream;
+- verifies required provenance keys are present in payloads for required artifact classes;
+- emits deterministic denial reason codes in policy order (`missing-gate-signal`, `gate-not-passed`, `missing-artifact`, `missing-provenance-key`) plus per-signal gate decisions for traceability.
+
 ## Implementation Baseline
 
 - `internal/artifact/intake.go` is the canonical intake map for class IDs, retention windows, and provenance requirements.
 - `internal/artifact/intake_test.go` enforces unique class IDs, retention coverage, phase-to-class validity, gate signal integrity, and transition prerequisite consistency.
 - `internal/artifact/gate_policy_contract.go` builds strict gate aggregation semantics and transition policy rules from intake prerequisites.
 - `internal/artifact/gate_policy_contract_test.go` verifies strict aggregation defaults, prerequisite parity, and deterministic transition denial reason codes.
+- `internal/artifact/transition_controller.go` enforces policy-backed transition gating against issue artifact intake evidence.
+- `internal/artifact/transition_controller_test.go` verifies allowed transitions, denied transitions, and deterministic denial reason sequencing.
 - Hash-chain and append-only storage contract is formalized in `docs/ARTIFACT_PROVENANCE_HASH_CHAIN_CONTRACT.md`.
 - Artifact bus ingestion/retrieval lifecycle and provenance index APIs are implemented in `internal/artifact/bus_service.go`.
 - Tamper/retention verification checks for audit gates are implemented in `internal/artifact/bus_verify.go`.
