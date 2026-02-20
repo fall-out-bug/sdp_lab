@@ -30,6 +30,16 @@ func TestBuildBranchNameTrimsTrailingDashAfterTruncation(t *testing.T) {
 	}
 }
 
+func TestDecideK8sPathIsHighRisk(t *testing.T) {
+	res := Decide(DecisionRequest{IssueID: "id-k8s", Title: "Update worker manifests", PreferredModel: "glm-5", ChangedPaths: []string{"deploy/k8s/workers/opencode-agent.yaml"}})
+	if res.RiskClass != "high" {
+		t.Fatalf("expected high risk, got %s", res.RiskClass)
+	}
+	if res.PolicyVerdict != "allow" {
+		t.Fatalf("expected allow, got %s", res.PolicyVerdict)
+	}
+}
+
 func TestDecideCriticalEscalates(t *testing.T) {
 	res := Decide(DecisionRequest{IssueID: "id-3", Title: "Auth changes", PreferredModel: "glm-4.7", ChangedPaths: []string{"security/auth/policy.yaml"}})
 	if res.RiskClass != "critical" {
