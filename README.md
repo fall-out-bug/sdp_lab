@@ -29,6 +29,7 @@ Private planning and orchestration workspace for SDP evolution.
 - `docs/KUBEOPENCODE_MULTI_ROLE_PROBE_RUNBOOK.md` - operator multi-role probe commands and known blockers.
 - `docs/PARALLEL_LOCK_DOMAIN_INTAKE.md` - lock domains and hazard catalog for parallel execution controls.
 - `docs/PARALLEL_SCHEDULER_POLICY.md` - lock hierarchy, merge queue semantics, incident safeguards, and tuning guidance.
+- `docs/EVALUATOR_INTAKE_BASELINE.md` - happy-path operability gate and baseline evaluator scope.
 - `docs/AGENT_ARTIFACT_COMMUNICATION_PROTOCOL.md` - semantic success gates and artifact communication protocol.
 - `specs/autonomy-runtime-contract.yaml` - runtime contract baseline.
 - `specs/brain-decision-api.yaml` - brain decision request/response contract.
