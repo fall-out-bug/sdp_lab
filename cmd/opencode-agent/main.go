@@ -21,6 +21,12 @@ func run(name string, args ...string) ([]byte, error) {
 }
 
 func runComponent(binary string, goPkg string) ([]byte, error) {
+	if os.Getenv("SDP_RUNTIME") == "opencode" && (binary == "swarm-worker" || binary == "swarm-reviewer") {
+		if _, err := exec.LookPath("go"); err == nil {
+			return run("go", "run", goPkg)
+		}
+	}
+
 	if _, err := exec.LookPath(binary); err == nil {
 		return run(binary)
 	}
