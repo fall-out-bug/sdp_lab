@@ -80,3 +80,11 @@ if !report.OK() {
 1. Roll back to monitor mode by disabling hard-fail transition blocking while continuing to emit decision traces.
 2. Keep policy contract and controller logic intact so evidence remains comparable before/after rollback.
 3. Use deterministic reason codes to diff rollback-period denials against pre-rollback baseline and isolate noisy gates.
+
+## Evaluator Rubric PR Shipping Checklist (sdp_dev-hx0.1.5)
+
+- [x] weighted rubric contract implemented in `internal/evaluator/rubric.go`
+- [x] reliability/security/DX/delivery dimensions sum to total weight `100`
+- [x] score normalization and deterministic ranking rules documented in `docs/EVALUATOR_OUTCOME_SCORING_RUBRIC.md`
+- [x] ranking output includes missing and unknown dimension signals for auditability
+- [x] tests cover deterministic defaults, ranking order, and clamp/missing/unknown dimension behavior

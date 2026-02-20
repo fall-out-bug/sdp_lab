@@ -59,3 +59,8 @@ Evaluator cycles do not start until all entry signals pass.
 - Deep-thinking evaluator cycle and persona collaboration flow are defined.
 - Roles include systems architect, SRE, security reviewer, DX expert, and product strategist.
 - Deterministic contract helper and tests provide implementation-ready baseline for downstream persona library and protocol tasks.
+
+## Runtime Bridge
+
+- Runtime orchestration increment for `sdp_dev-hx0.1.2` is documented in `docs/EVALUATOR_SWARM_RUNTIME_ORCHESTRATION.md`.
+- Implementation hooks are available in `internal/evaluator/swarm_runtime.go` for persona execution packets and score/report assembly.

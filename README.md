@@ -31,6 +31,9 @@ Private planning and orchestration workspace for SDP evolution.
 - `docs/PARALLEL_SCHEDULER_POLICY.md` - lock hierarchy, merge queue semantics, incident safeguards, and tuning guidance.
 - `docs/EVALUATOR_INTAKE_BASELINE.md` - happy-path operability gate and baseline evaluator scope.
 - `docs/EVALUATOR_SWARM_DEEP_THINKING_PLAN.md` - deep-thinking evaluator cycle, persona roles, and collaboration protocol.
+- `docs/EVALUATOR_SWARM_RUNTIME_ORCHESTRATION.md` - persona execution packet contract and score/report assembly flow.
+- `docs/EVALUATOR_PERIODIC_COMPONENT_AUDIT_PROTOCOL.md` - repeatable periodic component audit protocol with checkpoints and escalation flow.
+- `docs/EVALUATOR_OUTCOME_SCORING_RUBRIC.md` - weighted rubric and normalization contract for ranking improvement opportunities.
 - `docs/AGENT_ARTIFACT_COMMUNICATION_PROTOCOL.md` - semantic success gates and artifact communication protocol.
 - `specs/autonomy-runtime-contract.yaml` - runtime contract baseline.
 - `specs/brain-decision-api.yaml` - brain decision request/response contract.
