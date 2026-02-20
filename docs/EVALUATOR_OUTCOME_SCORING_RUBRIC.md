@@ -36,6 +36,18 @@ Total weight: `100`.
   - `RankImprovementOpportunities(...)`
 - Regression tests: `internal/evaluator/rubric_test.go`.
 
+Trial-run calibration evidence now composes this rubric via:
+
+- `BuildTrialRunCalibrationReport(...)` in `internal/evaluator/calibration.go`
+- deterministic simulation fixtures from `DefaultTrialRunFixtures()`
+- methodology and evidence schema in `docs/EVALUATOR_TRIAL_RUN_CALIBRATION.md`
+
+Continuous-improvement PR loop automation now reuses ranked rubric outputs via:
+
+- `BuildContinuousImprovementPRLoopReport(...)` in `internal/evaluator/pr_loop.go`
+- deterministic backlog injection payloads from `BuildBacklogInjectionPlan(...)`
+- guardrail and plan-format contract in `docs/EVALUATOR_PR_LOOP_BACKLOG_INJECTION.md`
+
 ## PR Shipping Checklist Increment
 
 Rubric runs should attach these artifacts before PR publication:

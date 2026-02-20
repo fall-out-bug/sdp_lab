@@ -34,6 +34,8 @@ Private planning and orchestration workspace for SDP evolution.
 - `docs/EVALUATOR_SWARM_RUNTIME_ORCHESTRATION.md` - persona execution packet contract and score/report assembly flow.
 - `docs/EVALUATOR_PERIODIC_COMPONENT_AUDIT_PROTOCOL.md` - repeatable periodic component audit protocol with checkpoints and escalation flow.
 - `docs/EVALUATOR_OUTCOME_SCORING_RUBRIC.md` - weighted rubric and normalization contract for ranking improvement opportunities.
+- `docs/EVALUATOR_TRIAL_RUN_CALIBRATION.md` - deterministic trial-run methodology, quality thresholds, and calibration evidence format.
+- `docs/EVALUATOR_PR_LOOP_BACKLOG_INJECTION.md` - continuous-improvement PR-loop contract and deterministic backlog-injection guardrails.
 - `docs/AGENT_ARTIFACT_COMMUNICATION_PROTOCOL.md` - semantic success gates and artifact communication protocol.
 - `specs/autonomy-runtime-contract.yaml` - runtime contract baseline.
 - `specs/brain-decision-api.yaml` - brain decision request/response contract.
