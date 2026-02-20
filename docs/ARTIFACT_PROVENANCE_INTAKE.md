@@ -49,10 +49,36 @@ The `hash` + `hash_prev` pair establishes an append-only hash chain for artifact
 | `review` | `review-verdict` | `reviewer_role`, `decision` |
 | `publish` | `review-verdict`, `trace-link` | `decision`, `pr_url` |
 
+## Gate Signal Registry
+
+| Gate signal | Phase | Purpose |
+| --- | --- | --- |
+| `intake:issue-scoped` | `intake` | Confirms issue scope and acceptance criteria are captured before planning. |
+| `intake:risk-assessed` | `intake` | Confirms risk posture and lane ownership are declared. |
+| `plan:dependencies-resolved` | `plan` | Confirms dependencies and execution order are resolved. |
+| `execute:diff-prepared` | `execute` | Confirms implementation diff exists with touched-path/test-target evidence. |
+| `verify:tests-passed` | `verify` | Confirms required tests passed for the issue scope. |
+| `verify:boundary-ok` | `verify` | Confirms boundary policy checks passed with no forbidden writes. |
+| `verify:evidence-contract-pass` | `verify` | Confirms strict evidence contract validation passed. |
+| `review:decision-recorded` | `review` | Confirms reviewer decision and rationale are captured. |
+| `review:risk-signoff` | `review` | Confirms risk signoff is complete for publication eligibility. |
+| `publish:pr-gate-pass` | `publish` | Confirms PR gate checks passed for publication transition. |
+| `publish:callback-published` | `publish` | Confirms PR callback payload was published to callback stream. |
+
+## Phase Transition Prerequisites
+
+| Transition | Required gate signals | Required artifact classes | Required provenance keys |
+| --- | --- | --- | --- |
+| `intake` -> `plan` | `intake:issue-scoped`, `intake:risk-assessed` | `intent-brief` | `trigger` |
+| `plan` -> `execute` | `plan:dependencies-resolved` | `execution-plan` | `depends_on` |
+| `execute` -> `verify` | `execute:diff-prepared` | `code-diff` | `paths_touched`, `test_targets` |
+| `verify` -> `review` | `verify:tests-passed`, `verify:boundary-ok`, `verify:evidence-contract-pass` | `verification-report`, `trace-link` | `gate_name`, `gate_status` |
+| `review` -> `publish` | `review:decision-recorded`, `review:risk-signoff`, `publish:pr-gate-pass`, `publish:callback-published` | `review-verdict`, `trace-link` | `reviewer_role`, `decision`, `pr_url` |
+
 ## Implementation Baseline
 
 - `internal/artifact/intake.go` is the canonical intake map for class IDs, retention windows, and provenance requirements.
-- `internal/artifact/intake_test.go` enforces unique class IDs, retention coverage, and phase-to-class validity.
+- `internal/artifact/intake_test.go` enforces unique class IDs, retention coverage, phase-to-class validity, gate signal integrity, and transition prerequisite consistency.
 - Hash-chain and append-only storage contract is formalized in `docs/ARTIFACT_PROVENANCE_HASH_CHAIN_CONTRACT.md`.
 - Artifact bus ingestion/retrieval lifecycle and provenance index APIs are implemented in `internal/artifact/bus_service.go`.
 - Tamper/retention verification checks for audit gates are implemented in `internal/artifact/bus_verify.go`.

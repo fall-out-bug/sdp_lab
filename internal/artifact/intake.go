@@ -19,6 +19,22 @@ type PhaseRequirement struct {
 	AdditionalProvenanceKeys []string
 }
 
+// GateSignal captures a normalized gate outcome token.
+type GateSignal struct {
+	ID          string
+	Phase       string
+	Description string
+}
+
+// TransitionPrerequisite captures evidence required before moving between phases.
+type TransitionPrerequisite struct {
+	FromPhase                string
+	ToPhase                  string
+	RequiredGateSignals      []string
+	RequiredArtifactClassIDs []string
+	RequiredProvenanceKeys   []string
+}
+
 var baseProvenanceKeys = []string{
 	"run_id",
 	"orchestrator",
@@ -110,6 +126,58 @@ var phaseRequirements = []PhaseRequirement{
 	{Phase: "publish", RequiredClassIDs: []string{"review-verdict", "trace-link"}, AdditionalProvenanceKeys: []string{"decision", "pr_url"}},
 }
 
+var gateSignals = []GateSignal{
+	{ID: "intake:issue-scoped", Phase: "intake", Description: "Issue scope and acceptance criteria captured for execution."},
+	{ID: "intake:risk-assessed", Phase: "intake", Description: "Risk posture and ownership lane declared."},
+	{ID: "plan:dependencies-resolved", Phase: "plan", Description: "Execution order and blocking dependencies resolved."},
+	{ID: "execute:diff-prepared", Phase: "execute", Description: "Patch set produced with touched paths and targets."},
+	{ID: "verify:tests-passed", Phase: "verify", Description: "Required test targets passed for the issue scope."},
+	{ID: "verify:boundary-ok", Phase: "verify", Description: "Boundary policy validation passed with no forbidden writes."},
+	{ID: "verify:evidence-contract-pass", Phase: "verify", Description: "Strict evidence contract validation passed."},
+	{ID: "review:decision-recorded", Phase: "review", Description: "Reviewer decision and rationale recorded."},
+	{ID: "review:risk-signoff", Phase: "review", Description: "Risk signoff completed for publish eligibility."},
+	{ID: "publish:pr-gate-pass", Phase: "publish", Description: "PR gate checks passed for publish transition."},
+	{ID: "publish:callback-published", Phase: "publish", Description: "PR callback payload published to callback stream."},
+}
+
+var transitionPrerequisites = []TransitionPrerequisite{
+	{
+		FromPhase:                "intake",
+		ToPhase:                  "plan",
+		RequiredGateSignals:      []string{"intake:issue-scoped", "intake:risk-assessed"},
+		RequiredArtifactClassIDs: []string{"intent-brief"},
+		RequiredProvenanceKeys:   []string{"trigger"},
+	},
+	{
+		FromPhase:                "plan",
+		ToPhase:                  "execute",
+		RequiredGateSignals:      []string{"plan:dependencies-resolved"},
+		RequiredArtifactClassIDs: []string{"execution-plan"},
+		RequiredProvenanceKeys:   []string{"depends_on"},
+	},
+	{
+		FromPhase:                "execute",
+		ToPhase:                  "verify",
+		RequiredGateSignals:      []string{"execute:diff-prepared"},
+		RequiredArtifactClassIDs: []string{"code-diff"},
+		RequiredProvenanceKeys:   []string{"paths_touched", "test_targets"},
+	},
+	{
+		FromPhase:                "verify",
+		ToPhase:                  "review",
+		RequiredGateSignals:      []string{"verify:tests-passed", "verify:boundary-ok", "verify:evidence-contract-pass"},
+		RequiredArtifactClassIDs: []string{"verification-report", "trace-link"},
+		RequiredProvenanceKeys:   []string{"gate_name", "gate_status"},
+	},
+	{
+		FromPhase:                "review",
+		ToPhase:                  "publish",
+		RequiredGateSignals:      []string{"review:decision-recorded", "review:risk-signoff", "publish:pr-gate-pass", "publish:callback-published"},
+		RequiredArtifactClassIDs: []string{"review-verdict", "trace-link"},
+		RequiredProvenanceKeys:   []string{"reviewer_role", "decision", "pr_url"},
+	},
+}
+
 func Classes() []Class {
 	out := make([]Class, len(classes))
 	copy(out, classes)
@@ -127,6 +195,25 @@ func PhaseRequirements() []PhaseRequirement {
 func BaseProvenanceKeys() []string {
 	out := make([]string, len(baseProvenanceKeys))
 	copy(out, baseProvenanceKeys)
+	return out
+}
+
+func GateSignals() []GateSignal {
+	out := make([]GateSignal, len(gateSignals))
+	copy(out, gateSignals)
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}
+
+func TransitionPrerequisites() []TransitionPrerequisite {
+	out := make([]TransitionPrerequisite, len(transitionPrerequisites))
+	copy(out, transitionPrerequisites)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].FromPhase == out[j].FromPhase {
+			return out[i].ToPhase < out[j].ToPhase
+		}
+		return out[i].FromPhase < out[j].FromPhase
+	})
 	return out
 }
 
