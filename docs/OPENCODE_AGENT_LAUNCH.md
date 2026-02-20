@@ -64,3 +64,14 @@ Behavior:
 - triggers an explicit single `opencode-agent` cycle
 - polls task status (`closed` success, `blocked` failure)
 - extracts PR URL from issue notes when present
+
+## DNS stability (WSL2)
+
+If orchestration logs show intermittent `Could not resolve host: github.com`, patch CoreDNS to use host resolver with TCP fallback:
+
+```bash
+./scripts/patch_coredns_wsl_dns.sh --host fall_out_bug@192.168.50.219 --port 2222
+```
+
+This updates CoreDNS `forward` to `/etc/resolv.conf` with `force_tcp`, then rolls CoreDNS.
+It mitigates common WSL2 UDP DNS flakiness seen with direct upstreams like `1.1.1.1`/`8.8.8.8`.
