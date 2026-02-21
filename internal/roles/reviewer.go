@@ -79,43 +79,46 @@ func (r *ReviewerStrategy) buildReviewPrompt(issue beads.Issue, evidence string,
 	return b.String()
 }
 
-func parseVerdictFromOutput(out string) string {
-	var m struct {
-		Verdict string `json:"verdict"`
-	}
-	// Find JSON in output
+func parseJSONFromOutput(out string) (map[string]any, bool) {
 	start := strings.Index(out, "{")
 	if start < 0 {
-		return ""
+		return nil, false
 	}
 	end := strings.LastIndex(out, "}")
 	if end <= start {
-		return ""
+		return nil, false
 	}
+	var m map[string]any
 	if err := json.Unmarshal([]byte(out[start:end+1]), &m); err != nil {
+		return nil, false
+	}
+	return m, true
+}
+
+func parseVerdictFromOutput(out string) string {
+	m, ok := parseJSONFromOutput(out)
+	if !ok {
 		return ""
 	}
-	switch m.Verdict {
+	v, _ := m["verdict"].(string)
+	switch v {
 	case "approve", "needs_changes", "reject":
-		return m.Verdict
+		return v
 	}
 	return ""
 }
 
 func extractComments(out string) []string {
-	var m struct {
-		Comments []string `json:"comments"`
-	}
-	start := strings.Index(out, "{")
-	if start < 0 {
+	m, ok := parseJSONFromOutput(out)
+	if !ok {
 		return nil
 	}
-	end := strings.LastIndex(out, "}")
-	if end <= start {
-		return nil
+	comments, _ := m["comments"].([]any)
+	outStrs := make([]string, 0, len(comments))
+	for _, c := range comments {
+		if s, ok := c.(string); ok {
+			outStrs = append(outStrs, s)
+		}
 	}
-	if err := json.Unmarshal([]byte(out[start:end+1]), &m); err != nil {
-		return nil
-	}
-	return m.Comments
+	return outStrs
 }
