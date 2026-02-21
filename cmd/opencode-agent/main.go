@@ -14,6 +14,9 @@ import (
 
 func emitObservability(phase string, status string, model string, startedAt time.Time, retryCount int, fallbackUsed bool, escalated bool) {
 	issueID := strings.TrimSpace(os.Getenv("SDP_ISSUE_ID"))
+	if issueID == "" {
+		issueID = strings.TrimSpace(os.Getenv("SDP_ISSUE"))
+	}
 	evidenceLink := strings.TrimSpace(os.Getenv("SDP_EVIDENCE_CONTEXT_LINK"))
 	prURL := strings.TrimSpace(os.Getenv("SDP_PR_URL"))
 	if issueID != "" && evidenceLink == "" {
@@ -64,6 +67,10 @@ func runWithModel(model string, name string, args ...string) ([]byte, error) {
 }
 
 func runComponent(binary string, goPkg string) ([]byte, error) {
+	return runComponentWithArgs(binary, goPkg)
+}
+
+func runComponentWithArgs(binary string, goPkg string, args ...string) ([]byte, error) {
 	startedAt := time.Now()
 	model := "glm-4.7"
 	if binary == "swarm-reviewer" {
@@ -72,18 +79,21 @@ func runComponent(binary string, goPkg string) ([]byte, error) {
 
 	if os.Getenv("SDP_RUNTIME") == "opencode" && (binary == "swarm-worker" || binary == "swarm-reviewer") {
 		if _, err := exec.LookPath("go"); err == nil {
-			out, runErr := runWithModel(model, "go", "run", goPkg)
+			goArgs := append([]string{"run", goPkg}, args...)
+			out, runErr := runWithModel(model, "go", goArgs...)
 			emitObservability("execute", statusForError(runErr, false), model, startedAt, 0, true, false)
 			return out, runErr
 		}
 	}
 
 	if _, err := exec.LookPath(binary); err == nil {
-		out, runErr := runWithModel(model, binary)
+		cmdArgs := append([]string{}, args...)
+		out, runErr := runWithModel(model, binary, cmdArgs...)
 		emitObservability("execute", statusForError(runErr, false), model, startedAt, 0, false, false)
 		return out, runErr
 	}
-	out, runErr := runWithModel(model, "go", "run", goPkg)
+	goArgs := append([]string{"run", goPkg}, args...)
+	out, runErr := runWithModel(model, "go", goArgs...)
 	emitObservability("execute", statusForError(runErr, false), model, startedAt, 0, true, false)
 	return out, runErr
 }
@@ -263,11 +273,15 @@ func runCycle() error {
 		return err
 	}
 
-	if out, err := runComponent("swarm-worker", "./cmd/swarm-worker"); err != nil {
-		return err
-	} else {
-		fmt.Print(string(out))
+	swarmWorkerArgs := []string{}
+	if issueID := strings.TrimSpace(os.Getenv("SDP_ISSUE")); issueID != "" {
+		swarmWorkerArgs = append(swarmWorkerArgs, "--issue", issueID)
 	}
+	out, err := runComponentWithArgs("swarm-worker", "./cmd/swarm-worker", swarmWorkerArgs...)
+	if err != nil {
+		return err
+	}
+	fmt.Print(string(out))
 
 	if out, err := runComponent("swarm-reviewer", "./cmd/swarm-reviewer"); err != nil {
 		emitObservability("review", "failed", "glm-5", cycleStart, 0, false, true)

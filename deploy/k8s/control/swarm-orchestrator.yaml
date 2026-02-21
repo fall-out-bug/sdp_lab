@@ -1,3 +1,23 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: project-registry
+  namespace: sdp-control
+data:
+  project-registry.yaml: |
+    projects:
+      - id: sdp_dev
+        repo_url: .
+        repo_branch: main
+        beads_prefix: sdp_dev
+        language: go
+        workstreams:
+          - workstream:generic
+          - workstream:builder
+        model_policy: ""
+        config: {}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,6 +33,7 @@ spec:
       labels:
         app: swarm-orchestrator
     spec:
+      serviceAccountName: swarm-orchestrator
       containers:
         - name: orchestrator
           image: sdp/swarm-orchestrator:latest
@@ -21,13 +42,23 @@ spec:
               value: "nats://nats:4222"
             - name: WORKSPACE_BASE
               value: "/workspaces"
+            - name: SDP_DISPATCH_MODE
+              value: "k8s"
+            - name: SDP_K8S_NAMESPACE
+              value: "sdp-workers"
           volumeMounts:
             - name: workspaces
               mountPath: /workspaces
+            - name: project-registry
+              mountPath: /app/specs
+              readOnly: true
       volumes:
         - name: workspaces
           persistentVolumeClaim:
             claimName: swarm-workspaces
+        - name: project-registry
+          configMap:
+            name: project-registry
 ---
 apiVersion: v1
 kind: Service
@@ -39,3 +70,10 @@ spec:
     app: swarm-orchestrator
   ports:
     - port: 8080
+---
+# ServiceAccount for swarm-orchestrator (Role/RoleBinding in sdp-workers via workers/swarm-orchestrator-rbac.yaml)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: swarm-orchestrator
+  namespace: sdp-control

@@ -88,3 +88,12 @@ jobs:
           (cd .tmp/beads-src && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../opencode-runtime/bd ./cmd/bd)
           docker build -t "${IMAGE}" -f deploy/images/opencode-agent/Dockerfile.runtime .
           docker push "${IMAGE}"
+
+      - name: Build and push swarm-orchestrator
+        env:
+          IMAGE_TAG: git-${{ github.sha }}
+        run: |
+          IMAGE="ghcr.io/${{ github.repository_owner }}/sdp-dev-swarm-orchestrator:${IMAGE_TAG}"
+          echo "Building ${IMAGE}"
+          docker build -t "${IMAGE}" -f deploy/images/swarm-orchestrator/Dockerfile .
+          docker push "${IMAGE}"
