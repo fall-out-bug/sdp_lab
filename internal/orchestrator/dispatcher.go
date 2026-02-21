@@ -63,7 +63,7 @@ func (d *SSHDispatcher) Dispatch(cfg DispatchConfig) error {
 		"kubectl", "-n", cfg.Namespace,
 		"exec", "deploy/opencode-agent", "--",
 		"sh", "-lc",
-		fmt.Sprintf("cd /workspace && git rev-parse --is-inside-work-tree >/dev/null && branch=\"${SDP_REPO_BRANCH:-master}\" && git fetch origin \"$branch\" && git rebase FETCH_HEAD && bd sync --import-only >/dev/null"),
+		"cd /workspace && git rev-parse --is-inside-work-tree >/dev/null && branch=\"${SDP_REPO_BRANCH:-master}\" && git fetch origin \"$branch\" && git rebase FETCH_HEAD && bd sync --import-only >/dev/null",
 	}
 	cmd := exec.Command("ssh", args...)
 	cmd.Dir = d.workDir

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -297,11 +296,6 @@ func buildOpencodeObservabilityRecords(issueID string, model string, status stri
 		EvidenceContextLink: evidenceContextLink,
 		PRURL:               prURL,
 	})
-}
-
-func observabilityRecordsJSON(records []map[string]any) []byte {
-	b, _ := json.Marshal(records)
-	return b
 }
 
 func main() {

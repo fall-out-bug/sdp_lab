@@ -66,7 +66,11 @@ func main() {
 		fmt.Println("Issue already locked; skipping")
 		return
 	}
-	defer lockMgr.Release(issue.ID)
+	defer func() {
+		if err := lockMgr.Release(issue.ID); err != nil {
+			fmt.Fprintf(os.Stderr, "release lock: %v\n", err)
+		}
+	}()
 
 	// Evidence projection
 	path, err := projector.ProjectFromIntent(intent, map[string]string{"coder": "placeholder"}, runID)

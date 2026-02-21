@@ -2,3 +2,10 @@
 __pycache__/
 *.pyc
 .tmp/
+
+# SDP (sdp is submodule; skills/agents are symlinks)
+.claude/skills
+.claude/agents
+.cursor/skills
+.cursor/agents
+.prompts

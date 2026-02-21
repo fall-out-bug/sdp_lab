@@ -63,12 +63,11 @@ func extractEnvelope(log string) (map[string]any, error) {
 	}
 
 	// Fallback scanner for mixed text logs.
-	decoder := json.NewDecoder(strings.NewReader(""))
 	for i := 0; i < len(log); i++ {
 		if log[i] != '{' {
 			continue
 		}
-		decoder = json.NewDecoder(strings.NewReader(log[i:]))
+		decoder := json.NewDecoder(strings.NewReader(log[i:]))
 		var obj map[string]any
 		if err := decoder.Decode(&obj); err != nil {
 			continue
