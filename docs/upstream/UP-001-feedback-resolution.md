@@ -19,16 +19,16 @@ PR: https://github.com/kubeopencode/kubeopencode/pull/50
 | sdp_dev-4py | PR: submit upstream kubeopencode PR | ✓ PR #50 submitted |
 | sdp_dev-j2b.1 | Apply multi-agent review fixes | ✓ P0/P1 done |
 
-## Deferred (closed with reason)
+## P2 Implemented (closed)
 
-| Bead | Description | Reason |
+| Bead | Description | Status |
 |------|-------------|--------|
-| sdp_dev-j2b.1.6 | orchestrate_k8s_issue.sh validate ISSUE format | Out of scope for upstream PR (sdp_dev script) |
-| sdp_dev-j2b.1.7 | Retry status update conflict handling | P2; follow-up if needed |
-| sdp_dev-j2b.1.8 | Phase reset: use Pending instead of empty string | P2; follow-up if needed |
-| sdp_dev-j2b.1.9 | TerminalReason.Message truncate 1024 chars | P2; follow-up if needed |
-| sdp_dev-j2b.1.10 | Extract backoff magic numbers as constants | P2; follow-up if needed |
-| sdp_dev-j2b.1.11 | Adapter lifecycle_reconciler use TerminalReasonCode | P2; follow-up if needed |
+| sdp_dev-j2b.1.6 | orchestrate_k8s_issue.sh validate ISSUE format | ✓ Implemented |
+| sdp_dev-j2b.1.7 | Retry status update conflict handling | ✓ Implemented |
+| sdp_dev-j2b.1.8 | Phase reset: use Pending instead of empty string | ✓ Implemented |
+| sdp_dev-j2b.1.9 | TerminalReason.Message truncate 1024 chars | ✓ Implemented |
+| sdp_dev-j2b.1.10 | Extract backoff magic numbers as constants | ✓ Implemented |
+| sdp_dev-j2b.1.11 | Adapter lifecycle_reconciler use TerminalReasonCode | ✓ Implemented |
 
 ## Bot feedback addressed
 

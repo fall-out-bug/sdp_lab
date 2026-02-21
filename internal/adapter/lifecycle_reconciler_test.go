@@ -44,7 +44,31 @@ func TestLifecycleReconciler_ReconcilePhase(t *testing.T) {
 		t.Errorf("Completed+InProgress: got state=%s action=%s", state, action)
 	}
 
-	// Failed + retry -> Blocked
+	// Failed + RetryExhausted (TerminalReasonCode) -> Blocked
+	state, action, _ = r.ReconcilePhase(FSMInProgress, PhaseFailed, TerminalReasonRetryExhausted)
+	if state != FSMBlocked || action != "retry_budget" {
+		t.Errorf("Failed+RetryExhausted: got state=%s action=%s", state, action)
+	}
+
+	// Failed + InfrastructureError (TerminalReasonCode) -> Blocked
+	state, action, _ = r.ReconcilePhase(FSMInProgress, PhaseFailed, TerminalReasonInfrastructureError)
+	if state != FSMBlocked || action != "retry_budget" {
+		t.Errorf("Failed+InfrastructureError: got state=%s action=%s", state, action)
+	}
+
+	// Failed + AgentExitNonZero (TerminalReasonCode) -> Escalated
+	state, action, _ = r.ReconcilePhase(FSMInProgress, PhaseFailed, TerminalReasonAgentExitNonZero)
+	if state != FSMEscalated || action != "terminal_failure" {
+		t.Errorf("Failed+AgentExitNonZero: got state=%s action=%s", state, action)
+	}
+
+	// Failed + UserStopped (TerminalReasonCode) -> Escalated
+	state, action, _ = r.ReconcilePhase(FSMInProgress, PhaseFailed, TerminalReasonUserStopped)
+	if state != FSMEscalated || action != "terminal_failure" {
+		t.Errorf("Failed+UserStopped: got state=%s action=%s", state, action)
+	}
+
+	// Failed + retry (legacy string) -> Blocked
 	state, action, _ = r.ReconcilePhase(FSMInProgress, PhaseFailed, "retry timeout")
 	if state != FSMBlocked || action != "retry_budget" {
 		t.Errorf("Failed+retry: got state=%s action=%s", state, action)

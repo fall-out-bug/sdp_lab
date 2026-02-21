@@ -32,6 +32,17 @@ const (
 	FSMCancelled   FSMState = "cancelled"
 )
 
+// TerminalReasonCode mirrors kubeopencode Task status.terminalReason.code.
+// Used for deterministic FSM mapping when Task fails.
+const (
+	TerminalReasonInfrastructureError = "InfrastructureError"
+	TerminalReasonAgentExitNonZero   = "AgentExitNonZero"
+	TerminalReasonTimeout            = "Timeout"
+	TerminalReasonUserStopped        = "UserStopped"
+	TerminalReasonRetryExhausted     = "RetryExhausted"
+	TerminalReasonUnknown            = "Unknown"
+)
+
 // LifecycleReconciler maps CRD status/events to SDP FSM transitions.
 type LifecycleReconciler struct{}
 
@@ -60,6 +71,15 @@ func (r *LifecycleReconciler) ReconcilePhase(currentFSM FSMState, crdPhase CRDPh
 		}
 		return currentFSM, "", nil
 	case PhaseFailed:
+		// Prefer TerminalReasonCode when available (from Task status.terminalReason.code)
+		code := strings.TrimSpace(failureReason)
+		switch code {
+		case TerminalReasonRetryExhausted, TerminalReasonInfrastructureError:
+			return FSMBlocked, "retry_budget", nil
+		case TerminalReasonAgentExitNonZero, TerminalReasonUserStopped, TerminalReasonTimeout, TerminalReasonUnknown:
+			return FSMEscalated, "terminal_failure", nil
+		}
+		// Fallback: legacy string matching
 		reason := strings.ToLower(failureReason)
 		if strings.Contains(reason, "retry") || strings.Contains(reason, "transient") {
 			return FSMBlocked, "retry_budget", nil

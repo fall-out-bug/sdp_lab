@@ -54,6 +54,12 @@ if [[ -z "${HOST}" || -z "${ISSUE}" ]]; then
   exit 2
 fi
 
+# Validate ISSUE format (beads ID: alphanumeric, hyphens, dots; prevents injection)
+if ! [[ "${ISSUE}" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
+  echo "Error: --issue must be a valid beads ID (alphanumeric, hyphens, dots only). Got: ${ISSUE}"
+  exit 2
+fi
+
 remote() {
   ssh -p "${PORT}" "${HOST}" "$@"
 }
