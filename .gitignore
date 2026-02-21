@@ -3,6 +3,7 @@
 __pycache__/
 *.pyc
 .tmp/
+.kube/
 coverage.out
 coverage_internal.out
 

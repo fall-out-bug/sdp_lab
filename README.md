@@ -63,6 +63,7 @@ Private planning and orchestration workspace for SDP evolution.
 - `scripts/orchestrate_k8s_issue.sh` - triggers an in-cluster agent cycle and waits for issue close/blocked with PR extraction.
 - `scripts/feature_to_pr.sh` - creates a task and orchestrates k8s worker+reviewer to return PR URL.
 - `scripts/install_kubeopencode_remote.sh` - installs/upgrades kubeopencode operator on remote cluster.
+- `scripts/remote_minikube_tunnel.sh` - SSH tunnel to remote minikube; use local kubectl with `KUBECONFIG=.kube/remote-minikube.yaml`.
 - `scripts/run_kubeopencode_multi_role_probe.sh` - runs analyst/coder/reviewer operator task probe and prints summary.
 - `deploy/images/opencode-agent/Dockerfile.runtime` - runtime image with agent binaries plus `bd`/`git`/`gh` for in-pod execution.
 - `deploy/k8s/observability/` - deployable observability stack and telemetry ingestion pipeline manifests.
