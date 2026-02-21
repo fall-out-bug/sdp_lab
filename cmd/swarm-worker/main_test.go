@@ -7,6 +7,57 @@ import (
 	"sdp_dev/internal/observability"
 )
 
+func TestResolveWorkstream(t *testing.T) {
+	tests := []struct {
+		labels []string
+		want   string
+	}{
+		{[]string{"workstream:policy-slugify-trim"}, "policy-slugify-trim"},
+		{[]string{"workstream:generic"}, "generic"},
+		{[]string{"workstream:oneshot-swarm-orchestrator"}, "oneshot-swarm-orchestrator"},
+		{[]string{"workstream:handoff-validation"}, "handoff-validation"},
+		{[]string{"workstream:self-improvement"}, "self-improvement"},
+		{[]string{"workstream:evaluator-recommendation"}, "evaluator-recommendation"},
+		{[]string{"workstream:telegram-ingress-intake"}, "telegram-ingress-intake"},
+		{[]string{"workstream:planner-boundary-decomposition"}, "planner-boundary-decomposition"},
+		{[]string{}, ""},
+		{[]string{"autonomy"}, ""},
+	}
+	for _, tt := range tests {
+		got := resolveWorkstream(tt.labels)
+		if got != tt.want {
+			t.Errorf("resolveWorkstream(%v) = %q, want %q", tt.labels, got, tt.want)
+		}
+	}
+}
+
+func TestCommitBodyForWorkstream(t *testing.T) {
+	tests := []struct {
+		workstream string
+		want       string
+	}{
+		{"policy-slugify-trim", "Fix slugify truncation and add regression coverage."},
+		{"handoff-validation", "Add handoff validation timestamp for adapter checklist run."},
+		{"generic", "Generic workstream placeholder; full LLM delegation pending opencode-implement."},
+		{"unknown", "Implement workstream changes with regression coverage."},
+	}
+	for _, tt := range tests {
+		got := commitBodyForWorkstream(tt.workstream)
+		if got != tt.want {
+			t.Errorf("commitBodyForWorkstream(%q) = %q, want %q", tt.workstream, got, tt.want)
+		}
+	}
+}
+
+func TestHasLabel(t *testing.T) {
+	if !hasLabel([]string{"autonomy", "strict-evidence"}, "autonomy") {
+		t.Error("hasLabel(autonomy) should be true")
+	}
+	if hasLabel([]string{"autonomy"}, "strict-evidence") {
+		t.Error("hasLabel(strict-evidence) should be false")
+	}
+}
+
 func TestEvaluateOneShotVerificationPassesWithTests(t *testing.T) {
 	result, err := evaluateOneShotVerification([]string{"internal/oneshot/manifest.go", "internal/oneshot/manifest_test.go"}, true)
 	if err != nil {

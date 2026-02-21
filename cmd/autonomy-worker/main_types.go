@@ -18,7 +18,7 @@ type workstreamConfig struct {
 	} `yaml:"workstreams"`
 }
 
-// supportedWorkstreams lists workstream labels that swarm-worker can execute.
+// supportedWorkstreams lists workstream labels that autonomy-worker can claim.
 // Loaded from specs/workstream-config.yaml when present; otherwise fallback.
 var supportedWorkstreams = []string{
 	"workstream:policy-slugify-trim",

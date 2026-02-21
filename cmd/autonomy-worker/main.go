@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"sdp_dev/internal/policy"
+	"sdp_dev/internal/safeid"
 )
 
 func main() {
@@ -37,6 +38,10 @@ func main() {
 	if picked == nil {
 		fmt.Println("No eligible autonomy tasks found")
 		return
+	}
+	if err := safeid.ValidateIssueID(picked.ID); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 
 	model, err := modelFromLabels(picked.Labels)

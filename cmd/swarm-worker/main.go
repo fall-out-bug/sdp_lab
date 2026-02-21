@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"sdp_dev/internal/safeid"
 )
 
 type claimResult struct {
@@ -44,6 +46,11 @@ func main() {
 	}
 	claim, err := parseClaim(claimOut)
 	if err != nil {
+		emitWorkerObservability("", "plan", "failed", "unknown", flowStartedAt, 0, claimFallback, true, "", "")
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if err := safeid.ValidateIssueID(claim.IssueID); err != nil {
 		emitWorkerObservability("", "plan", "failed", "unknown", flowStartedAt, 0, claimFallback, true, "", "")
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

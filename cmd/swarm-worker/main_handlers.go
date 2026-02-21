@@ -33,17 +33,17 @@ func applySelfImprovementWorkstream(repo string, issueID string, detail issueDet
 	return []string{path}
 }
 
-func applyGenericWorkstream(repo string, issueID string, detail issueDetail) []string {
+func applyGenericWorkstream(repo string, issueID string, detail issueDetail) ([]string, error) {
 	path := filepath.Join(repo, "docs", "GENERIC_TASK_PLACEHOLDER.md")
 	content := fmt.Sprintf("# Generic Task Placeholder: %s\n\n- spec_id: %s\n- description: %s\n\n## Acceptance\n\n%s\n\n*Full LLM-based implementation requires opencode-implement or similar tool.*\n",
 		issueID, detail.SpecID, detail.Description, detail.AcceptanceCriteria)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return nil
+		return nil, err
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		return nil
+		return nil, err
 	}
-	return []string{path}
+	return []string{path}, nil
 }
 
 func appendHandoffValidationTimestamp(repo string) error {

@@ -98,7 +98,12 @@ func applyWorkstreamFlow(workstream string, issueID string, issue issueDetail) [
 		}
 		changedFiles = []string{"docs/AGENT_HANDOFF.md"}
 	case "generic":
-		changedFiles = applyGenericWorkstream(".", issueID, issue)
+		var err error
+		changedFiles, err = applyGenericWorkstream(".", issueID, issue)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	case "self-improvement":
 		changedFiles = applySelfImprovementWorkstream(".", issueID, issue)
 	case "evaluator-recommendation":
