@@ -1,6 +1,12 @@
 package evaluator
 
-import "sort"
+import (
+	"os"
+	"path/filepath"
+	"sort"
+
+	"gopkg.in/yaml.v3"
+)
 
 const DeepThinkingSwarmPlanContractVersion = "deep-thinking-evaluator-swarm/v1"
 
@@ -118,6 +124,55 @@ var deepThinkingRoles = []PersonaRole{
 		RequiredEvidence: []string{"outcome-hypothesis", "adoption-signal", "opportunity-cost"},
 		EscalationTarget: "systems-architect",
 	},
+}
+
+// personaRegistryYAML is the schema for specs/persona-registry.yaml
+type personaRegistryYAML struct {
+	Personas []struct {
+		ID               string   `yaml:"id"`
+		DecisionLens     string   `yaml:"decision_lens"`
+		PrimaryQuestion  string   `yaml:"primary_question"`
+		RequiredEvidence []string `yaml:"required_evidence"`
+		EscalationTarget string   `yaml:"escalation_target"`
+		Model            string   `yaml:"model"`
+	} `yaml:"personas"`
+}
+
+// LoadSwarmPlanFromRegistry loads roles from specs/persona-registry.yaml when present.
+// Falls back to DefaultDeepThinkingSwarmPlan() if file missing or invalid.
+func LoadSwarmPlanFromRegistry(workDir string) DeepThinkingSwarmPlan {
+	path := filepath.Join(workDir, "specs", "persona-registry.yaml")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return DefaultDeepThinkingSwarmPlan()
+	}
+	var reg personaRegistryYAML
+	if err := yaml.Unmarshal(b, &reg); err != nil {
+		return DefaultDeepThinkingSwarmPlan()
+	}
+	if len(reg.Personas) == 0 {
+		return DefaultDeepThinkingSwarmPlan()
+	}
+	roles := make([]PersonaRole, 0, len(reg.Personas))
+	for _, p := range reg.Personas {
+		if p.ID == "" {
+			continue
+		}
+		roles = append(roles, PersonaRole{
+			ID:               p.ID,
+			DecisionLens:     p.DecisionLens,
+			PrimaryQuestion:  p.PrimaryQuestion,
+			RequiredEvidence: p.RequiredEvidence,
+			EscalationTarget: p.EscalationTarget,
+		})
+	}
+	if len(roles) == 0 {
+		return DefaultDeepThinkingSwarmPlan()
+	}
+	sort.Slice(roles, func(i, j int) bool { return roles[i].ID < roles[j].ID })
+	plan := DefaultDeepThinkingSwarmPlan()
+	plan.Roles = roles
+	return plan
 }
 
 func DefaultDeepThinkingSwarmPlan() DeepThinkingSwarmPlan {

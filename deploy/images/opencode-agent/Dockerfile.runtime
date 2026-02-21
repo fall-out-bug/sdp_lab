@@ -1,12 +1,16 @@
 FROM debian:bookworm-slim
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates git gh golang-go \
+  && apt-get install -y --no-install-recommends ca-certificates curl git gh golang-go \
+  && curl -sLO https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl \
+  && install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl \
+  && rm -f kubectl \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
 COPY . /workspace
 COPY .tmp/opencode-runtime/opencode-agent /usr/local/bin/opencode-agent
+COPY .tmp/opencode-runtime/orchestrator /usr/local/bin/orchestrator
 COPY .tmp/opencode-runtime/swarm-worker /usr/local/bin/swarm-worker
 COPY .tmp/opencode-runtime/swarm-reviewer /usr/local/bin/swarm-reviewer
 COPY .tmp/opencode-runtime/autonomy-worker /usr/local/bin/autonomy-worker

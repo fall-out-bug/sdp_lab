@@ -13,7 +13,51 @@ import (
 	"time"
 
 	"sdp_dev/internal/policy"
+	"gopkg.in/yaml.v3"
 )
+
+// workstreamConfig is the schema for specs/workstream-config.yaml
+type workstreamConfig struct {
+	Workstreams []struct {
+		Label        string   `yaml:"label"`
+		PathPrefixes []string `yaml:"path_prefixes"`
+	} `yaml:"workstreams"`
+}
+
+// supportedWorkstreams lists workstream labels that swarm-worker can execute.
+// Loaded from specs/workstream-config.yaml when present; otherwise fallback.
+var supportedWorkstreams = []string{
+	"workstream:policy-slugify-trim",
+	"workstream:model-chain-default-fallback",
+	"workstream:policy-k8s-risk-high",
+	"workstream:handoff-validation",
+	"workstream:generic",
+	"workstream:self-improvement",
+	"workstream:evaluator-recommendation",
+}
+
+func loadWorkstreamConfig(root string) {
+	path := filepath.Join(root, "specs", "workstream-config.yaml")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	var cfg workstreamConfig
+	if err := yaml.Unmarshal(b, &cfg); err != nil {
+		return
+	}
+	if len(cfg.Workstreams) > 0 {
+		labels := make([]string, 0, len(cfg.Workstreams))
+		for _, w := range cfg.Workstreams {
+			if w.Label != "" {
+				labels = append(labels, w.Label)
+			}
+		}
+		if len(labels) > 0 {
+			supportedWorkstreams = labels
+		}
+	}
+}
 
 type dep struct {
 	IssueID        string `json:"issue_id"`
@@ -142,11 +186,25 @@ func laneFromLabels(labels []string) string {
 	return "commit"
 }
 
+func hasWorkstreamLabel(labels []string) bool {
+	for _, l := range labels {
+		for _, w := range supportedWorkstreams {
+			if l == w {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func allowedPrefixesFromLabels(labels []string) []string {
+	restricted := []string{"internal/policy/", "internal/evidence/", "cmd/", "docs/", "specs/", "scripts/"}
 	for _, label := range labels {
 		switch label {
 		case "workstream:policy-slugify-trim", "workstream:model-chain-default-fallback", "workstream:policy-k8s-risk-high", "workstream:handoff-validation":
-			return []string{"internal/policy/", "internal/evidence/", "cmd/", "docs/", "specs/", "scripts/"}
+			return restricted
+		case "workstream:generic", "workstream:self-improvement", "workstream:evaluator-recommendation":
+			return []string{"internal/", "cmd/", "docs/", "specs/", "scripts/", "deploy/"}
 		}
 	}
 	return []string{"internal/", "cmd/", "docs/", "specs/", "scripts/", "deploy/"}
@@ -201,6 +259,12 @@ func pickCandidate(byID map[string]issue, debug bool) (*issue, error) {
 		if !hasLabel(it.Labels, "strict-evidence") {
 			if debug {
 				fmt.Printf("skip %s: missing label strict-evidence\n", it.ID)
+			}
+			continue
+		}
+		if !hasWorkstreamLabel(it.Labels) {
+			if debug {
+				fmt.Printf("skip %s: no supported workstream label\n", it.ID)
 			}
 			continue
 		}
@@ -269,6 +333,8 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+
+	loadWorkstreamConfig(root)
 
 	byID, err := listIssues()
 	if err != nil {

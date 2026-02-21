@@ -1,0 +1,57 @@
+# Workstream configuration for autonomy-worker
+# Lists allowed workstream labels and their path restrictions
+workstreams:
+  - label: workstream:policy-slugify-trim
+    path_prefixes:
+      - internal/policy/
+      - internal/evidence/
+      - cmd/
+      - docs/
+      - specs/
+      - scripts/
+  - label: workstream:model-chain-default-fallback
+    path_prefixes:
+      - internal/policy/
+      - internal/evidence/
+      - cmd/
+      - docs/
+      - specs/
+      - scripts/
+  - label: workstream:policy-k8s-risk-high
+    path_prefixes:
+      - internal/policy/
+      - internal/evidence/
+      - cmd/
+      - docs/
+      - specs/
+      - scripts/
+  - label: workstream:handoff-validation
+    path_prefixes:
+      - internal/policy/
+      - internal/evidence/
+      - cmd/
+      - docs/
+      - specs/
+      - scripts/
+  - label: workstream:generic
+    path_prefixes:
+      - internal/
+      - cmd/
+      - docs/
+      - specs/
+      - scripts/
+      - deploy/
+  - label: workstream:self-improvement
+    path_prefixes:
+      - internal/
+      - cmd/
+      - docs/
+      - specs/
+      - scripts/
+  - label: workstream:evaluator-recommendation
+    path_prefixes:
+      - internal/
+      - cmd/
+      - docs/
+      - specs/
+      - scripts/

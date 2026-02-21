@@ -23,8 +23,12 @@ type claimResult struct {
 }
 
 type issueDetail struct {
-	ID     string   `json:"id"`
-	Labels []string `json:"labels"`
+	ID                 string   `json:"id"`
+	Title              string   `json:"title"`
+	Labels             []string `json:"labels"`
+	SpecID             string   `json:"spec_id"`
+	Description        string   `json:"description"`
+	AcceptanceCriteria string   `json:"acceptance_criteria"`
 }
 
 func run(name string, args ...string) ([]byte, error) {
@@ -196,6 +200,46 @@ func hasLabel(labels []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func applyEvaluatorRecommendationWorkstream(repo string, issueID string, detail issueDetail) []string {
+	path := filepath.Join(repo, "docs", "EVALUATOR_RECOMMENDATIONS_LOG.md")
+	content := fmt.Sprintf("\n## %s\n- %s\n", detail.ID, detail.Title)
+	if b, err := os.ReadFile(path); err == nil {
+		content = string(b) + content
+	} else {
+		content = "# Evaluator Recommendations Log\n" + content
+	}
+	_ = os.MkdirAll(filepath.Dir(path), 0o755)
+	_ = os.WriteFile(path, []byte(content), 0o644)
+	return []string{path}
+}
+
+func applySelfImprovementWorkstream(repo string, issueID string, detail issueDetail) []string {
+	path := filepath.Join(repo, "docs", "SELF_IMPROVEMENT_LOG.md")
+	content := fmt.Sprintf("\n## %s\n- %s\n- spec: %s\n", detail.ID, detail.Title, detail.SpecID)
+	if b, err := os.ReadFile(path); err == nil {
+		content = string(b) + content
+	} else {
+		content = "# Self-Improvement Log\n" + content
+	}
+	_ = os.MkdirAll(filepath.Dir(path), 0o755)
+	_ = os.WriteFile(path, []byte(content), 0o644)
+	return []string{path}
+}
+
+func applyGenericWorkstream(repo string, issueID string, detail issueDetail) []string {
+	// Generic workstream: create placeholder implementation. Full LLM delegation requires opencode-implement.
+	path := filepath.Join(repo, "docs", "GENERIC_TASK_PLACEHOLDER.md")
+	content := fmt.Sprintf("# Generic Task Placeholder: %s\n\n- spec_id: %s\n- description: %s\n\n## Acceptance\n\n%s\n\n*Full LLM-based implementation requires opencode-implement or similar tool.*\n",
+		issueID, detail.SpecID, detail.Description, detail.AcceptanceCriteria)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		return nil
+	}
+	return []string{path}
 }
 
 func appendHandoffValidationTimestamp(repo string) error {
@@ -1090,6 +1134,15 @@ func main() {
 	if hasLabel(issue.Labels, "workstream:handoff-validation") {
 		workstream = "handoff-validation"
 	}
+	if hasLabel(issue.Labels, "workstream:generic") {
+		workstream = "generic"
+	}
+	if hasLabel(issue.Labels, "workstream:self-improvement") {
+		workstream = "self-improvement"
+	}
+	if hasLabel(issue.Labels, "workstream:evaluator-recommendation") {
+		workstream = "evaluator-recommendation"
+	}
 	if workstream == "" {
 		emitWorkerObservability(claim.IssueID, "plan", "escalated", claim.Model, flowStartedAt, 0, claimFallback, true, evidenceContextLink, prURL)
 		fmt.Fprintf(os.Stderr, "unsupported workstream labels for issue %s\n", claim.IssueID)
@@ -1162,6 +1215,12 @@ func main() {
 			os.Exit(1)
 		}
 		changedFiles = []string{"docs/AGENT_HANDOFF.md"}
+	case "generic":
+		changedFiles = applyGenericWorkstream(".", claim.IssueID, issue)
+	case "self-improvement":
+		changedFiles = applySelfImprovementWorkstream(".", claim.IssueID, issue)
+	case "evaluator-recommendation":
+		changedFiles = applyEvaluatorRecommendationWorkstream(".", claim.IssueID, issue)
 	}
 
 	testsPassed := true
@@ -1235,6 +1294,15 @@ func main() {
 	}
 	if workstream == "handoff-validation" {
 		commitBody = "Add handoff validation timestamp for adapter checklist run."
+	}
+	if workstream == "generic" {
+		commitBody = "Generic workstream placeholder; full LLM delegation pending opencode-implement."
+	}
+	if workstream == "self-improvement" {
+		commitBody = "Self-improvement cycle: log improvement task."
+	}
+	if workstream == "evaluator-recommendation" {
+		commitBody = "Evaluator recommendation: log from persona consensus."
 	}
 	if workstream == "model-chain-default-fallback" {
 		commitBody = "Make unknown model fallback deterministic and add regression coverage."

@@ -8,9 +8,16 @@ Scope: orchestrator and swarm workers
 - `glm-5` (default primary)
 - `glm-4.7` (default fallback)
 
+Provider-prefixed models (for future OpenRouter/ChatGPT/Claude):
+
+- `zhipuai-coding-plan/glm-5`, `zhipuai-coding-plan/glm-4.7`
+- `openrouter/gpt-4o`, `openrouter/claude-sonnet` (when allowlist extended)
+
+Routing uses `internal/policy/provider.go` and `internal/policy/model_chain.go` for provider-agnostic resolution.
+
 ## Disallowed by default
 
-- any model not listed above
+- any model not listed above or not matching provider-prefix allowlist
 
 ## Routing baseline
 

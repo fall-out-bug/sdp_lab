@@ -1,0 +1,99 @@
+# Orchestrator Deployment for sdp-control namespace
+# Runs Go orchestrator in loop mode; dispatches to opencode-agent in sdp-workers.
+# Requires: kubectl, kubeconfig (in-cluster or mounted), repo clone with .beads
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sdp-orchestrator
+  namespace: sdp-control
+  labels:
+    app: sdp-orchestrator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sdp-orchestrator
+  template:
+    metadata:
+      labels:
+        app: sdp-orchestrator
+    spec:
+      serviceAccountName: sdp-orchestrator
+      initContainers:
+        - name: init-workspace
+          image: sdp-dev-opencode-agent:local
+          imagePullPolicy: Never
+          env:
+            - name: SDP_REPO_URL
+              value: https://github.com/fall-out-bug/sdp_private.git
+            - name: SDP_REPO_BRANCH
+              value: main
+            # GH_TOKEN from sdp-agent-credentials (copy to sdp-control if private repo)
+            # - name: GH_TOKEN
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: sdp-agent-credentials
+            #       key: github_token
+          command: ["/bin/sh", "-lc"]
+          args:
+            - |
+              set -eu
+              clone_url="${SDP_REPO_URL}"
+              [ -n "${GH_TOKEN:-}" ] && clone_url="https://x-access-token:${GH_TOKEN}@${clone_url#https://}"
+              git clone --branch "${SDP_REPO_BRANCH}" --single-branch "${clone_url}" /workspace
+              cd /workspace && bd init --from-jsonl 2>/dev/null || true
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+      containers:
+        - name: orchestrator
+          image: sdp-dev-opencode-agent:local
+          imagePullPolicy: Never
+          command: ["/usr/local/bin/orchestrator"]
+          args:
+            - --in-cluster
+            - --loop
+            - --interval=60s
+            - --work-dir=/workspace
+          env:
+            - name: SDP_REPO_URL
+              value: https://github.com/fall-out-bug/sdp_private.git
+            - name: SDP_REPO_BRANCH
+              value: main
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+      volumes:
+        - name: workspace
+          emptyDir: {}
+---
+# ServiceAccount and RBAC for orchestrator to exec into sdp-workers pods
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sdp-orchestrator
+  namespace: sdp-control
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sdp-orchestrator
+  namespace: sdp-workers
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/exec"]
+    verbs: ["get", "list", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sdp-orchestrator
+  namespace: sdp-workers
+subjects:
+  - kind: ServiceAccount
+    name: sdp-orchestrator
+    namespace: sdp-control
+roleRef:
+  kind: Role
+  name: sdp-orchestrator
+  apiGroup: rbac.authorization.k8s.io

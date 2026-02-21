@@ -128,6 +128,11 @@ func chooseModel(preferred string) (string, []string, bool) {
 }
 
 func AllowedModel(model string) bool {
+	// Support provider prefix: openrouter/gpt-4o, zhipuai-coding-plan/glm-5
+	_, modelID := ParseProviderModel(model)
+	if modelID != "" {
+		model = modelID
+	}
 	_, ok := allowedModels[model]
 	return ok
 }

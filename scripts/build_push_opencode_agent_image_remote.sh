@@ -61,6 +61,7 @@ if [[ ! -d "${BD_SRC_DIR}" ]]; then
 fi
 
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "${RUNTIME_BIN_DIR}/opencode-agent" ./cmd/opencode-agent
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "${RUNTIME_BIN_DIR}/orchestrator" ./cmd/orchestrator
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "${RUNTIME_BIN_DIR}/swarm-worker" ./cmd/swarm-worker
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "${RUNTIME_BIN_DIR}/swarm-reviewer" ./cmd/swarm-reviewer
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "${RUNTIME_BIN_DIR}/autonomy-worker" ./cmd/autonomy-worker

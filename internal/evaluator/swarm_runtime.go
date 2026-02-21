@@ -3,6 +3,9 @@ package evaluator
 import (
 	"errors"
 	"sort"
+	"strings"
+
+	"sdp_dev/internal/beads"
 )
 
 const PersonaExecutionPacketContractVersion = "deep-thinking-evaluator-runtime/v1"
@@ -224,4 +227,37 @@ func requiredConsensus(personaCount int) int {
 		return 0
 	}
 	return (4*personaCount + 4) / 5
+}
+
+// RecommendationsToBeadsTasks creates Beads tasks from priority recommendations.
+// Each recommendation is "persona_id: recommendation text".
+func RecommendationsToBeadsTasks(workDir string, recommendations []string, maxItems int) ([]string, error) {
+	if maxItems <= 0 {
+		maxItems = 3
+	}
+	adapter := beads.NewAdapter(workDir)
+	var created []string
+	for i, rec := range recommendations {
+		if i >= maxItems {
+			break
+		}
+		title := rec
+		if idx := strings.Index(rec, ": "); idx >= 0 {
+			title = strings.TrimSpace(rec[idx+2:])
+		}
+		if len(title) > 80 {
+			title = title[:77] + "..."
+		}
+		id, err := adapter.Create(beads.CreateOpts{
+			Title:   title,
+			Type:    "task",
+			Priority: 2,
+			Labels:  []string{"autonomy", "strict-evidence", "workstream:evaluator-recommendation"},
+		})
+		if err != nil {
+			continue
+		}
+		created = append(created, id)
+	}
+	return created, nil
 }
