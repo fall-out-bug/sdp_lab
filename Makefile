@@ -1,5 +1,5 @@
 # sdp_dev Makefile
-.PHONY: test test-internal coverage lint quality
+.PHONY: test test-internal coverage lint quality generate
 
 test:
 	go test ./... -count=1
@@ -27,3 +27,7 @@ quality: test lint
 	else \
 		sdp quality all 2>/dev/null || true; \
 	fi
+
+generate:
+	$(shell go env GOPATH)/bin/controller-gen object paths=./api/...
+	$(shell go env GOPATH)/bin/controller-gen crd paths=./api/... output:crd:dir=deploy/k8s/crd/
