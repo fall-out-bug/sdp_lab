@@ -42,10 +42,6 @@ spec:
               value: "nats://nats:4222"
             - name: WORKSPACE_BASE
               value: "/workspaces"
-            - name: SDP_DISPATCH_MODE
-              value: "k8s"
-            - name: SDP_K8S_NAMESPACE
-              value: "sdp-workers"
           volumeMounts:
             - name: workspaces
               mountPath: /workspaces

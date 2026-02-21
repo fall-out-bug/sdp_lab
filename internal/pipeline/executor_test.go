@@ -1,9 +1,7 @@
 package pipeline
 
 import (
-	"context"
 	"os"
-	"strings"
 	"testing"
 
 	"sdp_dev/internal/beads"
@@ -64,27 +62,3 @@ func TestBaseBranch(t *testing.T) {
 	}
 }
 
-func TestExecuteTaskK8sModeFailsOutsideCluster(t *testing.T) {
-	orig := os.Getenv("SDP_DISPATCH_MODE")
-	defer func() { _ = os.Setenv("SDP_DISPATCH_MODE", orig) }()
-	_ = os.Setenv("SDP_DISPATCH_MODE", "k8s")
-
-	task := federation.FederatedTask{
-		ProjectID: "test",
-		Issue: beads.Issue{
-			ID:    "test-abc",
-			Title: "Test",
-			Labels: []string{"autonomy", "strict-evidence", "workstream:builder"},
-		},
-		Workspace: t.TempDir(),
-	}
-
-	err := ExecuteTask(context.Background(), nil, task)
-	if err == nil {
-		t.Fatal("ExecuteTask(k8s) expected error when not in cluster")
-	}
-	// When not running in K8s, InClusterConfig fails with "unable to load in-cluster configuration"
-	if !strings.Contains(err.Error(), "in-cluster") && !strings.Contains(err.Error(), "config") {
-		t.Errorf("expected in-cluster config error, got: %v", err)
-	}
-}

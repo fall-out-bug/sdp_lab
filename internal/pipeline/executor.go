@@ -24,13 +24,7 @@ func baseBranch() string {
 }
 
 // ExecuteTask runs opencode with the SDP agent and the full quality pipeline.
-// When SDP_DISPATCH_MODE=k8s, delegates to opencode-agent pod in K8s; otherwise runs locally.
 func ExecuteTask(ctx context.Context, b bus.Bus, task federation.FederatedTask) error {
-	mode := os.Getenv("SDP_DISPATCH_MODE")
-	if mode == "k8s" {
-		return dispatchK8s(ctx, task)
-	}
-
 	role := resolveRole(task)
 	model := resolveModel(task)
 	runID := task.ProjectID + "-" + task.Issue.ID
