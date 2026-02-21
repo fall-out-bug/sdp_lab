@@ -86,6 +86,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	intentTranslator := adapter.NewIntentTranslator()
+	agentRunOpts := adapter.AgentRunReconcilerOpts{
+		IntentTranslator: intentTranslator,
+		PolicyGate:       policyGate,
+		BeadsAdapter:     beadsAdapter,
+	}
+	if err := adapter.NewAgentRunReconciler(mgr.GetClient(), mgr.GetScheme(), agentRunOpts).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "failed to setup AgentRunReconciler")
+		os.Exit(1)
+	}
+
 	// Graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()

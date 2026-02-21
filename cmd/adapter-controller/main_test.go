@@ -38,7 +38,7 @@ func TestManagerStartsAndStops(t *testing.T) {
 		t.Fatalf("create manager: %v", err)
 	}
 
-	// Wire TaskReconciler with minimal opts (no beads, no NATS)
+	// Wire TaskReconciler and AgentRunReconciler with minimal opts
 	reconcilerOpts := adapter.TaskReconcilerOpts{
 		WorkDir:             t.TempDir(),
 		LockManager:         adapter.NewRunLockManager(t.TempDir()),
@@ -48,6 +48,13 @@ func TestManagerStartsAndStops(t *testing.T) {
 	}
 	if err := adapter.NewTaskReconciler(mgr.GetClient(), mgr.GetScheme(), reconcilerOpts).SetupWithManager(mgr); err != nil {
 		t.Fatalf("setup TaskReconciler: %v", err)
+	}
+	agentRunOpts := adapter.AgentRunReconcilerOpts{
+		IntentTranslator: adapter.NewIntentTranslator(),
+		PolicyGate:       adapter.NewPolicyGate(),
+	}
+	if err := adapter.NewAgentRunReconciler(mgr.GetClient(), mgr.GetScheme(), agentRunOpts).SetupWithManager(mgr); err != nil {
+		t.Fatalf("setup AgentRunReconciler: %v", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
