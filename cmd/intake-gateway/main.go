@@ -8,6 +8,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"strings"
+	"syscall"
 	"time"
 
 	"sdp_dev/internal/bus"
@@ -15,14 +18,26 @@ import (
 	"sdp_dev/internal/registry"
 )
 
+const maxBodyBytes = 64 * 1024 // 64KB
+
 func main() {
 	natsURL := flag.String("nats", os.Getenv("NATS_URL"), "NATS server URL")
 	addr := flag.String("addr", ":8081", "HTTP listen address")
+	apiKey := flag.String("api-key", os.Getenv("INTAKE_API_KEY"), "Optional API key for auth (Bearer or X-API-Key)")
 	flag.Parse()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		log.Println("shutdown signal received")
+		cancel()
+	}()
 
 	var b bus.Bus
 	if *natsURL != "" {
-		ctx := context.Background()
 		var err error
 		b, err = bus.ConnectAndProvision(ctx, *natsURL)
 		if err != nil {
@@ -40,14 +55,30 @@ func main() {
 	mux.HandleFunc("GET /api/v1/status/{id}", handleStatus)
 	mux.HandleFunc("GET /api/v1/stream", handleStream(b))
 
-	log.Printf("intake-gateway listening on %s", *addr)
-	if err := http.ListenAndServe(*addr, mux); err != nil {
-		log.Fatalf("serve: %v", err)
+	var h http.Handler = mux
+	if *apiKey != "" {
+		h = apiKeyAuth(*apiKey)(mux)
+	}
+
+	srv := &http.Server{Addr: *addr, Handler: h, ReadHeaderTimeout: 5 * time.Second}
+	go func() {
+		log.Printf("intake-gateway listening on %s", *addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("serve: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("shutdown: %v", err)
 	}
 }
 
 func handleIntake(b bus.Bus) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 		var req intake.Request
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -58,6 +89,10 @@ func handleIntake(b bus.Bus) http.HandlerFunc {
 			return
 		}
 		if err := intake.Normalize(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		if err := intake.ValidateProjectID(req.ProjectID); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
@@ -116,4 +151,23 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// apiKeyAuth returns middleware that requires Authorization: Bearer <key> or X-API-Key: <key> when apiKey is non-empty.
+func apiKeyAuth(apiKey string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			key := r.Header.Get("X-API-Key")
+			if key == "" {
+				if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "Bearer ") {
+					key = strings.TrimPrefix(auth, "Bearer ")
+				}
+			}
+			if key != apiKey {
+				writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }

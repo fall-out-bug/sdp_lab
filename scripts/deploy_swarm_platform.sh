@@ -16,6 +16,10 @@ kubectl apply -k "$REPO_ROOT/deploy/k8s/control/"
 
 # Apply workers (role agents)
 kubectl apply -f "$REPO_ROOT/deploy/k8s/workers/role-agent-coder.yaml" 2>/dev/null || true
+kubectl apply -f "$REPO_ROOT/deploy/k8s/workers/role-agent-analyst.yaml" 2>/dev/null || true
+
+# KEDA scalers (namespace sdp-workers, requires KEDA operator)
+kubectl apply -f "$REPO_ROOT/deploy/k8s/control/keda-scalers.yaml" 2>/dev/null || true
 
 echo "Deploy complete. Check: kubectl get pods -n sdp-control"
 echo "NATS: kubectl port-forward -n sdp-control svc/nats 4222:4222 8222:8222"

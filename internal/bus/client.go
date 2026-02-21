@@ -75,6 +75,7 @@ func (c *Client) Connect(ctx context.Context) error {
 	}
 
 	opts := []nats.Option{
+		nats.Timeout(c.connectTimeout),
 		nats.ReconnectWait(c.reconnectWait),
 		nats.MaxReconnects(c.maxReconnects),
 		nats.DisconnectErrHandler(func(nc *nats.Conn, err error) {

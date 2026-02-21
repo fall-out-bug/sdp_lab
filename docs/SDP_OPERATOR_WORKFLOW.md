@@ -43,6 +43,25 @@ flowchart TD
     Reviewer --> PRGate --> FSM --> Close --> Sync
 ```
 
+## NATS Flow (Swarm Platform)
+
+When the swarm platform is deployed, intake and lifecycle flow through NATS:
+
+```mermaid
+flowchart LR
+    Intake[POST /api/v1/intake] --> Gateway[intake-gateway]
+    Gateway -->|publish| NATS[(NATS JetStream)]
+    NATS -->|sdp.intake.{project}| Orchestrator[swarm-orchestrator]
+    Orchestrator -->|dispatch| Coder[role-agent-coder]
+    Orchestrator -->|dispatch| Analyst[role-agent-analyst]
+    Coder -->|sdp.lifecycle.>| NATS
+    Analyst -->|sdp.lifecycle.>| NATS
+```
+
+- **Subjects:** `sdp.intake.{projectID}` (intake), `sdp.lifecycle.>` (lifecycle events)
+- **Stream:** `SDP_INTAKE` (JetStream)
+- **KEDA:** Scales coder/analyst agents by consumer lag
+
 ## Sequence
 
 1. **Find work:** `bd ready --label autonomy --label workstream:kubeopencode-upstream` (or `workstream:agentrun-operator`)
@@ -86,4 +105,7 @@ Preflight: git pull, bd sync --import-only, then exec into opencode-agent pod to
 - [BEADS_AUTONOMY_SPEC.md](BEADS_AUTONOMY_SPEC.md)
 - [BEADS_SDP_REQUIREMENTS.md](BEADS_SDP_REQUIREMENTS.md)
 - [K8S_OPERATOR_BACKLOG_PLAN.md](K8S_OPERATOR_BACKLOG_PLAN.md)
+- [AGENT_HOOKS_SPEC.md](AGENT_HOOKS_SPEC.md)
+- [AGENT_SKILLS_SPEC.md](AGENT_SKILLS_SPEC.md)
+- [PROJECT_REGISTRY_SPEC.md](PROJECT_REGISTRY_SPEC.md)
 - [docs/UP_001_WORK_PLAN.md](UP_001_WORK_PLAN.md)

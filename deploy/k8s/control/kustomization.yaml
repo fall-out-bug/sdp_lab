@@ -6,5 +6,6 @@ resources:
   - scheduler.yaml
   - policy-service.yaml
   - nats.yaml
+  - swarm-workspaces-pvc.yaml
   - intake-gateway.yaml
   - swarm-orchestrator.yaml
