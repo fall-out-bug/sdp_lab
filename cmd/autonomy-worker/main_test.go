@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"time"
 )
 
 func TestHasLabel(t *testing.T) {
@@ -128,6 +129,12 @@ func TestModelFromLabels(t *testing.T) {
 			t.Errorf("modelFromLabels(%v) = %q, want %q", tt.labels, got, tt.want)
 		}
 	}
+}
+
+func TestEmitAutonomyObservabilityNoPanic(t *testing.T) {
+	// Smoke test: emit should not panic
+	emitAutonomyObservability("sdp_dev-4pg", "claim", "success", "glm-5", time.Now().Add(-time.Second))
+	emitAutonomyObservability("", "plan", "blocked", "unknown", time.Now())
 }
 
 func TestExtractJSON(t *testing.T) {

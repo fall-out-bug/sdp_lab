@@ -76,6 +76,7 @@ func main() {
 	if _, err := run("git", "checkout", "-b", claim.Branch); err != nil {
 		_, err = run("git", "checkout", claim.Branch)
 		if err != nil {
+			emitWorkerObservability(claim.IssueID, "execute", "failed", claim.Model, flowStartedAt, 0, claimFallback, true, evidenceContextLink, prURL)
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
@@ -98,6 +99,7 @@ func main() {
 
 	onesNote, err := updateEvidence(claim.IssueID, claim.Branch, workstream, changedFiles, testsPassed)
 	if err != nil {
+		emitWorkerObservability(claim.IssueID, "verify", "failed", claim.Model, flowStartedAt, 0, claimFallback, true, evidenceContextLink, prURL)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -127,12 +129,14 @@ func main() {
 	args = append(args, ".beads/issues.jsonl")
 	args = append(args, ".beads/metadata.json")
 	if _, err := run("git", args...); err != nil {
+		emitWorkerObservability(claim.IssueID, "execute", "failed", claim.Model, flowStartedAt, 0, claimFallback, true, evidenceContextLink, prURL)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
 	staged, err := hasStagedChanges()
 	if err != nil {
+		emitWorkerObservability(claim.IssueID, "execute", "failed", claim.Model, flowStartedAt, 0, claimFallback, true, evidenceContextLink, prURL)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -155,6 +159,7 @@ func main() {
 		os.Exit(1)
 	}
 	if _, err := run("git", "push", "-u", "origin", claim.Branch); err != nil {
+		emitWorkerObservability(claim.IssueID, "execute", "failed", claim.Model, flowStartedAt, 0, claimFallback, true, evidenceContextLink, prURL)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

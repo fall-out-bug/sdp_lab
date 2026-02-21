@@ -1,6 +1,7 @@
 package main
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -55,6 +56,70 @@ func TestHasLabel(t *testing.T) {
 	}
 	if hasLabel([]string{"autonomy"}, "strict-evidence") {
 		t.Error("hasLabel(strict-evidence) should be false")
+	}
+}
+
+func TestParseClaim(t *testing.T) {
+	valid := []byte(`{"issue_id":"sdp_dev-4pg","title":"x","model":"glm-5","branch":"feat/sdp_dev-4pg"}`)
+	claim, err := parseClaim(valid)
+	if err != nil {
+		t.Fatalf("parseClaim: %v", err)
+	}
+	if claim.IssueID != "sdp_dev-4pg" || claim.Branch != "feat/sdp_dev-4pg" {
+		t.Fatalf("unexpected claim: %+v", claim)
+	}
+
+	noise := []byte(`some output\n` + string(valid))
+	claim2, err := parseClaim(noise)
+	if err != nil {
+		t.Fatalf("parseClaim with noise: %v", err)
+	}
+	if claim2.IssueID != "sdp_dev-4pg" {
+		t.Fatalf("unexpected claim: %+v", claim2)
+	}
+
+	invalid := []byte(`{"issue_id":"","branch":"x"}`)
+	_, err = parseClaim(invalid)
+	if err == nil {
+		t.Fatal("expected error for missing issue_id")
+	}
+
+	badJSON := []byte(`not json`)
+	_, err = parseClaim(badJSON)
+	if err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+}
+
+func TestToStringSlice(t *testing.T) {
+	if got := toStringSlice([]any{"a", "b"}); len(got) != 2 || got[0] != "a" {
+		t.Fatalf("toStringSlice([]any): %v", got)
+	}
+	if got := toStringSlice([]string{"x"}); len(got) != 1 || got[0] != "x" {
+		t.Fatalf("toStringSlice([]string): %v", got)
+	}
+	if got := toStringSlice(123); got != nil {
+		t.Fatalf("toStringSlice(123): %v", got)
+	}
+}
+
+func TestHasPrefixAny(t *testing.T) {
+	if !hasPrefixAny("internal/policy/foo.go", []string{"internal/", "cmd/"}) {
+		t.Error("hasPrefixAny should match internal/")
+	}
+	if hasPrefixAny("docs/foo.md", []string{"internal/", "cmd/"}) {
+		t.Error("hasPrefixAny should not match")
+	}
+}
+
+func TestApplyGenericWorkstream(t *testing.T) {
+	dir := t.TempDir()
+	changed, err := applyGenericWorkstream(dir, "test-1", issueDetail{ID: "test-1", SpecID: "spec", Description: "d", AcceptanceCriteria: "ac"})
+	if err != nil {
+		t.Fatalf("applyGenericWorkstream: %v", err)
+	}
+	if len(changed) != 1 || changed[0] != filepath.Join(dir, "docs", "GENERIC_TASK_PLACEHOLDER.md") {
+		t.Fatalf("unexpected changed: %v", changed)
 	}
 }
 

@@ -13,12 +13,14 @@ import (
 )
 
 func main() {
+	startedAt := time.Now()
 	dryRun := flag.Bool("dry-run", false, "Print selected task without changes")
 	debug := flag.Bool("debug", false, "Print candidate selection diagnostics")
 	flag.Parse()
 
 	root, err := os.Getwd()
 	if err != nil {
+		emitAutonomyObservability("", "intake", "failed", "unknown", startedAt)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -27,25 +29,30 @@ func main() {
 
 	byID, err := listIssues()
 	if err != nil {
+		emitAutonomyObservability("", "intake", "failed", "unknown", startedAt)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	picked, err := pickCandidate(byID, *debug)
 	if err != nil {
+		emitAutonomyObservability("", "intake", "failed", "unknown", startedAt)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	if picked == nil {
+		emitAutonomyObservability("", "plan", "blocked", "unknown", startedAt)
 		fmt.Println("No eligible autonomy tasks found")
 		return
 	}
 	if err := safeid.ValidateIssueID(picked.ID); err != nil {
+		emitAutonomyObservability(picked.ID, "intake", "failed", "unknown", startedAt)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
 	model, err := modelFromLabels(picked.Labels)
 	if err != nil {
+		emitAutonomyObservability(picked.ID, "intake", "failed", "unknown", startedAt)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
@@ -67,6 +74,7 @@ func main() {
 	}
 
 	if _, err := runBD("update", picked.ID, "--status", "in_progress"); err != nil {
+		emitAutonomyObservability(picked.ID, "claim", "failed", model, startedAt)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -87,12 +95,14 @@ func main() {
 	}
 	runPath := filepath.Join(root, ".sdp", "runs", picked.ID+".json")
 	if err := writeJSON(runPath, runPacket); err != nil {
+		emitAutonomyObservability(picked.ID, "claim", "failed", model, startedAt)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
 	evidencePath, err := populateEvidence(root, picked, branch, decision)
 	if err != nil {
+		emitAutonomyObservability(picked.ID, "claim", "failed", model, startedAt)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -104,10 +114,12 @@ func main() {
 
 	note := fmt.Sprintf("autonomy-worker(go): claimed; verdict=%s; model=%s; branch=%s; packet=%s; evidence=%s", decision.PolicyVerdict, decision.SelectedModel, branch, runPath, evidencePath)
 	if err := appendNote(picked.ID, note); err != nil {
+		emitAutonomyObservability(picked.ID, "claim", "failed", model, startedAt)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
+	emitAutonomyObservability(picked.ID, "claim", "success", model, startedAt)
 	b, _ := json.MarshalIndent(output, "", "  ")
 	fmt.Println(string(b))
 }

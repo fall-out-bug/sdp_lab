@@ -42,12 +42,12 @@ Private planning and orchestration workspace for SDP evolution.
 - `specs/autonomy-runtime-contract.yaml` - runtime contract baseline.
 - `specs/brain-decision-api.yaml` - brain decision request/response contract.
 - `specs/strict-evidence-template.json` - mandatory PR evidence structure.
-- `cmd/autonomy-worker/` - picks next autonomy task from Beads and prepares execution packet.
+- `cmd/autonomy-worker/` - picks next autonomy task from Beads and prepares execution packet. Modular: main_types, main_picker, main_labels, main_io, main_evidence, main_observability.
 - `cmd/brain-gateway/` - evaluates policy/risk/model/branch decision.
 - `cmd/beads-fsm/` - validates/applies guarded state transitions.
 - `cmd/pr-gate/` - blocks PR progression when strict evidence is incomplete.
 - `cmd/pr-publish/` - creates PR via `gh` and writes `trace.pr_url` into evidence.
-- `cmd/swarm-worker/` - worker role that claims and implements eligible coding tasks.
+- `cmd/swarm-worker/` - worker role that claims and implements eligible coding tasks. Modular: main_flow, main_handlers, main_patches, main_ensure_*, main_verify*, main_observability, main_runner, main_util. See docs/SWARM_WORKER_RUNBOOK.md.
 - `cmd/swarm-reviewer/` - reviewer role that validates review flow and finalizes tasks.
 - `cmd/opencode-agent/` - orchestrates worker+reviewer cycle using OpenCode with model routing (`swarm-worker`: `glm-4.7`, `swarm-reviewer`: `glm-5`).
 - `cmd/redaction-check/` - scans candidate OSS exports for forbidden private terms.
