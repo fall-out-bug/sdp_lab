@@ -81,11 +81,11 @@ func (s *Subscriber) SubscribeJetStream(subject, stream, consumer, queue string,
 	cb := func(msg *nats.Msg) {
 		var env Envelope
 		if err := json.Unmarshal(msg.Data, &env); err != nil {
-			msg.Nak()
+			_ = msg.Nak()
 			return
 		}
 		handler(env)
-		msg.Ack()
+		_ = msg.Ack()
 	}
 
 	var sub *nats.Subscription

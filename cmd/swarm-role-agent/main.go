@@ -111,7 +111,11 @@ func handleDispatch(ctx context.Context, b bus.Bus, env bus.Envelope, role, agen
 	}
 
 	input := roles.TaskInput{FederatedTask: task, Ctx: agentCtx}
-	res, err := roles.Execute(ctx, role, input)
+	res, execErr := roles.Execute(ctx, role, input)
+	if execErr != nil {
+		log.Printf("execute: %v", execErr)
+		return
+	}
 
 	if agentCtx.Hooks != nil {
 		_ = agentCtx.Hooks.RunPostExecute(ctx, agent.HookData{

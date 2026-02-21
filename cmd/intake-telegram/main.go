@@ -59,7 +59,7 @@ func main() {
 				log.Printf("gateway: %v", err)
 				return
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			var result map[string]any
 			_ = json.NewDecoder(resp.Body).Decode(&result)
 			// Send reply to user via Telegram API
