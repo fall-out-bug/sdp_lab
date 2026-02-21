@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"sdp_dev/api/v1alpha1"
+	"sdp_dev/internal/adapter"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -15,7 +16,6 @@ import (
 )
 
 func TestManagerStartsAndStops(t *testing.T) {
-	// Skip if envtest binaries not available (CI may not have them)
 	env := &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "deploy", "k8s", "crd")},
 		ErrorIfCRDPathMissing: false,
@@ -36,6 +36,18 @@ func TestManagerStartsAndStops(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("create manager: %v", err)
+	}
+
+	// Wire TaskReconciler with minimal opts (no beads, no NATS)
+	reconcilerOpts := adapter.TaskReconcilerOpts{
+		WorkDir:             t.TempDir(),
+		LockManager:         adapter.NewRunLockManager(t.TempDir()),
+		PolicyGate:          adapter.NewPolicyGate(),
+		EvidenceProjector:   adapter.NewEvidenceProjector(t.TempDir()),
+		LifecycleReconciler: adapter.NewLifecycleReconciler(),
+	}
+	if err := adapter.NewTaskReconciler(mgr.GetClient(), mgr.GetScheme(), reconcilerOpts).SetupWithManager(mgr); err != nil {
+		t.Fatalf("setup TaskReconciler: %v", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
