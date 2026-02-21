@@ -137,7 +137,12 @@ for i, ch in enumerate(payload):
 if start == -1:
     print("")
     raise SystemExit(0)
-obj = json.loads(payload[start:])
+raw = payload[start:]
+try:
+    obj = json.loads(raw)
+except json.JSONDecodeError:
+    first_line = raw.split("\n")[0]
+    obj = json.loads(first_line) if first_line.strip() else {}
 if isinstance(obj, list):
     obj = obj[0] if obj else {}
 value = obj.get(field, "")
@@ -164,7 +169,12 @@ for i, ch in enumerate(payload):
 if start == -1:
     print("")
     raise SystemExit(0)
-obj = json.loads(payload[start:])
+raw = payload[start:]
+try:
+    obj = json.loads(raw)
+except json.JSONDecodeError:
+    first_line = raw.split("\n")[0]
+    obj = json.loads(first_line) if first_line.strip() else {}
 if isinstance(obj, list):
     obj = obj[0] if obj else {}
 notes = obj.get("notes", "")
