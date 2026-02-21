@@ -31,3 +31,8 @@ quality: test lint
 generate:
 	$(shell go env GOPATH)/bin/controller-gen object paths=./api/...
 	$(shell go env GOPATH)/bin/controller-gen crd paths=./api/... output:crd:dir=deploy/k8s/crd/
+
+# Download envtest binaries for adapter-controller tests (optional)
+envtest:
+	@go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	@$(shell go env GOPATH)/bin/setup-envtest use -i -p path

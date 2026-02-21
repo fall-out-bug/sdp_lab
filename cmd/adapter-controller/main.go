@@ -1,82 +1,95 @@
-// adapter-controller is a placeholder for the kubeopencode adapter controller.
-// It watches Task/Agent CRDs and drives the adapter layer (intent translator,
-// lifecycle reconciler, evidence projector, policy gate).
-//
-// Full implementation requires:
-// - kubeopencode client-go types
-// - informer/watch on Task and Agent CRDs
-// - reconciliation loop that calls adapter components
-//
-// Run: go run ./cmd/adapter-controller
+// adapter-controller watches Task/AgentRun CRDs and drives the adapter layer.
+// Uses controller-runtime Manager with TaskReconciler.
 package main
 
 import (
-	"fmt"
+	"context"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
+	"sdp_dev/api/v1alpha1"
 	"sdp_dev/internal/adapter"
-	"sdp_dev/internal/beads"
+	"sdp_dev/internal/bus"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
+var (
+	scheme   = runtime.NewScheme()
+	setupLog = ctrl.Log.WithName("setup")
+)
+
+func init() {
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+}
+
 func main() {
-	workDir, _ := os.Getwd()
-	if d := os.Getenv("SDP_WORK_DIR"); d != "" {
-		workDir = d
-	}
+	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
-	translator := adapter.NewIntentTranslator()
-	lockMgr := adapter.NewRunLockManager(filepath.Join(os.TempDir(), "sdp-adapter-locks"))
-	policyGate := adapter.NewPolicyGate()
-	projector := adapter.NewEvidenceProjector(workDir)
-
-	// Demo: translate a Beads issue (requires bd and .beads)
-	bdAdapter := beads.NewAdapter(workDir)
-	issues, err := bdAdapter.Ready([]string{"autonomy"}, 1)
+	cfg, err := getKubeConfig()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "bd ready: %v\n", err)
+		setupLog.Error(err, "failed to get kube config")
 		os.Exit(1)
 	}
-	if len(issues) == 0 {
-		fmt.Println("No ready issues; adapter-controller is a no-op")
-		return
-	}
 
-	issue := &issues[0]
-	intent, err := translator.Translate(issue, issue.ID+"-1")
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme: scheme,
+	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "translate: %v\n", err)
+		ctrl.Log.WithName("main").Error(err, "failed to create manager")
 		os.Exit(1)
 	}
 
-	// Policy gate
-	gr := policyGate.PreDispatchModelAllowlist("glm-4.7")
-	if !gr.Passed {
-		fmt.Fprintf(os.Stderr, "policy gate: %s\n", gr.Reason)
+	// Register TaskReconciler
+	if err := adapter.NewTaskReconciler(mgr.GetClient(), mgr.GetScheme()).SetupWithManager(mgr); err != nil {
+		ctrl.Log.WithName("main").Error(err, "failed to setup TaskReconciler")
 		os.Exit(1)
 	}
 
-	// Run lock
-	runID, acquired, err := lockMgr.TryAcquire(issue.ID, intent.RunID)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "lock: %v\n", err)
-		os.Exit(1)
+	// NATS connection (optional for status events)
+	if url := os.Getenv("NATS_URL"); url != "" {
+		natsClient := bus.NewClient(url)
+		ctx, cancel := context.WithTimeout(context.Background(), bus.DefaultReconnectWait*5)
+		if err := natsClient.Connect(ctx); err != nil {
+			setupLog.Info("NATS connect skipped", "error", err)
+		} else {
+			defer natsClient.Close()
+		}
+		cancel()
 	}
-	if !acquired {
-		fmt.Println("Issue already locked; skipping")
-		return
-	}
-	defer func() {
-		if err := lockMgr.Release(issue.ID); err != nil {
-			fmt.Fprintf(os.Stderr, "release lock: %v\n", err)
+
+	// Graceful shutdown
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+
+	go func() {
+		if err := mgr.Start(ctx); err != nil {
+			ctrl.Log.WithName("main").Error(err, "manager exited")
 		}
 	}()
 
-	// Evidence projection
-	path, err := projector.ProjectFromIntent(intent, map[string]string{"coder": "placeholder"}, runID)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "project: %v\n", err)
-		os.Exit(1)
+	<-ctx.Done()
+	setupLog.Info("shutting down")
+}
+
+func getKubeConfig() (*rest.Config, error) {
+	if kubeconfig := os.Getenv("KUBECONFIG"); kubeconfig != "" {
+		return clientcmd.BuildConfigFromFlags("", kubeconfig)
 	}
-	fmt.Printf("Evidence projected to %s\n", path)
+	if home := os.Getenv("HOME"); home != "" {
+		path := filepath.Join(home, ".kube", "config")
+		if _, err := os.Stat(path); err == nil {
+			return clientcmd.BuildConfigFromFlags("", path)
+		}
+	}
+	return rest.InClusterConfig()
 }
