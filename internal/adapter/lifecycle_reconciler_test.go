@@ -38,6 +38,12 @@ func TestLifecycleReconciler_ReconcilePhase(t *testing.T) {
 		t.Errorf("Succeeded+Review: got state=%s action=%s", state, action)
 	}
 
+	// PhaseCompleted (kubeopencode) maps same as PhaseSucceeded
+	state, action, _ = r.ReconcilePhase(FSMInProgress, PhaseCompleted, "")
+	if state != FSMReview || action != "verification_candidate" {
+		t.Errorf("Completed+InProgress: got state=%s action=%s", state, action)
+	}
+
 	// Failed + retry -> Blocked
 	state, action, _ = r.ReconcilePhase(FSMInProgress, PhaseFailed, "retry timeout")
 	if state != FSMBlocked || action != "retry_budget" {

@@ -6,12 +6,15 @@ import (
 )
 
 // CRDPhase represents kubeopencode Task status.phase.
+// kubeopencode uses "Completed"; adapter uses PhaseSucceeded for FSM mapping.
+// PhaseCompleted is an alias so callers can pass kubeopencode's TaskPhaseCompleted directly.
 type CRDPhase string
 
 const (
 	PhasePending   CRDPhase = "Pending"
 	PhaseRunning   CRDPhase = "Running"
 	PhaseSucceeded CRDPhase = "Succeeded"
+	PhaseCompleted CRDPhase = "Completed" // kubeopencode uses Completed; maps to PhaseSucceeded semantics
 	PhaseFailed    CRDPhase = "Failed"
 )
 
@@ -48,7 +51,7 @@ func (r *LifecycleReconciler) ReconcilePhase(currentFSM FSMState, crdPhase CRDPh
 		return currentFSM, "", nil
 	case PhaseRunning:
 		return FSMInProgress, "heartbeat", nil
-	case PhaseSucceeded:
+	case PhaseSucceeded, PhaseCompleted:
 		if currentFSM == FSMInProgress {
 			return FSMReview, "verification_candidate", nil
 		}

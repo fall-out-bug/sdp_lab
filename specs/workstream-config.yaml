@@ -77,3 +77,9 @@ workstreams:
       - docs/
       - specs/
       - scripts/
+  - label: workstream:kubeopencode-upstream
+    path_prefixes:
+      - docs/
+      - specs/
+      - scripts/
+      - internal/adapter/
