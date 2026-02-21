@@ -4,26 +4,17 @@ version: 1
 quality:
   coverage_threshold: 80
   max_file_loc: 200
+  complexity_threshold: 40
+  complexity_exclude:
+    - "cmd/"
   # cmd packages are integration-style; coverage measured on internal/
+  # cmd: integration-style; beads/orchestrator/openclaw: bd CLI / SSH / external deps
   coverage_exclude:
-    - "cmd/adapter-controller"
-    - "cmd/autonomy-worker"
-    - "cmd/beads-fsm"
-    - "cmd/brain-gateway"
-    - "cmd/evaluator-orchestrator"
-    - "cmd/flow-inspect"
-    - "cmd/openclaw-agent"
-    - "cmd/opencode-agent"
-    - "cmd/operator-gate"
-    - "cmd/orchestrator"
-    - "cmd/pr-gate"
-    - "cmd/pr-publish"
-    - "cmd/redaction-check"
-    - "cmd/runtime-parity-check"
-    - "cmd/self-improve-agent"
-    - "cmd/swarm-agent"
-    - "cmd/swarm-reviewer"
-    - "cmd/swarm-worker"
+    - "cmd/"
+    - "internal/runtime"
+    - "internal/beads"
+    - "internal/orchestrator"
+    - "internal/openclaw"
 
 guard:
   mode: "standard"

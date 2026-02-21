@@ -6,6 +6,34 @@ import (
 	"testing"
 )
 
+func TestParseIssueList(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      []byte
+		wantLen int
+		wantErr bool
+	}{
+		{"empty", []byte(""), 0, false},
+		{"whitespace", []byte("   \n"), 0, false},
+		{"array", []byte(`[{"id":"x","title":"t"}]`), 1, false},
+		{"object", []byte(`{"id":"y","title":"t2"}`), 1, false},
+		{"prefixed", []byte("warn: ok\n[{\"id\":\"z\"}]"), 1, false},
+		{"no json", []byte("no json here"), 0, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseIssueList(tt.in)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseIssueList() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if len(got) != tt.wantLen {
+				t.Errorf("parseIssueList() len = %d, want %d", len(got), tt.wantLen)
+			}
+		})
+	}
+}
+
 func TestAdapter_Ready(t *testing.T) {
 	dir, err := os.Getwd()
 	if err != nil {

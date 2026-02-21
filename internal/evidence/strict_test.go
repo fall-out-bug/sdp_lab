@@ -85,6 +85,21 @@ func TestValidateStrictFileVerifiedModeAllowsMissingPRURL(t *testing.T) {
 	}
 }
 
+func TestFormatMissing(t *testing.T) {
+	if got := FormatMissing(nil); got != "" {
+		t.Errorf("FormatMissing(nil) = %q, want \"\"", got)
+	}
+	if got := FormatMissing([]string{}); got != "" {
+		t.Errorf("FormatMissing([]) = %q, want \"\"", got)
+	}
+	if got := FormatMissing([]string{"a"}); got != "missing: a" {
+		t.Errorf("FormatMissing([a]) = %q, want \"missing: a\"", got)
+	}
+	if got := FormatMissing([]string{"a", "b"}); got != "missing: a, b" {
+		t.Errorf("FormatMissing([a,b]) = %q, want \"missing: a, b\"", got)
+	}
+}
+
 func TestValidateStrictFileInvalidBoundaryContract(t *testing.T) {
 	dir := t.TempDir()
 	body := `{

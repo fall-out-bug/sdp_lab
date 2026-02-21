@@ -22,4 +22,8 @@ lint:
 
 quality: test lint
 	@echo "Running sdp quality..."
-	@sdp quality all 2>/dev/null || true
+	@if [ -d sdp/sdp-plugin ]; then \
+		(cd sdp/sdp-plugin && go build -o /tmp/sdp-quality ./cmd/sdp) && /tmp/sdp-quality quality all; \
+	else \
+		sdp quality all 2>/dev/null || true; \
+	fi
