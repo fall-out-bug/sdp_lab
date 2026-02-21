@@ -145,7 +145,7 @@ func laneFromLabels(labels []string) string {
 func allowedPrefixesFromLabels(labels []string) []string {
 	for _, label := range labels {
 		switch label {
-		case "workstream:policy-slugify-trim", "workstream:model-chain-default-fallback", "workstream:policy-k8s-risk-high":
+		case "workstream:policy-slugify-trim", "workstream:model-chain-default-fallback", "workstream:policy-k8s-risk-high", "workstream:handoff-validation":
 			return []string{"internal/policy/", "internal/evidence/", "cmd/", "docs/", "specs/", "scripts/"}
 		}
 	}

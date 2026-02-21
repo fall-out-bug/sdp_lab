@@ -198,6 +198,17 @@ func hasLabel(labels []string, target string) bool {
 	return false
 }
 
+func appendHandoffValidationTimestamp(repo string) error {
+	path := filepath.Join(repo, "docs", "AGENT_HANDOFF.md")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	ts := time.Now().UTC().Format(time.RFC3339)
+	line := "\n\n## Validation Run\n\n- " + ts + " (workstream:handoff-validation)\n"
+	return os.WriteFile(path, append(b, []byte(line)...), 0o644)
+}
+
 func patchSlugifyForTrim(repo string) error {
 	path := filepath.Join(repo, "internal", "policy", "decision.go")
 	b, err := os.ReadFile(path)
@@ -1076,6 +1087,9 @@ func main() {
 	if hasLabel(issue.Labels, "workstream:oneshot-swarm-orchestrator") {
 		workstream = "oneshot-swarm-orchestrator"
 	}
+	if hasLabel(issue.Labels, "workstream:handoff-validation") {
+		workstream = "handoff-validation"
+	}
 	if workstream == "" {
 		emitWorkerObservability(claim.IssueID, "plan", "escalated", claim.Model, flowStartedAt, 0, claimFallback, true, evidenceContextLink, prURL)
 		fmt.Fprintf(os.Stderr, "unsupported workstream labels for issue %s\n", claim.IssueID)
@@ -1142,6 +1156,12 @@ func main() {
 			os.Exit(1)
 		}
 		changedFiles = []string{"internal/oneshot/manifest.go", "internal/oneshot/manifest_test.go"}
+	case "handoff-validation":
+		if err := appendHandoffValidationTimestamp("."); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		changedFiles = []string{"docs/AGENT_HANDOFF.md"}
 	}
 
 	testsPassed := true
@@ -1212,6 +1232,9 @@ func main() {
 	commitBody := "Implement workstream changes with regression coverage."
 	if workstream == "policy-slugify-trim" {
 		commitBody = "Fix slugify truncation and add regression coverage."
+	}
+	if workstream == "handoff-validation" {
+		commitBody = "Add handoff validation timestamp for adapter checklist run."
 	}
 	if workstream == "model-chain-default-fallback" {
 		commitBody = "Make unknown model fallback deterministic and add regression coverage."
