@@ -4,6 +4,7 @@ set -euo pipefail
 HOST=""
 PORT="22"
 ISSUE=""
+FEATURE=""
 TIMEOUT="300"
 POLL="10"
 RETRIES="3"
@@ -25,6 +26,10 @@ while [[ $# -gt 0 ]]; do
       ISSUE="$2"
       shift 2
       ;;
+    --feature)
+      FEATURE="$2"
+      shift 2
+      ;;
     --timeout)
       TIMEOUT="$2"
       shift 2
@@ -43,15 +48,31 @@ while [[ $# -gt 0 ]]; do
       ;;
     *)
       echo "Unknown argument: $1"
-      echo "Usage: $0 --host <user@ip-or-host> --issue <id> [--port <port>] [--timeout <seconds>] [--poll <seconds>] [--retries <count>] [--retry-delay <seconds>]"
+      echo "Usage: $0 --host <user@ip-or-host> (--issue <id> | --feature <id>) [--port <port>] [--timeout <seconds>] [--poll <seconds>] [--retries <count>] [--retry-delay <seconds>]"
       exit 2
       ;;
   esac
 done
 
-if [[ -z "${HOST}" || -z "${ISSUE}" ]]; then
-  echo "Usage: $0 --host <user@ip-or-host> --issue <id> [--port <port>] [--timeout <seconds>] [--poll <seconds>] [--retries <count>] [--retry-delay <seconds>]"
+if [[ -z "${HOST}" ]]; then
+  echo "Usage: $0 --host <user@ip-or-host> (--issue <id> | --feature <id>) [--port <port>] [--timeout <seconds>] [--poll <seconds>] [--retries <count>] [--retry-delay <seconds>]"
   exit 2
+fi
+
+if [[ -n "${FEATURE}" && -n "${ISSUE}" ]]; then
+  echo "Error: cannot specify both --issue and --feature"
+  exit 2
+fi
+
+if [[ -z "${FEATURE}" && -z "${ISSUE}" ]]; then
+  echo "Usage: $0 --host <user@ip-or-host> (--issue <id> | --feature <id>) [--port <port>] ..."
+  exit 2
+fi
+
+if [[ -n "${FEATURE}" ]]; then
+  echo "[orchestrate] feature mode: decomposing and dispatching ${FEATURE}"
+  ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+  exec go run "${ROOT}/cmd/orchestrator" --feature "${FEATURE}" --host "${HOST}" --port "${PORT}" --work-dir "${ROOT}"
 fi
 
 # Validate ISSUE format (beads ID: alphanumeric, hyphens, dots; prevents injection)
@@ -132,9 +153,13 @@ extract_field() {
   PAYLOAD="${payload}" FIELD="${field}" python3 - <<'PY'
 import json
 import os
+import sys
 
 payload = os.environ.get("PAYLOAD", "")
 field = os.environ.get("FIELD", "")
+if not payload or not field:
+    print("")
+    sys.exit(0)
 start = -1
 for i, ch in enumerate(payload):
     if ch in "[{":
@@ -142,13 +167,20 @@ for i, ch in enumerate(payload):
         break
 if start == -1:
     print("")
-    raise SystemExit(0)
-raw = payload[start:]
-try:
-    obj = json.loads(raw)
-except json.JSONDecodeError:
-    first_line = raw.split("\n")[0]
-    obj = json.loads(first_line) if first_line.strip() else {}
+    sys.exit(0)
+raw = payload[start:].strip()
+obj = None
+for candidate in [raw, raw.split("\n")[0] if raw else ""]:
+    if not candidate:
+        continue
+    try:
+        obj = json.loads(candidate)
+        break
+    except json.JSONDecodeError:
+        continue
+if obj is None:
+    print("")
+    sys.exit(0)
 if isinstance(obj, list):
     obj = obj[0] if obj else {}
 value = obj.get(field, "")
@@ -165,8 +197,12 @@ extract_pr_url() {
 import json
 import os
 import re
+import sys
 
 payload = os.environ.get("PAYLOAD", "")
+if not payload:
+    print("")
+    sys.exit(0)
 start = -1
 for i, ch in enumerate(payload):
     if ch in "[{":
@@ -174,13 +210,20 @@ for i, ch in enumerate(payload):
         break
 if start == -1:
     print("")
-    raise SystemExit(0)
-raw = payload[start:]
-try:
-    obj = json.loads(raw)
-except json.JSONDecodeError:
-    first_line = raw.split("\n")[0]
-    obj = json.loads(first_line) if first_line.strip() else {}
+    sys.exit(0)
+raw = payload[start:].strip()
+obj = None
+for candidate in [raw, raw.split("\n")[0] if raw else ""]:
+    if not candidate:
+        continue
+    try:
+        obj = json.loads(candidate)
+        break
+    except json.JSONDecodeError:
+        continue
+if obj is None:
+    print("")
+    sys.exit(0)
 if isinstance(obj, list):
     obj = obj[0] if obj else {}
 notes = obj.get("notes", "")

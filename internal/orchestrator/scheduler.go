@@ -87,20 +87,40 @@ func (s *Scheduler) Unlock(issueID string) {
 
 // PickOne returns the first ready issue that can be locked, or empty string.
 func (s *Scheduler) PickOne() (string, error) {
-	ready, err := s.Ready()
+	ids, err := s.PickBatch(1)
 	if err != nil {
 		return "", err
 	}
+	if len(ids) == 0 {
+		return "", nil
+	}
+	return ids[0], nil
+}
+
+// PickBatch returns up to max ready issue IDs that can be locked.
+// Dependency-aware: bd ready already returns only issues with no open blockers.
+func (s *Scheduler) PickBatch(max int) ([]string, error) {
+	if max <= 0 {
+		max = 1
+	}
+	ready, err := s.Ready()
+	if err != nil {
+		return nil, err
+	}
+	var picked []string
 	for _, id := range ready {
+		if len(picked) >= max {
+			break
+		}
 		ok, err := s.TryLock(id)
 		if err != nil {
-			return "", err
+			return picked, err
 		}
 		if ok {
-			return id, nil
+			picked = append(picked, id)
 		}
 	}
-	return "", nil
+	return picked, nil
 }
 
 // Adapter returns the beads adapter for direct use.

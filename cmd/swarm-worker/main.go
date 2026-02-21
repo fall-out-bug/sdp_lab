@@ -82,7 +82,7 @@ func main() {
 		}
 	}
 
-	changedFiles := applyWorkstreamFlow(workstream, claim.IssueID, issue)
+	changedFiles := applyWorkstreamFlow(workstream, claim.IssueID, issue, claim.Model)
 
 	testsPassed := true
 	if _, err := run("go", "test", "./..."); err != nil {

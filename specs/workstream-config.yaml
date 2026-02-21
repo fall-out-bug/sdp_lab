@@ -41,6 +41,14 @@ workstreams:
       - specs/
       - scripts/
       - deploy/
+  - label: workstream:builder
+    path_prefixes:
+      - internal/
+      - cmd/
+      - docs/
+      - specs/
+      - scripts/
+      - deploy/
   - label: workstream:self-improvement
     path_prefixes:
       - internal/

@@ -116,6 +116,12 @@ func (a *Adapter) Sync(importOnly bool) error {
 	return err
 }
 
+// DepAdd adds a dependency: blocked depends on blocker (blocker must complete before blocked).
+func (a *Adapter) DepAdd(blockedID, blockerID string) error {
+	_, err := a.run("dep", "add", blockedID, blockerID)
+	return err
+}
+
 // Create creates a new issue and returns its ID.
 func (a *Adapter) Create(opts CreateOpts) (string, error) {
 	args := []string{"create", opts.Title, "-t", opts.Type, "-p", fmt.Sprintf("%d", opts.Priority), "--json"}

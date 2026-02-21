@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
+
+	"sdp_dev/internal/llm"
 )
 
 func applyEvaluatorRecommendationWorkstream(repo string, issueID string, detail issueDetail) []string {
@@ -33,18 +37,43 @@ func applySelfImprovementWorkstream(repo string, issueID string, detail issueDet
 	return []string{path}
 }
 
-func applyGenericWorkstream(repo string, issueID string, detail issueDetail) ([]string, error) {
-	path := filepath.Join(repo, "docs", "GENERIC_TASK_PLACEHOLDER.md")
-	content := fmt.Sprintf("# Generic Task Placeholder: %s\n\n- spec_id: %s\n- description: %s\n\n## Acceptance\n\n%s\n\n*Full LLM-based implementation requires opencode-implement or similar tool.*\n",
-		issueID, detail.SpecID, detail.Description, detail.AcceptanceCriteria)
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+func applyBuilderWorkstream(repo string, issueID string, detail issueDetail, model string) ([]string, error) {
+	lastBuilderResult = nil
+	boundary, err := llm.LoadBoundary(repo, "builder")
+	if err != nil {
+		return nil, fmt.Errorf("load boundary: %w", err)
+	}
+	req := llm.ExecuteRequest{
+		IssueID:            issueID,
+		Title:              detail.Title,
+		Description:        detail.Description,
+		AcceptanceCriteria: detail.AcceptanceCriteria,
+		SpecID:             detail.SpecID,
+		Model:              model,
+		WorkDir:             repo,
+		Boundary:           boundary,
+	}
+	res, err := llm.Execute(context.Background(), req)
+	if err != nil {
+		if res.BoundaryViolation != nil {
+			resetCmd := exec.Command("git", "reset", "--hard", "HEAD")
+			resetCmd.Dir = repo
+			_ = resetCmd.Run()
+			note := fmt.Sprintf("worker: boundary violation: %s", res.BoundaryViolation.Error())
+			bdCmd := exec.Command("bd", "update", issueID, "--append-notes", note)
+			bdCmd.Dir = repo
+			_, _ = bdCmd.CombinedOutput()
+			blockCmd := exec.Command("bd", "update", issueID, "--status", "blocked")
+			blockCmd.Dir = repo
+			_, _ = blockCmd.CombinedOutput()
+		}
 		return nil, err
 	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		return nil, err
-	}
-	return []string{path}, nil
+	lastBuilderResult = &res
+	return res.ChangedFiles, nil
 }
+
+var lastBuilderResult *llm.ExecuteResult
 
 func appendHandoffValidationTimestamp(repo string) error {
 	path := filepath.Join(repo, "docs", "AGENT_HANDOFF.md")

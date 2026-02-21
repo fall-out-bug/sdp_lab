@@ -19,6 +19,14 @@ func updateEvidence(issueID, branch, workstream string, changedFiles []string, t
 	if err := json.Unmarshal(b, &payload); err != nil {
 		return "", err
 	}
+	if lastBuilderResult != nil && lastBuilderResult.Prompt != "" {
+		intent, _ := payload["intent"].(map[string]any)
+		if intent == nil {
+			intent = map[string]any{}
+			payload["intent"] = intent
+		}
+		intent["llm_prompt"] = lastBuilderResult.Prompt
+	}
 	execSection, _ := payload["execution"].(map[string]any)
 	if execSection == nil {
 		execSection = map[string]any{}
@@ -27,6 +35,13 @@ func updateEvidence(issueID, branch, workstream string, changedFiles []string, t
 	execSection["branch"] = branch
 	execSection["changed_files"] = changedFiles
 	execSection["claimed_issue_ids"] = []string{issueID}
+	if lastBuilderResult != nil {
+		execSection["model"] = lastBuilderResult.ModelUsed
+		execSection["duration_ms"] = lastBuilderResult.Duration.Milliseconds()
+		if lastBuilderResult.SessionID != "" {
+			execSection["opencode_session_id"] = lastBuilderResult.SessionID
+		}
+	}
 
 	trace, _ := payload["trace"].(map[string]any)
 	if trace == nil {
@@ -116,7 +131,9 @@ func updateEvidence(issueID, branch, workstream string, changedFiles []string, t
 	}
 	provenance["orchestrator"] = "swarm-worker"
 	provenance["runtime"] = os.Getenv("SDP_RUNTIME")
-	if model := os.Getenv("SDP_MODEL"); model != "" {
+	if lastBuilderResult != nil && lastBuilderResult.ModelUsed != "" {
+		provenance["model"] = lastBuilderResult.ModelUsed
+	} else if model := os.Getenv("SDP_MODEL"); model != "" {
 		provenance["model"] = model
 	}
 	provenance["phase"] = "verify"

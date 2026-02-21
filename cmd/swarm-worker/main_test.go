@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ func TestResolveWorkstream(t *testing.T) {
 	}{
 		{[]string{"workstream:policy-slugify-trim"}, "policy-slugify-trim"},
 		{[]string{"workstream:generic"}, "generic"},
+		{[]string{"workstream:builder"}, "builder"},
 		{[]string{"workstream:oneshot-swarm-orchestrator"}, "oneshot-swarm-orchestrator"},
 		{[]string{"workstream:handoff-validation"}, "handoff-validation"},
 		{[]string{"workstream:self-improvement"}, "self-improvement"},
@@ -39,7 +41,8 @@ func TestCommitBodyForWorkstream(t *testing.T) {
 	}{
 		{"policy-slugify-trim", "Fix slugify truncation and add regression coverage."},
 		{"handoff-validation", "Add handoff validation timestamp for adapter checklist run."},
-		{"generic", "Generic workstream placeholder; full LLM delegation pending opencode-implement."},
+		{"generic", "Builder workstream: LLM-backed implementation via opencode run."},
+		{"builder", "Builder workstream: LLM-backed implementation via opencode run."},
 		{"unknown", "Implement workstream changes with regression coverage."},
 	}
 	for _, tt := range tests {
@@ -112,14 +115,25 @@ func TestHasPrefixAny(t *testing.T) {
 	}
 }
 
-func TestApplyGenericWorkstream(t *testing.T) {
+func TestApplyBuilderWorkstream(t *testing.T) {
 	dir := t.TempDir()
-	changed, err := applyGenericWorkstream(dir, "test-1", issueDetail{ID: "test-1", SpecID: "spec", Description: "d", AcceptanceCriteria: "ac"})
-	if err != nil {
-		t.Fatalf("applyGenericWorkstream: %v", err)
+	specsDir := filepath.Join(dir, "specs")
+	if err := os.MkdirAll(specsDir, 0o755); err != nil {
+		t.Fatal(err)
 	}
-	if len(changed) != 1 || changed[0] != filepath.Join(dir, "docs", "GENERIC_TASK_PLACEHOLDER.md") {
-		t.Fatalf("unexpected changed: %v", changed)
+	cfg := `workstreams:
+  - label: workstream:builder
+    path_prefixes:
+      - internal/
+      - cmd/
+`
+	if err := os.WriteFile(filepath.Join(specsDir, "workstream-config.yaml"), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := applyBuilderWorkstream(dir, "test-1", issueDetail{ID: "test-1", Title: "T", SpecID: "spec", Description: "d", AcceptanceCriteria: "ac"}, "glm-4.7")
+	// Outcome depends on opencode availability; we only verify no panic
+	if err != nil {
+		t.Logf("applyBuilderWorkstream (opencode may be unavailable): %v", err)
 	}
 }
 

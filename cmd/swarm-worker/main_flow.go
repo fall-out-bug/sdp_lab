@@ -31,6 +31,9 @@ func resolveWorkstream(labels []string) string {
 	if hasLabel(labels, "workstream:generic") {
 		return "generic"
 	}
+	if hasLabel(labels, "workstream:builder") {
+		return "builder"
+	}
 	if hasLabel(labels, "workstream:self-improvement") {
 		return "self-improvement"
 	}
@@ -40,7 +43,7 @@ func resolveWorkstream(labels []string) string {
 	return ""
 }
 
-func applyWorkstreamFlow(workstream string, issueID string, issue issueDetail) []string {
+func applyWorkstreamFlow(workstream string, issueID string, issue issueDetail, model string) []string {
 	changedFiles := []string{}
 	switch workstream {
 	case "policy-slugify-trim":
@@ -97,9 +100,9 @@ func applyWorkstreamFlow(workstream string, issueID string, issue issueDetail) [
 			os.Exit(1)
 		}
 		changedFiles = []string{"docs/AGENT_HANDOFF.md"}
-	case "generic":
+	case "generic", "builder":
 		var err error
-		changedFiles, err = applyGenericWorkstream(".", issueID, issue)
+		changedFiles, err = applyBuilderWorkstream(".", issueID, issue, model)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -118,8 +121,8 @@ func commitBodyForWorkstream(workstream string) string {
 		return "Fix slugify truncation and add regression coverage."
 	case "handoff-validation":
 		return "Add handoff validation timestamp for adapter checklist run."
-	case "generic":
-		return "Generic workstream placeholder; full LLM delegation pending opencode-implement."
+	case "generic", "builder":
+		return "Builder workstream: LLM-backed implementation via opencode run."
 	case "self-improvement":
 		return "Self-improvement cycle: log improvement task."
 	case "evaluator-recommendation":

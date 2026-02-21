@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -14,6 +15,7 @@ func main() {
 	host := flag.String("host", "", "SSH host (user@ip) for remote dispatch")
 	port := flag.String("port", "22", "SSH port")
 	issue := flag.String("issue", "", "Specific issue ID (optional; if empty, pick from ready)")
+	feature := flag.String("feature", "", "Feature/epic ID to decompose and orchestrate e2e")
 	workDir := flag.String("work-dir", "", "Working directory (default: cwd)")
 	inCluster := flag.Bool("in-cluster", false, "Use in-cluster dispatch (kubectl exec)")
 	loop := flag.Bool("loop", false, "Run continuously")
@@ -45,7 +47,11 @@ func main() {
 	scheduler := orchestrator.NewScheduler(wd, labels, 10)
 
 	var runOne func() error
-	if *issue != "" {
+	if *feature != "" {
+		runOne = func() error {
+			return runFeature(wd, *feature, *host, *port, *inCluster, *namespace, scheduler, tracker)
+		}
+	} else if *issue != "" {
 		runOne = func() error {
 			return runIssue(wd, *issue, *host, *port, *inCluster, *namespace, scheduler, tracker)
 		}
@@ -127,5 +133,32 @@ func runIssue(workDir, issueID, host, port string, inCluster bool, namespace str
 	// Write run file path for compatibility with orchestrate script consumers
 	runPath := filepath.Join(workDir, ".sdp", "runs", runID+".json")
 	fmt.Printf("[orchestrator] run_id=%s run_file=%s issue=%s\n", runID, runPath, issueID)
+	return nil
+}
+
+func runFeature(workDir, featureID, host, port string, inCluster bool, namespace string, sched *orchestrator.Scheduler, tracker *orchestrator.RunTracker) error {
+	// Short-circuit if already closed
+	iss, err := sched.Adapter().Show(featureID)
+	if err != nil {
+		return fmt.Errorf("show feature: %w", err)
+	}
+	if iss.Status == "closed" {
+		return nil
+	}
+	if err := sched.Adapter().Sync(true); err != nil {
+		return fmt.Errorf("bd sync: %w", err)
+	}
+	created, err := orchestrator.Decompose(context.Background(), sched.Adapter(), *iss, workDir, "glm-5")
+	if err != nil {
+		return fmt.Errorf("decompose: %w", err)
+	}
+	if err := sched.Adapter().Sync(false); err != nil {
+		return fmt.Errorf("bd sync after decompose: %w", err)
+	}
+	for _, c := range created {
+		if err := runIssue(workDir, c.ID, host, port, inCluster, namespace, sched, tracker); err != nil {
+			fmt.Fprintf(os.Stderr, "[orchestrator] subtask %s: %v\n", c.ID, err)
+		}
+	}
 	return nil
 }
