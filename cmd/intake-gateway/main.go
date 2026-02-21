@@ -16,6 +16,7 @@ import (
 	"sdp_dev/internal/bus"
 	"sdp_dev/internal/intake"
 	"sdp_dev/internal/registry"
+	"sdp_dev/internal/safeid"
 )
 
 const maxBodyBytes = 64 * 1024 // 64KB
@@ -132,6 +133,10 @@ func handleProjects(store *registry.Store) http.HandlerFunc {
 
 func handleStatus(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if err := safeid.ValidateIssueID(id); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id":     id,
 		"status": "unknown",

@@ -19,6 +19,11 @@ spec:
           env:
             - name: NATS_URL
               value: "nats://nats:4222"
+            - name: INTAKE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sdp-credentials
+                  key: intake_api_key
           ports:
             - containerPort: 8081
 ---

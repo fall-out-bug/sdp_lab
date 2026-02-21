@@ -29,7 +29,11 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "${RUNTIME_BIN_DIR}/pr-publish
 (cd "${BD_SRC_DIR}" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o "${RUNTIME_BIN_DIR}/bd" ./cmd/bd)
 
 echo "[image] docker build with Dockerfile.runtime"
-gh auth token | docker login ghcr.io -u fall-out-bug --password-stdin
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+  printf '%s' "${GITHUB_TOKEN}" | docker login ghcr.io -u fall-out-bug --password-stdin
+else
+  gh auth token | docker login ghcr.io -u fall-out-bug --password-stdin
+fi
 
 docker build -t "${IMAGE}" -f "${ROOT_DIR}/deploy/images/opencode-agent/Dockerfile.runtime" "${ROOT_DIR}"
 docker push "${IMAGE}"

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"sdp_dev/internal/bus"
+	"sdp_dev/internal/intake"
 	"sdp_dev/internal/registry"
 )
 
@@ -90,6 +91,10 @@ func handleList(store *registry.Store) http.HandlerFunc {
 func handleGet(store *registry.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
+		if err := intake.ValidateProjectID(id); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
 		p, ok := store.Get(id)
 		if !ok {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "project not found"})
@@ -104,6 +109,10 @@ func handleCreate(store *registry.Store, b bus.Bus) http.HandlerFunc {
 		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 		var p registry.Project
 		if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		if err := intake.ValidateProjectID(p.ID); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
 		}
@@ -125,6 +134,10 @@ func handleUpdate(store *registry.Store, b bus.Bus) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 		id := r.PathValue("id")
+		if err := intake.ValidateProjectID(id); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
 		var p registry.Project
 		if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -148,6 +161,10 @@ func handleUpdate(store *registry.Store, b bus.Bus) http.HandlerFunc {
 func handleDelete(store *registry.Store, b bus.Bus) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
+		if err := intake.ValidateProjectID(id); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
 		if err := store.Delete(id); err != nil {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
 			return

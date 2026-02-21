@@ -123,11 +123,12 @@ spec_id="$(printf '%s' "${SPEC_B64}" | base64 -d)"
 parent="$(printf '%s' "${PARENT_B64}" | base64 -d)"
 workstream="$(printf '%s' "${WORKSTREAM_B64}" | base64 -d)"
 model_label="$(printf '%s' "${MODEL_B64}" | base64 -d)"
-parent_flag=""
-if [ -n "${parent}" ]; then
-  parent_flag="--parent \"${parent}\""
-fi
-kubectl -n sdp-workers exec deploy/opencode-agent -- sh -lc "cd /workspace && bd sync --import-only >/dev/null && bd create \"${title}\" -t task -p ${PRIORITY} ${parent_flag} --spec-id \"${spec_id}\" --description \"${description}\" --labels \"autonomy,strict-evidence,${model_label},lane:commit,workstream:${workstream}\" --json"
+labels="autonomy,strict-evidence,${model_label},lane:commit,workstream:${workstream}"
+bd_args=("$title" -t task -p "$PRIORITY")
+[[ -n "${parent}" ]] && bd_args+=(--parent "$parent")
+bd_args+=(--spec-id "$spec_id" --description "$description" --labels "$labels" --json)
+bd_cmd="bd create $(printf ' %q' "${bd_args[@]}")"
+kubectl -n sdp-workers exec deploy/opencode-agent -- bash -lc "cd /workspace && bd sync --import-only >/dev/null && ${bd_cmd}"
 EOF
 }
 
