@@ -55,3 +55,25 @@ workstreams:
       - docs/
       - specs/
       - scripts/
+  - label: workstream:telegram-ingress-intake
+    path_prefixes:
+      - internal/intake/
+      - cmd/
+      - docs/
+      - specs/
+      - scripts/
+  - label: workstream:planner-boundary-decomposition
+    path_prefixes:
+      - internal/planner/
+      - cmd/
+      - docs/
+      - specs/
+      - scripts/
+  - label: workstream:oneshot-swarm-orchestrator
+    path_prefixes:
+      - internal/oneshot/
+      - internal/
+      - cmd/
+      - docs/
+      - specs/
+      - scripts/
