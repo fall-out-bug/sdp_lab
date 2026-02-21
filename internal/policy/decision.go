@@ -12,14 +12,17 @@ var allowedModels = map[string]struct{}{
 	"glm-4.7": {},
 }
 
-// allowedProviderModels: provider/model pairs for OpenRouter etc. Key = full "provider/model" string.
+// allowedProviderModels: provider/model pairs. OpenRouter uses provider=openai|anthropic|google etc.
+// See https://openrouter.ai/models for current model IDs.
 var allowedProviderModels = map[string]struct{}{
 	"zhipuai-coding-plan/glm-5":   {},
 	"zhipuai-coding-plan/glm-4.7": {},
-	"openrouter/gpt-4o":          {},
-	"openrouter/gpt-4o-mini":     {},
-	"openrouter/claude-sonnet-4": {},
-	"openrouter/claude-3.5-sonnet": {},
+	"openai/gpt-4o":              {},
+	"openai/gpt-4o-mini":         {},
+	"anthropic/claude-sonnet-4.6": {},
+	"anthropic/claude-opus-4.6":   {},
+	"google/gemini-2.5-pro":      {},
+	"z-ai/glm-5":                 {},
 }
 
 var criticalPatterns = []*regexp.Regexp{

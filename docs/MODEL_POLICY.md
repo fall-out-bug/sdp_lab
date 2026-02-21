@@ -8,10 +8,12 @@ Scope: orchestrator and swarm workers
 - `glm-5` (default primary)
 - `glm-4.7` (default fallback)
 
-Provider-prefixed models:
+Provider-prefixed models (OpenRouter uses provider=openai|anthropic|google):
 
 - `zhipuai-coding-plan/glm-5`, `zhipuai-coding-plan/glm-4.7`
-- `openrouter/gpt-4o`, `openrouter/gpt-4o-mini`, `openrouter/claude-sonnet-4`, `openrouter/claude-3.5-sonnet`
+- `openai/gpt-4o`, `openai/gpt-4o-mini`
+- `anthropic/claude-sonnet-4.6`, `anthropic/claude-opus-4.6`
+- `google/gemini-2.5-pro`, `z-ai/glm-5`
 
 See `docs/OPENROUTER_API_KEY.md` for where to add the OpenRouter API key.
 

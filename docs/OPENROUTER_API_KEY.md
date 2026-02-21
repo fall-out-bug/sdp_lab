@@ -1,6 +1,6 @@
 # OpenRouter API Key
 
-OpenRouter support allows agents to use models like `openrouter/gpt-4o`, `openrouter/claude-sonnet-4` via the OpenRouter API.
+OpenRouter is the API gateway. Model IDs use `provider/model` format (e.g. `openai/gpt-4o`, `anthropic/claude-sonnet-4.6`). See https://openrouter.ai/models for current models.
 
 ## Where to Add the Key
 
@@ -53,11 +53,13 @@ For `opencode-agent` and similar workers, add to the secret referenced in the de
       key: openrouter_api_key
 ```
 
-## Allowed OpenRouter models
+## Allowed models (via OpenRouter API)
 
-- `openrouter/gpt-4o`
-- `openrouter/gpt-4o-mini`
-- `openrouter/claude-sonnet-4`
-- `openrouter/claude-3.5-sonnet`
+- `openai/gpt-4o`, `openai/gpt-4o-mini`
+- `anthropic/claude-sonnet-4.6`, `anthropic/claude-opus-4.6`
+- `google/gemini-2.5-pro`
+- `z-ai/glm-5`
 
-To use: set `model` in Agent config or task label to e.g. `openrouter/gpt-4o`.
+Check https://openrouter.ai/models for the latest model IDs.
+
+To use: set `model` in Agent config or task label to e.g. `openai/gpt-4o`.
