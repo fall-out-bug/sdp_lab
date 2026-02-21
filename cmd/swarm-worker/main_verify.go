@@ -11,60 +11,20 @@ import (
 
 func updateEvidence(issueID, branch, workstream string, changedFiles []string, testsPassed bool) (string, error) {
 	path := filepath.Join(".sdp", "evidence", issueID+".json")
-	b, err := os.ReadFile(path)
+	payload, err := loadEvidencePayload(path)
 	if err != nil {
 		return "", err
 	}
-	var payload map[string]any
-	if err := json.Unmarshal(b, &payload); err != nil {
-		return "", err
-	}
-	if lastBuilderResult != nil && lastBuilderResult.Prompt != "" {
-		intent, _ := payload["intent"].(map[string]any)
-		if intent == nil {
-			intent = map[string]any{}
-			payload["intent"] = intent
-		}
-		intent["llm_prompt"] = lastBuilderResult.Prompt
-	}
-	execSection, _ := payload["execution"].(map[string]any)
-	if execSection == nil {
-		execSection = map[string]any{}
-		payload["execution"] = execSection
-	}
-	execSection["branch"] = branch
-	execSection["changed_files"] = changedFiles
-	execSection["claimed_issue_ids"] = []string{issueID}
-	if lastBuilderResult != nil {
-		execSection["model"] = lastBuilderResult.ModelUsed
-		execSection["duration_ms"] = lastBuilderResult.Duration.Milliseconds()
-		if lastBuilderResult.SessionID != "" {
-			execSection["opencode_session_id"] = lastBuilderResult.SessionID
-		}
-	}
 
-	trace, _ := payload["trace"].(map[string]any)
-	if trace == nil {
-		trace = map[string]any{}
-		payload["trace"] = trace
-	}
-	trace["branch"] = branch
-	trace["beads_ids"] = []string{issueID}
-
-	verification, _ := payload["verification"].(map[string]any)
-	if verification == nil {
-		verification = map[string]any{}
-		payload["verification"] = verification
-	}
-	verification["tests"] = []string{"go test ./..."}
-	verification["go_test_passed"] = testsPassed
+	mergeEvidenceIntent(payload)
+	mergeEvidenceExecution(payload, issueID, branch, changedFiles)
+	mergeEvidenceTrace(payload, issueID, branch)
+	mergeEvidenceVerification(payload, testsPassed)
 
 	runPath := filepath.Join(".sdp", "runs", issueID+".json")
-	var runPacket map[string]any
-	if runBytes, runErr := os.ReadFile(runPath); runErr == nil {
-		if err := json.Unmarshal(runBytes, &runPacket); err != nil {
-			return "", err
-		}
+	runPacket, runErr := loadRunPacket(runPath)
+	if runErr != nil && !os.IsNotExist(runErr) {
+		return "", runErr
 	}
 
 	note := ""
@@ -75,15 +35,112 @@ func updateEvidence(issueID, branch, workstream string, changedFiles []string, t
 		}
 	}
 
+	outOfBoundary := computeOutOfBoundaryPaths(payload, changedFiles)
+	mergeEvidenceBoundary(payload, changedFiles, outOfBoundary)
+	mergeEvidenceProvenance(payload, issueID, workstream, len(outOfBoundary) == 0)
+
+	if err := writeEvidencePayload(path, payload); err != nil {
+		return "", err
+	}
+	if runPacket != nil {
+		_ = writeRunPacket(runPath, runPacket)
+	}
+	return note, nil
+}
+
+func loadEvidencePayload(path string) (map[string]any, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(b, &payload); err != nil {
+		return nil, err
+	}
+	return payload, nil
+}
+
+func loadRunPacket(runPath string) (map[string]any, error) {
+	runBytes, err := os.ReadFile(runPath)
+	if err != nil {
+		return nil, err
+	}
+	var runPacket map[string]any
+	if err := json.Unmarshal(runBytes, &runPacket); err != nil {
+		return nil, err
+	}
+	return runPacket, nil
+}
+
+func writeEvidencePayload(path string, payload map[string]any) error {
+	out, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return err
+	}
+	out = append(out, '\n')
+	return os.WriteFile(path, out, 0o644)
+}
+
+func writeRunPacket(runPath string, runPacket map[string]any) error {
+	runOut, err := json.MarshalIndent(runPacket, "", "  ")
+	if err != nil {
+		return err
+	}
+	runOut = append(runOut, '\n')
+	return os.WriteFile(runPath, runOut, 0o644)
+}
+
+func getOrCreateMap(parent map[string]any, key string) map[string]any {
+	m, _ := parent[key].(map[string]any)
+	if m == nil {
+		m = map[string]any{}
+		parent[key] = m
+	}
+	return m
+}
+
+func mergeEvidenceIntent(payload map[string]any) {
+	if lastBuilderResult == nil || lastBuilderResult.Prompt == "" {
+		return
+	}
+	intent := getOrCreateMap(payload, "intent")
+	intent["llm_prompt"] = lastBuilderResult.Prompt
+}
+
+func mergeEvidenceExecution(payload map[string]any, issueID, branch string, changedFiles []string) {
+	exec := getOrCreateMap(payload, "execution")
+	exec["branch"] = branch
+	exec["changed_files"] = changedFiles
+	exec["claimed_issue_ids"] = []string{issueID}
+	if lastBuilderResult != nil {
+		exec["model"] = lastBuilderResult.ModelUsed
+		exec["duration_ms"] = lastBuilderResult.Duration.Milliseconds()
+		if lastBuilderResult.SessionID != "" {
+			exec["opencode_session_id"] = lastBuilderResult.SessionID
+		}
+	}
+}
+
+func mergeEvidenceTrace(payload map[string]any, issueID, branch string) {
+	trace := getOrCreateMap(payload, "trace")
+	trace["branch"] = branch
+	trace["beads_ids"] = []string{issueID}
+}
+
+func mergeEvidenceVerification(payload map[string]any, testsPassed bool) {
+	verif := getOrCreateMap(payload, "verification")
+	verif["tests"] = []string{"go test ./..."}
+	verif["go_test_passed"] = testsPassed
+}
+
+func computeOutOfBoundaryPaths(payload map[string]any, changedFiles []string) []string {
 	boundary, _ := payload["boundary"].(map[string]any)
 	if boundary == nil {
-		boundary = map[string]any{}
-		payload["boundary"] = boundary
+		return nil
 	}
 	declared, _ := boundary["declared"].(map[string]any)
 	if declared == nil {
-		declared = map[string]any{}
-		boundary["declared"] = declared
+		return nil
 	}
 	allowed := toStringSlice(declared["allowed_path_prefixes"])
 	control := toStringSlice(declared["control_path_prefixes"])
@@ -103,89 +160,54 @@ func updateEvidence(issueID, branch, workstream string, changedFiles []string, t
 		}
 	}
 	sort.Strings(outOfBoundary)
+	return outOfBoundary
+}
 
-	observed, _ := boundary["observed"].(map[string]any)
-	if observed == nil {
-		observed = map[string]any{}
-		boundary["observed"] = observed
-	}
+func mergeEvidenceBoundary(payload map[string]any, changedFiles, outOfBoundary []string) {
+	boundary := getOrCreateMap(payload, "boundary")
+	observed := getOrCreateMap(boundary, "observed")
 	observed["touched_paths"] = changedFiles
 	observed["out_of_boundary_paths"] = outOfBoundary
-
-	compliance, _ := boundary["compliance"].(map[string]any)
-	if compliance == nil {
-		compliance = map[string]any{}
-		boundary["compliance"] = compliance
-	}
+	compliance := getOrCreateMap(boundary, "compliance")
 	compliance["ok"] = len(outOfBoundary) == 0
 	if len(outOfBoundary) == 0 {
 		compliance["reason"] = "changed paths within declared boundary"
 	} else {
 		compliance["reason"] = "changed paths exceed declared boundary"
 	}
+}
 
-	provenance, _ := payload["provenance"].(map[string]any)
-	if provenance == nil {
-		provenance = map[string]any{}
-		payload["provenance"] = provenance
-	}
-	provenance["orchestrator"] = "swarm-worker"
-	provenance["runtime"] = os.Getenv("SDP_RUNTIME")
+func mergeEvidenceProvenance(payload map[string]any, issueID, workstream string, boundaryOK bool) {
+	prov := getOrCreateMap(payload, "provenance")
+	prov["orchestrator"] = "swarm-worker"
+	prov["runtime"] = os.Getenv("SDP_RUNTIME")
 	if lastBuilderResult != nil && lastBuilderResult.ModelUsed != "" {
-		provenance["model"] = lastBuilderResult.ModelUsed
+		prov["model"] = lastBuilderResult.ModelUsed
 	} else if model := os.Getenv("SDP_MODEL"); model != "" {
-		provenance["model"] = model
+		prov["model"] = model
 	}
-	provenance["phase"] = "verify"
-	provenance["role"] = workstream
-	provenance["captured_at"] = time.Now().UTC().Format(time.RFC3339)
-	provenance["source_issue_id"] = issueID
-	if _, ok := provenance["artifact_id"].(string); !ok {
-		provenance["artifact_id"] = issueID + ":strict-evidence"
-	}
-	if _, ok := provenance["contract_version"].(string); !ok {
-		provenance["contract_version"] = "artifact-provenance/v1"
-	}
-	if _, ok := provenance["hash_algorithm"].(string); !ok {
-		provenance["hash_algorithm"] = "sha256"
-	}
-	if _, ok := provenance["sequence"].(float64); !ok {
-		if _, intOK := provenance["sequence"].(int); !intOK {
-			provenance["sequence"] = 0
+	prov["phase"] = "verify"
+	prov["role"] = workstream
+	prov["captured_at"] = time.Now().UTC().Format(time.RFC3339)
+	prov["source_issue_id"] = issueID
+	setProvenanceDefaultString(prov, "artifact_id", issueID+":strict-evidence")
+	setProvenanceDefaultString(prov, "contract_version", "artifact-provenance/v1")
+	setProvenanceDefaultString(prov, "hash_algorithm", "sha256")
+	setProvenanceDefaultString(prov, "payload_digest", "")
+	setProvenanceDefaultString(prov, "hash", "")
+	setProvenanceDefaultString(prov, "hash_prev", "")
+	if _, ok := prov["sequence"].(float64); !ok {
+		if _, intOK := prov["sequence"].(int); !intOK {
+			prov["sequence"] = 0
 		}
 	}
-	if _, ok := provenance["payload_digest"].(string); !ok {
-		provenance["payload_digest"] = ""
-	}
-	if _, ok := provenance["hash"].(string); !ok {
-		provenance["hash"] = ""
-	}
-	if _, ok := provenance["hash_prev"].(string); !ok {
-		provenance["hash_prev"] = ""
-	}
-	gates := toStringSlice(provenance["gate_results"])
-	gates = append(gates, "verification:go test ./...", fmt.Sprintf("boundary:ok=%t", len(outOfBoundary) == 0))
-	provenance["gate_results"] = uniqueStrings(gates)
+	gates := toStringSlice(prov["gate_results"])
+	gates = append(gates, "verification:go test ./...", fmt.Sprintf("boundary:ok=%t", boundaryOK))
+	prov["gate_results"] = uniqueStrings(gates)
+}
 
-	out, err := json.MarshalIndent(payload, "", "  ")
-	if err != nil {
-		return "", err
+func setProvenanceDefaultString(prov map[string]any, key, defaultVal string) {
+	if _, ok := prov[key].(string); !ok {
+		prov[key] = defaultVal
 	}
-	out = append(out, '\n')
-	if err := os.WriteFile(path, out, 0o644); err != nil {
-		return "", err
-	}
-
-	if runPacket != nil {
-		runOut, err := json.MarshalIndent(runPacket, "", "  ")
-		if err != nil {
-			return "", err
-		}
-		runOut = append(runOut, '\n')
-		if err := os.WriteFile(runPath, runOut, 0o644); err != nil {
-			return "", err
-		}
-	}
-
-	return note, nil
 }

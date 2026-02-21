@@ -14,12 +14,18 @@ func BuildPublishPayload(req PublishRequest) (map[string]any, error) {
 	if err := validatePublishRequest(req); err != nil {
 		return nil, err
 	}
+	payload := buildPayloadFromRequest(req)
+	if err := validatePayloadContract(payload, DefaultPRPayloadContract()); err != nil {
+		return nil, err
+	}
+	return payload, nil
+}
 
-	payload := map[string]any{
+// buildPayloadFromRequest constructs the payload map from a validated PublishRequest.
+func buildPayloadFromRequest(req PublishRequest) map[string]any {
+	return map[string]any{
 		"event": "pr.published",
-		"issue": map[string]any{
-			"id": req.IssueID,
-		},
+		"issue": map[string]any{"id": req.IssueID},
 		"trace": map[string]any{
 			"run_id":                req.RunID,
 			"pr_url":                req.PRURL,
@@ -39,11 +45,6 @@ func BuildPublishPayload(req PublishRequest) (map[string]any, error) {
 		},
 		"published_at": req.PublishedAt.UTC().Format(time.RFC3339),
 	}
-
-	if err := validatePayloadContract(payload, DefaultPRPayloadContract()); err != nil {
-		return nil, err
-	}
-	return payload, nil
 }
 
 func BuildCallbackHeaders(payload map[string]any) (map[string]string, string, error) {
