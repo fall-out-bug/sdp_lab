@@ -73,7 +73,7 @@ func main() {
 		return
 	}
 
-	if _, err := runBD("update", picked.ID, "--status", "in_progress"); err != nil {
+	if _, err := bdRunner("update", picked.ID, "--status", "in_progress"); err != nil {
 		emitAutonomyObservability(picked.ID, "claim", "failed", model, startedAt)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -109,7 +109,7 @@ func main() {
 
 	if decision.EscalationRequired {
 		runPacket["flow"] = "escalated"
-		_, _ = runBD("update", picked.ID, "--append-notes", "protocol flow -> escalated")
+		_, _ = bdRunner("update", picked.ID, "--append-notes", "protocol flow -> escalated")
 	}
 
 	note := fmt.Sprintf("autonomy-worker(go): claimed; verdict=%s; model=%s; branch=%s; packet=%s; evidence=%s", decision.PolicyVerdict, decision.SelectedModel, branch, runPath, evidencePath)

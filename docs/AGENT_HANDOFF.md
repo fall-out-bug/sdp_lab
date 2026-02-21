@@ -6,56 +6,30 @@ Updated: 2026-02-21
 
 ## Current State
 
-- Branch: `feat/sdp_dev-2aq-7-operator-adoption-artifacts`
-- Working tree: clean (except `docs/AGENT_HANDOFF.md` if uncommitted)
-- Beads: new epic and task chain created for next cycle
-- PR #32 (operator adoption artifacts) open, awaiting merge
+- **Branch:** `feat/sdp_dev-2aq-7-operator-adoption-artifacts`
+- **Working tree:** Untracked files present (`.claude/`, `.cursor/`, `.opencode/`, `autonomy-worker`, `swarm-worker`, etc.). Submodule `sdp` may show modified.
+- **Quality gates:** `make quality` passes — coverage 75.1% (threshold 75%), max CC 28 (threshold 40), 9 size warnings (pragmatic mode).
+- **Beads:** Use `bd ready` for available work. One task ready: `sdp_dev-hex`.
 
 ## Most Recent Delivery
 
-- PR opened for operator adoption artifact stream:
-  - `https://github.com/fall-out-bug/sdp_private/pull/32`
-- Stream `sdp_dev-2aq.7` closed with complete artifact set:
-  - `docs/KUBEOPENCODE_SDP_FIT_GAP_MATRIX.md`
-  - `docs/KUBEOPENCODE_SDP_ADAPTER_ARCHITECTURE.md`
-  - `docs/KUBEOPENCODE_SDP_INTERNAL_HARDENING_PATCHSET.md`
-  - `docs/KUBEOPENCODE_UPSTREAM_PR_CANDIDATE_PLAN.md`
-  - `specs/runtime/kubeopencode-*.json`
-  - `specs/runtime/schemas/kubeopencode-*.schema.json`
-
-## Observability Baseline (Completed)
-
-- Stream `sdp_dev-2aq.20` closed.
-- Added:
-  - Unified telemetry schema/contracts in `internal/observability/`
-  - Runtime instrumentation in:
-    - `cmd/opencode-agent/main.go`
-    - `cmd/swarm-worker/main.go`
-    - `cmd/swarm-reviewer/main.go`
-  - Stack deployment manifests in `deploy/k8s/observability/`
-  - Runbooks:
-    - `docs/OBSERVABILITY_METRICS_TRACE_SCHEMA_INTAKE.md`
-    - `docs/OBSERVABILITY_STACK_DEPLOY_RUNBOOK.md`
-    - `docs/OBSERVABILITY_SLO_ALERTING_GUIDE.md`
-
-## Self-Improvement Baseline (Completed)
-
-- Stream `sdp_dev-hx0.1` closed.
-- Added evaluator framework artifacts in `internal/evaluator/` and docs:
-  - intake, swarm plan, runtime orchestration, periodic audit protocol,
-    scoring rubric, trial-run calibration, PR-loop backlog injection.
+- Quality gates (Debug and Fix Remarks plan) implemented:
+  - SDP plugin: `config.FindProjectRoot()`, `coverage_threshold`/`size_exclude`/`complexity_exclude` from `.sdp/config.yml`
+  - `.sdp/config.yml`: coverage 75%, exclusions for cmd/sdp/federation/runtime/beads/orchestrator/openclaw
+  - New tests: agent/context, bus/client, intake/normalize, retrospective/lens, review/panel, federation/workspace+aggregator, review/consensus, roles/registry, evidence/strict
+- PR #32 (operator adoption artifacts) open, awaiting merge.
 
 ## Open Work Situation
 
-- **New epic created:** `sdp_dev-j2b` EPIC: Rollout validation and upstream contribution
-- **Ready tasks** (run `bd ready`):
-  1. `sdp_dev-oip` [P1] VALIDATE: adapter handoff checklist (10 consecutive runs)
-  2. `sdp_dev-4py` [P1] PR: submit upstream kubeopencode PR UP-001 (retry budget + terminal reason)
-  3. `sdp_dev-cq4` [P2] BUILD: stuck Task cleanup and timeout handling in kubeopencode probe
-- Next agent should:
-  1. Merge PR #32 if validation passes.
-  2. Claim one of the ready tasks via `bd update <id> --status in_progress`.
-  3. Execute: handoff validation runs, upstream PR submission, or stuck Task cleanup.
+- **Ready task** (run `bd ready`):
+  1. `sdp_dev-hex` [P2] QA: Raise swarm-worker and autonomy-worker coverage to 80%+
+- **In progress:**
+  - `sdp_dev-4pg` [P1] QA: Test coverage below 80% (current 75.1% — interim target met)
+  - `sdp_dev-oip` [P1] VALIDATE: adapter handoff checklist (10 consecutive runs) — blocked by sdp_dev-cgk
+- **Blocked / epic chain:**
+  - `sdp_dev-j2b` epic (rollout validation, upstream contribution) — blocked by sdp_dev-oip, sdp_dev-4py, sdp_dev-cq4
+  - `sdp_dev-4py` [P1] PR: submit upstream kubeopencode PR UP-001
+  - `sdp_dev-cq4` [P2] BUILD: stuck Task cleanup and timeout handling in kubeopencode probe
 
 ## Suggested Startup Commands
 
@@ -65,11 +39,19 @@ bd ready
 bd sync --import-only   # if JSONL was updated after git pull
 gh pr list --state open --repo fall-out-bug/sdp_private
 git status --short --branch
+make quality            # verify gates before starting work
 ```
 
 ## Session Rules Reminder
 
 - Use Beads as source of truth.
 - Keep exactly one active task (`in_progress`) unless explicitly coordinating parallel lanes.
-- Run validation gates before closure (`go test ./...` and any task-specific checks).
+- Run validation gates before closure (`make quality` and any task-specific checks).
 - On session completion: commit, `bd sync`, push, and confirm clean status.
+
+## Suggested Next Steps for New Agent
+
+1. Run `bd ready` and `bd sync`.
+2. Claim `sdp_dev-hex` (swarm/autonomy coverage 80%+) or unblock `sdp_dev-oip` (handoff validation).
+3. Alternatively: close `sdp_dev-4pg` if 80% coverage is deferred; focus on handoff validation or upstream PR.
+4. Before finishing: `make quality`, commit, `bd sync`, `git push`.

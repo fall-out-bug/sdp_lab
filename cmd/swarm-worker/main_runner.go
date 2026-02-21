@@ -8,6 +8,9 @@ import (
 	"strings"
 )
 
+// runFunc is the function used to run commands. Override in tests for mocking.
+var runFunc = run
+
 func run(name string, args ...string) ([]byte, error) {
 	cmd := exec.Command(name, args...)
 	out, err := cmd.CombinedOutput()
@@ -33,11 +36,11 @@ func runComponent(binary string, goPkg string, args ...string) ([]byte, error) {
 
 func runComponentWithFallback(binary string, goPkg string, args ...string) ([]byte, bool, error) {
 	if _, err := exec.LookPath(binary); err == nil {
-		out, runErr := run(binary, args...)
+		out, runErr := runFunc(binary, args...)
 		return out, false, runErr
 	}
 	goArgs := append([]string{"run", goPkg}, args...)
-	out, runErr := run("go", goArgs...)
+	out, runErr := runFunc("go", goArgs...)
 	return out, true, runErr
 }
 
@@ -93,7 +96,7 @@ func parseClaim(out []byte) (claimResult, error) {
 }
 
 func loadIssue(issueID string) (issueDetail, error) {
-	out, err := run("bd", "show", issueID, "--json")
+	out, err := runFunc("bd", "show", issueID, "--json")
 	if err != nil {
 		return issueDetail{}, err
 	}

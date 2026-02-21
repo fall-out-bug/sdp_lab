@@ -32,6 +32,6 @@ func loadEvidenceTemplate(root string) (map[string]any, error) {
 }
 
 func appendNote(issueID string, note string) error {
-	_, err := runBD("update", issueID, "--append-notes", note)
+	_, err := bdRunner("update", issueID, "--append-notes", note)
 	return err
 }

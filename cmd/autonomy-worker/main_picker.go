@@ -7,7 +7,7 @@ import (
 )
 
 func listIssues() (map[string]issue, error) {
-	out, err := runBD("list", "--json")
+	out, err := bdRunner("list", "--json")
 	if err != nil {
 		return nil, err
 	}
@@ -23,7 +23,7 @@ func listIssues() (map[string]issue, error) {
 }
 
 func loadIssueDetail(issueID string) (issue, error) {
-	out, err := runBD("show", issueID, "--json")
+	out, err := bdRunner("show", issueID, "--json")
 	if err != nil {
 		return issue{}, err
 	}

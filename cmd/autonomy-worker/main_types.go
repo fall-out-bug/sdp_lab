@@ -95,6 +95,9 @@ type issue struct {
 	CreatedAt    string   `json:"created_at"`
 }
 
+// bdRunner is the function used to run bd CLI. Override in tests for mocking.
+var bdRunner = runBD
+
 func runBD(args ...string) ([]byte, error) {
 	cmd := exec.Command("bd", args...)
 	out, err := cmd.CombinedOutput()
