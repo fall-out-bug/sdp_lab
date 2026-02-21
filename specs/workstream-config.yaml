@@ -83,3 +83,11 @@ workstreams:
       - specs/
       - scripts/
       - internal/adapter/
+  - label: workstream:agentrun-operator
+    path_prefixes:
+      - internal/controller/
+      - api/
+      - deploy/k8s/
+      - docs/
+      - specs/
+      - scripts/

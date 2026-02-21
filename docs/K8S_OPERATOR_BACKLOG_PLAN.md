@@ -27,11 +27,16 @@ Build the Kubernetes operator after orchestrator production hardening is complet
 
 ## Backlog mapping (Beads)
 
-- `sdp_dev-2aq.6` - O1-03: Productionize k8s orchestrator loop (must finish first)
-- `sdp_dev-2aq.7` - F-O2: Kubernetes operator for agent spawning
-  - `sdp_dev-2aq.7.3` - O2-01: Define AgentRun CRD and status conditions
-  - `sdp_dev-2aq.7.1` - O2-02: Implement controller reconcile loop for worker/reviewer Jobs
-  - `sdp_dev-2aq.7.2` - O2-03: Add RBAC, Helm/kustomize manifests, and runbook
+- `sdp_dev-2aq.6` - O1-03: Productionize k8s orchestrator loop (closed)
+- `sdp_dev-2aq.7` - F-O2: Kubernetes operator for agent spawning (closed; design/intake)
+  - `sdp_dev-2aq.7.3` - INTAKE: fit-gap matrix
+  - `sdp_dev-2aq.7.1` - DESIGN: SDP adapter contract
+  - `sdp_dev-2aq.7.2` - PR: upstream contribution plan
+  - `sdp_dev-2aq.7.4` - BUILD: internal hardening patches
+- `sdp_dev-j2b.2` - AUTO-FEAT: O2 AgentRun operator implementation (implementation)
+  - `sdp_dev-j2b.2.2` - O2-01: Define AgentRun CRD and status conditions
+  - `sdp_dev-j2b.2.3` - O2-02: Implement controller reconcile loop for worker/reviewer Jobs
+  - `sdp_dev-j2b.2.4` - O2-03: Add RBAC, Helm/kustomize manifests, and runbook
 
 ## Dependency policy
 
