@@ -28,12 +28,16 @@ spec:
               value: https://github.com/fall-out-bug/sdp_private.git
             - name: SDP_REPO_BRANCH
               value: main
-            # GH_TOKEN from sdp-agent-credentials (copy to sdp-control if private repo)
-            # - name: GH_TOKEN
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: sdp-agent-credentials
-            #       key: github_token
+            - name: GH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: sdp-credentials
+                  key: github_token
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: sdp-credentials
+                  key: github_token
           command: ["/bin/sh", "-lc"]
           args:
             - |
@@ -60,6 +64,16 @@ spec:
               value: https://github.com/fall-out-bug/sdp_private.git
             - name: SDP_REPO_BRANCH
               value: main
+            - name: GH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: sdp-credentials
+                  key: github_token
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: sdp-credentials
+                  key: github_token
           volumeMounts:
             - name: workspace
               mountPath: /workspace

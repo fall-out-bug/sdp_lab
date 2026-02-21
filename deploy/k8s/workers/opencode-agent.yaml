@@ -30,12 +30,12 @@ spec:
             - name: GH_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: sdp-agent-credentials
+                  name: sdp-credentials
                   key: github_token
             - name: GITHUB_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: sdp-agent-credentials
+                  name: sdp-credentials
                   key: github_token
           command: ["/bin/sh", "-lc"]
           args:
@@ -76,22 +76,22 @@ spec:
             - name: GH_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: sdp-agent-credentials
+                  name: sdp-credentials
                   key: github_token
             - name: GITHUB_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: sdp-agent-credentials
+                  name: sdp-credentials
                   key: github_token
             - name: Z_AI_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: sdp-agent-credentials
+                  name: sdp-credentials
                   key: z_ai_api_key
             - name: OPENROUTER_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: sdp-agent-credentials
+                  name: sdp-credentials
                   key: openrouter_api_key
           volumeMounts:
             - name: workspace

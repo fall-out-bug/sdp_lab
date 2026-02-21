@@ -32,14 +32,20 @@ The probe script reads both keys from this file when env vars are unset.
 
 ### Option 3: Kubernetes secret (k8s agents)
 
-Secret `sdp-kubeopencode-credentials` in the kubeopencode namespace. Add key `openrouter_api_key`:
+Secret `sdp-credentials` in each namespace. Add key `openrouter_api_key`:
 
 ```bash
-kubectl -n kubeopencode-system patch secret sdp-kubeopencode-credentials \
+kubectl -n kubeopencode-system patch secret sdp-credentials \
   -p '{"stringData":{"openrouter_api_key":"sk-or-v1-..."}}'
 ```
 
-Or create/update the secret with the probe script (it adds `openrouter_api_key` when `OPENROUTER_API_KEY` is set).
+Or provision all secrets with the unified script:
+
+```bash
+./scripts/provision_secrets.sh --host user@host --namespaces sdp-workers,kubeopencode-system,sdp-control
+```
+
+Keys are read from env or `~/.config/opencode/opencode.json`.
 
 ### Option 4: Worker manifests (deploy/k8s/workers)
 
