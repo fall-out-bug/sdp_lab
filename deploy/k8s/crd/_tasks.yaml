@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: tasks.
+  name: tasks.sdp.dev
 spec:
-  group: ""
+  group: sdp.dev
   names:
     kind: Task
     listKind: TaskList
@@ -21,7 +21,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: ""
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: |-

@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adapter-controller
+  namespace: sdp-adapter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: adapter-controller
+  template:
+    metadata:
+      labels:
+        app: adapter-controller
+    spec:
+      serviceAccountName: adapter-controller
+      containers:
+        - name: controller
+          image: sdp/adapter-controller:latest
+          env:
+            - name: NATS_URL
+              value: "nats://nats:4222"
+            - name: SDP_WORK_DIR
+              value: "/workspaces"
+          volumeMounts:
+            - name: workspaces
+              mountPath: /workspaces
+      volumes:
+        - name: workspaces
+          emptyDir: {}
