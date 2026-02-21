@@ -41,6 +41,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MANIFEST_DIR="${ROOT_DIR}/deploy/k8s/workers"
 
 Z_AI_API_KEY="${Z_AI_API_KEY:-}"
+OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-}"
 if [[ -z "${Z_AI_API_KEY}" && -f "${HOME}/.config/opencode/opencode.json" ]]; then
   Z_AI_API_KEY="$(python3 - <<'PY'
 import json
@@ -49,7 +50,23 @@ path = os.path.expanduser('~/.config/opencode/opencode.json')
 try:
     with open(path, 'r', encoding='utf-8') as f:
         data = json.load(f)
-    print(data.get('mcp', {}).get('zai-mcp-server', {}).get('environment', {}).get('Z_AI_API_KEY', ''))
+    env = data.get('mcp', {}).get('zai-mcp-server', {}).get('environment', {})
+    print(env.get('Z_AI_API_KEY', ''))
+except Exception:
+    print('')
+PY
+)"
+fi
+if [[ -z "${OPENROUTER_API_KEY}" && -f "${HOME}/.config/opencode/opencode.json" ]]; then
+  OPENROUTER_API_KEY="$(python3 - <<'PY'
+import json
+import os
+path = os.path.expanduser('~/.config/opencode/opencode.json')
+try:
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    env = data.get('mcp', {}).get('zai-mcp-server', {}).get('environment', {})
+    print(env.get('OPENROUTER_API_KEY', ''))
 except Exception:
     print('')
 PY
@@ -75,13 +92,17 @@ fi
 
 echo "[apply] ensuring worker credentials secret"
 Z_AI_API_KEY_B64="$(printf '%s' "${Z_AI_API_KEY}" | base64 | tr -d '\n')"
-ssh -p "${PORT}" "${HOST}" "Z_AI_API_KEY_B64='${Z_AI_API_KEY_B64}' bash -s" <<'EOF'
+OPENROUTER_API_KEY_B64="$(printf '%s' "${OPENROUTER_API_KEY:-}" | base64 | tr -d '\n')"
+ssh -p "${PORT}" "${HOST}" "Z_AI_API_KEY_B64='${Z_AI_API_KEY_B64}' OPENROUTER_API_KEY_B64='${OPENROUTER_API_KEY_B64}' bash -s" <<'EOF'
 set -euo pipefail
 GH_TOKEN="$(gh auth token)"
 Z_AI_API_KEY="$(printf '%s' "${Z_AI_API_KEY_B64}" | base64 -d)"
+OPENROUTER_VAL=""
+[[ -n "${OPENROUTER_API_KEY_B64}" ]] && OPENROUTER_VAL="$(printf '%s' "${OPENROUTER_API_KEY_B64}" | base64 -d)"
 kubectl -n sdp-workers create secret generic sdp-agent-credentials \
   --from-literal=github_token="${GH_TOKEN}" \
   --from-literal=z_ai_api_key="${Z_AI_API_KEY}" \
+  --from-literal=openrouter_api_key="${OPENROUTER_VAL}" \
   --dry-run=client -o yaml | kubectl apply -f -
 EOF
 

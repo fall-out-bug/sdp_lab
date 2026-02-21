@@ -66,6 +66,11 @@ spec:
         name: sdp-kubeopencode-credentials
         key: z_ai_api_key
       env: ZHIPU_API_KEY
+    - name: openrouter-key
+      secretRef:
+        name: sdp-kubeopencode-credentials
+        key: openrouter_api_key
+      env: OPENROUTER_API_KEY
   contexts:
     - type: Text
       text: |
@@ -110,6 +115,11 @@ spec:
         name: sdp-kubeopencode-credentials
         key: z_ai_api_key
       env: ZHIPU_API_KEY
+    - name: openrouter-key
+      secretRef:
+        name: sdp-kubeopencode-credentials
+        key: openrouter_api_key
+      env: OPENROUTER_API_KEY
   contexts:
     - type: Text
       text: |
@@ -154,6 +164,11 @@ spec:
         name: sdp-kubeopencode-credentials
         key: z_ai_api_key
       env: ZHIPU_API_KEY
+    - name: openrouter-key
+      secretRef:
+        name: sdp-kubeopencode-credentials
+        key: openrouter_api_key
+      env: OPENROUTER_API_KEY
   contexts:
     - type: Text
       text: |

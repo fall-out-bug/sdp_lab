@@ -22,6 +22,16 @@ func TestDecideForbiddenModelEscalates(t *testing.T) {
 	}
 }
 
+func TestDecideOpenRouterModelAllowed(t *testing.T) {
+	res := Decide(DecisionRequest{IssueID: "id-3b", Title: "OpenRouter", PreferredModel: "openrouter/gpt-4o", ChangedPaths: []string{"src/main.go"}})
+	if res.PolicyVerdict != "allow" {
+		t.Fatalf("expected allow for openrouter/gpt-4o, got %s", res.PolicyVerdict)
+	}
+	if res.SelectedModel != "openrouter/gpt-4o" {
+		t.Fatalf("expected openrouter/gpt-4o, got %s", res.SelectedModel)
+	}
+}
+
 func TestBuildBranchNameTrimsTrailingDashAfterTruncation(t *testing.T) {
 	title := strings.Repeat("word-", 20)
 	branch := BuildBranchName("id-4", title)

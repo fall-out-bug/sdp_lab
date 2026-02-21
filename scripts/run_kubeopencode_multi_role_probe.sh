@@ -75,6 +75,7 @@ if [[ -z "${HOST}" ]]; then
 fi
 
 Z_AI_API_KEY="${Z_AI_API_KEY:-}"
+OPENROUTER_API_KEY="${OPENROUTER_API_KEY:-}"
 if [[ -z "${Z_AI_API_KEY}" && -f "${HOME}/.config/opencode/opencode.json" ]]; then
   Z_AI_API_KEY="$(python3 - <<'PY'
 import json
@@ -83,7 +84,23 @@ path = os.path.expanduser('~/.config/opencode/opencode.json')
 try:
     with open(path, 'r', encoding='utf-8') as f:
         data = json.load(f)
-    print(data.get('mcp', {}).get('zai-mcp-server', {}).get('environment', {}).get('Z_AI_API_KEY', ''))
+    env = data.get('mcp', {}).get('zai-mcp-server', {}).get('environment', {})
+    print(env.get('Z_AI_API_KEY', ''))
+except Exception:
+    print('')
+PY
+)"
+fi
+if [[ -z "${OPENROUTER_API_KEY}" && -f "${HOME}/.config/opencode/opencode.json" ]]; then
+  OPENROUTER_API_KEY="$(python3 - <<'PY'
+import json
+import os
+path = os.path.expanduser('~/.config/opencode/opencode.json')
+try:
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    env = data.get('mcp', {}).get('zai-mcp-server', {}).get('environment', {})
+    print(env.get('OPENROUTER_API_KEY', ''))
 except Exception:
     print('')
 PY
@@ -104,13 +121,21 @@ fi
 
 echo "[probe] create credentials secret"
 Z_AI_API_KEY_B64="$(printf '%s' "${Z_AI_API_KEY}" | base64 | tr -d '\n')"
-ssh -p "${PORT}" "${HOST}" "NAMESPACE='${NAMESPACE}' Z_AI_API_KEY_B64='${Z_AI_API_KEY_B64}' bash -s" <<'EOF'
+OPENROUTER_API_KEY_B64="$(printf '%s' "${OPENROUTER_API_KEY:-}" | base64 | tr -d '\n')"
+ssh -p "${PORT}" "${HOST}" "NAMESPACE='${NAMESPACE}' Z_AI_API_KEY_B64='${Z_AI_API_KEY_B64}' OPENROUTER_API_KEY_B64='${OPENROUTER_API_KEY_B64}' bash -s" <<'EOF'
 set -euo pipefail
 GH_TOKEN="$(gh auth token)"
 Z_AI_API_KEY="$(printf '%s' "${Z_AI_API_KEY_B64}" | base64 -d)"
+# openrouter_api_key: required by agents.yaml; use placeholder when OPENROUTER_API_KEY not set
+if [[ -n "${OPENROUTER_API_KEY_B64}" ]]; then
+  OPENROUTER_VAL="$(printf '%s' "${OPENROUTER_API_KEY_B64}" | base64 -d)"
+else
+  OPENROUTER_VAL=""
+fi
 kubectl -n "${NAMESPACE}" create secret generic sdp-kubeopencode-credentials \
   --from-literal=github_token="${GH_TOKEN}" \
   --from-literal=z_ai_api_key="${Z_AI_API_KEY}" \
+  --from-literal=openrouter_api_key="${OPENROUTER_VAL}" \
   --dry-run=client -o yaml | kubectl apply -f -
 EOF
 

@@ -88,6 +88,11 @@ spec:
                 secretKeyRef:
                   name: sdp-agent-credentials
                   key: z_ai_api_key
+            - name: OPENROUTER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sdp-agent-credentials
+                  key: openrouter_api_key
           volumeMounts:
             - name: workspace
               mountPath: /workspace

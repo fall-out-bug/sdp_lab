@@ -2,6 +2,8 @@
 
 Updated: 2026-02-21
 
+**Validation Run 1:** 2026-02-21T12:00:00Z (handoff-checklist run 1/10)
+
 ## Current State
 
 - Branch: `feat/sdp_dev-2aq-7-operator-adoption-artifacts`
