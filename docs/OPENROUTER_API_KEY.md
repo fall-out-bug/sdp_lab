@@ -55,11 +55,11 @@ For `opencode-agent` and similar workers, add to the secret referenced in the de
 
 ## Allowed models (via OpenRouter API)
 
-- `openai/gpt-4o`, `openai/gpt-4o-mini`
+- `openai/gpt-5.2-codex`
 - `anthropic/claude-sonnet-4.6`, `anthropic/claude-opus-4.6`
-- `google/gemini-2.5-pro`
-- `z-ai/glm-5`
+- `minimax/minimax-m2.5`
+- `moonshotai/kimi-k2.5`
 
-Check https://openrouter.ai/models for the latest model IDs.
+GLM is used via `zhipuai-coding-plan/glm-5` (coding plan), not OpenRouter.
 
-To use: set `model` in Agent config or task label to e.g. `openai/gpt-4o`.
+To use: set `model` in Agent config or task label to e.g. `openai/gpt-5.2-codex`.

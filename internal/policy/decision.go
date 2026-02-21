@@ -12,17 +12,16 @@ var allowedModels = map[string]struct{}{
 	"glm-4.7": {},
 }
 
-// allowedProviderModels: provider/model pairs. OpenRouter uses provider=openai|anthropic|google etc.
-// See https://openrouter.ai/models for current model IDs.
+// allowedProviderModels: provider/model pairs. OpenRouter uses provider=openai|anthropic etc.
+// GLM via zhipuai-coding-plan (coding plan), not OpenRouter.
 var allowedProviderModels = map[string]struct{}{
 	"zhipuai-coding-plan/glm-5":   {},
 	"zhipuai-coding-plan/glm-4.7": {},
-	"openai/gpt-4o":              {},
-	"openai/gpt-4o-mini":         {},
+	"openai/gpt-5.2-codex":        {},
 	"anthropic/claude-sonnet-4.6": {},
 	"anthropic/claude-opus-4.6":   {},
-	"google/gemini-2.5-pro":      {},
-	"z-ai/glm-5":                 {},
+	"minimax/minimax-m2.5":        {},
+	"moonshotai/kimi-k2.5":        {},
 }
 
 var criticalPatterns = []*regexp.Regexp{

@@ -23,12 +23,12 @@ func TestDecideForbiddenModelEscalates(t *testing.T) {
 }
 
 func TestDecideOpenRouterModelAllowed(t *testing.T) {
-	res := Decide(DecisionRequest{IssueID: "id-3b", Title: "OpenRouter", PreferredModel: "openai/gpt-4o", ChangedPaths: []string{"src/main.go"}})
+	res := Decide(DecisionRequest{IssueID: "id-3b", Title: "OpenRouter", PreferredModel: "openai/gpt-5.2-codex", ChangedPaths: []string{"src/main.go"}})
 	if res.PolicyVerdict != "allow" {
-		t.Fatalf("expected allow for openai/gpt-4o, got %s", res.PolicyVerdict)
+		t.Fatalf("expected allow for openai/gpt-5.2-codex, got %s", res.PolicyVerdict)
 	}
-	if res.SelectedModel != "openai/gpt-4o" {
-		t.Fatalf("expected openai/gpt-4o, got %s", res.SelectedModel)
+	if res.SelectedModel != "openai/gpt-5.2-codex" {
+		t.Fatalf("expected openai/gpt-5.2-codex, got %s", res.SelectedModel)
 	}
 }
 
