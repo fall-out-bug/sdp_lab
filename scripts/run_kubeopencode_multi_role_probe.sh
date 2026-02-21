@@ -8,6 +8,17 @@ RUN_ID="run-$(date +%Y%m%d-%H%M%S)"
 TASK_TIMEOUT="600"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# delete_task_and_pod removes a Task and its Pod to free cluster resources.
+delete_task_and_pod() {
+  local task_name="$1"
+  local pod_name
+  pod_name="$(ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} get task ${task_name} -o jsonpath='{.status.podName}' 2>/dev/null" || echo "")"
+  ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} delete task ${task_name} --wait=false 2>/dev/null" || true
+  if [[ -n "${pod_name}" ]]; then
+    ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} delete pod ${pod_name} --force --grace-period=0 2>/dev/null" || true
+  fi
+}
+
 wait_task_terminal() {
   local task_name="$1"
   local timeout_seconds="${2:-${TASK_TIMEOUT}}"
@@ -20,13 +31,14 @@ wait_task_terminal() {
       return 0
     fi
     if [[ "${phase}" == "Failed" ]]; then
-      echo "[probe] task ${task_name} failed"
+      echo "[probe] task ${task_name} failed; cleaning up"
       ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} describe task ${task_name}"
+      delete_task_and_pod "${task_name}"
       return 1
     fi
     if (( $(date +%s) - start > timeout_seconds )); then
-      echo "[probe] timeout (${timeout_seconds}s) waiting for ${task_name}; deleting stuck task"
-      ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} delete task ${task_name} --wait=false 2>/dev/null" || true
+      echo "[probe] timeout (${timeout_seconds}s) waiting for ${task_name}; deleting stuck task and pod"
+      delete_task_and_pod "${task_name}"
       ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} describe task ${task_name} 2>/dev/null" || true
       return 1
     fi

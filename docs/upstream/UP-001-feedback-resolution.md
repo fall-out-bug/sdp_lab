@@ -30,6 +30,10 @@ PR: https://github.com/kubeopencode/kubeopencode/pull/50
 | sdp_dev-j2b.1.10 | Extract backoff magic numbers as constants | ✓ Implemented |
 | sdp_dev-j2b.1.11 | Adapter lifecycle_reconciler use TerminalReasonCode | ✓ Implemented |
 
+## Co-author
+
+- Added `Co-authored-by: Cursor <cursor@cursor.com>` to all UP-001 commits (2026-02-21).
+
 ## Bot feedback addressed
 
 1. **CRD smart quotes** — Fixed in context_types.go (ASCII `""` instead of `"`)
