@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: intake-gateway
+  namespace: sdp-control
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: intake-gateway
+  template:
+    metadata:
+      labels:
+        app: intake-gateway
+    spec:
+      containers:
+        - name: gateway
+          image: sdp/intake-gateway:latest
+          env:
+            - name: NATS_URL
+              value: "nats://nats:4222"
+          ports:
+            - containerPort: 8081
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: intake-gateway
+  namespace: sdp-control
+spec:
+  selector:
+    app: intake-gateway
+  ports:
+    - port: 8081
+      targetPort: 8081

@@ -1,0 +1,14 @@
+# Project registry for SDP swarm. Each project has a repo, workstreams, and model policy.
+# Used by federation and orchestrator for multi-project scheduling.
+
+projects:
+  - id: sdp_dev
+    repo_url: .
+    repo_branch: main
+    beads_prefix: sdp_dev
+    language: go
+    workstreams:
+      - workstream:generic
+      - workstream:builder
+    model_policy: ""
+    config: {}

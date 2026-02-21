@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: swarm-orchestrator
+  namespace: sdp-control
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: swarm-orchestrator
+  template:
+    metadata:
+      labels:
+        app: swarm-orchestrator
+    spec:
+      containers:
+        - name: orchestrator
+          image: sdp/swarm-orchestrator:latest
+          env:
+            - name: NATS_URL
+              value: "nats://nats:4222"
+            - name: WORKSPACE_BASE
+              value: "/workspaces"
+          volumeMounts:
+            - name: workspaces
+              mountPath: /workspaces
+      volumes:
+        - name: workspaces
+          persistentVolumeClaim:
+            claimName: swarm-workspaces
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: swarm-orchestrator
+  namespace: sdp-control
+spec:
+  selector:
+    app: swarm-orchestrator
+  ports:
+    - port: 8080

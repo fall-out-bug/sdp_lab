@@ -1,0 +1,75 @@
+// swarm-orchestrator coordinates multi-project swarm with NATS lifecycle.
+package main
+
+import (
+	"context"
+	"flag"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"sdp_dev/internal/bus"
+	"sdp_dev/internal/federation"
+	"sdp_dev/internal/registry"
+	"sdp_dev/internal/swarm"
+)
+
+func main() {
+	natsURL := flag.String("nats", os.Getenv("NATS_URL"), "NATS server URL")
+	workspaceBase := flag.String("workspace", "/workspaces", "base dir for project workspaces")
+	flag.Parse()
+
+	if *natsURL == "" {
+		log.Fatal("NATS_URL or -nats required")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sig
+		cancel()
+	}()
+
+	b, err := bus.ConnectAndProvision(ctx, *natsURL)
+	if err != nil {
+		log.Fatalf("NATS: %v", err)
+	}
+	defer b.Close()
+
+	store := registry.NewStore(registry.StoreConfig{})
+	_ = store.Load()
+
+	ws := federation.NewWorkspaceManager(*workspaceBase)
+	agg := federation.NewAggregator(b, store, ws)
+	go func() {
+		_ = agg.Run(ctx)
+	}()
+
+	coord := swarm.NewCoordinator()
+	disp := swarm.Dispatcher(b)
+
+	_, err = b.Subscribe("sdp.beads.*.ready", "orchestrator", func(env bus.Envelope) {
+		handleReady(ctx, env, agg, coord, disp)
+	})
+	if err != nil {
+		log.Fatalf("subscribe: %v", err)
+	}
+
+	log.Printf("swarm-orchestrator running")
+	<-ctx.Done()
+}
+
+func handleReady(ctx context.Context, env bus.Envelope, agg *federation.Aggregator, coord *swarm.Coordinator, disp *swarm.DispatchService) {
+	tasks := agg.ReadyAcrossProjects(3)
+	for _, task := range tasks {
+		key := task.ProjectID + ":" + task.Issue.ID
+		if coord.Get(task.ProjectID, task.Issue.ID) != nil {
+			continue
+		}
+		coord.Claim(task.ProjectID, task.Issue.ID, key)
+		_ = disp.Dispatch(task, "coder")
+	}
+}
