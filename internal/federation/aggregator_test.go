@@ -73,3 +73,42 @@ func TestAggregator_ReadyAcrossProjects_Limit(t *testing.T) {
 		t.Errorf("ReadyAcrossProjects(1) should return 1, got %d", len(tasks))
 	}
 }
+
+func TestAggregator_handleReady_invalidJSON(t *testing.T) {
+	dir := t.TempDir()
+	store := registry.NewStore(registry.StoreConfig{RegistryPath: dir + "/reg.yaml"})
+	ws := NewWorkspaceManager(dir)
+	a := NewAggregator(nil, store, ws)
+	a.handleReady(bus.Envelope{Payload: []byte(`{invalid`), ProjectID: "p1"})
+	tasks := a.ReadyAcrossProjects(10)
+	if len(tasks) != 0 {
+		t.Errorf("invalid JSON should not add tasks, got %d", len(tasks))
+	}
+}
+
+func TestAggregator_handleReady_projectIDFromEnv(t *testing.T) {
+	dir := t.TempDir()
+	store := registry.NewStore(registry.StoreConfig{RegistryPath: dir + "/reg.yaml"})
+	_ = store.Create(&registry.Project{ID: "p2", RepoURL: ".", RepoBranch: "main"})
+	ws := NewWorkspaceManager(dir)
+	a := NewAggregator(nil, store, ws)
+	payload := []byte(`{"issues":[{"id":"i1","title":"t1","priority":1}],"count":1}`)
+	a.handleReady(bus.Envelope{Payload: payload, ProjectID: "p2"})
+	tasks := a.ReadyAcrossProjects(10)
+	if len(tasks) != 1 || tasks[0].ProjectID != "p2" {
+		t.Errorf("project ID from envelope: %+v", tasks)
+	}
+}
+
+func TestAggregator_rebuildTasks_unknownProject(t *testing.T) {
+	dir := t.TempDir()
+	store := registry.NewStore(registry.StoreConfig{RegistryPath: dir + "/reg.yaml"})
+	ws := NewWorkspaceManager(dir)
+	a := NewAggregator(nil, store, ws)
+	payload := []byte(`{"project_id":"unknown","issues":[{"id":"i1","title":"t1","priority":1}],"count":1}`)
+	a.handleReady(bus.Envelope{Payload: payload, ProjectID: "unknown"})
+	tasks := a.ReadyAcrossProjects(10)
+	if len(tasks) != 0 {
+		t.Errorf("unknown project should yield 0 tasks, got %d", len(tasks))
+	}
+}

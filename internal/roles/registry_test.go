@@ -16,6 +16,15 @@ func TestGet(t *testing.T) {
 	if Get("coder") == nil {
 		t.Error("Get(coder) should return strategy")
 	}
+	if Get("reviewer") == nil {
+		t.Error("Get(reviewer) should return strategy")
+	}
+	if Get("reviewer-security") == nil {
+		t.Error("Get(reviewer-security) should return strategy")
+	}
+	if Get("reviewer-dx") == nil {
+		t.Error("Get(reviewer-dx) should return strategy")
+	}
 	if Get("unknown-role-xyz") != nil {
 		t.Error("Get(unknown) should return nil")
 	}

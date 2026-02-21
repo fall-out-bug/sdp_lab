@@ -45,3 +45,27 @@ func TestConsensus_needsChanges(t *testing.T) {
 		t.Errorf("needs_changes: %+v", r)
 	}
 }
+
+func TestConsensus_approveThreshold(t *testing.T) {
+	// 3 approve, threshold=2 -> approve
+	v := []ReviewVerdict{
+		{PersonaID: "a", Verdict: "approve"},
+		{PersonaID: "b", Verdict: "approve"},
+		{PersonaID: "c", Verdict: "approve"},
+	}
+	r := Consensus(v)
+	if !r.Approved || r.Consensus != "approve" {
+		t.Errorf("approve threshold: %+v", r)
+	}
+}
+
+func TestConsensus_dissenting(t *testing.T) {
+	v := []ReviewVerdict{
+		{PersonaID: "sec", Verdict: "reject"},
+		{PersonaID: "dx", Verdict: "approve"},
+	}
+	r := Consensus(v)
+	if len(r.Dissenting) == 0 || !r.Rejected {
+		t.Errorf("dissenting: %+v", r)
+	}
+}
