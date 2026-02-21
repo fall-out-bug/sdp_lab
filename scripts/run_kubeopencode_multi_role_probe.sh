@@ -5,16 +5,17 @@ HOST=""
 PORT="22"
 NAMESPACE="kubeopencode-system"
 RUN_ID="run-$(date +%Y%m%d-%H%M%S)"
+TASK_TIMEOUT="600"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 wait_task_terminal() {
   local task_name="$1"
-  local timeout_seconds="$2"
+  local timeout_seconds="${2:-${TASK_TIMEOUT}}"
   local start
   start="$(date +%s)"
   while true; do
     local phase
-    phase="$(ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} get task ${task_name} -o jsonpath='{.status.phase}'")"
+    phase="$(ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} get task ${task_name} -o jsonpath='{.status.phase}' 2>/dev/null" || echo "Unknown")"
     if [[ "${phase}" == "Completed" ]]; then
       return 0
     fi
@@ -24,8 +25,9 @@ wait_task_terminal() {
       return 1
     fi
     if (( $(date +%s) - start > timeout_seconds )); then
-      echo "[probe] timeout waiting for ${task_name}"
-      ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} describe task ${task_name}"
+      echo "[probe] timeout (${timeout_seconds}s) waiting for ${task_name}; deleting stuck task"
+      ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} delete task ${task_name} --wait=false 2>/dev/null" || true
+      ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} describe task ${task_name} 2>/dev/null" || true
       return 1
     fi
     sleep 5
@@ -55,16 +57,20 @@ while [[ $# -gt 0 ]]; do
       RUN_ID="$2"
       shift 2
       ;;
+    --timeout)
+      TASK_TIMEOUT="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown argument: $1"
-      echo "Usage: $0 --host <user@ip-or-host> [--port <port>] [--namespace <ns>] [--run-id <id>]"
+      echo "Usage: $0 --host <user@ip-or-host> [--port <port>] [--namespace <ns>] [--run-id <id>] [--timeout <seconds>]"
       exit 2
       ;;
   esac
 done
 
 if [[ -z "${HOST}" ]]; then
-  echo "Usage: $0 --host <user@ip-or-host> [--port <port>] [--namespace <ns>] [--run-id <id>]"
+  echo "Usage: $0 --host <user@ip-or-host> [--port <port>] [--namespace <ns>] [--run-id <id>] [--timeout <seconds>]"
   exit 2
 fi
 
@@ -149,9 +155,9 @@ spec:
 YAML
 EOF
 
-echo "[probe] wait for analyst/coder completion"
-wait_task_terminal "${ANALYST_TASK}" 600
-wait_task_terminal "${CODER_TASK}" 600
+echo "[probe] wait for analyst/coder completion (timeout=${TASK_TIMEOUT}s)"
+wait_task_terminal "${ANALYST_TASK}" "${TASK_TIMEOUT}"
+wait_task_terminal "${CODER_TASK}" "${TASK_TIMEOUT}"
 
 echo "[probe] capture analyst/coder logs into run artifact configmap"
 ANALYST_LOG="$(fetch_task_log "${ANALYST_TASK}")"
@@ -198,8 +204,8 @@ spec:
 YAML
 EOF
 
-echo "[probe] wait for reviewer completion"
-wait_task_terminal "${REVIEWER_TASK}" 600
+echo "[probe] wait for reviewer completion (timeout=${TASK_TIMEOUT}s)"
+wait_task_terminal "${REVIEWER_TASK}" "${TASK_TIMEOUT}"
 
 echo "[probe] run summary"
 ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} get task/${ANALYST_TASK} task/${CODER_TASK} task/${REVIEWER_TASK} -o wide"

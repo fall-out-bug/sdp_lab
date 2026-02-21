@@ -20,6 +20,20 @@ Run probe:
 ./scripts/run_kubeopencode_multi_role_probe.sh --host fall_out_bug@192.168.50.219 --port 2222 --run-id run-roles-02
 ```
 
+Optional `--timeout <seconds>` (default 600): per-task wait limit; on timeout the stuck Task is deleted before probe exit.
+
+### Stuck Task cleanup
+
+If Tasks remain in `Running` indefinitely (e.g. model API hang), clean manually:
+
+```bash
+ssh -p 2222 fall_out_bug@192.168.50.219 "kubectl -n kubeopencode-system get task | grep Running"
+# Delete stuck Tasks:
+ssh -p 2222 fall_out_bug@192.168.50.219 "kubectl -n kubeopencode-system delete task <task-name>"
+# If pods linger in Terminating, force delete:
+ssh -p 2222 fall_out_bug@192.168.50.219 "kubectl -n kubeopencode-system delete pod <pod-name> --force --grace-period=0"
+```
+
 ## What probe verifies
 
 - kubeopencode operator is deployed and healthy
