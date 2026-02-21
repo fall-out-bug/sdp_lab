@@ -4,6 +4,7 @@ set -euo pipefail
 HOST=""
 PORT="22"
 IMAGE=""
+BRANCH=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -19,16 +20,20 @@ while [[ $# -gt 0 ]]; do
       IMAGE="$2"
       shift 2
       ;;
+    --branch)
+      BRANCH="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown argument: $1"
-      echo "Usage: $0 --host <user@ip-or-host> [--port <port>] [--image <image>]"
+      echo "Usage: $0 --host <user@ip-or-host> [--port <port>] [--image <image>] [--branch <branch>]"
       exit 2
       ;;
   esac
 done
 
 if [[ -z "${HOST}" ]]; then
-  echo "Usage: $0 --host <user@ip-or-host> [--port <port>] [--image <image>]"
+  echo "Usage: $0 --host <user@ip-or-host> [--port <port>] [--image <image>] [--branch <branch>]"
   exit 2
 fi
 
@@ -53,7 +58,20 @@ fi
 
 echo "[apply] copying worker manifests to ${HOST}:${PORT}"
 ssh -p "${PORT}" "${HOST}" "mkdir -p /tmp/sdp-dev-workers"
-scp -P "${PORT}" -r "${MANIFEST_DIR}/." "${HOST}:/tmp/sdp-dev-workers/"
+if [[ -n "${BRANCH}" ]]; then
+  echo "[apply] patching SDP_REPO_BRANCH to ${BRANCH}"
+  TMP_MANIFEST="$(mktemp -d)"
+  trap "rm -rf '${TMP_MANIFEST}'" EXIT
+  cp -r "${MANIFEST_DIR}/." "${TMP_MANIFEST}/"
+  if sed --version >/dev/null 2>&1; then
+    sed -i "s|value: feat/sdp_dev-[^[:space:]]*|value: ${BRANCH}|g" "${TMP_MANIFEST}/opencode-agent.yaml"
+  else
+    sed -i '' "s|value: feat/sdp_dev-[^[:space:]]*|value: ${BRANCH}|g" "${TMP_MANIFEST}/opencode-agent.yaml"
+  fi
+  scp -P "${PORT}" -r "${TMP_MANIFEST}/." "${HOST}:/tmp/sdp-dev-workers/"
+else
+  scp -P "${PORT}" -r "${MANIFEST_DIR}/." "${HOST}:/tmp/sdp-dev-workers/"
+fi
 
 echo "[apply] ensuring worker credentials secret"
 Z_AI_API_KEY_B64="$(printf '%s' "${Z_AI_API_KEY}" | base64 | tr -d '\n')"
