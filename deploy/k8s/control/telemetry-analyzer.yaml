@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: telemetry-analyzer
+  namespace: sdp-control
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: telemetry-analyzer
+  template:
+    metadata:
+      labels:
+        app: telemetry-analyzer
+    spec:
+      containers:
+        - name: analyzer
+          image: sdp/telemetry-analyzer:latest
+          args:
+            - -dir
+            - /workspaces
+            - -max-per-cycle
+            - "5"
+          env:
+            - name: NATS_URL
+              value: "nats://nats:4222"
+            - name: SDP_WORK_DIR
+              value: "/workspaces"
+            - name: TELEMETRY_MODEL
+              value: "glm-4.7"
+            - name: OPENROUTER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sdp-credentials
+                  key: openrouter_api_key
+                  optional: true
+          volumeMounts:
+            - name: workspaces
+              mountPath: /workspaces
+      volumes:
+        - name: workspaces
+          persistentVolumeClaim:
+            claimName: swarm-workspaces
