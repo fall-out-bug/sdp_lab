@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"sdp_dev/api/v1alpha1"
 	"sdp_dev/internal/adapter"
@@ -113,6 +114,19 @@ func TestBuildAgentRun_BaseBranchDefault(t *testing.T) {
 	}
 }
 
+func TestBuildAgentRun_ModelAllowlist(t *testing.T) {
+	task := &federation.FederatedTask{
+		ProjectID: "p1",
+		Issue:     beads.Issue{ID: "i1", Title: "T", Labels: []string{"model:evil-unknown-model"}},
+		Workspace: "/ws/p1",
+	}
+	proj := &registry.Project{ID: "p1", RepoURL: "https://github.com/org/repo", RepoBranch: "main"}
+	run := buildAgentRun(task, proj, "ns")
+	if run.Spec.Model != "glm-5" {
+		t.Errorf("disallowed model should fallback to DefaultModel, got %q", run.Spec.Model)
+	}
+}
+
 func TestDispatchConfig(t *testing.T) {
 	cfg := DispatchConfig{
 		Namespace: "sdp-workers",
@@ -153,6 +167,41 @@ func TestAgentRunName(t *testing.T) {
 	if len(long) != 63 {
 		t.Errorf("long name: len = %d, want 63", len(long))
 	}
+}
+
+func TestEnvHelpers(t *testing.T) {
+	// envDuration
+	os.Unsetenv("SDP_POLL_INTERVAL")
+	if got := envDuration("SDP_POLL_INTERVAL", 30*time.Second); got != 30*time.Second {
+		t.Errorf("envDuration unset: got %v", got)
+	}
+	os.Setenv("SDP_POLL_INTERVAL", "1m")
+	if got := envDuration("SDP_POLL_INTERVAL", 30*time.Second); got != time.Minute {
+		t.Errorf("envDuration 1m: got %v", got)
+	}
+	os.Unsetenv("SDP_POLL_INTERVAL")
+
+	// envInt
+	os.Unsetenv("SDP_MAX_CONCURRENT")
+	if got := envInt("SDP_MAX_CONCURRENT", 3); got != 3 {
+		t.Errorf("envInt unset: got %d", got)
+	}
+	os.Setenv("SDP_MAX_CONCURRENT", "5")
+	if got := envInt("SDP_MAX_CONCURRENT", 3); got != 5 {
+		t.Errorf("envInt 5: got %d", got)
+	}
+	os.Unsetenv("SDP_MAX_CONCURRENT")
+
+	// envStr
+	os.Unsetenv("SDP_AGENTRUN_NAMESPACE")
+	if got := envStr("SDP_AGENTRUN_NAMESPACE", "sdp-workers"); got != "sdp-workers" {
+		t.Errorf("envStr unset: got %q", got)
+	}
+	os.Setenv("SDP_AGENTRUN_NAMESPACE", "custom-ns")
+	if got := envStr("SDP_AGENTRUN_NAMESPACE", "sdp-workers"); got != "custom-ns" {
+		t.Errorf("envStr custom: got %q", got)
+	}
+	os.Unsetenv("SDP_AGENTRUN_NAMESPACE")
 }
 
 func TestDispatch_noTasks(t *testing.T) {

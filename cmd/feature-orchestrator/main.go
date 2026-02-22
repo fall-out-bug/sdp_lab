@@ -20,6 +20,7 @@ import (
 	"sdp_dev/internal/federation"
 	"sdp_dev/internal/observability"
 	"sdp_dev/internal/orchestrator"
+	"sdp_dev/internal/policy"
 	"sdp_dev/internal/registry"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -218,6 +219,9 @@ func agentRunName(projectID, issueID string) string {
 
 func buildAgentRun(task *federation.FederatedTask, proj *registry.Project, namespace string) *v1alpha1.AgentRun {
 	model := resolveModel(task.Issue.Labels)
+	if !policy.AllowedModel(model) {
+		model = policy.DefaultModel()
+	}
 	workstream := resolveWorkstream(task.Issue.Labels)
 	repo := proj.RepoURL
 	if proj.Fork && proj.UpstreamURL != "" {
