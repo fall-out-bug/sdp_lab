@@ -34,24 +34,33 @@ func runComponent(binary string, goPkg string, args ...string) ([]byte, error) {
 	return out, err
 }
 
+// lookPathFunc is used by runComponentWithFallback. Override in tests for mocking.
+var lookPathFunc = exec.LookPath
+
+// runComponentRunner runs a command. Override in tests for mocking.
+var runComponentRunner = func(name string, args ...string) ([]byte, error) {
+	cmd := exec.Command(name, args...)
+	cmd.Stderr = nil
+	out, err := cmd.Output()
+	if err != nil {
+		combined, _ := exec.Command(name, args...).CombinedOutput()
+		return nil, fmt.Errorf("%s %s failed: %w: %s", name, strings.Join(args, " "), err, string(combined))
+	}
+	return out, nil
+}
+
 func runComponentWithFallback(binary string, goPkg string, args ...string) ([]byte, bool, error) {
-	if _, err := exec.LookPath(binary); err == nil {
-		cmd := exec.Command(binary, args...)
-		cmd.Stderr = nil
-		out, runErr := cmd.Output()
+	if _, err := lookPathFunc(binary); err == nil {
+		out, runErr := runComponentRunner(binary, args...)
 		if runErr != nil {
-			combined, _ := exec.Command(binary, args...).CombinedOutput()
-			return nil, false, fmt.Errorf("%s %s failed: %w: %s", binary, strings.Join(args, " "), runErr, string(combined))
+			return nil, false, runErr
 		}
 		return out, false, nil
 	}
 	goArgs := append([]string{"run", goPkg}, args...)
-	cmd := exec.Command("go", goArgs...)
-	cmd.Stderr = nil
-	out, runErr := cmd.Output()
+	out, runErr := runComponentRunner("go", goArgs...)
 	if runErr != nil {
-		combined, _ := exec.Command("go", goArgs...).CombinedOutput()
-		return nil, true, fmt.Errorf("go %s failed: %w: %s", strings.Join(goArgs, " "), runErr, string(combined))
+		return nil, true, fmt.Errorf("go %s failed: %w", strings.Join(goArgs, " "), runErr)
 	}
 	return out, true, nil
 }
