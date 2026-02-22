@@ -2,7 +2,7 @@
 
 Updated: 2026-02-22
 
-**Validation Run 4:** 2026-02-22T12:00:00Z (handoff-checklist run 4/10)
+**Validation Run 5:** 2026-02-22T14:00:00Z (handoff-checklist run 5/10)
 
 ## Current State
 
@@ -13,9 +13,9 @@ Updated: 2026-02-22
 
 ## Most Recent Delivery
 
-- PR #37 merged: FR-003 CRD types, FR-001 adapter-controller, FR-002 AgentRun, FR-004 Delete Path A.
-- PR #33–36 merged: handoff validation, QA coverage, TechLead fixes.
-- Beads: closed completed tasks (j25, 23j, kel, d1l, cgk, 4pg).
+- sdp_dev-j2b.1.6 closed: orchestrate_k8s_issue.sh ISSUE validation + regression test.
+- sdp_dev-d1l.1, sdp_dev-kel.2 closed (PR #37).
+- Handoff run 5/10 recorded.
 
 ## Open Work Situation
 
@@ -23,7 +23,7 @@ Updated: 2026-02-22
   1. `sdp_dev-hex` [P2] QA: Raise swarm-worker and autonomy-worker coverage to 80%+
   2. `sdp_dev-sod` [P2] Probe: /feature end-to-end returns PR
 - **In progress:**
-  - `sdp_dev-oip` [P1] VALIDATE: adapter handoff checklist (10 consecutive runs) — run 4/10 recorded
+  - `sdp_dev-oip` [P1] VALIDATE: adapter handoff checklist (10 consecutive runs) — run 5/10 recorded
 - **Blocked / epic chain:**
   - `sdp_dev-j2b` epic — blocked by sdp_dev-oip
 
@@ -58,3 +58,4 @@ make quality            # verify gates before starting work
 - 2026-02-21T08:13:51Z (run 2/10)
 - 2026-02-21T12:00:00Z (run 3/10)
 - 2026-02-22T12:00:00Z (run 4/10)
+- 2026-02-22T14:00:00Z (run 5/10)
