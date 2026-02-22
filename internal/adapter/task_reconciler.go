@@ -10,6 +10,8 @@ import (
 	"sdp_dev/internal/beads"
 	"sdp_dev/internal/evidence"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -59,6 +61,12 @@ type TaskReconcilerOpts struct {
 
 // Reconcile handles Task reconciliation.
 func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx, span := otel.Tracer("adapter").Start(ctx, "TaskReconcile")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("task", req.NamespacedName.String()),
+	)
+
 	log := log.FromContext(ctx)
 
 	task := &v1alpha1.Task{}
@@ -75,6 +83,7 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 
 	phase := CRDPhase(task.Status.Phase)
+	span.SetAttributes(attribute.String("phase", string(phase)), attribute.String("issue", issueID))
 	runID := task.Name
 	if rid := task.Labels["sdp.run_id"]; rid != "" {
 		runID = rid

@@ -1,13 +1,18 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	"sdp_dev/internal/observability"
 	"sdp_dev/internal/safeid"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type claimResult struct {
@@ -27,7 +32,13 @@ type issueDetail struct {
 }
 
 func main() {
+	_, _ = observability.SetupTracing("swarm-worker")
+
 	flowStartedAt := time.Now()
+	ctx := context.Background()
+	ctx, span := otel.Tracer("swarm-worker").Start(ctx, "WorkerFlow")
+	defer span.End()
+
 	claimOut, claimFallback, err := runComponentWithFallback("autonomy-worker", "./cmd/autonomy-worker")
 	if err != nil {
 		if strings.Contains(err.Error(), "No eligible autonomy tasks found") {
@@ -82,8 +93,12 @@ func main() {
 		}
 	}
 
+	_, execSpan := otel.Tracer("swarm-worker").Start(ctx, "execute")
+	execSpan.SetAttributes(attribute.String("issue", claim.IssueID), attribute.String("workstream", workstream))
 	changedFiles := applyWorkstreamFlow(workstream, claim.IssueID, issue, claim.Model)
+	execSpan.End()
 
+	_, verifySpan := otel.Tracer("swarm-worker").Start(ctx, "verify")
 	testsPassed := true
 	if _, err := run("go", "test", "./..."); err != nil {
 		testsPassed = false
@@ -96,6 +111,7 @@ func main() {
 	if testsPassed {
 		emitWorkerObservability(claim.IssueID, "verify", "success", claim.Model, flowStartedAt, 0, claimFallback, false, evidenceContextLink, prURL)
 	}
+	verifySpan.End()
 
 	onesNote, err := updateEvidence(claim.IssueID, claim.Branch, workstream, changedFiles, testsPassed)
 	if err != nil {
@@ -164,6 +180,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	_, publishSpan := otel.Tracer("swarm-worker").Start(ctx, "publish")
+	defer publishSpan.End()
+	publishSpan.SetAttributes(attribute.String("issue", claim.IssueID), attribute.String("branch", claim.Branch))
 	bodyPath := writePRBody(claim.IssueID, workstream)
 	if _, err := runComponent("pr-publish", "./cmd/pr-publish", "--issue", claim.IssueID, "--title", "Worker: "+claim.Title, "--head", claim.Branch, "--base", "master", "--body-file", bodyPath); err != nil {
 		emitWorkerObservability(claim.IssueID, "publish", "failed", claim.Model, flowStartedAt, 0, claimFallback, true, evidenceContextLink, prURL)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,9 @@ import (
 	"time"
 
 	"sdp_dev/internal/observability"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type issue struct {
@@ -283,7 +287,12 @@ func recoverMissingPR(issueID string) error {
 }
 
 func main() {
+	_, _ = observability.SetupTracing("swarm-reviewer")
+
 	startedAt := time.Now()
+	ctx, span := otel.Tracer("swarm-reviewer").Start(context.Background(), "ReviewFlow")
+	defer span.End()
+
 	items, err := listOpenTasks()
 	if err != nil {
 		emitReviewerObservability("", "intake", "failed", "glm-5", startedAt, 0, false, true, "", "")
@@ -315,6 +324,9 @@ func main() {
 	evidenceContextLink, prURL := evidenceLinkage(target)
 	emitReviewerObservability(target, "review", "running", "glm-5", startedAt, 0, false, false, evidenceContextLink, prURL)
 
+	_, reviewSpan := otel.Tracer("swarm-reviewer").Start(ctx, "review")
+	defer reviewSpan.End()
+	reviewSpan.SetAttributes(attribute.String("issue", target))
 	approved, err := reviewerApprove(target)
 	if err != nil {
 		emitReviewerObservability(target, "review", "failed", "glm-5", startedAt, 0, false, true, evidenceContextLink, prURL)

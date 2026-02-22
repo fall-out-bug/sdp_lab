@@ -11,11 +11,17 @@ import (
 
 	"sdp_dev/internal/bus"
 	"sdp_dev/internal/federation"
+	"sdp_dev/internal/observability"
 	"sdp_dev/internal/registry"
 	"sdp_dev/internal/swarm"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 func main() {
+	_, _ = observability.SetupTracing("swarm-orchestrator")
+
 	natsURL := flag.String("nats", os.Getenv("NATS_URL"), "NATS server URL")
 	workspaceBase := flag.String("workspace", "/workspaces", "base dir for project workspaces")
 	flag.Parse()
@@ -63,13 +69,20 @@ func main() {
 }
 
 func handleReady(ctx context.Context, env bus.Envelope, agg *federation.Aggregator, coord *swarm.Coordinator, disp *swarm.DispatchService) {
+	ctx, span := otel.Tracer("swarm-orchestrator").Start(ctx, "dispatch")
+	defer span.End()
+
 	tasks := agg.ReadyAcrossProjects(3)
+	span.SetAttributes(attribute.Int("ready_count", len(tasks)))
 	for _, task := range tasks {
 		key := task.ProjectID + ":" + task.Issue.ID
 		if coord.Get(task.ProjectID, task.Issue.ID) != nil {
 			continue
 		}
 		coord.Claim(task.ProjectID, task.Issue.ID, key)
+		_, dispSpan := otel.Tracer("swarm-orchestrator").Start(ctx, "Dispatch")
+		dispSpan.SetAttributes(attribute.String("project", task.ProjectID), attribute.String("issue", task.Issue.ID))
 		_ = disp.Dispatch(task, "coder")
+		dispSpan.End()
 	}
 }

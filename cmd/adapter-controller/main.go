@@ -8,12 +8,14 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"sdp_dev/api/v1alpha1"
 	"sdp_dev/internal/adapter"
 	"sdp_dev/internal/agent"
 	"sdp_dev/internal/beads"
 	"sdp_dev/internal/bus"
+	"sdp_dev/internal/observability"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -36,6 +38,17 @@ func init() {
 
 func main() {
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+
+	shutdown, err := observability.SetupTracing("adapter-controller")
+	if err != nil {
+		setupLog.Info("OTLP tracing disabled", "reason", err)
+	} else if shutdown != nil {
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = shutdown(ctx)
+		}()
+	}
 
 	workDir, _ := os.Getwd()
 	if d := os.Getenv("SDP_WORK_DIR"); d != "" {

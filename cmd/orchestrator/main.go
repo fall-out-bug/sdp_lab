@@ -8,10 +8,13 @@ import (
 	"path/filepath"
 	"time"
 
+	"sdp_dev/internal/observability"
 	"sdp_dev/internal/orchestrator"
 )
 
 func main() {
+	_, _ = observability.SetupTracing("orchestrator")
+
 	host := flag.String("host", "", "SSH host (user@ip) for remote dispatch")
 	port := flag.String("port", "22", "SSH port")
 	issue := flag.String("issue", "", "Specific issue ID (optional; if empty, pick from ready)")
