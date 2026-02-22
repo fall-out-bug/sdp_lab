@@ -72,7 +72,12 @@ func (b *natsBus) Close() {
 
 // ConnectAndProvision connects to NATS, provisions JetStream streams, and returns a Bus.
 func ConnectAndProvision(ctx context.Context, url string) (Bus, error) {
-	client := NewClient(url)
+	return ConnectAndProvisionWithOptions(ctx, url)
+}
+
+// ConnectAndProvisionWithOptions connects with optional client options (e.g. WithToken for NATS auth).
+func ConnectAndProvisionWithOptions(ctx context.Context, url string, opts ...ClientOption) (Bus, error) {
+	client := NewClient(url, opts...)
 	if err := client.Connect(ctx); err != nil {
 		return nil, err
 	}

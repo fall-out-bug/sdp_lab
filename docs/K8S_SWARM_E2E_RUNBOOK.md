@@ -98,6 +98,13 @@ adapter-controller and swarm-orchestrator use file-based run locks. By default t
 | NATS_URL | — | NATS server URL (required) |
 | WORKSPACE_BASE | /workspaces | Base dir for project workspaces |
 
+### feature-orchestrator
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| NATS_URL | — | NATS server URL (required) |
+| NATS_TOKEN | — | Optional. Token for NATS auth (e.g. from K8s secretKeyRef); use in multi-tenant or exposed clusters (rxt). |
+
 ### opencode-agent / workers
 
 | Variable | Description |

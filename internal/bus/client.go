@@ -19,6 +19,7 @@ const DefaultMaxReconnects = 0
 // Client manages NATS connection with reconnect and JetStream.
 type Client struct {
 	url            string
+	token          string // optional; used for NATS auth when set
 	nc             *nats.Conn
 	js             nats.JetStreamContext
 	mu             sync.RWMutex
@@ -48,6 +49,13 @@ func WithMaxReconnects(n int) ClientOption {
 func WithConnectTimeout(d time.Duration) ClientOption {
 	return func(c *Client) {
 		c.connectTimeout = d
+	}
+}
+
+// WithToken sets the NATS auth token (e.g. from secretKeyRef). Used when connecting if non-empty.
+func WithToken(token string) ClientOption {
+	return func(c *Client) {
+		c.token = token
 	}
 }
 
@@ -86,6 +94,9 @@ func (c *Client) Connect(ctx context.Context) error {
 		nats.ReconnectHandler(func(nc *nats.Conn) {
 			slog.Info("nats reconnected", "url", nc.ConnectedUrl())
 		}),
+	}
+	if c.token != "" {
+		opts = append(opts, nats.Token(c.token))
 	}
 
 	nc, err := nats.Connect(c.url, opts...)

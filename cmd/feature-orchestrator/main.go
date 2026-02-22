@@ -65,7 +65,12 @@ func main() {
 		cancel()
 	}()
 
-	b, err := bus.ConnectAndProvision(ctx, *natsURL)
+	// NATS auth: set NATS_TOKEN (e.g. from K8s secretKeyRef) for token-based auth
+	natsOpts := []bus.ClientOption{}
+	if t := os.Getenv("NATS_TOKEN"); t != "" {
+		natsOpts = append(natsOpts, bus.WithToken(t))
+	}
+	b, err := bus.ConnectAndProvisionWithOptions(ctx, *natsURL, natsOpts...)
 	if err != nil {
 		log.Fatalf("NATS: %v", err)
 	}
