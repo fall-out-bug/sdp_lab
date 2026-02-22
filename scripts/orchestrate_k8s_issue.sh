@@ -3,6 +3,7 @@ set -euo pipefail
 
 HOST=""
 PORT="22"
+LOCAL=""
 ISSUE=""
 FEATURE=""
 TIMEOUT="300"

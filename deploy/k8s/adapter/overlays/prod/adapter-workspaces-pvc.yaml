@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: adapter-workspaces
+  namespace: sdp-adapter
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: "" # Set to desired StorageClass (e.g. nfs, cephfs) for production

@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: agentruns.sdp.dev
+  name: agentruns.
 spec:
-  group: sdp.dev
+  group: ""
   names:
     kind: AgentRun
     listKind: AgentRunList
@@ -24,7 +24,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1alpha1
+    name: ""
     schema:
       openAPIV3Schema:
         description: AgentRun is the Schema for the agentruns API.
@@ -62,7 +62,11 @@ spec:
               workstream:
                 type: string
             required:
+            - baseBranch
             - issueId
+            - model
+            - repo
+            - workstream
             type: object
           status:
             description: AgentRunStatus defines the observed state of AgentRun.

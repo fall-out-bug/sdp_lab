@@ -36,12 +36,24 @@ func runComponent(binary string, goPkg string, args ...string) ([]byte, error) {
 
 func runComponentWithFallback(binary string, goPkg string, args ...string) ([]byte, bool, error) {
 	if _, err := exec.LookPath(binary); err == nil {
-		out, runErr := runFunc(binary, args...)
-		return out, false, runErr
+		cmd := exec.Command(binary, args...)
+		cmd.Stderr = nil
+		out, runErr := cmd.Output()
+		if runErr != nil {
+			combined, _ := exec.Command(binary, args...).CombinedOutput()
+			return nil, false, fmt.Errorf("%s %s failed: %w: %s", binary, strings.Join(args, " "), runErr, string(combined))
+		}
+		return out, false, nil
 	}
 	goArgs := append([]string{"run", goPkg}, args...)
-	out, runErr := runFunc("go", goArgs...)
-	return out, true, runErr
+	cmd := exec.Command("go", goArgs...)
+	cmd.Stderr = nil
+	out, runErr := cmd.Output()
+	if runErr != nil {
+		combined, _ := exec.Command("go", goArgs...).CombinedOutput()
+		return nil, true, fmt.Errorf("go %s failed: %w: %s", strings.Join(goArgs, " "), runErr, string(combined))
+	}
+	return out, true, nil
 }
 
 func discardBeadsSyncNoise() {

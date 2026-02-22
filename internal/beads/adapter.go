@@ -142,6 +142,13 @@ func (a *Adapter) DepAdd(blockedID, blockerID string) error {
 // DepsClosed returns true if all dependencies of issueID are closed (or no deps).
 // Used for WS-015-01: skip dispatch until blockers are done.
 func (a *Adapter) DepsClosed(issueID string) (bool, error) {
+	return a.DepsClosedWithResolver(issueID, nil)
+}
+
+// DepsClosedWithResolver is like DepsClosed but uses resolver for cross-project blockers.
+// Resolver receives blockerID (e.g. "projectID:issueID") and returns (closed, nil) or (_, err).
+// If resolver is nil, cross-project IDs are resolved via a.Show (same-project only).
+func (a *Adapter) DepsClosedWithResolver(issueID string, resolver func(blockerID string) (bool, error)) (bool, error) {
 	out, err := a.run("dep", "list", issueID, "--json")
 	if err != nil {
 		return true, nil // no deps or bd not available: allow dispatch
@@ -155,12 +162,9 @@ func (a *Adapter) DepsClosed(issueID string) (bool, error) {
 			return true, nil
 		}
 		for _, id := range ids {
-			iss, err := a.Show(id)
-			if err != nil {
+			closed, err := a.resolveBlockerClosed(id, resolver)
+			if err != nil || !closed {
 				return false, err
-			}
-			if iss.Status != "closed" && iss.Status != "completed" {
-				return false, nil
 			}
 		}
 		return true, nil
@@ -169,15 +173,23 @@ func (a *Adapter) DepsClosed(issueID string) (bool, error) {
 		if d.ID == "" {
 			continue
 		}
-		iss, err := a.Show(d.ID)
-		if err != nil {
+		closed, err := a.resolveBlockerClosed(d.ID, resolver)
+		if err != nil || !closed {
 			return false, err
-		}
-		if iss.Status != "closed" && iss.Status != "completed" {
-			return false, nil
 		}
 	}
 	return true, nil
+}
+
+func (a *Adapter) resolveBlockerClosed(blockerID string, resolver func(string) (bool, error)) (bool, error) {
+	if resolver != nil && strings.Contains(blockerID, ":") {
+		return resolver(blockerID)
+	}
+	iss, err := a.Show(blockerID)
+	if err != nil {
+		return false, err
+	}
+	return iss.Status == "closed" || iss.Status == "completed", nil
 }
 
 // Create creates a new issue and returns its ID.

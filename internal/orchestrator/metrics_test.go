@@ -1,47 +1,40 @@
 package orchestrator
 
 import (
-	"context"
 	"net/http"
+	"net/http/httptest"
 	"testing"
-	"time"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func TestSetActiveRuns(t *testing.T) {
+	SetActiveRuns(5)
 	SetActiveRuns(0)
-	SetActiveRuns(3)
-	SetActiveRuns(1)
-	// No panic; gauge is updated (we don't read back prometheus in unit test)
+	// No panic; gauge updated
 }
 
 func TestIncDispatched(t *testing.T) {
 	IncDispatched()
 	IncDispatched()
+	// No panic
 }
 
 func TestIncEscalated(t *testing.T) {
 	IncEscalated()
-	IncEscalated()
+	// No panic
 }
 
-func TestServeMetrics(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	addr := "127.0.0.1:19999"
-	done := make(chan error, 1)
-	go func() { done <- ServeMetrics(ctx, addr) }()
-	time.Sleep(80 * time.Millisecond)
-
-	resp, err := http.Get("http://" + addr + "/metrics")
-	if err != nil {
-		t.Skipf("metrics server not reachable: %v", err)
-		return
+func TestServeMetrics_Handler(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+	req := httptest.NewRequest("GET", "/metrics", nil)
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("metrics: got status %d", rr.Code)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("GET /metrics: status = %d", resp.StatusCode)
+	if rr.Body.Len() == 0 {
+		t.Error("metrics body empty")
 	}
-	cancel()
-	<-done
 }

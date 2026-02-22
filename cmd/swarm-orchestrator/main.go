@@ -70,6 +70,7 @@ func main() {
 			Store:     store,
 			Labels:    labels,
 			Limit:     10,
+			Workspace: ws,
 		})
 		pid := proj.ID
 		go func() {

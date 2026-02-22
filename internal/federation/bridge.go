@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,22 +20,24 @@ type Bridge struct {
 	bus       bus.Bus
 	store     *registry.Store
 	adapter   *beads.Adapter
-	labels      []string
-	limit       int
-	mu          sync.Mutex
-	lastReady   []string
-	lastClosed  map[string]struct{} // IDs we already published as closed (capped)
-	maxClosed   int                 // cap for lastClosed size
+	labels    []string
+	limit     int
+	mu        sync.Mutex
+	lastReady []string
+	lastClosed map[string]struct{} // IDs we already published as closed (capped)
+	maxClosed  int                 // cap for lastClosed size
+	workspace  *WorkspaceManager   // optional: for cross-project DepsClosed
 }
 
 // BridgeConfig holds options for a Bridge.
 type BridgeConfig struct {
-	ProjectID string
-	WorkDir   string
-	Bus       bus.Bus
-	Store     *registry.Store
-	Labels   []string
-	Limit    int
+	ProjectID  string
+	WorkDir    string
+	Bus        bus.Bus
+	Store      *registry.Store
+	Labels     []string
+	Limit      int
+	Workspace  *WorkspaceManager // optional: for cross-project DepsClosed (WS-011-04)
 }
 
 // NewBridge creates a Bridge for a project.
@@ -52,6 +55,7 @@ func NewBridge(cfg BridgeConfig) *Bridge {
 		limit:      cfg.Limit,
 		lastClosed: make(map[string]struct{}),
 		maxClosed:  1000,
+		workspace:  cfg.Workspace,
 	}
 }
 
@@ -83,6 +87,35 @@ func (b *Bridge) Run(ctx context.Context) error {
 	}
 }
 
+// crossProjectDepsResolver returns a resolver for DepsClosedWithResolver when workspace+store available.
+// For blockerID "projectID:issueID", looks up project workspace and checks issue status.
+func (b *Bridge) crossProjectDepsResolver() func(blockerID string) (bool, error) {
+	if b.workspace == nil || b.store == nil {
+		return nil
+	}
+	return func(blockerID string) (bool, error) {
+		parts := strings.SplitN(blockerID, ":", 2)
+		if len(parts) != 2 {
+			return false, nil
+		}
+		projID, issueID := parts[0], parts[1]
+		proj, ok := b.store.Get(projID)
+		if !ok {
+			return false, nil
+		}
+		workDir, err := b.workspace.EnsureWorkspaceFromProject(proj)
+		if err != nil {
+			return false, err
+		}
+		adapter := beads.NewAdapter(workDir)
+		iss, err := adapter.Show(issueID)
+		if err != nil {
+			return false, err
+		}
+		return iss.Status == "closed" || iss.Status == "completed", nil
+	}
+}
+
 func (b *Bridge) pollReady() error {
 	issues, err := b.adapter.Ready(b.labels, b.limit)
 	if err != nil {
@@ -90,9 +123,11 @@ func (b *Bridge) pollReady() error {
 	}
 
 	// WS-015-01: filter out issues with open dependencies
+	// WS-011-04: cross-project DepsClosed when workspace+store available
 	var filtered []beads.Issue
+	resolver := b.crossProjectDepsResolver()
 	for _, iss := range issues {
-		closed, err := b.adapter.DepsClosed(iss.ID)
+		closed, err := b.adapter.DepsClosedWithResolver(iss.ID, resolver)
 		if err != nil || !closed {
 			continue
 		}

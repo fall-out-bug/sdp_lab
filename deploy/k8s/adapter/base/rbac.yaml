@@ -10,11 +10,9 @@ metadata:
   name: adapter-controller
   namespace: sdp-adapter
 rules:
-  # AgentRun and Task CRDs (sdp.dev)
   - apiGroups: ["sdp.dev"]
     resources: ["agentruns", "agentruns/status", "tasks", "tasks/status"]
     verbs: ["get", "list", "watch", "create", "update", "patch"]
-  # Pods for log collection
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list"]

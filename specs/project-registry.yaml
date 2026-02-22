@@ -14,7 +14,7 @@ projects:
     config: {}
 
   - id: sdp
-    repo_url: https://github.com/steveyegge/sdp
+    repo_url: https://github.com/fall-out-bug/sdp
     repo_branch: main
     beads_prefix: sdp
     language: go
@@ -24,7 +24,7 @@ projects:
     config: {}
 
   - id: opencode
-    repo_url: https://github.com/steveyegge/opencode
+    repo_url: https://github.com/fall-out-bug/opencode
     repo_branch: main
     beads_prefix: opencode
     language: go
@@ -33,11 +33,11 @@ projects:
     model_policy: ""
     fork: true
     upstream_remote: upstream
-    upstream_url: https://github.com/steveyegge/opencode
+    upstream_url: https://github.com/anomalyco/opencode
     config: {}
 
   - id: kubeopencode
-    repo_url: https://github.com/steveyegge/kubeopencode
+    repo_url: https://github.com/fall-out-bug/kubeopencode
     repo_branch: main
     beads_prefix: kubeopencode
     language: go
@@ -46,28 +46,28 @@ projects:
     model_policy: ""
     fork: true
     upstream_remote: upstream
-    upstream_url: https://github.com/steveyegge/kubeopencode
+    upstream_url: https://github.com/kubeopencode/kubeopencode
     config: {}
 
   - id: openclaw
-    repo_url: https://github.com/steveyegge/openclaw
+    repo_url: https://github.com/openclaw/openclaw
     repo_branch: main
     beads_prefix: openclaw
     language: go
     workstreams:
       - workstream:generic
     model_policy: ""
-    fork: true
-    upstream_remote: upstream
-    upstream_url: https://github.com/steveyegge/openclaw
     config: {}
 
   - id: beads
-    repo_url: https://github.com/steveyegge/beads
+    repo_url: https://github.com/fall-out-bug/beads
     repo_branch: main
     beads_prefix: beads
     language: go
     workstreams:
       - workstream:generic
     model_policy: ""
+    fork: true
+    upstream_remote: upstream
+    upstream_url: https://github.com/steveyegge/beads
     config: {}

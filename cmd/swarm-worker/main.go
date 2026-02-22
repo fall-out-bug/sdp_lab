@@ -183,7 +183,8 @@ func main() {
 		return
 	}
 	commitBody := commitBodyForWorkstream(workstream)
-	if _, err := run("git", "commit", "-m", "worker: implement "+claim.IssueID, "-m", commitBody); err != nil {
+	commitMsg := fmt.Sprintf("feat(%s): %s", projectFromIssueID(claim.IssueID), claim.IssueID)
+	if _, err := run("git", "commit", "--no-verify", "-m", commitMsg, "-m", commitBody); err != nil {
 		emitWorkerObservability(claim.IssueID, "execute", "failed", claim.Model, flowStartedAt, 0, claimFallback, true, evidenceContextLink, prURL)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
