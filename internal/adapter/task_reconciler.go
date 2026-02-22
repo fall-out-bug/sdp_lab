@@ -2,12 +2,14 @@ package adapter
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 
 	"sdp_dev/api/v1alpha1"
 	"sdp_dev/internal/agent"
 	"sdp_dev/internal/beads"
+	"sdp_dev/internal/bus"
 	"sdp_dev/internal/evidence"
 
 	"go.opentelemetry.io/otel"
@@ -31,6 +33,7 @@ type TaskReconciler struct {
 	EvidenceProjector *EvidenceProjector
 	LifecycleReconciler *LifecycleReconciler
 	TraceEmitter    *agent.TraceEmitter // nil if no bus
+	Bus            bus.Bus             // nil if no NATS; publish terminal status
 }
 
 // NewTaskReconciler returns a TaskReconciler.
@@ -45,6 +48,7 @@ func NewTaskReconciler(c client.Client, scheme *runtime.Scheme, opts TaskReconci
 		EvidenceProjector:   opts.EvidenceProjector,
 		LifecycleReconciler: opts.LifecycleReconciler,
 		TraceEmitter:        opts.TraceEmitter,
+		Bus:                 opts.Bus,
 	}
 }
 
@@ -57,6 +61,7 @@ type TaskReconcilerOpts struct {
 	EvidenceProjector   *EvidenceProjector
 	LifecycleReconciler *LifecycleReconciler
 	TraceEmitter        *agent.TraceEmitter
+	Bus                 bus.Bus
 }
 
 // Reconcile handles Task reconciliation.
@@ -169,7 +174,28 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		}
 	}
 
+	if r.Bus != nil && (phase == PhaseSucceeded || phase == PhaseCompleted || phase == PhaseFailed) {
+		publishTerminalStatus(r.Bus, task.Labels["sdp.project"], issueID, string(phase))
+	}
+
 	return ctrl.Result{}, nil
+}
+
+func publishTerminalStatus(b bus.Bus, projectID, issueID, phase string) {
+	if projectID == "" {
+		projectID = "default"
+	}
+	subject := "sdp.status." + projectID + "." + issueID
+	payload, _ := json.Marshal(map[string]string{"phase": phase, "issue_id": issueID})
+	env := bus.Envelope{
+		IssueID:       issueID,
+		ArtifactID:    "status",
+		ArtifactClass: "status",
+		Phase:         phase,
+		Payload:       json.RawMessage(payload),
+		ProjectID:     projectID,
+	}
+	_ = b.Publish(subject, env)
 }
 
 func taskToIntent(task *v1alpha1.Task, runID string) *TaskIntent {

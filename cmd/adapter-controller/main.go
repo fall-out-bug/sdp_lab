@@ -96,6 +96,7 @@ func main() {
 		EvidenceProjector:   projector,
 		LifecycleReconciler: lifecycleReconciler,
 		TraceEmitter:        traceEmitter,
+		Bus:                 natsBus,
 	}
 	if err := adapter.NewTaskReconciler(mgr.GetClient(), mgr.GetScheme(), reconcilerOpts).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "failed to setup TaskReconciler")
