@@ -89,6 +89,17 @@ func (b *Bridge) pollReady() error {
 		return err
 	}
 
+	// WS-015-01: filter out issues with open dependencies
+	var filtered []beads.Issue
+	for _, iss := range issues {
+		closed, err := b.adapter.DepsClosed(iss.ID)
+		if err != nil || !closed {
+			continue
+		}
+		filtered = append(filtered, iss)
+	}
+	issues = filtered
+
 	ids := make([]string, len(issues))
 	for i := range issues {
 		ids[i] = issues[i].ID

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nats-io/nats.go"
 	"sdp_dev/internal/bus"
 )
 
@@ -181,6 +182,36 @@ func TestNewAgent_CustomConfig(t *testing.T) {
 	}
 }
 
+// TestDeploy_BuildFails covers deploy path when buildAndPush fails.
+func TestDeploy_BuildFails(t *testing.T) {
+	dir := t.TempDir()
+	imgDir := dir + "/deploy/images/fake"
+	if err := os.MkdirAll(imgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(imgDir+"/Dockerfile", []byte("FROM invalid\nRUN [\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	a := NewAgent(nil, AgentConfig{WorkDir: dir, Images: []string{"fake"}})
+	ctx := context.Background()
+	tg := DeployTrigger{Ref: "abc", Project: "p", Env: "dev"}
+	a.deploy(ctx, tg)
+	// Evidence may be deploy-abc-dev.json or deploy-git-abc-dev.json
+	evDir := dir + "/.sdp/evidence"
+	entries, err := os.ReadDir(evDir)
+	if err != nil || len(entries) == 0 {
+		t.Fatalf("evidence file not created after build failure: %v", err)
+	}
+	b, _ := os.ReadFile(evDir + "/" + entries[0].Name())
+	var ev map[string]any
+	if err := json.Unmarshal(b, &ev); err != nil {
+		t.Fatal(err)
+	}
+	if exec, ok := ev["execution"].(map[string]any); !ok || exec["status"] != "failed" {
+		t.Errorf("expected failed status: %+v", ev)
+	}
+}
+
 // TestDeploy_ApplyFails covers deploy path when applyAndRollout fails (no k8s dir).
 func TestDeploy_ApplyFails(t *testing.T) {
 	dir := t.TempDir()
@@ -236,6 +267,87 @@ func TestBuildAndPush_NoImages(t *testing.T) {
 		t.Logf("buildAndPush (expected to skip or fail): %v", err)
 	}
 }
+
+func TestHealthCheck_FakeKubectl(t *testing.T) {
+	dir := t.TempDir()
+	binDir := dir + "/bin"
+	if err := os.MkdirAll(binDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Fake kubectl that prints "Running"
+	if err := os.WriteFile(binDir+"/kubectl", []byte("#!/bin/sh\necho Running\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	oldPath := os.Getenv("PATH")
+	os.Setenv("PATH", binDir+":"+oldPath)
+	defer os.Setenv("PATH", oldPath)
+
+	a := NewAgent(nil, AgentConfig{WorkDir: dir, Kubeconfig: "/nonexistent"})
+	ok := a.healthCheck(context.Background(), DeployTrigger{})
+	if !ok {
+		t.Error("healthCheck expected true when fake kubectl returns Running")
+	}
+}
+
+func TestHealthCheck_FakeKubectlNotRunning(t *testing.T) {
+	dir := t.TempDir()
+	binDir := dir + "/bin"
+	if err := os.MkdirAll(binDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(binDir+"/kubectl", []byte("#!/bin/sh\necho Pending\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	oldPath := os.Getenv("PATH")
+	os.Setenv("PATH", binDir+":"+oldPath)
+	defer os.Setenv("PATH", oldPath)
+
+	a := NewAgent(nil, AgentConfig{WorkDir: dir})
+	ok := a.healthCheck(context.Background(), DeployTrigger{})
+	if ok {
+		t.Error("healthCheck expected false when phase is Pending")
+	}
+}
+
+func TestPublishStatus_WithBus(t *testing.T) {
+	mock := &mockBus{publishes: make([]string, 0)}
+	a := NewAgent(mock, AgentConfig{})
+	a.publishStatus(DeployTrigger{Ref: "r", Project: "p", Env: "prod"}, "succeeded", "")
+	if len(mock.publishes) != 1 {
+		t.Errorf("expected 1 publish, got %d", len(mock.publishes))
+	}
+	if mock.publishes[0] != "sdp.deploy.prod.succeeded" {
+		t.Errorf("subject: got %q", mock.publishes[0])
+	}
+}
+
+type mockBus struct {
+	publishes []string
+}
+
+func (m *mockBus) Publish(subject string, env bus.Envelope) error {
+	m.publishes = append(m.publishes, subject)
+	return nil
+}
+
+func (m *mockBus) PublishWithContext(_ context.Context, subject string, env bus.Envelope) error {
+	return m.Publish(subject, env)
+}
+
+func (m *mockBus) Subscribe(_, _ string, _ func(bus.Envelope)) (bus.Subscription, error) {
+	return nil, nil
+}
+
+func (m *mockBus) SubscribeWithContext(_, _ string, _ func(context.Context, bus.Envelope)) (bus.Subscription, error) {
+	return nil, nil
+}
+
+func (m *mockBus) Request(_ string, _ bus.Envelope, _ time.Duration) (bus.Envelope, error) {
+	return bus.Envelope{}, nil
+}
+
+func (m *mockBus) JetStream() nats.JetStreamContext { return nil }
+func (m *mockBus) Close() {}
 
 func TestWriteDeployEvidence(t *testing.T) {
 	dir := t.TempDir()

@@ -139,6 +139,47 @@ func (a *Adapter) DepAdd(blockedID, blockerID string) error {
 	return err
 }
 
+// DepsClosed returns true if all dependencies of issueID are closed (or no deps).
+// Used for WS-015-01: skip dispatch until blockers are done.
+func (a *Adapter) DepsClosed(issueID string) (bool, error) {
+	out, err := a.run("dep", "list", issueID, "--json")
+	if err != nil {
+		return true, nil // no deps or bd not available: allow dispatch
+	}
+	var deps []struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(out, &deps); err != nil {
+		var ids []string
+		if err2 := json.Unmarshal(out, &ids); err2 != nil {
+			return true, nil
+		}
+		for _, id := range ids {
+			iss, err := a.Show(id)
+			if err != nil {
+				return false, err
+			}
+			if iss.Status != "closed" && iss.Status != "completed" {
+				return false, nil
+			}
+		}
+		return true, nil
+	}
+	for _, d := range deps {
+		if d.ID == "" {
+			continue
+		}
+		iss, err := a.Show(d.ID)
+		if err != nil {
+			return false, err
+		}
+		if iss.Status != "closed" && iss.Status != "completed" {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 // Create creates a new issue and returns its ID.
 func (a *Adapter) Create(opts CreateOpts) (string, error) {
 	args := []string{"create", opts.Title, "-t", opts.Type, "-p", fmt.Sprintf("%d", opts.Priority), "--json"}

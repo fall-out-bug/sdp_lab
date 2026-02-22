@@ -112,3 +112,31 @@ func TestAdapter_Show(t *testing.T) {
 		t.Error("expected non-empty ID")
 	}
 }
+
+func TestAdapter_DepsClosed(t *testing.T) {
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".beads")); err == nil {
+			break
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Skip("no .beads found, skipping")
+			return
+		}
+		dir = parent
+	}
+
+	a := NewAdapter(dir)
+	// Issue with no deps should return true
+	closed, err := a.DepsClosed("sdp_dev-5l9")
+	if err != nil {
+		t.Fatalf("DepsClosed: %v", err)
+	}
+	if !closed {
+		t.Error("DepsClosed expected true for issue with no deps")
+	}
+}
