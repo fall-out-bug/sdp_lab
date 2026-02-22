@@ -38,8 +38,8 @@
 
 | WS | Feature | Title | Status |
 |----|---------|-------|--------|
-| 00-003-01 | F003 | Define analyst/coder/reviewer handoff JSON Schema | Backlog |
-| 00-003-02 | F003 | Validation library for handoff artifacts | Backlog |
+| 00-003-01 | F003 | Define analyst/coder/reviewer handoff JSON Schema | Done |
+| 00-003-02 | F003 | Validation library for handoff artifacts | Done |
 | 00-004-01 | F004 | Rewrite AgentRunReconciler phases to sequential | Backlog |
 | 00-004-02 | F004 | Inject handoff paths into Task CRD annotations | Backlog |
 | 00-004-03 | F004 | Integration test: analyst output feeds coder prompt | Backlog |
