@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"sdp_dev/internal/pr"
+	"sdp_dev/internal/registry"
 )
 
 func run(name string, args ...string) ([]byte, error) {
@@ -115,6 +116,8 @@ func main() {
 	bodyFile := flag.String("body-file", "", "Path to PR body markdown file")
 	head := flag.String("head", "", "Head branch")
 	base := flag.String("base", "", "Base branch")
+	repo := flag.String("repo", "", "Target repo (owner/repo) for PR; if empty, resolved from registry via --project or issue ID")
+	project := flag.String("project", "", "Project ID for registry lookup; if empty, derived from issue ID prefix")
 	evidencePath := flag.String("evidence", "", "Evidence JSON path (default .sdp/evidence/<issue>.json)")
 	runID := flag.String("run-id", "", "Run ID (default from evidence provenance.run_id)")
 	runContextLink := flag.String("run-context-link", "", "Run context link (default .sdp/runs/<issue>.json)")
@@ -130,9 +133,38 @@ func main() {
 		os.Exit(2)
 	}
 
+	effectiveRepo := strings.TrimSpace(*repo)
+	effectiveBase := strings.TrimSpace(*base)
+	if effectiveRepo == "" || effectiveBase == "" {
+		store := registry.NewStore(registry.StoreConfig{})
+		if err := store.Load(); err == nil {
+			var proj *registry.Project
+			if pid := strings.TrimSpace(*project); pid != "" {
+				proj, _ = store.Get(pid)
+			}
+			if proj == nil {
+				proj, _ = store.FindByIssueID(*issueID)
+			}
+			if proj != nil {
+				if effectiveRepo == "" {
+					effectiveRepo = proj.RepoSlug()
+				}
+				if effectiveBase == "" {
+					effectiveBase = strings.TrimSpace(proj.RepoBranch)
+					if effectiveBase == "" {
+						effectiveBase = "main"
+					}
+				}
+			}
+		}
+	}
+
 	args := []string{"pr", "create", "--title", *prTitle, "--head", *head}
-	if *base != "" {
-		args = append(args, "--base", *base)
+	if effectiveRepo != "" {
+		args = append(args, "--repo", effectiveRepo)
+	}
+	if effectiveBase != "" {
+		args = append(args, "--base", effectiveBase)
 	}
 	if *bodyFile != "" {
 		args = append(args, "--body-file", *bodyFile)
@@ -193,7 +225,10 @@ func main() {
 		fmt.Fprintf(os.Stderr, "resolve repository slug: %v\n", err)
 		os.Exit(1)
 	}
-	baseBranch := strings.TrimSpace(*base)
+	if effectiveRepo != "" {
+		repository = effectiveRepo
+	}
+	baseBranch := effectiveBase
 	if baseBranch == "" {
 		baseOut, baseErr := run("gh", "repo", "view", "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name")
 		if baseErr != nil {

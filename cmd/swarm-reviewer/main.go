@@ -270,6 +270,13 @@ func issueTitle(issueID string) (string, error) {
 	return strings.TrimSpace(items[0].Title), nil
 }
 
+func projectFromIssueID(issueID string) string {
+	if idx := strings.Index(issueID, "-"); idx > 0 {
+		return issueID[:idx]
+	}
+	return ""
+}
+
 func recoverMissingPR(issueID string) error {
 	branch, err := issueBranchFromEvidence(issueID)
 	if err != nil {
@@ -279,11 +286,12 @@ func recoverMissingPR(issueID string) error {
 	if err != nil {
 		return err
 	}
-	_, err = runComponent("pr-publish", "./cmd/pr-publish", "--issue", issueID, "--title", "Worker: "+title, "--head", branch, "--base", "master")
-	if err != nil {
-		return err
+	prArgs := []string{"--issue", issueID, "--title", "Worker: " + title, "--head", branch, "--base", "master"}
+	if pid := projectFromIssueID(issueID); pid != "" {
+		prArgs = append(prArgs, "--project", pid)
 	}
-	return nil
+	_, err = runComponent("pr-publish", "./cmd/pr-publish", prArgs...)
+	return err
 }
 
 func main() {

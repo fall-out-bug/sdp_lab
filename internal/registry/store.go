@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"gopkg.in/yaml.v3"
@@ -92,6 +93,30 @@ func (s *Store) Save() error {
 		return fmt.Errorf("write registry: %w", err)
 	}
 	return nil
+}
+
+// FindByIssueID returns the project whose beads_prefix matches the issue ID prefix.
+// e.g. "sdp_dev-5l9.2" -> project with beads_prefix "sdp_dev".
+func (s *Store) FindByIssueID(issueID string) (*Project, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	idx := strings.Index(issueID, "-")
+	if idx <= 0 {
+		return nil, false
+	}
+	prefix := issueID[:idx]
+	p, ok := s.projects[prefix]
+	if ok && p != nil {
+		cp := *p
+		return &cp, true
+	}
+	for _, proj := range s.projects {
+		if proj != nil && proj.BeadsPrefix == prefix {
+			cp := *proj
+			return &cp, true
+		}
+	}
+	return nil, false
 }
 
 // Get returns a project by ID.

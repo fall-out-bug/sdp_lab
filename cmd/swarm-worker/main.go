@@ -31,6 +31,13 @@ type issueDetail struct {
 	AcceptanceCriteria string   `json:"acceptance_criteria"`
 }
 
+func projectFromIssueID(issueID string) string {
+	if idx := strings.Index(issueID, "-"); idx > 0 {
+		return issueID[:idx]
+	}
+	return ""
+}
+
 func main() {
 	_, _ = observability.SetupTracing("swarm-worker")
 
@@ -184,7 +191,12 @@ func main() {
 	defer publishSpan.End()
 	publishSpan.SetAttributes(attribute.String("issue", claim.IssueID), attribute.String("branch", claim.Branch))
 	bodyPath := writePRBody(claim.IssueID, workstream)
-	if _, err := runComponent("pr-publish", "./cmd/pr-publish", "--issue", claim.IssueID, "--title", "Worker: "+claim.Title, "--head", claim.Branch, "--base", "master", "--body-file", bodyPath); err != nil {
+	projectID := projectFromIssueID(claim.IssueID)
+	prArgs := []string{"--issue", claim.IssueID, "--title", "Worker: " + claim.Title, "--head", claim.Branch, "--base", "master", "--body-file", bodyPath}
+	if projectID != "" {
+		prArgs = append(prArgs, "--project", projectID)
+	}
+	if _, err := runComponent("pr-publish", "./cmd/pr-publish", prArgs...); err != nil {
 		emitWorkerObservability(claim.IssueID, "publish", "failed", claim.Model, flowStartedAt, 0, claimFallback, true, evidenceContextLink, prURL)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

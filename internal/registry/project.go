@@ -2,8 +2,11 @@ package registry
 
 import (
 	"path"
+	"regexp"
 	"strings"
 )
+
+var githubSlugRE = regexp.MustCompile(`(?:https?://github\.com/|git@github\.com:)([^/]+)/([^/]+?)(?:\.git)?$`)
 
 // Project represents a registered SDP project.
 type Project struct {
@@ -36,4 +39,27 @@ func (p *Project) EnsureBeadsPrefix() {
 	if p.BeadsPrefix == "" && p.RepoURL != "" {
 		p.BeadsPrefix = BeadsPrefixFromRepo(p.RepoURL)
 	}
+}
+
+// RepoSlug returns owner/repo for GitHub URLs, or empty if not a GitHub URL.
+// Fork projects: use UpstreamURL for PR target when Fork is true.
+func (p *Project) RepoSlug() string {
+	url := p.RepoURL
+	if p.Fork && strings.TrimSpace(p.UpstreamURL) != "" {
+		url = p.UpstreamURL
+	}
+	return RepoURLToSlug(url)
+}
+
+// RepoURLToSlug converts a repo URL to owner/repo (e.g. for gh pr create --repo).
+func RepoURLToSlug(repoURL string) string {
+	repoURL = strings.TrimSpace(repoURL)
+	if repoURL == "" || repoURL == "." {
+		return ""
+	}
+	m := githubSlugRE.FindStringSubmatch(repoURL)
+	if len(m) >= 3 {
+		return m[1] + "/" + strings.TrimSuffix(m[2], ".git")
+	}
+	return ""
 }

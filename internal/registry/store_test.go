@@ -53,6 +53,30 @@ func TestStore_Create_duplicate(t *testing.T) {
 	}
 }
 
+func TestStore_FindByIssueID(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(StoreConfig{RegistryPath: filepath.Join(dir, "r.yaml")})
+	_ = s.Create(&Project{ID: "sdp_dev", BeadsPrefix: "sdp_dev", RepoURL: "https://github.com/org/sdp_dev", RepoBranch: "main"})
+	_ = s.Create(&Project{ID: "opencode", BeadsPrefix: "opencode", RepoURL: "https://github.com/org/opencode", RepoBranch: "main"})
+
+	proj, ok := s.FindByIssueID("sdp_dev-5l9.2")
+	if !ok || proj == nil || proj.ID != "sdp_dev" {
+		t.Errorf("FindByIssueID(sdp_dev-5l9.2) = %v, ok=%v", proj, ok)
+	}
+	proj, ok = s.FindByIssueID("opencode-abc")
+	if !ok || proj == nil || proj.ID != "opencode" {
+		t.Errorf("FindByIssueID(opencode-abc) = %v, ok=%v", proj, ok)
+	}
+	_, ok = s.FindByIssueID("unknown-1")
+	if ok {
+		t.Error("FindByIssueID(unknown-1) should not find")
+	}
+	_, ok = s.FindByIssueID("no-prefix")
+	if ok {
+		t.Error("FindByIssueID(no-prefix) should not find")
+	}
+}
+
 func TestStore_Update_notFound(t *testing.T) {
 	dir := t.TempDir()
 	s := NewStore(StoreConfig{RegistryPath: filepath.Join(dir, "r.yaml")})
