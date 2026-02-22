@@ -9,22 +9,23 @@ Updated: 2026-02-22
 - **Branch:** `master`
 - **Working tree:** Clean after beads close + AGENT_HANDOFF update.
 - **Quality gates:** `make quality` — verify before push.
-- **Beads:** Closed j25, 23j, kel, d1l, cgk, 4pg (PR #37, #33, #34). Ready: `sdp_dev-hex`, `sdp_dev-sod`.
+- **Beads:** 35/37 workstream beads closed (build+review+fix plan). Ready: `sdp_dev-hex`, `sdp_dev-sod`.
 
 ## Most Recent Delivery
 
-- sdp_dev-j2b.1.6 closed: orchestrate_k8s_issue.sh ISSUE validation + regression test.
-- sdp_dev-d1l.1, sdp_dev-kel.2 closed (PR #37).
-- Handoff run 5/10 recorded.
+- **Build+Review+Fix plan:** sdp_dev-986 (WS-021-01) closed — Task DependsOn for DAG ordering.
+- swarm-worker coverage 42%→65% (sdp_dev-hex in progress).
+- sdp_dev-oip: blocked on minikube (handoff validation 5/10).
 
 ## Open Work Situation
 
 - **Ready task** (run `bd ready`):
-  1. `sdp_dev-hex` [P2] QA: Raise swarm-worker and autonomy-worker coverage to 80%+
+  1. `sdp_dev-hex` [P2] QA: Raise swarm-worker coverage 65%→80% (autonomy 80.6% ok)
   2. `sdp_dev-sod` [P2] Probe: /feature end-to-end returns PR
 - **In progress:**
-  - `sdp_dev-oip` [P1] VALIDATE: adapter handoff checklist (10 consecutive runs) — run 5/10 recorded
-- **Blocked / epic chain:**
+  - `sdp_dev-hex` [P2] swarm-worker coverage 65% (target 80%)
+- **Blocked:**
+  - `sdp_dev-oip` [P1] handoff validation — requires minikube cluster
   - `sdp_dev-j2b` epic — blocked by sdp_dev-oip
 
 ## Suggested Startup Commands
