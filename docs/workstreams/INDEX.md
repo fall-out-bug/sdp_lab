@@ -1,26 +1,22 @@
-# Workstreams Index
+# Workstream Index
 
-Feature → Workstream mapping for /review and /build.
+> **Updated:** 2026-02-22
+> **Format:** `@build 00-FFF-SS` executes single workstream; `@review F00F` reviews all WS for feature F00F
 
-## Feature Index
+## Features
 
-| Feature | Workstreams |
-|---------|--------------|
-| FR-001 | 00-001-01, 00-001-02 |
-| FR-002 | 00-002-01, 00-002-02, 00-002-03 |
-| FR-003 | 00-003-01, 00-003-02, 00-003-03 |
-| FR-004 | 00-004-01, 00-004-02 |
-| FR-005 | 00-005-01 |
-| FR-011 | 00-011-01, 00-011-02, 00-011-03, 00-011-04 |
-| FR-012 | 00-012-01, 00-012-02 |
-| FR-013 | 00-013-01 |
-| FR-014 | 00-014-01 |
-| FR-015 | 00-015-01, 00-015-02 |
-| FR-016 | 00-016-01, 00-016-02 |
-| FR-017 | 00-017-01, 00-017-02, 00-017-03, 00-017-04, 00-017-05 |
-| FR-018 | 00-018-01, 00-018-02, 00-018-03, 00-018-04, 00-018-05 |
+| Feature | Description | Workstreams |
+|---------|-------------|-------------|
+| **F001** | Evidence Schema | 00-001-01, 00-001-02 |
+| **F002** | Evidence CLI | 00-002-01, 00-002-02, 00-002-03 |
+| **F003** | Protocol Cleanup | (manual — sdp repo) |
+| **F004** | awesome-opencode | TBD |
+| **F005** | kubeopencode Upstream | TBD |
+| **F006** | Adapter Controller | TBD |
+| **F007** | OpenCode Plugin | TBD |
 
-## Usage
+## Workstream ID Format
 
-- **@review F001**: Review all WS for FR-001 (00-001-01, 00-001-02)
-- **@build 00-003-01**: Execute single workstream
+`PP-FFF-SS` — Project (00), Feature (001–007), Step (01, 02, …)
+
+Example: `00-001-01` = sdp_lab, F001 Evidence Schema, step 1
