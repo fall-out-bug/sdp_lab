@@ -1,0 +1,100 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: feature-orchestrator-config
+  namespace: sdp-control
+data:
+  poll_interval: "30s"
+  max_concurrent: "3"
+  namespace: "sdp-workers"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feature-orchestrator
+  namespace: sdp-control
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: feature-orchestrator
+  template:
+    metadata:
+      labels:
+        app: feature-orchestrator
+    spec:
+      serviceAccountName: feature-orchestrator
+      containers:
+        - name: orchestrator
+          image: sdp/feature-orchestrator:latest
+          env:
+            - name: NATS_URL
+              value: "nats://nats:4222"
+            - name: SDP_POLL_INTERVAL
+              valueFrom:
+                configMapKeyRef:
+                  name: feature-orchestrator-config
+                  key: poll_interval
+            - name: SDP_MAX_CONCURRENT
+              valueFrom:
+                configMapKeyRef:
+                  name: feature-orchestrator-config
+                  key: max_concurrent
+            - name: SDP_AGENTRUN_NAMESPACE
+              valueFrom:
+                configMapKeyRef:
+                  name: feature-orchestrator-config
+                  key: namespace
+          args:
+            - --workspace
+            - /workspaces
+            - --poll
+            - "30s"
+            - --max
+            - "3"
+            - --namespace
+            - sdp-workers
+          volumeMounts:
+            - name: workspaces
+              mountPath: /workspaces
+            - name: project-registry
+              mountPath: /app/specs
+              readOnly: true
+      volumes:
+        - name: workspaces
+          persistentVolumeClaim:
+            claimName: swarm-workspaces
+        - name: project-registry
+          configMap:
+            name: project-registry
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: feature-orchestrator
+  namespace: sdp-control
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: feature-orchestrator
+  namespace: sdp-workers
+rules:
+  - apiGroups: ["sdp.dev"]
+    resources: ["agentruns"]
+    verbs: ["create", "get", "list", "watch", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: feature-orchestrator
+  namespace: sdp-workers
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: feature-orchestrator
+subjects:
+  - kind: ServiceAccount
+    name: feature-orchestrator
+    namespace: sdp-control

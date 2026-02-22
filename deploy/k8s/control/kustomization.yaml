@@ -9,6 +9,8 @@ images:
     newTag: latest
   - name: sdp/swarm-orchestrator
     newTag: latest
+  - name: sdp/feature-orchestrator
+    newTag: latest
 resources:
   - brain-gateway.yaml
   - scheduler.yaml
@@ -18,3 +20,4 @@ resources:
   - intake-gateway.yaml
   - registry-agent.yaml
   - swarm-orchestrator.yaml
+  - feature-orchestrator.yaml
