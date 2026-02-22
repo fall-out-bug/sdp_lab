@@ -14,11 +14,15 @@ import (
 	"sdp_dev/internal/observability"
 )
 
+// AnalyzeFunc is an optional injection for testing; if set, used instead of analyzeWithLLM.
+type AnalyzeFunc func(ctx context.Context, summary, issueID string) (string, error)
+
 // Analyzer analyzes closed issues and generates backlog proposals.
 type Analyzer struct {
 	WorkDir     string
 	Model       string
 	MaxPerCycle int
+	AnalyzeFunc AnalyzeFunc // optional, for tests
 	mu          sync.Mutex
 	cycleCount  int
 	cycleReset  time.Time
@@ -66,7 +70,12 @@ func (a *Analyzer) HandleClosed(ctx context.Context, issueID, projectID string) 
 	}
 
 	summary := a.summarizeEvidence(ev)
-	proposal, err := a.analyzeWithLLM(ctx, summary, issueID)
+	var proposal string
+	if a.AnalyzeFunc != nil {
+		proposal, err = a.AnalyzeFunc(ctx, summary, issueID)
+	} else {
+		proposal, err = a.analyzeWithLLM(ctx, summary, issueID)
+	}
 	if err != nil {
 		return false, err
 	}

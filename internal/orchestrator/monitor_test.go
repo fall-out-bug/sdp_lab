@@ -175,6 +175,48 @@ func TestEscalateTimedOut_PublishesToBus(t *testing.T) {
 	}
 }
 
+func TestEscalateTimedOut_SkipsCreatedZero(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = v1alpha1.AddToScheme(scheme)
+	run := &v1alpha1.AgentRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "ar1",
+			Namespace:         "ns",
+			CreationTimestamp: metav1.Time{},
+		},
+		Spec:   v1alpha1.AgentRunSpec{IssueID: "i1", TimeoutSec: 60},
+		Status: v1alpha1.AgentRunStatus{Phase: "Running"},
+	}
+	k8s := fake.NewClientBuilder().WithScheme(scheme).WithObjects(run).Build()
+	ctx := context.Background()
+	escalateTimedOut(ctx, k8s, nil, "ns")
+	got := &v1alpha1.AgentRun{}
+	_ = k8s.Get(ctx, client.ObjectKey{Namespace: "ns", Name: "ar1"}, got)
+	if got.Status.Phase != "Running" {
+		t.Errorf("expected Running when CreationTimestamp zero, got %s", got.Status.Phase)
+	}
+}
+
+func TestEscalateTimedOut_SkipsEscalatedPhase(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = v1alpha1.AddToScheme(scheme)
+	old := metav1.NewTime(time.Now().Add(-2 * time.Hour))
+	k8s := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+		&v1alpha1.AgentRun{
+			ObjectMeta: metav1.ObjectMeta{Name: "ar1", Namespace: "ns", CreationTimestamp: old},
+			Spec:       v1alpha1.AgentRunSpec{IssueID: "i1", TimeoutSec: 60},
+			Status:     v1alpha1.AgentRunStatus{Phase: "Escalated"},
+		},
+	).Build()
+	ctx := context.Background()
+	escalateTimedOut(ctx, k8s, nil, "ns")
+	run := &v1alpha1.AgentRun{}
+	_ = k8s.Get(ctx, client.ObjectKey{Namespace: "ns", Name: "ar1"}, run)
+	if run.Status.Phase != "Escalated" {
+		t.Errorf("expected Escalated unchanged, got %s", run.Status.Phase)
+	}
+}
+
 func TestMonitorAgentRunTimeouts_OneTick(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = v1alpha1.AddToScheme(scheme)
