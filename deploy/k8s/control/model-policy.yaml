@@ -1,0 +1,66 @@
+# WS-012-01: Dynamic model policy ConfigMap
+# Mount at /etc/model-policy/policy.yaml, set MODEL_POLICY_PATH=/etc/model-policy/policy.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: model-policy
+  namespace: sdp-control
+data:
+  policy.yaml: |
+    providers:
+      openrouter:
+        api_key_secret: openrouter-api-key
+        base_url: https://openrouter.ai/api/v1
+      glm:
+        api_key_secret: glm-api-key
+        base_url: https://api.z.ai/api/coding/paas/v4
+
+    allowlist:
+      # Tier 1 (Frontier)
+      - claude-opus-4.6
+      - gpt-5.2
+      # Tier 2 (Workhorse)
+      - glm-5
+      - glm-4.7
+      - claude-sonnet-4.6
+      - claude-sonnet-4.5
+      - minimax-m2.5
+      - kimi-k2.5
+      - gemini-3-flash
+      - qwen-3.5-plus
+      # Tier 3 (Economy)
+      - deepseek-v3.2
+      - devstral-2512
+      - trinity-large-preview:free
+
+    roles:
+      analyst: { primary: glm-5, fallback: claude-sonnet-4.6, economy: deepseek-v3.2 }
+      coder: { primary: glm-4.7, fallback: kimi-k2.5, economy: deepseek-v3.2 }
+      reviewer: { primary: glm-5, fallback: claude-sonnet-4.6, economy: minimax-m2.5 }
+      reviewer-security: { primary: claude-sonnet-4.5, fallback: glm-5, economy: deepseek-v3.2 }
+      reviewer-dx: { primary: glm-5, fallback: claude-sonnet-4.6, economy: minimax-m2.5 }
+      builder: { primary: minimax-m2.5, fallback: kimi-k2.5, economy: devstral-2512 }
+      verifier: { primary: glm-4.7, fallback: deepseek-v3.2, economy: devstral-2512 }
+      orchestrator: { primary: glm-5, fallback: claude-opus-4.6, economy: claude-sonnet-4.6 }
+      autonomy-worker: { primary: glm-5, fallback: claude-sonnet-4.6, economy: gemini-3-flash }
+      brain-gateway: { primary: glm-5, fallback: claude-opus-4.6, economy: gpt-5.2 }
+      retro-agent: { primary: glm-5, fallback: claude-sonnet-4.6, economy: gemini-3-flash }
+      self-improve-agent: { primary: glm-5, fallback: claude-sonnet-4.6, economy: deepseek-v3.2 }
+      evaluator: { primary: claude-opus-4.6, fallback: glm-5, economy: claude-sonnet-4.5 }
+      intake-analyzer: { primary: gemini-3-flash, fallback: claude-sonnet-4.6, economy: deepseek-v3.2 }
+      telemetry-analyzer: { primary: claude-opus-4.6, fallback: glm-5, economy: claude-sonnet-4.5 }
+      feature-orchestrator: { primary: glm-5, fallback: claude-sonnet-4.6, economy: gemini-3-flash }
+      cicd-agent: { primary: glm-4.7, fallback: deepseek-v3.2, economy: devstral-2512 }
+      openclaw-agent: { primary: minimax-m2.5, fallback: kimi-k2.5, economy: "trinity-large-preview:free" }
+      swarm-worker: { primary: glm-4.7, fallback: kimi-k2.5, economy: deepseek-v3.2 }
+      swarm-reviewer: { primary: glm-5, fallback: claude-sonnet-4.6, economy: minimax-m2.5 }
+
+    budget:
+      daily_limit_usd: 50.0
+      per_run_limit_usd: 5.0
+
+    cost_optimization:
+      auto_downgrade_at_pct: 80.0
+      exempt_roles:
+        - evaluator
+        - telemetry-analyzer

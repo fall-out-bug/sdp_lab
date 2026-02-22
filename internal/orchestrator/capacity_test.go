@@ -11,20 +11,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestActivePhases(t *testing.T) {
-	// Active phases (count toward capacity)
-	for _, phase := range []string{"", "Running", "Pending", "ReviewerPending", "ReviewerRunning", "Escalated"} {
-		if !ActivePhases[phase] {
-			t.Errorf("ActivePhases[%q] = false, want true", phase)
-		}
+func TestCountActiveAgentRuns_Empty(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = v1alpha1.AddToScheme(scheme)
+	k8s := fake.NewClientBuilder().WithScheme(scheme).Build()
+	n, err := CountActiveAgentRuns(context.Background(), k8s, "ns")
+	if err != nil {
+		t.Fatalf("CountActiveAgentRuns: %v", err)
 	}
-	// Terminal phases must not be active
-	if ActivePhases["Succeeded"] || ActivePhases["Failed"] {
-		t.Error("Succeeded and Failed should not be active")
+	if n != 0 {
+		t.Errorf("expected 0, got %d", n)
 	}
 }
 
-func TestCountActiveAgentRuns(t *testing.T) {
+func TestCountActiveAgentRuns_CountsActive(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = v1alpha1.AddToScheme(scheme)
 	k8s := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
@@ -34,33 +34,29 @@ func TestCountActiveAgentRuns(t *testing.T) {
 		},
 		&v1alpha1.AgentRun{
 			ObjectMeta: metav1.ObjectMeta{Name: "ar2", Namespace: "ns"},
-			Status:     v1alpha1.AgentRunStatus{Phase: "Succeeded"},
+			Status:     v1alpha1.AgentRunStatus{Phase: "Pending"},
 		},
 		&v1alpha1.AgentRun{
 			ObjectMeta: metav1.ObjectMeta{Name: "ar3", Namespace: "ns"},
-			Status:     v1alpha1.AgentRunStatus{Phase: ""},
+			Status:     v1alpha1.AgentRunStatus{Phase: "Succeeded"},
 		},
 	).Build()
-	ctx := context.Background()
-	n, err := CountActiveAgentRuns(ctx, k8s, "ns")
+	n, err := CountActiveAgentRuns(context.Background(), k8s, "ns")
 	if err != nil {
 		t.Fatalf("CountActiveAgentRuns: %v", err)
 	}
 	if n != 2 {
-		t.Errorf("CountActiveAgentRuns = %d, want 2", n)
+		t.Errorf("expected 2 active (Running, Pending), got %d", n)
 	}
 }
 
-func TestCountActiveAgentRuns_Empty(t *testing.T) {
-	scheme := runtime.NewScheme()
-	_ = v1alpha1.AddToScheme(scheme)
-	k8s := fake.NewClientBuilder().WithScheme(scheme).Build()
-	ctx := context.Background()
-	n, err := CountActiveAgentRuns(ctx, k8s, "ns")
-	if err != nil {
-		t.Fatalf("CountActiveAgentRuns: %v", err)
+func TestActivePhases(t *testing.T) {
+	for _, phase := range []string{"", "Running", "Pending", "ReviewerPending", "ReviewerRunning", "Escalated"} {
+		if !ActivePhases[phase] {
+			t.Errorf("phase %q should be active", phase)
+		}
 	}
-	if n != 0 {
-		t.Errorf("CountActiveAgentRuns = %d, want 0", n)
+	if ActivePhases["Succeeded"] || ActivePhases["Failed"] {
+		t.Error("Succeeded/Failed should not be active")
 	}
 }

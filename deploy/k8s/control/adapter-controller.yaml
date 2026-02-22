@@ -1,0 +1,61 @@
+# adapter-controller runs in sdp-control, shares swarm-workspaces PVC with feature-orchestrator.
+# RBAC for AgentRun/Task in sdp-workers: deploy/k8s/workers/adapter-controller-rbac.yaml
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: adapter-controller
+  namespace: sdp-control
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adapter-controller
+  namespace: sdp-control
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: adapter-controller
+  template:
+    metadata:
+      labels:
+        app: adapter-controller
+    spec:
+      terminationGracePeriodSeconds: 30
+      serviceAccountName: adapter-controller
+      containers:
+        - name: controller
+          image: ghcr.io/fall-out-bug/sdp-dev-adapter-controller:latest
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          env:
+            - name: NATS_URL
+              value: "nats://nats:4222"
+            - name: SDP_WORK_DIR
+              value: "/workspaces"
+            - name: MODEL_POLICY_PATH
+              value: "/etc/model-policy/policy.yaml"
+          volumeMounts:
+            - name: workspaces
+              mountPath: /workspaces
+            - name: model-policy
+              mountPath: /etc/model-policy
+              readOnly: true
+      volumes:
+        - name: workspaces
+          persistentVolumeClaim:
+            claimName: swarm-workspaces
+        - name: model-policy
+          configMap:
+            name: model-policy

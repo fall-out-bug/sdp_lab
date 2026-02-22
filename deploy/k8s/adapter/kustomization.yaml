@@ -1,11 +1,6 @@
+# Root adapter kustomization: defaults to dev overlay (emptyDir, E2E).
+# Use overlays/staging or overlays/prod for PVC-backed deployments.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: sdp-adapter
 resources:
-  - namespace.yaml
-  - rbac.yaml
-  - deployment.yaml
-  - ../crd
-commonLabels:
-  app.kubernetes.io/name: adapter-controller
-  app.kubernetes.io/component: controller
+  - overlays/dev

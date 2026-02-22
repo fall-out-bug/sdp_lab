@@ -1,0 +1,28 @@
+# RBAC for adapter-controller (runs in sdp-control, reconciles AgentRuns/Tasks in sdp-workers).
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: adapter-controller
+  namespace: sdp-workers
+rules:
+  - apiGroups: ["sdp.dev"]
+    resources: ["agentruns", "agentruns/status", "tasks", "tasks/status"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: adapter-controller
+  namespace: sdp-workers
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: adapter-controller
+subjects:
+  - kind: ServiceAccount
+    name: adapter-controller
+    namespace: sdp-control

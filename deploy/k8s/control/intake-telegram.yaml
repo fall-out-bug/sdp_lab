@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: intake-telegram
+  namespace: sdp-control
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: intake-telegram
+  template:
+    metadata:
+      labels:
+        app: intake-telegram
+    spec:
+      containers:
+        - name: bot
+          image: sdp/intake-telegram:latest
+          env:
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: sdp-credentials
+                  key: telegram_bot_token
+            - name: INTAKE_GATEWAY_URL
+              value: "http://intake-gateway:8081"
+          ports:
+            - containerPort: 8082
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: intake-telegram
+  namespace: sdp-control
+spec:
+  selector:
+    app: intake-telegram
+  ports:
+    - port: 8082
+      targetPort: 8082
