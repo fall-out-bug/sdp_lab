@@ -79,8 +79,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Adapter components for TaskReconciler
-	lockMgr := adapter.NewRunLockManager(filepath.Join(os.TempDir(), "sdp-adapter-locks"))
+	// Adapter components for TaskReconciler.
+	// SDP_LOCK_DIR: persistent path for run locks (default: os.TempDir); use a PVC path in K8s so locks survive restarts.
+	lockDir := os.Getenv("SDP_LOCK_DIR")
+	if lockDir == "" {
+		lockDir = filepath.Join(os.TempDir(), "sdp-adapter-locks")
+	}
+	lockMgr := adapter.NewRunLockManager(lockDir)
 	policyGate := adapter.NewPolicyGate()
 	health := adapter.CheckWorkspaceHealth(workDir)
 	if !health.BeadsAvailable {

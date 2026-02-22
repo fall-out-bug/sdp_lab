@@ -22,6 +22,10 @@ The post-dispatch quality pipeline invokes `pr-gate` and `beads-fsm` via `exec` 
 
 Without them, `RunPRGate` / `TransitionFSM` will return an error (e.g. "executable file not found").
 
+## Persistent lock storage (8w6)
+
+adapter-controller and swarm-orchestrator use file-based run locks. By default they use `os.TempDir()`, which is lost on pod restart and can allow duplicate AgentRuns. In K8s, set **SDP_LOCK_DIR** to a path on a persistent volume (e.g. `/data/locks` on a PVC) so locks survive restarts. Example: mount a PVC at `/data` and set `SDP_LOCK_DIR=/data/locks` in the deployment.
+
 ## Deployment Steps
 
 1. **Apply control plane** (includes swarm-orchestrator with ServiceAccount):

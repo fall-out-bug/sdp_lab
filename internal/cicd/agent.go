@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
+	"sdp_dev/internal/beads"
 	"sdp_dev/internal/bus"
 )
 
@@ -24,14 +26,15 @@ type DeployTrigger struct {
 
 // Agent runs the CI/CD deployment pipeline on NATS triggers.
 type Agent struct {
-	bus         bus.Bus
-	registry    string   // e.g. ghcr.io/owner
-	imageTag    string   // default tag
-	images      []string // image names to build
-	workDir     string
-	sshHost     string // optional: deploy via SSH
-	kubeconfig  string
-	mu          sync.Mutex
+	bus              bus.Bus
+	registry         string   // e.g. ghcr.io/owner
+	imageTag         string   // default tag
+	images           []string // image names to build
+	workDir          string
+	sshHost          string // optional: deploy via SSH
+	kubeconfig       string
+	beadsAdapter     *beads.Adapter
+	mu               sync.Mutex
 	deployInProgress bool
 }
 
@@ -63,13 +66,14 @@ func NewAgent(b bus.Bus, cfg AgentConfig) *Agent {
 		cfg.WorkDir = "."
 	}
 	return &Agent{
-		bus:        b,
-		registry:   cfg.Registry,
-		imageTag:   cfg.ImageTag,
-		images:     cfg.Images,
-		workDir:    cfg.WorkDir,
-		sshHost:    cfg.SSHHost,
-		kubeconfig: cfg.Kubeconfig,
+		bus:          b,
+		registry:     cfg.Registry,
+		imageTag:     cfg.ImageTag,
+		images:       cfg.Images,
+		workDir:      cfg.WorkDir,
+		sshHost:      cfg.SSHHost,
+		kubeconfig:   cfg.Kubeconfig,
+		beadsAdapter: beads.NewAdapter(cfg.WorkDir),
 	}
 }
 
@@ -155,6 +159,7 @@ func (a *Agent) deploy(ctx context.Context, t DeployTrigger) {
 		a.mu.Unlock()
 	}()
 
+	start := time.Now()
 	tag := t.Ref
 	if len(tag) > 12 {
 		tag = "git-" + tag[:12]
@@ -163,29 +168,44 @@ func (a *Agent) deploy(ctx context.Context, t DeployTrigger) {
 		tag = a.imageTag
 	}
 
-	if err := a.buildAndPush(ctx, tag); err != nil {
+	a.publishStatus(t, "started", "")
+	beadsID := a.createDeployBead(t, tag)
+	imageSHAs := make(map[string]string)
+
+	if err := a.buildAndPush(ctx, tag, imageSHAs); err != nil {
 		log.Printf("cicd-agent: build/push failed: %v", err)
+		a.writeDeployEvidence(t, tag, "failed", err.Error(), imageSHAs, start)
 		a.publishStatus(t, "failed", err.Error())
 		return
 	}
 	if err := a.applyAndRollout(ctx, t, tag); err != nil {
 		log.Printf("cicd-agent: deploy failed: %v", err)
+		a.writeDeployEvidence(t, tag, "failed", err.Error(), imageSHAs, start)
 		a.publishStatus(t, "failed", err.Error())
 		if rollbackErr := a.rollback(ctx, t); rollbackErr != nil {
 			log.Printf("cicd-agent: rollback failed: %v", rollbackErr)
+		} else {
+			a.publishStatus(t, "rolled_back", "")
 		}
 		return
 	}
-	if !a.healthCheck(ctx, t) {
+	healthOK := a.healthCheck(ctx, t)
+	if !healthOK {
 		log.Printf("cicd-agent: health check failed")
 		_ = a.rollback(ctx, t)
+		a.publishStatus(t, "rolled_back", "")
+		a.writeDeployEvidence(t, tag, "failed", "health check failed", imageSHAs, start)
 		a.publishStatus(t, "failed", "health check failed")
 		return
 	}
+	a.writeDeployEvidence(t, tag, "succeeded", "", imageSHAs, start)
 	a.publishStatus(t, "succeeded", "")
+	if beadsID != "" {
+		_ = a.beadsAdapter.Close(beadsID, "Deploy succeeded")
+	}
 }
 
-func (a *Agent) buildAndPush(ctx context.Context, tag string) error {
+func (a *Agent) buildAndPush(ctx context.Context, tag string, imageSHAs map[string]string) error {
 	prefix := a.registry + "/sdp-dev-"
 	for _, name := range a.images {
 		dockerfile := filepath.Join("deploy", "images", name, "Dockerfile")
@@ -202,8 +222,23 @@ func (a *Agent) buildAndPush(ctx context.Context, tag string) error {
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("docker push %s: %w: %s", image, err, string(out))
 		}
+		if imageSHAs != nil {
+			if sha := a.dockerInspectSHA(ctx, image); sha != "" {
+				imageSHAs[image] = sha
+			}
+		}
 	}
 	return nil
+}
+
+func (a *Agent) dockerInspectSHA(ctx context.Context, image string) string {
+	cmd := exec.CommandContext(ctx, "docker", "inspect", "--format={{.Id}}", image)
+	cmd.Dir = a.workDir
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 func (a *Agent) applyAndRollout(ctx context.Context, t DeployTrigger, tag string) error {
@@ -265,5 +300,46 @@ func (a *Agent) publishStatus(t DeployTrigger, status, reason string) {
 		Payload:       payload,
 	}
 	_ = a.bus.Publish(subject, env)
+}
+
+func (a *Agent) createDeployBead(t DeployTrigger, tag string) string {
+	if a.beadsAdapter == nil {
+		return ""
+	}
+	title := fmt.Sprintf("Deploy %s to %s (%s)", t.Project, t.Env, tag)
+	id, err := a.beadsAdapter.Create(beads.CreateOpts{
+		Title: title,
+		Type:  "chore",
+		Labels: []string{"source:cicd-agent", "deploy"},
+	})
+	if err != nil {
+		log.Printf("cicd-agent: beads create: %v", err)
+		return ""
+	}
+	return id
+}
+
+func (a *Agent) writeDeployEvidence(t DeployTrigger, tag, status, reason string, imageSHAs map[string]string, start time.Time) {
+	evDir := filepath.Join(a.workDir, ".sdp", "evidence")
+	_ = os.MkdirAll(evDir, 0755)
+	evID := "deploy-" + strings.ReplaceAll(tag, ":", "-") + "-" + t.Env
+	evPath := filepath.Join(evDir, evID+".json")
+	duration := time.Since(start).Seconds()
+	ev := map[string]any{
+		"intent": map[string]any{
+			"ref": t.Ref, "project": t.Project, "env": t.Env, "tag": tag,
+		},
+		"execution": map[string]any{
+			"status":   status,
+			"reason":   reason,
+			"duration": duration,
+			"image_shas": imageSHAs,
+		},
+		"verification": map[string]any{
+			"health_ok": status == "succeeded",
+		},
+	}
+	b, _ := json.MarshalIndent(ev, "", "  ")
+	_ = os.WriteFile(evPath, b, 0644)
 }
 

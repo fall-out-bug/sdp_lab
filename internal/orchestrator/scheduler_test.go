@@ -5,14 +5,14 @@ import (
 )
 
 func TestNewScheduler(t *testing.T) {
-	s := NewScheduler("/tmp", nil, 0)
+	s := NewScheduler("/tmp", "", nil, 0)
 	if s == nil || s.workDir != "/tmp" || s.limit != 10 {
 		t.Fatalf("NewScheduler: got %+v", s)
 	}
 	if len(s.labels) == 0 {
 		t.Error("expected default labels")
 	}
-	s2 := NewScheduler("/tmp", []string{"autonomy"}, 5)
+	s2 := NewScheduler("/tmp", "", []string{"autonomy"}, 5)
 	if s2.limit != 5 || s2.labels[0] != "autonomy" {
 		t.Errorf("NewScheduler with args: limit=%d labels=%v", s2.limit, s2.labels)
 	}
@@ -20,7 +20,7 @@ func TestNewScheduler(t *testing.T) {
 
 func TestScheduler_TryLock_Unlock(t *testing.T) {
 	dir := t.TempDir()
-	s := NewScheduler(dir, []string{"autonomy"}, 1)
+	s := NewScheduler(dir, "", []string{"autonomy"}, 1)
 	// Use unique issue ID to avoid cross-test pollution
 	issueID := "test-lock-" + t.Name()
 
@@ -58,7 +58,7 @@ func TestRunID(t *testing.T) {
 
 func TestScheduler_Adapter_WorkDir(t *testing.T) {
 	dir := t.TempDir()
-	s := NewScheduler(dir, []string{"lane:commit"}, 5)
+	s := NewScheduler(dir, "", []string{"lane:commit"}, 5)
 	if s.Adapter() == nil {
 		t.Error("Adapter() should not be nil")
 	}

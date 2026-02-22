@@ -22,17 +22,22 @@ type Scheduler struct {
 }
 
 // NewScheduler returns a scheduler for the given working directory.
-func NewScheduler(workDir string, labels []string, limit int) *Scheduler {
+// lockDir is the directory for file-based locks; if empty, os.TempDir()/sdp-orchestrate-locks is used.
+// In K8s, set SDP_LOCK_DIR to a persistent volume path so locks survive pod restarts.
+func NewScheduler(workDir, lockDir string, labels []string, limit int) *Scheduler {
 	if limit <= 0 {
 		limit = 10
 	}
 	if len(labels) == 0 {
 		labels = []string{"autonomy", "strict-evidence"}
 	}
+	if lockDir == "" {
+		lockDir = filepath.Join(os.TempDir(), "sdp-orchestrate-locks")
+	}
 	return &Scheduler{
 		adapter:   beads.NewAdapter(workDir),
 		workDir:   workDir,
-		lockDir:   filepath.Join(os.TempDir(), "sdp-orchestrate-locks"),
+		lockDir:   lockDir,
 		labels:    labels,
 		limit:     limit,
 		activeSet: make(map[string]struct{}),

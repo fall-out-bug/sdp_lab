@@ -3,7 +3,9 @@ package cicd
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"testing"
+	"time"
 
 	"sdp_dev/internal/bus"
 )
@@ -96,9 +98,29 @@ func TestNewAgent_Defaults(t *testing.T) {
 
 func TestBuildAndPush_NoImages(t *testing.T) {
 	a := NewAgent(nil, AgentConfig{WorkDir: t.TempDir(), Images: []string{"nonexistent-image"}})
-	err := a.buildAndPush(context.Background(), "test")
+	err := a.buildAndPush(context.Background(), "test", nil)
 	// Skips build when Dockerfile doesn't exist; no error
 	if err != nil {
 		t.Logf("buildAndPush (expected to skip or fail): %v", err)
+	}
+}
+
+func TestWriteDeployEvidence(t *testing.T) {
+	dir := t.TempDir()
+	a := NewAgent(nil, AgentConfig{WorkDir: dir})
+	tg := DeployTrigger{Ref: "abc", Project: "p", Env: "dev"}
+	a.writeDeployEvidence(tg, "git-abc", "succeeded", "", map[string]string{"img:tag": "sha123"}, time.Now().Add(-5*time.Second))
+	evPath := dir + "/.sdp/evidence/deploy-git-abc-dev.json"
+	if _, err := os.Stat(evPath); os.IsNotExist(err) {
+		t.Fatalf("evidence file not created: %v", err)
+	}
+	b, _ := os.ReadFile(evPath)
+	var ev map[string]any
+	if err := json.Unmarshal(b, &ev); err != nil {
+		t.Fatal(err)
+	}
+	exec, _ := ev["execution"].(map[string]any)
+	if exec["status"] != "succeeded" {
+		t.Errorf("status: got %v", exec["status"])
 	}
 }

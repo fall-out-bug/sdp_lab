@@ -47,7 +47,8 @@ func main() {
 	}
 
 	labels := []string{"autonomy", "strict-evidence"}
-	scheduler := orchestrator.NewScheduler(wd, labels, 10)
+	lockDir := os.Getenv("SDP_LOCK_DIR") // persistent path in K8s (e.g. PVC) so locks survive restarts
+	scheduler := orchestrator.NewScheduler(wd, lockDir, labels, 10)
 
 	var runOne func() error
 	if *feature != "" {
