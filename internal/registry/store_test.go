@@ -91,3 +91,26 @@ func TestStore_Load_exists(t *testing.T) {
 		t.Errorf("List: %v", list)
 	}
 }
+
+func TestStore_Load_forkFields(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "registry.yaml")
+	cfg := `projects:
+  - id: fork-proj
+    repo_url: https://github.com/org/fork
+    repo_branch: main
+    fork: true
+    upstream_remote: origin
+`
+	if err := os.WriteFile(path, []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := NewStore(StoreConfig{RegistryPath: path})
+	if err := s.Load(); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	p, ok := s.Get("fork-proj")
+	if !ok || !p.Fork || p.UpstreamRemote != "origin" {
+		t.Errorf("Get fork-proj: %+v, ok=%v", p, ok)
+	}
+}

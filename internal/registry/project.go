@@ -7,14 +7,16 @@ import (
 
 // Project represents a registered SDP project.
 type Project struct {
-	ID          string            `yaml:"id" json:"id"`
-	RepoURL     string            `yaml:"repo_url" json:"repo_url"`
-	RepoBranch  string            `yaml:"repo_branch" json:"repo_branch"`
-	BeadsPrefix string            `yaml:"beads_prefix,omitempty" json:"beads_prefix,omitempty"`
-	Language    string            `yaml:"language" json:"language"`
-	Workstreams []string          `yaml:"workstreams" json:"workstreams"`
-	ModelPolicy string            `yaml:"model_policy,omitempty" json:"model_policy,omitempty"`
-	Config      map[string]string `yaml:"config,omitempty" json:"config,omitempty"`
+	ID             string            `yaml:"id" json:"id"`
+	RepoURL        string            `yaml:"repo_url" json:"repo_url"`
+	RepoBranch     string            `yaml:"repo_branch" json:"repo_branch"`
+	BeadsPrefix    string            `yaml:"beads_prefix,omitempty" json:"beads_prefix,omitempty"`
+	Language       string            `yaml:"language" json:"language"`
+	Workstreams    []string          `yaml:"workstreams" json:"workstreams"`
+	ModelPolicy    string            `yaml:"model_policy,omitempty" json:"model_policy,omitempty"`
+	Config         map[string]string `yaml:"config,omitempty" json:"config,omitempty"`
+	Fork           bool              `yaml:"fork,omitempty" json:"fork,omitempty"`
+	UpstreamRemote string            `yaml:"upstream_remote,omitempty" json:"upstream_remote,omitempty"`
 }
 
 // BeadsPrefixFromRepo derives a default prefix from repo URL.
