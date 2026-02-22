@@ -57,7 +57,7 @@ func main() {
 	coord := swarm.NewCoordinator()
 	disp := swarm.Dispatcher(b)
 
-	_, err = b.Subscribe("sdp.beads.*.ready", "orchestrator", func(env bus.Envelope) {
+	_, err = b.SubscribeWithContext("sdp.beads.*.ready", "orchestrator", func(ctx context.Context, env bus.Envelope) {
 		handleReady(ctx, env, agg, coord, disp)
 	})
 	if err != nil {
@@ -82,7 +82,7 @@ func handleReady(ctx context.Context, env bus.Envelope, agg *federation.Aggregat
 		coord.Claim(task.ProjectID, task.Issue.ID, key)
 		_, dispSpan := otel.Tracer("swarm-orchestrator").Start(ctx, "Dispatch")
 		dispSpan.SetAttributes(attribute.String("project", task.ProjectID), attribute.String("issue", task.Issue.ID))
-		_ = disp.Dispatch(task, "coder")
+		_ = disp.DispatchWithContext(ctx, task, "coder")
 		dispSpan.End()
 	}
 }

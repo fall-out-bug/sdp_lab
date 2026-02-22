@@ -1,6 +1,7 @@
 package bus
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -47,6 +48,37 @@ func (s *Subscriber) Subscribe(subject, queue string, handler func(Envelope)) (S
 			return
 		}
 		handler(env)
+	}
+
+	var sub *nats.Subscription
+	var err error
+	if queue != "" {
+		sub, err = nc.QueueSubscribe(subject, queue, cb)
+	} else {
+		sub, err = nc.Subscribe(subject, cb)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("subscribe %q: %w", subject, err)
+	}
+
+	s.subs = append(s.subs, sub)
+	return &subImpl{sub: sub}, nil
+}
+
+// SubscribeWithContext subscribes and runs handler with context containing extracted W3C trace context.
+func (s *Subscriber) SubscribeWithContext(subject, queue string, handler func(context.Context, Envelope)) (Subscription, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	nc := s.client.Conn()
+
+	cb := func(msg *nats.Msg) {
+		var env Envelope
+		if err := json.Unmarshal(msg.Data, &env); err != nil {
+			return
+		}
+		ctx := extractTraceContext(context.Background(), msg.Header)
+		handler(ctx, env)
 	}
 
 	var sub *nats.Subscription

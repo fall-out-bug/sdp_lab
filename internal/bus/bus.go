@@ -10,7 +10,9 @@ import (
 // Bus is the main interface for SDP message bus operations.
 type Bus interface {
 	Publish(subject string, envelope Envelope) error
+	PublishWithContext(ctx context.Context, subject string, envelope Envelope) error
 	Subscribe(subject, queue string, handler func(Envelope)) (Subscription, error)
+	SubscribeWithContext(subject, queue string, handler func(context.Context, Envelope)) (Subscription, error)
 	Request(subject string, envelope Envelope, timeout time.Duration) (Envelope, error)
 	JetStream() nats.JetStreamContext
 	Close()
@@ -37,9 +39,19 @@ func (b *natsBus) Publish(subject string, envelope Envelope) error {
 	return b.publisher.Publish(subject, envelope)
 }
 
+// PublishWithContext publishes with W3C trace context in NATS headers.
+func (b *natsBus) PublishWithContext(ctx context.Context, subject string, envelope Envelope) error {
+	return b.publisher.PublishWithContext(ctx, subject, envelope)
+}
+
 // Subscribe subscribes to subject with optional queue group.
 func (b *natsBus) Subscribe(subject, queue string, handler func(Envelope)) (Subscription, error) {
 	return b.subscriber.Subscribe(subject, queue, handler)
+}
+
+// SubscribeWithContext subscribes and runs handler with context containing extracted W3C trace context.
+func (b *natsBus) SubscribeWithContext(subject, queue string, handler func(context.Context, Envelope)) (Subscription, error) {
+	return b.subscriber.SubscribeWithContext(subject, queue, handler)
 }
 
 // Request sends request and waits for reply.
