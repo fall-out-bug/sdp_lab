@@ -172,6 +172,7 @@ func (b *Bridge) handleIntake(env bus.Envelope) {
 		Source      string   `json:"source"`
 		Priority    int      `json:"priority"`
 		Labels      []string `json:"labels"`
+		DependsOn   []string `json:"depends_on"`
 	}
 	if len(env.Payload) > 0 {
 		_ = json.Unmarshal(env.Payload, &req)
@@ -184,6 +185,13 @@ func (b *Bridge) handleIntake(env bus.Envelope) {
 		}
 		if d, ok := m["description"].(string); ok {
 			req.Description = d
+		}
+		if deps, ok := m["depends_on"].([]interface{}); ok {
+			for _, x := range deps {
+				if s, ok := x.(string); ok {
+					req.DependsOn = append(req.DependsOn, s)
+				}
+			}
 		}
 	}
 	if req.Title == "" {
@@ -204,6 +212,14 @@ func (b *Bridge) handleIntake(env bus.Envelope) {
 	if err != nil {
 		log.Printf("bridge %s create: %v", b.projectID, err)
 		return
+	}
+	for _, blockerID := range req.DependsOn {
+		if blockerID == "" {
+			continue
+		}
+		if err := b.adapter.DepAdd(id, blockerID); err != nil {
+			log.Printf("bridge %s dep add %s %s: %v", b.projectID, id, blockerID, err)
+		}
 	}
 	log.Printf("bridge %s: created issue %s", b.projectID, id)
 }
