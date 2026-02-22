@@ -19,6 +19,7 @@ __pycache__/
 /swarm-orchestrator
 /swarm-worker
 /telemetry-analyzer
+/sdp-evidence
 
 # Execution state
 .oneshot/

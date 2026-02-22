@@ -46,6 +46,7 @@ Private planning and orchestration workspace for SDP evolution.
 - `cmd/brain-gateway/` - evaluates policy/risk/model/branch decision.
 - `cmd/beads-fsm/` - validates/applies guarded state transitions.
 - `cmd/pr-gate/` - blocks PR progression when strict evidence is incomplete.
+- `cmd/sdp-evidence/` - standalone evidence CLI: `validate` and `inspect` subcommands. Zero K8s dependency.
 - `cmd/pr-publish/` - creates PR via `gh` and writes `trace.pr_url` into evidence.
 - `cmd/swarm-worker/` - worker role that claims and implements eligible coding tasks. Modular: main_flow, main_handlers, main_patches, main_ensure_*, main_verify*, main_observability, main_runner, main_util. See docs/SWARM_WORKER_RUNBOOK.md.
 - `cmd/swarm-reviewer/` - reviewer role that validates review flow and finalizes tasks.
@@ -69,3 +70,32 @@ Private planning and orchestration workspace for SDP evolution.
 - `deploy/k8s/observability/` - deployable observability stack and telemetry ingestion pipeline manifests.
 
 - `cmd/flow-inspect/` - inspects protocol flow state from run packets.
+
+## sdp-evidence CLI
+
+Standalone binary for validating and inspecting evidence envelopes. No K8s dependency.
+
+### Install
+
+**From GitHub Releases** (after tagging e.g. `v0.1.0`):
+
+```bash
+# Linux amd64
+curl -sSL https://github.com/OWNER/REPO/releases/download/v0.1.0/sdp-evidence_0.1.0_linux_amd64.tar.gz | tar xz -C /usr/local/bin
+
+# macOS (darwin/arm64)
+curl -sSL https://github.com/OWNER/REPO/releases/download/v0.1.0/sdp-evidence_0.1.0_darwin_arm64.tar.gz | tar xz -C /usr/local/bin
+```
+
+**From source:**
+
+```bash
+go install ./cmd/sdp-evidence@latest
+```
+
+### Usage
+
+```bash
+sdp-evidence validate --evidence .sdp/evidence/run-123.json
+sdp-evidence inspect --evidence .sdp/evidence/run-123.json
+```
