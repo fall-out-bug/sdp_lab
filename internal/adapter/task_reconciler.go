@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"time"
 
 	"sdp_dev/api/v1alpha1"
 	"sdp_dev/internal/agent"
 	"sdp_dev/internal/beads"
 	"sdp_dev/internal/bus"
 	"sdp_dev/internal/evidence"
+	"sdp_dev/internal/quality"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -21,19 +23,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const heartbeatInterval = 60 * time.Second
+
 // TaskReconciler reconciles Task CRDs and drives the adapter pipeline.
 type TaskReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
-	WorkDir         string
-	LockManager     *RunLockManager
-	PolicyGate      *PolicyGate
-	BeadsAdapter    *beads.Adapter
-	EvidenceProjector *EvidenceProjector
+	WorkspaceResolver   WorkspaceResolver
+	BeadsAvailable      bool
+	LockManager         *RunLockManager
+	PolicyGate          *PolicyGate
 	LifecycleReconciler *LifecycleReconciler
-	TraceEmitter    *agent.TraceEmitter // nil if no bus
-	Bus            bus.Bus             // nil if no NATS; publish terminal status
+	TraceEmitter        *agent.TraceEmitter // nil if no bus; fallback for single-project only
+	Bus                 bus.Bus           // nil if no NATS; publish terminal status
 }
 
 // NewTaskReconciler returns a TaskReconciler.
@@ -41,11 +44,10 @@ func NewTaskReconciler(c client.Client, scheme *runtime.Scheme, opts TaskReconci
 	return &TaskReconciler{
 		Client:              c,
 		Scheme:              scheme,
-		WorkDir:             opts.WorkDir,
+		WorkspaceResolver:   opts.WorkspaceResolver,
+		BeadsAvailable:      opts.BeadsAvailable,
 		LockManager:         opts.LockManager,
 		PolicyGate:          opts.PolicyGate,
-		BeadsAdapter:        opts.BeadsAdapter,
-		EvidenceProjector:   opts.EvidenceProjector,
 		LifecycleReconciler: opts.LifecycleReconciler,
 		TraceEmitter:        opts.TraceEmitter,
 		Bus:                 opts.Bus,
@@ -54,11 +56,10 @@ func NewTaskReconciler(c client.Client, scheme *runtime.Scheme, opts TaskReconci
 
 // TaskReconcilerOpts holds optional dependencies for TaskReconciler.
 type TaskReconcilerOpts struct {
-	WorkDir             string
+	WorkspaceResolver   WorkspaceResolver
+	BeadsAvailable      bool
 	LockManager         *RunLockManager
 	PolicyGate          *PolicyGate
-	BeadsAdapter        *beads.Adapter
-	EvidenceProjector   *EvidenceProjector
 	LifecycleReconciler *LifecycleReconciler
 	TraceEmitter        *agent.TraceEmitter
 	Bus                 bus.Bus
@@ -87,8 +88,18 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, nil
 	}
 
+	projectID := ProjectIDFromLabels(task.Labels)
+	workDir := "."
+	if r.WorkspaceResolver != nil {
+		workDir = r.WorkspaceResolver(projectID)
+		if workDir == "" {
+			workDir = "."
+		}
+	}
+
 	phase := CRDPhase(task.Status.Phase)
 	span.SetAttributes(attribute.String("phase", string(phase)), attribute.String("issue", issueID))
+	log.V(1).Info("reconcile trace", "task", req.NamespacedName, "phase", phase, "issue", issueID, "workDir", workDir)
 	runID := task.Name
 	if rid := task.Labels["sdp.run_id"]; rid != "" {
 		runID = rid
@@ -98,6 +109,12 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	if model == "" {
 		model = "glm-4.7"
 	}
+
+	var beadsAdapter *beads.Adapter
+	if r.BeadsAvailable {
+		beadsAdapter = beads.NewAdapter(workDir)
+	}
+	projector := NewEvidenceProjector(workDir)
 
 	switch phase {
 	case PhasePending:
@@ -114,37 +131,61 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 				return ctrl.Result{}, nil
 			}
 		}
-		if r.BeadsAdapter != nil {
-			if err := r.BeadsAdapter.Claim(issueID); err != nil {
+		if beadsAdapter != nil {
+			if err := beadsAdapter.Claim(issueID); err != nil {
 				log.Error(err, "beads claim failed", "issue", issueID)
 			}
 		}
 
 	case PhaseRunning:
 		if r.TraceEmitter != nil {
-			_ = r.TraceEmitter.EmitPhase("heartbeat", "ok", "task "+task.Name)
+			_ = r.TraceEmitter.EmitHeartbeatIfDue(heartbeatInterval)
 		}
 
 	case PhaseSucceeded, PhaseCompleted:
-		if r.EvidenceProjector != nil {
-			intent := taskToIntent(task, runID)
-			roleOutputs := map[string]string{"coder": "placeholder"}
-			evPath, err := r.EvidenceProjector.ProjectFromIntent(intent, roleOutputs, runID)
-			if err != nil {
-				log.Error(err, "evidence projection failed", "issue", issueID)
-				return ctrl.Result{}, nil
-			}
-			res, err := evidence.ValidateStrictFile(evPath, false)
-			if err != nil {
-				log.Error(err, "evidence validation failed", "issue", issueID)
-				return ctrl.Result{}, nil
-			}
-			if !res.OK {
-				log.Info("evidence invalid, blocking FSM", "issue", issueID, "reason", res.Reason)
-				return ctrl.Result{}, nil
+		intent := taskToIntent(task, runID)
+		roleOutputs := map[string]string{"coder": "placeholder"}
+		evPath, err := projector.ProjectFromIntent(intent, roleOutputs, runID)
+		if err != nil {
+			log.Error(err, "evidence projection failed", "issue", issueID)
+			return ctrl.Result{}, nil
+		}
+		traceEvts := evidence.LoadTraceEventsFromRunFile(workDir, runID)
+		if traceEvts == nil && r.TraceEmitter != nil && projectID == "" {
+			evts := r.TraceEmitter.Events()
+			traceEvts = make([]evidence.TraceEvent, len(evts))
+			for i, e := range evts {
+				traceEvts[i] = evidence.TraceEvent{At: e.At, Phase: e.Phase}
 			}
 		}
-		if err := runBeadsFSM(r.WorkDir, issueID, "review"); err != nil {
+		if traceEvts != nil && len(traceEvts) > 0 {
+			tvRes := evidence.ValidateTraceChain(traceEvts)
+			if !tvRes.OK {
+				for _, w := range tvRes.Warnings {
+					log.Info("trace validation warning", "issue", issueID, "warning", w)
+				}
+			}
+			if err := evidence.AddTraceValidationToEvidence(evPath, tvRes); err != nil {
+				log.V(1).Info("could not add trace_validation to evidence", "issue", issueID, "err", err)
+			}
+		}
+		res, err := evidence.ValidateStrictFile(evPath, false)
+		if err != nil {
+			log.Error(err, "evidence validation failed", "issue", issueID)
+			return ctrl.Result{}, nil
+		}
+		if !res.OK {
+			log.Info("evidence invalid, blocking FSM", "issue", issueID, "reason", res.Reason)
+			return ctrl.Result{}, nil
+		}
+		if beadsAdapter != nil {
+			if testsPassed, _ := quality.RunTests(workDir); !testsPassed {
+				log.V(1).Info("quality.RunTests failed (may be no go mod)", "issue", issueID)
+			} else if err := quality.RunPRGate(issueID, workDir); err != nil {
+				log.V(1).Info("quality.RunPRGate failed (may be pr-gate not in PATH)", "issue", issueID, "err", err)
+			}
+		}
+		if err := runBeadsFSM(workDir, issueID, "review"); err != nil {
 			log.Error(err, "beads-fsm review failed", "issue", issueID)
 		}
 
@@ -158,15 +199,15 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 				}
 			}
 			currentFSM := FSMInProgress
-			if r.BeadsAdapter != nil {
-				iss, _ := r.BeadsAdapter.Show(issueID)
+			if beadsAdapter != nil {
+				iss, _ := beadsAdapter.Show(issueID)
 				if iss != nil {
 					currentFSM = FSMState(iss.Status)
 				}
 			}
 			targetFSM, _, err := r.LifecycleReconciler.ReconcilePhase(currentFSM, PhaseFailed, reason)
 			if err == nil {
-				_ = runBeadsFSM(r.WorkDir, issueID, string(targetFSM))
+				_ = runBeadsFSM(workDir, issueID, string(targetFSM))
 			}
 		}
 		if r.LockManager != nil {
@@ -175,7 +216,7 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 
 	if r.Bus != nil && (phase == PhaseSucceeded || phase == PhaseCompleted || phase == PhaseFailed) {
-		publishTerminalStatus(r.Bus, task.Labels["sdp.project"], issueID, string(phase))
+		publishTerminalStatus(r.Bus, projectID, issueID, string(phase))
 	}
 
 	return ctrl.Result{}, nil
@@ -215,6 +256,9 @@ func taskToIntent(task *v1alpha1.Task, runID string) *TaskIntent {
 }
 
 func runBeadsFSM(workDir, issueID, target string) error {
+	if !BeadsFSMAvailable() {
+		return nil // no-op when beads-fsm not in PATH
+	}
 	if workDir == "" {
 		workDir = "."
 	}

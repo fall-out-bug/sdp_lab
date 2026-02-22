@@ -254,6 +254,9 @@ func (a *Agent) applyAndRollout(ctx context.Context, t DeployTrigger, tag string
 			return fmt.Errorf("kustomize edit set image %s: %w: %s", kustomizeName, err, string(out))
 		}
 	}
+	if a.sshHost != "" {
+		return a.applyAndRolloutSSH(ctx, manifestsDir)
+	}
 	cmd := exec.CommandContext(ctx, "kubectl", "apply", "-k", manifestsDir)
 	cmd.Dir = a.workDir
 	cmd.Env = a.kubectlEnv()
@@ -269,6 +272,34 @@ func (a *Agent) applyAndRollout(ctx context.Context, t DeployTrigger, tag string
 	return nil
 }
 
+// applyAndRolloutSSH runs kustomize build locally and pipes to kubectl apply on remote host.
+func (a *Agent) applyAndRolloutSSH(ctx context.Context, manifestsDir string) error {
+	buildCmd := exec.CommandContext(ctx, "kustomize", "build", manifestsDir)
+	buildCmd.Dir = a.workDir
+	manifests, err := buildCmd.Output()
+	if err != nil {
+		return fmt.Errorf("kustomize build: %w", err)
+	}
+	kubectlCmd := "kubectl apply -f -"
+	if a.kubeconfig != "" {
+		kubectlCmd = "KUBECONFIG=" + a.kubeconfig + " kubectl apply -f -"
+	}
+	sshCmd := exec.CommandContext(ctx, "ssh", a.sshHost, kubectlCmd)
+	sshCmd.Stdin = strings.NewReader(string(manifests))
+	if out, err := sshCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("ssh kubectl apply: %w: %s", err, string(out))
+	}
+	rolloutCmd := "kubectl rollout status deployment -n sdp-control --timeout=300s"
+	if a.kubeconfig != "" {
+		rolloutCmd = "KUBECONFIG=" + a.kubeconfig + " " + rolloutCmd
+	}
+	sshCmd = exec.CommandContext(ctx, "ssh", a.sshHost, rolloutCmd)
+	if out, err := sshCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("ssh kubectl rollout: %w: %s", err, string(out))
+	}
+	return nil
+}
+
 func (a *Agent) kubectlEnv() []string {
 	env := os.Environ()
 	if a.kubeconfig != "" {
@@ -278,8 +309,17 @@ func (a *Agent) kubectlEnv() []string {
 }
 
 func (a *Agent) healthCheck(ctx context.Context, t DeployTrigger) bool {
-	cmd := exec.CommandContext(ctx, "kubectl", "get", "pods", "-n", "sdp-control", "-l", "app=feature-orchestrator", "-o", "jsonpath={.items[0].status.phase}")
-	cmd.Env = a.kubectlEnv()
+	kubectlCmd := "kubectl get pods -n sdp-control -l app=feature-orchestrator -o jsonpath={.items[0].status.phase}"
+	if a.kubeconfig != "" {
+		kubectlCmd = "KUBECONFIG=" + a.kubeconfig + " " + kubectlCmd
+	}
+	var cmd *exec.Cmd
+	if a.sshHost != "" {
+		cmd = exec.CommandContext(ctx, "ssh", a.sshHost, kubectlCmd)
+	} else {
+		cmd = exec.CommandContext(ctx, "kubectl", "get", "pods", "-n", "sdp-control", "-l", "app=feature-orchestrator", "-o", "jsonpath={.items[0].status.phase}")
+		cmd.Env = a.kubectlEnv()
+	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return false
@@ -288,8 +328,17 @@ func (a *Agent) healthCheck(ctx context.Context, t DeployTrigger) bool {
 }
 
 func (a *Agent) rollback(ctx context.Context, t DeployTrigger) error {
-	cmd := exec.CommandContext(ctx, "kubectl", "rollout", "undo", "deployment", "-n", "sdp-control")
-	cmd.Env = a.kubectlEnv()
+	rollbackCmd := "kubectl rollout undo deployment -n sdp-control"
+	if a.kubeconfig != "" {
+		rollbackCmd = "KUBECONFIG=" + a.kubeconfig + " " + rollbackCmd
+	}
+	var cmd *exec.Cmd
+	if a.sshHost != "" {
+		cmd = exec.CommandContext(ctx, "ssh", a.sshHost, rollbackCmd)
+	} else {
+		cmd = exec.CommandContext(ctx, "kubectl", "rollout", "undo", "deployment", "-n", "sdp-control")
+		cmd.Env = a.kubectlEnv()
+	}
 	_, err := cmd.CombinedOutput()
 	return err
 }

@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: sdp-adapter
+resources:
+  - ../../base
+  - adapter-workspaces-pvc.yaml
+  - nats-e2e.yaml
+patches:
+  - target:
+      kind: Deployment
+      name: adapter-controller
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/volumes/0
+        value:
+          name: workspaces
+          persistentVolumeClaim:
+            claimName: adapter-workspaces
+  - path: init-workspace-patch.yaml
+    target:
+      kind: Deployment
+      name: adapter-controller

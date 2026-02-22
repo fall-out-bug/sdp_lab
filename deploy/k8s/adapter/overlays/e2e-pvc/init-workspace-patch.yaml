@@ -1,0 +1,18 @@
+# Init container to create .beads and .sdp in workspace (WS-002-03)
+# Uses same image as adapter (has bd) to run bd init
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adapter-controller
+  namespace: sdp-adapter
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: init-workspace
+          image: ghcr.io/fall-out-bug/sdp-dev-adapter-controller:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c", "mkdir -p /workspaces/default/.beads /workspaces/default/.sdp && cd /workspaces/default && bd init 2>/dev/null || true"]
+          volumeMounts:
+            - name: workspaces
+              mountPath: /workspaces

@@ -1,0 +1,12 @@
+# PVC for E2E with workspace (minikube: ReadWriteOnce)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: adapter-workspaces
+  namespace: sdp-adapter
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

@@ -120,7 +120,10 @@ func main() {
 	}
 
 	intentTranslator := adapter.NewIntentTranslator()
-	healthChecker := policy.StubProviderHealthChecker{}
+	var healthChecker policy.ProviderHealthChecker = policy.StubProviderHealthChecker{}
+	if os.Getenv("PROVIDER_HEALTH_ENV") != "" {
+		healthChecker = &policy.EnvProviderHealthChecker{}
+	}
 	agentRunOpts := adapter.AgentRunReconcilerOpts{
 		IntentTranslator:      intentTranslator,
 		PolicyGate:            policyGate,
