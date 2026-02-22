@@ -48,6 +48,9 @@ type TaskSpec struct {
 	Prompt string `json:"prompt,omitempty"`
 	// Objective is the acceptance criteria.
 	Objective string `json:"objective,omitempty"`
+	// DependsOn lists Task names that must reach terminal phase before this Task runs.
+	// Fork-first (WS-021-01): kubeopencode controller honors this for DAG ordering.
+	DependsOn []string `json:"dependsOn,omitempty"`
 }
 
 // AgentRef references an agent or model.

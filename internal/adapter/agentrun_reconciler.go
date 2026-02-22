@@ -146,17 +146,38 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 
 	case "ReviewerPending":
-		// TODO WS-002-01 full: create reviewer Task with aggregated context
-		// For minimal: transition to ReviewerRunning with placeholder, or Succeeded
-		run.Status.Phase = "Succeeded"
-		run.Status.ReviewerTask = ""
+		// WS-021-01: create reviewer Task with dependsOn [analyst, coder] for DAG ordering
+		issue := &beads.Issue{ID: run.Spec.IssueID, Title: "AgentRun " + run.Name, AcceptanceCriteria: "Review analyst and coder outputs"}
+		if beadsAdapter != nil {
+			if iss, err := beadsAdapter.Show(run.Spec.IssueID); err == nil {
+				issue = iss
+			}
+		}
+		intent, err := r.IntentTranslator.Translate(issue, run.Name)
+		if err != nil {
+			return r.setFailed(ctx, run, fmt.Sprintf("translate reviewer: %v", err))
+		}
+		providerHint := policy.ResolveProviderForModel(model, r.ProviderHealthChecker)
+		workerNames := strings.Split(run.Status.WorkerTask, ",")
+		dependsOn := make([]string, 0, 2)
+		for _, n := range workerNames {
+			n = strings.TrimSpace(n)
+			if n != "" {
+				dependsOn = append(dependsOn, n)
+			}
+		}
+		reviewerIntent := *intent
+		reviewerIntent.Prompt = "Review analyst and coder outputs. " + intent.Prompt
+		reviewerTask := createTaskFromIntent(run, "reviewer", &reviewerIntent, providerHint, dependsOn...)
+		if err := r.Create(ctx, reviewerTask); err != nil {
+			return ctrl.Result{}, fmt.Errorf("create reviewer task: %w", err)
+		}
+		run.Status.Phase = "ReviewerRunning"
+		run.Status.ReviewerTask = reviewerTask.Name
 		if err := r.Status().Update(ctx, run); err != nil {
 			return ctrl.Result{}, err
 		}
-		r.recordAgentRunComplete(run, "Succeeded")
-		r.closeBeadsOnSuccess(ctx, run.Spec.IssueID, "AgentRun completed", beadsAdapter)
-		r.publishLifecycle("sdp.lifecycle.agentrun.completed", run.Spec.IssueID, projectID, "completed")
-		log.Info("reviewer skipped (minimal), run succeeded")
+		log.Info("created reviewer task with dependsOn", "reviewer", reviewerTask.Name, "dependsOn", dependsOn)
 
 	case "ReviewerRunning":
 		// Check reviewer Task status

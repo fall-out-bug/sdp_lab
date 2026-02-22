@@ -11,7 +11,10 @@ import (
 )
 
 // createTaskFromIntent builds a Task from an AgentRun and TaskIntent.
-func createTaskFromIntent(run *v1alpha1.AgentRun, role string, intent *TaskIntent) *v1alpha1.Task {
+// If dependsOn is non-empty, the Task spec includes DependsOn for DAG ordering (WS-021-01).
+// Propagates sdp.project from AgentRun to Task for per-project workspace routing.
+// If providerHint is non-empty, adds annotation sdp.provider for env propagation (WS-013-01).
+func createTaskFromIntent(run *v1alpha1.AgentRun, role string, intent *TaskIntent, providerHint string, dependsOn ...string) *v1alpha1.Task {
 	name := run.Name + "-" + role
 	labels := map[string]string{
 		"beads.issue": intent.IssueID,
@@ -23,12 +26,25 @@ func createTaskFromIntent(run *v1alpha1.AgentRun, role string, intent *TaskInten
 		labels[k] = v
 	}
 	labels["role"] = role
+	// Propagate sdp.project from AgentRun to Task for per-project workspace routing
+	if run.Labels != nil {
+		if v := run.Labels[LabelProject]; v != "" {
+			labels[LabelProject] = v
+		} else if v := run.Labels["project"]; v != "" {
+			labels[LabelProject] = v
+		}
+	}
 
+	annotations := make(map[string]string)
+	if providerHint != "" {
+		annotations["sdp.provider"] = providerHint
+	}
 	return &v1alpha1.Task{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: run.Namespace,
-			Labels:    labels,
+			Name:        name,
+			Namespace:   run.Namespace,
+			Labels:      labels,
+			Annotations: annotations,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: run.APIVersion,
@@ -42,6 +58,7 @@ func createTaskFromIntent(run *v1alpha1.AgentRun, role string, intent *TaskInten
 			Prompt:    intent.Prompt,
 			Objective: intent.Objective,
 			AgentRef:  v1alpha1.AgentRef{Model: run.Spec.Model},
+			DependsOn: dependsOn,
 		},
 		Status: v1alpha1.TaskStatus{
 			Phase: v1alpha1.TaskPhasePending,

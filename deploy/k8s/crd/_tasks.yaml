@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: tasks.sdp.dev
+  name: tasks.
 spec:
-  group: sdp.dev
+  group: ""
   names:
     kind: Task
     listKind: TaskList
@@ -21,7 +21,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1alpha1
+    name: ""
     schema:
       openAPIV3Schema:
         description: |-
@@ -55,6 +55,13 @@ spec:
                   model:
                     type: string
                 type: object
+              dependsOn:
+                description: |-
+                  DependsOn lists Task names that must reach terminal phase before this Task runs.
+                  Fork-first (WS-021-01): kubeopencode controller honors this for DAG ordering.
+                items:
+                  type: string
+                type: array
               objective:
                 description: Objective is the acceptance criteria.
                 type: string
