@@ -2,16 +2,54 @@ package orchestrator
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/nats-io/nats.go"
 	"sdp_dev/api/v1alpha1"
+	"sdp_dev/internal/bus"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+// mockBus records Publish calls for tests.
+type mockBus struct {
+	mu        sync.Mutex
+	publishes []struct {
+		subject string
+		env     bus.Envelope
+	}
+}
+
+func (m *mockBus) Publish(subject string, envelope bus.Envelope) error {
+	m.mu.Lock()
+	m.publishes = append(m.publishes, struct {
+		subject string
+		env     bus.Envelope
+	}{subject, envelope})
+	m.mu.Unlock()
+	return nil
+}
+
+func (m *mockBus) PublishWithContext(_ context.Context, subject string, envelope bus.Envelope) error {
+	return m.Publish(subject, envelope)
+}
+
+func (m *mockBus) Subscribe(_, _ string, _ func(bus.Envelope)) (bus.Subscription, error) {
+	return nil, nil
+}
+func (m *mockBus) SubscribeWithContext(_, _ string, _ func(context.Context, bus.Envelope)) (bus.Subscription, error) {
+	return nil, nil
+}
+func (m *mockBus) Request(_ string, _ bus.Envelope, _ time.Duration) (bus.Envelope, error) {
+	return bus.Envelope{}, nil
+}
+func (m *mockBus) JetStream() nats.JetStreamContext { return nil }
+func (m *mockBus) Close()                 {}
 
 func TestEscalateTimedOut_Empty(t *testing.T) {
 	scheme := runtime.NewScheme()
@@ -97,4 +135,52 @@ func TestEscalateTimedOut_DoesNotEscalateWithinTimeout(t *testing.T) {
 	if run.Status.Phase != "Running" {
 		t.Errorf("expected Running unchanged, got %s", run.Status.Phase)
 	}
+}
+
+func TestEscalateTimedOut_PublishesToBus(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = v1alpha1.AddToScheme(scheme)
+	old := metav1.NewTime(time.Now().Add(-2 * time.Hour))
+	run := &v1alpha1.AgentRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "ar1",
+			Namespace:         "ns",
+			CreationTimestamp: old,
+			Labels:            map[string]string{"project": "p1"},
+		},
+		Spec:   v1alpha1.AgentRunSpec{IssueID: "i1", TimeoutSec: 60},
+		Status: v1alpha1.AgentRunStatus{Phase: "Running"},
+	}
+	k8s := fake.NewClientBuilder().WithScheme(scheme).WithObjects(run).WithStatusSubresource(run).Build()
+	b := &mockBus{}
+	ctx := context.Background()
+	escalateTimedOut(ctx, k8s, b, "ns")
+	b.mu.Lock()
+	n := len(b.publishes)
+	subj := ""
+	var env bus.Envelope
+	if n > 0 {
+		subj = b.publishes[0].subject
+		env = b.publishes[0].env
+	}
+	b.mu.Unlock()
+	if n != 1 {
+		t.Fatalf("expected 1 Publish call, got %d", n)
+	}
+	if subj != "sdp.lifecycle.agentrun.escalated" {
+		t.Errorf("subject = %q", subj)
+	}
+	if env.Phase != "escalated" || env.IssueID != "i1" || env.ProjectID != "p1" {
+		t.Errorf("envelope: %+v", env)
+	}
+}
+
+func TestMonitorAgentRunTimeouts_OneTick(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = v1alpha1.AddToScheme(scheme)
+	k8s := fake.NewClientBuilder().WithScheme(scheme).Build()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+	MonitorAgentRunTimeouts(ctx, k8s, nil, "ns", 10*time.Millisecond)
+	// No panic; at least one tick runs before context expires
 }
