@@ -14,12 +14,41 @@ func main() {
 	evidencePath := validateCmd.String("evidence", "", "Path to evidence file")
 	requirePRURL := validateCmd.Bool("require-pr-url", true, "Require trace.pr_url (set false for prepublish)")
 
+	inspectCmd := flag.NewFlagSet("inspect", flag.ExitOnError)
+	inspectEvidence := inspectCmd.String("evidence", "", "Path to evidence file")
+	inspectRequirePRURL := inspectCmd.Bool("require-pr-url", true, "Require trace.pr_url (set false for prepublish)")
+
 	if len(os.Args) < 2 {
 		printUsage()
 		os.Exit(2)
 	}
 
 	switch os.Args[1] {
+	case "inspect":
+		inspectCmd.Parse(os.Args[2:])
+		if *inspectEvidence == "" && inspectCmd.NArg() > 0 {
+			*inspectEvidence = inspectCmd.Arg(0)
+		}
+		if *inspectEvidence == "" {
+			fmt.Fprintln(os.Stderr, "inspect: --evidence or positional path required")
+			inspectCmd.Usage()
+			os.Exit(2)
+		}
+		path, absErr := filepath.Abs(*inspectEvidence)
+		if absErr != nil {
+			path = *inspectEvidence
+		}
+		summary, res, err := evidence.Inspect(path, *inspectRequirePRURL)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "inspect: %v\n", err)
+			os.Exit(1)
+		}
+		if !res.OK {
+			fmt.Fprintf(os.Stderr, "invalid: %s\n", res.Reason)
+			os.Exit(1)
+		}
+		fmt.Println(summary)
+		os.Exit(0)
 	case "validate":
 		validateCmd.Parse(os.Args[2:])
 		if *evidencePath == "" {
@@ -63,6 +92,8 @@ func printUsage() {
 Usage:
   sdp-evidence validate --evidence <path>   Validate evidence file
   sdp-evidence validate <path>             Same (positional)
+  sdp-evidence inspect --evidence <path>   Print human-readable summary
+  sdp-evidence inspect <path>              Same (positional)
 
 Exits 0 if valid, non-zero if invalid.
 `)
