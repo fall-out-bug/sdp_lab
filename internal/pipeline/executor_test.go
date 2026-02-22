@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"os"
 	"testing"
 
 	"sdp_dev/internal/beads"
@@ -44,21 +43,6 @@ func TestResolveModel(t *testing.T) {
 				t.Errorf("resolveModel() = %q, want %q", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestBaseBranch(t *testing.T) {
-	orig := os.Getenv("SDP_REPO_BRANCH")
-	defer func() { _ = os.Setenv("SDP_REPO_BRANCH", orig) }()
-
-	_ = os.Unsetenv("SDP_REPO_BRANCH")
-	if got := baseBranch(); got != "master" {
-		t.Errorf("baseBranch() unset = %q, want master", got)
-	}
-
-	_ = os.Setenv("SDP_REPO_BRANCH", "main")
-	if got := baseBranch(); got != "main" {
-		t.Errorf("baseBranch() SDP_REPO_BRANCH=main = %q, want main", got)
 	}
 }
 

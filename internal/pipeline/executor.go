@@ -3,7 +3,6 @@ package pipeline
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -13,15 +12,8 @@ import (
 	"sdp_dev/internal/federation"
 	"sdp_dev/internal/llm"
 	"sdp_dev/internal/policy"
+	"sdp_dev/internal/quality"
 )
-
-// baseBranch returns the PR base branch: SDP_REPO_BRANCH env or "master" (matches swarm-worker, swarm-reviewer).
-func baseBranch() string {
-	if b := os.Getenv("SDP_REPO_BRANCH"); b != "" {
-		return b
-	}
-	return "master"
-}
 
 // ExecuteTask runs opencode with the SDP agent and the full quality pipeline.
 func ExecuteTask(ctx context.Context, b bus.Bus, task federation.FederatedTask) error {
@@ -100,24 +92,28 @@ func runQualityPipeline(ctx context.Context, b bus.Bus, task federation.Federate
 	}
 
 	changed := execRes.ChangedFiles
-
-	// 2. Evidence collection
-	evidence := agent.NewEvidenceCollector(workDir)
 	decision := policy.Decide(policy.DecisionRequest{IssueID: issueID, Title: task.Issue.Title})
 	riskClass := decision.RiskClass
 	if riskClass == "" {
 		riskClass = "medium"
 	}
 	boundary, _ := llm.LoadBoundary(workDir, role)
-	if _, err := evidence.Initialize(issueID, branch, riskClass, model, role, boundary); err != nil {
-		return fmt.Errorf("evidence init: %w", err)
+
+	// 2. Evidence collection (init + first update)
+	if _, err := quality.CollectEvidence(quality.EvidenceConfig{
+		WorkDir:      workDir,
+		IssueID:      issueID,
+		Branch:       branch,
+		RiskClass:    riskClass,
+		Model:        model,
+		Role:         role,
+		Boundary:     boundary,
+		ChangedFiles: changed,
+		ModelUsed:    model,
+		TestsPassed:  false,
+	}); err != nil {
+		return err
 	}
-	_ = evidence.UpdateExecution(issueID, agent.CollectResult{
-		ChangedFiles:      changed,
-		ModelUsed:         model,
-		BoundaryViolation: nil,
-		TestsPassed:       false, // updated below
-	})
 
 	// 3. Trace emission (before tests so we have run file)
 	tracer := agent.NewTraceEmitter(b, task.ProjectID, runID, "swarm-orchestrator", role, workDir)
@@ -125,15 +121,14 @@ func runQualityPipeline(ctx context.Context, b bus.Bus, task federation.Federate
 	_ = tracer.EmitPhase("execute", "ok", fmt.Sprintf("%d files changed", len(changed)))
 
 	// 4. Tests
-	testCmd := exec.Command("go", "test", "./...")
-	testCmd.Dir = workDir
-	testsPassed := testCmd.Run() == nil
-
-	_ = evidence.UpdateExecution(issueID, agent.CollectResult{
+	testsPassed, _ := quality.RunTests(workDir)
+	if err := quality.UpdateEvidence(workDir, issueID, agent.CollectResult{
 		ChangedFiles: changed,
 		ModelUsed:    model,
 		TestsPassed:  testsPassed,
-	})
+	}); err != nil {
+		return fmt.Errorf("evidence update: %w", err)
+	}
 	_ = tracer.EmitPhase("verify", statusStr(testsPassed), "")
 
 	if !testsPassed {
@@ -141,13 +136,13 @@ func runQualityPipeline(ctx context.Context, b bus.Bus, task federation.Federate
 	}
 
 	// 5. Provenance signing
-	signer := agent.NewProvenanceSigner("swarm-orchestrator", role)
 	tracePath := filepath.Join(workDir, ".sdp", "runs", runID+".json")
 	evidencePath := filepath.Join(workDir, ".sdp", "evidence", issueID+".json")
-	signed, err := signer.Sign(agent.SignInput{
+	signed, err := quality.SignProvenance(quality.ProvenanceConfig{
+		AgentID:      "swarm-orchestrator",
+		Role:         role,
 		IssueID:      issueID,
 		ArtifactID:   runID + ":strict-evidence",
-		ArtifactClass: "artifact",
 		Phase:        "completed",
 		Payload:      map[string]any{"changed_files": changed},
 		ModelUsed:    model,
@@ -159,19 +154,14 @@ func runQualityPipeline(ctx context.Context, b bus.Bus, task federation.Federate
 	}
 
 	// 6. PR gate
-	prGate := exec.Command("pr-gate", "--prepublish", "--issue", issueID)
-	prGate.Dir = workDir
-	if out, err := prGate.CombinedOutput(); err != nil {
-		return fmt.Errorf("pr-gate: %w: %s", err, string(out))
+	if err := quality.RunPRGate(issueID, workDir); err != nil {
+		return err
 	}
 
 	// 7. FSM transition to review
-	fsmCmd := exec.Command("beads-fsm", "--issue", issueID, "--to", "review", "--apply")
-	fsmCmd.Dir = workDir
-	if out, err := fsmCmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("beads-fsm: %w: %s", err, string(out))
+	if err := quality.TransitionFSM(issueID, "review", workDir); err != nil {
+		return err
 	}
-	_ = fsmCmd
 
 	// 8. Publish provenance to NATS
 	if b != nil {
@@ -180,7 +170,14 @@ func runQualityPipeline(ctx context.Context, b bus.Bus, task federation.Federate
 	}
 
 	// 9. Commit, push, PR
-	return commitAndPublish(workDir, issueID, task.Issue.Title, changed)
+	_, err = quality.CommitAndPublish(quality.PublishConfig{
+		WorkDir:     workDir,
+		IssueID:    issueID,
+		Title:      task.Issue.Title,
+		Changed:    changed,
+		BaseBranch: quality.BaseBranch(),
+	})
+	return err
 }
 
 func statusStr(ok bool) string {
@@ -188,45 +185,4 @@ func statusStr(ok bool) string {
 		return "ok"
 	}
 	return "failed"
-}
-
-func commitAndPublish(workDir, issueID, title string, changed []string) error {
-	// Stage changed files + beads metadata
-	args := append([]string{"add"}, changed...)
-	args = append(args, ".beads/issues.jsonl", ".beads/metadata.json")
-	cmd := exec.Command("git", args...)
-	cmd.Dir = workDir
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("git add: %w: %s", err, string(out))
-	}
-
-	commitCmd := exec.Command("git", "commit", "-m", "worker: implement "+issueID, "-m", "SDP swarm quality pipeline")
-	commitCmd.Dir = workDir
-	if out, err := commitCmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("git commit: %w: %s", err, string(out))
-	}
-
-	pushCmd := exec.Command("git", "push", "-u", "origin", "worker/"+issueID)
-	pushCmd.Dir = workDir
-	if out, err := pushCmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("git push: %w: %s", err, string(out))
-	}
-
-	// Write PR body and publish
-	bodyPath := filepath.Join(workDir, ".sdp", "pr-body-"+issueID+".md")
-	_ = os.MkdirAll(filepath.Dir(bodyPath), 0o755)
-	body := "## Summary\n\n- SDP swarm pipeline execution for " + issueID + "\n- " + title + "\n"
-	_ = os.WriteFile(bodyPath, []byte(body), 0o644)
-
-	prTitle := "Worker: " + title
-	if prTitle == "Worker: " {
-		prTitle = "Worker: " + issueID
-	}
-	prCmd := exec.Command("pr-publish", "--issue", issueID, "--title", prTitle, "--head", "worker/"+issueID, "--base", baseBranch(), "--body-file", bodyPath)
-	prCmd.Dir = workDir
-	if out, err := prCmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("pr-publish: %w: %s", err, string(out))
-	}
-
-	return nil
 }
