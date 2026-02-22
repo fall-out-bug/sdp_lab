@@ -9,6 +9,29 @@ import (
 	"sdp_dev/internal/artifact"
 )
 
+func TestFromArtifactEnvelope(t *testing.T) {
+	ae := artifact.ArtifactEnvelope{
+		IssueID: "i1", ArtifactID: "a1", ArtifactClass: "class", Phase: "p", Role: "r",
+		CapturedAt: "2026-01-01T00:00:00Z", Payload: json.RawMessage(`{}`),
+	}
+	env := FromArtifactEnvelope(ae, "run-1", "proj1")
+	if env.IssueID != ae.IssueID || env.RunID != "run-1" || env.ProjectID != "proj1" {
+		t.Errorf("FromArtifactEnvelope: got %+v", env)
+	}
+}
+
+func TestEnvelope_Timestamp(t *testing.T) {
+	e := Envelope{CapturedAt: "2026-01-15T12:00:00Z"}
+	if got := e.Timestamp(); got != "2026-01-15T12:00:00Z" {
+		t.Errorf("Timestamp with CapturedAt: got %q", got)
+	}
+	e2 := Envelope{}
+	got2 := e2.Timestamp()
+	if got2 == "" || len(got2) < 20 {
+		t.Errorf("Timestamp empty CapturedAt: got %q", got2)
+	}
+}
+
 func TestEnvelopeRoundTrip(t *testing.T) {
 	env := Envelope{
 		IssueID:       "test-1",

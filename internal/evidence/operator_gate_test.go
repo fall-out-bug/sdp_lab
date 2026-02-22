@@ -1,6 +1,9 @@
 package evidence
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestValidateRoleLogOK(t *testing.T) {
 	log := `noise line
@@ -49,5 +52,27 @@ func TestValidateRoleLogRunIDMismatch(t *testing.T) {
 	res := ValidateRoleLog("analyst", "run-1", log)
 	if res.OK {
 		t.Fatalf("expected run_id mismatch failure")
+	}
+}
+
+func TestValidateRoleLogInvalidStatus(t *testing.T) {
+	log := `{"run_id":"run-1","role":"coder","status":"failed","summary":"err","artifacts":[]}`
+	res := ValidateRoleLog("coder", "run-1", log)
+	if res.OK {
+		t.Fatalf("expected invalid status failure: %+v", res)
+	}
+	if !strings.Contains(res.Reason, "invalid envelope status") {
+		t.Errorf("reason: %s", res.Reason)
+	}
+}
+
+func TestValidateRoleLogMissingEnvelope(t *testing.T) {
+	log := `no json here at all`
+	res := ValidateRoleLog("analyst", "run-1", log)
+	if res.OK {
+		t.Fatalf("expected missing envelope failure")
+	}
+	if !strings.Contains(res.Reason, "missing valid role envelope") {
+		t.Errorf("reason: %s", res.Reason)
 	}
 }

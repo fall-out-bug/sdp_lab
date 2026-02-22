@@ -55,3 +55,15 @@ func TestRunID(t *testing.T) {
 		t.Errorf("RunID returned short value: %q", id)
 	}
 }
+
+func TestScheduler_Adapter_WorkDir(t *testing.T) {
+	dir := t.TempDir()
+	s := NewScheduler(dir, []string{"lane:commit"}, 5)
+	if s.Adapter() == nil {
+		t.Error("Adapter() should not be nil")
+	}
+	if s.WorkDir() != dir {
+		t.Errorf("WorkDir() = %q, want %q", s.WorkDir(), dir)
+	}
+}
+
