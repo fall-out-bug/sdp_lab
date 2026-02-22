@@ -75,7 +75,7 @@ func (a *Aggregator) rebuildTasks() {
 		if !ok {
 			continue
 		}
-		workspace, err := a.workspace.EnsureWorkspace(projectID, proj.RepoURL, proj.RepoBranch)
+		workspace, err := a.workspace.EnsureWorkspaceFromProject(proj)
 		if err != nil {
 			log.Printf("aggregator: workspace %s: %v", projectID, err)
 			continue

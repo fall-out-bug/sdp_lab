@@ -6,7 +6,8 @@ import (
 	"strings"
 )
 
-type Attachment struct {
+// TelegramAttachment is a telegram-specific file reference (Kind+ID).
+type TelegramAttachment struct {
 	Kind string `json:"kind"`
 	ID   string `json:"id"`
 }
@@ -19,7 +20,7 @@ type IntakeInput struct {
 	UserID      int64        `json:"user_id"`
 	Username    string       `json:"username"`
 	Language    string       `json:"language"`
-	Attachments []Attachment `json:"attachments"`
+	Attachments []TelegramAttachment `json:"attachments"`
 	RawText     string       `json:"raw_text"`
 }
 
@@ -105,16 +106,16 @@ func parseCommand(text string) (string, string) {
 	return cmd, payload
 }
 
-func extractAttachments(msg telegramMessage) []Attachment {
-	result := make([]Attachment, 0)
+func extractAttachments(msg telegramMessage) []TelegramAttachment {
+	result := make([]TelegramAttachment, 0)
 	if len(msg.Photo) > 0 {
-		result = append(result, Attachment{Kind: "photo", ID: msg.Photo[len(msg.Photo)-1].FileID})
+		result = append(result, TelegramAttachment{Kind: "photo", ID: msg.Photo[len(msg.Photo)-1].FileID})
 	}
 	if msg.Document != nil {
-		result = append(result, Attachment{Kind: "document", ID: msg.Document.FileID})
+		result = append(result, TelegramAttachment{Kind: "document", ID: msg.Document.FileID})
 	}
 	if msg.Voice != nil {
-		result = append(result, Attachment{Kind: "voice", ID: msg.Voice.FileID})
+		result = append(result, TelegramAttachment{Kind: "voice", ID: msg.Voice.FileID})
 	}
 	return result
 }

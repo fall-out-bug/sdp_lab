@@ -15,8 +15,9 @@ type Project struct {
 	Workstreams    []string          `yaml:"workstreams" json:"workstreams"`
 	ModelPolicy    string            `yaml:"model_policy,omitempty" json:"model_policy,omitempty"`
 	Config         map[string]string `yaml:"config,omitempty" json:"config,omitempty"`
-	Fork           bool              `yaml:"fork,omitempty" json:"fork,omitempty"`
-	UpstreamRemote string            `yaml:"upstream_remote,omitempty" json:"upstream_remote,omitempty"`
+	Fork           bool   `yaml:"fork,omitempty" json:"fork,omitempty"`
+	UpstreamRemote string `yaml:"upstream_remote,omitempty" json:"upstream_remote,omitempty"`
+	UpstreamURL    string `yaml:"upstream_url,omitempty" json:"upstream_url,omitempty"`
 }
 
 // BeadsPrefixFromRepo derives a default prefix from repo URL.

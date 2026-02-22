@@ -72,7 +72,6 @@ func dispatchOpencode(ctx context.Context, task federation.FederatedTask, role, 
 		Model:              model,
 		WorkDir:             task.Workspace,
 		Boundary:            boundary,
-		Agent:               role,
 	}
 	return llm.Execute(ctx, req)
 }
