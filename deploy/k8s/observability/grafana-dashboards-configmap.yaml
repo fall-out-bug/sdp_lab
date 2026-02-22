@@ -1,0 +1,714 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+data:
+  model-comparison.json: |
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": {
+              "type": "grafana",
+              "uid": "-- Grafana --"
+            },
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": false,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 12,
+            "x": 0,
+            "y": 0
+          },
+          "id": 1,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki"
+              },
+              "editorMode": "code",
+              "expr": "sum by (model_name) (count_over_time({namespace=~\"sdp-(workers|control)\",record_type=\"event\",status=\"success\",model_name=~\"$model\"}[5m]))",
+              "legendFormat": "{{model_name}}",
+              "queryType": "range",
+              "refId": "A"
+            }
+          ],
+          "title": "Successful protocol events by model (5m)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "orange",
+                    "value": 1
+                  },
+                  {
+                    "color": "red",
+                    "value": 5
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 12,
+            "x": 12,
+            "y": 0
+          },
+          "id": 2,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki"
+              },
+              "editorMode": "code",
+              "expr": "sum by (model_name) (count_over_time({namespace=~\"sdp-(workers|control)\",record_type=\"event\",status=~\"failed|fallback|escalated\",model_name=~\"$model\"}[5m]))",
+              "legendFormat": "{{model_name}}",
+              "queryType": "range",
+              "refId": "A"
+            }
+          ],
+          "title": "Failure/fallback/escalation events by model (5m)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 5
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 0,
+            "y": 9
+          },
+          "id": 3,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki"
+              },
+              "editorMode": "code",
+              "expr": "sum(count_over_time({namespace=~\"sdp-(workers|control)\",record_type=\"event\",status=\"escalated\",model_name=~\"$model\"}[15m]))",
+              "queryType": "instant",
+              "refId": "A"
+            }
+          ],
+          "title": "Escalations in last 15m",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "align": "auto",
+                "displayMode": "auto"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 16,
+            "x": 8,
+            "y": 9
+          },
+          "id": 4,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki"
+              },
+              "editorMode": "code",
+              "expr": "sum by (model_name, phase, status) (count_over_time({namespace=~\"sdp-(workers|control)\",record_type=\"event\",model_name=~\"$model\",phase=~\"$phase\"}[15m]))",
+              "legendFormat": "",
+              "queryType": "instant",
+              "refId": "A"
+            }
+          ],
+          "title": "Phase/status volume by model (15m)",
+          "type": "table"
+        }
+      ],
+      "schemaVersion": 39,
+      "tags": [
+        "sdp",
+        "observability",
+        "model-comparison"
+      ],
+      "templating": {
+        "list": [
+          {
+            "allValue": ".*",
+            "current": {
+              "selected": true,
+              "text": "All",
+              "value": ".*"
+            },
+            "datasource": {
+              "type": "loki",
+              "uid": "loki"
+            },
+            "includeAll": true,
+            "label": "Model",
+            "multi": true,
+            "name": "model",
+            "query": "label_values({namespace=~\"sdp-(workers|control)\",record_type=\"event\"}, model_name)",
+            "refresh": 1,
+            "type": "query"
+          },
+          {
+            "allValue": ".*",
+            "current": {
+              "selected": true,
+              "text": "All",
+              "value": ".*"
+            },
+            "datasource": {
+              "type": "loki",
+              "uid": "loki"
+            },
+            "includeAll": true,
+            "label": "Phase",
+            "multi": true,
+            "name": "phase",
+            "query": "label_values({namespace=~\"sdp-(workers|control)\",record_type=\"event\"}, phase)",
+            "refresh": 1,
+            "type": "query"
+          }
+        ]
+      },
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "SDP Model Comparison",
+      "uid": "sdp-model-comparison",
+      "version": 1,
+      "weekStart": ""
+    }
+  e2e-flow-metrics.json: |
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": {
+              "type": "grafana",
+              "uid": "-- Grafana --"
+            },
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": false,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "id": 1,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki"
+              },
+              "editorMode": "code",
+              "expr": "sum by (phase, status) (count_over_time({namespace=~\"sdp-(workers|control)\",record_type=\"event\",phase=~\"$phase\"}[5m]))",
+              "legendFormat": "{{phase}}/{{status}}",
+              "queryType": "range",
+              "refId": "A"
+            }
+          ],
+          "title": "Protocol phase transitions by status (5m)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "orange",
+                    "value": 1000
+                  },
+                  {
+                    "color": "red",
+                    "value": 2000
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 0,
+            "y": 9
+          },
+          "id": 2,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki"
+              },
+              "editorMode": "code",
+              "expr": "sum(max_over_time({namespace=~\"sdp-(workers|control)\",record_type=\"metric\",metric_name=\"protocol_phase_latency_ms\",phase=~\"$phase\"} | json metric_value_ms=\"metric.value_ms\" | unwrap metric_value_ms [15m]))",
+              "queryType": "instant",
+              "refId": "A"
+            }
+          ],
+          "title": "Aggregate max phase latency over 15m (ms)",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "orange",
+                    "value": 1
+                  },
+                  {
+                    "color": "red",
+                    "value": 3
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 8,
+            "y": 9
+          },
+          "id": 3,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki"
+              },
+              "editorMode": "code",
+              "expr": "sum(count_over_time({namespace=~\"sdp-(workers|control)\",record_type=\"event\",status=\"retrying\",phase=~\"$phase\"}[15m]))",
+              "queryType": "instant",
+              "refId": "A"
+            }
+          ],
+          "title": "Retries in last 15m",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 16,
+            "y": 9
+          },
+          "id": 4,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki"
+              },
+              "editorMode": "code",
+              "expr": "sum(count_over_time({namespace=~\"sdp-(workers|control)\",record_type=\"event\",status=\"blocked\",phase=~\"$phase\"}[15m]))",
+              "queryType": "instant",
+              "refId": "A"
+            }
+          ],
+          "title": "Blocked transitions in last 15m",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "align": "auto",
+                "displayMode": "auto"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 10,
+            "w": 24,
+            "x": 0,
+            "y": 17
+          },
+          "id": 5,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "loki"
+              },
+              "editorMode": "code",
+              "expr": "sum by (issue_id, phase, status, component, model_name) (count_over_time({namespace=~\"sdp-(workers|control)\",record_type=\"event\",phase=~\"$phase\"}[30m]))",
+              "queryType": "instant",
+              "refId": "A"
+            }
+          ],
+          "title": "Issue/phase/status/component/model volume (30m)",
+          "type": "table"
+        }
+      ],
+      "schemaVersion": 39,
+      "tags": [
+        "sdp",
+        "observability",
+        "e2e"
+      ],
+      "templating": {
+        "list": [
+          {
+            "allValue": ".*",
+            "current": {
+              "selected": true,
+              "text": "All",
+              "value": ".*"
+            },
+            "datasource": {
+              "type": "loki",
+              "uid": "loki"
+            },
+            "includeAll": true,
+            "label": "Phase",
+            "multi": true,
+            "name": "phase",
+            "query": "label_values({namespace=~\"sdp-(workers|control)\",record_type=\"event\"}, phase)",
+            "refresh": 1,
+            "type": "query"
+          }
+        ]
+      },
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "SDP End-to-End Flow Metrics",
+      "uid": "sdp-e2e-flow-metrics",
+      "version": 1,
+      "weekStart": ""
+    }

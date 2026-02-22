@@ -12,6 +12,18 @@ var allowedModels = map[string]struct{}{
 	"glm-4.7": {},
 }
 
+// allowedProviderModels: provider/model pairs. OpenRouter uses provider=openai|anthropic etc.
+// GLM via zhipuai-coding-plan (coding plan), not OpenRouter.
+var allowedProviderModels = map[string]struct{}{
+	"zhipuai-coding-plan/glm-5":   {},
+	"zhipuai-coding-plan/glm-4.7": {},
+	"openai/gpt-5.2-codex":        {},
+	"anthropic/claude-sonnet-4.6": {},
+	"anthropic/claude-opus-4.6":   {},
+	"minimax/minimax-m2.5":        {},
+	"moonshotai/kimi-k2.5":        {},
+}
+
 var criticalPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(^|/)security(/|$)`),
 	regexp.MustCompile(`(^|/)auth(/|$)`),
@@ -125,10 +137,20 @@ func chooseModel(preferred string) (string, []string, bool) {
 	if _, ok := allowedModels[preferred]; ok {
 		return preferred, nil, false
 	}
+	if _, ok := allowedProviderModels[preferred]; ok {
+		return preferred, nil, false
+	}
 	return "glm-5", []string{"preferred_model '" + preferred + "' not in allowlist"}, true
 }
 
 func AllowedModel(model string) bool {
+	if _, ok := allowedProviderModels[model]; ok {
+		return true
+	}
+	_, modelID := ParseProviderModel(model)
+	if modelID != "" {
+		model = modelID
+	}
 	_, ok := allowedModels[model]
 	return ok
 }

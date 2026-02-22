@@ -1,0 +1,28 @@
+# SDP project config for sdp_dev
+version: 1
+
+quality:
+  # Target 80%; 75% interim after diagnostic fixes (sdp_dev-4pg)
+  coverage_threshold: 75
+  max_file_loc: 200
+  complexity_threshold: 40
+  complexity_exclude:
+    - "cmd/"
+    - "sdp/"
+  size_exclude:
+    - "cmd/"
+    - "sdp/"
+  # cmd: integration-style; sdp: plugin; beads/orchestrator/openclaw: bd CLI / SSH / external deps
+  # internal/federation: NATS, beads adapter, git clone - integration-style
+  coverage_exclude:
+    - "cmd/"
+    - "sdp/"
+    - "internal/runtime"
+    - "internal/beads"
+    - "internal/orchestrator"
+    - "internal/openclaw"
+    - "internal/federation"
+
+guard:
+  mode: "standard"
+  rules_file: ".sdp/guard-rules.yml"

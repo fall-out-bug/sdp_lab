@@ -8,6 +8,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"sdp_dev/internal/observability"
 )
 
 type issue struct {
@@ -91,6 +94,67 @@ func hasLabel(labels []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func evidenceLinkage(issueID string) (string, string) {
+	path := evidencePath(issueID)
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return path, ""
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(b, &payload); err != nil {
+		return path, ""
+	}
+	trace, _ := payload["trace"].(map[string]any)
+	if trace == nil {
+		return path, ""
+	}
+	evidenceContextLink, _ := trace["evidence_context_link"].(string)
+	if strings.TrimSpace(evidenceContextLink) == "" {
+		evidenceContextLink = path
+	}
+	prURL, _ := trace["pr_url"].(string)
+	return evidenceContextLink, strings.TrimSpace(prURL)
+}
+
+func emitReviewerObservability(issueID string, phase string, status string, model string, startedAt time.Time, retryCount int, fallbackUsed bool, escalated bool, evidenceContextLink string, prURL string) {
+	if strings.TrimSpace(evidenceContextLink) == "" && strings.TrimSpace(issueID) != "" {
+		evidenceContextLink = evidencePath(issueID)
+	}
+	_ = observability.EmitIntakeRecords(os.Stderr, observability.IntakeEventInput{
+		RunID:               strings.TrimSpace(os.Getenv("SDP_RUN_ID")),
+		IssueID:             issueID,
+		Phase:               phase,
+		Status:              status,
+		Component:           "swarm-reviewer",
+		AgentRole:           "reviewer",
+		ModelName:           model,
+		Elapsed:             time.Since(startedAt),
+		RetryCount:          retryCount,
+		FallbackUsed:        fallbackUsed,
+		Escalated:           escalated,
+		EvidenceContextLink: evidenceContextLink,
+		PRURL:               prURL,
+	})
+}
+
+func buildReviewerObservabilityRecords(issueID string, phase string, status string, model string, retryCount int, fallbackUsed bool, escalated bool, evidenceContextLink string, prURL string, elapsed time.Duration) []map[string]any {
+	return observability.BuildIntakeRecords(observability.IntakeEventInput{
+		RunID:               "reviewer-run-test",
+		IssueID:             issueID,
+		Phase:               phase,
+		Status:              status,
+		Component:           "swarm-reviewer",
+		AgentRole:           "reviewer",
+		ModelName:           model,
+		Elapsed:             elapsed,
+		RetryCount:          retryCount,
+		FallbackUsed:        fallbackUsed,
+		Escalated:           escalated,
+		EvidenceContextLink: evidenceContextLink,
+		PRURL:               prURL,
+	})
 }
 
 func runFlow(issueID string) (string, error) {
@@ -219,13 +283,16 @@ func recoverMissingPR(issueID string) error {
 }
 
 func main() {
+	startedAt := time.Now()
 	items, err := listOpenTasks()
 	if err != nil {
+		emitReviewerObservability("", "intake", "failed", "glm-5", startedAt, 0, false, true, "", "")
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	if len(items) == 0 {
 		fmt.Println("No reviewer-eligible tasks found")
+		emitReviewerObservability("", "intake", "blocked", "glm-5", startedAt, 0, false, false, "", "")
 		return
 	}
 
@@ -242,53 +309,69 @@ func main() {
 	}
 	if target == "" {
 		fmt.Println("No tasks in review flow")
+		emitReviewerObservability("", "review", "blocked", "glm-5", startedAt, 0, false, false, "", "")
 		return
 	}
+	evidenceContextLink, prURL := evidenceLinkage(target)
+	emitReviewerObservability(target, "review", "running", "glm-5", startedAt, 0, false, false, evidenceContextLink, prURL)
 
 	approved, err := reviewerApprove(target)
 	if err != nil {
+		emitReviewerObservability(target, "review", "failed", "glm-5", startedAt, 0, false, true, evidenceContextLink, prURL)
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
 	if approved {
 		if _, err := runComponent("beads-fsm", "./cmd/beads-fsm", "--issue", target, "--to", "verified", "--apply"); err != nil {
+			emitReviewerObservability(target, "review", "failed", "glm-5", startedAt, 0, false, true, evidenceContextLink, prURL)
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		if _, err := runComponent("pr-gate", "./cmd/pr-gate", "--issue", target); err != nil {
 			if strings.Contains(err.Error(), "missing trace.pr_url") {
+				emitReviewerObservability(target, "publish", "fallback", "glm-5", startedAt, 0, true, false, evidenceContextLink, prURL)
 				if recErr := recoverMissingPR(target); recErr != nil {
+					emitReviewerObservability(target, "publish", "failed", "glm-5", startedAt, 1, true, true, evidenceContextLink, prURL)
 					fmt.Fprintln(os.Stderr, recErr)
 					os.Exit(1)
 				}
+				_, prURL = evidenceLinkage(target)
 				if _, err := runComponent("pr-gate", "./cmd/pr-gate", "--issue", target); err != nil {
+					emitReviewerObservability(target, "publish", "failed", "glm-5", startedAt, 1, true, true, evidenceContextLink, prURL)
 					fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
 			} else {
+				emitReviewerObservability(target, "publish", "failed", "glm-5", startedAt, 0, false, true, evidenceContextLink, prURL)
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
 		}
 		if _, err := runComponent("beads-fsm", "./cmd/beads-fsm", "--issue", target, "--to", "done", "--apply"); err != nil {
+			emitReviewerObservability(target, "publish", "failed", "glm-5", startedAt, 0, false, true, evidenceContextLink, prURL)
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		if err := commitBeadsState(target, "approved"); err != nil {
+			emitReviewerObservability(target, "publish", "failed", "glm-5", startedAt, 0, false, true, evidenceContextLink, prURL)
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+		emitReviewerObservability(target, "publish", "success", "glm-5", startedAt, 0, strings.TrimSpace(prURL) == "", false, evidenceContextLink, prURL)
 	} else {
 		if _, err := runComponent("beads-fsm", "./cmd/beads-fsm", "--issue", target, "--to", "blocked", "--apply"); err != nil {
+			emitReviewerObservability(target, "review", "failed", "glm-5", startedAt, 0, false, true, evidenceContextLink, prURL)
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		_, _ = run("bd", "update", target, "--append-notes", "reviewer verdict: needs_changes (missing test changes)")
 		if err := commitBeadsState(target, "blocked"); err != nil {
+			emitReviewerObservability(target, "review", "escalated", "glm-5", startedAt, 0, false, true, evidenceContextLink, prURL)
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
+		emitReviewerObservability(target, "review", "blocked", "glm-5", startedAt, 0, false, false, evidenceContextLink, prURL)
 	}
 
 	out, _ := json.MarshalIndent(map[string]any{

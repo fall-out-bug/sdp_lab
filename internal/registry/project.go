@@ -1,0 +1,36 @@
+package registry
+
+import (
+	"path"
+	"strings"
+)
+
+// Project represents a registered SDP project.
+type Project struct {
+	ID          string            `yaml:"id" json:"id"`
+	RepoURL     string            `yaml:"repo_url" json:"repo_url"`
+	RepoBranch  string            `yaml:"repo_branch" json:"repo_branch"`
+	BeadsPrefix string            `yaml:"beads_prefix,omitempty" json:"beads_prefix,omitempty"`
+	Language    string            `yaml:"language" json:"language"`
+	Workstreams []string          `yaml:"workstreams" json:"workstreams"`
+	ModelPolicy string            `yaml:"model_policy,omitempty" json:"model_policy,omitempty"`
+	Config      map[string]string `yaml:"config,omitempty" json:"config,omitempty"`
+}
+
+// BeadsPrefixFromRepo derives a default prefix from repo URL.
+// e.g. git@github.com:org/repo.git -> repo, https://github.com/org/repo -> repo
+func BeadsPrefixFromRepo(repoURL string) string {
+	repoURL = strings.TrimSuffix(repoURL, ".git")
+	base := path.Base(repoURL)
+	if idx := strings.Index(base, ":"); idx >= 0 {
+		base = base[idx+1:]
+	}
+	return strings.ReplaceAll(base, " ", "-")
+}
+
+// EnsureBeadsPrefix sets BeadsPrefix from RepoURL if empty.
+func (p *Project) EnsureBeadsPrefix() {
+	if p.BeadsPrefix == "" && p.RepoURL != "" {
+		p.BeadsPrefix = BeadsPrefixFromRepo(p.RepoURL)
+	}
+}

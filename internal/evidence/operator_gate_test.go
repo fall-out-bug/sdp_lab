@@ -35,3 +35,19 @@ func TestValidateRoleLogRoleMismatch(t *testing.T) {
 		t.Fatalf("expected role mismatch failure")
 	}
 }
+
+func TestValidateRoleLogNeedsChanges(t *testing.T) {
+	log := `{"run_id":"run-1","role":"coder","status":"needs_changes","summary":"fix requested","artifacts":[{"id":"a1"}]}`
+	res := ValidateRoleLog("coder", "run-1", log)
+	if !res.OK {
+		t.Fatalf("needs_changes should pass: %+v", res)
+	}
+}
+
+func TestValidateRoleLogRunIDMismatch(t *testing.T) {
+	log := `{"run_id":"run-2","role":"analyst","status":"ok","summary":"done","artifacts":[]}`
+	res := ValidateRoleLog("analyst", "run-1", log)
+	if res.OK {
+		t.Fatalf("expected run_id mismatch failure")
+	}
+}

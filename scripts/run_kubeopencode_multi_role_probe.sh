@@ -5,27 +5,41 @@ HOST=""
 PORT="22"
 NAMESPACE="kubeopencode-system"
 RUN_ID="run-$(date +%Y%m%d-%H%M%S)"
+TASK_TIMEOUT="600"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# delete_task_and_pod removes a Task and its Pod to free cluster resources.
+delete_task_and_pod() {
+  local task_name="$1"
+  local pod_name
+  pod_name="$(ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} get task ${task_name} -o jsonpath='{.status.podName}' 2>/dev/null" || echo "")"
+  ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} delete task ${task_name} --wait=false 2>/dev/null" || true
+  if [[ -n "${pod_name}" ]]; then
+    ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} delete pod ${pod_name} --force --grace-period=0 2>/dev/null" || true
+  fi
+}
 
 wait_task_terminal() {
   local task_name="$1"
-  local timeout_seconds="$2"
+  local timeout_seconds="${2:-${TASK_TIMEOUT}}"
   local start
   start="$(date +%s)"
   while true; do
     local phase
-    phase="$(ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} get task ${task_name} -o jsonpath='{.status.phase}'")"
+    phase="$(ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} get task ${task_name} -o jsonpath='{.status.phase}' 2>/dev/null" || echo "Unknown")"
     if [[ "${phase}" == "Completed" ]]; then
       return 0
     fi
     if [[ "${phase}" == "Failed" ]]; then
-      echo "[probe] task ${task_name} failed"
+      echo "[probe] task ${task_name} failed; cleaning up"
       ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} describe task ${task_name}"
+      delete_task_and_pod "${task_name}"
       return 1
     fi
     if (( $(date +%s) - start > timeout_seconds )); then
-      echo "[probe] timeout waiting for ${task_name}"
-      ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} describe task ${task_name}"
+      echo "[probe] timeout (${timeout_seconds}s) waiting for ${task_name}; deleting stuck task and pod"
+      delete_task_and_pod "${task_name}"
+      ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} describe task ${task_name} 2>/dev/null" || true
       return 1
     fi
     sleep 5
@@ -55,39 +69,25 @@ while [[ $# -gt 0 ]]; do
       RUN_ID="$2"
       shift 2
       ;;
+    --timeout)
+      TASK_TIMEOUT="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown argument: $1"
-      echo "Usage: $0 --host <user@ip-or-host> [--port <port>] [--namespace <ns>] [--run-id <id>]"
+      echo "Usage: $0 --host <user@ip-or-host> [--port <port>] [--namespace <ns>] [--run-id <id>] [--timeout <seconds>]"
       exit 2
       ;;
   esac
 done
 
 if [[ -z "${HOST}" ]]; then
-  echo "Usage: $0 --host <user@ip-or-host> [--port <port>] [--namespace <ns>] [--run-id <id>]"
+  echo "Usage: $0 --host <user@ip-or-host> [--port <port>] [--namespace <ns>] [--run-id <id>] [--timeout <seconds>]"
   exit 2
 fi
 
-Z_AI_API_KEY="${Z_AI_API_KEY:-}"
-if [[ -z "${Z_AI_API_KEY}" && -f "${HOME}/.config/opencode/opencode.json" ]]; then
-  Z_AI_API_KEY="$(python3 - <<'PY'
-import json
-import os
-path = os.path.expanduser('~/.config/opencode/opencode.json')
-try:
-    with open(path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    print(data.get('mcp', {}).get('zai-mcp-server', {}).get('environment', {}).get('Z_AI_API_KEY', ''))
-except Exception:
-    print('')
-PY
-)"
-fi
-
-if [[ -z "${Z_AI_API_KEY}" ]]; then
-  echo "Z_AI_API_KEY is required (env or ~/.config/opencode/opencode.json)"
-  exit 2
-fi
+echo "[probe] provisioning sdp-credentials in ${NAMESPACE}"
+"${ROOT_DIR}/scripts/provision_secrets.sh" --host "${HOST}" --port "${PORT}" --namespaces "${NAMESPACE}"
 
 echo "[probe] ensure kubeopencode installed"
 if ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} get deploy -l app.kubernetes.io/name=kubeopencode >/dev/null 2>&1"; then
@@ -95,18 +95,6 @@ if ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} get deploy -l app.kuberne
 else
   "${ROOT_DIR}/scripts/install_kubeopencode_remote.sh" --host "${HOST}" --port "${PORT}" --namespace "${NAMESPACE}"
 fi
-
-echo "[probe] create credentials secret"
-Z_AI_API_KEY_B64="$(printf '%s' "${Z_AI_API_KEY}" | base64 | tr -d '\n')"
-ssh -p "${PORT}" "${HOST}" "NAMESPACE='${NAMESPACE}' Z_AI_API_KEY_B64='${Z_AI_API_KEY_B64}' bash -s" <<'EOF'
-set -euo pipefail
-GH_TOKEN="$(gh auth token)"
-Z_AI_API_KEY="$(printf '%s' "${Z_AI_API_KEY_B64}" | base64 -d)"
-kubectl -n "${NAMESPACE}" create secret generic sdp-kubeopencode-credentials \
-  --from-literal=github_token="${GH_TOKEN}" \
-  --from-literal=z_ai_api_key="${Z_AI_API_KEY}" \
-  --dry-run=client -o yaml | kubectl apply -f -
-EOF
 
 echo "[probe] apply multi-role agent definitions"
 ssh -p "${PORT}" "${HOST}" "mkdir -p /tmp/sdp-kubeopencode"
@@ -149,9 +137,9 @@ spec:
 YAML
 EOF
 
-echo "[probe] wait for analyst/coder completion"
-wait_task_terminal "${ANALYST_TASK}" 600
-wait_task_terminal "${CODER_TASK}" 600
+echo "[probe] wait for analyst/coder completion (timeout=${TASK_TIMEOUT}s)"
+wait_task_terminal "${ANALYST_TASK}" "${TASK_TIMEOUT}"
+wait_task_terminal "${CODER_TASK}" "${TASK_TIMEOUT}"
 
 echo "[probe] capture analyst/coder logs into run artifact configmap"
 ANALYST_LOG="$(fetch_task_log "${ANALYST_TASK}")"
@@ -198,8 +186,8 @@ spec:
 YAML
 EOF
 
-echo "[probe] wait for reviewer completion"
-wait_task_terminal "${REVIEWER_TASK}" 600
+echo "[probe] wait for reviewer completion (timeout=${TASK_TIMEOUT}s)"
+wait_task_terminal "${REVIEWER_TASK}" "${TASK_TIMEOUT}"
 
 echo "[probe] run summary"
 ssh -p "${PORT}" "${HOST}" "kubectl -n ${NAMESPACE} get task/${ANALYST_TASK} task/${CODER_TASK} task/${REVIEWER_TASK} -o wide"

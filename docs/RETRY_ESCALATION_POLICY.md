@@ -63,3 +63,29 @@ When moving to `escalated`, include:
 
 No silent retries and no silent fallbacks.
 Every retry/fallback must be captured in evidence `trace`.
+
+## 7. Callback routing retry profile (PR publish)
+
+For PR callback publish routing (`pr-callbacks.v1`), use deterministic retry semantics from `callback-routing-reliability/v1`:
+
+- ack timeout: `30s`
+- retry delays: `5s, 15s, 30s, 60s, 120s, 240s, 420s`
+- max retry window: `15m`
+- dead-letter on exhaustion with reason `retry-window-exhausted`
+
+Retryable callback outcomes:
+
+- HTTP `408`, `425`, `429`
+- HTTP `5xx`
+
+Non-retryable outcomes move directly to escalation flow (no additional callback retries):
+
+- HTTP `4xx` excluding `408`, `425`, `429`
+- policy-controlled recipient suppression conflicts
+
+Policy controls that can tune callback behavior per issue/workstream (must be logged in notes when overridden):
+
+- `callback.route.mode`
+- `callback.retry.profile`
+- `callback.notify.watchers`
+- `callback.escalate.on.deadletter`

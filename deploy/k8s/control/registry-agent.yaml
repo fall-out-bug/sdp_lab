@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: registry-agent
+  namespace: sdp-control
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: registry-agent
+  template:
+    metadata:
+      labels:
+        app: registry-agent
+    spec:
+      containers:
+        - name: agent
+          image: sdp/registry-agent:latest
+          args:
+            - -registry
+            - /data/project-registry.yaml
+          env:
+            - name: NATS_URL
+              value: "nats://nats:4222"
+            - name: REGISTRY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: sdp-credentials
+                  key: registry_api_key
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: registry-data
+              mountPath: /data
+      volumes:
+        - name: registry-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry-agent
+  namespace: sdp-control
+spec:
+  selector:
+    app: registry-agent
+  ports:
+    - port: 8080
+      targetPort: 8080

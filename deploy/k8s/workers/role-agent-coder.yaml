@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: role-agent-coder
+  namespace: sdp-workers
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: role-agent-coder
+  template:
+    metadata:
+      labels:
+        app: role-agent-coder
+    spec:
+      containers:
+        - name: agent
+          image: sdp/role-agent:latest
+          args: ["-role", "coder"]
+          env:
+            - name: NATS_URL
+              value: "nats://nats.sdp-control:4222"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: role-agent-coder
+  namespace: sdp-workers
+spec:
+  selector:
+    app: role-agent-coder
+  ports:
+    - port: 8080

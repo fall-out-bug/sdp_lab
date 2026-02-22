@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: sdp-observability
+resources:
+  - loki-configmap.yaml
+  - loki-deployment.yaml
+  - tempo-configmap.yaml
+  - tempo-deployment.yaml
+  - otel-collector-configmap.yaml
+  - otel-collector-deployment.yaml
+  - prometheus-configmap.yaml
+  - prometheus-deployment.yaml
+  - promtail-rbac.yaml
+  - promtail-configmap.yaml
+  - promtail-daemonset.yaml
+  - grafana-admin-secret.yaml
+  - grafana-datasources-configmap.yaml
+  - grafana-dashboard-provider-configmap.yaml
+  - grafana-dashboards-configmap.yaml
+  - grafana-deployment.yaml

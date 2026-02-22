@@ -2,6 +2,8 @@
 
 This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
 
+**SDP protocol** is installed via submodule `sdp/`. Skills and agents are symlinked to `.cursor/skills`, `.claude/skills`, `.opencode/skills`. Use `@review`, `@oneshot`, `sdp quality all` per SDP workflow.
+
 ## Quick Reference
 
 ```bash

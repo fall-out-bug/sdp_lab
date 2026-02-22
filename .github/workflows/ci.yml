@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main, feat/*]
+  pull_request:
+    branches: [master, main, feat/*]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test ./... -count=1
+
+      - name: Lint
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          golangci-lint run ./...
+        continue-on-error: true
+
+  k8s-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kubectl
+        run: |
+          curl -sLO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+
+      - name: Validate control plane manifests
+        run: kubectl kustomize deploy/k8s/control/ > /dev/null
+
+      - name: Validate adapter manifests
+        run: kubectl kustomize deploy/k8s/adapter/ > /dev/null
+
+  image-build:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push opencode-agent
+        env:
+          IMAGE_TAG: git-${{ github.sha }}
+        run: |
+          IMAGE="ghcr.io/${{ github.repository_owner }}/sdp-dev-opencode-agent:${IMAGE_TAG}"
+          echo "Building ${IMAGE}"
+          mkdir -p .tmp/opencode-runtime
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o .tmp/opencode-runtime/opencode-agent ./cmd/opencode-agent
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o .tmp/opencode-runtime/orchestrator ./cmd/orchestrator
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o .tmp/opencode-runtime/swarm-worker ./cmd/swarm-worker
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o .tmp/opencode-runtime/swarm-reviewer ./cmd/swarm-reviewer
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o .tmp/opencode-runtime/autonomy-worker ./cmd/autonomy-worker
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o .tmp/opencode-runtime/beads-fsm ./cmd/beads-fsm
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o .tmp/opencode-runtime/pr-gate ./cmd/pr-gate
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o .tmp/opencode-runtime/pr-publish ./cmd/pr-publish
+          if [ ! -d .tmp/beads-src ]; then
+            git clone --depth 1 --branch v0.49.6 https://github.com/steveyegge/beads.git .tmp/beads-src
+          fi
+          (cd .tmp/beads-src && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../opencode-runtime/bd ./cmd/bd)
+          docker build -t "${IMAGE}" -f deploy/images/opencode-agent/Dockerfile.runtime .
+          docker push "${IMAGE}"
+
+      - name: Build and push swarm-orchestrator
+        env:
+          IMAGE_TAG: git-${{ github.sha }}
+        run: |
+          IMAGE="ghcr.io/${{ github.repository_owner }}/sdp-dev-swarm-orchestrator:${IMAGE_TAG}"
+          echo "Building ${IMAGE}"
+          docker build -t "${IMAGE}" -f deploy/images/swarm-orchestrator/Dockerfile .
+          docker push "${IMAGE}"
+
+      - name: Build and push adapter-controller
+        env:
+          IMAGE_TAG: git-${{ github.sha }}
+        run: |
+          IMAGE="ghcr.io/${{ github.repository_owner }}/sdp-dev-adapter-controller:${IMAGE_TAG}"
+          echo "Building ${IMAGE}"
+          docker build -t "${IMAGE}" -f deploy/images/adapter-controller/Dockerfile .
+          docker push "${IMAGE}"

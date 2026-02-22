@@ -4,6 +4,7 @@ set -euo pipefail
 HOST=""
 PORT="22"
 IMAGE=""
+BRANCH=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -19,53 +20,45 @@ while [[ $# -gt 0 ]]; do
       IMAGE="$2"
       shift 2
       ;;
+    --branch)
+      BRANCH="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown argument: $1"
-      echo "Usage: $0 --host <user@ip-or-host> [--port <port>] [--image <image>]"
+      echo "Usage: $0 --host <user@ip-or-host> [--port <port>] [--image <image>] [--branch <branch>]"
       exit 2
       ;;
   esac
 done
 
 if [[ -z "${HOST}" ]]; then
-  echo "Usage: $0 --host <user@ip-or-host> [--port <port>] [--image <image>]"
+  echo "Usage: $0 --host <user@ip-or-host> [--port <port>] [--image <image>] [--branch <branch>]"
   exit 2
 fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MANIFEST_DIR="${ROOT_DIR}/deploy/k8s/workers"
 
-Z_AI_API_KEY="${Z_AI_API_KEY:-}"
-if [[ -z "${Z_AI_API_KEY}" && -f "${HOME}/.config/opencode/opencode.json" ]]; then
-  Z_AI_API_KEY="$(python3 - <<'PY'
-import json
-import os
-path = os.path.expanduser('~/.config/opencode/opencode.json')
-try:
-    with open(path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    print(data.get('mcp', {}).get('zai-mcp-server', {}).get('environment', {}).get('Z_AI_API_KEY', ''))
-except Exception:
-    print('')
-PY
-)"
-fi
+echo "[apply] provisioning sdp-credentials in sdp-workers"
+"${ROOT_DIR}/scripts/provision_secrets.sh" --host "${HOST}" --port "${PORT}" --namespaces "sdp-workers"
 
 echo "[apply] copying worker manifests to ${HOST}:${PORT}"
 ssh -p "${PORT}" "${HOST}" "mkdir -p /tmp/sdp-dev-workers"
-scp -P "${PORT}" -r "${MANIFEST_DIR}/." "${HOST}:/tmp/sdp-dev-workers/"
-
-echo "[apply] ensuring worker credentials secret"
-Z_AI_API_KEY_B64="$(printf '%s' "${Z_AI_API_KEY}" | base64 | tr -d '\n')"
-ssh -p "${PORT}" "${HOST}" "Z_AI_API_KEY_B64='${Z_AI_API_KEY_B64}' bash -s" <<'EOF'
-set -euo pipefail
-GH_TOKEN="$(gh auth token)"
-Z_AI_API_KEY="$(printf '%s' "${Z_AI_API_KEY_B64}" | base64 -d)"
-kubectl -n sdp-workers create secret generic sdp-agent-credentials \
-  --from-literal=github_token="${GH_TOKEN}" \
-  --from-literal=z_ai_api_key="${Z_AI_API_KEY}" \
-  --dry-run=client -o yaml | kubectl apply -f -
-EOF
+if [[ -n "${BRANCH}" ]]; then
+  echo "[apply] patching SDP_REPO_BRANCH to ${BRANCH}"
+  TMP_MANIFEST="$(mktemp -d)"
+  trap "rm -rf '${TMP_MANIFEST}'" EXIT
+  cp -r "${MANIFEST_DIR}/." "${TMP_MANIFEST}/"
+  if sed --version >/dev/null 2>&1; then
+    sed -i "s|value: feat/sdp_dev-[^[:space:]]*|value: ${BRANCH}|g" "${TMP_MANIFEST}/opencode-agent.yaml"
+  else
+    sed -i '' "s|value: feat/sdp_dev-[^[:space:]]*|value: ${BRANCH}|g" "${TMP_MANIFEST}/opencode-agent.yaml"
+  fi
+  scp -P "${PORT}" -r "${TMP_MANIFEST}/." "${HOST}:/tmp/sdp-dev-workers/"
+else
+  scp -P "${PORT}" -r "${MANIFEST_DIR}/." "${HOST}:/tmp/sdp-dev-workers/"
+fi
 
 echo "[apply] applying worker kustomization on remote"
 ssh -p "${PORT}" "${HOST}" "kubectl apply -k /tmp/sdp-dev-workers"

@@ -84,6 +84,12 @@ Apply baseline worker manifests:
 ./scripts/apply_worker_manifests.sh --host fall_out_bug@192.168.50.219 --port 2222
 ```
 
+Apply observability manifests:
+
+```bash
+./scripts/apply_observability_manifests.sh --host fall_out_bug@192.168.50.219 --port 2222
+```
+
 Health checks:
 
 ```bash
@@ -103,6 +109,12 @@ Scripted health check:
 
 ```bash
 ./scripts/check_remote_k8s.sh --host fall_out_bug@192.168.50.219 --port 2222
+```
+
+Observability pipeline sanity check:
+
+```bash
+./scripts/sanity_check_observability_remote.sh --host fall_out_bug@192.168.50.219 --port 2222
 ```
 
 ## 7. Security notes

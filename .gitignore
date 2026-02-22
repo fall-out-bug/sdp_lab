@@ -1,4 +1,15 @@
-.sdp/
+.sdp/*
+!.sdp/config.yml
 __pycache__/
 *.pyc
 .tmp/
+.kube/
+coverage.out
+coverage_internal.out
+
+# SDP (sdp is submodule; skills/agents are symlinks)
+.claude/skills
+.claude/agents
+.cursor/skills
+.cursor/agents
+.prompts

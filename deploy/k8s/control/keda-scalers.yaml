@@ -1,0 +1,36 @@
+# KEDA ScaledObjects for role agents (requires KEDA operator)
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: coder-agents-scaler
+  namespace: sdp-workers
+spec:
+  scaleTargetRef:
+    name: role-agent-coder
+  minReplicaCount: 0
+  maxReplicaCount: 10
+  triggers:
+    - type: nats-jetstream
+      metadata:
+        natsServerMonitoringEndpoint: "nats.sdp-control:8222"
+        stream: "SDP_INTAKE"
+        consumer: "coder-dispatch"
+        lagThreshold: "5"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: analyst-agents-scaler
+  namespace: sdp-workers
+spec:
+  scaleTargetRef:
+    name: role-agent-analyst
+  minReplicaCount: 0
+  maxReplicaCount: 5
+  triggers:
+    - type: nats-jetstream
+      metadata:
+        natsServerMonitoringEndpoint: "nats.sdp-control:8222"
+        stream: "SDP_INTAKE"
+        consumer: "analyst-dispatch"
+        lagThreshold: "3"

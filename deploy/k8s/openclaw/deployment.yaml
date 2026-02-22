@@ -1,0 +1,26 @@
+# OpenClaw runtime deployment (sdp-openclaw namespace)
+# Placeholder: full deployment when OpenClaw runtime is integrated
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openclaw-agent
+  namespace: sdp-openclaw
+  labels:
+    app: openclaw-agent
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: openclaw-agent
+  template:
+    metadata:
+      labels:
+        app: openclaw-agent
+    spec:
+      containers:
+        - name: openclaw-agent
+          image: sdp-dev-openclaw-agent:local
+          imagePullPolicy: Never
+          args:
+            - --loop
+            - --interval=60s

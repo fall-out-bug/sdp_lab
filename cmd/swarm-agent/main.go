@@ -24,15 +24,6 @@ type issueDetail struct {
 	Labels []string `json:"labels"`
 }
 
-func run(name string, args ...string) ([]byte, error) {
-	cmd := exec.Command(name, args...)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("%s %s failed: %w: %s", name, strings.Join(args, " "), err, string(out))
-	}
-	return out, nil
-}
-
 func runIn(repo, name string, args ...string) ([]byte, error) {
 	cmd := exec.Command(name, args...)
 	cmd.Dir = repo
@@ -272,7 +263,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	changed := make([]string, 0)
+	var changed []string
 	switch handler {
 	case "add-flow-inspect-command":
 		changed, err = addFlowInspectHandler(repo)

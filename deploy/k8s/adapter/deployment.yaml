@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adapter-controller
+  namespace: sdp-adapter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: adapter-controller
+  template:
+    metadata:
+      labels:
+        app: adapter-controller
+    spec:
+      terminationGracePeriodSeconds: 30
+      serviceAccountName: adapter-controller
+      containers:
+        - name: controller
+          image: ghcr.io/fall-out-bug/sdp-dev-adapter-controller:latest
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          env:
+            - name: NATS_URL
+              value: "nats://nats:4222"
+            - name: SDP_WORK_DIR
+              value: "/workspaces"
+          volumeMounts:
+            - name: workspaces
+              mountPath: /workspaces
+      volumes:
+        - name: workspaces
+          emptyDir: {}

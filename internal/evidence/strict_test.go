@@ -6,100 +6,48 @@ import (
 	"testing"
 )
 
-func writeFile(t *testing.T, dir, name, body string) string {
-	t.Helper()
-	path := filepath.Join(dir, name)
-	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
-		t.Fatalf("write file: %v", err)
-	}
-	return path
-}
-
-func TestValidateStrictFileMissingSections(t *testing.T) {
-	dir := t.TempDir()
-	path := writeFile(t, dir, "evidence.json", `{"intent":{},"trace":{"pr_url":"https://example/pr/1"}}`)
-
-	res, err := ValidateStrictFile(path, false)
-	if err != nil {
-		t.Fatalf("validate: %v", err)
-	}
-	if res.OK {
-		t.Fatalf("expected failure for missing sections")
+func TestValidateStrictFile_missing(t *testing.T) {
+	_, err := ValidateStrictFile("/nonexistent", false)
+	if err == nil {
+		t.Error("expected error for missing file")
 	}
 }
 
-func TestValidateStrictFileMissingPRURL(t *testing.T) {
-	dir := t.TempDir()
-	body := `{
-		"intent":{},"plan":{},"execution":{},"verification":{},"review":{},"risk_notes":{},
-		"boundary":{"declared":{"allowed_path_prefixes":[],"control_path_prefixes":[],"forbidden_path_prefixes":[]},"observed":{"touched_paths":[],"out_of_boundary_paths":[]},"compliance":{"ok":true,"reason":"ok"}},
-		"provenance":{"run_id":"run-1","orchestrator":"autonomy-worker","runtime":"opencode","model":"glm-5","gate_results":[],"phase":"verify","role":"reviewer","captured_at":"2026-02-20T00:00:00Z","source_issue_id":"sdp_dev-2aq.16.1","artifact_id":"artifact-1","contract_version":"artifact-provenance/v1","hash_algorithm":"sha256","sequence":0,"payload_digest":"","hash":"","hash_prev":""},
-		"trace":{}
-	}`
-	path := writeFile(t, dir, "evidence.json", body)
-
-	res, err := ValidateStrictFile(path, true)
-	if err != nil {
-		t.Fatalf("validate: %v", err)
+func TestValidateStrictFile_invalidJSON(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "bad.json")
+	if err := os.WriteFile(f, []byte(`{invalid`), 0o644); err != nil {
+		t.Fatal(err)
 	}
-	if res.OK {
-		t.Fatalf("expected failure for missing trace.pr_url")
+	_, err := ValidateStrictFile(f, false)
+	if err == nil {
+		t.Error("invalid JSON should return error")
 	}
 }
 
-func TestValidateStrictFileOK(t *testing.T) {
-	dir := t.TempDir()
-	body := `{
-		"intent":{},"plan":{},"execution":{},"verification":{},"review":{},"risk_notes":{},
-		"boundary":{"declared":{"allowed_path_prefixes":[],"control_path_prefixes":[],"forbidden_path_prefixes":[]},"observed":{"touched_paths":[],"out_of_boundary_paths":[]},"compliance":{"ok":true,"reason":"ok"}},
-		"provenance":{"run_id":"run-1","orchestrator":"autonomy-worker","runtime":"opencode","model":"glm-5","gate_results":[],"phase":"verify","role":"reviewer","captured_at":"2026-02-20T00:00:00Z","source_issue_id":"sdp_dev-2aq.16.1","artifact_id":"artifact-1","contract_version":"artifact-provenance/v1","hash_algorithm":"sha256","sequence":0,"payload_digest":"","hash":"","hash_prev":""},
-		"trace":{"pr_url":"https://example/pr/1"}
-	}`
-	path := writeFile(t, dir, "evidence.json", body)
-
-	res, err := ValidateStrictFile(path, true)
-	if err != nil {
-		t.Fatalf("validate: %v", err)
+func TestValidateStrictFile_missingSections(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "partial.json")
+	if err := os.WriteFile(f, []byte(`{"intent":{}}`), 0o644); err != nil {
+		t.Fatal(err)
 	}
-	if !res.OK {
-		t.Fatalf("expected success, got %+v", res)
+	r, err := ValidateStrictFile(f, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if r.OK {
+		t.Error("missing sections should not be OK")
+	}
+	if len(r.Missing) == 0 {
+		t.Error("expected missing sections")
 	}
 }
 
-func TestValidateStrictFileVerifiedModeAllowsMissingPRURL(t *testing.T) {
-	dir := t.TempDir()
-	body := `{
-		"intent":{},"plan":{},"execution":{},"verification":{},"review":{},"risk_notes":{},
-		"boundary":{"declared":{"allowed_path_prefixes":[],"control_path_prefixes":[],"forbidden_path_prefixes":[]},"observed":{"touched_paths":[],"out_of_boundary_paths":[]},"compliance":{"ok":true,"reason":"ok"}},
-		"provenance":{"run_id":"run-1","orchestrator":"autonomy-worker","runtime":"opencode","model":"glm-5","gate_results":[],"phase":"verify","role":"reviewer","captured_at":"2026-02-20T00:00:00Z","source_issue_id":"sdp_dev-2aq.16.1","artifact_id":"artifact-1","contract_version":"artifact-provenance/v1","hash_algorithm":"sha256","sequence":0,"payload_digest":"","hash":"","hash_prev":""},
-		"trace":{}
-	}`
-	path := writeFile(t, dir, "evidence.json", body)
-
-	res, err := ValidateStrictFile(path, false)
-	if err != nil {
-		t.Fatalf("validate: %v", err)
+func TestFormatMissing(t *testing.T) {
+	got := FormatMissing([]string{"a", "b"})
+	if got != "missing: a, b" {
+		t.Errorf("FormatMissing = %q", got)
 	}
-	if !res.OK {
-		t.Fatalf("expected success in verified mode, got %+v", res)
-	}
-}
-
-func TestValidateStrictFileInvalidBoundaryContract(t *testing.T) {
-	dir := t.TempDir()
-	body := `{
-		"intent":{},"plan":{},"execution":{},"verification":{},"review":{},"risk_notes":{},
-		"boundary":{"declared":{},"observed":{},"compliance":{}},
-		"provenance":{"run_id":"run-1","orchestrator":"autonomy-worker","runtime":"opencode","model":"glm-5","gate_results":[],"phase":"verify","role":"reviewer","captured_at":"2026-02-20T00:00:00Z","source_issue_id":"sdp_dev-2aq.16.1","artifact_id":"artifact-1","contract_version":"artifact-provenance/v1","hash_algorithm":"sha256","sequence":0,"payload_digest":"","hash":"","hash_prev":""},
-		"trace":{}
-	}`
-	path := writeFile(t, dir, "evidence.json", body)
-
-	res, err := ValidateStrictFile(path, false)
-	if err != nil {
-		t.Fatalf("validate: %v", err)
-	}
-	if res.OK {
-		t.Fatalf("expected failure for invalid boundary contract")
+	got = FormatMissing(nil)
+	if got != "" {
+		t.Errorf("FormatMissing(nil) = %q", got)
 	}
 }

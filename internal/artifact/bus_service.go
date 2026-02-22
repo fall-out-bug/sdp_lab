@@ -214,9 +214,7 @@ func (s *BusService) ProvenanceIndex(issueID string) []ProvenanceIndexEntry {
 
 	rows := s.provenanceIdx[issueID]
 	out := make([]ProvenanceIndexEntry, 0, len(rows))
-	for _, row := range rows {
-		out = append(out, row)
-	}
+	out = append(out, rows...)
 	sort.Slice(out, func(i, j int) bool { return out[i].Sequence < out[j].Sequence })
 	return out
 }
