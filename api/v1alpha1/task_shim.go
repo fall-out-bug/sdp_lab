@@ -40,6 +40,7 @@ type Task struct {
 	Status TaskStatus `json:"status,omitempty"`
 }
 
+// +kubebuilder:object:generate=true
 // TaskSpec defines the desired state of Task.
 type TaskSpec struct {
 	// AgentRef identifies the agent/model for this task.
@@ -53,6 +54,7 @@ type TaskSpec struct {
 	DependsOn []string `json:"dependsOn,omitempty"`
 }
 
+// +kubebuilder:object:generate=true
 // AgentRef references an agent or model.
 type AgentRef struct {
 	Model string `json:"model,omitempty"`
