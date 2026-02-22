@@ -248,3 +248,49 @@ func TestDispatch_noTasks(t *testing.T) {
 		t.Errorf("expected 0 AgentRuns when agg has no tasks, got %d", len(list.Items))
 	}
 }
+
+// TestDispatch_createsAgentRun is an integration test for the dispatch loop with mock k8s and agg (zdr).
+func TestDispatch_createsAgentRun(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	regPath := filepath.Join(dir, "reg.yaml")
+	_ = os.WriteFile(regPath, []byte("projects:\n  - id: p1\n    repo_url: .\n    repo_branch: main\n"), 0o644)
+	store := registry.NewStore(registry.StoreConfig{RegistryPath: regPath})
+	_ = store.Load()
+	ws := federation.NewWorkspaceManager(dir)
+	agg := federation.NewAggregator(nil, store, ws)
+	agg.InjectReadySnapshot("p1", []beads.Issue{
+		{ID: "sdp_dev-1", Title: "Test task", Priority: 1},
+	})
+	scheme := runtime.NewScheme()
+	_ = v1alpha1.AddToScheme(scheme)
+	_ = clientgoscheme.AddToScheme(scheme)
+	k8s := fake.NewClientBuilder().WithScheme(scheme).Build()
+	lockMgr := adapter.NewRunLockManager(filepath.Join(dir, "locks"))
+
+	dispatch(ctx, DispatchConfig{
+		K8s:       k8s,
+		Bus:       nil,
+		Agg:       agg,
+		LockMgr:   lockMgr,
+		Store:     store,
+		Filter:    nil,
+		Namespace: "sdp-workers",
+		Max:       2,
+	})
+
+	var list v1alpha1.AgentRunList
+	if err := k8s.List(ctx, &list, client.InNamespace("sdp-workers")); err != nil {
+		t.Fatalf("list AgentRuns: %v", err)
+	}
+	if len(list.Items) != 1 {
+		t.Fatalf("expected 1 AgentRun, got %d", len(list.Items))
+	}
+	run := &list.Items[0]
+	if run.Spec.IssueID != "sdp_dev-1" || run.Spec.Repo != "." {
+		t.Errorf("AgentRun spec: IssueID=%q Repo=%q", run.Spec.IssueID, run.Spec.Repo)
+	}
+	if run.Namespace != "sdp-workers" {
+		t.Errorf("AgentRun namespace: %q", run.Namespace)
+	}
+}

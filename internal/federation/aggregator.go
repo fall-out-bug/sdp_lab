@@ -119,3 +119,12 @@ func (a *Aggregator) QueueDepth() int {
 	defer a.mu.RUnlock()
 	return len(a.tasks)
 }
+
+// InjectReadySnapshot injects a ready snapshot for testing (e.g. integration test with mock k8s/agg).
+// Same effect as receiving a sdp.beads.*.ready message.
+func (a *Aggregator) InjectReadySnapshot(projectID string, issues []beads.Issue) {
+	a.mu.Lock()
+	a.byProject[projectID] = issues
+	a.rebuildTasks()
+	a.mu.Unlock()
+}
