@@ -70,6 +70,39 @@ func TestBuildAgentRun(t *testing.T) {
 	}
 }
 
+func TestBuildAgentRun_ForkUpstreamURL(t *testing.T) {
+	task := &federation.FederatedTask{
+		ProjectID: "p1",
+		Issue:     beads.Issue{ID: "i1", Title: "T", Labels: []string{}},
+		Workspace: "/ws/p1",
+	}
+	proj := &registry.Project{
+		ID:            "p1",
+		RepoURL:       "https://github.com/fork/repo",
+		UpstreamURL:   "https://github.com/upstream/repo",
+		RepoBranch:    "main",
+		Fork:          true,
+		UpstreamRemote: "upstream",
+	}
+	run := buildAgentRun(task, proj, "ns")
+	if run.Spec.Repo != proj.UpstreamURL {
+		t.Errorf("Fork+UpstreamURL: Repo = %q, want %q", run.Spec.Repo, proj.UpstreamURL)
+	}
+}
+
+func TestBuildAgentRun_BaseBranchDefault(t *testing.T) {
+	task := &federation.FederatedTask{
+		ProjectID: "p1",
+		Issue:     beads.Issue{ID: "i1", Title: "T", Labels: []string{}},
+		Workspace: "/ws/p1",
+	}
+	proj := &registry.Project{ID: "p1", RepoURL: "https://github.com/org/repo", RepoBranch: ""}
+	run := buildAgentRun(task, proj, "ns")
+	if run.Spec.BaseBranch != "main" {
+		t.Errorf("empty RepoBranch: BaseBranch = %q, want main", run.Spec.BaseBranch)
+	}
+}
+
 func TestDispatchConfig(t *testing.T) {
 	cfg := DispatchConfig{
 		Namespace: "sdp-workers",

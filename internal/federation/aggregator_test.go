@@ -131,3 +131,27 @@ func TestAggregator_rebuildTasks_prioritySort(t *testing.T) {
 			tasks[0].Issue.ID, tasks[1].Issue.ID, tasks[2].Issue.ID)
 	}
 }
+
+// TestAggregator_rebuildTasks_sortByAgeThenProjectID documents AC: P0>P1>P2>P3 then by age (older first), then project.
+func TestAggregator_rebuildTasks_sortByAgeThenProjectID(t *testing.T) {
+	dir := t.TempDir()
+	store := registry.NewStore(registry.StoreConfig{RegistryPath: dir + "/reg.yaml"})
+	_ = store.Create(&registry.Project{ID: "p1", RepoURL: ".", RepoBranch: "main"})
+	_ = store.Create(&registry.Project{ID: "p2", RepoURL: ".", RepoBranch: "main"})
+	ws := NewWorkspaceManager(dir)
+	a := NewAggregator(nil, store, ws)
+	// Same priority (1); different CreatedAt (older first), then ProjectID as tiebreaker.
+	payload := []byte(`{"project_id":"p1","issues":[{"id":"i1b","title":"t1b","priority":1,"created_at":"2026-02-02T10:00:00Z"}],"count":1}`)
+	a.handleReady(bus.Envelope{Payload: payload, ProjectID: "p1"})
+	payload2 := []byte(`{"project_id":"p2","issues":[{"id":"i2a","title":"t2a","priority":1,"created_at":"2026-02-01T10:00:00Z"}],"count":1}`)
+	a.handleReady(bus.Envelope{Payload: payload2, ProjectID: "p2"})
+	tasks := a.ReadyAcrossProjects(10)
+	if len(tasks) != 2 {
+		t.Fatalf("expected 2 tasks, got %d", len(tasks))
+	}
+	// Older (2026-02-01) should be first, then 2026-02-02.
+	if tasks[0].Issue.CreatedAt > tasks[1].Issue.CreatedAt {
+		t.Errorf("expected order by age (older first): got %s then %s",
+			tasks[0].Issue.CreatedAt, tasks[1].Issue.CreatedAt)
+	}
+}
