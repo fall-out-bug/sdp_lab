@@ -17,6 +17,8 @@ import (
 	"sdp_dev/internal/intake"
 	"sdp_dev/internal/registry"
 	"sdp_dev/internal/safeid"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const maxBodyBytes = 64 * 1024 // 64KB
@@ -51,6 +53,7 @@ func main() {
 	_ = store.Load()
 
 	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("POST /api/v1/intake", handleIntake(b))
 	mux.HandleFunc("GET /api/v1/projects", handleProjects(store))
 	mux.HandleFunc("GET /api/v1/status/{id}", handleStatus)

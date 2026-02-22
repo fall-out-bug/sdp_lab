@@ -13,8 +13,8 @@ import (
 	"sdp_dev/api/v1alpha1"
 	"sdp_dev/internal/adapter"
 	"sdp_dev/internal/agent"
-	"sdp_dev/internal/beads"
 	"sdp_dev/internal/bus"
+	"sdp_dev/internal/policy"
 	"sdp_dev/internal/observability"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -55,6 +55,15 @@ func main() {
 		workDir = d
 	}
 
+	// Load model policy from ConfigMap when MODEL_POLICY_PATH set (WS-012-01)
+	if policyPath := os.Getenv("MODEL_POLICY_PATH"); policyPath != "" {
+		if _, err := policy.LoadFromPath(policyPath); err != nil {
+			setupLog.Info("model policy load failed, using built-in allowlist", "path", policyPath, "err", err)
+		} else {
+			go policy.StartReloadWatcher(context.Background(), policyPath, 30*time.Second)
+		}
+	}
+
 	cfg, err := getKubeConfig()
 	if err != nil {
 		setupLog.Error(err, "failed to get kube config")
@@ -73,8 +82,11 @@ func main() {
 	// Adapter components for TaskReconciler
 	lockMgr := adapter.NewRunLockManager(filepath.Join(os.TempDir(), "sdp-adapter-locks"))
 	policyGate := adapter.NewPolicyGate()
-	beadsAdapter := beads.NewAdapter(workDir)
-	projector := adapter.NewEvidenceProjector(workDir)
+	health := adapter.CheckWorkspaceHealth(workDir)
+	if !health.BeadsAvailable {
+		setupLog.Info("beads disabled", "reason", health.Reason, "workDir", workDir)
+	}
+	workspaceResolver := adapter.NewWorkspaceResolver(workDir)
 	lifecycleReconciler := adapter.NewLifecycleReconciler()
 
 	var traceEmitter *agent.TraceEmitter
@@ -89,11 +101,10 @@ func main() {
 	}
 
 	reconcilerOpts := adapter.TaskReconcilerOpts{
-		WorkDir:             workDir,
+		WorkspaceResolver:   workspaceResolver,
+		BeadsAvailable:      health.BeadsAvailable,
 		LockManager:         lockMgr,
 		PolicyGate:          policyGate,
-		BeadsAdapter:        beadsAdapter,
-		EvidenceProjector:   projector,
 		LifecycleReconciler: lifecycleReconciler,
 		TraceEmitter:        traceEmitter,
 		Bus:                 natsBus,
@@ -104,16 +115,30 @@ func main() {
 	}
 
 	intentTranslator := adapter.NewIntentTranslator()
+	healthChecker := policy.StubProviderHealthChecker{}
 	agentRunOpts := adapter.AgentRunReconcilerOpts{
-		IntentTranslator: intentTranslator,
-		PolicyGate:       policyGate,
-		BeadsAdapter:     beadsAdapter,
-		Bus:              natsBus,
+		IntentTranslator:      intentTranslator,
+		PolicyGate:            policyGate,
+		WorkspaceResolver:     workspaceResolver,
+		BeadsAvailable:        health.BeadsAvailable,
+		ProviderHealthChecker: healthChecker,
+		Bus:                   natsBus,
 	}
 	if err := adapter.NewAgentRunReconciler(mgr.GetClient(), mgr.GetScheme(), agentRunOpts).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "failed to setup AgentRunReconciler")
 		os.Exit(1)
 	}
+
+	// Metrics endpoint (FR-017 / sdp_dev-rbl)
+	metricsAddr := ":8082"
+	if a := os.Getenv("METRICS_ADDR"); a != "" {
+		metricsAddr = a
+	}
+	go func() {
+		if err := observability.ServeMetrics(context.Background(), metricsAddr); err != nil {
+			setupLog.Info("metrics server stopped", "err", err)
+		}
+	}()
 
 	// Graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)

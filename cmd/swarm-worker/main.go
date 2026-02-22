@@ -41,6 +41,13 @@ func projectFromIssueID(issueID string) string {
 func main() {
 	_, _ = observability.SetupTracing("swarm-worker")
 
+	// Optional /metrics when METRICS_ADDR set (e.g. in K8s job)
+	if addr := os.Getenv("METRICS_ADDR"); addr != "" {
+		go func() {
+			_ = observability.ServeMetrics(context.Background(), addr)
+		}()
+	}
+
 	flowStartedAt := time.Now()
 	ctx := context.Background()
 	ctx, span := otel.Tracer("swarm-worker").Start(ctx, "WorkerFlow")
