@@ -601,6 +601,116 @@ func TestUpdateEvidence(t *testing.T) {
 	}
 }
 
+func TestUpdateEvidenceWithLastBuilderResult(t *testing.T) {
+	dir := t.TempDir()
+	sdpDir := filepath.Join(dir, ".sdp")
+	evDir := filepath.Join(sdpDir, "evidence")
+	runDir := filepath.Join(sdpDir, "runs")
+	if err := os.MkdirAll(evDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(runDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	evPath := filepath.Join(evDir, "issue-2.json")
+	initialPayload := map[string]any{
+		"intent": map[string]any{"issue_id": "issue-2"},
+		"boundary": map[string]any{
+			"declared": map[string]any{
+				"allowed_path_prefixes": []string{"internal/"},
+				"control_path_prefixes":  []string{},
+				"forbidden_path_prefixes": []string{},
+			},
+		},
+	}
+	b, _ := json.MarshalIndent(initialPayload, "", "  ")
+	if err := os.WriteFile(evPath, append(b, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origWd, _ := os.Getwd()
+	defer func() { _ = os.Chdir(origWd) }()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	lastBuilderResult = &llm.ExecuteResult{
+		Prompt:     "test prompt",
+		ModelUsed:  "glm-4.7",
+		Duration:   100 * time.Millisecond,
+		SessionID:  "sess-123",
+	}
+	defer func() { lastBuilderResult = nil }()
+
+	_, err := updateEvidence("issue-2", "feat/issue-2", "generic", []string{"internal/bar.go"}, false)
+	if err != nil {
+		t.Fatalf("updateEvidence with lastBuilderResult: %v", err)
+	}
+
+	reloaded, _ := loadEvidencePayload(".sdp/evidence/issue-2.json")
+	exec := reloaded["execution"].(map[string]any)
+	if exec["model"] != "glm-4.7" {
+		t.Fatalf("updateEvidence execution model: %v", exec["model"])
+	}
+	if exec["opencode_session_id"] != "sess-123" {
+		t.Fatalf("updateEvidence execution session: %v", exec["opencode_session_id"])
+	}
+	prov := reloaded["provenance"].(map[string]any)
+	if prov["model"] != "glm-4.7" {
+		t.Fatalf("updateEvidence provenance model: %v", prov["model"])
+	}
+}
+
+func TestUpdateEvidenceWithRunPacket(t *testing.T) {
+	dir := t.TempDir()
+	sdpDir := filepath.Join(dir, ".sdp")
+	evDir := filepath.Join(sdpDir, "evidence")
+	runDir := filepath.Join(sdpDir, "runs")
+	if err := os.MkdirAll(evDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(runDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	evPath := filepath.Join(evDir, "issue-3.json")
+	runPath := filepath.Join(runDir, "issue-3.json")
+	initialPayload := map[string]any{
+		"intent": map[string]any{"issue_id": "issue-3"},
+		"boundary": map[string]any{
+			"declared": map[string]any{
+				"allowed_path_prefixes": []string{"internal/"},
+				"control_path_prefixes":  []string{},
+				"forbidden_path_prefixes": []string{},
+			},
+		},
+	}
+	b, _ := json.MarshalIndent(initialPayload, "", "  ")
+	if err := os.WriteFile(evPath, append(b, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runPayload := map[string]any{"run_id": "run-1", "phase": "verify"}
+	runB, _ := json.MarshalIndent(runPayload, "", "  ")
+	if err := os.WriteFile(runPath, append(runB, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origWd, _ := os.Getwd()
+	defer func() { _ = os.Chdir(origWd) }()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := updateEvidence("issue-3", "feat/issue-3", "generic", []string{"internal/baz.go"}, true)
+	if err != nil {
+		t.Fatalf("updateEvidence with runPacket: %v", err)
+	}
+
+	runReloaded, _ := loadRunPacket(".sdp/runs/issue-3.json")
+	if runReloaded == nil || runReloaded["run_id"] != "run-1" {
+		t.Fatalf("updateEvidence should preserve run packet: %+v", runReloaded)
+	}
+}
+
 func TestLoadIssue(t *testing.T) {
 	orig := runFunc
 	defer func() { runFunc = orig }()

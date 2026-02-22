@@ -1,35 +1,31 @@
 # Agent Handoff
 
-Updated: 2026-02-21
+Updated: 2026-02-22
 
-**Validation Run 1:** 2026-02-21T12:00:00Z (handoff-checklist run 1/10)
+**Validation Run 4:** 2026-02-22T12:00:00Z (handoff-checklist run 4/10)
 
 ## Current State
 
-- **Branch:** `feat/sdp_dev-2aq-7-operator-adoption-artifacts`
-- **Working tree:** Untracked files present (`.claude/`, `.cursor/`, `.opencode/`, `autonomy-worker`, `swarm-worker`, etc.). Submodule `sdp` may show modified.
-- **Quality gates:** `make quality` passes — coverage 75.1% (threshold 75%), max CC 28 (threshold 40), 9 size warnings (pragmatic mode).
-- **Beads:** Use `bd ready` for available work. One task ready: `sdp_dev-hex`.
+- **Branch:** `master`
+- **Working tree:** Clean after beads close + AGENT_HANDOFF update.
+- **Quality gates:** `make quality` — verify before push.
+- **Beads:** Closed j25, 23j, kel, d1l, cgk, 4pg (PR #37, #33, #34). Ready: `sdp_dev-hex`, `sdp_dev-sod`.
 
 ## Most Recent Delivery
 
-- Quality gates (Debug and Fix Remarks plan) implemented:
-  - SDP plugin: `config.FindProjectRoot()`, `coverage_threshold`/`size_exclude`/`complexity_exclude` from `.sdp/config.yml`
-  - `.sdp/config.yml`: coverage 75%, exclusions for cmd/sdp/federation/runtime/beads/orchestrator/openclaw
-  - New tests: agent/context, bus/client, intake/normalize, retrospective/lens, review/panel, federation/workspace+aggregator, review/consensus, roles/registry, evidence/strict
-- PR #32 (operator adoption artifacts) open, awaiting merge.
+- PR #37 merged: FR-003 CRD types, FR-001 adapter-controller, FR-002 AgentRun, FR-004 Delete Path A.
+- PR #33–36 merged: handoff validation, QA coverage, TechLead fixes.
+- Beads: closed completed tasks (j25, 23j, kel, d1l, cgk, 4pg).
 
 ## Open Work Situation
 
 - **Ready task** (run `bd ready`):
   1. `sdp_dev-hex` [P2] QA: Raise swarm-worker and autonomy-worker coverage to 80%+
+  2. `sdp_dev-sod` [P2] Probe: /feature end-to-end returns PR
 - **In progress:**
-  - `sdp_dev-4pg` [P1] QA: Test coverage below 80% (current 75.1% — interim target met)
-  - `sdp_dev-oip` [P1] VALIDATE: adapter handoff checklist (10 consecutive runs) — blocked by sdp_dev-cgk
+  - `sdp_dev-oip` [P1] VALIDATE: adapter handoff checklist (10 consecutive runs) — run 4/10 recorded
 - **Blocked / epic chain:**
-  - `sdp_dev-j2b` epic (rollout validation, upstream contribution) — blocked by sdp_dev-oip, sdp_dev-4py, sdp_dev-cq4
-  - `sdp_dev-4py` [P1] PR: submit upstream kubeopencode PR UP-001
-  - `sdp_dev-cq4` [P2] BUILD: stuck Task cleanup and timeout handling in kubeopencode probe
+  - `sdp_dev-j2b` epic — blocked by sdp_dev-oip
 
 ## Suggested Startup Commands
 
@@ -52,15 +48,13 @@ make quality            # verify gates before starting work
 ## Suggested Next Steps for New Agent
 
 1. Run `bd ready` and `bd sync`.
-2. Claim `sdp_dev-hex` (swarm/autonomy coverage 80%+) or unblock `sdp_dev-oip` (handoff validation).
-3. Alternatively: close `sdp_dev-4pg` if 80% coverage is deferred; focus on handoff validation or upstream PR.
+2. Claim `sdp_dev-hex` (swarm/autonomy coverage 80%+) or `sdp_dev-sod` (probe /feature).
+3. For sdp_dev-oip: add next validation run timestamp when completing handoff checklist.
 4. Before finishing: `make quality`, commit, `bd sync`, `git push`.
 
-## Validation Run
+## Validation Runs (handoff-checklist)
 
-- 2026-02-21T08:01:43Z (workstream:handoff-validation)
-
-
-## Validation Run
-
-- 2026-02-21T08:13:51Z (workstream:handoff-validation)
+- 2026-02-21T08:01:43Z (run 1/10)
+- 2026-02-21T08:13:51Z (run 2/10)
+- 2026-02-21T12:00:00Z (run 3/10)
+- 2026-02-22T12:00:00Z (run 4/10)
