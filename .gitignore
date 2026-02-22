@@ -4,12 +4,29 @@ __pycache__/
 *.pyc
 .tmp/
 .kube/
-coverage.out
-coverage_internal.out
+
+# Coverage files
+*.out
+
+# Go binaries (built locally, root only)
+/adapter-controller
+/autonomy-worker
+/feature-orchestrator
+/intake-gateway
+/orchestrator
+/pr-publish
+/registry-agent
+/swarm-orchestrator
+/swarm-worker
+/telemetry-analyzer
+
+# Execution state
+.oneshot/
 
 # SDP (sdp is submodule; skills/agents are symlinks)
 .claude/skills
 .claude/agents
 .cursor/skills
 .cursor/agents
+.opencode/skills
 .prompts
