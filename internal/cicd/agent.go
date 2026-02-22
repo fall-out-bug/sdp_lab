@@ -243,6 +243,17 @@ func (a *Agent) dockerInspectSHA(ctx context.Context, image string) string {
 
 func (a *Agent) applyAndRollout(ctx context.Context, t DeployTrigger, tag string) error {
 	manifestsDir := filepath.Join(a.workDir, "deploy", "k8s", "control")
+	// Wire image tag from deploy trigger: kustomize edit set image before apply (q65)
+	prefix := a.registry + "/sdp-dev-"
+	for _, name := range a.images {
+		kustomizeName := "sdp/" + name
+		fullImage := prefix + name + ":" + tag
+		cmd := exec.CommandContext(ctx, "kustomize", "edit", "set", "image", kustomizeName+"="+fullImage)
+		cmd.Dir = manifestsDir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("kustomize edit set image %s: %w: %s", kustomizeName, err, string(out))
+		}
+	}
 	cmd := exec.CommandContext(ctx, "kubectl", "apply", "-k", manifestsDir)
 	cmd.Dir = a.workDir
 	cmd.Env = a.kubectlEnv()
