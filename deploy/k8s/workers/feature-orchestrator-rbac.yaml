@@ -1,0 +1,29 @@
+# RBAC for feature-orchestrator (runs in sdp-control, creates AgentRuns in sdp-workers).
+# Role and RoleBinding must be in sdp-workers so the Role grants permissions there.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: feature-orchestrator
+  namespace: sdp-workers
+rules:
+  - apiGroups: ["sdp.dev"]
+    resources: ["agentruns"]
+    verbs: ["create", "get", "list", "watch", "update", "patch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["create", "get", "list", "watch", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: feature-orchestrator
+  namespace: sdp-workers
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: feature-orchestrator
+subjects:
+  - kind: ServiceAccount
+    name: feature-orchestrator
+    namespace: sdp-control

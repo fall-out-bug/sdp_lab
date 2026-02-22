@@ -6,3 +6,4 @@ resources:
   - verifier.yaml
   - reviewer.yaml
   - opencode-agent.yaml
+  - feature-orchestrator-rbac.yaml

@@ -88,10 +88,13 @@ func (a *Aggregator) rebuildTasks() {
 			})
 		}
 	}
-	// Sort by priority (higher first), then by project
+	// Sort by priority (P0=0 highest first: lower number first), then by age (older first), then by project
 	sort.Slice(tasks, func(i, j int) bool {
 		if tasks[i].Issue.Priority != tasks[j].Issue.Priority {
-			return tasks[i].Issue.Priority > tasks[j].Issue.Priority
+			return tasks[i].Issue.Priority < tasks[j].Issue.Priority
+		}
+		if tasks[i].Issue.CreatedAt != tasks[j].Issue.CreatedAt {
+			return tasks[i].Issue.CreatedAt < tasks[j].Issue.CreatedAt
 		}
 		return tasks[i].ProjectID < tasks[j].ProjectID
 	})

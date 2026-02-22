@@ -8,6 +8,7 @@ data:
   poll_interval: "30s"
   max_concurrent: "3"
   namespace: "sdp-workers"
+  project_filter: ""
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -64,15 +65,14 @@ spec:
                 configMapKeyRef:
                   name: feature-orchestrator-config
                   key: namespace
+            - name: SDP_PROJECT_FILTER
+              valueFrom:
+                configMapKeyRef:
+                  name: feature-orchestrator-config
+                  key: project_filter
           args:
             - --workspace
             - /workspaces
-            - --poll
-            - "30s"
-            - --max
-            - "3"
-            - --namespace
-            - sdp-workers
           volumeMounts:
             - name: workspaces
               mountPath: /workspaces
@@ -92,27 +92,3 @@ kind: ServiceAccount
 metadata:
   name: feature-orchestrator
   namespace: sdp-control
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: feature-orchestrator
-  namespace: sdp-workers
-rules:
-  - apiGroups: ["sdp.dev"]
-    resources: ["agentruns"]
-    verbs: ["create", "get", "list", "watch", "update", "patch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: feature-orchestrator
-  namespace: sdp-workers
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: feature-orchestrator
-subjects:
-  - kind: ServiceAccount
-    name: feature-orchestrator
-    namespace: sdp-control

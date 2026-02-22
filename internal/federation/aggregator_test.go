@@ -112,3 +112,22 @@ func TestAggregator_rebuildTasks_unknownProject(t *testing.T) {
 		t.Errorf("unknown project should yield 0 tasks, got %d", len(tasks))
 	}
 }
+
+func TestAggregator_rebuildTasks_prioritySort(t *testing.T) {
+	dir := t.TempDir()
+	store := registry.NewStore(registry.StoreConfig{RegistryPath: dir + "/reg.yaml"})
+	_ = store.Create(&registry.Project{ID: "p1", RepoURL: ".", RepoBranch: "main"})
+	ws := NewWorkspaceManager(dir)
+	a := NewAggregator(nil, store, ws)
+	// P0=0 highest, P1=1, P2=2, P3=3. Lower number first.
+	payload := []byte(`{"project_id":"p1","issues":[{"id":"i2","title":"t2","priority":2},{"id":"i0","title":"t0","priority":0},{"id":"i1","title":"t1","priority":1}],"count":3}`)
+	a.handleReady(bus.Envelope{Payload: payload, ProjectID: "p1"})
+	tasks := a.ReadyAcrossProjects(10)
+	if len(tasks) != 3 {
+		t.Fatalf("expected 3 tasks, got %d", len(tasks))
+	}
+	if tasks[0].Issue.ID != "i0" || tasks[1].Issue.ID != "i1" || tasks[2].Issue.ID != "i2" {
+		t.Errorf("expected order i0,i1,i2 (P0,P1,P2), got %s,%s,%s",
+			tasks[0].Issue.ID, tasks[1].Issue.ID, tasks[2].Issue.ID)
+	}
+}

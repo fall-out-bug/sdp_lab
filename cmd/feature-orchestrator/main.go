@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -40,10 +41,10 @@ func main() {
 
 	natsURL := flag.String("nats", os.Getenv("NATS_URL"), "NATS server URL")
 	workspaceBase := flag.String("workspace", "/workspaces", "base dir for project workspaces")
-	pollInterval := flag.Duration("poll", 30*time.Second, "Poll interval")
-	maxConcurrent := flag.Int("max", 3, "Max concurrent AgentRuns to create per cycle")
-	projectFilter := flag.String("projects", "", "Comma-separated project IDs to include (empty = all)")
-	namespace := flag.String("namespace", "sdp-workers", "Kubernetes namespace for AgentRuns")
+	pollInterval := flag.Duration("poll", envDuration("SDP_POLL_INTERVAL", 30*time.Second), "Poll interval")
+	maxConcurrent := flag.Int("max", envInt("SDP_MAX_CONCURRENT", 3), "Max concurrent AgentRuns to create per cycle")
+	projectFilter := flag.String("projects", os.Getenv("SDP_PROJECT_FILTER"), "Comma-separated project IDs to include (empty = all)")
+	namespace := flag.String("namespace", envStr("SDP_AGENTRUN_NAMESPACE", "sdp-workers"), "Kubernetes namespace for AgentRuns")
 	flag.Parse()
 
 	if *natsURL == "" {
@@ -89,7 +90,7 @@ func main() {
 		log.Fatalf("k8s client: %v", err)
 	}
 
-	lockMgr := adapter.NewRunLockManager(os.TempDir() + "/sdp-feature-orchestrator-locks")
+	lockMgr := adapter.NewLeaseLockManager(k8s, *namespace)
 	filter := parseProjectFilter(*projectFilter)
 
 	log.Printf("feature-orchestrator running (poll=%v, max=%d)", *pollInterval, *maxConcurrent)
@@ -117,7 +118,7 @@ func parseProjectFilter(s string) map[string]bool {
 	return out
 }
 
-func dispatch(ctx context.Context, k8s client.Client, agg *federation.Aggregator, lockMgr *adapter.RunLockManager, store *registry.Store, filter map[string]bool, namespace string, max int) {
+func dispatch(ctx context.Context, k8s client.Client, agg *federation.Aggregator, lockMgr adapter.RunLock, store *registry.Store, filter map[string]bool, namespace string, max int) {
 	tasks := agg.ReadyAcrossProjects(max * 2)
 	created := 0
 	for _, task := range tasks {
@@ -193,6 +194,31 @@ func resolveWorkstream(labels []string) string {
 		}
 	}
 	return "builder"
+}
+
+func envDuration(key string, def time.Duration) time.Duration {
+	if s := os.Getenv(key); s != "" {
+		if d, err := time.ParseDuration(s); err == nil {
+			return d
+		}
+	}
+	return def
+}
+
+func envInt(key string, def int) int {
+	if s := os.Getenv(key); s != "" {
+		if n, err := strconv.Atoi(s); err == nil {
+			return n
+		}
+	}
+	return def
+}
+
+func envStr(key, def string) string {
+	if s := os.Getenv(key); s != "" {
+		return s
+	}
+	return def
 }
 
 func getKubeConfig() (*rest.Config, error) {

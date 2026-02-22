@@ -5,7 +5,11 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"sdp_dev/internal/safeid"
 )
+
+var _ RunLock = (*RunLockManager)(nil)
 
 // RunLockManager provides idempotent issue-run locking and duplicate suppression.
 type RunLockManager struct {
@@ -27,6 +31,9 @@ func NewRunLockManager(lockDir string) *RunLockManager {
 
 // TryAcquire attempts to acquire a lock for the issue. Returns (runID, true) if acquired.
 func (m *RunLockManager) TryAcquire(issueID, runID string) (string, bool, error) {
+	if err := safeid.ValidateIssueID(issueID); err != nil {
+		return "", false, nil
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if existing, ok := m.active[issueID]; ok {
@@ -48,6 +55,9 @@ func (m *RunLockManager) TryAcquire(issueID, runID string) (string, bool, error)
 
 // Release releases the lock for the issue.
 func (m *RunLockManager) Release(issueID string) error {
+	if err := safeid.ValidateIssueID(issueID); err != nil {
+		return nil
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.active, issueID)

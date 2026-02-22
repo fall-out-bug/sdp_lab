@@ -46,6 +46,9 @@ jobs:
       - name: Validate adapter manifests
         run: kubectl kustomize deploy/k8s/adapter/ > /dev/null
 
+      - name: Validate workers manifests
+        run: kubectl kustomize deploy/k8s/workers/ > /dev/null
+
   image-build:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
@@ -117,4 +120,13 @@ jobs:
           IMAGE="ghcr.io/${{ github.repository_owner }}/sdp-dev-adapter-controller:${IMAGE_TAG}"
           echo "Building ${IMAGE}"
           docker build -t "${IMAGE}" -f deploy/images/adapter-controller/Dockerfile .
+          docker push "${IMAGE}"
+
+      - name: Build and push feature-orchestrator
+        env:
+          IMAGE_TAG: git-${{ github.sha }}
+        run: |
+          IMAGE="ghcr.io/${{ github.repository_owner }}/sdp-dev-feature-orchestrator:${IMAGE_TAG}"
+          echo "Building ${IMAGE}"
+          docker build -t "${IMAGE}" -f deploy/images/feature-orchestrator/Dockerfile .
           docker push "${IMAGE}"

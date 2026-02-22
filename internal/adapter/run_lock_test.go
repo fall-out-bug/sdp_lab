@@ -44,3 +44,22 @@ func TestRunLockManager_TryAcquire_Release(t *testing.T) {
 		t.Error("expected issue-1 unlocked after release")
 	}
 }
+
+func TestRunLockManager_TryAcquire_InvalidIssueID(t *testing.T) {
+	m := NewRunLockManager(t.TempDir())
+	_, ok, err := m.TryAcquire("../../../etc/passwd", "run-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ok {
+		t.Error("expected invalid issueID to be rejected")
+	}
+}
+
+func TestRunLockManager_Release_InvalidIssueID(t *testing.T) {
+	m := NewRunLockManager(t.TempDir())
+	err := m.Release("../../../etc/passwd")
+	if err != nil {
+		t.Fatalf("Release with invalid ID should return nil, got %v", err)
+	}
+}
