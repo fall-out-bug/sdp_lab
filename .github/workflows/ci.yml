@@ -43,6 +43,9 @@ jobs:
       - name: Validate control plane manifests
         run: kubectl kustomize deploy/k8s/control/ > /dev/null
 
+      - name: Validate adapter manifests
+        run: kubectl kustomize deploy/k8s/adapter/ > /dev/null
+
   image-build:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
@@ -96,4 +99,13 @@ jobs:
           IMAGE="ghcr.io/${{ github.repository_owner }}/sdp-dev-swarm-orchestrator:${IMAGE_TAG}"
           echo "Building ${IMAGE}"
           docker build -t "${IMAGE}" -f deploy/images/swarm-orchestrator/Dockerfile .
+          docker push "${IMAGE}"
+
+      - name: Build and push adapter-controller
+        env:
+          IMAGE_TAG: git-${{ github.sha }}
+        run: |
+          IMAGE="ghcr.io/${{ github.repository_owner }}/sdp-dev-adapter-controller:${IMAGE_TAG}"
+          echo "Building ${IMAGE}"
+          docker build -t "${IMAGE}" -f deploy/images/adapter-controller/Dockerfile .
           docker push "${IMAGE}"

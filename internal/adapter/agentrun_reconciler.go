@@ -9,7 +9,6 @@ import (
 	"sdp_dev/internal/beads"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -83,8 +82,8 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return r.setFailed(ctx, run, fmt.Sprintf("translate: %v", err))
 		}
 
-		analystTask := r.createTaskFromIntent(run, "analyst", intent)
-		coderTask := r.createTaskFromIntent(run, "coder", intent)
+		analystTask := createTaskFromIntent(run, "analyst", intent)
+		coderTask := createTaskFromIntent(run, "coder", intent)
 
 		if err := r.Create(ctx, analystTask); err != nil {
 			return ctrl.Result{}, fmt.Errorf("create analyst task: %w", err)
@@ -101,33 +100,7 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		log.Info("created worker tasks", "analyst", analystTask.Name, "coder", coderTask.Name)
 
 	case "Running":
-		workerNames := strings.Split(run.Status.WorkerTask, ",")
-		if len(workerNames) < 2 {
-			return ctrl.Result{}, nil
-		}
-
-		allTerminal := true
-		anyFailed := false
-		for _, name := range workerNames {
-			name = strings.TrimSpace(name)
-			if name == "" {
-				continue
-			}
-			task := &v1alpha1.Task{}
-			if err := r.Get(ctx, client.ObjectKey{Namespace: run.Namespace, Name: name}, task); err != nil {
-				allTerminal = false
-				break
-			}
-			p := task.Status.Phase
-			if p != v1alpha1.TaskPhaseSucceeded && p != v1alpha1.TaskPhaseCompleted && p != v1alpha1.TaskPhaseFailed {
-				allTerminal = false
-				break
-			}
-			if p == v1alpha1.TaskPhaseFailed {
-				anyFailed = true
-			}
-		}
-
+		allTerminal, anyFailed := workerTasksTerminal(ctx, r.Client, run)
 		if allTerminal {
 			if anyFailed {
 				return r.setFailed(ctx, run, "worker task failed")
@@ -182,44 +155,6 @@ func (r *AgentRunReconciler) setFailed(ctx context.Context, run *v1alpha1.AgentR
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
-}
-
-func (r *AgentRunReconciler) createTaskFromIntent(run *v1alpha1.AgentRun, role string, intent *TaskIntent) *v1alpha1.Task {
-	name := run.Name + "-" + role
-	labels := map[string]string{
-		"beads.issue": intent.IssueID,
-		"sdp.run_id":  intent.RunID,
-		"agentrun":    run.Name,
-		"role":        role,
-	}
-	for k, v := range intent.Labels {
-		labels[k] = v
-	}
-	labels["role"] = role
-
-	return &v1alpha1.Task{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: run.Namespace,
-			Labels:    labels,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: run.APIVersion,
-					Kind:       run.Kind,
-					Name:       run.Name,
-					UID:        run.UID,
-				},
-			},
-		},
-		Spec: v1alpha1.TaskSpec{
-			Prompt:    intent.Prompt,
-			Objective: intent.Objective,
-			AgentRef:  v1alpha1.AgentRef{Model: run.Spec.Model},
-		},
-		Status: v1alpha1.TaskStatus{
-			Phase: v1alpha1.TaskPhasePending,
-		},
-	}
 }
 
 // SetupWithManager registers the reconciler with the Manager.

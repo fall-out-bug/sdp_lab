@@ -49,7 +49,8 @@ func main() {
 	}
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme,
+		Scheme:                 scheme,
+		HealthProbeBindAddress: ":8081",
 	})
 	if err != nil {
 		setupLog.Error(err, "failed to create manager")
@@ -101,14 +102,16 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
+	done := make(chan error, 1)
 	go func() {
-		if err := mgr.Start(ctx); err != nil {
-			ctrl.Log.WithName("main").Error(err, "manager exited")
-		}
+		done <- mgr.Start(ctx)
 	}()
 
 	<-ctx.Done()
 	setupLog.Info("shutting down")
+	if err := <-done; err != nil && err != context.Canceled {
+		setupLog.Error(err, "manager shutdown error")
+	}
 }
 
 func getKubeConfig() (*rest.Config, error) {

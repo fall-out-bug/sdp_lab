@@ -13,10 +13,23 @@ spec:
       labels:
         app: adapter-controller
     spec:
+      terminationGracePeriodSeconds: 30
       serviceAccountName: adapter-controller
       containers:
         - name: controller
-          image: sdp/adapter-controller:latest
+          image: ghcr.io/fall-out-bug/sdp-dev-adapter-controller:latest
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 2
+            periodSeconds: 5
           env:
             - name: NATS_URL
               value: "nats://nats:4222"
