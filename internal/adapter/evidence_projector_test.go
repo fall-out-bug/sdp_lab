@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"sdp_dev/internal/evidence"
 )
 
 func TestNewEvidenceProjector(t *testing.T) {
@@ -40,5 +42,12 @@ func TestEvidenceProjector_ProjectFromIntent(t *testing.T) {
 	}
 	if _, err := os.Stat(path); err != nil {
 		t.Fatal(err)
+	}
+	res, err := evidence.ValidateStrictFile(path, false)
+	if err != nil {
+		t.Fatalf("ValidateStrictFile: %v", err)
+	}
+	if !res.OK {
+		t.Errorf("projected evidence invalid: %s", res.Reason)
 	}
 }

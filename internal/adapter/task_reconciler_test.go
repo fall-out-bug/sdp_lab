@@ -2,10 +2,12 @@ package adapter
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"sdp_dev/api/v1alpha1"
 	"sdp_dev/internal/beads"
+	"sdp_dev/internal/evidence"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -186,6 +188,15 @@ func TestTaskReconciler_Reconcile_Succeeded(t *testing.T) {
 	}
 	if result.Requeue {
 		t.Error("expected no requeue")
+	}
+
+	evPath := filepath.Join(dir, ".sdp", "evidence", "i1.json")
+	res, err := evidence.ValidateStrictFile(evPath, false)
+	if err != nil {
+		t.Fatalf("evidence file missing or unreadable: %v", err)
+	}
+	if !res.OK {
+		t.Errorf("evidence invalid: %s", res.Reason)
 	}
 }
 

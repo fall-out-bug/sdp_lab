@@ -8,6 +8,7 @@ import (
 	"sdp_dev/api/v1alpha1"
 	"sdp_dev/internal/agent"
 	"sdp_dev/internal/beads"
+	"sdp_dev/internal/evidence"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -114,8 +115,19 @@ func (r *TaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		if r.EvidenceProjector != nil {
 			intent := taskToIntent(task, runID)
 			roleOutputs := map[string]string{"coder": "placeholder"}
-			if _, err := r.EvidenceProjector.ProjectFromIntent(intent, roleOutputs, runID); err != nil {
+			evPath, err := r.EvidenceProjector.ProjectFromIntent(intent, roleOutputs, runID)
+			if err != nil {
 				log.Error(err, "evidence projection failed", "issue", issueID)
+				return ctrl.Result{}, nil
+			}
+			res, err := evidence.ValidateStrictFile(evPath, false)
+			if err != nil {
+				log.Error(err, "evidence validation failed", "issue", issueID)
+				return ctrl.Result{}, nil
+			}
+			if !res.OK {
+				log.Info("evidence invalid, blocking FSM", "issue", issueID, "reason", res.Reason)
+				return ctrl.Result{}, nil
 			}
 		}
 		if err := runBeadsFSM(r.WorkDir, issueID, "review"); err != nil {
