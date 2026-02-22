@@ -75,13 +75,15 @@ func runQualityPipeline(ctx context.Context, b bus.Bus, task federation.Federate
 	issueID := task.Issue.ID
 	branch := "worker/" + issueID
 
-	// 0. Ensure we're on the worker branch (create if needed)
-	checkoutCmd := exec.Command("git", "checkout", "-b", branch)
-	checkoutCmd.Dir = workDir
-	_ = checkoutCmd.Run() // ignore error if branch exists
-	checkoutCmd2 := exec.Command("git", "checkout", branch)
-	checkoutCmd2.Dir = workDir
-	_ = checkoutCmd2.Run()
+	// 0. Ensure we're on the worker branch: create if missing, then checkout
+	// (git checkout -b fails when branch exists; git checkout branch then succeeds)
+	createBranch := exec.Command("git", "checkout", "-b", branch)
+	createBranch.Dir = workDir
+	if err := createBranch.Run(); err != nil {
+		checkoutBranch := exec.Command("git", "checkout", branch)
+		checkoutBranch.Dir = workDir
+		_ = checkoutBranch.Run()
+	}
 
 	// 1. Boundary validation (already done in Execute; reset if violation)
 	if execRes.BoundaryViolation != nil {

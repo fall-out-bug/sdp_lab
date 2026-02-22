@@ -44,7 +44,11 @@ jobs:
         run: kubectl kustomize deploy/k8s/control/ > /dev/null
 
       - name: Validate adapter manifests
-        run: kubectl kustomize deploy/k8s/adapter/ > /dev/null
+        run: |
+          kubectl kustomize deploy/k8s/adapter/ > /dev/null
+          kubectl kustomize deploy/k8s/adapter/overlays/dev > /dev/null
+          kubectl kustomize deploy/k8s/adapter/overlays/staging > /dev/null
+          kubectl kustomize deploy/k8s/adapter/overlays/prod > /dev/null
 
       - name: Validate workers manifests
         run: kubectl kustomize deploy/k8s/workers/ > /dev/null
@@ -129,4 +133,22 @@ jobs:
           IMAGE="ghcr.io/${{ github.repository_owner }}/sdp-dev-feature-orchestrator:${IMAGE_TAG}"
           echo "Building ${IMAGE}"
           docker build -t "${IMAGE}" -f deploy/images/feature-orchestrator/Dockerfile .
+          docker push "${IMAGE}"
+
+      - name: Build and push telemetry-analyzer
+        env:
+          IMAGE_TAG: git-${{ github.sha }}
+        run: |
+          IMAGE="ghcr.io/${{ github.repository_owner }}/sdp-dev-telemetry-analyzer:${IMAGE_TAG}"
+          echo "Building ${IMAGE}"
+          docker build -t "${IMAGE}" -f deploy/images/telemetry-analyzer/Dockerfile .
+          docker push "${IMAGE}"
+
+      - name: Build and push cicd-agent
+        env:
+          IMAGE_TAG: git-${{ github.sha }}
+        run: |
+          IMAGE="ghcr.io/${{ github.repository_owner }}/sdp-dev-cicd-agent:${IMAGE_TAG}"
+          echo "Building ${IMAGE}"
+          docker build -t "${IMAGE}" -f deploy/images/cicd-agent/Dockerfile .
           docker push "${IMAGE}"

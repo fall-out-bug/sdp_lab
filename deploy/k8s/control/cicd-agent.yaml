@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cicd-agent
+  namespace: sdp-control
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cicd-agent
+  template:
+    metadata:
+      labels:
+        app: cicd-agent
+    spec:
+      containers:
+        - name: agent
+          image: sdp/cicd-agent:latest
+          env:
+            - name: NATS_URL
+              value: "nats://nats:4222"
+            - name: GHCR_REGISTRY
+              value: "ghcr.io/fall-out-bug"
+            - name: CICD_WORK_DIR
+              value: "/workspace"
+            - name: KUBECONFIG
+              value: "/etc/deploy/kubeconfig"
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: docker-socket
+              mountPath: /var/run/docker.sock
+            - name: deploy-config
+              mountPath: /etc/deploy
+              readOnly: true
+      volumes:
+        - name: workspace
+          emptyDir: {}
+        - name: docker-socket
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
+        - name: deploy-config
+          secret:
+            secretName: cicd-deploy-config
+            optional: true

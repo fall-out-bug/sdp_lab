@@ -13,6 +13,15 @@ Verify the full E2E flow: NATS -> Bridge -> swarm-orchestrator (or feature-orche
 - Project workspace cloned in swarm-workspaces PVC or opencode-agent init container
 - Beads initialized in workspace (`.beads/issues.jsonl`)
 
+## PATH requirements (quality pipeline)
+
+The post-dispatch quality pipeline invokes `pr-gate` and `beads-fsm` via `exec` (see `internal/quality`: `RunPRGate`, `TransitionFSM`). In Docker/K8s images these binaries are typically installed or available in PATH. For **local runs** (e.g. `go run ./cmd/swarm-orchestrator`), ensure either:
+
+- `pr-gate` and `beads-fsm` are installed and on PATH, or
+- Run from repo root and use `go run ./cmd/pr-gate` / `go run ./cmd/beads-fsm` equivalents if your workflow wraps them.
+
+Without them, `RunPRGate` / `TransitionFSM` will return an error (e.g. "executable file not found").
+
 ## Deployment Steps
 
 1. **Apply control plane** (includes swarm-orchestrator with ServiceAccount):
@@ -91,6 +100,43 @@ Verify the full E2E flow: NATS -> Bridge -> swarm-orchestrator (or feature-orche
 |----------|-------------|
 | SDP_ISSUE | Beads issue ID for the current run (e.g. `sdp_dev-4pg`). Set by swarm-orchestrator or adapter when invoking the agent. |
 | Model / GLM | Default model is from policy (e.g. `glm-4.7`, `glm-5`). Override via issue labels `model:<id>`; feature-orchestrator enforces policy allowlist. |
+
+## Adapter overlays (WS-018-05)
+
+Adapter manifests use base + overlays:
+
+| Overlay | Storage | Use case |
+|---------|---------|----------|
+| `deploy/k8s/adapter/overlays/dev` | emptyDir | E2E, local dev |
+| `deploy/k8s/adapter/overlays/staging` | PVC (5Gi) | Staging |
+| `deploy/k8s/adapter/overlays/prod` | PVC (20Gi, storageClass) | Production |
+
+```bash
+# E2E / dev (default)
+kubectl kustomize deploy/k8s/adapter/overlays/dev | kubectl apply -f -
+
+# Staging (PVC)
+kubectl kustomize deploy/k8s/adapter/overlays/staging | kubectl apply -f -
+
+# Prod (PVC + storageClass override in adapter-workspaces-pvc.yaml)
+kubectl kustomize deploy/k8s/adapter/overlays/prod | kubectl apply -f -
+```
+
+Root `deploy/k8s/adapter` defaults to dev overlay.
+
+## AgentRun E2E (WS-002-03)
+
+Minimal E2E for adapter-controller + AgentRun flow (no NATS/Beads required):
+
+```bash
+# Build adapter image and run E2E
+./scripts/e2e_agentrun_minikube.sh --build-image
+
+# Or if adapter already deployed:
+./scripts/e2e_agentrun_minikube.sh --skip-deploy
+```
+
+Uses `deploy/k8s/adapter/overlays/dev`. Validates: AgentRun → 2 Tasks → patch to Succeeded → AgentRun Succeeded.
 
 ## Troubleshooting
 

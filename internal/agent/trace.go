@@ -34,7 +34,10 @@ type TraceEvent struct {
 	PRURL   string `json:"pr_url,omitempty"`
 }
 
-// NewTraceEmitter creates a TraceEmitter.
+// NewTraceEmitter creates a TraceEmitter. b must be non-nil: EmitPhase and
+// Publish calls will panic if b is nil. Callers (e.g. orchestrator) always pass
+// a connected bus; adapter-controller may pass nil when NATS is unavailable
+// and does not call EmitPhase on that emitter.
 func NewTraceEmitter(b bus.Bus, projectID, runID, agentID, role, workDir string) *TraceEmitter {
 	runPath := filepath.Join(workDir, ".sdp", "runs", runID+".json")
 	return &TraceEmitter{
@@ -58,7 +61,11 @@ func (t *TraceEmitter) BeginTrace(issueID string) error {
 }
 
 // EmitPhase records a phase transition and publishes to NATS.
+// No-op if bus is nil (avoids panic when TraceEmitter is used without NATS).
 func (t *TraceEmitter) EmitPhase(phase, state, message string) error {
+	if t.bus == nil {
+		return nil
+	}
 	evt := TraceEvent{
 		At:      time.Now().UTC().Format(time.RFC3339Nano),
 		Phase:   phase,
@@ -127,6 +134,25 @@ func (t *TraceEmitter) Events() []TraceEvent {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return append([]TraceEvent(nil), t.events...)
+}
+
+// EmitHeartbeatIfDue emits a heartbeat phase only if the last heartbeat was >= interval ago.
+// Use during Running phase to satisfy "heartbeat every 60s" requirement.
+func (t *TraceEmitter) EmitHeartbeatIfDue(interval time.Duration) error {
+	t.mu.Lock()
+	var lastAt time.Time
+	for i := len(t.events) - 1; i >= 0; i-- {
+		if t.events[i].Phase == "heartbeat" {
+			lastAt, _ = time.Parse(time.RFC3339Nano, t.events[i].At)
+			break
+		}
+	}
+	t.mu.Unlock()
+
+	if lastAt.IsZero() || time.Since(lastAt) >= interval {
+		return t.EmitPhase("heartbeat", "ok", "alive")
+	}
+	return nil
 }
 
 func mustMarshal(v any) []byte {

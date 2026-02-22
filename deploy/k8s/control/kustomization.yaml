@@ -9,6 +9,8 @@ images:
     newTag: latest
   - name: sdp/telemetry-analyzer
     newTag: latest
+  - name: sdp/cicd-agent
+    newTag: latest
   - name: sdp/swarm-orchestrator
     newTag: latest
   - name: sdp/feature-orchestrator
@@ -22,6 +24,7 @@ resources:
   - intake-gateway.yaml
   - registry-agent.yaml
   - telemetry-analyzer.yaml
+  - cicd-agent.yaml
   - swarm-orchestrator.yaml
   - feature-orchestrator.yaml
   - model-policy.yaml

@@ -95,6 +95,7 @@ func SignProvenance(cfg ProvenanceConfig) (bus.Envelope, error) {
 }
 
 // RunPRGate runs `pr-gate --prepublish --issue <issueID>` in workDir.
+// Requires pr-gate to be in PATH (e.g. installed or go run ./cmd/pr-gate from repo root).
 func RunPRGate(issueID, workDir string) error {
 	cmd := exec.Command("pr-gate", "--prepublish", "--issue", issueID)
 	cmd.Dir = workDir
@@ -105,6 +106,7 @@ func RunPRGate(issueID, workDir string) error {
 }
 
 // TransitionFSM runs `beads-fsm --issue <issueID> --to <targetState> --apply` in workDir.
+// Requires beads-fsm to be in PATH (e.g. installed or go run ./cmd/beads-fsm from repo root).
 func TransitionFSM(issueID, targetState, workDir string) error {
 	cmd := exec.Command("beads-fsm", "--issue", issueID, "--to", targetState, "--apply")
 	cmd.Dir = workDir
