@@ -101,7 +101,7 @@ func main() {
 	filter := parseProjectFilter(*projectFilter)
 
 	go orchestrator.MonitorAgentRunTimeouts(ctx, k8s, b, *namespace, *pollInterval)
-	go func() { _ = orchestrator.ServeMetrics(ctx, ":8080") }()
+	go func() { _ = observability.ServeMetrics(ctx, ":8080") }()
 
 	log.Printf("feature-orchestrator running (poll=%v, max=%d)", *pollInterval, *maxConcurrent)
 	ticker := time.NewTicker(*pollInterval)
@@ -150,6 +150,7 @@ type DispatchConfig struct {
 }
 
 func dispatch(ctx context.Context, cfg DispatchConfig) {
+	observability.SetDispatchQueueDepth(cfg.Agg.QueueDepth())
 	active, err := orchestrator.CountActiveAgentRuns(ctx, cfg.K8s, cfg.Namespace)
 	if err != nil {
 		log.Printf("count active AgentRuns: %v", err)
@@ -187,6 +188,8 @@ func dispatch(ctx context.Context, cfg DispatchConfig) {
 		}
 		created++
 		orchestrator.IncDispatched()
+		observability.IncAgentRuns(task.ProjectID, "dispatched", run.Spec.Model)
+		observability.SetDispatchQueueDepth(cfg.Agg.QueueDepth())
 		log.Printf("created AgentRun %s for %s", run.Name, task.Issue.ID)
 		if cfg.Bus != nil {
 			pl, _ := json.Marshal(map[string]string{"agent_run": run.Name})

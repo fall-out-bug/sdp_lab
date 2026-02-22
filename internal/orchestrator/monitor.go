@@ -9,6 +9,7 @@ import (
 
 	"sdp_dev/api/v1alpha1"
 	"sdp_dev/internal/bus"
+	"sdp_dev/internal/observability"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -62,14 +63,19 @@ func escalateTimedOut(ctx context.Context, k8s client.Client, b bus.Bus, namespa
 				log.Printf("update AgentRun %s to Escalated: %v", run.Name, err)
 				continue
 			}
+			proj := ""
+			if run.Labels != nil {
+				proj = run.Labels["project"]
+			}
+			model := run.Spec.Model
+			if model == "" {
+				model = "glm-4.7"
+			}
+			observability.IncAgentRuns(proj, "escalated", model)
 			if b != nil {
 				pl, _ := json.Marshal(map[string]string{
 					"agent_run": run.Name, "issue_id": run.Spec.IssueID, "reason": "timeout",
 				})
-				proj := ""
-				if run.Labels != nil {
-					proj = run.Labels["project"]
-				}
 				_ = b.Publish("sdp.lifecycle.agentrun.escalated", bus.Envelope{
 					IssueID: run.Spec.IssueID, ProjectID: proj, Phase: "escalated",
 					Payload: pl,

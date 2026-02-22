@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"sdp_dev/api/v1alpha1"
 	"sdp_dev/internal/beads"
 	"sdp_dev/internal/bus"
+	"sdp_dev/internal/observability"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -125,6 +127,7 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if err := r.Status().Update(ctx, run); err != nil {
 			return ctrl.Result{}, err
 		}
+		r.recordAgentRunComplete(run, "Succeeded")
 		r.closeBeadsOnSuccess(ctx, run.Spec.IssueID, "AgentRun completed")
 		r.publishLifecycle("sdp.lifecycle.agentrun.completed", run.Spec.IssueID, run.Labels["project"], "completed")
 		log.Info("reviewer skipped (minimal), run succeeded")
@@ -142,6 +145,7 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		p := task.Status.Phase
 		if p == v1alpha1.TaskPhaseSucceeded || p == v1alpha1.TaskPhaseCompleted {
 			run.Status.Phase = "Succeeded"
+			r.recordAgentRunComplete(run, "Succeeded")
 			r.closeBeadsOnSuccess(ctx, run.Spec.IssueID, "AgentRun completed")
 			r.publishLifecycle("sdp.lifecycle.agentrun.completed", run.Spec.IssueID, run.Labels["project"], "completed")
 		} else if p == v1alpha1.TaskPhaseFailed {
@@ -163,12 +167,29 @@ func (r *AgentRunReconciler) setFailed(ctx context.Context, run *v1alpha1.AgentR
 	if err := r.Status().Update(ctx, run); err != nil {
 		return ctrl.Result{}, err
 	}
+	r.recordAgentRunComplete(run, "Failed")
 	proj := ""
 	if run.Labels != nil {
 		proj = run.Labels["project"]
 	}
 	r.publishLifecycle("sdp.lifecycle.agentrun.failed", run.Spec.IssueID, proj, "failed")
 	return ctrl.Result{}, nil
+}
+
+func (r *AgentRunReconciler) recordAgentRunComplete(run *v1alpha1.AgentRun, status string) {
+	proj := ""
+	if run.Labels != nil {
+		proj = run.Labels["project"]
+	}
+	model := run.Spec.Model
+	if model == "" {
+		model = "glm-4.7"
+	}
+	observability.IncAgentRuns(proj, status, model)
+	if !run.CreationTimestamp.IsZero() {
+		d := time.Since(run.CreationTimestamp.Time)
+		observability.ObserveAgentRunDuration(proj, "agentrun", d)
+	}
 }
 
 // closeBeadsOnSuccess closes the beads issue when AgentRun succeeds.

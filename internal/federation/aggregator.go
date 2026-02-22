@@ -112,3 +112,10 @@ func (a *Aggregator) ReadyAcrossProjects(limit int) []FederatedTask {
 	copy(out, a.tasks[:limit])
 	return out
 }
+
+// QueueDepth returns the number of tasks in the dispatch queue.
+func (a *Aggregator) QueueDepth() int {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return len(a.tasks)
+}
