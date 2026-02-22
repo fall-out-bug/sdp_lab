@@ -1,12 +1,22 @@
 package main
 
 import (
+	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"sdp_dev/api/v1alpha1"
+	"sdp_dev/internal/adapter"
 	"sdp_dev/internal/beads"
 	"sdp_dev/internal/federation"
 	"sdp_dev/internal/registry"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestResolveModel(t *testing.T) {
@@ -111,5 +121,70 @@ func TestDispatchConfig(t *testing.T) {
 	}
 	if cfg.Namespace != "sdp-workers" || cfg.Max != 3 || !cfg.Filter["p1"] {
 		t.Errorf("DispatchConfig: %+v", cfg)
+	}
+}
+
+func TestAgentRunName(t *testing.T) {
+	tests := []struct {
+		projectID, issueID string
+		wantPrefix          string
+		maxLen              int
+	}{
+		{"p1", "sdp_dev-4pg", "ar-p1-sdp_dev-4pg", 63},
+		{"P1", "ABC.1", "ar-p1-abc-1", 63},
+		{"proj", "x", "ar-proj-x", 63},
+	}
+	for _, tt := range tests {
+		got := agentRunName(tt.projectID, tt.issueID)
+		if !strings.HasPrefix(got, "ar-") {
+			t.Errorf("agentRunName(%q, %q) = %q, want prefix ar-", tt.projectID, tt.issueID, got)
+		}
+		if len(got) > tt.maxLen {
+			t.Errorf("agentRunName(%q, %q) = %q, length %d > %d", tt.projectID, tt.issueID, got, len(got), tt.maxLen)
+		}
+		for _, r := range got {
+			if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-') {
+				t.Errorf("agentRunName(%q, %q) = %q has invalid rune %q", tt.projectID, tt.issueID, got, r)
+			}
+		}
+	}
+	// Long name is truncated to 63
+	long := agentRunName("project", strings.Repeat("a", 70))
+	if len(long) != 63 {
+		t.Errorf("long name: len = %d, want 63", len(long))
+	}
+}
+
+func TestDispatch_noTasks(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	regPath := filepath.Join(dir, "reg.yaml")
+	_ = os.WriteFile(regPath, []byte("projects:\n  - id: p1\n    repo_url: .\n    repo_branch: main\n"), 0o644)
+	store := registry.NewStore(registry.StoreConfig{RegistryPath: regPath})
+	_ = store.Load()
+	ws := federation.NewWorkspaceManager(dir)
+	agg := federation.NewAggregator(nil, store, ws)
+	scheme := runtime.NewScheme()
+	_ = v1alpha1.AddToScheme(scheme)
+	_ = clientgoscheme.AddToScheme(scheme)
+	k8s := fake.NewClientBuilder().WithScheme(scheme).Build()
+	lockMgr := adapter.NewRunLockManager(filepath.Join(dir, "locks"))
+
+	dispatch(ctx, DispatchConfig{
+		K8s:       k8s,
+		Agg:       agg,
+		LockMgr:   lockMgr,
+		Store:     store,
+		Filter:    nil,
+		Namespace: "sdp-workers",
+		Max:       2,
+	})
+
+	var list v1alpha1.AgentRunList
+	if err := k8s.List(ctx, &list, client.InNamespace("sdp-workers")); err != nil {
+		t.Fatalf("list AgentRuns: %v", err)
+	}
+	if len(list.Items) != 0 {
+		t.Errorf("expected 0 AgentRuns when agg has no tasks, got %d", len(list.Items))
 	}
 }

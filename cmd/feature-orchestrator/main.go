@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"log"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"sdp_dev/internal/bus"
 	"sdp_dev/internal/federation"
 	"sdp_dev/internal/observability"
+	"sdp_dev/internal/orchestrator"
 	"sdp_dev/internal/registry"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -97,6 +99,9 @@ func main() {
 	lockMgr := adapter.NewLeaseLockManager(k8s, *namespace)
 	filter := parseProjectFilter(*projectFilter)
 
+	go orchestrator.MonitorAgentRunTimeouts(ctx, k8s, b, *namespace, *pollInterval)
+	go func() { _ = orchestrator.ServeMetrics(ctx, ":8080") }()
+
 	log.Printf("feature-orchestrator running (poll=%v, max=%d)", *pollInterval, *maxConcurrent)
 	ticker := time.NewTicker(*pollInterval)
 	defer ticker.Stop()
@@ -108,6 +113,7 @@ func main() {
 		case <-ticker.C:
 			dispatch(ctx, DispatchConfig{
 				K8s:       k8s,
+				Bus:       b,
 				Agg:       agg,
 				LockMgr:   lockMgr,
 				Store:     store,
@@ -133,6 +139,7 @@ func parseProjectFilter(s string) map[string]bool {
 // DispatchConfig holds parameters for the dispatch loop.
 type DispatchConfig struct {
 	K8s       client.Client
+	Bus       bus.Bus
 	Agg       *federation.Aggregator
 	LockMgr   adapter.RunLock
 	Store     *registry.Store
@@ -142,10 +149,20 @@ type DispatchConfig struct {
 }
 
 func dispatch(ctx context.Context, cfg DispatchConfig) {
-	tasks := cfg.Agg.ReadyAcrossProjects(cfg.Max * 2)
+	active, err := orchestrator.CountActiveAgentRuns(ctx, cfg.K8s, cfg.Namespace)
+	if err != nil {
+		log.Printf("count active AgentRuns: %v", err)
+		return
+	}
+	orchestrator.SetActiveRuns(active)
+	if active >= cfg.Max {
+		return
+	}
+	slots := cfg.Max - active
+	tasks := cfg.Agg.ReadyAcrossProjects(slots * 2)
 	created := 0
 	for _, task := range tasks {
-		if created >= cfg.Max {
+		if created >= slots {
 			break
 		}
 		if len(cfg.Filter) > 0 && !cfg.Filter[task.ProjectID] {
@@ -168,8 +185,35 @@ func dispatch(ctx context.Context, cfg DispatchConfig) {
 			continue
 		}
 		created++
+		orchestrator.IncDispatched()
 		log.Printf("created AgentRun %s for %s", run.Name, task.Issue.ID)
+		if cfg.Bus != nil {
+			pl, _ := json.Marshal(map[string]string{"agent_run": run.Name})
+			_ = cfg.Bus.Publish("sdp.lifecycle.agentrun.dispatched", bus.Envelope{
+				IssueID: task.Issue.ID, ProjectID: task.ProjectID, Phase: "dispatched",
+				Payload: pl,
+			})
+		}
 	}
+}
+
+// agentRunName returns a DNS-1123 compliant name for the AgentRun (max 63 chars, lowercase, alphanumeric, hyphens).
+func agentRunName(projectID, issueID string) string {
+	s := strings.ToLower(projectID + "-" + strings.ReplaceAll(issueID, ".", "-"))
+	s = strings.ReplaceAll(s, "_", "-")
+	var b strings.Builder
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			b.WriteRune(r)
+		}
+	}
+	s = b.String()
+	const maxLen = 63
+	const prefix = "ar-"
+	if len(prefix)+len(s) > maxLen {
+		s = s[:maxLen-len(prefix)]
+	}
+	return prefix + s
 }
 
 func buildAgentRun(task *federation.FederatedTask, proj *registry.Project, namespace string) *v1alpha1.AgentRun {
@@ -183,7 +227,7 @@ func buildAgentRun(task *federation.FederatedTask, proj *registry.Project, names
 	if baseBranch == "" {
 		baseBranch = "main"
 	}
-	name := "ar-" + task.ProjectID + "-" + strings.ReplaceAll(task.Issue.ID, ".", "-")
+	name := agentRunName(task.ProjectID, task.Issue.ID)
 	return &v1alpha1.AgentRun{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
