@@ -37,7 +37,9 @@ func init() {
 }
 
 func main() {
-	_, _ = observability.SetupTracing("feature-orchestrator")
+	if _, err := observability.SetupTracing("feature-orchestrator"); err != nil {
+		log.Printf("tracing setup: %v (continuing)", err)
+	}
 
 	natsURL := flag.String("nats", os.Getenv("NATS_URL"), "NATS server URL")
 	workspaceBase := flag.String("workspace", "/workspaces", "base dir for project workspaces")
@@ -78,7 +80,9 @@ func main() {
 	ws := federation.NewWorkspaceManager(*workspaceBase)
 	agg := federation.NewAggregator(b, store, ws)
 	go func() {
-		_ = agg.Run(ctx)
+		if err := agg.Run(ctx); err != nil && ctx.Err() == nil {
+			log.Printf("aggregator: %v", err)
+		}
 	}()
 
 	cfg, err := getKubeConfig()
@@ -102,7 +106,15 @@ func main() {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			dispatch(ctx, k8s, agg, lockMgr, store, filter, *namespace, *maxConcurrent)
+			dispatch(ctx, DispatchConfig{
+				K8s:       k8s,
+				Agg:       agg,
+				LockMgr:   lockMgr,
+				Store:     store,
+				Filter:    filter,
+				Namespace: *namespace,
+				Max:       *maxConcurrent,
+			})
 		}
 	}
 }
@@ -118,30 +130,41 @@ func parseProjectFilter(s string) map[string]bool {
 	return out
 }
 
-func dispatch(ctx context.Context, k8s client.Client, agg *federation.Aggregator, lockMgr adapter.RunLock, store *registry.Store, filter map[string]bool, namespace string, max int) {
-	tasks := agg.ReadyAcrossProjects(max * 2)
+// DispatchConfig holds parameters for the dispatch loop.
+type DispatchConfig struct {
+	K8s       client.Client
+	Agg       *federation.Aggregator
+	LockMgr   adapter.RunLock
+	Store     *registry.Store
+	Filter    map[string]bool
+	Namespace string
+	Max       int
+}
+
+func dispatch(ctx context.Context, cfg DispatchConfig) {
+	tasks := cfg.Agg.ReadyAcrossProjects(cfg.Max * 2)
 	created := 0
 	for _, task := range tasks {
-		if created >= max {
+		if created >= cfg.Max {
 			break
 		}
-		if len(filter) > 0 && !filter[task.ProjectID] {
+		if len(cfg.Filter) > 0 && !cfg.Filter[task.ProjectID] {
 			continue
 		}
 		key := task.ProjectID + ":" + task.Issue.ID
-		_, acquired, err := lockMgr.TryAcquire(task.Issue.ID, key)
+		_, acquired, err := cfg.LockMgr.TryAcquire(task.Issue.ID, key)
 		if err != nil || !acquired {
 			continue
 		}
-		proj, ok := store.Get(task.ProjectID)
+		proj, ok := cfg.Store.Get(task.ProjectID)
 		if !ok {
-			lockMgr.Release(task.Issue.ID)
+			cfg.LockMgr.Release(task.Issue.ID)
 			continue
 		}
-		run := buildAgentRun(&task, proj, namespace)
-		if err := k8s.Create(ctx, run); err != nil {
+		run := buildAgentRun(&task, proj, cfg.Namespace)
+		if err := cfg.K8s.Create(ctx, run); err != nil {
 			log.Printf("create AgentRun %s: %v", run.Name, err)
-			lockMgr.Release(task.Issue.ID)
+			cfg.LockMgr.Release(task.Issue.ID)
 			continue
 		}
 		created++

@@ -69,3 +69,14 @@ func TestBuildAgentRun(t *testing.T) {
 		t.Errorf("buildAgentRun Namespace = %q", run.Namespace)
 	}
 }
+
+func TestDispatchConfig(t *testing.T) {
+	cfg := DispatchConfig{
+		Namespace: "sdp-workers",
+		Max:       3,
+		Filter:    map[string]bool{"p1": true},
+	}
+	if cfg.Namespace != "sdp-workers" || cfg.Max != 3 || !cfg.Filter["p1"] {
+		t.Errorf("DispatchConfig: %+v", cfg)
+	}
+}
