@@ -32,6 +32,21 @@ var (
 		Name: "sdp_dispatch_queue_depth",
 		Help: "Number of tasks in dispatch queue",
 	})
+
+	modelSelectionTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "sdp_model_selection_total",
+		Help: "Model selection events by role, tier, model, and reason",
+	}, []string{"role", "tier", "model", "reason"})
+
+	llmUsageTokensTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "sdp_llm_usage_tokens_total",
+		Help: "LLM token usage by project, role, model (prompt + completion)",
+	}, []string{"project", "role", "model", "type"})
+
+	llmUsageCostUSD = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "sdp_llm_usage_cost_usd",
+		Help: "Estimated LLM cost in USD by project, role, model",
+	}, []string{"project", "role", "model"})
 )
 
 // IncAgentRuns increments sdp_agent_runs_total for the given project, status, model.
@@ -55,6 +70,41 @@ func SetEvidenceCompleteness(project string, ratio float64) {
 // SetDispatchQueueDepth sets sdp_dispatch_queue_depth.
 func SetDispatchQueueDepth(n int) {
 	dispatchQueueDepth.Set(float64(n))
+}
+
+// IncModelSelection records a model selection event (role, tier used, model, reason).
+func IncModelSelection(role, tier, model, reason string) {
+	if role == "" {
+		role = "unknown"
+	}
+	if tier == "" {
+		tier = "unknown"
+	}
+	if model == "" {
+		model = "default"
+	}
+	if reason == "" {
+		reason = "ok"
+	}
+	modelSelectionTotal.WithLabelValues(role, tier, model, reason).Inc()
+}
+
+// ObserveLLMUsage records token usage and estimated cost.
+func ObserveLLMUsage(project, role, model string, promptTokens, completionTokens int, costUSD float64) {
+	if project == "" {
+		project = "default"
+	}
+	if role == "" {
+		role = "unknown"
+	}
+	if model == "" {
+		model = "default"
+	}
+	llmUsageTokensTotal.WithLabelValues(project, role, model, "prompt").Add(float64(promptTokens))
+	llmUsageTokensTotal.WithLabelValues(project, role, model, "completion").Add(float64(completionTokens))
+	if costUSD > 0 {
+		llmUsageCostUSD.WithLabelValues(project, role, model).Add(costUSD)
+	}
 }
 
 // ServeMetrics starts HTTP server for /metrics on addr (e.g. ":8080").

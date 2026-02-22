@@ -43,6 +43,7 @@ type DecisionRequest struct {
 	IssueID        string   `json:"issue_id"`
 	Title          string   `json:"title"`
 	Lane           string   `json:"lane"`
+	Role           string   `json:"role"` // For 3-tier per-role fallback (WS-012-02)
 	PreferredModel string   `json:"preferred_model"`
 	ChangedPaths   []string `json:"changed_paths"`
 }
@@ -60,7 +61,7 @@ type DecisionResponse struct {
 
 func Decide(req DecisionRequest) DecisionResponse {
 	risk := classifyRisk(req.ChangedPaths)
-	model, reasons, escalation := chooseModel(req.PreferredModel)
+	model, reasons, escalation := chooseModel(req.PreferredModel, req.Role)
 	if risk == "critical" {
 		escalation = true
 		reasons = append(reasons, "critical-risk change requires human security gate")
@@ -73,12 +74,16 @@ func Decide(req DecisionRequest) DecisionResponse {
 	if lane == "" {
 		lane = "commit"
 	}
+	fallbackChain := ResolveFallbackSequence(model)
+	if req.Role != "" {
+		fallbackChain = ResolveFallbackSequenceFromRole(req.Role, model)
+	}
 
 	return DecisionResponse{
 		PolicyVerdict:      verdict,
 		RiskClass:          risk,
 		SelectedModel:      model,
-		FallbackChain:      ResolveFallbackSequence(model),
+		FallbackChain:      fallbackChain,
 		BranchName:         BuildBranchName(req.IssueID, req.Title),
 		EscalationRequired: escalation,
 		Reasons:            reasons,
@@ -130,29 +135,42 @@ func classifyRisk(paths []string) string {
 	return "medium"
 }
 
-func chooseModel(preferred string) (string, []string, bool) {
-	if preferred == "" {
-		return "glm-5", nil, false
+// TierForModel returns primary, fallback, or economy based on model position in chain.
+func TierForModel(chain []string, model string) string {
+	for i, m := range chain {
+		if m == model {
+			switch i {
+			case 0:
+				return "primary"
+			case 1:
+				return "fallback"
+			case 2:
+				return "economy"
+			default:
+				return "economy"
+			}
+		}
 	}
-	if _, ok := allowedModels[preferred]; ok {
-		return preferred, nil, false
-	}
-	if _, ok := allowedProviderModels[preferred]; ok {
-		return preferred, nil, false
-	}
-	return "glm-5", []string{"preferred_model '" + preferred + "' not in allowlist"}, true
+	return "unknown"
 }
 
+func chooseModel(preferred, role string) (string, []string, bool) {
+	defaultModel := DefaultModel()
+	if role != "" {
+		defaultModel = RoleDefaultModel(role)
+	}
+	if preferred == "" {
+		return defaultModel, nil, false
+	}
+	if AllowedModel(preferred) {
+		return preferred, nil, false
+	}
+	return defaultModel, []string{"preferred_model '" + preferred + "' not in allowlist"}, true
+}
+
+// AllowedModel checks if model is in allowlist. Uses config when loaded, else built-in.
 func AllowedModel(model string) bool {
-	if _, ok := allowedProviderModels[model]; ok {
-		return true
-	}
-	_, modelID := ParseProviderModel(model)
-	if modelID != "" {
-		model = modelID
-	}
-	_, ok := allowedModels[model]
-	return ok
+	return AllowedModelFromConfig(model)
 }
 
 func DefaultModel() string { return "glm-5" }

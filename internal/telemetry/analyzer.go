@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"sdp_dev/internal/llm"
+	"sdp_dev/internal/observability"
 )
 
 // Analyzer analyzes closed issues and generates backlog proposals.
@@ -126,11 +127,15 @@ func (a *Analyzer) analyzeWithLLM(ctx context.Context, summary, issueID string) 
 		return "Backlog proposal from closed issue " + issueID, nil
 	}
 	prompt := "Based on this closed task evidence, suggest ONE short backlog item (feature or task) if there is a clear follow-up. Reply with only the title, or 'none' if no follow-up.\n\n" + summary
-	msg, err := client.Chat(ctx, a.Model, []llm.OpenRouterMessage{
+	msg, result, err := client.ChatWithUsage(ctx, a.Model, []llm.OpenRouterMessage{
 		{Role: "user", Content: prompt},
 	})
 	if err != nil {
 		return "", err
+	}
+	if result != nil && (result.PromptTokens > 0 || result.CompletionTokens > 0) {
+		costUSD := estimateCostUSD(result.PromptTokens, result.CompletionTokens)
+		observability.ObserveLLMUsage("default", "telemetry-analyzer", a.Model, result.PromptTokens, result.CompletionTokens, costUSD)
 	}
 	msg = strings.TrimSpace(msg)
 	lower := strings.ToLower(msg)
@@ -161,6 +166,15 @@ func (a *Analyzer) isDuplicate(proposal, workDir string) bool {
 		}
 	}
 	return false
+}
+
+// estimateCostUSD returns rough cost in USD (placeholder: ~$0.002/1K tokens).
+func estimateCostUSD(prompt, completion int) float64 {
+	total := prompt + completion
+	if total <= 0 {
+		return 0
+	}
+	return float64(total) / 1000 * 0.002
 }
 
 func (a *Analyzer) createBeadsIssue(closedIssueID, title, workDir string) error {

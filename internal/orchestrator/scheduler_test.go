@@ -67,3 +67,26 @@ func TestScheduler_Adapter_WorkDir(t *testing.T) {
 	}
 }
 
+func TestScheduler_PickOne_PickBatch(t *testing.T) {
+	dir := t.TempDir()
+	s := NewScheduler(dir, "", []string{"autonomy"}, 2)
+	ids, err := s.PickBatch(3)
+	if err != nil {
+		t.Skipf("bd not available: %v", err)
+	}
+	if len(ids) != 0 {
+		t.Errorf("PickBatch(3) with no ready: got %v", ids)
+	}
+	one, err := s.PickOne()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if one != "" {
+		t.Errorf("PickOne with no ready: got %q", one)
+	}
+	ids0, _ := s.PickBatch(0)
+	if len(ids0) != 0 {
+		t.Errorf("PickBatch(0): got %v", ids0)
+	}
+}
+

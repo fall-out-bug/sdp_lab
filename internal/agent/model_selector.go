@@ -1,15 +1,14 @@
 package agent
 
 import (
+	"sdp_dev/internal/observability"
 	"sdp_dev/internal/policy"
 )
 
-// RoleDefaultModels maps role to default model when no override is set.
+// RoleDefaultModels is deprecated. Use policy.RoleDefaultModel(role) for config-driven lookup.
+// Kept for backward compatibility when policy config not loaded.
 var RoleDefaultModels = map[string]string{
-	"analyst":      "glm-5",
-	"coder":        "glm-4.7",
-	"reviewer":     "glm-5",
-	"retro":        "glm-5",
+	"analyst": "glm-5", "coder": "glm-4.7", "reviewer": "glm-5", "retro": "glm-5",
 	"orchestrator": "glm-5",
 }
 
@@ -20,11 +19,9 @@ type PolicyContext struct {
 }
 
 // NewPolicyContext creates a PolicyContext for the given role.
+// DefaultModel comes from policy config (roles.primary) when loaded, else RoleDefaultModels.
 func NewPolicyContext(role string) *PolicyContext {
-	model := RoleDefaultModels[role]
-	if model == "" {
-		model = policy.DefaultModel()
-	}
+	model := policy.RoleDefaultModel(role)
 	return &PolicyContext{
 		Role:         role,
 		DefaultModel: model,
@@ -37,6 +34,7 @@ func (p *PolicyContext) SelectModel(preferredModel string, changedPaths []string
 		IssueID:        "",
 		Title:          "",
 		Lane:           "commit",
+		Role:           p.Role,
 		PreferredModel: preferredModel,
 		ChangedPaths:   changedPaths,
 	}
@@ -44,6 +42,15 @@ func (p *PolicyContext) SelectModel(preferredModel string, changedPaths []string
 		req.PreferredModel = p.DefaultModel
 	}
 	decision = policy.Decide(req)
+	tier := policy.TierForModel(decision.FallbackChain, decision.SelectedModel)
+	reason := "preferred"
+	if len(decision.Reasons) > 0 {
+		reason = decision.Reasons[0]
+		if len(reason) > 32 {
+			reason = reason[:32]
+		}
+	}
+	observability.IncModelSelection(p.Role, tier, decision.SelectedModel, reason)
 	return decision.SelectedModel, decision
 }
 
