@@ -152,3 +152,25 @@ jobs:
           echo "Building ${IMAGE}"
           docker build -t "${IMAGE}" -f deploy/images/cicd-agent/Dockerfile .
           docker push "${IMAGE}"
+
+  e2e-agentrun-minikube:
+    name: E2E AgentRun (minikube)
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start minikube
+        uses: medyagh/setup-minikube@v0.0.17
+        with:
+          minikube-version: latest
+          kubernetes-version: v1.28.0
+
+      - name: Apply CRDs
+        run: |
+          kubectl apply -f deploy/k8s/crd/
+
+      - name: E2E AgentRun on minikube
+        run: ./scripts/e2e_agentrun_minikube.sh --build-image
+        env:
+          SDP_ADAPTER_NS: sdp-adapter
