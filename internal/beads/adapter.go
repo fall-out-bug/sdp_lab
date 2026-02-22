@@ -74,6 +74,23 @@ func (a *Adapter) Ready(labels []string, limit int) ([]Issue, error) {
 	return parseIssueList(out)
 }
 
+// Closed returns recently closed issues (bd list --status closed --json).
+// Labels and limit are optional; limit caps the number returned.
+func (a *Adapter) Closed(labels []string, limit int) ([]Issue, error) {
+	args := []string{"list", "--status", "closed", "--json"}
+	for _, l := range labels {
+		args = append(args, "--label", l)
+	}
+	if limit > 0 {
+		args = append(args, "--limit", fmt.Sprintf("%d", limit))
+	}
+	out, err := a.run(args...)
+	if err != nil {
+		return nil, err
+	}
+	return parseIssueList(out)
+}
+
 // Show returns a single issue by ID.
 func (a *Adapter) Show(id string) (*Issue, error) {
 	out, err := a.run("show", id, "--json")

@@ -60,6 +60,31 @@ func TestAdapter_Ready(t *testing.T) {
 	_ = issues // may be empty
 }
 
+func TestAdapter_Closed(t *testing.T) {
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".beads")); err == nil {
+			break
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Skip("no .beads found, skipping")
+			return
+		}
+		dir = parent
+	}
+
+	a := NewAdapter(dir)
+	issues, err := a.Closed(nil, 5)
+	if err != nil {
+		t.Fatalf("Closed: %v", err)
+	}
+	_ = issues // may be empty
+}
+
 func TestAdapter_Show(t *testing.T) {
 	dir, err := os.Getwd()
 	if err != nil {

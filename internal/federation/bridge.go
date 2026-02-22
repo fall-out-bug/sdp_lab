@@ -19,10 +19,12 @@ type Bridge struct {
 	bus       bus.Bus
 	store     *registry.Store
 	adapter   *beads.Adapter
-	labels    []string
-	limit     int
-	mu        sync.Mutex
-	lastReady []string
+	labels      []string
+	limit       int
+	mu          sync.Mutex
+	lastReady   []string
+	lastClosed  map[string]struct{} // IDs we already published as closed (capped)
+	maxClosed   int                 // cap for lastClosed size
 }
 
 // BridgeConfig holds options for a Bridge.
@@ -41,13 +43,15 @@ func NewBridge(cfg BridgeConfig) *Bridge {
 		cfg.Limit = 10
 	}
 	return &Bridge{
-		projectID: cfg.ProjectID,
-		workDir:   cfg.WorkDir,
-		bus:       cfg.Bus,
-		store:     cfg.Store,
-		adapter:   beads.NewAdapter(cfg.WorkDir),
-		labels:    cfg.Labels,
-		limit:     cfg.Limit,
+		projectID:  cfg.ProjectID,
+		workDir:    cfg.WorkDir,
+		bus:        cfg.Bus,
+		store:      cfg.Store,
+		adapter:    beads.NewAdapter(cfg.WorkDir),
+		labels:     cfg.Labels,
+		limit:      cfg.Limit,
+		lastClosed: make(map[string]struct{}),
+		maxClosed:  1000,
 	}
 }
 
@@ -71,6 +75,9 @@ func (b *Bridge) Run(ctx context.Context) error {
 		case <-ticker.C:
 			if err := b.pollReady(); err != nil {
 				log.Printf("bridge %s poll: %v", b.projectID, err)
+			}
+			if err := b.pollClosed(); err != nil {
+				log.Printf("bridge %s pollClosed: %v", b.projectID, err)
 			}
 		}
 	}
@@ -112,6 +119,49 @@ func (b *Bridge) pollReady() error {
 		ProjectID:     b.projectID,
 	}
 	return b.bus.Publish(subject, env)
+}
+
+func (b *Bridge) pollClosed() error {
+	issues, err := b.adapter.Closed(b.labels, b.limit)
+	if err != nil {
+		return err
+	}
+	if b.bus == nil {
+		return nil
+	}
+
+	b.mu.Lock()
+	newlyClosed := make([]string, 0, len(issues))
+	for i := range issues {
+		id := issues[i].ID
+		if _, ok := b.lastClosed[id]; !ok {
+			newlyClosed = append(newlyClosed, id)
+			b.lastClosed[id] = struct{}{}
+		}
+	}
+	// Cap lastClosed to avoid unbounded growth
+	for len(b.lastClosed) > b.maxClosed {
+		for k := range b.lastClosed {
+			delete(b.lastClosed, k)
+			break
+		}
+	}
+	b.mu.Unlock()
+
+	subject := "sdp.beads." + b.projectID + ".closed"
+	for _, id := range newlyClosed {
+		env := bus.Envelope{
+			IssueID:       id,
+			ProjectID:     b.projectID,
+			ArtifactClass: "beads",
+			Phase:         "closed",
+			Role:          "bridge",
+		}
+		if err := b.bus.Publish(subject, env); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (b *Bridge) handleIntake(env bus.Envelope) {
