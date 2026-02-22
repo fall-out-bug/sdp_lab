@@ -1,8 +1,11 @@
 # sdp_dev Makefile
-.PHONY: test test-internal coverage lint quality generate
+.PHONY: test test-internal test-scripts coverage lint quality generate
 
 test:
 	go test ./... -count=1
+
+test-scripts:
+	@./scripts/feature_to_pr_test.sh
 
 test-internal:
 	go test ./internal/... -count=1
@@ -20,7 +23,7 @@ lint:
 	golangci-lint run ./...
 	go vet ./...
 
-quality: test lint
+quality: test test-scripts lint
 	@echo "Running sdp quality..."
 	@if [ -d sdp/sdp-plugin ]; then \
 		(cd sdp/sdp-plugin && go build -o /tmp/sdp-quality ./cmd/sdp) && /tmp/sdp-quality quality all; \

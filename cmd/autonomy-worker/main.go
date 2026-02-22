@@ -13,6 +13,14 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+// run executes the autonomy-worker logic. Extracted for testability.
+func run() error {
 	startedAt := time.Now()
 	dryRun := flag.Bool("dry-run", false, "Print selected task without changes")
 	debug := flag.Bool("debug", false, "Print candidate selection diagnostics")
@@ -21,8 +29,7 @@ func main() {
 	root, err := os.Getwd()
 	if err != nil {
 		emitAutonomyObservability("", "intake", "failed", "unknown", startedAt)
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return err
 	}
 
 	loadWorkstreamConfig(root)
@@ -30,31 +37,27 @@ func main() {
 	byID, err := listIssues()
 	if err != nil {
 		emitAutonomyObservability("", "intake", "failed", "unknown", startedAt)
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return err
 	}
 	picked, err := pickCandidate(byID, *debug)
 	if err != nil {
 		emitAutonomyObservability("", "intake", "failed", "unknown", startedAt)
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return err
 	}
 	if picked == nil {
 		emitAutonomyObservability("", "plan", "blocked", "unknown", startedAt)
 		fmt.Println("No eligible autonomy tasks found")
-		return
+		return nil
 	}
 	if err := safeid.ValidateIssueID(picked.ID); err != nil {
 		emitAutonomyObservability(picked.ID, "intake", "failed", "unknown", startedAt)
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return err
 	}
 
 	model, err := modelFromLabels(picked.Labels)
 	if err != nil {
 		emitAutonomyObservability(picked.ID, "intake", "failed", "unknown", startedAt)
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
+		return err
 	}
 	decision := policy.Decide(policy.DecisionRequest{
 		IssueID:        picked.ID,
@@ -70,13 +73,12 @@ func main() {
 	if *dryRun {
 		b, _ := json.MarshalIndent(output, "", "  ")
 		fmt.Println(string(b))
-		return
+		return nil
 	}
 
 	if _, err := bdRunner("update", picked.ID, "--status", "in_progress"); err != nil {
 		emitAutonomyObservability(picked.ID, "claim", "failed", model, startedAt)
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return err
 	}
 
 	runPacket := map[string]any{
@@ -96,15 +98,13 @@ func main() {
 	runPath := filepath.Join(root, ".sdp", "runs", picked.ID+".json")
 	if err := writeJSON(runPath, runPacket); err != nil {
 		emitAutonomyObservability(picked.ID, "claim", "failed", model, startedAt)
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return err
 	}
 
 	evidencePath, err := populateEvidence(root, picked, branch, decision)
 	if err != nil {
 		emitAutonomyObservability(picked.ID, "claim", "failed", model, startedAt)
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return err
 	}
 
 	if decision.EscalationRequired {
@@ -115,11 +115,11 @@ func main() {
 	note := fmt.Sprintf("autonomy-worker(go): claimed; verdict=%s; model=%s; branch=%s; packet=%s; evidence=%s", decision.PolicyVerdict, decision.SelectedModel, branch, runPath, evidencePath)
 	if err := appendNote(picked.ID, note); err != nil {
 		emitAutonomyObservability(picked.ID, "claim", "failed", model, startedAt)
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return err
 	}
 
 	emitAutonomyObservability(picked.ID, "claim", "success", model, startedAt)
 	b, _ := json.MarshalIndent(output, "", "  ")
 	fmt.Println(string(b))
+	return nil
 }

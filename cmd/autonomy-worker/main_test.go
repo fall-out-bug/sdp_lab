@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -448,6 +450,8 @@ func TestExtractJSON(t *testing.T) {
 		{"pure json", []byte(`{"id":"x"}`), `{"id":"x"}`},
 		{"leading noise", []byte(`some output\n{"id":"x"}`), `{"id":"x"}`},
 		{"array", []byte(`[{"id":"x"}]`), `[{"id":"x"}]`},
+		{"empty", []byte(``), ``},
+		{"no json", []byte(`no brackets here`), `no brackets here`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -456,5 +460,402 @@ func TestExtractJSON(t *testing.T) {
 				t.Errorf("extractJSON() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestDepsSatisfied_DepStatusClosed(t *testing.T) {
+	byID := map[string]issue{}
+	it := issue{
+		ID:           "x",
+		Dependencies: []dep{{DependsOnID: "d1", Status: "closed"}},
+	}
+	if !depsSatisfied(it, byID) {
+		t.Error("depsSatisfied should be true when dep has Status closed")
+	}
+}
+
+func TestDepsSatisfied_DepStatusDone(t *testing.T) {
+	byID := map[string]issue{}
+	it := issue{
+		ID:           "x",
+		Dependencies: []dep{{DependsOnID: "d1", Status: "done"}},
+	}
+	if !depsSatisfied(it, byID) {
+		t.Error("depsSatisfied should be true when dep has Status done")
+	}
+}
+
+func TestDepsSatisfied_DepPointsToSelfClosed(t *testing.T) {
+	it := issue{ID: "x", Status: "closed", Dependencies: []dep{{IssueID: "x", DependsOnID: "x"}}}
+	byID := map[string]issue{"x": it}
+	if !depsSatisfied(it, byID) {
+		t.Error("depsSatisfied: when dep points to self and self is closed, should pass")
+	}
+}
+
+func TestRefID(t *testing.T) {
+	d1 := dep{DependsOnID: "dep-1"}
+	if d1.refID() != "dep-1" {
+		t.Errorf("refID DependsOnID = %q", d1.refID())
+	}
+	d2 := dep{ID: "id-1"}
+	if d2.refID() != "id-1" {
+		t.Errorf("refID ID = %q", d2.refID())
+	}
+}
+
+func TestKind(t *testing.T) {
+	tests := []struct {
+		d    dep
+		want string
+	}{
+		{dep{Type: "blocks"}, "blocks"},
+		{dep{DependencyType: "blocks"}, "blocks"},
+		{dep{IssueType: "epic"}, "parent-child"},
+		{dep{IssueType: "feature"}, "parent-child"},
+		{dep{}, ""},
+	}
+	for _, tt := range tests {
+		if got := tt.d.kind(); got != tt.want {
+			t.Errorf("kind(%+v) = %q, want %q", tt.d, got, tt.want)
+		}
+	}
+}
+
+func TestLoadWorkstreamConfig_InvalidYAML(t *testing.T) {
+	dir := t.TempDir()
+	specsDir := filepath.Join(dir, "specs")
+	if err := os.MkdirAll(specsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(specsDir, "workstream-config.yaml"), []byte("invalid: yaml: ["), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	orig := supportedWorkstreams
+	defer func() { supportedWorkstreams = orig }()
+	loadWorkstreamConfig(dir)
+	if len(supportedWorkstreams) != len(orig) {
+		t.Errorf("invalid yaml should not change supportedWorkstreams: %v", supportedWorkstreams)
+	}
+}
+
+func TestLoadWorkstreamConfig_EmptyWorkstreams(t *testing.T) {
+	dir := t.TempDir()
+	specsDir := filepath.Join(dir, "specs")
+	if err := os.MkdirAll(specsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(specsDir, "workstream-config.yaml"), []byte("workstreams: []"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	orig := supportedWorkstreams
+	defer func() { supportedWorkstreams = orig }()
+	loadWorkstreamConfig(dir)
+	if len(supportedWorkstreams) != len(orig) {
+		t.Errorf("empty workstreams should not change: %v", supportedWorkstreams)
+	}
+}
+
+func TestRun_ListIssuesError(t *testing.T) {
+	dir := t.TempDir()
+	origRunner := bdRunner
+	origDir, _ := os.Getwd()
+	defer func() {
+		bdRunner = origRunner
+		os.Chdir(origDir)
+		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	}()
+
+	bdRunner = func(args ...string) ([]byte, error) {
+		return nil, fmt.Errorf("bd list failed")
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	os.Args = []string{"autonomy-worker"}
+	flag.CommandLine = flag.NewFlagSet("autonomy-worker", flag.ExitOnError)
+
+	err := run()
+	if err == nil {
+		t.Fatal("run should fail when listIssues fails")
+	}
+}
+
+func TestRun_InvalidIssueID(t *testing.T) {
+	dir := t.TempDir()
+	origRunner := bdRunner
+	origDir, _ := os.Getwd()
+	defer func() {
+		bdRunner = origRunner
+		os.Chdir(origDir)
+		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	}()
+
+	// Use ID with "/" to trigger safeid.ValidateIssueID rejection
+	bdRunner = func(args ...string) ([]byte, error) {
+		if args[0] == "list" {
+			return []byte(`[{"id":"bad/id","title":"T","status":"open","issue_type":"task","labels":["autonomy","strict-evidence","workstream:generic"],"priority":1,"created_at":"2026-01-01"}]`), nil
+		}
+		if args[0] == "show" {
+			return []byte(`{"id":"bad/id","title":"T","status":"open","issue_type":"task","labels":["autonomy","strict-evidence","workstream:generic"],"dependencies":[],"priority":1,"created_at":"2026-01-01"}`), nil
+		}
+		return nil, nil
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	os.Args = []string{"autonomy-worker", "-dry-run"}
+	flag.CommandLine = flag.NewFlagSet("autonomy-worker", flag.ExitOnError)
+
+	err := run()
+	if err == nil {
+		t.Fatal("run should fail for invalid issue ID (path traversal)")
+	}
+}
+
+func TestRun_UpdateStatusFails(t *testing.T) {
+	dir := t.TempDir()
+	specsDir := filepath.Join(dir, "specs")
+	evDir := filepath.Join(dir, ".sdp", "evidence")
+	if err := os.MkdirAll(specsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(evDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tmpl := map[string]any{
+		"intent": map[string]any{"issue_id": ""},
+		"execution": map[string]any{},
+		"boundary": map[string]any{"declared": map[string]any{}, "observed": map[string]any{}, "compliance": map[string]any{}},
+		"provenance": map[string]any{},
+		"trace": map[string]any{},
+	}
+	b, _ := json.Marshal(tmpl)
+	if err := os.WriteFile(filepath.Join(specsDir, "strict-evidence-template.json"), b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origRunner := bdRunner
+	origDir, _ := os.Getwd()
+	defer func() {
+		bdRunner = origRunner
+		os.Chdir(origDir)
+		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	}()
+
+	updateCalls := 0
+	bdRunner = func(args ...string) ([]byte, error) {
+		if args[0] == "list" {
+			return []byte(`[{"id":"sdp_dev-ok","title":"T","status":"open","issue_type":"task","labels":["autonomy","strict-evidence","workstream:generic"],"priority":1,"created_at":"2026-01-01"}]`), nil
+		}
+		if args[0] == "show" {
+			return []byte(`{"id":"sdp_dev-ok","title":"T","status":"open","issue_type":"task","labels":["autonomy","strict-evidence","workstream:generic"],"dependencies":[],"priority":1,"created_at":"2026-01-01"}`), nil
+		}
+		if args[0] == "update" && len(args) > 2 && args[2] == "--status" {
+			updateCalls++
+			if updateCalls == 1 {
+				return nil, fmt.Errorf("update failed")
+			}
+			return []byte("ok"), nil
+		}
+		if args[0] == "update" && len(args) > 2 && args[2] == "--append-notes" {
+			return []byte("ok"), nil
+		}
+		return nil, nil
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	os.Args = []string{"autonomy-worker"}
+	flag.CommandLine = flag.NewFlagSet("autonomy-worker", flag.ExitOnError)
+
+	err := run()
+	if err == nil {
+		t.Fatal("run should fail when bd update --status fails")
+	}
+}
+
+func TestListIssues_Error(t *testing.T) {
+	orig := bdRunner
+	defer func() { bdRunner = orig }()
+	bdRunner = func(args ...string) ([]byte, error) {
+		return nil, fmt.Errorf("bd failed")
+	}
+	_, err := listIssues()
+	if err == nil {
+		t.Fatal("listIssues should error when bd fails")
+	}
+}
+
+func TestLoadIssueDetail_Error(t *testing.T) {
+	orig := bdRunner
+	defer func() { bdRunner = orig }()
+	bdRunner = func(args ...string) ([]byte, error) {
+		return nil, fmt.Errorf("bd show failed")
+	}
+	_, err := loadIssueDetail("x")
+	if err == nil {
+		t.Fatal("loadIssueDetail should error when bd fails")
+	}
+}
+
+func TestRun_DryRun(t *testing.T) {
+	dir := t.TempDir()
+	specsDir := filepath.Join(dir, "specs")
+	evDir := filepath.Join(dir, ".sdp", "evidence")
+	if err := os.MkdirAll(specsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(evDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tmpl := map[string]any{
+		"intent":     map[string]any{"issue_id": ""},
+		"execution":  map[string]any{},
+		"boundary":   map[string]any{"declared": map[string]any{}, "observed": map[string]any{}, "compliance": map[string]any{}},
+		"provenance": map[string]any{},
+		"trace":      map[string]any{},
+	}
+	b, _ := json.Marshal(tmpl)
+	if err := os.WriteFile(filepath.Join(specsDir, "strict-evidence-template.json"), b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origRunner := bdRunner
+	origDir, _ := os.Getwd()
+	defer func() {
+		bdRunner = origRunner
+		os.Chdir(origDir)
+		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	}()
+
+	bdRunner = func(args ...string) ([]byte, error) {
+		if args[0] == "list" {
+			return []byte(`[{"id":"sdp_dev-abc","title":"T","status":"open","issue_type":"task","labels":["autonomy","strict-evidence","workstream:generic"],"priority":1,"created_at":"2026-01-01"}]`), nil
+		}
+		if args[0] == "show" {
+			return []byte(`{"id":"sdp_dev-abc","title":"T","status":"open","issue_type":"task","labels":["autonomy","strict-evidence","workstream:generic"],"dependencies":[],"priority":1,"created_at":"2026-01-01"}`), nil
+		}
+		return nil, nil
+	}
+
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	os.Args = []string{"autonomy-worker", "-dry-run"}
+	flag.CommandLine = flag.NewFlagSet("autonomy-worker", flag.ExitOnError)
+
+	if err := run(); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+}
+
+func TestRun_FullClaim(t *testing.T) {
+	dir := t.TempDir()
+	specsDir := filepath.Join(dir, "specs")
+	evDir := filepath.Join(dir, ".sdp", "evidence")
+	if err := os.MkdirAll(specsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(evDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tmpl := map[string]any{
+		"intent":     map[string]any{"issue_id": ""},
+		"execution":  map[string]any{},
+		"boundary":   map[string]any{"declared": map[string]any{}, "observed": map[string]any{}, "compliance": map[string]any{}},
+		"provenance": map[string]any{},
+		"trace":      map[string]any{},
+	}
+	b, _ := json.Marshal(tmpl)
+	if err := os.WriteFile(filepath.Join(specsDir, "strict-evidence-template.json"), b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origRunner := bdRunner
+	origDir, _ := os.Getwd()
+	defer func() {
+		bdRunner = origRunner
+		os.Chdir(origDir)
+		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	}()
+
+	bdRunner = func(args ...string) ([]byte, error) {
+		if args[0] == "list" {
+			return []byte(`[{"id":"sdp_dev-xyz","title":"Full","status":"open","issue_type":"task","labels":["autonomy","strict-evidence","workstream:generic"],"priority":1,"created_at":"2026-01-01"}]`), nil
+		}
+		if args[0] == "show" {
+			return []byte(`{"id":"sdp_dev-xyz","title":"Full","status":"open","issue_type":"task","labels":["autonomy","strict-evidence","workstream:generic"],"dependencies":[],"priority":1,"created_at":"2026-01-01"}`), nil
+		}
+		if args[0] == "update" {
+			return []byte("ok"), nil
+		}
+		return nil, nil
+	}
+
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	os.Args = []string{"autonomy-worker"}
+	flag.CommandLine = flag.NewFlagSet("autonomy-worker", flag.ExitOnError)
+
+	if err := run(); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	runPath := filepath.Join(dir, ".sdp", "runs", "sdp_dev-xyz.json")
+	if _, err := os.Stat(runPath); os.IsNotExist(err) {
+		t.Errorf("run packet not written: %s", runPath)
+	}
+	evPath := filepath.Join(dir, ".sdp", "evidence", "sdp_dev-xyz.json")
+	if _, err := os.Stat(evPath); os.IsNotExist(err) {
+		t.Errorf("evidence not written: %s", evPath)
+	}
+}
+
+func TestRun_NoEligibleTasks(t *testing.T) {
+	dir := t.TempDir()
+	origRunner := bdRunner
+	origDir, _ := os.Getwd()
+	defer func() {
+		bdRunner = origRunner
+		os.Chdir(origDir)
+		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	}()
+
+	bdRunner = func(args ...string) ([]byte, error) {
+		if args[0] == "list" {
+			return []byte(`[{"id":"x","status":"closed","issue_type":"task","labels":["autonomy","strict-evidence","workstream:generic"]}]`), nil
+		}
+		return nil, nil
+	}
+
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	os.Args = []string{"autonomy-worker"}
+	flag.CommandLine = flag.NewFlagSet("autonomy-worker", flag.ExitOnError)
+
+	if err := run(); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+}
+
+func TestPickCandidate_LoadDetailErrorSkips(t *testing.T) {
+	orig := bdRunner
+	defer func() { bdRunner = orig }()
+	bdRunner = func(args ...string) ([]byte, error) {
+		if args[0] == "list" {
+			return []byte(`[{"id":"t1","status":"open","issue_type":"task","labels":["autonomy","strict-evidence","workstream:generic"],"priority":1,"created_at":"2026-01-01"}]`), nil
+		}
+		if args[0] == "show" {
+			return nil, fmt.Errorf("show failed")
+		}
+		return nil, nil
+	}
+	byID, _ := listIssues()
+	picked, _ := pickCandidate(byID, false)
+	if picked != nil {
+		t.Fatalf("pickCandidate should return nil when loadIssueDetail fails: %+v", picked)
 	}
 }
