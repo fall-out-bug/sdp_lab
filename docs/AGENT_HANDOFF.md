@@ -55,3 +55,12 @@ make quality            # verify gates before starting work
 2. Claim `sdp_dev-hex` (swarm/autonomy coverage 80%+) or unblock `sdp_dev-oip` (handoff validation).
 3. Alternatively: close `sdp_dev-4pg` if 80% coverage is deferred; focus on handoff validation or upstream PR.
 4. Before finishing: `make quality`, commit, `bd sync`, `git push`.
+
+## Validation Run
+
+- 2026-02-21T08:01:43Z (workstream:handoff-validation)
+
+
+## Validation Run
+
+- 2026-02-21T08:13:51Z (workstream:handoff-validation)
