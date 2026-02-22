@@ -2,11 +2,13 @@ package adapter
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	"sdp_dev/api/v1alpha1"
 	"sdp_dev/internal/beads"
+	"sdp_dev/internal/bus"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -23,6 +25,7 @@ type AgentRunReconciler struct {
 	IntentTranslator *IntentTranslator
 	PolicyGate       *PolicyGate
 	BeadsAdapter     *beads.Adapter
+	Bus              bus.Bus
 }
 
 // NewAgentRunReconciler returns an AgentRunReconciler.
@@ -33,6 +36,7 @@ func NewAgentRunReconciler(c client.Client, scheme *runtime.Scheme, opts AgentRu
 		IntentTranslator: opts.IntentTranslator,
 		PolicyGate:       opts.PolicyGate,
 		BeadsAdapter:     opts.BeadsAdapter,
+		Bus:              opts.Bus,
 	}
 }
 
@@ -41,6 +45,7 @@ type AgentRunReconcilerOpts struct {
 	IntentTranslator *IntentTranslator
 	PolicyGate       *PolicyGate
 	BeadsAdapter     *beads.Adapter
+	Bus              bus.Bus
 }
 
 // Reconcile handles AgentRun reconciliation.
@@ -120,6 +125,8 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if err := r.Status().Update(ctx, run); err != nil {
 			return ctrl.Result{}, err
 		}
+		r.closeBeadsOnSuccess(ctx, run.Spec.IssueID, "AgentRun completed")
+		r.publishLifecycle("sdp.lifecycle.agentrun.completed", run.Spec.IssueID, run.Labels["project"], "completed")
 		log.Info("reviewer skipped (minimal), run succeeded")
 
 	case "ReviewerRunning":
@@ -135,6 +142,8 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		p := task.Status.Phase
 		if p == v1alpha1.TaskPhaseSucceeded || p == v1alpha1.TaskPhaseCompleted {
 			run.Status.Phase = "Succeeded"
+			r.closeBeadsOnSuccess(ctx, run.Spec.IssueID, "AgentRun completed")
+			r.publishLifecycle("sdp.lifecycle.agentrun.completed", run.Spec.IssueID, run.Labels["project"], "completed")
 		} else if p == v1alpha1.TaskPhaseFailed {
 			return r.setFailed(ctx, run, "reviewer task failed")
 		} else {
@@ -154,7 +163,31 @@ func (r *AgentRunReconciler) setFailed(ctx context.Context, run *v1alpha1.AgentR
 	if err := r.Status().Update(ctx, run); err != nil {
 		return ctrl.Result{}, err
 	}
+	proj := ""
+	if run.Labels != nil {
+		proj = run.Labels["project"]
+	}
+	r.publishLifecycle("sdp.lifecycle.agentrun.failed", run.Spec.IssueID, proj, "failed")
 	return ctrl.Result{}, nil
+}
+
+// closeBeadsOnSuccess closes the beads issue when AgentRun succeeds.
+func (r *AgentRunReconciler) closeBeadsOnSuccess(ctx context.Context, issueID, reason string) {
+	if r.BeadsAdapter == nil || issueID == "" {
+		return
+	}
+	if err := r.BeadsAdapter.Close(issueID, reason); err != nil {
+		log.FromContext(ctx).Info("beads close failed (may be already closed)", "issue", issueID, "err", err)
+	}
+}
+func (r *AgentRunReconciler) publishLifecycle(subject, issueID, projectID, phase string) {
+	if r.Bus == nil {
+		return
+	}
+	pl, _ := json.Marshal(map[string]string{"issue_id": issueID, "phase": phase})
+	_ = r.Bus.Publish(subject, bus.Envelope{
+		IssueID: issueID, ProjectID: projectID, Phase: phase, Payload: pl,
+	})
 }
 
 // SetupWithManager registers the reconciler with the Manager.

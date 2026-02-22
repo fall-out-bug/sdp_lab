@@ -78,10 +78,12 @@ func main() {
 	lifecycleReconciler := adapter.NewLifecycleReconciler()
 
 	var traceEmitter *agent.TraceEmitter
+	var natsBus bus.Bus
 	if url := os.Getenv("NATS_URL"); url != "" {
 		b, err := bus.ConnectAndProvision(context.Background(), url)
 		if err == nil {
 			defer b.Close()
+			natsBus = b
 			traceEmitter = agent.NewTraceEmitter(b, "adapter", "adapter-1", "adapter-controller", "reconciler", workDir)
 		}
 	}
@@ -105,6 +107,7 @@ func main() {
 		IntentTranslator: intentTranslator,
 		PolicyGate:       policyGate,
 		BeadsAdapter:     beadsAdapter,
+		Bus:              natsBus,
 	}
 	if err := adapter.NewAgentRunReconciler(mgr.GetClient(), mgr.GetScheme(), agentRunOpts).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "failed to setup AgentRunReconciler")

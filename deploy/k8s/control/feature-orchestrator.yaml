@@ -73,6 +73,9 @@ spec:
           args:
             - --workspace
             - /workspaces
+          ports:
+            - name: metrics
+              containerPort: 8080
           volumeMounts:
             - name: workspaces
               mountPath: /workspaces
