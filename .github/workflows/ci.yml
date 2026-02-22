@@ -101,6 +101,15 @@ jobs:
           docker build -t "${IMAGE}" -f deploy/images/swarm-orchestrator/Dockerfile .
           docker push "${IMAGE}"
 
+      - name: Build and push intake-gateway
+        env:
+          IMAGE_TAG: git-${{ github.sha }}
+        run: |
+          IMAGE="ghcr.io/${{ github.repository_owner }}/sdp-dev-intake-gateway:${IMAGE_TAG}"
+          echo "Building ${IMAGE}"
+          docker build -t "${IMAGE}" -f deploy/images/intake-gateway/Dockerfile .
+          docker push "${IMAGE}"
+
       - name: Build and push adapter-controller
         env:
           IMAGE_TAG: git-${{ github.sha }}

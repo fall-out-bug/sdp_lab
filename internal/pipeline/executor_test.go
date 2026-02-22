@@ -62,3 +62,12 @@ func TestBaseBranch(t *testing.T) {
 	}
 }
 
+func TestStatusStr(t *testing.T) {
+	if got := statusStr(true); got != "ok" {
+		t.Errorf("statusStr(true) = %q, want ok", got)
+	}
+	if got := statusStr(false); got != "failed" {
+		t.Errorf("statusStr(false) = %q, want failed", got)
+	}
+}
+
