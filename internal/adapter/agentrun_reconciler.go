@@ -10,6 +10,7 @@ import (
 	"sdp_dev/api/v1alpha1"
 	"sdp_dev/internal/beads"
 	"sdp_dev/internal/bus"
+	"sdp_dev/internal/policy"
 	"sdp_dev/internal/observability"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -24,30 +25,36 @@ type AgentRunReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
-	IntentTranslator *IntentTranslator
-	PolicyGate       *PolicyGate
-	BeadsAdapter     *beads.Adapter
-	Bus              bus.Bus
+	IntentTranslator      *IntentTranslator
+	PolicyGate            *PolicyGate
+	WorkspaceResolver     WorkspaceResolver
+	BeadsAvailable        bool
+	ProviderHealthChecker policy.ProviderHealthChecker
+	Bus                   bus.Bus
 }
 
 // NewAgentRunReconciler returns an AgentRunReconciler.
 func NewAgentRunReconciler(c client.Client, scheme *runtime.Scheme, opts AgentRunReconcilerOpts) *AgentRunReconciler {
 	return &AgentRunReconciler{
-		Client:           c,
-		Scheme:           scheme,
-		IntentTranslator: opts.IntentTranslator,
-		PolicyGate:       opts.PolicyGate,
-		BeadsAdapter:     opts.BeadsAdapter,
-		Bus:              opts.Bus,
+		Client:                c,
+		Scheme:                scheme,
+		IntentTranslator:      opts.IntentTranslator,
+		PolicyGate:            opts.PolicyGate,
+		WorkspaceResolver:     opts.WorkspaceResolver,
+		BeadsAvailable:        opts.BeadsAvailable,
+		ProviderHealthChecker: opts.ProviderHealthChecker,
+		Bus:                   opts.Bus,
 	}
 }
 
 // AgentRunReconcilerOpts holds optional dependencies.
 type AgentRunReconcilerOpts struct {
-	IntentTranslator *IntentTranslator
-	PolicyGate       *PolicyGate
-	BeadsAdapter     *beads.Adapter
-	Bus              bus.Bus
+	IntentTranslator       *IntentTranslator
+	PolicyGate             *PolicyGate
+	WorkspaceResolver      WorkspaceResolver
+	BeadsAvailable         bool
+	ProviderHealthChecker  policy.ProviderHealthChecker
+	Bus                    bus.Bus
 }
 
 // Reconcile handles AgentRun reconciliation.
@@ -68,6 +75,19 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		model = "glm-4.7"
 	}
 
+	projectID := ProjectIDFromLabels(run.Labels)
+	workDir := "."
+	if r.WorkspaceResolver != nil {
+		workDir = r.WorkspaceResolver(projectID)
+		if workDir == "" {
+			workDir = "."
+		}
+	}
+	var beadsAdapter *beads.Adapter
+	if r.BeadsAvailable {
+		beadsAdapter = beads.NewAdapter(workDir)
+	}
+
 	switch phase {
 	case "":
 		if r.PolicyGate != nil {
@@ -78,8 +98,8 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 
 		issue := &beads.Issue{ID: run.Spec.IssueID, Title: "AgentRun " + run.Name, AcceptanceCriteria: "Implement task"}
-		if r.BeadsAdapter != nil {
-			if iss, err := r.BeadsAdapter.Show(run.Spec.IssueID); err == nil {
+		if beadsAdapter != nil {
+			if iss, err := beadsAdapter.Show(run.Spec.IssueID); err == nil {
 				issue = iss
 			}
 		}
@@ -89,8 +109,14 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return r.setFailed(ctx, run, fmt.Sprintf("translate: %v", err))
 		}
 
-		analystTask := createTaskFromIntent(run, "analyst", intent)
-		coderTask := createTaskFromIntent(run, "coder", intent)
+		providerHint := policy.ResolveProviderForModel(run.Spec.Model, r.ProviderHealthChecker)
+		analystTask := createTaskFromIntent(run, "analyst", intent, providerHint)
+		coderTask := createTaskFromIntent(run, "coder", intent, providerHint)
+
+		observability.IncProviderUsed(projectID, providerHint, model)
+		if providerHint == "anthropic_direct" || providerHint == "openai_direct" {
+			observability.AddCostSaved(projectID, providerHint, 0.001)
+		}
 
 		if err := r.Create(ctx, analystTask); err != nil {
 			return ctrl.Result{}, fmt.Errorf("create analyst task: %w", err)
@@ -128,8 +154,8 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{}, err
 		}
 		r.recordAgentRunComplete(run, "Succeeded")
-		r.closeBeadsOnSuccess(ctx, run.Spec.IssueID, "AgentRun completed")
-		r.publishLifecycle("sdp.lifecycle.agentrun.completed", run.Spec.IssueID, run.Labels["project"], "completed")
+		r.closeBeadsOnSuccess(ctx, run.Spec.IssueID, "AgentRun completed", beadsAdapter)
+		r.publishLifecycle("sdp.lifecycle.agentrun.completed", run.Spec.IssueID, projectID, "completed")
 		log.Info("reviewer skipped (minimal), run succeeded")
 
 	case "ReviewerRunning":
@@ -146,8 +172,8 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if p == v1alpha1.TaskPhaseSucceeded || p == v1alpha1.TaskPhaseCompleted {
 			run.Status.Phase = "Succeeded"
 			r.recordAgentRunComplete(run, "Succeeded")
-			r.closeBeadsOnSuccess(ctx, run.Spec.IssueID, "AgentRun completed")
-			r.publishLifecycle("sdp.lifecycle.agentrun.completed", run.Spec.IssueID, run.Labels["project"], "completed")
+			r.closeBeadsOnSuccess(ctx, run.Spec.IssueID, "AgentRun completed", beadsAdapter)
+			r.publishLifecycle("sdp.lifecycle.agentrun.completed", run.Spec.IssueID, projectID, "completed")
 		} else if p == v1alpha1.TaskPhaseFailed {
 			return r.setFailed(ctx, run, "reviewer task failed")
 		} else {
@@ -168,19 +194,12 @@ func (r *AgentRunReconciler) setFailed(ctx context.Context, run *v1alpha1.AgentR
 		return ctrl.Result{}, err
 	}
 	r.recordAgentRunComplete(run, "Failed")
-	proj := ""
-	if run.Labels != nil {
-		proj = run.Labels["project"]
-	}
-	r.publishLifecycle("sdp.lifecycle.agentrun.failed", run.Spec.IssueID, proj, "failed")
+	r.publishLifecycle("sdp.lifecycle.agentrun.failed", run.Spec.IssueID, ProjectIDFromLabels(run.Labels), "failed")
 	return ctrl.Result{}, nil
 }
 
 func (r *AgentRunReconciler) recordAgentRunComplete(run *v1alpha1.AgentRun, status string) {
-	proj := ""
-	if run.Labels != nil {
-		proj = run.Labels["project"]
-	}
+	proj := ProjectIDFromLabels(run.Labels)
 	model := run.Spec.Model
 	if model == "" {
 		model = "glm-4.7"
@@ -193,11 +212,11 @@ func (r *AgentRunReconciler) recordAgentRunComplete(run *v1alpha1.AgentRun, stat
 }
 
 // closeBeadsOnSuccess closes the beads issue when AgentRun succeeds.
-func (r *AgentRunReconciler) closeBeadsOnSuccess(ctx context.Context, issueID, reason string) {
-	if r.BeadsAdapter == nil || issueID == "" {
+func (r *AgentRunReconciler) closeBeadsOnSuccess(ctx context.Context, issueID, reason string, beadsAdapter *beads.Adapter) {
+	if beadsAdapter == nil || issueID == "" {
 		return
 	}
-	if err := r.BeadsAdapter.Close(issueID, reason); err != nil {
+	if err := beadsAdapter.Close(issueID, reason); err != nil {
 		log.FromContext(ctx).Info("beads close failed (may be already closed)", "issue", issueID, "err", err)
 	}
 }

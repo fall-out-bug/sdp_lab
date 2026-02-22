@@ -47,6 +47,16 @@ var (
 		Name: "sdp_llm_usage_cost_usd",
 		Help: "Estimated LLM cost in USD by project, role, model",
 	}, []string{"project", "role", "model"})
+
+	providerUsedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "sdp_provider_used_total",
+		Help: "Provider dispatch count by project, provider, model (WS-013-01)",
+	}, []string{"project", "provider", "model"})
+
+	costSavedUSD = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "sdp_cost_saved_usd",
+		Help: "Estimated cost saved by using direct subscription vs OpenRouter (WS-013-01)",
+	}, []string{"project", "provider"})
 )
 
 // IncAgentRuns increments sdp_agent_runs_total for the given project, status, model.
@@ -87,6 +97,31 @@ func IncModelSelection(role, tier, model, reason string) {
 		reason = "ok"
 	}
 	modelSelectionTotal.WithLabelValues(role, tier, model, reason).Inc()
+}
+
+// IncProviderUsed records a provider dispatch (project, provider, model).
+func IncProviderUsed(project, provider, model string) {
+	if project == "" {
+		project = "default"
+	}
+	if provider == "" {
+		provider = "unknown"
+	}
+	if model == "" {
+		model = "default"
+	}
+	providerUsedTotal.WithLabelValues(project, provider, model).Inc()
+}
+
+// AddCostSaved records estimated cost saved when using direct subscription vs OpenRouter.
+func AddCostSaved(project, provider string, amountUSD float64) {
+	if project == "" {
+		project = "default"
+	}
+	if provider == "" || amountUSD <= 0 {
+		return
+	}
+	costSavedUSD.WithLabelValues(project, provider).Add(amountUSD)
 }
 
 // ObserveLLMUsage records token usage and estimated cost.
