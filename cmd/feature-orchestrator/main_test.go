@@ -27,6 +27,13 @@ func TestResolveModel(t *testing.T) {
 	if got := resolveModel([]string{}); got != "glm-4.7" {
 		t.Errorf("resolveModel default = %q, want glm-4.7", got)
 	}
+	// Multiple model: labels — first wins (sdp_dev-f4c)
+	if got := resolveModel([]string{"model:glm-5", "model:glm-4"}); got != "glm-5" {
+		t.Errorf("resolveModel multiple labels = %q, want glm-5 (first wins)", got)
+	}
+	if got := resolveModel([]string{"other", "model:gpt-4"}); got != "gpt-4" {
+		t.Errorf("resolveModel with other label = %q, want gpt-4", got)
+	}
 }
 
 func TestResolveWorkstream(t *testing.T) {
@@ -35,6 +42,10 @@ func TestResolveWorkstream(t *testing.T) {
 	}
 	if got := resolveWorkstream([]string{}); got != "builder" {
 		t.Errorf("resolveWorkstream default = %q, want builder", got)
+	}
+	// Multiple workstream: labels — first wins (sdp_dev-f4c)
+	if got := resolveWorkstream([]string{"workstream:analyst", "workstream:coder"}); got != "analyst" {
+		t.Errorf("resolveWorkstream multiple labels = %q, want analyst (first wins)", got)
 	}
 }
 

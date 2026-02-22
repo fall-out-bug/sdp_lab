@@ -12,9 +12,13 @@ import (
 )
 
 func TestActivePhases(t *testing.T) {
-	if !ActivePhases["Running"] || !ActivePhases[""] || !ActivePhases["ReviewerPending"] {
-		t.Error("expected active phases to include Running, empty, ReviewerPending")
+	// Active phases (count toward capacity)
+	for _, phase := range []string{"", "Running", "Pending", "ReviewerPending", "ReviewerRunning", "Escalated"} {
+		if !ActivePhases[phase] {
+			t.Errorf("ActivePhases[%q] = false, want true", phase)
+		}
 	}
+	// Terminal phases must not be active
 	if ActivePhases["Succeeded"] || ActivePhases["Failed"] {
 		t.Error("Succeeded and Failed should not be active")
 	}

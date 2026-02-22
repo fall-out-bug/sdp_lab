@@ -16,6 +16,7 @@ func TestResolveRole(t *testing.T) {
 		{"builder from label", federation.FederatedTask{Issue: beads.Issue{Labels: []string{"workstream:builder"}}}, "builder"},
 		{"generic from label", federation.FederatedTask{Issue: beads.Issue{Labels: []string{"workstream:generic"}}}, "generic"},
 		{"default when no workstream", federation.FederatedTask{Issue: beads.Issue{Labels: []string{"autonomy"}}}, "builder"},
+		{"multiple workstream labels first wins", federation.FederatedTask{Issue: beads.Issue{Labels: []string{"workstream:analyst", "workstream:coder"}}}, "analyst"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -35,6 +36,7 @@ func TestResolveModel(t *testing.T) {
 	}{
 		{"glm from label", federation.FederatedTask{Issue: beads.Issue{Labels: []string{"model:glm-5"}}}, "glm-5"},
 		{"default when no model", federation.FederatedTask{Issue: beads.Issue{Labels: []string{"autonomy"}}}, "glm-4.7"},
+		{"multiple model labels first wins", federation.FederatedTask{Issue: beads.Issue{Labels: []string{"model:glm-5", "model:glm-4"}}}, "glm-5"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
