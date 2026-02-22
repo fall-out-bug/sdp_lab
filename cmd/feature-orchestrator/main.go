@@ -88,6 +88,35 @@ func main() {
 		}
 	}()
 
+	// Start Bridge per registered project (intake -> beads, beads ready -> NATS)
+	for _, proj := range store.List() {
+		proj := proj
+		workspace, err := ws.EnsureWorkspaceFromProject(&proj)
+		if err != nil {
+			log.Printf("bridge %s: workspace: %v (skipping)", proj.ID, err)
+			continue
+		}
+		labels := []string{}
+		if proj.BeadsPrefix != "" {
+			labels = append(labels, proj.BeadsPrefix)
+		}
+		br := federation.NewBridge(federation.BridgeConfig{
+			ProjectID: proj.ID,
+			WorkDir:   workspace,
+			Bus:       b,
+			Store:     store,
+			Labels:    labels,
+			Limit:     10,
+		})
+		pid := proj.ID
+		go func() {
+			if err := br.Run(ctx); err != nil && ctx.Err() == nil {
+				log.Printf("bridge %s: %v", pid, err)
+			}
+		}()
+		log.Printf("bridge started for %s (workdir=%s)", proj.ID, workspace)
+	}
+
 	cfg, err := getKubeConfig()
 	if err != nil {
 		log.Fatalf("kube config: %v", err)
