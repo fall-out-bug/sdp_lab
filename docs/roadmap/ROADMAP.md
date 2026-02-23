@@ -1,17 +1,27 @@
 # sdp_lab Roadmap — Autonomous K8s Agent Swarm
 
-> **Updated:** 2026-02-22
+> **Updated:** 2026-02-23
 > **Direction:** Evidence layer + autonomous agent pipeline → issue in, PR with proof out
 > **Design:** [Dream Swarm Design](../plans/2026-02-22-dream-swarm-design.md)
+> **Research:** [Agent Loop Reliability](../plans/2026-02-23-agent-loop-reliability.md) — why LLM agents exit loops, outer loop architecture
 
 ---
 
 ## Overview
 
-Six phases. Each phase is independently valuable. Earlier phases are prerequisites for later ones but each ships something usable.
+Seven phases. Phase 0 (Agent Loop Reliability) runs in parallel with everything else — it makes oneshot/review/CI loops deterministic so that Phases 1–6 execute reliably. Each phase is independently valuable.
 
 ```mermaid
 graph LR
+    subgraph p0 ["Phase 0: Agent Loop Reliability"]
+        F014["F014 CI Loop CLI"]
+        F015["F015 Stop Hook Gate"]
+        F016["F016 Oneshot Outer Loop"]
+        F017["F017 Skill Eval Suite"]
+        F018["F018 Dead Code Purge"]
+        F019["F019 Skill Compression"]
+        F020["F020 Build Scope Fix"]
+    end
     subgraph p1 ["Phase 1: Evidence Foundation"]
         F001["F001 Schema"]
         F002["F002 CLI"]
@@ -38,6 +48,13 @@ graph LR
         F013["F013 10 Consecutive Runs"]
     end
 
+    F018 --> F019
+    F019 --> F020
+    F020 --> F016
+    F014 --> F015
+    F015 --> F016
+    F016 --> F017
+    F014 --> F013
     F001 --> F002
     F001 --> F003
     F002 --> F012
@@ -52,6 +69,38 @@ graph LR
     F010 --> F013
     F011 --> F012
 ```
+
+---
+
+## Phase 0: Agent Loop Reliability
+
+**Goal:** LLM agents can't reliably manage their own loops (RLHF helpfulness bias, context degradation, prompt-as-suggestion). Move flow control from prompts to deterministic code. Outer loop (Go CLI / hooks) controls WHEN to stop; inner loop (LLM) controls WHAT to do.
+
+**Research:** [Agent Loop Reliability](../plans/2026-02-23-agent-loop-reliability.md)
+
+| Feature | Workstreams | Size | Description |
+|---------|-------------|------|-------------|
+| **F014: CI Loop CLI** | 00-014-01, 00-014-02 | M | `sdp ci-loop --pr N --feature FXXX`: deterministic Go process that polls `gh pr checks`, distinguishes PENDING/FAILURE/SUCCESS, rule-based classification (Go test = auto-fix, secrets = escalate), checkpoint/run file updates. Agent invokes once, waits for exit code. Works in Cursor and Claude Code. |
+| **F015: Stop Hook Gate** | 00-015-01, 00-015-02 | S | Stop hook for Cursor (`.cursor/hooks.json`) and Claude Code (`.claude/settings.json`). Reads checkpoint: if `pr_number` exists and CI phase incomplete, blocks exit (exit code 2) with "run sdp ci-loop". Prevents premature handoff. |
+| **F016: Oneshot Outer Loop** | 00-016-01, 00-016-02, 00-016-03, 00-016-04 | L | Replace oneshot's inline `while` loops with `sdp orchestrate` as a real outer loop. CLI drives state machine (build → review → PR → CI → done); LLM invoked only for @build, @review, fix classification. Slim prompt (3 rules, positive framing, at point of use). opencode integration via CLI subprocess (no Stop hook — outer loop replaces it). |
+| **F017: Skill Eval Suite** | 00-017-01, 00-017-02 | M | Eval suite for skill compliance. Test cases: "agent outputs Next steps with CI pending" → FAIL; "agent stops mid-workstream" → FAIL; "agent outputs handoff list" → FAIL. Run on each skill change. Hamel Husain eval-driven development pattern. |
+| **F018: Dead Code Purge** | 00-018-01, 00-018-02 | M | Delete 3 broken skills (test, help, init) + 17 dead agents (57% of total). Fix Python→Go mismatch in bugfix/hotfix/tdd. Remove 6 phantom CLI commands from skills. Fix branch model (dev→master). ~4,300 lines removed. |
+| **F019: Skill Compression** | 00-019-01, 00-019-02, 00-019-03 | M | Compress 12 skills to @debug/@ci-triage standard (50-100 lines). Merge @discovery→@feature, @prd→@vision. Strip all "Next Steps" handoff sections. Remove negation-based rules ("NEVER", "DO NOT"). ~3,000 lines → ~900 lines. |
+| **F020: Build Scope Fix** | 00-020-01 | S | Remove auto-continue rules from @build (scope leak: @build tries to be @oneshot). Strip evidence boilerplate (~100 lines → post-build CLI hook). @build does ONE workstream, then STOPS. Continuation is orchestrator's job. |
+
+**Exit criteria:**
+- `sdp ci-loop` exits 0 on green CI, exits 1 on escalation — no LLM in the loop
+- Stop hook blocks premature exit in both Cursor and Claude Code
+- Oneshot completes F001-level feature without "Next steps" handoff in 3/3 runs
+- Eval suite catches regressions on skill changes
+- Zero phantom CLI commands in any skill
+- Zero Python tooling references (Go project uses `go test`, `go vet`, `go build`)
+- Agent count: 30 → 13. Skill line count: ~10K → ~4K
+- @build executes single WS without auto-continuing to next
+
+**Delivers:** Reliable autonomous execution. Clean, honest skill set that references only real commands. The oneshot agent no longer exits loops early. Foundation for all Phases 1–6.
+
+**Audit:** [Skill & Agent Audit](../plans/2026-02-23-skill-agent-audit.md)
 
 ---
 
@@ -173,6 +222,13 @@ graph LR
 
 | Feature | Phase | Size | Status | Workstreams | Depends On |
 |---------|-------|------|--------|-------------|------------|
+| F014 CI Loop CLI | 0 | M | Backlog | 00-014-01, 00-014-02 | — |
+| F015 Stop Hook Gate | 0 | S | Backlog | 00-015-01, 00-015-02 | F014 |
+| F016 Oneshot Outer Loop | 0 | L | Backlog | 00-016-01, 00-016-02, 00-016-03, 00-016-04 | F015, F020 |
+| F017 Skill Eval Suite | 0 | M | Backlog | 00-017-01, 00-017-02 | F016 |
+| F018 Dead Code Purge | 0 | M | Backlog | 00-018-01, 00-018-02 | — |
+| F019 Skill Compression | 0 | M | Backlog | 00-019-01, 00-019-02, 00-019-03 | F018 |
+| F020 Build Scope Fix | 0 | S | Backlog | 00-020-01 | F019 |
 | F001 Evidence Schema | 1 | M | Backlog | 00-001-01, 00-001-02 | — |
 | F002 Evidence CLI | 1 | L | Backlog | 00-002-01, 00-002-02, 00-002-03 | F001 |
 | F003 Handoff Schema | 2 | M | Backlog | 00-003-01, 00-003-02 | F001 |
@@ -185,13 +241,19 @@ graph LR
 | F010 Dead Code Removal | 4 | L | Backlog | 00-010-01 | F009 |
 | F011 kubeopencode PRs | 5 | M | Backlog | 00-011-01, 00-011-02 | — |
 | F012 awesome-opencode | 5 | S | Backlog | 00-012-01 | F002, F011 |
-| F013 10 Consecutive Runs | 6 | XL | Backlog | 00-013-01, 00-013-02, 00-013-03 | F005, F007, F010 |
+| F013 10 Consecutive Runs | 6 | XL | Backlog | 00-013-01, 00-013-02, 00-013-03 | F005, F007, F010, F014 |
 
 ---
 
 ## Dependency Graph (Critical Path)
 
 ```
+F018 ──→ F019 ──→ F020 ──→ F016 (purge → compress → build fix → outer loop)
+
+F014 ──→ F015 ──→ F016 ──→ F017 (CI loop → stop hook → outer loop → evals)
+  │
+  └──→ F013 (reliable loops needed for E2E dream)
+
 F001 ──→ F002 ──→ F012 (publish evidence CLI → get listed)
   │
   └──→ F003 ──→ F004 ──→ F005 ──→ F013 (pipeline → rework → dream)
@@ -205,7 +267,14 @@ F011 ──→ F012 (upstream PRs → awesome listing)
 
 **Critical path to the dream:** F001 → F003 → F004 → F006 → F007 → F013
 
-**Parallelizable work:** F008-F010 (simplify) can run alongside F003-F007 (pipeline + stream). F011-F012 (ecosystem) can run anytime after F002.
+**Two parallel tracks in Phase 0:**
+- Track A: F014→F015→F016→F017 (external enforcement: CLI, hooks, outer loop, evals)
+- Track B: F018→F019→F020 (cleanup: purge dead code, compress skills, fix @build scope)
+- Tracks merge at F016 (outer loop needs clean skills from F019/F020)
+
+**Parallelizable work:** Phase 0 tracks A+B run alongside Phase 1+. F008-F010 (simplify) alongside F003-F007 (pipeline + stream). F011-F012 (ecosystem) anytime after F002.
+
+**Start immediately:** F018 (dead code purge) — zero risk, pure cleanup. F014 (CI loop CLI) — deterministic enforcement.
 
 ---
 
@@ -218,7 +287,7 @@ F011 ──→ F012 (upstream PRs → awesome listing)
 | L | 2-3 | 4-6 sessions | Evidence CLI, sequential reconciler, assembler, dead code removal |
 | XL | 3+ | 6-10 sessions | E2E validation (fixes everything that breaks) |
 
-**Total: 13 features, 26 workstreams, estimated 40-60 sessions.**
+**Total: 20 features, 41 workstreams, estimated 55-85 sessions.**
 
 ---
 
