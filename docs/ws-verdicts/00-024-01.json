@@ -1,1 +1,48 @@
-{"ws_id":"00-024-01","feature_id":"F024","status":"done","ac_evidence":[{"ac":".sdp/pipeline-hooks.yaml loaded at orchestrator start","evidence":"internal/orchestrate/hooks.go LoadHookConfig"},{"ac":"Hooks fire at: pre-build, post-build, pre-review, post-review, pre-ci, post-ci","evidence":"internal/orchestrate/hooks.go RunHooks, cmd/sdp-orchestrate/main.go, internal/orchestrate/loop.go, internal/orchestrate/cli.go AdvanceCIPhase"},{"ac":"Each hook entry: phase, when (pre/post), command, on_fail (halt/warn/ignore)","evidence":"internal/orchestrate/hooks.go HookEntry"},{"ac":"halt → abort pipeline, exit non-zero","evidence":"internal/orchestrate/hooks.go runHook default case"},{"ac":"warn → log warning, continue","evidence":"internal/orchestrate/hooks.go runHook warn case"},{"ac":"ignore → swallow failure, continue","evidence":"internal/orchestrate/hooks.go runHook ignore case"},{"ac":"Missing config file → no hooks (graceful degradation)","evidence":"internal/orchestrate/hooks.go LoadHookConfig, TestRunHooks_MissingConfig"},{"ac":"Hook stdout/stderr captured in run log","evidence":"internal/orchestrate/hooks.go runHook stdout/stderr, log callback"},{"ac":"Hook timeout: 60s default, configurable per hook","evidence":"internal/orchestrate/hooks.go defaultHookTimeout, HookEntry.Timeout"},{"ac":"Test: pre-build hook halt, post-build hook warn, missing config","evidence":"internal/orchestrate/hooks_test.go"}]}
+{
+  "ws_id": "00-024-01",
+  "verdict": "APPROVED",
+  "status": "done",
+  "ac_evidence": [
+    {
+      "ac": ".sdp/pipeline-hooks.yaml loaded at orchestrator start",
+      "evidence": "internal/orchestrate/hooks.go LoadHookConfig, RunHooks loads on-demand; missing file returns nil"
+    },
+    {
+      "ac": "Hooks fire at: pre-build, post-build, pre-review, post-review, pre-ci, post-ci",
+      "evidence": "internal/orchestrate/loop.go (build/review), cli.go AdvanceCIPhase, cmd/sdp-orchestrate/main.go"
+    },
+    {
+      "ac": "Each hook entry: phase, when (pre/post), command, on_fail (halt/warn/ignore)",
+      "evidence": "internal/orchestrate/hooks.go HookEntry struct"
+    },
+    {
+      "ac": "halt → abort pipeline, exit non-zero",
+      "evidence": "hooks.go runHook returns error; callers fatal/exit(1)"
+    },
+    {
+      "ac": "warn → log warning, continue",
+      "evidence": "hooks.go switch case warn"
+    },
+    {
+      "ac": "ignore → swallow failure, continue",
+      "evidence": "hooks.go switch case ignore"
+    },
+    {
+      "ac": "Missing config file → no hooks (graceful degradation)",
+      "evidence": "hooks.go LoadHookConfig returns nil,nil; RunHooks returns nil when cfg nil"
+    },
+    {
+      "ac": "Hook stdout/stderr captured in run log",
+      "evidence": "hooks.go runHook bytes.Buffer, log() with combined output"
+    },
+    {
+      "ac": "Hook timeout: 60s default, configurable per hook",
+      "evidence": "hooks.go defaultHookTimeout, h.Timeout > 0"
+    },
+    {
+      "ac": "Test: pre-build hook halt, post-build hook warn, missing config",
+      "evidence": "internal/orchestrate/hooks_test.go TestRunHooks_PreBuildHalt, TestRunHooks_PostBuildWarn, TestRunHooks_MissingConfig"
+    }
+  ],
+  "review_notes": "All acceptance criteria met. go build, go vet, go test ./internal/orchestrate/... pass. No P0/P1 issues. Hooks run user-configured shell commands from project-owned YAML; env vars passed separately (no injection)."
+}
