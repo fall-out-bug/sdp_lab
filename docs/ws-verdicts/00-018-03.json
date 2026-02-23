@@ -1,0 +1,12 @@
+{
+  "ws_id": "00-018-03",
+  "feature_id": "F018",
+  "status": "done",
+  "ac_evidence": [
+    {"ac": "Build skill: no phantom commands; checkpoint + deactivate", "evidence": "sdp/prompts/skills/build/SKILL.md, .opencode/skills/build/SKILL.md"},
+    {"ac": "Orchestrator: checkpoint-based branch validation", "evidence": "sdp/prompts/agents/orchestrator.md, .opencode/agents/orchestrator.md"},
+    {"ac": "Hooks: remove context check", "evidence": "hooks/pre-build.sh, scripts/hooks/pre-build.sh"},
+    {"ac": "sdp/CLAUDE.md: remove finding list/resolve", "evidence": "sdp/CLAUDE.md"},
+    {"ac": "Grep returns empty for phantom commands", "evidence": "rg 'sdp guard (context|branch check|complete|finding)' sdp/ .opencode/ hooks/ scripts/ → no matches"}
+  ]
+}
