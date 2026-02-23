@@ -19,7 +19,11 @@
       "file": "skills/build.md",
       "cli": "sdp apply --ws",
       "mode": "hybrid",
-      "llm_subagents": ["implementer", "spec-reviewer", "quality-reviewer"],
+      "llm_subagents": [
+        "implementer",
+        "spec-reviewer",
+        "quality-reviewer"
+      ],
       "description": "Execute workstream with TDD",
       "phase": "execution"
     },
@@ -27,7 +31,14 @@
       "file": "skills/review.md",
       "cli": "sdp quality all",
       "mode": "hybrid",
-      "llm_subagents": ["qa", "security", "devops", "sre", "tech-lead", "documentation"],
+      "llm_subagents": [
+        "qa",
+        "security",
+        "devops",
+        "sre",
+        "tech-lead",
+        "documentation"
+      ],
       "description": "Multi-agent quality review",
       "phase": "execution"
     },
@@ -42,7 +53,10 @@
       "file": "skills/bugfix.md",
       "cli": "sdp apply --ws",
       "mode": "hybrid",
-      "llm_subagents": ["implementer", "quality-reviewer"],
+      "llm_subagents": [
+        "implementer",
+        "quality-reviewer"
+      ],
       "description": "Quality bug fix (P1/P2)",
       "phase": "debug"
     },
@@ -50,7 +64,9 @@
       "file": "skills/hotfix.md",
       "cli": "sdp apply --ws",
       "mode": "hybrid",
-      "llm_subagents": ["implementer"],
+      "llm_subagents": [
+        "implementer"
+      ],
       "description": "Emergency P0 fix",
       "phase": "debug"
     },
@@ -58,7 +74,9 @@
       "file": "skills/issue.md",
       "cli": "bd show",
       "mode": "llm_only",
-      "llm_subagents": ["analyst"],
+      "llm_subagents": [
+        "implementer"
+      ],
       "description": "Bug analysis and routing",
       "phase": "debug"
     },
@@ -73,7 +91,10 @@
       "file": "skills/vision.md",
       "cli": "sdp prd generate",
       "mode": "hybrid",
-      "llm_subagents": ["analyst", "architect", "product-manager"],
+      "llm_subagents": [
+        "architect",
+        "planner"
+      ],
       "description": "Strategic product planning",
       "phase": "strategic"
     },
@@ -81,7 +102,9 @@
       "file": "skills/reality.md",
       "cli": "sdp drift detect",
       "mode": "hybrid",
-      "llm_subagents": ["analyst", "architect"],
+      "llm_subagents": [
+        "architect"
+      ],
       "description": "Codebase analysis",
       "phase": "analysis"
     },
@@ -89,7 +112,10 @@
       "file": "skills/feature.md",
       "cli": "sdp plan",
       "mode": "hybrid",
-      "llm_subagents": ["analyst", "architect", "planner"],
+      "llm_subagents": [
+        "architect",
+        "planner"
+      ],
       "description": "Feature planning",
       "phase": "planning"
     },
@@ -106,13 +132,6 @@
       "mode": "llm_only",
       "description": "System design",
       "phase": "planning"
-    },
-    "init": {
-      "file": "skills/init.md",
-      "cli": "sdp init",
-      "mode": "cli_only",
-      "description": "Initialize SDP",
-      "phase": "setup"
     },
     "tdd": {
       "file": "skills/tdd.md",
@@ -145,18 +164,16 @@
   "agents": {
     "orchestrator": "agents/orchestrator.md",
     "reviewer": "agents/reviewer.md",
-    "builder": "agents/builder.md",
     "deployer": "agents/deployer.md",
     "tester": "agents/qa.md",
     "architect": "agents/architect.md",
-    "analyst": "agents/analyst.md",
-    "developer": "agents/developer.md",
     "implementer": "agents/implementer.md",
     "spec-reviewer": "agents/spec-reviewer.md",
     "security": "agents/security.md",
     "devops": "agents/devops.md",
     "sre": "agents/sre.md",
-    "tech-lead": "agents/tech-lead.md"
+    "tech-lead": "agents/tech-lead.md",
+    "planner": "agents/planner.md"
   },
   "notes": {
     "llm_agnostic": "Skills work with any LLM (Opus, GLM, Codex) in any tool (Claude Code, Cursor, Windsurf)",

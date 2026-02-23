@@ -21,6 +21,7 @@ graph LR
         F018["F018 Dead Code Purge"]
         F019["F019 Skill Compression"]
         F020["F020 Build Scope Fix"]
+        F021["F021 Language-Agnostic Skills"]
     end
     subgraph p1 ["Phase 1: Evidence Foundation"]
         F001["F001 Schema"]
@@ -50,7 +51,8 @@ graph LR
 
     F018 --> F019
     F019 --> F020
-    F020 --> F016
+    F020 --> F021
+    F021 --> F016
     F014 --> F015
     F015 --> F016
     F016 --> F017
@@ -87,6 +89,7 @@ graph LR
 | **F018: Dead Code Purge** | 00-018-01, 00-018-02 | M | Delete 3 broken skills (test, help, init) + 17 dead agents (57% of total). Fix Python→Go mismatch in bugfix/hotfix/tdd. Remove 6 phantom CLI commands from skills. Fix branch model (dev→master). ~4,300 lines removed. |
 | **F019: Skill Compression** | 00-019-01, 00-019-02, 00-019-03 | M | Compress 12 skills to @debug/@ci-triage standard (50-100 lines). Merge @discovery→@feature, @prd→@vision. Strip all "Next Steps" handoff sections. Remove negation-based rules ("NEVER", "DO NOT"). ~3,000 lines → ~900 lines. |
 | **F020: Build Scope Fix** | 00-020-01 | S | Remove auto-continue rules from @build (scope leak: @build tries to be @oneshot). Strip evidence boilerplate (~100 lines → post-build CLI hook). @build does ONE workstream, then STOPS. Continuation is orchestrator's job. |
+| **F021: Language-Agnostic Skills** | 00-021-01 | S | Remove hardcoded Go commands (`go test`, `go build`, `golangci-lint`) from 5 universal skills. Skills reference "quality gates (AGENTS.md)" instead. Two-layer: skills = universal protocol, AGENTS.md = project-specific toolchain. ~25 Go references → 0 in CRITICAL paths. |
 
 **Exit criteria:**
 - `sdp ci-loop` exits 0 on green CI, exits 1 on escalation — no LLM in the loop
@@ -94,7 +97,8 @@ graph LR
 - Oneshot completes F001-level feature without "Next steps" handoff in 3/3 runs
 - Eval suite catches regressions on skill changes
 - Zero phantom CLI commands in any skill
-- Zero Python tooling references (Go project uses `go test`, `go vet`, `go build`)
+- Zero Python tooling references in skills (project uses Go, but skills are language-agnostic)
+- Zero hardcoded `go test`/`go build`/`go vet` in skill CRITICAL paths — AGENTS.md is the toolchain source
 - Agent count: 30 → 13. Skill line count: ~10K → ~4K
 - @build executes single WS without auto-continuing to next
 
@@ -229,6 +233,7 @@ graph LR
 | F018 Dead Code Purge | 0 | M | Backlog | 00-018-01, 00-018-02 | — |
 | F019 Skill Compression | 0 | M | Backlog | 00-019-01, 00-019-02, 00-019-03 | F018 |
 | F020 Build Scope Fix | 0 | S | Backlog | 00-020-01 | F019 |
+| F021 Language-Agnostic Skills | 0 | S | Backlog | 00-021-01 | F020 |
 | F001 Evidence Schema | 1 | M | Backlog | 00-001-01, 00-001-02 | — |
 | F002 Evidence CLI | 1 | L | Backlog | 00-002-01, 00-002-02, 00-002-03 | F001 |
 | F003 Handoff Schema | 2 | M | Backlog | 00-003-01, 00-003-02 | F001 |
@@ -248,7 +253,7 @@ graph LR
 ## Dependency Graph (Critical Path)
 
 ```
-F018 ──→ F019 ──→ F020 ──→ F016 (purge → compress → build fix → outer loop)
+F018 ──→ F019 ──→ F020 ──→ F021 ──→ F016 (purge → compress → build fix → lang-agnostic → outer loop)
 
 F014 ──→ F015 ──→ F016 ──→ F017 (CI loop → stop hook → outer loop → evals)
   │
@@ -269,8 +274,8 @@ F011 ──→ F012 (upstream PRs → awesome listing)
 
 **Two parallel tracks in Phase 0:**
 - Track A: F014→F015→F016→F017 (external enforcement: CLI, hooks, outer loop, evals)
-- Track B: F018→F019→F020 (cleanup: purge dead code, compress skills, fix @build scope)
-- Tracks merge at F016 (outer loop needs clean skills from F019/F020)
+- Track B: F018→F019→F020→F021 (cleanup: purge dead code, compress skills, fix @build scope, language-agnostic)
+- Tracks merge at F016 (outer loop needs clean, universal skills from F021)
 
 **Parallelizable work:** Phase 0 tracks A+B run alongside Phase 1+. F008-F010 (simplify) alongside F003-F007 (pipeline + stream). F011-F012 (ecosystem) anytime after F002.
 
@@ -287,7 +292,7 @@ F011 ──→ F012 (upstream PRs → awesome listing)
 | L | 2-3 | 4-6 sessions | Evidence CLI, sequential reconciler, assembler, dead code removal |
 | XL | 3+ | 6-10 sessions | E2E validation (fixes everything that breaks) |
 
-**Total: 20 features, 41 workstreams, estimated 55-85 sessions.**
+**Total: 21 features, 43 workstreams, estimated 56-87 sessions.**
 
 ---
 
