@@ -45,17 +45,25 @@ func LoadCheckpoint(dir, featureID string) (*Checkpoint, error) {
 	return &cp, nil
 }
 
-// SaveCheckpoint writes the checkpoint back to disk.
+// SaveCheckpoint writes the checkpoint back to disk atomically.
 func SaveCheckpoint(dir string, cp *Checkpoint) error {
 	if err := validateFeatureID(cp.FeatureID); err != nil {
 		return err
 	}
 	cp.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	cp.Phase = "ci"
-	path := filepath.Join(dir, cp.FeatureID+".json")
 	data, err := json.MarshalIndent(cp, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal checkpoint: %w", err)
 	}
-	return os.WriteFile(path, data, 0o644)
+	tmpPath := filepath.Join(dir, cp.FeatureID+".json.tmp")
+	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
+		return fmt.Errorf("write checkpoint: %w", err)
+	}
+	path := filepath.Join(dir, cp.FeatureID+".json")
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("rename checkpoint: %w", err)
+	}
+	return nil
 }

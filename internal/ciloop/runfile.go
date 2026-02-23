@@ -55,7 +55,15 @@ func AppendRunEvent(dir, featureID, phase, state, notes string) error {
 	if err != nil {
 		return fmt.Errorf("marshal run file: %w", err)
 	}
-	return os.WriteFile(path, out, 0o644)
+	tmpPath := path + ".tmp"
+	if err := os.WriteFile(tmpPath, out, 0o644); err != nil {
+		return fmt.Errorf("write run file: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("rename run file: %w", err)
+	}
+	return nil
 }
 
 func findRunFile(dir, featureID string) (string, error) {

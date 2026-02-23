@@ -36,23 +36,23 @@
 
 | WS | Feature | Title | Status |
 |----|---------|-------|--------|
-| 00-014-01 | F014 | CI Loop CLI — Poll + Classify | Backlog |
-| 00-014-02 | F014 | CI Loop CLI — Auto-Fix Engine | Backlog |
-| 00-015-01 | F015 | Stop Hook — Cursor Implementation | Backlog |
-| 00-015-02 | F015 | Stop Hook — Claude Code Implementation | Backlog |
-| 00-016-01 | F016 | Oneshot Outer Loop — State Machine CLI | Backlog |
-| 00-016-02 | F016 | Oneshot Outer Loop — Cursor Integration | Backlog |
-| 00-016-03 | F016 | Oneshot Outer Loop — Claude Code Integration | Backlog |
-| 00-016-04 | F016 | Oneshot Outer Loop — opencode Integration | Backlog |
-| 00-017-01 | F017 | Skill Eval Suite — Framework + Core Evals | Backlog |
-| 00-017-02 | F017 | Skill Eval Suite — CI Integration | Backlog |
+| 00-014-01 | F014 | CI Loop CLI — Poll + Classify | In Progress |
+| 00-014-02 | F014 | CI Loop CLI — Auto-Fix Engine | In Progress |
+| 00-015-01 | F015 | Stop Hook — Cursor Implementation | Done |
+| 00-015-02 | F015 | Stop Hook — Claude Code Implementation | Done |
+| 00-016-01 | F016 | Oneshot Outer Loop — State Machine CLI | In Progress |
+| 00-016-02 | F016 | Oneshot Outer Loop — Cursor Integration | In Progress |
+| 00-016-03 | F016 | Oneshot Outer Loop — Claude Code Integration | In Progress |
+| 00-016-04 | F016 | Oneshot Outer Loop — opencode Integration | In Progress |
+| 00-017-01 | F017 | Skill Eval Suite — Framework + Core Evals | In Progress |
+| 00-017-02 | F017 | Skill Eval Suite — CI Integration | In Progress |
 | 00-018-01 | F018 | Delete Dead Skills + Agents | Backlog |
-| 00-018-02 | F018 | Fix Python→Go + Phantom CLI + Branch Model | Backlog |
+| 00-018-02 | F018 | Fix Python→Go + Phantom CLI + Branch Model | Done |
 | 00-019-01 | F019 | Compress Operational Skills | Backlog |
 | 00-019-02 | F019 | Compress Planning & Design Skills | Backlog |
 | 00-019-03 | F019 | Trim Bloated Agents + Sync Copies | Backlog |
 | 00-020-01 | F020 | @build Scope Surgery | Backlog |
-| 00-021-01 | F021 | Remove Go-Specific Commands from Universal Skills | Backlog |
+| 00-021-01 | F021 | Remove Go-Specific Commands from Universal Skills | Done |
 
 ### Phase 1: Evidence Foundation
 

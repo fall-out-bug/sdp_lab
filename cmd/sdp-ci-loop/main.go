@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"sdp_dev/internal/ciloop"
@@ -82,7 +84,11 @@ func main() {
 		},
 	})
 
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	opts := ciloop.LoopOptions{
+		Context:           ctx,
 		PRNumber:          *prNum,
 		MaxIter:           *maxIter,
 		MaxPendingRetries: ciloop.DefaultMaxPendingRetries,
@@ -142,7 +148,13 @@ func (e *execRunner) Run(name string, args ...string) ([]byte, error) {
 type gitCommitter struct{}
 
 func (g *gitCommitter) Commit(msg string) error {
-	cmd := exec.Command("git", "commit", "-am", msg)
+	add := exec.Command("git", "add", ".sdp/ci-fixes/")
+	add.Stdout = os.Stdout
+	add.Stderr = os.Stderr
+	if err := add.Run(); err != nil {
+		return err
+	}
+	cmd := exec.Command("git", "commit", "-m", msg)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
