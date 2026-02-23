@@ -15,6 +15,7 @@
 | **F018** | 0 | Dead Code Purge | 00-018-01, 00-018-02 |
 | **F019** | 0 | Skill Compression | 00-019-01, 00-019-02, 00-019-03 |
 | **F020** | 0 | Build Scope Fix | 00-020-01 |
+| **F021** | 0 | Language-Agnostic Skills | 00-021-01 |
 | **F001** | 1 | Evidence Schema | 00-001-01, 00-001-02 |
 | **F002** | 1 | Evidence CLI | 00-002-01, 00-002-02, 00-002-03 |
 | **F003** | 2 | Handoff Artifact Schema | 00-003-01, 00-003-02 |
@@ -51,6 +52,7 @@
 | 00-019-02 | F019 | Compress Planning & Design Skills | Backlog |
 | 00-019-03 | F019 | Trim Bloated Agents + Sync Copies | Backlog |
 | 00-020-01 | F020 | @build Scope Surgery | Backlog |
+| 00-021-01 | F021 | Remove Go-Specific Commands from Universal Skills | Backlog |
 
 ### Phase 1: Evidence Foundation
 
@@ -110,7 +112,7 @@
 
 ## Workstream ID Format
 
-`PP-FFF-SS` — Project (00), Feature (001–020), Step (01, 02, …)
+`PP-FFF-SS` — Project (00), Feature (001–021), Step (01, 02, …)
 
 Example: `00-004-02` = sdp_lab, F004 Sequential Reconciler, step 2 (inject handoff paths)
 Example: `00-014-01` = sdp_lab, F014 CI Loop CLI, step 1 (poll + classify)
