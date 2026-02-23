@@ -29,6 +29,8 @@ type Result struct {
 }
 
 // RunCase loads the transcript, extracts agent output, and checks patterns.
+// For verdict=PASS: case passes when no forbidden patterns and all required present.
+// For verdict=FAIL: case passes when we correctly flag violations (expect transcript to fail).
 func RunCase(c *Case, projectRoot string) Result {
 	path := filepath.Join(projectRoot, c.InputTranscript)
 	data, err := os.ReadFile(path)
@@ -52,19 +54,20 @@ func RunCase(c *Case, projectRoot string) Result {
 			missing = append(missing, p)
 		}
 	}
-	pass := true
+	rawPass := !hasForbidden && !missingRequired
 	var reason string
 	if hasForbidden {
-		pass = false
 		reason = fmt.Sprintf("forbidden patterns found: %s", strings.Join(forbiddenFound, ", "))
 	}
 	if missingRequired {
-		pass = false
 		if reason != "" {
 			reason += "; "
 		}
 		reason += fmt.Sprintf("missing required patterns: %s", strings.Join(missing, ", "))
 	}
+	// verdict FAIL = we expect transcript to violate; "pass" means we correctly caught it
+	expectFail := strings.ToUpper(c.Verdict) == "FAIL"
+	pass := (expectFail && !rawPass) || (!expectFail && rawPass)
 	return Result{Case: c.Name, Pass: pass, Reason: reason}
 }
 

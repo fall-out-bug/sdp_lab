@@ -1,0 +1,41 @@
+name: skill-eval
+
+on:
+  pull_request:
+    paths:
+      - 'sdp/prompts/skills/**'
+      - '.claude/skills/**'
+      - 'sdp/.claude/skills/**'
+      - 'internal/eval/**'
+      - 'testdata/eval/**'
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Run skill evals
+        id: eval
+        run: |
+          go build -o sdp-eval ./cmd/sdp-eval
+          ./sdp-eval --all 2>&1 | tee eval-output.txt
+
+      - name: Comment on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.existsSync('eval-output.txt') ? fs.readFileSync('eval-output.txt', 'utf8') : 'Eval failed.';
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## Skill Eval Failed\n\n\`\`\`\n${output}\n\`\`\``
+            });

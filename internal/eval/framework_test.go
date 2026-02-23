@@ -18,17 +18,18 @@ func TestExtractAgentOutput(t *testing.T) {
 
 func TestRunCase_KnownBad(t *testing.T) {
 	tmp := t.TempDir()
-	// Transcript with forbidden patterns
+	// Transcript with forbidden patterns; verdict FAIL = we expect to catch it
 	os.WriteFile(filepath.Join(tmp, "bad.jsonl"), []byte(`{"role":"assistant","content":"Next steps: 1. approve and merge"}`), 0o644)
 	c := &Case{
-		Name:             "bad",
-		InputTranscript:  "bad.jsonl",
+		Name:              "bad",
+		InputTranscript:   "bad.jsonl",
 		ForbiddenPatterns: []string{"Next steps", "approve and merge"},
-		RequiredPatterns: []string{},
+		RequiredPatterns:  []string{},
+		Verdict:           "FAIL",
 	}
 	r := RunCase(c, tmp)
-	if r.Pass {
-		t.Error("expected FAIL for known-bad transcript")
+	if !r.Pass {
+		t.Error("expected PASS for known-bad transcript (correctly flagged)")
 	}
 }
 
@@ -40,6 +41,7 @@ func TestRunCase_KnownGood(t *testing.T) {
 		InputTranscript:   "good.jsonl",
 		ForbiddenPatterns: []string{"Next steps"},
 		RequiredPatterns:  []string{"CI GREEN"},
+		Verdict:           "PASS",
 	}
 	r := RunCase(c, tmp)
 	if !r.Pass {
@@ -78,11 +80,11 @@ func TestRun_OneshotEvals(t *testing.T) {
 			passed++
 		}
 	}
-	// We expect: 3 FAIL (known-bad) + 2 PASS (known-good) = 5 total
+	// We expect: 5 cases, all pass (3 verdict FAIL correctly flag bad transcripts, 2 verdict PASS)
 	if len(results) != 5 {
 		t.Errorf("expected 5 cases, got %d", len(results))
 	}
-	if passed != 2 {
-		t.Errorf("expected 2 pass (ci-green, uses-ci-loop), got %d", passed)
+	if passed != 5 {
+		t.Errorf("expected all 5 to pass, got %d", passed)
 	}
 }

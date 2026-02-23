@@ -8,4 +8,4 @@ forbidden_patterns:
 required_patterns:
   - "sdp ci-loop"
   - "sdp-orchestrate"
-verdict: PASS
+verdict: PASS  # expected when agent uses CLI not inline loop

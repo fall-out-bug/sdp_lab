@@ -6,4 +6,4 @@ forbidden_patterns:
   - "Optional:"
 required_patterns:
   - "CI GREEN"
-verdict: PASS
+verdict: PASS  # expected when transcript is compliant
