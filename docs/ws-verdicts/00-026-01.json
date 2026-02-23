@@ -1,0 +1,17 @@
+{
+  "ws_id": "00-026-01",
+  "verdict": "APPROVED",
+  "status": "done",
+  "ac_evidence": [
+    {"ac": "provenance.prompt_hash: SHA-256 of the fully rendered prompt sent to the LLM", "evidence": "internal/orchestrate/invoke_opencode.go: ComputePromptHash, RunBuildPhase"},
+    {"ac": "provenance.context_sources: array of {type, path, hash}", "evidence": "internal/orchestrate/invoke_opencode.go: BuildContextSources, ContextSource struct"},
+    {"ac": "Context source types: workstream_spec, checkpoint, scope_file, agents_md, skill, context_packet", "evidence": "schema/evidence-envelope.schema.json provenance.context_sources.items.properties.type.enum"},
+    {"ac": "sdp-evidence validate checks prompt_hash is valid SHA-256 hex", "evidence": "internal/evidence/strict.go hasProvenanceContract"},
+    {"ac": "sdp-evidence validate checks context_sources is non-empty array with valid entries", "evidence": "internal/evidence/strict.go hasProvenanceContract"},
+    {"ac": "sdp-evidence inspect displays prompt provenance in human-readable format", "evidence": "internal/evidence/inspect.go formatSummary"},
+    {"ac": "Hash computed AFTER all prompt assembly, BEFORE LLM invocation", "evidence": "internal/orchestrate/invoke_opencode.go RunBuildPhase: ComputePromptHash(prompt) before InvokeOpenCode"},
+    {"ac": "Backward compatible: envelopes without these fields still validate", "evidence": "internal/evidence/strict.go: optional validation when present; schema pattern ^$|^[a-f0-9]{64}$"},
+    {"ac": "Test: envelope with prompt provenance validates, inspect output includes provenance", "evidence": "internal/evidence/strict_test.go TestValidateStrictFile_promptProvenance, inspect_test.go TestInspectPromptProvenance"}
+  ],
+  "review_notes": "PR #57 merged. CI green. All scope files within limits. Quality gate failures (coverage, complexity, file size) are project-wide pre-existing."
+}
