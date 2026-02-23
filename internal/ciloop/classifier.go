@@ -32,7 +32,8 @@ func FixType(checkName string) string {
 }
 
 // Classify returns the classification for a failing CI check by name.
-// Unknown checks default to Escalate (fail-safe).
+// Auto-fixable checks are routed to deterministic fixers first (goimports, go mod tidy),
+// then to the LLM/diagnostics path if fixers don't resolve. Unknown checks default to Escalate (fail-safe).
 func Classify(checkName string) Classification {
 	if FixType(checkName) != "" {
 		return ClassAutoFixable

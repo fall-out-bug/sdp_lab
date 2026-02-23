@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"sdp_dev/internal/ciloop"
+	"sdp_dev/internal/orchestrate"
 )
 
 // exitCodes matches WS AC.
@@ -71,7 +72,12 @@ func main() {
 		return nil
 	}
 
-	fixer := ciloop.NewFixer(ciloop.FixerOptions{
+	projectRoot, err := orchestrate.FindProjectRoot(".")
+	if err != nil {
+		projectRoot = "."
+	}
+
+	innerFixer := ciloop.NewFixer(ciloop.FixerOptions{
 		PRNumber:  *prNum,
 		FeatureID: *feature,
 		Committer: &ciloop.GitCommitter{},
@@ -81,6 +87,26 @@ func main() {
 			return nil
 		},
 	})
+
+	runFileLogger := func(fixerNames []string, duration time.Duration) {
+		if *feature == "" {
+			return
+		}
+		notes := fmt.Sprintf("%s (%s)", strings.Join(fixerNames, ","), duration.Round(time.Millisecond))
+		_ = ciloop.AppendRunEvent(*runsDir, *feature, "ci", "autofix", notes)
+	}
+
+	fixer := &ciloop.DeterministicFirstFixer{
+		ProjectRoot:   projectRoot,
+		Registry:      ciloop.NewAutofixerRegistry(projectRoot),
+		Runner:        runner,
+		Committer:     &ciloop.AllFilesCommitter{},
+		LogFetcher:    &ciloop.GhLogFetcher{Runner: runner},
+		DecisionLog:   func(decision, rationale string) error { fmt.Printf("DECISION: %s — %s\n", decision, rationale); return nil },
+		RunFileLogger: runFileLogger,
+		Inner:         innerFixer,
+		PRNumber:      *prNum,
+	}
 
 	opts := ciloop.LoopOptions{Context: ctx, PRNumber: *prNum, MaxIter: *maxIter,
 		MaxPendingRetries: ciloop.DefaultMaxPendingRetries, PollDelay: *pollDelay, RetryDelay: *retryDelay,

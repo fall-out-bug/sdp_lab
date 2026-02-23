@@ -44,6 +44,31 @@ func SanitizeLabel(s string) string {
 // GitCommitter implements Committer via git CLI.
 type GitCommitter struct{}
 
+// AllFilesCommitter commits all changes (for deterministic fixers: goimports, go mod tidy).
+type AllFilesCommitter struct{}
+
+// Commit stages all files and commits (used by deterministic auto-fixers).
+func (g *AllFilesCommitter) Commit(msg string) error {
+	add := exec.Command("git", "add", ".")
+	add.Stdout = os.Stdout
+	add.Stderr = os.Stderr
+	if err := add.Run(); err != nil {
+		return err
+	}
+	cmd := exec.Command("git", "commit", "-m", msg)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// Push pushes the current branch.
+func (g *AllFilesCommitter) Push() error {
+	cmd := exec.Command("git", "push")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
 // Commit adds .sdp/ci-fixes/ and commits with the given message.
 func (g *GitCommitter) Commit(msg string) error {
 	add := exec.Command("git", "add", ".sdp/ci-fixes/")
