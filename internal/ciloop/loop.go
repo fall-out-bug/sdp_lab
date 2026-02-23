@@ -1,6 +1,9 @@
 package ciloop
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 // LoopResult is the outcome of RunLoop.
 type LoopResult int
@@ -24,6 +27,8 @@ type Fixer interface {
 
 // LoopOptions configures RunLoop behaviour.
 type LoopOptions struct {
+	// Context allows cancellation (e.g. SIGINT/SIGTERM). When cancelled, RunLoop returns ResultEscalated.
+	Context context.Context
 	PRNumber int
 	MaxIter  int
 	// MaxPendingRetries caps how many consecutive PENDING-only rounds before escalation.
@@ -54,8 +59,23 @@ func RunLoop(opts LoopOptions) (LoopResult, error) {
 	iter := 0
 	pendingRounds := 0
 	for {
+		if opts.Context != nil {
+			select {
+			case <-opts.Context.Done():
+				return ResultEscalated, opts.Context.Err()
+			default:
+			}
+		}
 		if opts.PollDelay > 0 {
-			time.Sleep(opts.PollDelay)
+			if opts.Context != nil {
+				select {
+				case <-opts.Context.Done():
+					return ResultEscalated, opts.Context.Err()
+				case <-time.After(opts.PollDelay):
+				}
+			} else {
+				time.Sleep(opts.PollDelay)
+			}
 		}
 
 		checks, err := opts.Poller.GetChecks(opts.PRNumber)
@@ -73,12 +93,22 @@ func RunLoop(opts LoopOptions) (LoopResult, error) {
 			pendingRounds++
 			if opts.MaxPendingRetries > 0 && pendingRounds >= opts.MaxPendingRetries {
 				if opts.OnEscalate != nil {
-					opts.OnEscalate(checks)
+					if err := opts.OnEscalate(checks); err != nil {
+						return ResultEscalated, err
+					}
 				}
 				return ResultEscalated, nil
 			}
 			if opts.RetryDelay > 0 {
-				time.Sleep(opts.RetryDelay)
+				if opts.Context != nil {
+					select {
+					case <-opts.Context.Done():
+						return ResultEscalated, opts.Context.Err()
+					case <-time.After(opts.RetryDelay):
+					}
+				} else {
+					time.Sleep(opts.RetryDelay)
+				}
 			}
 			continue
 		}
@@ -116,7 +146,9 @@ func RunLoop(opts LoopOptions) (LoopResult, error) {
 
 		if err := opts.Fixer.Fix(autoFixChecks); err != nil {
 			if opts.OnEscalate != nil {
-				opts.OnEscalate(autoFixChecks)
+				if escErr := opts.OnEscalate(autoFixChecks); escErr != nil {
+					return ResultEscalated, escErr
+				}
 			}
 			return ResultEscalated, err
 		}

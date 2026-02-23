@@ -1,0 +1,11 @@
+{
+  "ws_id": "00-021-01",
+  "status": "done",
+  "ac_evidence": [
+    { "ac": "Zero go test, go build, go vet, golangci-lint in any SKILL.md CRITICAL path", "evidence": "sdp/prompts/skills/build, tdd, bugfix, oneshot, deploy" },
+    { "ac": "Each replaced reference says Run quality gates (see AGENTS.md) or equivalent", "evidence": "sdp/prompts/skills/*.md" },
+    { "ac": "AGENTS.md Quality Gates section remains Go-specific (project config, not protocol)", "evidence": "AGENTS.md" },
+    { "ac": "Skills are usable by a hypothetical Node.js or Rust project adopting SDP", "evidence": "sdp/prompts/skills/ language-agnostic wording" },
+    { "ac": "Go-specific examples in comments OK if clearly marked as examples", "evidence": "sdp/prompts/skills/" }
+  ]
+}

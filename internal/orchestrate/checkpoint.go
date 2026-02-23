@@ -1,13 +1,17 @@
 package orchestrate
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 )
+
+const maxJSONDecodeBytes = 10 * 1024 * 1024 // 10MB DoS limit (7m40)
 
 // Checkpoint is the .sdp/checkpoints/F{NNN}.json schema for the orchestrate state machine.
 // Compatible with ciloop.Checkpoint for pr_number, feature_id, branch (used by sdp-ci-loop and stop gate).
@@ -68,22 +72,30 @@ func LoadCheckpoint(dir, featureID string) (*Checkpoint, error) {
 		return nil, fmt.Errorf("read checkpoint %s: %w", path, err)
 	}
 	var cp Checkpoint
-	if err := json.Unmarshal(data, &cp); err != nil {
+	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(data), maxJSONDecodeBytes)).Decode(&cp); err != nil {
 		return nil, fmt.Errorf("parse checkpoint %s: %w", path, err)
 	}
 	return &cp, nil
 }
 
-// SaveCheckpoint writes the checkpoint to disk.
+// SaveCheckpoint writes the checkpoint to disk atomically.
 func SaveCheckpoint(dir string, cp *Checkpoint) error {
 	if err := validateFeatureID(cp.FeatureID); err != nil {
 		return err
 	}
 	cp.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	path := filepath.Join(dir, cp.FeatureID+".json")
 	data, err := json.MarshalIndent(cp, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal checkpoint: %w", err)
 	}
-	return os.WriteFile(path, data, 0o644)
+	tmpPath := filepath.Join(dir, cp.FeatureID+".json.tmp")
+	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
+		return fmt.Errorf("write checkpoint: %w", err)
+	}
+	path := filepath.Join(dir, cp.FeatureID+".json")
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("rename checkpoint: %w", err)
+	}
+	return nil
 }

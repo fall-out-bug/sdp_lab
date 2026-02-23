@@ -2,6 +2,9 @@ package ciloop_test
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"sdp_dev/internal/ciloop"
@@ -58,9 +61,54 @@ const goBuildFailureLog = `
 ./internal/bar/bar.go:42:5: undefined: SomeFunc
 `
 
+const goBuildNoPkgLog = `
+./cmd/foo/main.go:5:2: cannot find package "github.com/example/missing"
+`
+
 const k8sFailureLog = `
 Error: yaml: line 5: did not find expected key
 `
+
+func TestDiagnosticsFileNoRawLog(t *testing.T) {
+	// Security: diagnostics file must not contain raw CI log (secrets, tokens).
+	dir := t.TempDir()
+	committer := &fakeCommitter{}
+	fetcher := &fakeLogFetcher{logs: map[string]string{"run1": goTestFailureLog}}
+	fixer := ciloop.NewFixer(ciloop.FixerOptions{
+		PRNumber:       42,
+		FeatureID:      "F014",
+		DiagnosticsDir: dir,
+		Committer:      committer,
+		LogFetcher:     fetcher,
+		DecisionLogger: func(decision, rationale string) error { return nil },
+	})
+	checks := []ciloop.CheckResult{{Name: "go-test", State: ciloop.StateFailure}}
+	if err := fixer.Fix(checks); err != nil {
+		t.Fatalf("Fix: %v", err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 diagnostics file, got %d", len(entries))
+	}
+	data, err := os.ReadFile(filepath.Join(dir, entries[0].Name()))
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	content := string(data)
+	// Raw log contains "assertion failed", "FAIL", "foo_test.go" — must not appear.
+	for _, forbidden := range []string{"assertion failed", "foo_test.go", "FAIL\t"} {
+		if strings.Contains(content, forbidden) {
+			t.Errorf("diagnostics file must not contain raw log; found %q", forbidden)
+		}
+	}
+	// Must contain sanitized fix type.
+	if !strings.Contains(content, "go-test") {
+		t.Errorf("diagnostics file should contain fix type go-test")
+	}
+}
 
 func TestFixerGoTestFailure(t *testing.T) {
 	committer := &fakeCommitter{}
@@ -89,6 +137,27 @@ func TestFixerGoTestFailure(t *testing.T) {
 func TestFixerGoBuildFailure(t *testing.T) {
 	committer := &fakeCommitter{}
 	fetcher := &fakeLogFetcher{logs: map[string]string{"run1": goBuildFailureLog}}
+	fixer := ciloop.NewFixer(ciloop.FixerOptions{
+		PRNumber:       42,
+		FeatureID:      "F014",
+		DiagnosticsDir: t.TempDir(),
+		Committer:      committer,
+		LogFetcher:     fetcher,
+		DecisionLogger: func(decision, rationale string) error { return nil },
+	})
+	checks := []ciloop.CheckResult{{Name: "go-build", State: ciloop.StateFailure}}
+	err := fixer.Fix(checks)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(committer.commits) != 1 {
+		t.Errorf("expected 1 commit, got %d", len(committer.commits))
+	}
+}
+
+func TestFixerGoBuildNoPkgFailure(t *testing.T) {
+	committer := &fakeCommitter{}
+	fetcher := &fakeLogFetcher{logs: map[string]string{"run1": goBuildNoPkgLog}}
 	fixer := ciloop.NewFixer(ciloop.FixerOptions{
 		PRNumber:       42,
 		FeatureID:      "F014",

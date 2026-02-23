@@ -1,0 +1,13 @@
+{
+  "ws_id": "00-015-01",
+  "status": "done",
+  "ac_evidence": [
+    { "ac": "Hook fires when Cursor agent finishes a response", "evidence": ".cursor/hooks.json + scripts/oneshot-stop-gate.sh" },
+    { "ac": "Reads .sdp/checkpoints/F*.json — finds active feature checkpoint", "evidence": "scripts/oneshot-stop-gate.sh" },
+    { "ac": "If pr_number is set AND (last_phase != ci OR last_state != ok): exit 2 (block)", "evidence": "scripts/oneshot-stop-gate.sh" },
+    { "ac": "Block message: CI phase incomplete. Run: sdp ci-loop --pr {N} --feature F{NNN}", "evidence": "scripts/oneshot-stop-gate.sh" },
+    { "ac": "If no active checkpoint OR CI phase complete: exit 0 (allow)", "evidence": "scripts/oneshot-stop-gate.sh" },
+    { "ac": "Handles stop_hook_active flag to prevent infinite loops", "evidence": "scripts/oneshot-stop-gate.sh" },
+    { "ac": "Test: agent tries to stop before CI → blocked; agent stops after CI green → allowed", "evidence": "manual / test run" }
+  ]
+}

@@ -226,14 +226,14 @@ graph LR
 
 | Feature | Phase | Size | Status | Workstreams | Depends On |
 |---------|-------|------|--------|-------------|------------|
-| F014 CI Loop CLI | 0 | M | Backlog | 00-014-01, 00-014-02 | — |
-| F015 Stop Hook Gate | 0 | S | Backlog | 00-015-01, 00-015-02 | F014 |
-| F016 Oneshot Outer Loop | 0 | L | Backlog | 00-016-01, 00-016-02, 00-016-03, 00-016-04 | F015, F020 |
-| F017 Skill Eval Suite | 0 | M | Backlog | 00-017-01, 00-017-02 | F016 |
-| F018 Dead Code Purge | 0 | M | Backlog | 00-018-01, 00-018-02 | — |
+| F014 CI Loop CLI | 0 | M | In Progress | 00-014-01, 00-014-02 | — |
+| F015 Stop Hook Gate | 0 | S | Done | 00-015-01, 00-015-02 | F014 |
+| F016 Oneshot Outer Loop | 0 | L | In Progress | 00-016-01, 00-016-02, 00-016-03, 00-016-04 | F015, F020 |
+| F017 Skill Eval Suite | 0 | M | In Progress | 00-017-01, 00-017-02 | F016 |
+| F018 Dead Code Purge | 0 | M | Partial | 00-018-01, 00-018-02 | — |
 | F019 Skill Compression | 0 | M | Backlog | 00-019-01, 00-019-02, 00-019-03 | F018 |
 | F020 Build Scope Fix | 0 | S | Backlog | 00-020-01 | F019 |
-| F021 Language-Agnostic Skills | 0 | S | Backlog | 00-021-01 | F020 |
+| F021 Language-Agnostic Skills | 0 | S | Done | 00-021-01 | F020 |
 | F001 Evidence Schema | 1 | M | Backlog | 00-001-01, 00-001-02 | — |
 | F002 Evidence CLI | 1 | L | Backlog | 00-002-01, 00-002-02, 00-002-03 | F001 |
 | F003 Handoff Schema | 2 | M | Backlog | 00-003-01, 00-003-02 | F001 |

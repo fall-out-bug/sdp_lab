@@ -1,0 +1,12 @@
+{
+  "ws_id": "00-018-02",
+  "status": "done",
+  "ac_evidence": [
+    { "ac": "Zero pytest/mypy/ruff/poetry references in any skill", "evidence": "rg 'pytest|mypy|ruff|poetry' .opencode/skills/ returns empty" },
+    { "ac": "Zero phantom CLI commands (sdp collision, contract, memory, resolve, guard finding, parse ws)", "evidence": "rg 'sdp (collision|contract|memory|resolve|parse)' sdp/prompts/skills/ .opencode/skills/ returns empty" },
+    { "ac": "All branch references use master (not dev, not main)", "evidence": ".opencode/skills/bugfix/SKILL.md, hotfix/SKILL.md" },
+    { "ac": "go test/go vet/go build used consistently as quality gates", "evidence": ".opencode/skills/bugfix, hotfix, tdd" },
+    { "ac": "Grep validation: rg 'pytest|mypy|ruff|poetry' .opencode/skills/ returns empty", "evidence": "grep validation" },
+    { "ac": "Grep validation: rg 'sdp (collision|contract|memory|resolve|parse)' returns empty", "evidence": "grep validation" }
+  ]
+}

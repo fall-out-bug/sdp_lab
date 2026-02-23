@@ -1,4 +1,4 @@
-# Release sdp-evidence on tag push (e.g. v0.1.0)
+# Release Phase 0 CLIs (sdp-evidence, sdp-ci-loop, sdp-orchestrate, sdp-eval) on tag push (e.g. v0.1.0)
 name: Release
 
 on:

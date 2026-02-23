@@ -68,8 +68,9 @@ func (f *AutoFixer) Fix(checks []CheckResult) error {
 		return fmt.Errorf("write diagnostics: %w", err)
 	}
 
+	// Sanitize for commit: use fix types only, never log content (security: tfwt).
 	msg := fmt.Sprintf("fix(ci): auto-fix %s [%s]",
-		strings.Join(fixDescs, "; "),
+		strings.Join(sanitizeFixDescs(fixDescs), "; "),
 		f.opts.FeatureID,
 	)
 
@@ -81,9 +82,10 @@ func (f *AutoFixer) Fix(checks []CheckResult) error {
 	}
 
 	if f.opts.DecisionLogger != nil {
+		// Sanitize: never pass CI log content to stdout (security: a8ae).
 		f.opts.DecisionLogger(
 			"AUTO-FIX",
-			fmt.Sprintf("Applied fix for: %s", strings.Join(fixDescs, ", ")),
+			fmt.Sprintf("Applied fix for: %s", strings.Join(sanitizeFixDescs(fixDescs), ", ")),
 		)
 	}
 
@@ -103,29 +105,25 @@ func (f *AutoFixer) writeDiagnostics(checks []CheckResult, fixDescs []string, lo
 		names[i] = c.Name
 	}
 	filename := fmt.Sprintf("fix-pr%d-%s.md", f.opts.PRNumber, time.Now().UTC().Format("20060102T150405Z"))
-	content := fmt.Sprintf("# CI Fix Diagnostics\n\nPR: %d\nFeature: %s\nChecks: %s\n\n## Fix Descriptions\n\n%s\n\n## Log Excerpt\n\n```\n%s\n```\n",
+	// Use sanitized fix types only; never commit raw CI log (security: round-3 P1).
+	content := fmt.Sprintf("# CI Fix Diagnostics\n\nPR: %d\nFeature: %s\nChecks: %s\n\n## Fix Types\n\n%s\n\n## Log\n\nRedacted — see CI run for full output.\n",
 		f.opts.PRNumber,
 		f.opts.FeatureID,
 		strings.Join(names, ", "),
-		strings.Join(fixDescs, "\n"),
-		truncate(log, 2000),
+		strings.Join(sanitizeFixDescs(fixDescs), "\n"),
 	)
 	return os.WriteFile(filepath.Join(dir, filename), []byte(content), 0o644)
 }
 
 // applyFix parses the CI log and attempts to apply a fix for the given check.
-// For v1, it identifies the failure pattern and logs what would be fixed.
-// Actual source patching requires richer context; here we mark the fix as recorded
-// and return a description suitable for a commit message.
+// Uses FixType (shared with Classify) for routing.
 func (f *AutoFixer) applyFix(check CheckResult, log string) (string, error) {
-	lower := strings.ToLower(check.Name)
-
-	switch {
-	case strings.Contains(lower, "go-test") || strings.Contains(lower, "go test"):
+	switch FixType(check.Name) {
+	case "go-test":
 		return f.fixGoTest(log)
-	case strings.Contains(lower, "go-build") || strings.Contains(lower, "go build"):
+	case "go-build":
 		return f.fixGoBuild(log)
-	case strings.Contains(lower, "k8s-validate") || strings.Contains(lower, "k8s validate"):
+	case "k8s-validate":
 		return f.fixK8sValidate(log)
 	default:
 		return "", fmt.Errorf("unknown auto-fixable check %q", check.Name)
@@ -173,4 +171,18 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n] + "..."
+}
+
+// sanitizeFixDescs returns fix types only (e.g. "go-test", "go-build") to avoid
+// exposing CI log content in commit messages or stdout.
+func sanitizeFixDescs(descs []string) []string {
+	out := make([]string, len(descs))
+	for i, d := range descs {
+		if idx := strings.Index(d, ":"); idx > 0 {
+			out[i] = strings.TrimSpace(d[:idx])
+		} else {
+			out[i] = truncate(d, 30)
+		}
+	}
+	return out
 }

@@ -1,9 +1,45 @@
-# Goreleaser config for sdp-evidence CLI
+# Goreleaser config for SDP CLIs
 # Triggers on tag push (e.g. v0.1.0)
 version: 2
-project_name: sdp-evidence
+project_name: sdp-cli
 
 builds:
+  - id: sdp-ci-loop
+    main: ./cmd/sdp-ci-loop
+    binary: sdp-ci-loop
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: linux
+        goarch: arm64
+  - id: sdp-orchestrate
+    main: ./cmd/sdp-orchestrate
+    binary: sdp-orchestrate
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: linux
+        goarch: arm64
+  - id: sdp-eval
+    main: ./cmd/sdp-eval
+    binary: sdp-eval
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: linux
+        goarch: arm64
   - id: sdp-evidence
     main: ./cmd/sdp-evidence
     binary: sdp-evidence
@@ -19,11 +55,26 @@ builds:
         goarch: arm64
 
 archives:
+  - id: sdp-eval
+    format: tar.gz
+    name_template: "sdp-eval_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - sdp-eval
+  - id: sdp-orchestrate
+    format: tar.gz
+    name_template: "sdp-orchestrate_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - sdp-orchestrate
   - id: sdp-evidence
     format: tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     builds:
       - sdp-evidence
+  - id: sdp-ci-loop
+    format: tar.gz
+    name_template: "sdp-ci-loop_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - sdp-ci-loop
 
 checksum:
   name_template: "checksums.txt"

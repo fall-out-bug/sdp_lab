@@ -1,0 +1,11 @@
+{
+  "ws_id": "00-015-02",
+  "status": "done",
+  "ac_evidence": [
+    { "ac": "Hook configured in .claude/settings.json under hooks.Stop", "evidence": ".claude/settings.json" },
+    { "ac": "Same checkpoint-based gate logic as Cursor version", "evidence": "scripts/oneshot-stop-gate.sh (shared)" },
+    { "ac": "Works with Claude Code's stop_hook_active flag", "evidence": "scripts/oneshot-stop-gate.sh" },
+    { "ac": "Exit code 2 blocks with continuation message", "evidence": "scripts/oneshot-stop-gate.sh" },
+    { "ac": "Test: Claude Code agent stopped before CI → blocked; after CI green → allowed", "evidence": "manual / test run" }
+  ]
+}
