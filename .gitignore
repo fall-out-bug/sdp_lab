@@ -20,6 +20,8 @@ __pycache__/
 /swarm-worker
 /telemetry-analyzer
 /sdp-evidence
+/sdp-ci-loop
+/sdp-orchestrate
 
 # Execution state
 .oneshot/
@@ -31,5 +33,3 @@ __pycache__/
 .cursor/agents
 .opencode/skills
 .prompts
-sdp-ci-loop
-sdp-orchestrate

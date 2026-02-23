@@ -58,6 +58,10 @@ const goBuildFailureLog = `
 ./internal/bar/bar.go:42:5: undefined: SomeFunc
 `
 
+const goBuildNoPkgLog = `
+./cmd/foo/main.go:5:2: cannot find package "github.com/example/missing"
+`
+
 const k8sFailureLog = `
 Error: yaml: line 5: did not find expected key
 `
@@ -89,6 +93,27 @@ func TestFixerGoTestFailure(t *testing.T) {
 func TestFixerGoBuildFailure(t *testing.T) {
 	committer := &fakeCommitter{}
 	fetcher := &fakeLogFetcher{logs: map[string]string{"run1": goBuildFailureLog}}
+	fixer := ciloop.NewFixer(ciloop.FixerOptions{
+		PRNumber:       42,
+		FeatureID:      "F014",
+		DiagnosticsDir: t.TempDir(),
+		Committer:      committer,
+		LogFetcher:     fetcher,
+		DecisionLogger: func(decision, rationale string) error { return nil },
+	})
+	checks := []ciloop.CheckResult{{Name: "go-build", State: ciloop.StateFailure}}
+	err := fixer.Fix(checks)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(committer.commits) != 1 {
+		t.Errorf("expected 1 commit, got %d", len(committer.commits))
+	}
+}
+
+func TestFixerGoBuildNoPkgFailure(t *testing.T) {
+	committer := &fakeCommitter{}
+	fetcher := &fakeLogFetcher{logs: map[string]string{"run1": goBuildNoPkgLog}}
 	fixer := ciloop.NewFixer(ciloop.FixerOptions{
 		PRNumber:       42,
 		FeatureID:      "F014",

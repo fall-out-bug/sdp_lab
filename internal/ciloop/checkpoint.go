@@ -1,13 +1,17 @@
 package ciloop
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 )
+
+const maxJSONDecodeBytes = 10 * 1024 * 1024 // 10MB DoS limit (7m40)
 
 // Checkpoint mirrors the .sdp/checkpoints/F{NNN}.json schema.
 type Checkpoint struct {
@@ -39,7 +43,7 @@ func LoadCheckpoint(dir, featureID string) (*Checkpoint, error) {
 		return nil, fmt.Errorf("read checkpoint %s: %w", path, err)
 	}
 	var cp Checkpoint
-	if err := json.Unmarshal(data, &cp); err != nil {
+	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(data), maxJSONDecodeBytes)).Decode(&cp); err != nil {
 		return nil, fmt.Errorf("parse checkpoint %s: %w", path, err)
 	}
 	return &cp, nil
