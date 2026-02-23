@@ -25,6 +25,8 @@ func main() {
 	checkpointDir := flag.String("checkpoint-dir", ".sdp/checkpoints", "Checkpoint directory")
 	runsDir := flag.String("runs-dir", ".sdp/runs", "Runs directory")
 	runtime := flag.String("runtime", "", "Runtime for LLM phases: opencode (invokes opencode run as subprocess)")
+	hydrate := flag.Bool("hydrate", false, "Gather context and write .sdp/context-packet.json (before LLM invocation)")
+	ws := flag.String("ws", "", "Workstream ID for --hydrate (default: current build ws from next-action)")
 	flag.Parse()
 
 	if *feature == "" {
@@ -97,6 +99,35 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
+		return
+	}
+
+	if *hydrate {
+		action, err := orchestrate.ComputeNextAction(cp, workstreams, projectRoot)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		if action.Action == "review" {
+			if _, err := orchestrate.HydrateForReview(projectRoot, featureID, cp, workstreams); err != nil {
+				fmt.Fprintf(os.Stderr, "error: hydrate: %v\n", err)
+				os.Exit(1)
+			}
+		} else {
+			wsID := *ws
+			if wsID == "" && action.Action == "build" {
+				wsID = action.WSID
+			}
+			if wsID == "" {
+				fmt.Fprintf(os.Stderr, "error: cannot hydrate: action=%s, specify --ws\n", action.Action)
+				os.Exit(1)
+			}
+			if _, err := orchestrate.Hydrate(projectRoot, featureID, wsID, cp); err != nil {
+				fmt.Fprintf(os.Stderr, "error: hydrate: %v\n", err)
+				os.Exit(1)
+			}
+		}
+		fmt.Println("Wrote .sdp/context-packet.json")
 		return
 	}
 

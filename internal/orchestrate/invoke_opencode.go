@@ -7,6 +7,15 @@ import (
 	"strings"
 )
 
+// buildPromptWithContext injects the pre-hydrated context packet into the prompt.
+func buildPromptWithContext(dir, basePrompt string) string {
+	pkt, err := LoadContextPacket(dir)
+	if err != nil || pkt == nil {
+		return basePrompt
+	}
+	return basePrompt + pkt.FormatForPrompt()
+}
+
 // InvokeOpenCode runs `opencode run --agent orchestrator` with the given prompt.
 // Returns the combined stdout+stderr and exit code.
 func InvokeOpenCode(ctx context.Context, dir, agent, prompt string) (string, int, error) {
@@ -28,7 +37,7 @@ func InvokeOpenCode(ctx context.Context, dir, agent, prompt string) (string, int
 
 // RunBuildPhase invokes opencode to execute a single @build workstream.
 func RunBuildPhase(ctx context.Context, dir, wsID string) (commit string, err error) {
-	prompt := fmt.Sprintf("Execute @build %s. Output only code and commit message. After commit, output the commit hash.", wsID)
+	prompt := buildPromptWithContext(dir, fmt.Sprintf("Execute @build %s. Output only code and commit message. After commit, output the commit hash.", wsID))
 	out, code, err := InvokeOpenCode(ctx, dir, "implementer", prompt)
 	if err != nil {
 		return "", err
@@ -49,7 +58,7 @@ func RunBuildPhase(ctx context.Context, dir, wsID string) (commit string, err er
 
 // RunReviewPhase invokes opencode to execute @review for a feature.
 func RunReviewPhase(ctx context.Context, dir, featureID string) (approved bool, err error) {
-	prompt := fmt.Sprintf("Execute @review %s. Fix P0/P1 findings. Output APPROVED when done.", featureID)
+	prompt := buildPromptWithContext(dir, fmt.Sprintf("Execute @review %s. Fix P0/P1 findings. Output APPROVED when done.", featureID))
 	out, code, err := InvokeOpenCode(ctx, dir, "reviewer", prompt)
 	if err != nil {
 		return false, err
