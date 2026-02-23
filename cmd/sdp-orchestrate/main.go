@@ -140,6 +140,20 @@ func main() {
 	if *advance {
 		advanceCtx, advanceStop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer advanceStop()
+		if cp.Phase == orchestrate.PhasePR {
+			if err := orchestrate.AdvancePRPhase(advanceCtx, projectRoot, featureID, cpPath, cp); err != nil {
+				fmt.Fprintf(os.Stderr, "error: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		}
+		if cp.Phase == orchestrate.PhaseCI {
+			if err := orchestrate.AdvanceCIPhase(advanceCtx, featureID, cpPath, runsPath, cp); err != nil {
+				fmt.Fprintf(os.Stderr, "error: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		}
 		if cp.Phase == orchestrate.PhaseBuild && *result != "" && !*skipGuard {
 			wsID := orchestrate.CurrentBuildWS(cp)
 			if wsID != "" {
@@ -163,18 +177,6 @@ func main() {
 		if err := orchestrate.SaveCheckpoint(cpPath, cp); err != nil {
 			fmt.Fprintf(os.Stderr, "error: save checkpoint: %v\n", err)
 			os.Exit(1)
-		}
-		if cp.Phase == orchestrate.PhasePR {
-			if err := orchestrate.AdvancePRPhase(advanceCtx, projectRoot, featureID, cpPath, cp); err != nil {
-				fmt.Fprintf(os.Stderr, "error: %v\n", err)
-				os.Exit(1)
-			}
-		}
-		if cp.Phase == orchestrate.PhaseCI {
-			if err := orchestrate.AdvanceCIPhase(advanceCtx, featureID, cpPath, runsPath, cp); err != nil {
-				fmt.Fprintf(os.Stderr, "error: %v\n", err)
-				os.Exit(1)
-			}
 		}
 		return
 	}
