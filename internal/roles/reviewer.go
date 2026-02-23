@@ -9,6 +9,7 @@ import (
 
 	"sdp_dev/internal/beads"
 	"sdp_dev/internal/llm"
+	"sdp_dev/internal/prompt"
 )
 
 // ReviewerStrategy performs persona-based review.
@@ -62,18 +63,9 @@ func (r *ReviewerStrategy) Execute(ctx context.Context, input TaskInput) (TaskRe
 func (r *ReviewerStrategy) buildReviewPrompt(issue beads.Issue, evidence string, persona string) string {
 	var b strings.Builder
 	b.WriteString("You are a " + persona + " reviewer. Review this task and evidence.\n\n")
-	b.WriteString("## Task\n")
-	b.WriteString("ID: " + issue.ID + "\n")
-	b.WriteString("Title: " + issue.Title + "\n")
-	if issue.Description != "" {
-		b.WriteString("Description: " + issue.Description + "\n")
-	}
-	b.WriteString("\n## Evidence\n")
-	if evidence != "" {
-		b.WriteString(evidence)
-	} else {
-		b.WriteString("(no evidence file found)\n")
-	}
+	ws := prompt.WorkstreamSpec{ID: issue.ID, Title: issue.Title, Description: issue.Description}
+	b.WriteString(prompt.TaskSectionForReview(ws))
+	b.WriteString(prompt.EvidenceSection(prompt.EvidenceInput{Content: evidence}))
 	b.WriteString("\n## Output\n")
 	b.WriteString("Respond with JSON: {\"verdict\": \"approve\"|\"needs_changes\"|\"reject\", \"comments\": [\"...\"]}\n")
 	return b.String()

@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"sdp_dev/internal/prompt"
 )
 
 const contextPacketPath = ".sdp/context-packet.json"
@@ -137,19 +139,10 @@ func (p *ContextPacket) FormatForPrompt() string {
 	b.WriteString("\n\n## Context Packet (pre-hydrated)\n\n")
 	b.WriteString("### Workstream\n\n")
 	b.WriteString(p.Workstream)
-	b.WriteString("\n\n### Acceptance Criteria\n\n")
-	for _, ac := range p.AcceptanceCriteria {
-		b.WriteString("- ")
-		b.WriteString(ac)
-		b.WriteString("\n")
-	}
-	b.WriteString("\n### Scope Files\n\n")
-	for _, f := range p.ScopeFiles {
-		b.WriteString("- ")
-		b.WriteString(f)
-		b.WriteString("\n")
-	}
-	b.WriteString("\n### Quality Gates\n\n")
+	b.WriteString("\n\n")
+	b.WriteString(prompt.AcceptanceCriteriaSection(p.AcceptanceCriteria))
+	b.WriteString(prompt.ScopeFilesSection(p.ScopeFiles))
+	b.WriteString("### Quality Gates\n\n")
 	b.WriteString(p.QualityGates)
 	b.WriteString("\n\n### Drift Status (git status --porcelain)\n\n")
 	b.WriteString(p.DriftStatus)
