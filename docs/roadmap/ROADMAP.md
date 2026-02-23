@@ -254,8 +254,8 @@ graph LR
 |---------|-------|------|--------|-------------|------------|
 | F014 CI Loop CLI | 0 | M | Done | 00-014-01, 00-014-02 | — |
 | F015 Stop Hook Gate | 0 | S | Done | 00-015-01, 00-015-02 | F014 |
-| F016 Oneshot Outer Loop | 0 | L | In Progress | 00-016-01, 00-016-02, 00-016-03, 00-016-04 | F015, F020 |
-| F017 Skill Eval Suite | 0 | M | In Progress | 00-017-01, 00-017-02 | F016 |
+| F016 Oneshot Outer Loop | 0 | L | Done | 00-016-01, 00-016-02, 00-016-03, 00-016-04 | F015, F020 |
+| F017 Skill Eval Suite | 0 | M | Done | 00-017-01, 00-017-02 | F016 |
 | F018 Dead Code Purge | 0 | M | Partial | 00-018-01, 00-018-02 | — |
 | F019 Skill Compression | 0 | M | Backlog | 00-019-01, 00-019-02, 00-019-03 | F018 |
 | F020 Build Scope Fix | 0 | S | Backlog | 00-020-01 | F019 |
@@ -265,10 +265,10 @@ graph LR
 | F024 Phase Hooks | 0 | S | Backlog | 00-024-01 | F016 |
 | F025 Prompt Consolidation | 0 | S | Backlog | 00-025-01 | — |
 | F027 CI Deterministic Auto-Fixers | 0 | S | Backlog | 00-027-01 | F014 |
-| F001 Evidence Schema | 1 | M | Done | 00-001-01, 00-001-02 | — |
+| F001 Evidence Schema | 1 | M | Backlog | 00-001-01, 00-001-02 | — |
 | F002 Evidence CLI | 1 | L | Backlog | 00-002-01, 00-002-02, 00-002-03 | F001 |
 | F026 Prompt Provenance | 1 | S | Backlog | 00-026-01 | F001 |
-| F003 Handoff Schema | 2 | M | Backlog | 00-003-01, 00-003-02 | F001 |
+| F003 Handoff Schema | 2 | M | Done | 00-003-01, 00-003-02 | F001 |
 | F004 Sequential Reconciler | 2 | L | Backlog | 00-004-01, 00-004-02, 00-004-03 | F003 |
 | F005 Rework Loop | 2 | S | Backlog | 00-005-01 | F004 |
 | F006 JetStream Evidence | 3 | M | Backlog | 00-006-01, 00-006-02 | F004 |
@@ -340,7 +340,7 @@ F011 ──→ F012 (upstream PRs → awesome listing + launch blog)
 | L | 2-3 | 4-6 sessions | Evidence CLI, sequential reconciler, assembler, dead code removal |
 | XL | 3+ | 6-10 sessions | E2E validation (fixes everything that breaks) |
 
-**Total: 27 features (2 done, 25 backlog), 52 workstreams, estimated 68-105 sessions.**
+**Total: 27 features (6 done, 1 partial, 20 backlog), 52 workstreams, estimated 68-105 sessions.**
 
 ---
 

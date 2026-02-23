@@ -42,16 +42,16 @@
 
 | WS | Feature | Title | Status |
 |----|---------|-------|--------|
-| 00-014-01 | F014 | CI Loop CLI — Poll + Classify | In Progress |
-| 00-014-02 | F014 | CI Loop CLI — Auto-Fix Engine | In Progress |
+| 00-014-01 | F014 | CI Loop CLI — Poll + Classify | Done |
+| 00-014-02 | F014 | CI Loop CLI — Auto-Fix Engine | Done |
 | 00-015-01 | F015 | Stop Hook — Cursor Implementation | Done |
 | 00-015-02 | F015 | Stop Hook — Claude Code Implementation | Done |
-| 00-016-01 | F016 | Oneshot Outer Loop — State Machine CLI | In Progress |
-| 00-016-02 | F016 | Oneshot Outer Loop — Cursor Integration | In Progress |
-| 00-016-03 | F016 | Oneshot Outer Loop — Claude Code Integration | In Progress |
-| 00-016-04 | F016 | Oneshot Outer Loop — opencode Integration | In Progress |
-| 00-017-01 | F017 | Skill Eval Suite — Framework + Core Evals | In Progress |
-| 00-017-02 | F017 | Skill Eval Suite — CI Integration | In Progress |
+| 00-016-01 | F016 | Oneshot Outer Loop — State Machine CLI | Done |
+| 00-016-02 | F016 | Oneshot Outer Loop — Cursor Integration | Done |
+| 00-016-03 | F016 | Oneshot Outer Loop — Claude Code Integration | Done |
+| 00-016-04 | F016 | Oneshot Outer Loop — opencode Integration | Done |
+| 00-017-01 | F017 | Skill Eval Suite — Framework + Core Evals | Done |
+| 00-017-02 | F017 | Skill Eval Suite — CI Integration | Done |
 | 00-018-01 | F018 | Delete Dead Skills + Agents | Backlog |
 | 00-018-02 | F018 | Fix Python→Go + Phantom CLI + Branch Model | Done |
 | 00-019-01 | F019 | Compress Operational Skills | Backlog |
