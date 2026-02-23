@@ -76,7 +76,7 @@
 | 00-002-01 | F002 | Refactor pr-gate into sdp-evidence CLI | Backlog |
 | 00-002-02 | F002 | Add `inspect` subcommand | Backlog |
 | 00-002-03 | F002 | Goreleaser + GitHub Actions releases | Backlog |
-| 00-026-01 | F026 | Prompt Provenance — prompt_hash + context_sources in evidence | Backlog |
+| 00-026-01 | F026 | Prompt Provenance — prompt_hash + context_sources in evidence | Done |
 
 ### Phase 2: Sequential Pipeline
 
