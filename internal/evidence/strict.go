@@ -125,6 +125,29 @@ func hasProvenanceContract(v any) bool {
 	if _, ok := p["gate_results"]; !ok {
 		return false
 	}
+	// Optional prompt provenance (F026): when present, must be valid
+	if promptHash, ok := p["prompt_hash"].(string); ok && strings.TrimSpace(promptHash) != "" {
+		if !artifact.IsSHA256Hex(promptHash) {
+			return false
+		}
+	}
+	if sources, ok := p["context_sources"].([]any); ok && len(sources) > 0 {
+		for _, s := range sources {
+			src, ok := s.(map[string]any)
+			if !ok {
+				return false
+			}
+			t, _ := src["type"].(string)
+			path, _ := src["path"].(string)
+			h, _ := src["hash"].(string)
+			if strings.TrimSpace(t) == "" || strings.TrimSpace(path) == "" || strings.TrimSpace(h) == "" {
+				return false
+			}
+			if !artifact.IsSHA256Hex(h) {
+				return false
+			}
+		}
+	}
 	return true
 }
 
