@@ -2,12 +2,25 @@ package orchestrate_test
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"sdp_dev/internal/orchestrate"
 )
+
+func TestErrNoPR(t *testing.T) {
+	if orchestrate.ErrNoPR == nil {
+		t.Fatal("ErrNoPR must be non-nil")
+	}
+	if !errors.Is(orchestrate.ErrNoPR, orchestrate.ErrNoPR) {
+		t.Error("errors.Is(err, ErrNoPR) should be true for ErrNoPR")
+	}
+	if orchestrate.ErrNoPR.Error() != "no PR found for current branch" {
+		t.Errorf("ErrNoPR message: got %q", orchestrate.ErrNoPR.Error())
+	}
+}
 
 func TestEnsureRunFile(t *testing.T) {
 	dir := t.TempDir()

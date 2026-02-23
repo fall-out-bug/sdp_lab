@@ -105,12 +105,12 @@ func (f *AutoFixer) writeDiagnostics(checks []CheckResult, fixDescs []string, lo
 		names[i] = c.Name
 	}
 	filename := fmt.Sprintf("fix-pr%d-%s.md", f.opts.PRNumber, time.Now().UTC().Format("20060102T150405Z"))
-	content := fmt.Sprintf("# CI Fix Diagnostics\n\nPR: %d\nFeature: %s\nChecks: %s\n\n## Fix Descriptions\n\n%s\n\n## Log Excerpt\n\n```\n%s\n```\n",
+	// Use sanitized fix types only; never commit raw CI log (security: round-3 P1).
+	content := fmt.Sprintf("# CI Fix Diagnostics\n\nPR: %d\nFeature: %s\nChecks: %s\n\n## Fix Types\n\n%s\n\n## Log\n\nRedacted — see CI run for full output.\n",
 		f.opts.PRNumber,
 		f.opts.FeatureID,
 		strings.Join(names, ", "),
-		strings.Join(fixDescs, "\n"),
-		truncate(log, 2000),
+		strings.Join(sanitizeFixDescs(fixDescs), "\n"),
 	)
 	return os.WriteFile(filepath.Join(dir, filename), []byte(content), 0o644)
 }

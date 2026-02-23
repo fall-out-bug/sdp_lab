@@ -3,6 +3,7 @@ package orchestrate
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -74,6 +75,9 @@ func RunPRPhase(projectRoot, featureID string, cp *Checkpoint) error {
 	return nil
 }
 
+// ErrNoPR is returned when no PR exists for the current branch.
+var ErrNoPR = errors.New("no PR found for current branch")
+
 // GetPRInfo returns PR number and URL for the current branch.
 func GetPRInfo() (int, string, error) {
 	branch, err := CurrentBranch()
@@ -81,15 +85,21 @@ func GetPRInfo() (int, string, error) {
 		return 0, "", err
 	}
 	out, err := exec.Command("gh", "pr", "list", "--head", branch, "--json", "number,url").Output()
-	if err != nil || len(out) == 0 {
+	if err != nil {
 		return 0, "", err
+	}
+	if len(out) == 0 {
+		return 0, "", ErrNoPR
 	}
 	var arr []struct {
 		Number int    `json:"number"`
 		URL    string `json:"url"`
 	}
-	if err := json.Unmarshal(out, &arr); err != nil || len(arr) == 0 {
+	if err := json.Unmarshal(out, &arr); err != nil {
 		return 0, "", err
+	}
+	if len(arr) == 0 {
+		return 0, "", ErrNoPR
 	}
 	return arr[0].Number, arr[0].URL, nil
 }
