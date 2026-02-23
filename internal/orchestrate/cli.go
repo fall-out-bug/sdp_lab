@@ -154,7 +154,14 @@ func AdvancePRPhase(ctx context.Context, projectRoot, featureID, cpPath string, 
 }
 
 // AdvanceCIPhase runs CI loop if PR exists, then sets checkpoint to PhaseDone.
-func AdvanceCIPhase(ctx context.Context, featureID, cpPath, runsPath string, cp *Checkpoint) error {
+func AdvanceCIPhase(ctx context.Context, projectRoot, featureID, cpPath, runsPath string, cp *Checkpoint) error {
+	cpFilePath := filepath.Join(cpPath, featureID+".json")
+	env := HookEnv{FeatureID: featureID, Phase: PhaseCI, CheckpointPath: cpFilePath}
+	if err := RunHooks(ctx, projectRoot, "ci", "pre", env, func(msg string) {
+		fmt.Fprintln(os.Stderr, msg)
+	}); err != nil {
+		return err
+	}
 	pr := 0
 	if cp.PRNumber != nil {
 		pr = *cp.PRNumber
@@ -170,6 +177,11 @@ func AdvanceCIPhase(ctx context.Context, featureID, cpPath, runsPath string, cp 
 		if err := RunCILoop(ctx, pr, featureID, cpPath, runsPath); err != nil {
 			return err
 		}
+	}
+	if err := RunHooks(ctx, projectRoot, "ci", "post", env, func(msg string) {
+		fmt.Fprintln(os.Stderr, msg)
+	}); err != nil {
+		return err
 	}
 	cp.Phase = PhaseDone
 	return SaveCheckpoint(cpPath, cp)

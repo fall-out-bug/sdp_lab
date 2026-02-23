@@ -148,7 +148,7 @@ func main() {
 			return
 		}
 		if cp.Phase == orchestrate.PhaseCI {
-			if err := orchestrate.AdvanceCIPhase(advanceCtx, featureID, cpPath, runsPath, cp); err != nil {
+			if err := orchestrate.AdvanceCIPhase(advanceCtx, projectRoot, featureID, cpPath, runsPath, cp); err != nil {
 				fmt.Fprintf(os.Stderr, "error: %v\n", err)
 				os.Exit(1)
 			}
@@ -168,6 +168,32 @@ func main() {
 					fmt.Fprintf(os.Stderr, "error: advance blocked by scope guard: %v\n", err)
 					os.Exit(1)
 				}
+			}
+		}
+		// Run phase hooks before advancing
+		cpFilePath := filepath.Join(cpPath, featureID+".json")
+		hookEnv := orchestrate.HookEnv{
+			WSID:           orchestrate.CurrentBuildWS(cp),
+			FeatureID:      featureID,
+			Phase:          cp.Phase,
+			CheckpointPath: cpFilePath,
+		}
+		logHook := func(msg string) { fmt.Fprintln(os.Stderr, msg) }
+		switch cp.Phase {
+		case orchestrate.PhaseInit:
+			if err := orchestrate.RunHooks(advanceCtx, projectRoot, "build", "pre", hookEnv, logHook); err != nil {
+				fmt.Fprintf(os.Stderr, "error: pre-build hook: %v\n", err)
+				os.Exit(1)
+			}
+		case orchestrate.PhaseBuild:
+			if err := orchestrate.RunHooks(advanceCtx, projectRoot, "build", "post", hookEnv, logHook); err != nil {
+				fmt.Fprintf(os.Stderr, "error: post-build hook: %v\n", err)
+				os.Exit(1)
+			}
+		case orchestrate.PhaseReview:
+			if err := orchestrate.RunHooks(advanceCtx, projectRoot, "review", "post", hookEnv, logHook); err != nil {
+				fmt.Fprintf(os.Stderr, "error: post-review hook: %v\n", err)
+				os.Exit(1)
 			}
 		}
 		if err := orchestrate.Advance(cp, workstreams, *result); err != nil {
@@ -190,6 +216,12 @@ func main() {
 	case "build":
 		fmt.Printf("INVOKE: @build %s\n", action.WSID)
 	case "review":
+		cpFilePath := filepath.Join(cpPath, featureID+".json")
+		hookEnv := orchestrate.HookEnv{FeatureID: action.Feature, Phase: "review", CheckpointPath: cpFilePath}
+		if err := orchestrate.RunHooks(context.Background(), projectRoot, "review", "pre", hookEnv, func(msg string) { fmt.Fprintln(os.Stderr, msg) }); err != nil {
+			fmt.Fprintf(os.Stderr, "error: pre-review hook: %v\n", err)
+			os.Exit(1)
+		}
 		fmt.Printf("INVOKE: @review %s\n", action.Feature)
 	case "pr":
 		fmt.Println("INVOKE: git push && gh pr create")
