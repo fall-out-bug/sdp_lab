@@ -68,3 +68,12 @@ func BeadsFSMAvailable() bool {
 	_, err := exec.LookPath("beads-fsm")
 	return err == nil
 }
+
+// HandoffPath returns the relative path to a role's handoff artifact.
+// Format: .sdp/handoff/<issueID>/<role>.json
+func HandoffPath(issueID, role string) string {
+	if issueID == "" || role == "" {
+		return ""
+	}
+	return ".sdp/handoff/" + issueID + "/" + role + ".json"
+}

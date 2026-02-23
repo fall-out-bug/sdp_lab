@@ -11,10 +11,11 @@ import (
 )
 
 // createTaskFromIntent builds a Task from an AgentRun and TaskIntent.
+// handoffAnnotations adds sdp.dev/handoff-* paths for coder/reviewer (00-004-02).
 // If dependsOn is non-empty, the Task spec includes DependsOn for DAG ordering (WS-021-01).
 // Propagates sdp.project from AgentRun to Task for per-project workspace routing.
 // If providerHint is non-empty, adds annotation sdp.provider for env propagation (WS-013-01).
-func createTaskFromIntent(run *v1alpha1.AgentRun, role string, intent *TaskIntent, providerHint string, dependsOn ...string) *v1alpha1.Task {
+func createTaskFromIntent(run *v1alpha1.AgentRun, role string, intent *TaskIntent, providerHint string, handoffAnnotations map[string]string, dependsOn ...string) *v1alpha1.Task {
 	name := run.Name + "-" + role
 	labels := map[string]string{
 		"beads.issue": intent.IssueID,
@@ -38,6 +39,9 @@ func createTaskFromIntent(run *v1alpha1.AgentRun, role string, intent *TaskInten
 	annotations := make(map[string]string)
 	if providerHint != "" {
 		annotations["sdp.provider"] = providerHint
+	}
+	for k, v := range handoffAnnotations {
+		annotations[k] = v
 	}
 	return &v1alpha1.Task{
 		ObjectMeta: metav1.ObjectMeta{
@@ -68,9 +72,10 @@ func createTaskFromIntent(run *v1alpha1.AgentRun, role string, intent *TaskInten
 
 // workerTasksTerminal checks if all worker Tasks are in a terminal phase.
 // Returns (allTerminal, anyFailed).
+// Supports both parallel (WorkerTask="a,b") and sequential (WorkerTask="a") modes.
 func workerTasksTerminal(ctx context.Context, r client.Reader, run *v1alpha1.AgentRun) (allTerminal, anyFailed bool) {
 	workerNames := strings.Split(run.Status.WorkerTask, ",")
-	if len(workerNames) < 2 {
+	if len(workerNames) < 1 || (len(workerNames) == 1 && strings.TrimSpace(workerNames[0]) == "") {
 		return false, false
 	}
 	for _, name := range workerNames {

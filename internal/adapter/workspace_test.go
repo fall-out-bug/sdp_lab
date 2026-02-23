@@ -66,3 +66,22 @@ func TestBeadsFSMAvailable(t *testing.T) {
 	// Just ensure it doesn't panic; result depends on test environment
 	_ = BeadsFSMAvailable()
 }
+
+func TestHandoffPath(t *testing.T) {
+	tests := []struct {
+		issueID, role string
+		want          string
+	}{
+		{"i1", "analyst", ".sdp/handoff/i1/analyst.json"},
+		{"i1", "coder", ".sdp/handoff/i1/coder.json"},
+		{"i1", "reviewer", ".sdp/handoff/i1/reviewer.json"},
+		{"", "analyst", ""},
+		{"i1", "", ""},
+	}
+	for _, tt := range tests {
+		got := HandoffPath(tt.issueID, tt.role)
+		if got != tt.want {
+			t.Errorf("HandoffPath(%q, %q) = %q, want %q", tt.issueID, tt.role, got, tt.want)
+		}
+	}
+}

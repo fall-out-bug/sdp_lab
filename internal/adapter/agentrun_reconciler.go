@@ -21,6 +21,7 @@ import (
 )
 
 // AgentRunReconciler reconciles AgentRun CRDs and creates worker Tasks.
+// Sequential pipeline: analyst → coder → reviewer (F004).
 type AgentRunReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -58,6 +59,7 @@ type AgentRunReconcilerOpts struct {
 }
 
 // Reconcile handles AgentRun reconciliation.
+// Sequential phases: "" → Analyzing → AnalystComplete → Coding → CoderComplete → Reviewing → ReviewerComplete → Succeeded/Failed
 func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 
@@ -90,6 +92,7 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	switch phase {
 	case "":
+		// Phase "" → create only analyst Task (sequential pipeline)
 		if r.PolicyGate != nil {
 			gr := r.PolicyGate.PreDispatchModelAllowlist(model)
 			if !gr.Passed {
@@ -110,8 +113,7 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 
 		providerHint := policy.ResolveProviderForModel(run.Spec.Model, r.ProviderHealthChecker)
-		analystTask := createTaskFromIntent(run, "analyst", intent, providerHint)
-		coderTask := createTaskFromIntent(run, "coder", intent, providerHint)
+		analystTask := createTaskFromIntent(run, "analyst", intent, providerHint, nil)
 
 		observability.IncProviderUsed(projectID, providerHint, model)
 		if providerHint == "anthropic_direct" || providerHint == "openai_direct" {
@@ -121,32 +123,74 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if err := r.Create(ctx, analystTask); err != nil {
 			return ctrl.Result{}, fmt.Errorf("create analyst task: %w", err)
 		}
-		if err := r.Create(ctx, coderTask); err != nil {
-			return ctrl.Result{}, fmt.Errorf("create coder task: %w", err)
-		}
 
-		run.Status.Phase = "Running"
-		run.Status.WorkerTask = analystTask.Name + "," + coderTask.Name
+		run.Status.Phase = "Analyzing"
+		run.Status.WorkerTask = analystTask.Name
 		if err := r.Status().Update(ctx, run); err != nil {
 			return ctrl.Result{}, err
 		}
-		log.Info("created worker tasks", "analyst", analystTask.Name, "coder", coderTask.Name)
+		log.Info("created analyst task", "analyst", analystTask.Name)
 
-	case "Running":
+	case "Analyzing":
+		// Wait for analyst to complete
 		allTerminal, anyFailed := workerTasksTerminal(ctx, r.Client, run)
-		if allTerminal {
-			if anyFailed {
-				return r.setFailed(ctx, run, "worker task failed")
-			}
-			run.Status.Phase = "ReviewerPending"
-			if err := r.Status().Update(ctx, run); err != nil {
-				return ctrl.Result{}, err
-			}
-			log.Info("workers complete, reviewer pending")
+		if !allTerminal {
+			return ctrl.Result{}, nil
 		}
+		if anyFailed {
+			return r.setFailed(ctx, run, "analyst task failed")
+		}
+		run.Status.Phase = "AnalystComplete"
+		if err := r.Status().Update(ctx, run); err != nil {
+			return ctrl.Result{}, err
+		}
+		log.Info("analyst complete, transitioning to coder")
 
-	case "ReviewerPending":
-		// WS-021-01: create reviewer Task with dependsOn [analyst, coder] for DAG ordering
+	case "AnalystComplete":
+		// Create coder Task (handoff path injection in 00-004-02)
+		issue := &beads.Issue{ID: run.Spec.IssueID, Title: "AgentRun " + run.Name, AcceptanceCriteria: "Implement task"}
+		if beadsAdapter != nil {
+			if iss, err := beadsAdapter.Show(run.Spec.IssueID); err == nil {
+				issue = iss
+			}
+		}
+		intent, err := r.IntentTranslator.Translate(issue, run.Name)
+		if err != nil {
+			return r.setFailed(ctx, run, fmt.Sprintf("translate coder: %v", err))
+		}
+		// Inject handoff path and instruction for analyst artifact (00-004-02)
+		analystPath := HandoffPath(run.Spec.IssueID, "analyst")
+		intent.Prompt = intent.Prompt + "\n\nRead the analyst handoff at " + analystPath + " and incorporate its recommendations."
+		providerHint := policy.ResolveProviderForModel(model, r.ProviderHealthChecker)
+		handoffAnnots := map[string]string{"sdp.dev/handoff-analyst": analystPath}
+		coderTask := createTaskFromIntent(run, "coder", intent, providerHint, handoffAnnots, run.Status.WorkerTask)
+		if err := r.Create(ctx, coderTask); err != nil {
+			return ctrl.Result{}, fmt.Errorf("create coder task: %w", err)
+		}
+		run.Status.Phase = "Coding"
+		run.Status.WorkerTask = coderTask.Name
+		if err := r.Status().Update(ctx, run); err != nil {
+			return ctrl.Result{}, err
+		}
+		log.Info("created coder task", "coder", coderTask.Name)
+
+	case "Coding":
+		// Wait for coder to complete
+		allTerminal, anyFailed := workerTasksTerminal(ctx, r.Client, run)
+		if !allTerminal {
+			return ctrl.Result{}, nil
+		}
+		if anyFailed {
+			return r.setFailed(ctx, run, "coder task failed")
+		}
+		run.Status.Phase = "CoderComplete"
+		if err := r.Status().Update(ctx, run); err != nil {
+			return ctrl.Result{}, err
+		}
+		log.Info("coder complete, transitioning to reviewer")
+
+	case "CoderComplete":
+		// Create reviewer Task with dependsOn [analyst, coder]
 		issue := &beads.Issue{ID: run.Spec.IssueID, Title: "AgentRun " + run.Name, AcceptanceCriteria: "Review analyst and coder outputs"}
 		if beadsAdapter != nil {
 			if iss, err := beadsAdapter.Show(run.Spec.IssueID); err == nil {
@@ -157,30 +201,28 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if err != nil {
 			return r.setFailed(ctx, run, fmt.Sprintf("translate reviewer: %v", err))
 		}
+		// Inject handoff paths and instruction for both artifacts (00-004-02)
+		analystPath := HandoffPath(run.Spec.IssueID, "analyst")
+		coderPath := HandoffPath(run.Spec.IssueID, "coder")
 		providerHint := policy.ResolveProviderForModel(model, r.ProviderHealthChecker)
-		workerNames := strings.Split(run.Status.WorkerTask, ",")
-		dependsOn := make([]string, 0, 2)
-		for _, n := range workerNames {
-			n = strings.TrimSpace(n)
-			if n != "" {
-				dependsOn = append(dependsOn, n)
-			}
-		}
+		analystName := run.Name + "-analyst"
+		coderName := run.Name + "-coder"
 		reviewerIntent := *intent
-		reviewerIntent.Prompt = "Review analyst and coder outputs. " + intent.Prompt
-		reviewerTask := createTaskFromIntent(run, "reviewer", &reviewerIntent, providerHint, dependsOn...)
+		reviewerIntent.Prompt = "Review analyst and coder outputs. Read the handoff files at " + analystPath + " and " + coderPath + " and incorporate their findings. " + intent.Prompt
+		handoffAnnots := map[string]string{"sdp.dev/handoff-analyst": analystPath, "sdp.dev/handoff-coder": coderPath}
+		reviewerTask := createTaskFromIntent(run, "reviewer", &reviewerIntent, providerHint, handoffAnnots, analystName, coderName)
 		if err := r.Create(ctx, reviewerTask); err != nil {
 			return ctrl.Result{}, fmt.Errorf("create reviewer task: %w", err)
 		}
-		run.Status.Phase = "ReviewerRunning"
+		run.Status.Phase = "Reviewing"
 		run.Status.ReviewerTask = reviewerTask.Name
 		if err := r.Status().Update(ctx, run); err != nil {
 			return ctrl.Result{}, err
 		}
-		log.Info("created reviewer task with dependsOn", "reviewer", reviewerTask.Name, "dependsOn", dependsOn)
+		log.Info("created reviewer task", "reviewer", reviewerTask.Name)
 
-	case "ReviewerRunning":
-		// Check reviewer Task status
+	case "Reviewing":
+		// Wait for reviewer to complete
 		reviewerName := strings.TrimSpace(run.Status.ReviewerTask)
 		if reviewerName == "" {
 			return ctrl.Result{}, nil
@@ -191,14 +233,38 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 		p := task.Status.Phase
 		if p == v1alpha1.TaskPhaseSucceeded || p == v1alpha1.TaskPhaseCompleted {
-			run.Status.Phase = "Succeeded"
-			r.recordAgentRunComplete(run, "Succeeded")
-			r.closeBeadsOnSuccess(ctx, run.Spec.IssueID, "AgentRun completed", beadsAdapter)
-			r.publishLifecycle("sdp.lifecycle.agentrun.completed", run.Spec.IssueID, projectID, "completed")
+			run.Status.Phase = "ReviewerComplete"
+			if err := r.Status().Update(ctx, run); err != nil {
+				return ctrl.Result{}, err
+			}
+			log.Info("reviewer complete, transitioning to final")
 		} else if p == v1alpha1.TaskPhaseFailed {
 			return r.setFailed(ctx, run, "reviewer task failed")
 		} else {
 			return ctrl.Result{}, nil
+		}
+
+	case "ReviewerComplete":
+		// Transition to Succeeded or Failed based on reviewer verdict
+		reviewerName := strings.TrimSpace(run.Status.ReviewerTask)
+		if reviewerName == "" {
+			return ctrl.Result{}, nil
+		}
+		task := &v1alpha1.Task{}
+		if err := r.Get(ctx, client.ObjectKey{Namespace: run.Namespace, Name: reviewerName}, task); err != nil {
+			return ctrl.Result{}, nil
+		}
+		verdict := reviewerVerdict(task)
+		if verdict == "approve" {
+			run.Status.Phase = "Succeeded"
+			r.recordAgentRunComplete(run, "Succeeded")
+			r.closeBeadsOnSuccess(ctx, run.Spec.IssueID, "AgentRun completed", beadsAdapter)
+			r.publishLifecycle("sdp.lifecycle.agentrun.completed", run.Spec.IssueID, projectID, "completed")
+		} else {
+			run.Status.Phase = "Failed"
+			run.Status.LastError = "reviewer verdict: " + verdict
+			r.recordAgentRunComplete(run, "Failed")
+			r.publishLifecycle("sdp.lifecycle.agentrun.failed", run.Spec.IssueID, projectID, "failed")
 		}
 		if err := r.Status().Update(ctx, run); err != nil {
 			return ctrl.Result{}, err
@@ -206,6 +272,24 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// reviewerVerdict extracts approve/needs_changes from reviewer Task.
+// Checks annotations and output for verdict.
+func reviewerVerdict(task *v1alpha1.Task) string {
+	if task.Annotations != nil {
+		if v := task.Annotations["sdp.dev/reviewer-verdict"]; v != "" {
+			return v
+		}
+	}
+	// Fallback: Succeeded/Completed = approve, Failed = needs_changes
+	if task.Status.Phase == v1alpha1.TaskPhaseSucceeded || task.Status.Phase == v1alpha1.TaskPhaseCompleted {
+		return "approve"
+	}
+	if task.Status.Phase == v1alpha1.TaskPhaseFailed {
+		return "needs_changes"
+	}
+	return "unknown"
 }
 
 func (r *AgentRunReconciler) setFailed(ctx context.Context, run *v1alpha1.AgentRun, reason string) (ctrl.Result, error) {
