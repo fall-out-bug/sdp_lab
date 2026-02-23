@@ -17,6 +17,21 @@ import (
 )
 
 const execTimeout = 30 * time.Second
+
+// sanitizeLabel returns a label-safe string (alphanumeric and hyphen only).
+func sanitizeLabel(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			b.WriteRune(r)
+		}
+	}
+	out := b.String()
+	if out == "" {
+		return "F000"
+	}
+	return out
+}
 // exitCodes matches WS AC.
 const (
 	exitGreen    = 0
@@ -60,7 +75,7 @@ func main() {
 		}
 		title := fmt.Sprintf("CI BLOCKED: %s (PR #%d)", strings.Join(names, ", "), *prNum)
 		slog.Warn("escalating", "title", title, "checks", names, "pr", *prNum)
-		cmd := exec.Command("bd", "create", "--title", title, "--priority", "0", "--labels", fmt.Sprintf("ci-finding,%s", *feature))
+		cmd := exec.Command("bd", "create", "--title", title, "--priority", "0", "--labels", fmt.Sprintf("ci-finding,%s", sanitizeLabel(*feature)))
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {

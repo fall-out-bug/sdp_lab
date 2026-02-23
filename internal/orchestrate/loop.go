@@ -17,6 +17,7 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 	for {
 		select {
 		case <-ctx.Done():
+			_ = SaveCheckpoint(cpPath, cp) // best-effort so resume does not re-run last phase
 			slog.Warn("shutdown", "error", ctx.Err())
 			os.Exit(1)
 		default:

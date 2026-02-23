@@ -18,6 +18,24 @@ const (
 	prPhaseTimeout     = 10 * time.Minute
 )
 
+// runFileJSON is the initial run file schema (safe JSON marshal, no quote injection).
+type runFileJSON struct {
+	RunID        string            `json:"run_id"`
+	FeatureID   string            `json:"feature_id"`
+	Orchestrator string           `json:"orchestrator"`
+	Branch      string            `json:"branch"`
+	StartedAt   string            `json:"started_at"`
+	Events      []runFileEventJSON `json:"events"`
+	LastPhase   string            `json:"last_phase"`
+	LastState   string            `json:"last_state"`
+}
+
+type runFileEventJSON struct {
+	At    string `json:"at"`
+	Phase string `json:"phase"`
+	State string `json:"state"`
+}
+
 // CurrentBranch returns the current git branch.
 func CurrentBranch() (string, error) {
 	out, err := exec.Command("git", "branch", "--show-current").Output()
@@ -32,26 +50,28 @@ func EnsureRunFile(dir, featureID, branch string) error {
 	if err := validateFeatureID(featureID); err != nil {
 		return err
 	}
+	now := time.Now().UTC().Format(time.RFC3339)
 	runID := fmt.Sprintf("oneshot-%s-%s", featureID, time.Now().UTC().Format("20060102T150405Z"))
 	path := filepath.Join(dir, runID+".json")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("mkdir runs dir: %w", err)
 	}
-	body := fmt.Sprintf(`{
-  "run_id": "%s",
-  "feature_id": "%s",
-  "orchestrator": "sdp-orchestrate",
-  "branch": "%s",
-  "started_at": "%s",
-  "events": [{"at": "%s", "phase": "init", "state": "ok"}],
-  "last_phase": "init",
-  "last_state": "ok"
-}
-`, runID, featureID, branch,
-		time.Now().UTC().Format(time.RFC3339),
-		time.Now().UTC().Format(time.RFC3339))
+	rf := runFileJSON{
+		RunID:        runID,
+		FeatureID:   featureID,
+		Orchestrator: "sdp-orchestrate",
+		Branch:      branch,
+		StartedAt:   now,
+		Events:      []runFileEventJSON{{At: now, Phase: "init", State: "ok"}},
+		LastPhase:   "init",
+		LastState:   "ok",
+	}
+	body, err := json.MarshalIndent(rf, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal run file: %w", err)
+	}
 	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, []byte(body), 0o644); err != nil {
+	if err := os.WriteFile(tmpPath, body, 0o644); err != nil {
 		return fmt.Errorf("write run file: %w", err)
 	}
 	if err := os.Rename(tmpPath, path); err != nil {
