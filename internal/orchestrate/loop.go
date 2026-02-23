@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 )
 
@@ -34,6 +35,11 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 		}
 		switch action.Action {
 		case "build":
+			cpFilePath := filepath.Join(cpPath, featureID+".json")
+			hookEnv := HookEnv{WSID: action.WSID, FeatureID: featureID, Phase: "build", CheckpointPath: cpFilePath}
+			if err := RunHooks(ctx, projectRoot, "build", "pre", hookEnv, func(msg string) { slog.Info("hook", "msg", msg) }); err != nil {
+				fatal("error: pre-build hook: %v", err)
+			}
 			if _, err := Hydrate(projectRoot, featureID, action.WSID, cp); err != nil {
 				slog.Error("hydration failed", "error", err, "ws", action.WSID)
 				os.Exit(1)
@@ -45,6 +51,17 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				slog.Error("opencode build failed", "error", err, "ws", action.WSID)
 				os.Exit(1)
 			}
+			pending := 0
+			for _, ws := range cp.Workstreams {
+				if ws.Status != "done" {
+					pending++
+				}
+			}
+			if pending == 1 {
+				if err := RunHooks(ctx, projectRoot, "build", "post", hookEnv, func(msg string) { slog.Info("hook", "msg", msg) }); err != nil {
+					fatal("error: post-build hook: %v", err)
+				}
+			}
 			if err := Advance(cp, workstreams, commit); err != nil {
 				fatal("error: advance: %v", err)
 			}
@@ -52,6 +69,11 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				fatal("error: save checkpoint: %v", err)
 			}
 		case "review":
+			cpFilePath := filepath.Join(cpPath, featureID+".json")
+			hookEnv := HookEnv{FeatureID: action.Feature, Phase: "review", CheckpointPath: cpFilePath}
+			if err := RunHooks(ctx, projectRoot, "review", "pre", hookEnv, func(msg string) { slog.Info("hook", "msg", msg) }); err != nil {
+				fatal("error: pre-review hook: %v", err)
+			}
 			if _, err := HydrateForReview(projectRoot, action.Feature, cp, workstreams); err != nil {
 				slog.Error("hydration failed", "error", err, "feature", action.Feature)
 				os.Exit(1)
@@ -62,6 +84,9 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 			if err != nil || !approved {
 				slog.Error("opencode review failed", "error", err, "approved", approved, "feature", action.Feature)
 				os.Exit(1)
+			}
+			if err := RunHooks(ctx, projectRoot, "review", "post", hookEnv, func(msg string) { slog.Info("hook", "msg", msg) }); err != nil {
+				fatal("error: post-review hook: %v", err)
 			}
 			if err := Advance(cp, workstreams, ""); err != nil {
 				fatal("error: advance: %v", err)
@@ -74,7 +99,7 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				fatal("error: %v", err)
 			}
 		case "ci-loop":
-			if err := AdvanceCIPhase(ctx, featureID, cpPath, runsPath, cp); err != nil {
+			if err := AdvanceCIPhase(ctx, projectRoot, featureID, cpPath, runsPath, cp); err != nil {
 				fatal("error: %v", err)
 			}
 		case "done":
