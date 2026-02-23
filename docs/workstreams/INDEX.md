@@ -1,6 +1,6 @@
 # Workstream Index
 
-> **Updated:** 2026-02-22
+> **Updated:** 2026-02-23
 > **Format:** `@build 00-FFF-SS` executes single workstream; `@review F00F` reviews all WS for feature F00F
 > **Roadmap:** [ROADMAP.md](../roadmap/ROADMAP.md)
 
@@ -8,6 +8,13 @@
 
 | Feature | Phase | Description | Workstreams |
 |---------|-------|-------------|-------------|
+| **F014** | 0 | CI Loop CLI | 00-014-01, 00-014-02 |
+| **F015** | 0 | Stop Hook Gate | 00-015-01, 00-015-02 |
+| **F016** | 0 | Oneshot Outer Loop | 00-016-01, 00-016-02, 00-016-03, 00-016-04 |
+| **F017** | 0 | Skill Eval Suite | 00-017-01, 00-017-02 |
+| **F018** | 0 | Dead Code Purge | 00-018-01, 00-018-02 |
+| **F019** | 0 | Skill Compression | 00-019-01, 00-019-02, 00-019-03 |
+| **F020** | 0 | Build Scope Fix | 00-020-01 |
 | **F001** | 1 | Evidence Schema | 00-001-01, 00-001-02 |
 | **F002** | 1 | Evidence CLI | 00-002-01, 00-002-02, 00-002-03 |
 | **F003** | 2 | Handoff Artifact Schema | 00-003-01, 00-003-02 |
@@ -23,6 +30,27 @@
 | **F013** | 6 | 10 Consecutive E2E Runs | 00-013-01, 00-013-02, 00-013-03 |
 
 ## Workstream Status
+
+### Phase 0: Agent Loop Reliability
+
+| WS | Feature | Title | Status |
+|----|---------|-------|--------|
+| 00-014-01 | F014 | CI Loop CLI — Poll + Classify | Backlog |
+| 00-014-02 | F014 | CI Loop CLI — Auto-Fix Engine | Backlog |
+| 00-015-01 | F015 | Stop Hook — Cursor Implementation | Backlog |
+| 00-015-02 | F015 | Stop Hook — Claude Code Implementation | Backlog |
+| 00-016-01 | F016 | Oneshot Outer Loop — State Machine CLI | Backlog |
+| 00-016-02 | F016 | Oneshot Outer Loop — Cursor Integration | Backlog |
+| 00-016-03 | F016 | Oneshot Outer Loop — Claude Code Integration | Backlog |
+| 00-016-04 | F016 | Oneshot Outer Loop — opencode Integration | Backlog |
+| 00-017-01 | F017 | Skill Eval Suite — Framework + Core Evals | Backlog |
+| 00-017-02 | F017 | Skill Eval Suite — CI Integration | Backlog |
+| 00-018-01 | F018 | Delete Dead Skills + Agents | Backlog |
+| 00-018-02 | F018 | Fix Python→Go + Phantom CLI + Branch Model | Backlog |
+| 00-019-01 | F019 | Compress Operational Skills | Backlog |
+| 00-019-02 | F019 | Compress Planning & Design Skills | Backlog |
+| 00-019-03 | F019 | Trim Bloated Agents + Sync Copies | Backlog |
+| 00-020-01 | F020 | @build Scope Surgery | Backlog |
 
 ### Phase 1: Evidence Foundation
 
@@ -82,6 +110,7 @@
 
 ## Workstream ID Format
 
-`PP-FFF-SS` — Project (00), Feature (001–013), Step (01, 02, …)
+`PP-FFF-SS` — Project (00), Feature (001–020), Step (01, 02, …)
 
 Example: `00-004-02` = sdp_lab, F004 Sequential Reconciler, step 2 (inject handoff paths)
+Example: `00-014-01` = sdp_lab, F014 CI Loop CLI, step 1 (poll + classify)
