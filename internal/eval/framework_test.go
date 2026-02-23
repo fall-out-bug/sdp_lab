@@ -6,6 +6,29 @@ import (
 	"testing"
 )
 
+func TestLoadCases_EmptyDir(t *testing.T) {
+	dir := t.TempDir()
+	cases, err := LoadCases(dir, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cases) != 0 {
+		t.Errorf("expected 0 cases, got %d", len(cases))
+	}
+}
+
+func TestLoadCases_MalformedYAML(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "bad.yaml")
+	if err := os.WriteFile(f, []byte("not: valid: yaml: here"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := LoadCases(dir, "")
+	if err == nil {
+		t.Fatal("expected error for malformed YAML")
+	}
+}
+
 func TestExtractAgentOutput(t *testing.T) {
 	// Simple format: role + content
 	data := []byte(`{"role":"user","content":"hello"}

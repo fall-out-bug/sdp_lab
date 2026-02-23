@@ -55,6 +55,18 @@ func TestEnsureRunFile(t *testing.T) {
 	}
 }
 
+func TestEnsureRunFileInvalidFeatureID(t *testing.T) {
+	dir := t.TempDir()
+	err := orchestrate.EnsureRunFile(dir, "", "branch")
+	if err == nil {
+		t.Fatal("expected error for empty featureID")
+	}
+	err = orchestrate.EnsureRunFile(dir, "F016/../x", "branch")
+	if err == nil {
+		t.Fatal("expected error for path-traversal featureID")
+	}
+}
+
 func TestEnsureRunFileMkdirFails(t *testing.T) {
 	// Use a path that would fail MkdirAll (e.g. parent is a file)
 	dir := t.TempDir()

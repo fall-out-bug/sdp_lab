@@ -62,44 +62,13 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				os.Exit(1)
 			}
 		case "pr":
-			if err := RunPRPhase(ctx, projectRoot, featureID, cp); err != nil {
+			if err := AdvancePRPhase(ctx, projectRoot, featureID, cpPath, cp); err != nil {
 				fmt.Fprintf(os.Stderr, "error: %v\n", err)
 				os.Exit(1)
 			}
-			prNum, prURL, err := GetPRInfo()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "error: get PR info: %v\n", err)
-				os.Exit(1)
-			}
-			cp.PRNumber = &prNum
-			cp.PRURL = prURL
-			cp.Phase = PhaseCI
-			if err := SaveCheckpoint(cpPath, cp); err != nil {
-				fmt.Fprintf(os.Stderr, "error: save checkpoint: %v\n", err)
-				os.Exit(1)
-			}
 		case "ci-loop":
-			pr := 0
-			if cp.PRNumber != nil {
-				pr = *cp.PRNumber
-			}
-			if pr == 0 {
-				prNum, _, getErr := GetPRInfo()
-				if getErr != nil {
-					fmt.Fprintf(os.Stderr, "error: get PR info: %v\n", getErr)
-					os.Exit(1)
-				}
-				pr = prNum
-			}
-			if pr > 0 {
-				if err := RunCILoop(ctx, pr, featureID, cpPath, runsPath); err != nil {
-					fmt.Fprintf(os.Stderr, "error: %v\n", err)
-					os.Exit(1)
-				}
-			}
-			cp.Phase = PhaseDone
-			if err := SaveCheckpoint(cpPath, cp); err != nil {
-				fmt.Fprintf(os.Stderr, "error: save checkpoint: %v\n", err)
+			if err := AdvanceCIPhase(ctx, featureID, cpPath, runsPath, cp); err != nil {
+				fmt.Fprintf(os.Stderr, "error: %v\n", err)
 				os.Exit(1)
 			}
 		case "done":

@@ -132,6 +132,43 @@ func GetPRInfo() (int, string, error) {
 	return arr[0].Number, arr[0].URL, nil
 }
 
+// AdvancePRPhase runs PR phase (push, create PR), fetches PR info, updates checkpoint to PhaseCI.
+func AdvancePRPhase(ctx context.Context, projectRoot, featureID, cpPath string, cp *Checkpoint) error {
+	if err := RunPRPhase(ctx, projectRoot, featureID, cp); err != nil {
+		return err
+	}
+	prNum, prURL, err := GetPRInfo()
+	if err != nil {
+		return err
+	}
+	cp.PRNumber = &prNum
+	cp.PRURL = prURL
+	cp.Phase = PhaseCI
+	return SaveCheckpoint(cpPath, cp)
+}
+
+// AdvanceCIPhase runs CI loop if PR exists, then sets checkpoint to PhaseDone.
+func AdvanceCIPhase(ctx context.Context, featureID, cpPath, runsPath string, cp *Checkpoint) error {
+	pr := 0
+	if cp.PRNumber != nil {
+		pr = *cp.PRNumber
+	}
+	if pr == 0 {
+		prNum, _, err := GetPRInfo()
+		if err != nil {
+			return err
+		}
+		pr = prNum
+	}
+	if pr > 0 {
+		if err := RunCILoop(ctx, pr, featureID, cpPath, runsPath); err != nil {
+			return err
+		}
+	}
+	cp.Phase = PhaseDone
+	return SaveCheckpoint(cpPath, cp)
+}
+
 // RunCILoop invokes sdp-ci-loop for the given PR (respects ctx cancellation).
 func RunCILoop(ctx context.Context, pr int, featureID, checkpointDir, runsDir string) error {
 	path, err := exec.LookPath("sdp-ci-loop")

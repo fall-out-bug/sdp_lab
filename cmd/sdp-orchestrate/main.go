@@ -113,46 +113,15 @@ func main() {
 			os.Exit(1)
 		}
 		if cp.Phase == orchestrate.PhasePR {
-			if err := orchestrate.RunPRPhase(context.Background(), projectRoot, featureID, cp); err != nil {
+			if err := orchestrate.AdvancePRPhase(context.Background(), projectRoot, featureID, cpPath, cp); err != nil {
 				fmt.Fprintf(os.Stderr, "error: %v\n", err)
-				os.Exit(1)
-			}
-			prNum, prURL, getErr := orchestrate.GetPRInfo()
-			if getErr != nil {
-				fmt.Fprintf(os.Stderr, "error: get PR info: %v\n", getErr)
-				os.Exit(1)
-			}
-			cp.PRNumber = &prNum
-			cp.PRURL = prURL
-			cp.Phase = orchestrate.PhaseCI
-			if err := orchestrate.SaveCheckpoint(cpPath, cp); err != nil {
-				fmt.Fprintf(os.Stderr, "error: save checkpoint: %v\n", err)
 				os.Exit(1)
 			}
 		}
 		if cp.Phase == orchestrate.PhaseCI {
-			pr := 0
-			if cp.PRNumber != nil {
-				pr = *cp.PRNumber
-			}
-			if pr == 0 {
-				prNum, _, getErr := orchestrate.GetPRInfo()
-				if getErr != nil {
-					fmt.Fprintf(os.Stderr, "error: get PR info: %v\n", getErr)
-					os.Exit(1)
-				}
-				pr = prNum
-			}
-			if pr > 0 {
-				if err := orchestrate.RunCILoop(context.Background(), pr, featureID, cpPath, runsPath); err != nil {
-					fmt.Fprintf(os.Stderr, "error: %v\n", err)
-					os.Exit(1)
-				}
-				cp.Phase = orchestrate.PhaseDone
-				if err := orchestrate.SaveCheckpoint(cpPath, cp); err != nil {
-					fmt.Fprintf(os.Stderr, "error: save checkpoint: %v\n", err)
-					os.Exit(1)
-				}
+			if err := orchestrate.AdvanceCIPhase(context.Background(), featureID, cpPath, runsPath, cp); err != nil {
+				fmt.Fprintf(os.Stderr, "error: %v\n", err)
+				os.Exit(1)
 			}
 		}
 		return
