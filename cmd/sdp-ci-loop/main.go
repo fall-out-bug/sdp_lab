@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -15,7 +16,6 @@ import (
 )
 
 const execTimeout = 30 * time.Second
-
 // exitCodes matches WS AC.
 const (
 	exitGreen    = 0
@@ -37,7 +37,7 @@ func main() {
 	if *prNum == 0 && *feature != "" {
 		cp, err := ciloop.LoadCheckpoint(*checkpointDir, *feature)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: cannot load checkpoint: %v\n", err)
+			slog.Debug("cannot load checkpoint", "error", err, "feature", *feature)
 		} else if cp.PRNumber != nil {
 			*prNum = *cp.PRNumber
 		}
@@ -58,17 +58,12 @@ func main() {
 			names[i] = c.Name
 		}
 		title := fmt.Sprintf("CI BLOCKED: %s (PR #%d)", strings.Join(names, ", "), *prNum)
-		fmt.Fprintf(os.Stderr, "ESCALATE: %s\n", title)
-		// Create beads issue for the blocker.
-		cmd := exec.Command("bd", "create",
-			"--title", title,
-			"--priority", "0",
-			"--labels", fmt.Sprintf("ci-finding,%s", *feature),
-		)
+		slog.Warn("escalating", "title", title, "checks", names, "pr", *prNum)
+		cmd := exec.Command("bd", "create", "--title", title, "--priority", "0", "--labels", fmt.Sprintf("ci-finding,%s", *feature))
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: bd create failed: %v\n", err)
+			slog.Warn("bd create failed", "error", err, "title", title)
 		}
 		return nil
 	}
@@ -87,21 +82,13 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	opts := ciloop.LoopOptions{
-		Context:           ctx,
-		PRNumber:          *prNum,
-		MaxIter:           *maxIter,
-		MaxPendingRetries: ciloop.DefaultMaxPendingRetries,
-		PollDelay:         *pollDelay,
-		RetryDelay:        *retryDelay,
-		Poller:            poller,
-		OnEscalate:        onEscalate,
-		Fixer:             fixer,
-	}
+	opts := ciloop.LoopOptions{Context: ctx, PRNumber: *prNum, MaxIter: *maxIter,
+		MaxPendingRetries: ciloop.DefaultMaxPendingRetries, PollDelay: *pollDelay, RetryDelay: *retryDelay,
+		Poller: poller, OnEscalate: onEscalate, Fixer: fixer}
 
 	result, err := ciloop.RunLoop(opts)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ci-loop error: %v\n", err)
+		slog.Error("ci-loop failed", "error", err, "pr", *prNum, "feature", *feature)
 		os.Exit(exitEscalate)
 	}
 
@@ -109,30 +96,34 @@ func main() {
 	case ciloop.ResultGreen:
 		fmt.Println("CI GREEN")
 		if *feature != "" {
-			updateArtifacts(*checkpointDir, *runsDir, *feature)
+			if err := updateArtifacts(*checkpointDir, *runsDir, *feature); err != nil {
+				slog.Error("update artifacts failed", "error", err, "feature", *feature)
+				os.Exit(exitEscalate)
+			}
 		}
 		os.Exit(exitGreen)
 
 	case ciloop.ResultEscalated:
-		fmt.Fprintln(os.Stderr, "CI ESCALATED — see beads issue")
+		slog.Warn("CI escalated", "pr", *prNum, "feature", *feature)
 		os.Exit(exitEscalate)
 
 	case ciloop.ResultMaxIter:
-		fmt.Fprintf(os.Stderr, "CI max iterations (%d) exceeded\n", *maxIter)
+		slog.Warn("CI max iterations exceeded", "max_iter", *maxIter, "pr", *prNum)
 		os.Exit(exitMaxIter)
 	}
 }
 
-func updateArtifacts(checkpointDir, runsDir, featureID string) {
+func updateArtifacts(checkpointDir, runsDir, featureID string) error {
 	cp, err := ciloop.LoadCheckpoint(checkpointDir, featureID)
 	if err == nil {
 		if saveErr := ciloop.SaveCheckpoint(checkpointDir, cp); saveErr != nil {
-			fmt.Fprintf(os.Stderr, "warning: save checkpoint: %v\n", saveErr)
+			return fmt.Errorf("save checkpoint: %w", saveErr)
 		}
 	}
 	if err := ciloop.AppendRunEvent(runsDir, featureID, "ci", "ok", ""); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: append run event: %v\n", err)
+		return fmt.Errorf("append run event: %w", err)
 	}
+	return nil
 }
 
 // execRunner implements CommandRunner via os/exec with a 30s timeout.
@@ -167,9 +158,9 @@ func (g *gitCommitter) Push() error {
 	return cmd.Run()
 }
 
-// ghLogFetcher implements LogFetcher via gh CLI.
+// ghLogFetcher implements LogFetcher via gh CLI (uses CommandRunner interface: v9w3).
 type ghLogFetcher struct {
-	runner *execRunner
+	runner ciloop.CommandRunner
 }
 
 func (g *ghLogFetcher) FailedLogs(prNumber int) (string, error) {
@@ -185,7 +176,6 @@ func (g *ghLogFetcher) FailedLogs(prNumber int) (string, error) {
 	if id == "" {
 		return "", fmt.Errorf("no failed run found for PR #%d", prNumber)
 	}
-	// Take only first line if multiple.
 	if nl := strings.Index(id, "\n"); nl > 0 {
 		id = id[:nl]
 	}

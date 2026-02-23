@@ -76,7 +76,10 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
-		orchestrate.EnsureRunFile(runsPath, featureID, cp.Branch)
+		if err := orchestrate.EnsureRunFile(runsPath, featureID, cp.Branch); err != nil {
+			fmt.Fprintf(os.Stderr, "error: ensure run file: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	if *nextAction {
@@ -113,7 +116,11 @@ func main() {
 				fmt.Fprintf(os.Stderr, "error: %v\n", err)
 				os.Exit(1)
 			}
-			prNum, prURL, _ := orchestrate.GetPRInfo()
+			prNum, prURL, getErr := orchestrate.GetPRInfo()
+			if getErr != nil {
+				fmt.Fprintf(os.Stderr, "error: get PR info: %v\n", getErr)
+				os.Exit(1)
+			}
 			cp.PRNumber = &prNum
 			cp.PRURL = prURL
 			cp.Phase = orchestrate.PhaseCI
@@ -128,7 +135,12 @@ func main() {
 				pr = *cp.PRNumber
 			}
 			if pr == 0 {
-				pr, _, _ = orchestrate.GetPRInfo()
+				prNum, _, getErr := orchestrate.GetPRInfo()
+				if getErr != nil {
+					fmt.Fprintf(os.Stderr, "error: get PR info: %v\n", getErr)
+					os.Exit(1)
+				}
+				pr = prNum
 			}
 			if pr > 0 {
 				if err := orchestrate.RunCILoop(pr, featureID, cpPath, runsPath); err != nil {

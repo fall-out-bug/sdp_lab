@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // CheckState represents the state of a CI check.
@@ -40,12 +41,16 @@ func NewPoller(runner CommandRunner) *Poller {
 }
 
 // GetChecks fetches current check states for the given PR number.
+// Retries once after 2s on transient failures.
 func (p *Poller) GetChecks(prNumber int) ([]CheckResult, error) {
 	out, err := p.runner.Run("gh", "pr", "checks", strconv.Itoa(prNumber), "--json", "name,state")
 	if err != nil {
-		return nil, fmt.Errorf("gh pr checks: %w", err)
+		time.Sleep(2 * time.Second)
+		out, err = p.runner.Run("gh", "pr", "checks", strconv.Itoa(prNumber), "--json", "name,state")
+		if err != nil {
+			return nil, fmt.Errorf("gh pr checks: %w", err)
+		}
 	}
-	// gh pr checks output uses lowercase state in some versions; normalise during parsing.
 	var raw []map[string]string
 	if err := json.Unmarshal(out, &raw); err != nil {
 		return nil, fmt.Errorf("parse checks JSON: %w", err)

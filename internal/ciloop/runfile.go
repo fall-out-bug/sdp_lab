@@ -1,10 +1,14 @@
 package ciloop
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -40,7 +44,7 @@ func AppendRunEvent(dir, featureID, phase, state, notes string) error {
 		return fmt.Errorf("read run file: %w", err)
 	}
 	var rf RunFile
-	if err := json.Unmarshal(data, &rf); err != nil {
+	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(data), maxJSONDecodeBytes)).Decode(&rf); err != nil {
 		return fmt.Errorf("parse run file: %w", err)
 	}
 	rf.Events = append(rf.Events, RunEvent{
@@ -72,16 +76,26 @@ func findRunFile(dir, featureID string) (string, error) {
 		return "", fmt.Errorf("read runs dir %s: %w", dir, err)
 	}
 	prefix := "oneshot-" + featureID + "-"
-	var latest string
+	var matches []string
 	for _, e := range entries {
 		if strings.HasPrefix(e.Name(), prefix) && strings.HasSuffix(e.Name(), ".json") {
-			if e.Name() > latest {
-				latest = e.Name()
-			}
+			matches = append(matches, e.Name())
 		}
 	}
-	if latest == "" {
+	if len(matches) == 0 {
 		return "", fmt.Errorf("no run file found for feature %s in %s", featureID, dir)
 	}
-	return filepath.Join(dir, latest), nil
+	sort.Slice(matches, func(i, j int) bool {
+		si := strings.TrimSuffix(matches[i], ".json")
+		sj := strings.TrimSuffix(matches[j], ".json")
+		ni := strings.TrimPrefix(si, prefix)
+		nj := strings.TrimPrefix(sj, prefix)
+		vi, ei := strconv.Atoi(ni)
+		vj, ej := strconv.Atoi(nj)
+		if ei == nil && ej == nil {
+			return vi < vj // ascending: last in slice = latest
+		}
+		return si < sj // fallback: string sort (e.g. timestamps)
+	})
+	return filepath.Join(dir, matches[len(matches)-1]), nil
 }

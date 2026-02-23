@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -28,10 +29,12 @@ func CurrentBranch() (string, error) {
 }
 
 // EnsureRunFile creates the initial run file for a feature.
-func EnsureRunFile(dir, featureID, branch string) {
+func EnsureRunFile(dir, featureID, branch string) error {
 	runID := fmt.Sprintf("oneshot-%s-%s", featureID, time.Now().UTC().Format("20060102T150405Z"))
 	path := filepath.Join(dir, runID+".json")
-	_ = os.MkdirAll(dir, 0o755)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("mkdir runs dir: %w", err)
+	}
 	body := fmt.Sprintf(`{
   "run_id": "%s",
   "feature_id": "%s",
@@ -45,7 +48,10 @@ func EnsureRunFile(dir, featureID, branch string) {
 `, runID, featureID, branch,
 		time.Now().UTC().Format(time.RFC3339),
 		time.Now().UTC().Format(time.RFC3339))
-	_ = os.WriteFile(path, []byte(body), 0o644)
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		return fmt.Errorf("write run file: %w", err)
+	}
+	return nil
 }
 
 // RunPRPhase executes git push and gh pr create.
@@ -108,7 +114,7 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Fprintf(os.Stderr, "shutdown: %v\n", ctx.Err())
+			slog.Warn("shutdown", "error", ctx.Err())
 			os.Exit(1)
 		default:
 		}
@@ -124,7 +130,7 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 			commit, err := RunBuildPhase(phaseCtx, projectRoot, action.WSID)
 			cancel()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "opencode build failed: %v\n", err)
+				slog.Error("opencode build failed", "error", err, "ws", action.WSID)
 				os.Exit(1)
 			}
 			if err := Advance(cp, workstreams, commit); err != nil {
@@ -140,7 +146,7 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 			approved, err := RunReviewPhase(phaseCtx, projectRoot, action.Feature)
 			cancel()
 			if err != nil || !approved {
-				fmt.Fprintf(os.Stderr, "opencode review failed or not approved: %v\n", err)
+				slog.Error("opencode review failed", "error", err, "approved", approved, "feature", action.Feature)
 				os.Exit(1)
 			}
 			if err := Advance(cp, workstreams, ""); err != nil {
@@ -156,7 +162,11 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				fmt.Fprintf(os.Stderr, "error: %v\n", err)
 				os.Exit(1)
 			}
-			prNum, prURL, _ := GetPRInfo()
+			prNum, prURL, err := GetPRInfo()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error: get PR info: %v\n", err)
+				os.Exit(1)
+			}
 			cp.PRNumber = &prNum
 			cp.PRURL = prURL
 			cp.Phase = PhaseCI
@@ -170,7 +180,12 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				pr = *cp.PRNumber
 			}
 			if pr == 0 {
-				pr, _, _ = GetPRInfo()
+				prNum, _, getErr := GetPRInfo()
+				if getErr != nil {
+					fmt.Fprintf(os.Stderr, "error: get PR info: %v\n", getErr)
+					os.Exit(1)
+				}
+				pr = prNum
 			}
 			if pr > 0 {
 				if err := RunCILoop(pr, featureID, cpPath, runsPath); err != nil {
@@ -184,6 +199,7 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				os.Exit(1)
 			}
 		case "done":
+			slog.Info("oneshot complete", "feature", featureID)
 			fmt.Println("CI GREEN - @oneshot complete")
 			return
 		}

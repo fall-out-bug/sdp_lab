@@ -144,7 +144,9 @@ func RunLoop(opts LoopOptions) (LoopResult, error) {
 
 		if err := opts.Fixer.Fix(autoFixChecks); err != nil {
 			if opts.OnEscalate != nil {
-				opts.OnEscalate(autoFixChecks)
+				if escErr := opts.OnEscalate(autoFixChecks); escErr != nil {
+					return ResultEscalated, escErr
+				}
 			}
 			return ResultEscalated, err
 		}
