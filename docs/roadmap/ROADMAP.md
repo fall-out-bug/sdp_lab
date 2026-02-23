@@ -230,7 +230,7 @@ graph LR
 | F015 Stop Hook Gate | 0 | S | Done | 00-015-01, 00-015-02 | F014 |
 | F016 Oneshot Outer Loop | 0 | L | In Progress | 00-016-01, 00-016-02, 00-016-03, 00-016-04 | F015, F020 |
 | F017 Skill Eval Suite | 0 | M | In Progress | 00-017-01, 00-017-02 | F016 |
-| F018 Dead Code Purge | 0 | M | In Progress | 00-018-01, 00-018-02 | — |
+| F018 Dead Code Purge | 0 | M | Partial | 00-018-01, 00-018-02 | — |
 | F019 Skill Compression | 0 | M | Backlog | 00-019-01, 00-019-02, 00-019-03 | F018 |
 | F020 Build Scope Fix | 0 | S | Backlog | 00-020-01 | F019 |
 | F021 Language-Agnostic Skills | 0 | S | Done | 00-021-01 | F020 |
