@@ -16,6 +16,18 @@ builds:
     ignore:
       - goos: linux
         goarch: arm64
+  - id: sdp-orchestrate
+    main: ./cmd/sdp-orchestrate
+    binary: sdp-orchestrate
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: linux
+        goarch: arm64
   - id: sdp-evidence
     main: ./cmd/sdp-evidence
     binary: sdp-evidence
@@ -31,6 +43,11 @@ builds:
         goarch: arm64
 
 archives:
+  - id: sdp-orchestrate
+    format: tar.gz
+    name_template: "sdp-orchestrate_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - sdp-orchestrate
   - id: sdp-evidence
     format: tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"

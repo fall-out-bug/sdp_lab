@@ -1,8 +1,10 @@
 package ciloop
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -52,7 +54,7 @@ func (p *Poller) GetChecks(prNumber int) ([]CheckResult, error) {
 		}
 	}
 	var raw []map[string]string
-	if err := json.Unmarshal(out, &raw); err != nil {
+	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(out), maxJSONDecodeBytes)).Decode(&raw); err != nil {
 		return nil, fmt.Errorf("parse checks JSON: %w", err)
 	}
 	results := make([]CheckResult, 0, len(raw))

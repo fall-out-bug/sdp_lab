@@ -35,6 +35,9 @@ type RunFile struct {
 
 // AppendRunEvent finds the latest run file for featureID in dir and appends an event.
 func AppendRunEvent(dir, featureID, phase, state, notes string) error {
+	if err := validateFeatureID(featureID); err != nil {
+		return err
+	}
 	path, err := findRunFile(dir, featureID)
 	if err != nil {
 		return err

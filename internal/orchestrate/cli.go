@@ -32,6 +32,9 @@ func CurrentBranch() (string, error) {
 
 // EnsureRunFile creates the initial run file for a feature (atomic write).
 func EnsureRunFile(dir, featureID, branch string) error {
+	if err := validateFeatureID(featureID); err != nil {
+		return err
+	}
 	runID := fmt.Sprintf("oneshot-%s-%s", featureID, time.Now().UTC().Format("20060102T150405Z"))
 	path := filepath.Join(dir, runID+".json")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
