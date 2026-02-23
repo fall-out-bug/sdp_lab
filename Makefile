@@ -6,6 +6,7 @@ test:
 
 test-scripts:
 	@./scripts/feature_to_pr_test.sh
+	@./scripts/oneshot-stop-gate_test.sh
 
 test-internal:
 	go test ./internal/... -count=1
