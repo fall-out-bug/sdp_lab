@@ -7,8 +7,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"sdp_dev/internal/orchestrate"
@@ -104,6 +106,8 @@ func main() {
 	}
 
 	if *advance {
+		advanceCtx, advanceStop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		defer advanceStop()
 		if err := orchestrate.Advance(cp, workstreams, *result); err != nil {
 			fmt.Fprintf(os.Stderr, "error: advance: %v\n", err)
 			os.Exit(1)
@@ -113,13 +117,13 @@ func main() {
 			os.Exit(1)
 		}
 		if cp.Phase == orchestrate.PhasePR {
-			if err := orchestrate.AdvancePRPhase(context.Background(), projectRoot, featureID, cpPath, cp); err != nil {
+			if err := orchestrate.AdvancePRPhase(advanceCtx, projectRoot, featureID, cpPath, cp); err != nil {
 				fmt.Fprintf(os.Stderr, "error: %v\n", err)
 				os.Exit(1)
 			}
 		}
 		if cp.Phase == orchestrate.PhaseCI {
-			if err := orchestrate.AdvanceCIPhase(context.Background(), featureID, cpPath, runsPath, cp); err != nil {
+			if err := orchestrate.AdvanceCIPhase(advanceCtx, featureID, cpPath, runsPath, cp); err != nil {
 				fmt.Fprintf(os.Stderr, "error: %v\n", err)
 				os.Exit(1)
 			}

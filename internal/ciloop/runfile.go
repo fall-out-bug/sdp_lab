@@ -33,11 +33,24 @@ type RunFile struct {
 	LastState    string     `json:"last_state"`
 }
 
+// maxRunEventFieldBytes caps phase/state/notes length to avoid disk DoS.
+const maxRunEventFieldBytes = 1024
+
+func truncateField(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max]
+}
+
 // AppendRunEvent finds the latest run file for featureID in dir and appends an event.
 func AppendRunEvent(dir, featureID, phase, state, notes string) error {
 	if err := validateFeatureID(featureID); err != nil {
 		return err
 	}
+	phase = truncateField(phase, maxRunEventFieldBytes)
+	state = truncateField(state, maxRunEventFieldBytes)
+	notes = truncateField(notes, maxRunEventFieldBytes)
 	path, err := findRunFile(dir, featureID)
 	if err != nil {
 		return err

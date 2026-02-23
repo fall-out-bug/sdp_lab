@@ -93,7 +93,9 @@ func RunLoop(opts LoopOptions) (LoopResult, error) {
 			pendingRounds++
 			if opts.MaxPendingRetries > 0 && pendingRounds >= opts.MaxPendingRetries {
 				if opts.OnEscalate != nil {
-					opts.OnEscalate(checks)
+					if err := opts.OnEscalate(checks); err != nil {
+						return ResultEscalated, err
+					}
 				}
 				return ResultEscalated, nil
 			}

@@ -13,25 +13,8 @@ import (
 	"time"
 
 	"sdp_dev/internal/ciloop"
-	"sdp_dev/internal/orchestrate"
 )
 
-const execTimeout = 30 * time.Second
-
-// sanitizeLabel returns a label-safe string (alphanumeric and hyphen only).
-func sanitizeLabel(s string) string {
-	var b strings.Builder
-	for _, r := range s {
-		if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
-			b.WriteRune(r)
-		}
-	}
-	out := b.String()
-	if out == "" {
-		return "F000"
-	}
-	return out
-}
 // exitCodes matches WS AC.
 const (
 	exitGreen    = 0
@@ -65,7 +48,10 @@ func main() {
 		os.Exit(exitEscalate)
 	}
 
-	runner := &execRunner{}
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	runner := &ciloop.ExecRunner{Ctx: ctx}
 	poller := ciloop.NewPoller(runner)
 
 	onEscalate := func(checks []ciloop.CheckResult) error {
@@ -75,7 +61,7 @@ func main() {
 		}
 		title := fmt.Sprintf("CI BLOCKED: %s (PR #%d)", strings.Join(names, ", "), *prNum)
 		slog.Warn("escalating", "title", title, "checks", names, "pr", *prNum)
-		cmd := exec.Command("bd", "create", "--title", title, "--priority", "0", "--labels", fmt.Sprintf("ci-finding,%s", sanitizeLabel(*feature)))
+		cmd := exec.Command("bd", "create", "--title", title, "--priority", "0", "--labels", fmt.Sprintf("ci-finding,%s", ciloop.SanitizeLabel(*feature)))
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
@@ -88,16 +74,13 @@ func main() {
 	fixer := ciloop.NewFixer(ciloop.FixerOptions{
 		PRNumber:  *prNum,
 		FeatureID: *feature,
-		Committer: &gitCommitter{},
-		LogFetcher: &ghLogFetcher{runner: runner},
+		Committer: &ciloop.GitCommitter{},
+		LogFetcher: &ciloop.GhLogFetcher{Runner: runner},
 		DecisionLogger: func(decision, rationale string) error {
 			fmt.Printf("DECISION: %s — %s\n", decision, rationale)
 			return nil
 		},
 	})
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
 	opts := ciloop.LoopOptions{Context: ctx, PRNumber: *prNum, MaxIter: *maxIter,
 		MaxPendingRetries: ciloop.DefaultMaxPendingRetries, PollDelay: *pollDelay, RetryDelay: *retryDelay,
@@ -130,6 +113,8 @@ func main() {
 	}
 }
 
+// updateArtifacts saves checkpoint (if loadable) and appends run event.
+// When LoadCheckpoint fails, we still append "ci ok" — best-effort to record CI completion.
 func updateArtifacts(checkpointDir, runsDir, featureID string) error {
 	cp, err := ciloop.LoadCheckpoint(checkpointDir, featureID)
 	if err == nil {
@@ -141,68 +126,4 @@ func updateArtifacts(checkpointDir, runsDir, featureID string) error {
 		return fmt.Errorf("append run event: %w", err)
 	}
 	return nil
-}
-
-// execRunner implements CommandRunner via os/exec with a 30s timeout.
-type execRunner struct{}
-
-func (e *execRunner) Run(name string, args ...string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), execTimeout)
-	defer cancel()
-	return exec.CommandContext(ctx, name, args...).Output()
-}
-
-// gitCommitter implements Committer via git CLI.
-type gitCommitter struct{}
-
-func (g *gitCommitter) Commit(msg string) error {
-	add := exec.Command("git", "add", ".sdp/ci-fixes/")
-	add.Stdout = os.Stdout
-	add.Stderr = os.Stderr
-	if err := add.Run(); err != nil {
-		return err
-	}
-	cmd := exec.Command("git", "commit", "-m", msg)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
-func (g *gitCommitter) Push() error {
-	cmd := exec.Command("git", "push")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
-// ghLogFetcher implements LogFetcher via gh CLI (uses CommandRunner interface: v9w3).
-type ghLogFetcher struct {
-	runner ciloop.CommandRunner
-}
-
-func (g *ghLogFetcher) FailedLogs(prNumber int) (string, error) {
-	branch, err := orchestrate.CurrentBranch()
-	if err != nil {
-		return "", fmt.Errorf("current branch: %w", err)
-	}
-	runID, err := g.runner.Run("gh", "run", "list",
-		"--branch", branch,
-		"--json", "databaseId,conclusion",
-		"--jq", `.[] | select(.conclusion == "failure") | .databaseId`,
-	)
-	if err != nil {
-		return "", fmt.Errorf("list failed runs: %w", err)
-	}
-	id := strings.TrimSpace(string(runID))
-	if id == "" {
-		return "", fmt.Errorf("no failed run found for PR #%d", prNumber)
-	}
-	if nl := strings.Index(id, "\n"); nl > 0 {
-		id = id[:nl]
-	}
-	out, err := g.runner.Run("gh", "run", "view", id, "--log-failed")
-	if err != nil {
-		return "", fmt.Errorf("fetch run logs: %w", err)
-	}
-	return string(out), nil
 }

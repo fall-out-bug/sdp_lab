@@ -1,0 +1,100 @@
+package ciloop
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+	"time"
+
+	"sdp_dev/internal/orchestrate"
+)
+
+const execRunnerTimeout = 30 * time.Second
+
+// ExecRunner implements CommandRunner with process context and timeout.
+// When ctx is cancelled (e.g. SIGTERM), Run returns promptly.
+type ExecRunner struct {
+	Ctx context.Context
+}
+
+// Run runs the command with ExecRunnerTimeout; respects Ctx cancellation.
+func (e *ExecRunner) Run(name string, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(e.Ctx, execRunnerTimeout)
+	defer cancel()
+	return exec.CommandContext(ctx, name, args...).Output()
+}
+
+// SanitizeLabel returns a label-safe string (alphanumeric and hyphen only).
+func SanitizeLabel(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			b.WriteRune(r)
+		}
+	}
+	out := b.String()
+	if out == "" {
+		return "F000"
+	}
+	return out
+}
+
+// GitCommitter implements Committer via git CLI.
+type GitCommitter struct{}
+
+// Commit adds .sdp/ci-fixes/ and commits with the given message.
+func (g *GitCommitter) Commit(msg string) error {
+	add := exec.Command("git", "add", ".sdp/ci-fixes/")
+	add.Stdout = os.Stdout
+	add.Stderr = os.Stderr
+	if err := add.Run(); err != nil {
+		return err
+	}
+	cmd := exec.Command("git", "commit", "-m", msg)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// Push pushes the current branch.
+func (g *GitCommitter) Push() error {
+	cmd := exec.Command("git", "push")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// GhLogFetcher implements LogFetcher via gh CLI.
+type GhLogFetcher struct {
+	Runner CommandRunner
+}
+
+// FailedLogs returns the log output of the most recent failed run for the current branch.
+func (g *GhLogFetcher) FailedLogs(prNumber int) (string, error) {
+	branch, err := orchestrate.CurrentBranch()
+	if err != nil {
+		return "", fmt.Errorf("current branch: %w", err)
+	}
+	runID, err := g.Runner.Run("gh", "run", "list",
+		"--branch", branch,
+		"--json", "databaseId,conclusion",
+		"--jq", `.[] | select(.conclusion == "failure") | .databaseId`,
+	)
+	if err != nil {
+		return "", fmt.Errorf("list failed runs: %w", err)
+	}
+	id := strings.TrimSpace(string(runID))
+	if id == "" {
+		return "", fmt.Errorf("no failed run found for PR #%d", prNumber)
+	}
+	if nl := strings.Index(id, "\n"); nl > 0 {
+		id = id[:nl]
+	}
+	out, err := g.Runner.Run("gh", "run", "view", id, "--log-failed")
+	if err != nil {
+		return "", fmt.Errorf("fetch run logs: %w", err)
+	}
+	return string(out), nil
+}

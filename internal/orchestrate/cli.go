@@ -1,10 +1,12 @@
 package orchestrate
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -123,7 +125,7 @@ func GetPRInfo() (int, string, error) {
 		Number int    `json:"number"`
 		URL    string `json:"url"`
 	}
-	if err := json.Unmarshal(out, &arr); err != nil {
+	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(out), maxJSONDecodeBytes)).Decode(&arr); err != nil {
 		return 0, "", err
 	}
 	if len(arr) == 0 {

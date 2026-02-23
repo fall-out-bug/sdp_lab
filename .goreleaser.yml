@@ -1,7 +1,7 @@
 # Goreleaser config for SDP CLIs
 # Triggers on tag push (e.g. v0.1.0)
 version: 2
-project_name: sdp-evidence
+project_name: sdp-cli
 
 builds:
   - id: sdp-ci-loop
