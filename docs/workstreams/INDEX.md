@@ -61,8 +61,8 @@
 | 00-020-01 | F020 | @build Scope Surgery | Backlog |
 | 00-021-01 | F021 | Remove Go-Specific Commands from Universal Skills | Done |
 | 00-022-01 | F022 | Context Pre-Hydration — gather context before LLM | Done |
-| 00-023-01 | F023 | Scope Diff Checker — boundary validation | Backlog |
-| 00-023-02 | F023 | Wire Scope Enforcement into Orchestrator | Backlog |
+| 00-023-01 | F023 | Scope Diff Checker — boundary validation | Done |
+| 00-023-02 | F023 | Wire Scope Enforcement into Orchestrator | Done |
 | 00-024-01 | F024 | Phase Hooks — pre/post hooks at phase transitions | Backlog |
 | 00-025-01 | F025 | Prompt Consolidation — DRY prompt builders | Backlog |
 | 00-027-01 | F027 | CI Deterministic Auto-Fixers — goimports/go mod tidy before LLM | Backlog |
