@@ -1,0 +1,10 @@
+{
+  "risk_class": "medium",
+  "decomposed_steps": [
+    "Define JSON schemas for analyst, coder, reviewer handoff",
+    "Add test fixtures and validation"
+  ],
+  "recommended_approach": "Follow evidence-envelope schema pattern with $schema and $id",
+  "estimated_complexity": "M",
+  "scope_files": ["schema/handoff-analyst.schema.json", "schema/handoff-coder.schema.json", "schema/handoff-reviewer.schema.json"]
+}

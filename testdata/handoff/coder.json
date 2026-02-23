@@ -1,0 +1,11 @@
+{
+  "changed_files": ["schema/handoff-analyst.schema.json", "internal/handoff/validate.go"],
+  "test_results": {
+    "passed": 5,
+    "failed": 0,
+    "coverage": 85.2
+  },
+  "implementation_notes": "Used jsonschema compiler for validation",
+  "branch": "feature/F003-handoff-schema",
+  "commits": ["abc1234 F003: add handoff schemas"]
+}
