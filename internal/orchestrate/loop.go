@@ -45,7 +45,7 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				os.Exit(1)
 			}
 			phaseCtx, cancel := context.WithTimeout(ctx, buildPhaseTimeout)
-			commit, err := RunBuildPhase(phaseCtx, projectRoot, action.WSID)
+			commit, err := RunBuildPhase(phaseCtx, projectRoot, action.Feature, action.WSID)
 			cancel()
 			if err != nil {
 				slog.Error("opencode build failed", "error", err, "ws", action.WSID)

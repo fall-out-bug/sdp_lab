@@ -2,8 +2,13 @@ package orchestrate
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -14,6 +19,78 @@ func buildPromptWithContext(dir, basePrompt string) string {
 		return basePrompt
 	}
 	return basePrompt + pkt.FormatForPrompt()
+}
+
+// ComputePromptHash returns SHA-256 hex of the rendered prompt (captures exactly what was sent to the LLM).
+func ComputePromptHash(prompt string) string {
+	h := sha256.Sum256([]byte(prompt))
+	return hex.EncodeToString(h[:])
+}
+
+// ContextSource records an input that entered the agent's context (F026 prompt provenance).
+type ContextSource struct {
+	Type string `json:"type"`
+	Path string `json:"path"`
+	Hash string `json:"hash"`
+}
+
+// BuildContextSources builds the list of context sources for prompt provenance.
+// Paths are relative to projectRoot for portability.
+func BuildContextSources(projectRoot, featureID, wsID string, scopeFiles []string) []ContextSource {
+	hashFile := func(absPath string) string {
+		b, err := os.ReadFile(absPath)
+		if err != nil {
+			return ""
+		}
+		h := sha256.Sum256(b)
+		return hex.EncodeToString(h[:])
+	}
+	var out []ContextSource
+	wsRel := filepath.Join("docs", "workstreams", "backlog", wsID+".md")
+	wsPath := filepath.Join(projectRoot, wsRel)
+	if h := hashFile(wsPath); h != "" {
+		out = append(out, ContextSource{Type: "workstream_spec", Path: wsRel, Hash: h})
+	}
+	cpRel := filepath.Join(".sdp", "checkpoints", featureID+".json")
+	cpPath := filepath.Join(projectRoot, cpRel)
+	if h := hashFile(cpPath); h != "" {
+		out = append(out, ContextSource{Type: "checkpoint", Path: cpRel, Hash: h})
+	}
+	for _, f := range scopeFiles {
+		p := filepath.Join(projectRoot, f)
+		if h := hashFile(p); h != "" {
+			out = append(out, ContextSource{Type: "scope_file", Path: f, Hash: h})
+		}
+	}
+	agentsRel := "AGENTS.md"
+	if h := hashFile(filepath.Join(projectRoot, agentsRel)); h != "" {
+		out = append(out, ContextSource{Type: "agents_md", Path: agentsRel, Hash: h})
+	}
+	skillRel := filepath.Join(".cursor", "skills", "build", "SKILL.md")
+	if h := hashFile(filepath.Join(projectRoot, skillRel)); h != "" {
+		out = append(out, ContextSource{Type: "skill", Path: skillRel, Hash: h})
+	}
+	ctxPktRel := filepath.Join(".sdp", "context-packet.json")
+	if h := hashFile(filepath.Join(projectRoot, ctxPktRel)); h != "" {
+		out = append(out, ContextSource{Type: "context_packet", Path: ctxPktRel, Hash: h})
+	}
+	return out
+}
+
+// WritePromptProvenance writes prompt_hash and context_sources to .sdp/prompt-provenance.json.
+// Downstream (evidence builder, post-build hook) can merge into the evidence envelope.
+func WritePromptProvenance(projectRoot string, promptHash string, sources []ContextSource) error {
+	sdpDir := filepath.Join(projectRoot, ".sdp")
+	if err := os.MkdirAll(sdpDir, 0o755); err != nil {
+		return err
+	}
+	path := filepath.Join(sdpDir, "prompt-provenance.json")
+	body := map[string]any{"prompt_hash": promptHash, "context_sources": sources}
+	data, err := json.MarshalIndent(body, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
 }
 
 // InvokeOpenCode runs `opencode run --agent orchestrator` with the given prompt.
@@ -36,9 +113,17 @@ func InvokeOpenCode(ctx context.Context, dir, agent, prompt string) (string, int
 }
 
 // RunBuildPhase invokes opencode to execute a single @build workstream.
-func RunBuildPhase(ctx context.Context, dir, wsID string) (commit string, err error) {
-	prompt := buildPromptWithContext(dir, fmt.Sprintf("Execute @build %s. Output only code and commit message. After commit, output the commit hash.", wsID))
-	out, code, err := InvokeOpenCode(ctx, dir, "implementer", prompt)
+// Computes prompt_hash and context_sources before LLM invocation (F026 prompt provenance).
+func RunBuildPhase(ctx context.Context, projectRoot, featureID, wsID string) (commit string, err error) {
+	prompt := buildPromptWithContext(projectRoot, fmt.Sprintf("Execute @build %s. Output only code and commit message. After commit, output the commit hash.", wsID))
+	promptHash := ComputePromptHash(prompt)
+	var scopeFiles []string
+	if pkt, err := LoadContextPacket(projectRoot); err == nil && pkt != nil {
+		scopeFiles = pkt.ScopeFiles
+	}
+	sources := BuildContextSources(projectRoot, featureID, wsID, scopeFiles)
+	_ = WritePromptProvenance(projectRoot, promptHash, sources)
+	out, code, err := InvokeOpenCode(ctx, projectRoot, "implementer", prompt)
 	if err != nil {
 		return "", err
 	}

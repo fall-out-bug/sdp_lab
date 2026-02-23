@@ -125,6 +125,24 @@ func formatSummary(p map[string]any) string {
 		} else {
 			sb.WriteString("  hash_chain: empty\n")
 		}
+		// prompt provenance (F026)
+		if promptHash, _ := prov["prompt_hash"].(string); promptHash != "" {
+			sb.WriteString(fmt.Sprintf("  prompt_hash: %s\n", promptHash))
+		}
+		if sources, ok := prov["context_sources"].([]any); ok && len(sources) > 0 {
+			sb.WriteString(fmt.Sprintf("  context_sources: %d items\n", len(sources)))
+			for i, s := range sources {
+				if i >= 3 {
+					sb.WriteString(fmt.Sprintf("    ... and %d more\n", len(sources)-3))
+					break
+				}
+				if src, ok := s.(map[string]any); ok {
+					t, _ := src["type"].(string)
+					path, _ := src["path"].(string)
+					sb.WriteString(fmt.Sprintf("    - %s: %s\n", t, path))
+				}
+			}
+		}
 	}
 
 	return strings.TrimSuffix(sb.String(), "\n")
