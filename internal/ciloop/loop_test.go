@@ -100,6 +100,7 @@ func TestRunLoopExceedsMaxIter(t *testing.T) {
 		responses[i] = goTestFailure
 	}
 	runner := newSequence(responses)
+	// Use a fake Fixer that always succeeds so iterations are consumed.
 	opts := ciloop.LoopOptions{
 		PRNumber:   42,
 		MaxIter:    3,
@@ -107,8 +108,7 @@ func TestRunLoopExceedsMaxIter(t *testing.T) {
 		RetryDelay: 0,
 		Poller:     ciloop.NewPoller(runner),
 		OnEscalate: func(checks []ciloop.CheckResult) error { return nil },
-		// No fixer = auto-fixable checks treated as escalate when no fixer
-		Fixer: nil,
+		Fixer:      &fakeFixer{},
 	}
 	result, err := ciloop.RunLoop(opts)
 	if err != nil {
@@ -116,6 +116,66 @@ func TestRunLoopExceedsMaxIter(t *testing.T) {
 	}
 	if result != ciloop.ResultMaxIter {
 		t.Errorf("expected MaxIter, got %v", result)
+	}
+}
+
+// fakeFixer is a Fixer that always succeeds without side effects.
+type fakeFixer struct{}
+
+func (f *fakeFixer) Fix(_ []ciloop.CheckResult) error { return nil }
+
+func TestRunLoopNilFixerEscalatesAutoFixable(t *testing.T) {
+	goTestFailure := []byte(`[{"name":"go-test","state":"FAILURE"}]`)
+	runner := newSequence([][]byte{goTestFailure})
+	escalated := false
+	opts := ciloop.LoopOptions{
+		PRNumber:   42,
+		MaxIter:    5,
+		PollDelay:  0,
+		RetryDelay: 0,
+		Poller:     ciloop.NewPoller(runner),
+		OnEscalate: func(checks []ciloop.CheckResult) error {
+			escalated = true
+			return nil
+		},
+		Fixer: nil,
+	}
+	result, err := ciloop.RunLoop(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result != ciloop.ResultEscalated {
+		t.Errorf("expected Escalated when Fixer is nil, got %v", result)
+	}
+	if !escalated {
+		t.Error("OnEscalate was not called")
+	}
+}
+
+func TestRunLoopMaxPendingRetriesEscalates(t *testing.T) {
+	runner := newSequence([][]byte{pendingJSON, pendingJSON, pendingJSON, pendingJSON})
+	escalated := false
+	opts := ciloop.LoopOptions{
+		PRNumber:          42,
+		MaxIter:           5,
+		MaxPendingRetries: 2,
+		PollDelay:         0,
+		RetryDelay:        0,
+		Poller:            ciloop.NewPoller(runner),
+		OnEscalate: func(checks []ciloop.CheckResult) error {
+			escalated = true
+			return nil
+		},
+	}
+	result, err := ciloop.RunLoop(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result != ciloop.ResultEscalated {
+		t.Errorf("expected Escalated after MaxPendingRetries, got %v", result)
+	}
+	if !escalated {
+		t.Error("OnEscalate was not called for max pending retries")
 	}
 }
 

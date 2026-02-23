@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -19,8 +20,19 @@ type Checkpoint struct {
 	UpdatedAt string `json:"updated_at,omitempty"`
 }
 
+// validateFeatureID rejects featureID values that would allow path traversal.
+func validateFeatureID(featureID string) error {
+	if strings.ContainsAny(featureID, "/\\..") || featureID == "" {
+		return fmt.Errorf("invalid feature_id %q: must not contain path separators or dots", featureID)
+	}
+	return nil
+}
+
 // LoadCheckpoint reads a checkpoint file for the given feature ID.
 func LoadCheckpoint(dir, featureID string) (*Checkpoint, error) {
+	if err := validateFeatureID(featureID); err != nil {
+		return nil, err
+	}
 	path := filepath.Join(dir, featureID+".json")
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -35,6 +47,9 @@ func LoadCheckpoint(dir, featureID string) (*Checkpoint, error) {
 
 // SaveCheckpoint writes the checkpoint back to disk.
 func SaveCheckpoint(dir string, cp *Checkpoint) error {
+	if err := validateFeatureID(cp.FeatureID); err != nil {
+		return err
+	}
 	cp.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	cp.Phase = "ci"
 	path := filepath.Join(dir, cp.FeatureID+".json")

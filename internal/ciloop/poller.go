@@ -45,17 +45,13 @@ func (p *Poller) GetChecks(prNumber int) ([]CheckResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("gh pr checks: %w", err)
 	}
-	// gh pr checks output uses lowercase state in some versions; normalise.
-	normalised := strings.ToUpper(string(out))
-	// Re-encode: we need to preserve name case but uppercase state values.
-	// Parse raw to avoid double-encoding issues.
+	// gh pr checks output uses lowercase state in some versions; normalise during parsing.
 	var raw []map[string]string
-	if err := json.Unmarshal([]byte(out), &raw); err != nil {
+	if err := json.Unmarshal(out, &raw); err != nil {
 		return nil, fmt.Errorf("parse checks JSON: %w", err)
 	}
 	results := make([]CheckResult, 0, len(raw))
 	for _, r := range raw {
-		_ = normalised // used above for reference, now using parsed map
 		results = append(results, CheckResult{
 			Name:  r["name"],
 			State: CheckState(strings.ToUpper(r["state"])),

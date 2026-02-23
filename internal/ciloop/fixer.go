@@ -2,8 +2,11 @@ package ciloop
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // LogFetcher retrieves the CI failure log for a PR.
@@ -21,6 +24,9 @@ type Committer interface {
 type FixerOptions struct {
 	PRNumber       int
 	FeatureID      string
+	// DiagnosticsDir is where fix diagnostics files are written before committing.
+	// Defaults to ".sdp/ci-fixes" when empty.
+	DiagnosticsDir string
 	Committer      Committer
 	LogFetcher     LogFetcher
 	DecisionLogger func(decision, rationale string) error
@@ -36,8 +42,12 @@ func NewFixer(opts FixerOptions) *AutoFixer {
 	return &AutoFixer{opts: opts}
 }
 
-// Fix implements the Fixer interface: applies patches for each auto-fixable check,
-// commits, and pushes. Returns an error if any check cannot be parsed/fixed.
+// Fix implements the Fixer interface: parses CI logs, writes a diagnostics file,
+// commits, and pushes. Returns an error if any check cannot be parsed or committed.
+//
+// v1 behaviour: fixes are recorded as diagnostics files (.sdp/ci-fixes/); no
+// automatic source patching is attempted. If no parseable pattern is found,
+// the error propagates and RunLoop escalates.
 func (f *AutoFixer) Fix(checks []CheckResult) error {
 	log, err := f.opts.LogFetcher.FailedLogs(f.opts.PRNumber)
 	if err != nil {
@@ -51,6 +61,11 @@ func (f *AutoFixer) Fix(checks []CheckResult) error {
 			return fmt.Errorf("fix %q: %w", c.Name, err)
 		}
 		fixDescs = append(fixDescs, desc)
+	}
+
+	// Write a diagnostics file so git commit has something to stage.
+	if err := f.writeDiagnostics(checks, fixDescs, log); err != nil {
+		return fmt.Errorf("write diagnostics: %w", err)
 	}
 
 	msg := fmt.Sprintf("fix(ci): auto-fix %s [%s]",
@@ -73,6 +88,29 @@ func (f *AutoFixer) Fix(checks []CheckResult) error {
 	}
 
 	return nil
+}
+
+func (f *AutoFixer) writeDiagnostics(checks []CheckResult, fixDescs []string, log string) error {
+	dir := f.opts.DiagnosticsDir
+	if dir == "" {
+		dir = ".sdp/ci-fixes"
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	names := make([]string, len(checks))
+	for i, c := range checks {
+		names[i] = c.Name
+	}
+	filename := fmt.Sprintf("fix-pr%d-%s.md", f.opts.PRNumber, time.Now().UTC().Format("20060102T150405Z"))
+	content := fmt.Sprintf("# CI Fix Diagnostics\n\nPR: %d\nFeature: %s\nChecks: %s\n\n## Fix Descriptions\n\n%s\n\n## Log Excerpt\n\n```\n%s\n```\n",
+		f.opts.PRNumber,
+		f.opts.FeatureID,
+		strings.Join(names, ", "),
+		strings.Join(fixDescs, "\n"),
+		truncate(log, 2000),
+	)
+	return os.WriteFile(filepath.Join(dir, filename), []byte(content), 0o644)
 }
 
 // applyFix parses the CI log and attempts to apply a fix for the given check.

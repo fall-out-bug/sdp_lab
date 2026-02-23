@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -10,6 +11,8 @@ import (
 
 	"sdp_dev/internal/ciloop"
 )
+
+const execTimeout = 30 * time.Second
 
 // exitCodes matches WS AC.
 const (
@@ -80,13 +83,14 @@ func main() {
 	})
 
 	opts := ciloop.LoopOptions{
-		PRNumber:   *prNum,
-		MaxIter:    *maxIter,
-		PollDelay:  *pollDelay,
-		RetryDelay: *retryDelay,
-		Poller:     poller,
-		OnEscalate: onEscalate,
-		Fixer:      fixer,
+		PRNumber:          *prNum,
+		MaxIter:           *maxIter,
+		MaxPendingRetries: ciloop.DefaultMaxPendingRetries,
+		PollDelay:         *pollDelay,
+		RetryDelay:        *retryDelay,
+		Poller:            poller,
+		OnEscalate:        onEscalate,
+		Fixer:             fixer,
 	}
 
 	result, err := ciloop.RunLoop(opts)
@@ -125,11 +129,13 @@ func updateArtifacts(checkpointDir, runsDir, featureID string) {
 	}
 }
 
-// execRunner implements CommandRunner via os/exec.
+// execRunner implements CommandRunner via os/exec with a 30s timeout.
 type execRunner struct{}
 
 func (e *execRunner) Run(name string, args ...string) ([]byte, error) {
-	return exec.Command(name, args...).Output()
+	ctx, cancel := context.WithTimeout(context.Background(), execTimeout)
+	defer cancel()
+	return exec.CommandContext(ctx, name, args...).Output()
 }
 
 // gitCommitter implements Committer via git CLI.

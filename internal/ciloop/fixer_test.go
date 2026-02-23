@@ -66,10 +66,11 @@ func TestFixerGoTestFailure(t *testing.T) {
 	committer := &fakeCommitter{}
 	fetcher := &fakeLogFetcher{logs: map[string]string{"run1": goTestFailureLog}}
 	fixer := ciloop.NewFixer(ciloop.FixerOptions{
-		PRNumber:   42,
-		FeatureID:  "F014",
-		Committer:  committer,
-		LogFetcher: fetcher,
+		PRNumber:       42,
+		FeatureID:      "F014",
+		DiagnosticsDir: t.TempDir(),
+		Committer:      committer,
+		LogFetcher:     fetcher,
 		DecisionLogger: func(decision, rationale string) error { return nil },
 	})
 	checks := []ciloop.CheckResult{{Name: "go-test", State: ciloop.StateFailure}}
@@ -89,10 +90,11 @@ func TestFixerGoBuildFailure(t *testing.T) {
 	committer := &fakeCommitter{}
 	fetcher := &fakeLogFetcher{logs: map[string]string{"run1": goBuildFailureLog}}
 	fixer := ciloop.NewFixer(ciloop.FixerOptions{
-		PRNumber:   42,
-		FeatureID:  "F014",
-		Committer:  committer,
-		LogFetcher: fetcher,
+		PRNumber:       42,
+		FeatureID:      "F014",
+		DiagnosticsDir: t.TempDir(),
+		Committer:      committer,
+		LogFetcher:     fetcher,
 		DecisionLogger: func(decision, rationale string) error { return nil },
 	})
 	checks := []ciloop.CheckResult{{Name: "go-build", State: ciloop.StateFailure}}
@@ -109,10 +111,11 @@ func TestFixerK8sValidateFailure(t *testing.T) {
 	committer := &fakeCommitter{}
 	fetcher := &fakeLogFetcher{logs: map[string]string{"run1": k8sFailureLog}}
 	fixer := ciloop.NewFixer(ciloop.FixerOptions{
-		PRNumber:   42,
-		FeatureID:  "F014",
-		Committer:  committer,
-		LogFetcher: fetcher,
+		PRNumber:       42,
+		FeatureID:      "F014",
+		DiagnosticsDir: t.TempDir(),
+		Committer:      committer,
+		LogFetcher:     fetcher,
 		DecisionLogger: func(decision, rationale string) error { return nil },
 	})
 	checks := []ciloop.CheckResult{{Name: "k8s-validate", State: ciloop.StateFailure}}
@@ -129,10 +132,11 @@ func TestFixerUnparsableLogEscalates(t *testing.T) {
 	committer := &fakeCommitter{}
 	fetcher := &fakeLogFetcher{logs: map[string]string{"run1": "some unparseable noise with no pattern"}}
 	fixer := ciloop.NewFixer(ciloop.FixerOptions{
-		PRNumber:   42,
-		FeatureID:  "F014",
-		Committer:  committer,
-		LogFetcher: fetcher,
+		PRNumber:       42,
+		FeatureID:      "F014",
+		DiagnosticsDir: t.TempDir(),
+		Committer:      committer,
+		LogFetcher:     fetcher,
 		DecisionLogger: func(decision, rationale string) error { return nil },
 	})
 	checks := []ciloop.CheckResult{{Name: "go-test", State: ciloop.StateFailure}}
@@ -146,10 +150,11 @@ func TestFixerLogFetchError(t *testing.T) {
 	committer := &fakeCommitter{}
 	fetcher := &fakeLogFetcher{err: errors.New("gh: auth error")}
 	fixer := ciloop.NewFixer(ciloop.FixerOptions{
-		PRNumber:   42,
-		FeatureID:  "F014",
-		Committer:  committer,
-		LogFetcher: fetcher,
+		PRNumber:       42,
+		FeatureID:      "F014",
+		DiagnosticsDir: t.TempDir(),
+		Committer:      committer,
+		LogFetcher:     fetcher,
 		DecisionLogger: func(decision, rationale string) error { return nil },
 	})
 	checks := []ciloop.CheckResult{{Name: "go-test", State: ciloop.StateFailure}}
@@ -163,10 +168,11 @@ func TestFixerCommitMessageContainsFixCi(t *testing.T) {
 	committer := &fakeCommitter{}
 	fetcher := &fakeLogFetcher{logs: map[string]string{"run1": goTestFailureLog}}
 	fixer := ciloop.NewFixer(ciloop.FixerOptions{
-		PRNumber:   42,
-		FeatureID:  "F014",
-		Committer:  committer,
-		LogFetcher: fetcher,
+		PRNumber:       42,
+		FeatureID:      "F014",
+		DiagnosticsDir: t.TempDir(),
+		Committer:      committer,
+		LogFetcher:     fetcher,
 		DecisionLogger: func(decision, rationale string) error { return nil },
 	})
 	checks := []ciloop.CheckResult{{Name: "go-test", State: ciloop.StateFailure}}
@@ -185,10 +191,11 @@ func TestFixerLogsDecision(t *testing.T) {
 	fetcher := &fakeLogFetcher{logs: map[string]string{"run1": goTestFailureLog}}
 	logged := false
 	fixer := ciloop.NewFixer(ciloop.FixerOptions{
-		PRNumber:  42,
-		FeatureID: "F014",
-		Committer: committer,
-		LogFetcher: fetcher,
+		PRNumber:       42,
+		FeatureID:      "F014",
+		DiagnosticsDir: t.TempDir(),
+		Committer:      committer,
+		LogFetcher:     fetcher,
 		DecisionLogger: func(decision, rationale string) error {
 			logged = true
 			return nil
@@ -206,10 +213,11 @@ func TestRunLoopWithFixerGreenAfterFix(t *testing.T) {
 	committer := &fakeCommitter{}
 	fetcher := &fakeLogFetcher{logs: map[string]string{"run1": goTestFailureLog}}
 	fixer := ciloop.NewFixer(ciloop.FixerOptions{
-		PRNumber:  42,
-		FeatureID: "F014",
-		Committer: committer,
-		LogFetcher: fetcher,
+		PRNumber:       42,
+		FeatureID:      "F014",
+		DiagnosticsDir: t.TempDir(),
+		Committer:      committer,
+		LogFetcher:     fetcher,
 		DecisionLogger: func(decision, rationale string) error { return nil },
 	})
 
