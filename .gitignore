@@ -31,3 +31,4 @@ __pycache__/
 .cursor/agents
 .opencode/skills
 .prompts
+sdp-ci-loop
