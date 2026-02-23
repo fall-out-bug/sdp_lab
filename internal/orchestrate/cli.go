@@ -18,6 +18,7 @@ import (
 const (
 	buildPhaseTimeout  = 30 * time.Minute
 	reviewPhaseTimeout = 15 * time.Minute
+	prPhaseTimeout     = 10 * time.Minute
 )
 
 // CurrentBranch returns the current git branch.
@@ -29,7 +30,7 @@ func CurrentBranch() (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// EnsureRunFile creates the initial run file for a feature.
+// EnsureRunFile creates the initial run file for a feature (atomic write).
 func EnsureRunFile(dir, featureID, branch string) error {
 	runID := fmt.Sprintf("oneshot-%s-%s", featureID, time.Now().UTC().Format("20060102T150405Z"))
 	path := filepath.Join(dir, runID+".json")
@@ -49,15 +50,22 @@ func EnsureRunFile(dir, featureID, branch string) error {
 `, runID, featureID, branch,
 		time.Now().UTC().Format(time.RFC3339),
 		time.Now().UTC().Format(time.RFC3339))
-	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+	tmpPath := path + ".tmp"
+	if err := os.WriteFile(tmpPath, []byte(body), 0o644); err != nil {
 		return fmt.Errorf("write run file: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("rename run file: %w", err)
 	}
 	return nil
 }
 
-// RunPRPhase executes git push and gh pr create.
-func RunPRPhase(projectRoot, featureID string, cp *Checkpoint) error {
-	push := exec.Command("git", "push", "origin", "HEAD")
+// RunPRPhase executes git push and gh pr create with timeout.
+func RunPRPhase(ctx context.Context, projectRoot, featureID string, cp *Checkpoint) error {
+	phaseCtx, cancel := context.WithTimeout(ctx, prPhaseTimeout)
+	defer cancel()
+	push := exec.CommandContext(phaseCtx, "git", "push", "origin", "HEAD")
 	push.Dir = projectRoot
 	push.Stdout = os.Stdout
 	push.Stderr = os.Stderr
@@ -65,7 +73,7 @@ func RunPRPhase(projectRoot, featureID string, cp *Checkpoint) error {
 		return fmt.Errorf("git push: %w", err)
 	}
 	title := fmt.Sprintf("feat(%s): oneshot outer loop", strings.TrimPrefix(featureID, "F"))
-	create := exec.Command("gh", "pr", "create", "--base", "master", "--head", cp.Branch, "--title", title, "--body", "Autonomous execution via sdp orchestrate")
+	create := exec.CommandContext(phaseCtx, "gh", "pr", "create", "--base", "master", "--head", cp.Branch, "--title", title, "--body", "Autonomous execution via sdp orchestrate")
 	create.Dir = projectRoot
 	create.Stdout = os.Stdout
 	create.Stderr = os.Stderr
@@ -104,13 +112,13 @@ func GetPRInfo() (int, string, error) {
 	return arr[0].Number, arr[0].URL, nil
 }
 
-// RunCILoop invokes sdp-ci-loop for the given PR.
-func RunCILoop(pr int, featureID, checkpointDir, runsDir string) error {
+// RunCILoop invokes sdp-ci-loop for the given PR (respects ctx cancellation).
+func RunCILoop(ctx context.Context, pr int, featureID, checkpointDir, runsDir string) error {
 	path, err := exec.LookPath("sdp-ci-loop")
 	if err != nil {
 		path = "sdp-ci-loop"
 	}
-	cmd := exec.Command(path, "--pr", fmt.Sprintf("%d", pr), "--feature", featureID, "--checkpoint-dir", checkpointDir, "--runs-dir", runsDir)
+	cmd := exec.CommandContext(ctx, path, "--pr", fmt.Sprintf("%d", pr), "--feature", featureID, "--checkpoint-dir", checkpointDir, "--runs-dir", runsDir)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -168,7 +176,7 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				os.Exit(1)
 			}
 		case "pr":
-			if err := RunPRPhase(projectRoot, featureID, cp); err != nil {
+			if err := RunPRPhase(ctx, projectRoot, featureID, cp); err != nil {
 				fmt.Fprintf(os.Stderr, "error: %v\n", err)
 				os.Exit(1)
 			}
@@ -198,7 +206,7 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				pr = prNum
 			}
 			if pr > 0 {
-				if err := RunCILoop(pr, featureID, cpPath, runsPath); err != nil {
+				if err := RunCILoop(ctx, pr, featureID, cpPath, runsPath); err != nil {
 					fmt.Fprintf(os.Stderr, "error: %v\n", err)
 					os.Exit(1)
 				}

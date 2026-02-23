@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -112,7 +113,7 @@ func main() {
 			os.Exit(1)
 		}
 		if cp.Phase == orchestrate.PhasePR {
-			if err := orchestrate.RunPRPhase(projectRoot, featureID, cp); err != nil {
+			if err := orchestrate.RunPRPhase(context.Background(), projectRoot, featureID, cp); err != nil {
 				fmt.Fprintf(os.Stderr, "error: %v\n", err)
 				os.Exit(1)
 			}
@@ -143,7 +144,7 @@ func main() {
 				pr = prNum
 			}
 			if pr > 0 {
-				if err := orchestrate.RunCILoop(pr, featureID, cpPath, runsPath); err != nil {
+				if err := orchestrate.RunCILoop(context.Background(), pr, featureID, cpPath, runsPath); err != nil {
 					fmt.Fprintf(os.Stderr, "error: %v\n", err)
 					os.Exit(1)
 				}
