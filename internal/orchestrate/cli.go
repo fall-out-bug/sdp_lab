@@ -94,8 +94,12 @@ func RunPRPhase(ctx context.Context, projectRoot, featureID string, cp *Checkpoi
 	if err := push.Run(); err != nil {
 		return fmt.Errorf("git push: %w", err)
 	}
+	head, err := CurrentBranch()
+	if err != nil {
+		return fmt.Errorf("current branch: %w", err)
+	}
 	title := fmt.Sprintf("feat(%s): oneshot outer loop", strings.TrimPrefix(featureID, "F"))
-	create := exec.CommandContext(phaseCtx, "gh", "pr", "create", "--base", "master", "--head", cp.Branch, "--title", title, "--body", "Autonomous execution via sdp orchestrate")
+	create := exec.CommandContext(phaseCtx, "gh", "pr", "create", "--base", "master", "--head", head, "--title", title, "--body", "Autonomous execution via sdp orchestrate")
 	create.Dir = projectRoot
 	create.Stdout = os.Stdout
 	create.Stderr = os.Stderr

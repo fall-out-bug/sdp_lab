@@ -1,0 +1,15 @@
+{
+  "ws_id": "00-023-01",
+  "feature_id": "F023",
+  "status": "done",
+  "ac_evidence": [
+    {"ac": "sdp guard --ws compares git diff against scope_files", "evidence": "internal/guard/scope_check.go, cmd/sdp-guard/main.go"},
+    {"ac": "Files in scope PASS", "evidence": "internal/guard/scope_check.go CheckScope"},
+    {"ac": "Files outside scope but allowlisted PASS with warning", "evidence": "internal/guard/allowlist.go, scope_check.go"},
+    {"ac": "Files outside scope and not allowlisted FAIL", "evidence": "internal/guard/scope_check.go"},
+    {"ac": "Allowlist configurable via .sdp/guard-allowlist.yaml", "evidence": "internal/guard/allowlist.go LoadAllowlist"},
+    {"ac": "Default allowlist go.sum go.mod package-lock.json yarn.lock", "evidence": "internal/guard/allowlist.go DefaultAllowlist"},
+    {"ac": "Exit 0 clean 1 out-of-scope", "evidence": "cmd/sdp-guard/main.go"},
+    {"ac": "Test in-scope allowlist violation", "evidence": "internal/guard/scope_check_test.go"}
+  ]
+}

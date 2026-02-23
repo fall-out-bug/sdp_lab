@@ -1,0 +1,13 @@
+{
+  "ws_id": "00-023-02",
+  "feature_id": "F023",
+  "status": "done",
+  "ac_evidence": [
+    {"ac": "sdp orchestrate --advance runs sdp guard after build", "evidence": "cmd/sdp-orchestrate/main.go, internal/orchestrate/advance.go"},
+    {"ac": "Guard PASS advance to next phase", "evidence": "internal/orchestrate/advance.go RunGuardCheck"},
+    {"ac": "Guard FAIL block advance log violating files create escalation bead", "evidence": "internal/orchestrate/advance.go, cmd/sdp-orchestrate/main.go"},
+    {"ac": "Escalation bead bd create SCOPE VIOLATION", "evidence": "internal/orchestrate/advance.go CreateScopeEscalationBead"},
+    {"ac": "--skip-guard flag for override", "evidence": "cmd/sdp-orchestrate/main.go"},
+    {"ac": "Test advance clean scope violation blocked", "evidence": "internal/orchestrate/advance_test.go"}
+  ]
+}

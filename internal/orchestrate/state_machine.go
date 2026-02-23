@@ -45,6 +45,19 @@ func ComputeNextAction(cp *Checkpoint, workstreams []string, projectRoot string)
 	}
 }
 
+// CurrentBuildWS returns the workstream ID being built (first non-done) when in build phase.
+func CurrentBuildWS(cp *Checkpoint) string {
+	if cp.Phase != PhaseBuild {
+		return ""
+	}
+	for _, ws := range cp.Workstreams {
+		if ws.Status != "done" {
+			return ws.ID
+		}
+	}
+	return ""
+}
+
 // Advance transitions the checkpoint to the next phase.
 // For build phase, result is the commit hash of the completed workstream.
 func Advance(cp *Checkpoint, workstreams []string, result string) error {
