@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"sdp_dev/internal/ciloop"
+	"sdp_dev/internal/orchestrate"
 )
 
 const execTimeout = 30 * time.Second
@@ -64,6 +65,7 @@ func main() {
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
 			slog.Warn("bd create failed", "error", err, "title", title)
+			return err
 		}
 		return nil
 	}
@@ -164,8 +166,12 @@ type ghLogFetcher struct {
 }
 
 func (g *ghLogFetcher) FailedLogs(prNumber int) (string, error) {
+	branch, err := orchestrate.CurrentBranch()
+	if err != nil {
+		return "", fmt.Errorf("current branch: %w", err)
+	}
 	runID, err := g.runner.Run("gh", "run", "list",
-		"--branch", currentBranch(),
+		"--branch", branch,
 		"--json", "databaseId,conclusion",
 		"--jq", `.[] | select(.conclusion == "failure") | .databaseId`,
 	)
@@ -184,12 +190,4 @@ func (g *ghLogFetcher) FailedLogs(prNumber int) (string, error) {
 		return "", fmt.Errorf("fetch run logs: %w", err)
 	}
 	return string(out), nil
-}
-
-func currentBranch() string {
-	out, err := exec.Command("git", "branch", "--show-current").Output()
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(out))
 }
