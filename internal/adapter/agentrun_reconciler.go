@@ -12,6 +12,7 @@ import (
 	"sdp_dev/internal/bus"
 	"sdp_dev/internal/policy"
 	"sdp_dev/internal/observability"
+	"sdp_dev/internal/safeid"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -148,6 +149,9 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	case "AnalystComplete":
 		// Create coder Task (handoff path injection in 00-004-02)
+		if err := safeid.ValidateIssueID(run.Spec.IssueID); err != nil {
+			return r.setFailed(ctx, run, fmt.Sprintf("invalid issue_id: %v", err))
+		}
 		issue := &beads.Issue{ID: run.Spec.IssueID, Title: "AgentRun " + run.Name, AcceptanceCriteria: "Implement task"}
 		if beadsAdapter != nil {
 			if iss, err := beadsAdapter.Show(run.Spec.IssueID); err == nil {
@@ -191,6 +195,9 @@ func (r *AgentRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	case "CoderComplete":
 		// Create reviewer Task with dependsOn [analyst, coder]
+		if err := safeid.ValidateIssueID(run.Spec.IssueID); err != nil {
+			return r.setFailed(ctx, run, fmt.Sprintf("invalid issue_id: %v", err))
+		}
 		issue := &beads.Issue{ID: run.Spec.IssueID, Title: "AgentRun " + run.Name, AcceptanceCriteria: "Review analyst and coder outputs"}
 		if beadsAdapter != nil {
 			if iss, err := beadsAdapter.Show(run.Spec.IssueID); err == nil {

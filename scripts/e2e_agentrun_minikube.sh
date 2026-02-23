@@ -102,7 +102,7 @@ spec:
 EOF
 }
 
-# Wait for N tasks to appear
+# Wait for at least N tasks to appear
 wait_for_tasks() {
   local expected=$1
   local elapsed=0
@@ -110,7 +110,7 @@ wait_for_tasks() {
     local count
     count=$(kubectl -n "$NAMESPACE" get tasks -l "agentrun=$RUN_ID" --no-headers 2>/dev/null | wc -l | tr -d ' ')
     if [ "${count:-0}" -ge "$expected" ]; then
-      log "Found $count Tasks (expected $expected)"
+      log "Found $count Tasks (expected >= $expected)"
       return 0
     fi
     sleep 3
@@ -119,13 +119,42 @@ wait_for_tasks() {
   fail "Timeout waiting for $expected Tasks (got ${count:-0})"
 }
 
-# Patch all worker Tasks to Succeeded (simulates completion)
+# Patch all Tasks to Succeeded (simulates completion)
+# Sequential pipeline (F004): analyst -> coder -> reviewer; each phase creates next task.
 patch_tasks_succeeded() {
-  log "Patching Tasks to Succeeded..."
   for task in $(kubectl -n "$NAMESPACE" get tasks -l "agentrun=$RUN_ID" -o name 2>/dev/null); do
     kubectl -n "$NAMESPACE" patch "$task" --subresource=status --type=merge -p '{"phase":"Succeeded"}' 2>/dev/null || \
     kubectl -n "$NAMESPACE" patch "$task" --type=merge -p '{"status":{"phase":"Succeeded"}}' 2>/dev/null || true
   done
+}
+
+# Drive sequential pipeline: patch tasks as they appear until AgentRun Succeeded.
+# F004: analyst (1) -> coder (2) -> reviewer (3); each patch triggers next phase.
+drive_sequential_pipeline() {
+  local elapsed=0
+  local last_count=0
+  while [ $elapsed -lt $TIMEOUT ]; do
+    local phase
+    phase=$(kubectl -n "$NAMESPACE" get agentrun "$RUN_ID" -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+    if [ "$phase" = "Succeeded" ]; then
+      return 0
+    fi
+    if [ "$phase" = "Failed" ]; then
+      local err
+      err=$(kubectl -n "$NAMESPACE" get agentrun "$RUN_ID" -o jsonpath='{.status.lastError}' 2>/dev/null || echo "unknown")
+      fail "AgentRun Failed: $err"
+    fi
+    local count
+    count=$(kubectl -n "$NAMESPACE" get tasks -l "agentrun=$RUN_ID" --no-headers 2>/dev/null | wc -l | tr -d ' ')
+    if [ "${count:-0}" -gt "$last_count" ]; then
+      log "Found $count Tasks, patching to Succeeded..."
+      patch_tasks_succeeded
+      last_count=$count
+    fi
+    sleep 3
+    elapsed=$((elapsed + 3))
+  done
+  fail "Timeout driving sequential pipeline (phase=$phase)"
 }
 
 # Wait for AgentRun to reach Succeeded
@@ -170,14 +199,11 @@ main() {
 
   create_agentrun
 
-  # AC: AgentRun created -> 2 worker Tasks appear within 30s
-  wait_for_tasks 2
+  # AC: AgentRun created -> at least 1 Task (analyst) appears within 30s
+  wait_for_tasks 1
 
-  # AC: Worker Tasks complete -> transition to ReviewerPending -> Succeeded (reviewer skipped in minimal)
-  patch_tasks_succeeded
-
-  # AC: Reviewer completes -> AgentRun phase = Succeeded (minimal flow skips reviewer)
-  wait_for_agentrun_succeeded
+  # F004 sequential pipeline: analyst -> coder -> reviewer. Patch each as it appears until Succeeded.
+  drive_sequential_pipeline
 
   log "E2E PASS: AgentRun $RUN_ID completed successfully"
 }
