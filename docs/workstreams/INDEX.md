@@ -1,6 +1,6 @@
 # Workstream Index
 
-> **Updated:** 2026-02-23
+> **Updated:** 2026-02-24
 > **Format:** `@build 00-FFF-SS` executes single workstream; `@review F00F` reviews all WS for feature F00F
 > **Roadmap:** [ROADMAP.md](../roadmap/ROADMAP.md)
 
@@ -59,7 +59,7 @@
 | 00-019-03 | F019 | Trim Bloated Agents + Sync Copies | Backlog |
 | 00-020-01 | F020 | @build Scope Surgery | Backlog |
 | 00-021-01 | F021 | Remove Go-Specific Commands from Universal Skills | Done |
-| 00-022-01 | F022 | Context Pre-Hydration — gather context before LLM | Backlog |
+| 00-022-01 | F022 | Context Pre-Hydration — gather context before LLM | Done |
 | 00-023-01 | F023 | Scope Diff Checker — boundary validation | Backlog |
 | 00-023-02 | F023 | Wire Scope Enforcement into Orchestrator | Backlog |
 | 00-024-01 | F024 | Phase Hooks — pre/post hooks at phase transitions | Backlog |

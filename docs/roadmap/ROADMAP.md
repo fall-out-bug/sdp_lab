@@ -1,6 +1,6 @@
 # sdp_lab Roadmap — Autonomous K8s Agent Swarm
 
-> **Updated:** 2026-02-23
+> **Updated:** 2026-02-24
 > **Direction:** Evidence layer + autonomous agent pipeline → issue in, PR with proof out
 > **Design:** [Dream Swarm Design](../plans/2026-02-22-dream-swarm-design.md)
 > **Research:** [Agent Loop Reliability](../plans/2026-02-23-agent-loop-reliability.md) — why LLM agents exit loops, outer loop architecture
@@ -254,13 +254,13 @@ graph LR
 |---------|-------|------|--------|-------------|------------|
 | F014 CI Loop CLI | 0 | M | Done | 00-014-01, 00-014-02 | — |
 | F015 Stop Hook Gate | 0 | S | Done | 00-015-01, 00-015-02 | F014 |
-| F016 Oneshot Outer Loop | 0 | L | Done | 00-016-01, 00-016-02, 00-016-03, 00-016-04 | F015, F020 |
+| F016 Oneshot Outer Loop | 0 | L | Done | 00-016-01, 00-016-02, 00-016-03, 00-016-04 | F015, F021 |
 | F017 Skill Eval Suite | 0 | M | Done | 00-017-01, 00-017-02 | F016 |
 | F018 Dead Code Purge | 0 | M | Partial | 00-018-01, 00-018-02 | — |
 | F019 Skill Compression | 0 | M | Backlog | 00-019-01, 00-019-02, 00-019-03 | F018 |
 | F020 Build Scope Fix | 0 | S | Backlog | 00-020-01 | F019 |
 | F021 Language-Agnostic Skills | 0 | S | Done | 00-021-01 | F020 |
-| F022 Context Pre-Hydration | 0 | S | Backlog | 00-022-01 | F016 |
+| F022 Context Pre-Hydration | 0 | S | Done | 00-022-01 | F016 |
 | F023 Scope Enforcement | 0 | M | Backlog | 00-023-01, 00-023-02 | F016 |
 | F024 Phase Hooks | 0 | S | Backlog | 00-024-01 | F016 |
 | F025 Prompt Consolidation | 0 | S | Backlog | 00-025-01 | — |
