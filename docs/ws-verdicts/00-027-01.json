@@ -1,0 +1,16 @@
+{
+  "ws_id": "00-027-01",
+  "status": "done",
+  "ac_evidence": [
+    {"ac": "CI failure classified as auto-fixable → run deterministic fixers BEFORE LLM", "evidence": "internal/ciloop/autofixer.go DeterministicFirstFixer.Fix, internal/ciloop/loop.go"},
+    {"ac": "Built-in fixers: goimports -w ., go mod tidy, go fmt ./...", "evidence": "internal/ciloop/autofixer.go builtinFixers"},
+    {"ac": "After fixer runs: git diff --quiet to check if anything changed", "evidence": "internal/ciloop/autofixer.go RunDeterministicFixers"},
+    {"ac": "If fixer produced changes: commit, push, wait for CI re-run", "evidence": "internal/ciloop/autofixer.go, internal/ciloop/cmdhelpers.go AllFilesCommitter"},
+    {"ac": "If fixer didn't help: fall through to LLM fix path", "evidence": "internal/ciloop/autofixer.go DeterministicFirstFixer.Fix → Inner.Fix"},
+    {"ac": "Fixer registry extensible: .sdp/auto-fixers.yaml", "evidence": "internal/ciloop/autofixer.go NewAutofixerRegistry, ParseAutoFixersYAML"},
+    {"ac": "Each fixer has name, command, applies_to, timeout", "evidence": "internal/ciloop/autofixer.go DefFixer, autoFixersYAML"},
+    {"ac": "Fixer execution logged in run file with timing", "evidence": "internal/ciloop/autofixer.go RunFileLogger, cmd/sdp-ci-loop/main.go AppendRunEvent"},
+    {"ac": "Exit code unchanged: 0=green, 1=escalated, 2=max iterations", "evidence": "internal/ciloop/loop.go, cmd/sdp-ci-loop/main.go"},
+    {"ac": "Test: fixer resolves import issue, fixer doesn't help → LLM fallback", "evidence": "internal/ciloop/autofixer_test.go TestDeterministicFirstFixerFallsThroughToInnerWhenNoDeterministicHelp"}
+  ]
+}
