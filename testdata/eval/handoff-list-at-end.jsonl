@@ -1,0 +1,2 @@
+{"role":"user","content":"/oneshot F002"}
+{"role":"assistant","content":"Build complete. Hand off: 1. Run sdp ci-loop. 2. follow-up with review. Next steps when CI is green."}

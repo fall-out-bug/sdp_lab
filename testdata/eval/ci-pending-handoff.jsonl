@@ -1,0 +1,2 @@
+{"role":"user","content":"/oneshot F001"}
+{"role":"assistant","content":"I'll run sdp-orchestrate. Next steps: 1. Run sdp ci-loop. 2. Optional: run Human UAT. 3. approve and merge when ready."}

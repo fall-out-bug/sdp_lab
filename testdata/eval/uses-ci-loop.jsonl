@@ -1,0 +1,2 @@
+{"role":"user","content":"/oneshot F005"}
+{"role":"assistant","content":"Running sdp-orchestrate. The CLI invokes sdp ci-loop for CI phase. No inline loops."}
