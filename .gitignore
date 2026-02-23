@@ -32,3 +32,4 @@ __pycache__/
 .opencode/skills
 .prompts
 sdp-ci-loop
+sdp-orchestrate

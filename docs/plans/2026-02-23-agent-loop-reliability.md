@@ -395,6 +395,18 @@ Same script, different config file.
 
 ---
 
+## opencode: Outer Loop Replaces Stop Hook
+
+opencode does not support Cursor/Claude Code-style Stop hooks. The approved alternative:
+
+1. **`sdp-orchestrate` as the outer loop** — it calls `opencode run --agent implementer` (build) or `opencode run --agent reviewer` (review) as a subprocess per phase.
+2. **opencode agents complete their phase and exit** — no handoff lists; exit code signals success/failure.
+3. **`sdp-orchestrate` reads the exit code and checkpoint** to decide the next phase.
+
+Usage: `sdp-orchestrate --feature F{XX} --runtime opencode` drives the full flow using opencode as the inner loop. The oneshot command documents that its outer loop is `sdp-orchestrate`, not an inline workflow.
+
+---
+
 ## References
 
 - arXiv 2505.17616: "Runaway is Ashamed, But Helpful" — early-exit behavior in LLM agents

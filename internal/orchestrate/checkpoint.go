@@ -1,0 +1,89 @@
+package orchestrate
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+)
+
+// Checkpoint is the .sdp/checkpoints/F{NNN}.json schema for the orchestrate state machine.
+// Compatible with ciloop.Checkpoint for pr_number, feature_id, branch (used by sdp-ci-loop and stop gate).
+type Checkpoint struct {
+	Schema     string        `json:"schema"`
+	FeatureID  string        `json:"feature_id"`
+	Branch     string        `json:"branch"`
+	PRNumber   *int          `json:"pr_number,omitempty"`
+	PRURL      string        `json:"pr_url,omitempty"`
+	Phase      string        `json:"phase"`
+	CreatedAt  string        `json:"created_at,omitempty"`
+	UpdatedAt  string        `json:"updated_at,omitempty"`
+	Workstreams []WSStatus   `json:"workstreams,omitempty"`
+	Review     *ReviewStatus `json:"review,omitempty"`
+}
+
+// WSStatus tracks a single workstream's execution.
+type WSStatus struct {
+	ID         string `json:"id"`
+	Status     string `json:"status"` // pending, in_progress, done
+	VerdictFile string `json:"verdict_file,omitempty"`
+	Commit     string `json:"commit,omitempty"`
+	Attempts   int    `json:"attempts,omitempty"`
+}
+
+// ReviewStatus tracks review phase state.
+type ReviewStatus struct {
+	Iteration   int    `json:"iteration"`
+	VerdictFile string `json:"verdict_file,omitempty"`
+	Status      string `json:"status"` // pending, approved
+}
+
+// Phases in order.
+const (
+	PhaseInit   = "init"
+	PhaseBuild  = "build"
+	PhaseReview = "review"
+	PhasePR     = "pr"
+	PhaseCI     = "ci"
+	PhaseDone   = "done"
+)
+
+func validateFeatureID(featureID string) error {
+	if strings.ContainsAny(featureID, "/\\..") || featureID == "" {
+		return fmt.Errorf("invalid feature_id %q: must not contain path separators or dots", featureID)
+	}
+	return nil
+}
+
+// LoadCheckpoint reads the orchestrate checkpoint for a feature.
+func LoadCheckpoint(dir, featureID string) (*Checkpoint, error) {
+	if err := validateFeatureID(featureID); err != nil {
+		return nil, err
+	}
+	path := filepath.Join(dir, featureID+".json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read checkpoint %s: %w", path, err)
+	}
+	var cp Checkpoint
+	if err := json.Unmarshal(data, &cp); err != nil {
+		return nil, fmt.Errorf("parse checkpoint %s: %w", path, err)
+	}
+	return &cp, nil
+}
+
+// SaveCheckpoint writes the checkpoint to disk.
+func SaveCheckpoint(dir string, cp *Checkpoint) error {
+	if err := validateFeatureID(cp.FeatureID); err != nil {
+		return err
+	}
+	cp.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	path := filepath.Join(dir, cp.FeatureID+".json")
+	data, err := json.MarshalIndent(cp, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal checkpoint: %w", err)
+	}
+	return os.WriteFile(path, data, 0o644)
+}
