@@ -1230,15 +1230,23 @@ func TestExtractJSON(t *testing.T) {
 }
 
 func TestRunComponent(t *testing.T) {
-	orig := runFunc
-	defer func() { runFunc = orig }()
-	runFunc = func(name string, args ...string) ([]byte, error) {
+	orig := runComponentRunner
+	defer func() { runComponentRunner = orig }()
+	runComponentRunner = func(name string, args ...string) ([]byte, error) {
 		if name == "true" {
 			return []byte("ok"), nil
 		}
 		return nil, nil
 	}
-	// "true" exists on Unix; runComponent uses it when in PATH
+	// Mock LookPath to make "true" appear present so we use the binary path (not go run)
+	origLookPath := lookPathFunc
+	defer func() { lookPathFunc = origLookPath }()
+	lookPathFunc = func(name string) (string, error) {
+		if name == "true" {
+			return "/usr/bin/true", nil
+		}
+		return "", exec.ErrNotFound
+	}
 	out, err := runComponent("true", "fmt")
 	if err != nil {
 		t.Fatalf("runComponent: %v", err)
@@ -1249,9 +1257,9 @@ func TestRunComponent(t *testing.T) {
 }
 
 func TestRunComponentWithFallbackUsesFallbackWhenBinaryMissing(t *testing.T) {
-	orig := runFunc
-	defer func() { runFunc = orig }()
-	runFunc = func(name string, args ...string) ([]byte, error) {
+	orig := runComponentRunner
+	defer func() { runComponentRunner = orig }()
+	runComponentRunner = func(name string, args ...string) ([]byte, error) {
 		if name == "go" {
 			return []byte("mock output"), nil
 		}

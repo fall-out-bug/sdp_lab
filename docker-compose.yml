@@ -1,0 +1,77 @@
+# Local SDP swarm stack for scenario testing.
+# Usage: docker compose up -d
+# Then: curl http://localhost:8081/api/v1/projects
+services:
+  nats:
+    image: nats:2-alpine
+    command: ["-js", "-m", "8222"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
+      interval: 2s
+      timeout: 2s
+      retries: 5
+
+  intake-gateway:
+    build:
+      context: .
+      dockerfile: deploy/images/intake-gateway/Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      NATS_URL: nats://nats:4222
+      INTAKE_API_KEY: ${INTAKE_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      SDP_WORK_DIR: ${SDP_WORK_DIR:-}
+    depends_on:
+      nats:
+        condition: service_healthy
+
+  registry-agent:
+    build:
+      context: .
+      dockerfile: deploy/images/registry-agent/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      NATS_URL: nats://nats:4222
+      REGISTRY_API_KEY: ${REGISTRY_API_KEY:-}
+    volumes:
+      - ./specs:/app/specs:rw
+    command: ["--registry", "/app/specs/project-registry.yaml", "--addr", ":8080"]
+    depends_on:
+      nats:
+        condition: service_healthy
+
+  swarm-orchestrator:
+    build:
+      context: .
+      dockerfile: deploy/images/swarm-orchestrator/Dockerfile
+    environment:
+      NATS_URL: nats://nats:4222
+      WORKSPACE_BASE: /workspaces
+    volumes:
+      - ./specs:/app/specs:ro
+      - swarm-workspaces:/workspaces
+    working_dir: /app
+    command: ["--workspace", "/workspaces"]
+    depends_on:
+      nats:
+        condition: service_healthy
+
+  intake-telegram:
+    build:
+      context: .
+      dockerfile: deploy/images/intake-telegram/Dockerfile
+    ports:
+      - "8082:8082"
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      INTAKE_GATEWAY_URL: http://intake-gateway:8081
+    depends_on:
+      - intake-gateway
+
+volumes:
+  swarm-workspaces:

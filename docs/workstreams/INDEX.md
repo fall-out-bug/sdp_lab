@@ -2,21 +2,86 @@
 
 > **Updated:** 2026-02-22
 > **Format:** `@build 00-FFF-SS` executes single workstream; `@review F00F` reviews all WS for feature F00F
+> **Roadmap:** [ROADMAP.md](../roadmap/ROADMAP.md)
 
 ## Features
 
-| Feature | Description | Workstreams |
-|---------|-------------|-------------|
-| **F001** | Evidence Schema | 00-001-01, 00-001-02 |
-| **F002** | Evidence CLI | 00-002-01, 00-002-02, 00-002-03 |
-| **F003** | Protocol Cleanup | (manual — sdp repo) |
-| **F004** | awesome-opencode | TBD |
-| **F005** | kubeopencode Upstream | TBD |
-| **F006** | Adapter Controller | TBD |
-| **F007** | OpenCode Plugin | TBD |
+| Feature | Phase | Description | Workstreams |
+|---------|-------|-------------|-------------|
+| **F001** | 1 | Evidence Schema | 00-001-01, 00-001-02 |
+| **F002** | 1 | Evidence CLI | 00-002-01, 00-002-02, 00-002-03 |
+| **F003** | 2 | Handoff Artifact Schema | 00-003-01, 00-003-02 |
+| **F004** | 2 | Sequential Reconciler | 00-004-01, 00-004-02, 00-004-03 |
+| **F005** | 2 | Rework Loop | 00-005-01 |
+| **F006** | 3 | JetStream Evidence Stream | 00-006-01, 00-006-02 |
+| **F007** | 3 | Evidence Assembler | 00-007-01, 00-007-02 |
+| **F008** | 4 | Model Policy Wiring | 00-008-01, 00-008-02 |
+| **F009** | 4 | Intake Bridge | 00-009-01, 00-009-02 |
+| **F010** | 4 | Dead Code Removal | 00-010-01 |
+| **F011** | 5 | kubeopencode Upstream PRs | 00-011-01, 00-011-02 |
+| **F012** | 5 | awesome-opencode | 00-012-01 |
+| **F013** | 6 | 10 Consecutive E2E Runs | 00-013-01, 00-013-02, 00-013-03 |
+
+## Workstream Status
+
+### Phase 1: Evidence Foundation
+
+| WS | Feature | Title | Status |
+|----|---------|-------|--------|
+| 00-001-01 | F001 | Extract JSON Schema from strict.go + template | Backlog |
+| 00-001-02 | F001 | Publish schema to sdp protocol repo | Backlog |
+| 00-002-01 | F002 | Refactor pr-gate into sdp-evidence CLI | Backlog |
+| 00-002-02 | F002 | Add `inspect` subcommand | Backlog |
+| 00-002-03 | F002 | Goreleaser + GitHub Actions releases | Backlog |
+
+### Phase 2: Sequential Pipeline
+
+| WS | Feature | Title | Status |
+|----|---------|-------|--------|
+| 00-003-01 | F003 | Define analyst/coder/reviewer handoff JSON Schema | Done |
+| 00-003-02 | F003 | Validation library for handoff artifacts | Done |
+| 00-004-01 | F004 | Rewrite AgentRunReconciler phases to sequential | Backlog |
+| 00-004-02 | F004 | Inject handoff paths into Task CRD annotations | Backlog |
+| 00-004-03 | F004 | Integration test: analyst output feeds coder prompt | Backlog |
+| 00-005-01 | F005 | Reviewer verdict → coder rework loop (max 2) | Backlog |
+
+### Phase 3: Evidence Stream
+
+| WS | Feature | Title | Status |
+|----|---------|-------|--------|
+| 00-006-01 | F006 | NATS JetStream EVIDENCE stream + subject design | Backlog |
+| 00-006-02 | F006 | Evidence fragment publisher library for agent pods | Backlog |
+| 00-007-01 | F007 | EvidenceAssembler: subscribe + collect + validate | Backlog |
+| 00-007-02 | F007 | Materialize envelope to filesystem + pr-gate integration | Backlog |
+
+### Phase 4: Simplify & Wire
+
+| WS | Feature | Title | Status |
+|----|---------|-------|--------|
+| 00-008-01 | F008 | Wire model-policy ConfigMap into AgentRunReconciler | Backlog |
+| 00-008-02 | F008 | Persistent budget tracking + auto-downgrade | Backlog |
+| 00-009-01 | F009 | beads-bridge CronJob: bd ready → AgentRun CRD | Backlog |
+| 00-009-02 | F009 | Multi-project routing from project-registry.yaml | Backlog |
+| 00-010-01 | F010 | Delete ~5.7K LOC: orchestrator, swarm, worker, intake | Backlog |
+
+### Phase 5: Ecosystem
+
+| WS | Feature | Title | Status |
+|----|---------|-------|--------|
+| 00-011-01 | F011 | kubeopencode UP-001 retry budget PR | Backlog |
+| 00-011-02 | F011 | kubeopencode UP-003 evidence hooks proposal | Backlog |
+| 00-012-01 | F012 | awesome-opencode submission + blog post | Backlog |
+
+### Phase 6: E2E Dream
+
+| WS | Feature | Title | Status |
+|----|---------|-------|--------|
+| 00-013-01 | F013 | E2E test harness: create issues, verify PRs | Backlog |
+| 00-013-02 | F013 | Run 10 consecutive, fix failures | Backlog |
+| 00-013-03 | F013 | Document: swarm operations runbook | Backlog |
 
 ## Workstream ID Format
 
-`PP-FFF-SS` — Project (00), Feature (001–007), Step (01, 02, …)
+`PP-FFF-SS` — Project (00), Feature (001–013), Step (01, 02, …)
 
-Example: `00-001-01` = sdp_lab, F001 Evidence Schema, step 1
+Example: `00-004-02` = sdp_lab, F004 Sequential Reconciler, step 2 (inject handoff paths)

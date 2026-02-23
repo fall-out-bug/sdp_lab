@@ -135,6 +135,27 @@ kubectl kustomize deploy/k8s/adapter/overlays/prod | kubectl apply -f -
 
 Root `deploy/k8s/adapter` defaults to dev overlay.
 
+## Handoff Validation (WS-019-01, FR-006)
+
+10 consecutive runs via operator path to validate end-to-end flow:
+
+```bash
+# Create 10 validation issues
+./scripts/handoff_validation_10runs.sh --create-only
+
+# Or create and run (requires cluster)
+./scripts/handoff_validation_10runs.sh
+```
+
+**Validation checklist:**
+- Operator path only: adapter -> AgentRun -> worker -> reviewer (no SDP_DISPATCH_MODE=k8s)
+- Each run emits `.sdp/runs/orchestrate-<issue>.json`
+- pr-gate passes for all 10 runs
+- Evidence validation blocks FSM transition on failure
+- Duplicate dispatch prevention (LeaseLockManager active)
+
+Labels: `autonomy`, `strict-evidence`, `workstream:handoff-validation`
+
 ## AgentRun E2E (WS-002-03)
 
 Minimal E2E for adapter-controller + AgentRun flow (no NATS/Beads required):

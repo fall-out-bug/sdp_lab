@@ -39,19 +39,22 @@ func TestManagerStartsAndStops(t *testing.T) {
 	}
 
 	// Wire TaskReconciler and AgentRunReconciler with minimal opts
+	baseDir := t.TempDir()
 	reconcilerOpts := adapter.TaskReconcilerOpts{
-		WorkDir:             t.TempDir(),
+		WorkspaceResolver:   adapter.NewWorkspaceResolver(baseDir),
+		BeadsAvailable:      false,
 		LockManager:         adapter.NewRunLockManager(t.TempDir()),
 		PolicyGate:          adapter.NewPolicyGate(),
-		EvidenceProjector:   adapter.NewEvidenceProjector(t.TempDir()),
 		LifecycleReconciler: adapter.NewLifecycleReconciler(),
 	}
 	if err := adapter.NewTaskReconciler(mgr.GetClient(), mgr.GetScheme(), reconcilerOpts).SetupWithManager(mgr); err != nil {
 		t.Fatalf("setup TaskReconciler: %v", err)
 	}
 	agentRunOpts := adapter.AgentRunReconcilerOpts{
-		IntentTranslator: adapter.NewIntentTranslator(),
+		IntentTranslator:  adapter.NewIntentTranslator(),
 		PolicyGate:       adapter.NewPolicyGate(),
+		WorkspaceResolver: adapter.NewWorkspaceResolver(baseDir),
+		BeadsAvailable:    false,
 	}
 	if err := adapter.NewAgentRunReconciler(mgr.GetClient(), mgr.GetScheme(), agentRunOpts).SetupWithManager(mgr); err != nil {
 		t.Fatalf("setup AgentRunReconciler: %v", err)

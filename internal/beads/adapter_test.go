@@ -2,9 +2,16 @@ package beads
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
+
+func skipIfBdNotInPath(t *testing.T) {
+	if _, err := exec.LookPath("bd"); err != nil {
+		t.Skipf("bd not in PATH, skipping integration test: %v", err)
+	}
+}
 
 func TestParseIssueList(t *testing.T) {
 	tests := []struct {
@@ -35,6 +42,7 @@ func TestParseIssueList(t *testing.T) {
 }
 
 func TestAdapter_Ready(t *testing.T) {
+	skipIfBdNotInPath(t)
 	dir, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -61,6 +69,7 @@ func TestAdapter_Ready(t *testing.T) {
 }
 
 func TestAdapter_Closed(t *testing.T) {
+	skipIfBdNotInPath(t)
 	dir, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -86,6 +95,7 @@ func TestAdapter_Closed(t *testing.T) {
 }
 
 func TestAdapter_Show(t *testing.T) {
+	skipIfBdNotInPath(t)
 	dir, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -114,6 +124,7 @@ func TestAdapter_Show(t *testing.T) {
 }
 
 func TestAdapter_DepsClosed(t *testing.T) {
+	skipIfBdNotInPath(t)
 	dir, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
