@@ -4,6 +4,7 @@
 > **Direction:** Evidence layer + autonomous agent pipeline → issue in, PR with proof out
 > **Design:** [Dream Swarm Design](../plans/2026-02-22-dream-swarm-design.md)
 > **Research:** [Agent Loop Reliability](../plans/2026-02-23-agent-loop-reliability.md) — why LLM agents exit loops, outer loop architecture
+> **Validation:** [Stripe Minions Comparison](../plans/2026-02-23-stripe-minions-comparison.md) — architecture validated against Stripe's 1,000+ PRs/week production system
 
 ---
 
@@ -22,10 +23,16 @@ graph LR
         F019["F019 Skill Compression"]
         F020["F020 Build Scope Fix"]
         F021["F021 Language-Agnostic Skills"]
+        F022["F022 Context Pre-Hydration"]
+        F023["F023 Scope Enforcement"]
+        F024["F024 Phase Hooks"]
+        F025["F025 Prompt Consolidation"]
+        F027["F027 CI Auto-Fixers"]
     end
     subgraph p1 ["Phase 1: Evidence Foundation"]
         F001["F001 Schema"]
         F002["F002 CLI"]
+        F026["F026 Prompt Provenance"]
     end
     subgraph p2 ["Phase 2: Sequential Pipeline"]
         F003["F003 Handoff Schema"]
@@ -56,8 +63,13 @@ graph LR
     F014 --> F015
     F015 --> F016
     F016 --> F017
+    F016 --> F022
+    F016 --> F023
+    F016 --> F024
     F014 --> F013
+    F014 --> F027
     F001 --> F002
+    F001 --> F026
     F001 --> F003
     F002 --> F012
     F003 --> F004
@@ -79,6 +91,7 @@ graph LR
 **Goal:** LLM agents can't reliably manage their own loops (RLHF helpfulness bias, context degradation, prompt-as-suggestion). Move flow control from prompts to deterministic code. Outer loop (Go CLI / hooks) controls WHEN to stop; inner loop (LLM) controls WHAT to do.
 
 **Research:** [Agent Loop Reliability](../plans/2026-02-23-agent-loop-reliability.md)
+**Validation:** [Stripe Minions Comparison](../plans/2026-02-23-stripe-minions-comparison.md) — Stripe's Blueprint pattern independently validates this architecture
 
 | Feature | Workstreams | Size | Description |
 |---------|-------------|------|-------------|
@@ -90,9 +103,15 @@ graph LR
 | **F019: Skill Compression** | 00-019-01, 00-019-02, 00-019-03 | M | Compress 12 skills to @debug/@ci-triage standard (50-100 lines). Merge @discovery→@feature, @prd→@vision. Strip all "Next Steps" handoff sections. Remove negation-based rules ("NEVER", "DO NOT"). ~3,000 lines → ~900 lines. |
 | **F020: Build Scope Fix** | 00-020-01 | S | Remove auto-continue rules from @build (scope leak: @build tries to be @oneshot). Strip evidence boilerplate (~100 lines → post-build CLI hook). @build does ONE workstream, then STOPS. Continuation is orchestrator's job. |
 | **F021: Language-Agnostic Skills** | 00-021-01 | S | Remove hardcoded Go commands (`go test`, `go build`, `golangci-lint`) from 5 universal skills. Skills reference "quality gates (AGENTS.md)" instead. Two-layer: skills = universal protocol, AGENTS.md = project-specific toolchain. ~25 Go references → 0 in CRITICAL paths. |
+| **F022: Context Pre-Hydration** | 00-022-01 | S | `sdp orchestrate --hydrate` gathers all context before LLM invocation. Writes `.sdp/context-packet.json`: WS spec, acceptance criteria, scope files, drift status, checkpoint state, dependency status, quality gate results. Directly attacks #1 reliability problem (context degradation). Inspired by Stripe's deterministic MCP pre-hydration pattern. |
+| **F023: Scope Enforcement** | 00-023-01, 00-023-02 | M | Wire `sdp guard` into `sdp orchestrate --advance`. After each @build: `git diff --name-only` vs declared `scope_files`. Files outside scope → block advance, classify as escalation. Allowlist for dependency files (go.sum, go.mod). Evidence captures boundary compliance; this prevents violations at runtime. Inspired by Stripe's devbox isolation pattern. |
+| **F024: Phase Hooks** | 00-024-01 | S | Pre/post hooks at each phase transition via `.sdp/pipeline-hooks.yaml`. Each hook: command + on_fail (halt/warn/ignore). Enables custom quality gates (security scan, drift detection, evidence validation) without changing the state machine or writing Go. ~200 LOC. First step toward composable Blueprints. |
+| **F025: Prompt Consolidation** | 00-025-01 | S | Consolidate 5 scattered prompt-building functions into `internal/prompt/sections.go`. Extract shared sections (TaskSection, BoundarySection, EvidenceSection) as testable pure functions. Net LOC likely decreases. DRY without abstraction tax. |
+| **F027: CI Deterministic Auto-Fixers** | 00-027-01 | S | Add deterministic auto-fixers (goimports, go mod tidy) as a pre-LLM step in `sdp ci-loop`. On CI failure, run mechanical fixers first; only invoke LLM if fixers don't resolve it. Saves tokens for ~60% of mechanical failures. Inspired by Stripe's deterministic-before-LLM pattern. |
 
 **Exit criteria:**
 - `sdp ci-loop` exits 0 on green CI, exits 1 on escalation — no LLM in the loop
+- Deterministic auto-fixers (goimports, go mod tidy) run before LLM in CI loop (F027)
 - Stop hook blocks premature exit in both Cursor and Claude Code
 - Oneshot completes F001-level feature without "Next steps" handoff in 3/3 runs
 - Eval suite catches regressions on skill changes
@@ -101,8 +120,12 @@ graph LR
 - Zero hardcoded `go test`/`go build`/`go vet` in skill CRITICAL paths — AGENTS.md is the toolchain source
 - Agent count: 30 → 13. Skill line count: ~10K → ~4K
 - @build executes single WS without auto-continuing to next
+- Context pre-hydration writes `.sdp/context-packet.json` before every LLM invocation
+- Scope enforcement blocks out-of-scope changes in `sdp orchestrate --advance`
+- Phase hooks load from `.sdp/pipeline-hooks.yaml` and execute at each phase transition
+- Prompt builders consolidated into one package, golden-file tested
 
-**Delivers:** Reliable autonomous execution. Clean, honest skill set that references only real commands. The oneshot agent no longer exits loops early. Foundation for all Phases 1–6.
+**Delivers:** Reliable autonomous execution. Clean, honest skill set that references only real commands. The oneshot agent no longer exits loops early. Extensible pipeline via hooks. Foundation for all Phases 1–6.
 
 **Audit:** [Skill & Agent Audit](../plans/2026-02-23-skill-agent-audit.md)
 
@@ -116,13 +139,15 @@ graph LR
 |---------|-------------|------|-------------|
 | **F001: Evidence Schema** | 00-001-01, 00-001-02 | M | Formalize 9-section envelope as JSON Schema from `specs/strict-evidence-template.json` and `internal/evidence/strict.go`. Publish in sdp repo `schema/evidence-envelope.schema.json`. |
 | **F002: Evidence CLI** | 00-002-01, 00-002-02, 00-002-03 | L | Extract `cmd/pr-gate` into standalone `cmd/sdp-evidence` with `validate` and `inspect` subcommands. Goreleaser + GitHub Actions for binary releases. Zero K8s dependency. |
+| **F026: Prompt Provenance** | 00-026-01 | S | Add `prompt_hash` (SHA-256 of rendered prompt) and `context_sources` (list of all inputs that entered the agent's context) to the `provenance` section of the evidence schema. `sdp-evidence validate` checks these fields. Turns "what did the agent actually see?" into a verifiable evidence record. Inspired by Stripe's deterministic context pre-hydration — but instead of building it, we *prove* it. See [Prompt Provenance Design](../plans/2026-02-23-prompt-provenance-design.md). |
 
 **Exit criteria:**
 - `sdp-evidence validate` works as standalone binary
 - JSON Schema published in sdp protocol repo
 - Binary downloadable from GitHub Releases
+- `provenance.prompt_hash` and `provenance.context_sources` validated by schema
 
-**Delivers:** Evidence as a product anyone can use. CI/CD integration via single binary.
+**Delivers:** Evidence as a product anyone can use. CI/CD integration via single binary. Prompt provenance as a trust signal for autonomous agents.
 
 ---
 
@@ -187,17 +212,18 @@ graph LR
 
 ## Phase 5: Ecosystem
 
-**Goal:** Visible in the opencode ecosystem. Contributing upstream.
+**Goal:** Visible in the opencode ecosystem. Contributing upstream. OSS launch riding the Stripe Minions wave.
 
 | Feature | Workstreams | Size | Description |
 |---------|-------------|------|-------------|
 | **F011: kubeopencode Upstream PRs** | 00-011-01, 00-011-02 | M | Push UP-001 retry budget PR. Write UP-003 evidence hooks proposal. Contribute evidence bridge pattern upstream so any kubeopencode user can project evidence. |
-| **F012: awesome-opencode** | 00-012-01 | S | Submit SDP protocol + `sdp-evidence` CLI to awesome-opencode. Write a blog post or README section: "Evidence for Autonomous Agent Swarms." |
+| **F012: awesome-opencode & Launch** | 00-012-01, 00-012-02 | S | Submit SDP protocol + `sdp-evidence` CLI to awesome-opencode. Write launch blog post: "What Stripe's Minions Proved — and What's Still Missing." Position as trust layer for autonomous agents. |
 
 **Exit criteria:**
 - At least one kubeopencode PR merged or in active review
 - Listed in awesome-opencode
 - Blog post published
+- OSS narrative established: "Stripe proved agents work. SDP proves they worked correctly."
 
 **Delivers:** Community awareness. Users outside our own project trying the evidence CLI.
 
@@ -226,7 +252,7 @@ graph LR
 
 | Feature | Phase | Size | Status | Workstreams | Depends On |
 |---------|-------|------|--------|-------------|------------|
-| F014 CI Loop CLI | 0 | M | In Progress | 00-014-01, 00-014-02 | — |
+| F014 CI Loop CLI | 0 | M | Done | 00-014-01, 00-014-02 | — |
 | F015 Stop Hook Gate | 0 | S | Done | 00-015-01, 00-015-02 | F014 |
 | F016 Oneshot Outer Loop | 0 | L | In Progress | 00-016-01, 00-016-02, 00-016-03, 00-016-04 | F015, F020 |
 | F017 Skill Eval Suite | 0 | M | In Progress | 00-017-01, 00-017-02 | F016 |
@@ -234,8 +260,14 @@ graph LR
 | F019 Skill Compression | 0 | M | Backlog | 00-019-01, 00-019-02, 00-019-03 | F018 |
 | F020 Build Scope Fix | 0 | S | Backlog | 00-020-01 | F019 |
 | F021 Language-Agnostic Skills | 0 | S | Done | 00-021-01 | F020 |
-| F001 Evidence Schema | 1 | M | Backlog | 00-001-01, 00-001-02 | — |
+| F022 Context Pre-Hydration | 0 | S | Backlog | 00-022-01 | F016 |
+| F023 Scope Enforcement | 0 | M | Backlog | 00-023-01, 00-023-02 | F016 |
+| F024 Phase Hooks | 0 | S | Backlog | 00-024-01 | F016 |
+| F025 Prompt Consolidation | 0 | S | Backlog | 00-025-01 | — |
+| F027 CI Deterministic Auto-Fixers | 0 | S | Backlog | 00-027-01 | F014 |
+| F001 Evidence Schema | 1 | M | Done | 00-001-01, 00-001-02 | — |
 | F002 Evidence CLI | 1 | L | Backlog | 00-002-01, 00-002-02, 00-002-03 | F001 |
+| F026 Prompt Provenance | 1 | S | Backlog | 00-026-01 | F001 |
 | F003 Handoff Schema | 2 | M | Backlog | 00-003-01, 00-003-02 | F001 |
 | F004 Sequential Reconciler | 2 | L | Backlog | 00-004-01, 00-004-02, 00-004-03 | F003 |
 | F005 Rework Loop | 2 | S | Backlog | 00-005-01 | F004 |
@@ -245,7 +277,7 @@ graph LR
 | F009 Intake Bridge | 4 | M | Backlog | 00-009-01, 00-009-02 | F008 |
 | F010 Dead Code Removal | 4 | L | Backlog | 00-010-01 | F009 |
 | F011 kubeopencode PRs | 5 | M | Backlog | 00-011-01, 00-011-02 | — |
-| F012 awesome-opencode | 5 | S | Backlog | 00-012-01 | F002, F011 |
+| F012 awesome-opencode & Launch | 5 | S | Backlog | 00-012-01, 00-012-02 | F002, F011 |
 | F013 10 Consecutive Runs | 6 | XL | Backlog | 00-013-01, 00-013-02, 00-013-03 | F005, F007, F010, F014 |
 
 ---
@@ -253,33 +285,49 @@ graph LR
 ## Dependency Graph (Critical Path)
 
 ```
+Track B (Cleanup):
 F018 ──→ F019 ──→ F020 ──→ F021 ──→ F016 (purge → compress → build fix → lang-agnostic → outer loop)
 
+Track A (Enforcement):
 F014 ──→ F015 ──→ F016 ──→ F017 (CI loop → stop hook → outer loop → evals)
+  │                  │
+  │                  ├──→ F022 (pre-hydration — context packet before LLM)
+  │                  ├──→ F023 (scope enforcement — guard wired into advance)
+  │                  └──→ F024 (phase hooks — pipeline extensibility)
   │
+  ├──→ F027 (deterministic auto-fixers — goimports/go mod tidy before LLM)
   └──→ F013 (reliable loops needed for E2E dream)
 
-F001 ──→ F002 ──→ F012 (publish evidence CLI → get listed)
+Track C (Cleanup, independent):
+F025 (prompt consolidation — no deps, pure cleanup)
+
+Evidence path:
+F001 ──→ F002 ──→ F012 (publish evidence CLI → OSS launch)
   │
+  ├──→ F026 (prompt provenance — prompt_hash + context_sources in evidence)
   └──→ F003 ──→ F004 ──→ F005 ──→ F013 (pipeline → rework → dream)
                   │
                   └──→ F006 ──→ F007 ──→ F013 (evidence stream → dream)
 
+Simplify path:
 F008 ──→ F009 ──→ F010 ──→ F013 (model policy → intake → cleanup → dream)
 
-F011 ──→ F012 (upstream PRs → awesome listing)
+Ecosystem path:
+F011 ──→ F012 (upstream PRs → awesome listing + launch blog)
 ```
 
 **Critical path to the dream:** F001 → F003 → F004 → F006 → F007 → F013
 
-**Two parallel tracks in Phase 0:**
-- Track A: F014→F015→F016→F017 (external enforcement: CLI, hooks, outer loop, evals)
+**Three parallel tracks in Phase 0:**
+- Track A: F014→F015→F016→F017/F022/F023/F024 (external enforcement: CLI, hooks, outer loop, then enhancements)
+- Track A': F014→F027 (CI auto-fixers — extends done CI loop with deterministic fixers)
 - Track B: F018→F019→F020→F021 (cleanup: purge dead code, compress skills, fix @build scope, language-agnostic)
-- Tracks merge at F016 (outer loop needs clean, universal skills from F021)
+- Track C: F025 (prompt consolidation — independent, pure cleanup)
+- Tracks A+B merge at F016 (outer loop needs clean, universal skills from F021)
 
-**Parallelizable work:** Phase 0 tracks A+B run alongside Phase 1+. F008-F010 (simplify) alongside F003-F007 (pipeline + stream). F011-F012 (ecosystem) anytime after F002.
+**Parallelizable work:** Phase 0 tracks A+B+C run alongside Phase 1+. F008-F010 (simplify) alongside F003-F007 (pipeline + stream). F011-F012 (ecosystem) anytime after F002.
 
-**Start immediately:** F018 (dead code purge) — zero risk, pure cleanup. F014 (CI loop CLI) — deterministic enforcement.
+**Start immediately:** F018 (dead code purge) — zero risk, pure cleanup. F027 (CI auto-fixers) — F014 is done, this extends it. F025 (prompt consolidation) — zero risk, pure cleanup.
 
 ---
 
@@ -287,17 +335,21 @@ F011 ──→ F012 (upstream PRs → awesome listing)
 
 | Size | Workstreams | Estimated Effort | Example |
 |------|-------------|------------------|---------|
-| S | 1 | 1-2 sessions | Rework loop, awesome-opencode submission |
-| M | 2 | 2-4 sessions | JSON Schema, model policy, intake bridge |
+| S | 1 | 1-2 sessions | Rework loop, phase hooks, pre-hydration, prompt consolidation |
+| M | 2 | 2-4 sessions | JSON Schema, model policy, scope enforcement, CI loop |
 | L | 2-3 | 4-6 sessions | Evidence CLI, sequential reconciler, assembler, dead code removal |
 | XL | 3+ | 6-10 sessions | E2E validation (fixes everything that breaks) |
 
-**Total: 21 features, 43 workstreams, estimated 56-87 sessions.**
+**Total: 27 features (2 done, 25 backlog), 52 workstreams, estimated 68-105 sessions.**
 
 ---
 
 ## References
 
 - [Dream Swarm Design](../plans/2026-02-22-dream-swarm-design.md) — architecture decisions, expert analysis
+- [Agent Loop Reliability](../plans/2026-02-23-agent-loop-reliability.md) — why agents exit loops, outer loop architecture
+- [Stripe Minions Comparison](../plans/2026-02-23-stripe-minions-comparison.md) — architecture validation, adoptable ideas
+- [Prompt Provenance Design](../plans/2026-02-23-prompt-provenance-design.md) — prompt provenance > prompts as code
+- [Oneshot Autonomous Design](../plans/2026-02-23-oneshot-autonomous-design.md) — full autonomous pipeline design
 - [Manifesto](../MANIFESTO.md) — what SDP is and where it fits
 - [Workstream Index](../workstreams/INDEX.md) — workstream ID format and current state

@@ -16,8 +16,14 @@
 | **F019** | 0 | Skill Compression | 00-019-01, 00-019-02, 00-019-03 |
 | **F020** | 0 | Build Scope Fix | 00-020-01 |
 | **F021** | 0 | Language-Agnostic Skills | 00-021-01 |
+| **F022** | 0 | Context Pre-Hydration | 00-022-01 |
+| **F023** | 0 | Scope Enforcement | 00-023-01, 00-023-02 |
+| **F024** | 0 | Phase Hooks | 00-024-01 |
+| **F025** | 0 | Prompt Consolidation | 00-025-01 |
+| **F027** | 0 | CI Deterministic Auto-Fixers | 00-027-01 |
 | **F001** | 1 | Evidence Schema | 00-001-01, 00-001-02 |
 | **F002** | 1 | Evidence CLI | 00-002-01, 00-002-02, 00-002-03 |
+| **F026** | 1 | Prompt Provenance | 00-026-01 |
 | **F003** | 2 | Handoff Artifact Schema | 00-003-01, 00-003-02 |
 | **F004** | 2 | Sequential Reconciler | 00-004-01, 00-004-02, 00-004-03 |
 | **F005** | 2 | Rework Loop | 00-005-01 |
@@ -53,6 +59,12 @@
 | 00-019-03 | F019 | Trim Bloated Agents + Sync Copies | Backlog |
 | 00-020-01 | F020 | @build Scope Surgery | Backlog |
 | 00-021-01 | F021 | Remove Go-Specific Commands from Universal Skills | Done |
+| 00-022-01 | F022 | Context Pre-Hydration — gather context before LLM | Backlog |
+| 00-023-01 | F023 | Scope Diff Checker — boundary validation | Backlog |
+| 00-023-02 | F023 | Wire Scope Enforcement into Orchestrator | Backlog |
+| 00-024-01 | F024 | Phase Hooks — pre/post hooks at phase transitions | Backlog |
+| 00-025-01 | F025 | Prompt Consolidation — DRY prompt builders | Backlog |
+| 00-027-01 | F027 | CI Deterministic Auto-Fixers — goimports/go mod tidy before LLM | Backlog |
 
 ### Phase 1: Evidence Foundation
 
@@ -63,6 +75,7 @@
 | 00-002-01 | F002 | Refactor pr-gate into sdp-evidence CLI | Backlog |
 | 00-002-02 | F002 | Add `inspect` subcommand | Backlog |
 | 00-002-03 | F002 | Goreleaser + GitHub Actions releases | Backlog |
+| 00-026-01 | F026 | Prompt Provenance — prompt_hash + context_sources in evidence | Backlog |
 
 ### Phase 2: Sequential Pipeline
 
@@ -112,7 +125,7 @@
 
 ## Workstream ID Format
 
-`PP-FFF-SS` — Project (00), Feature (001–021), Step (01, 02, …)
+`PP-FFF-SS` — Project (00), Feature (001–027), Step (01, 02, …)
 
 Example: `00-004-02` = sdp_lab, F004 Sequential Reconciler, step 2 (inject handoff paths)
 Example: `00-014-01` = sdp_lab, F014 CI Loop CLI, step 1 (poll + classify)
