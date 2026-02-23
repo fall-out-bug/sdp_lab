@@ -68,6 +68,17 @@ func main() {
 		return nil
 	}
 
+	fixer := ciloop.NewFixer(ciloop.FixerOptions{
+		PRNumber:  *prNum,
+		FeatureID: *feature,
+		Committer: &gitCommitter{},
+		LogFetcher: &ghLogFetcher{runner: runner},
+		DecisionLogger: func(decision, rationale string) error {
+			fmt.Printf("DECISION: %s — %s\n", decision, rationale)
+			return nil
+		},
+	})
+
 	opts := ciloop.LoopOptions{
 		PRNumber:   *prNum,
 		MaxIter:    *maxIter,
@@ -75,7 +86,7 @@ func main() {
 		RetryDelay: *retryDelay,
 		Poller:     poller,
 		OnEscalate: onEscalate,
-		Fixer:      nil, // auto-fix is wired in 00-014-02
+		Fixer:      fixer,
 	}
 
 	result, err := ciloop.RunLoop(opts)
@@ -119,4 +130,58 @@ type execRunner struct{}
 
 func (e *execRunner) Run(name string, args ...string) ([]byte, error) {
 	return exec.Command(name, args...).Output()
+}
+
+// gitCommitter implements Committer via git CLI.
+type gitCommitter struct{}
+
+func (g *gitCommitter) Commit(msg string) error {
+	cmd := exec.Command("git", "commit", "-am", msg)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func (g *gitCommitter) Push() error {
+	cmd := exec.Command("git", "push")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// ghLogFetcher implements LogFetcher via gh CLI.
+type ghLogFetcher struct {
+	runner *execRunner
+}
+
+func (g *ghLogFetcher) FailedLogs(prNumber int) (string, error) {
+	runID, err := g.runner.Run("gh", "run", "list",
+		"--branch", currentBranch(),
+		"--json", "databaseId,conclusion",
+		"--jq", `.[] | select(.conclusion == "failure") | .databaseId`,
+	)
+	if err != nil {
+		return "", fmt.Errorf("list failed runs: %w", err)
+	}
+	id := strings.TrimSpace(string(runID))
+	if id == "" {
+		return "", fmt.Errorf("no failed run found for PR #%d", prNumber)
+	}
+	// Take only first line if multiple.
+	if nl := strings.Index(id, "\n"); nl > 0 {
+		id = id[:nl]
+	}
+	out, err := g.runner.Run("gh", "run", "view", id, "--log-failed")
+	if err != nil {
+		return "", fmt.Errorf("fetch run logs: %w", err)
+	}
+	return string(out), nil
+}
+
+func currentBranch() string {
+	out, err := exec.Command("git", "branch", "--show-current").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
