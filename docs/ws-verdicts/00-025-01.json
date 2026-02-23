@@ -1,0 +1,17 @@
+{
+  "ws_id": "00-025-01",
+  "verdict": "APPROVED",
+  "status": "done",
+  "ac_evidence": [
+    {"ac": "All prompt-building logic consolidated into internal/prompt/ package", "evidence": "internal/prompt/sections.go: TaskSection, BoundarySection, EvidenceSection, AcceptanceCriteriaSection, ScopeFilesSection"},
+    {"ac": "TaskSection(ws WorkstreamSpec) string — renders task description + acceptance criteria", "evidence": "internal/prompt/sections.go:52-76"},
+    {"ac": "BoundarySection(ws WorkstreamSpec) string — renders scope files + out-of-scope", "evidence": "internal/prompt/sections.go:78-114 (BoundaryInput supports both path prefixes and scope files)"},
+    {"ac": "EvidenceSection(checkpoint Checkpoint) string — renders evidence context", "evidence": "internal/prompt/sections.go:143-166 (EvidenceInput populated from checkpoint/evidence)"},
+    {"ac": "Each section function is a pure function (no side effects, no file I/O)", "evidence": "All section functions take structs, return string; no os/exec/io"},
+    {"ac": "Golden-file tests for each section (expected output checked in as .golden files)", "evidence": "internal/prompt/sections_test.go, internal/prompt/testdata/*.golden"},
+    {"ac": "Callers (invoke_opencode.go, prompt.go, reviewer.go) refactored to use shared sections", "evidence": "internal/llm/prompt.go, internal/roles/reviewer.go, internal/orchestrate/hydrate.go; invoke_opencode uses context from hydrate.FormatForPrompt"},
+    {"ac": "Net LOC likely decreases or stays flat", "evidence": "Consolidated ~100 LOC from 3 callers into shared package; golden tests add ~100"},
+    {"ac": "No behavioral changes — prompts rendered identically before and after", "evidence": "llm.BuildPrompt, reviewer.buildReviewPrompt, hydrate.FormatForPrompt produce same output; tests pass"}
+  ],
+  "review_notes": "Pure refactor. All F025 scope files < 200 LOC. go build, go vet, go test pass. Quality gate failures (coverage 40%, complexity, file size) are project-wide pre-existing; F025 changes are minimal and within scope."
+}

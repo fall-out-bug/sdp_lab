@@ -263,7 +263,7 @@ graph LR
 | F022 Context Pre-Hydration | 0 | S | Done | 00-022-01 | F016 |
 | F023 Scope Enforcement | 0 | M | Backlog | 00-023-01, 00-023-02 | F016 |
 | F024 Phase Hooks | 0 | S | Backlog | 00-024-01 | F016 |
-| F025 Prompt Consolidation | 0 | S | Backlog | 00-025-01 | — |
+| F025 Prompt Consolidation | 0 | S | Done | 00-025-01 | — |
 | F027 CI Deterministic Auto-Fixers | 0 | S | Backlog | 00-027-01 | F014 |
 | F001 Evidence Schema | 1 | M | Backlog | 00-001-01, 00-001-02 | — |
 | F002 Evidence CLI | 1 | L | Backlog | 00-002-01, 00-002-02, 00-002-03 | F001 |
