@@ -36,6 +36,12 @@ generate:
 	$(shell go env GOPATH)/bin/controller-gen object paths=./api/...
 	$(shell go env GOPATH)/bin/controller-gen crd paths=./api/... output:crd:dir=deploy/k8s/crd/
 
+# Sync skills from canonical source (sdp/prompts/skills) to copies.
+# Use when .opencode/skills and .cursor/skills are real dirs, not symlinks.
+sync-skills:
+	rsync -a sdp/prompts/skills/ .opencode/skills/
+	rsync -a sdp/prompts/skills/ .cursor/skills/ 2>/dev/null || true
+
 # Download envtest binaries for adapter-controller tests (optional)
 envtest:
 	@go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
