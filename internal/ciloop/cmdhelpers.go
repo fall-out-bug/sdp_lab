@@ -7,11 +7,10 @@ import (
 	"os/exec"
 	"strings"
 	"time"
-
-	"sdp_dev/internal/orchestrate"
 )
 
 const execRunnerTimeout = 30 * time.Second
+const gitOperationTimeout = 60 * time.Second
 
 // ExecRunner implements CommandRunner with process context and timeout.
 // When ctx is cancelled (e.g. SIGTERM), Run returns promptly.
@@ -47,45 +46,65 @@ type GitCommitter struct{}
 // AllFilesCommitter commits all changes (for deterministic fixers: goimports, go mod tidy).
 type AllFilesCommitter struct{}
 
-// Commit stages all files and commits (used by deterministic auto-fixers).
-func (g *AllFilesCommitter) Commit(msg string) error {
-	add := exec.Command("git", "add", ".")
+// Commit stages tracked files and commits (used by deterministic auto-fixers).
+func (g *AllFilesCommitter) Commit(ctx context.Context, msg string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	runCtx, cancel := context.WithTimeout(ctx, gitOperationTimeout)
+	defer cancel()
+	add := exec.CommandContext(runCtx, "git", "add", "-u")
 	add.Stdout = os.Stdout
 	add.Stderr = os.Stderr
 	if err := add.Run(); err != nil {
 		return err
 	}
-	cmd := exec.Command("git", "commit", "-m", msg)
+	cmd := exec.CommandContext(runCtx, "git", "commit", "-m", msg)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
 // Push pushes the current branch.
-func (g *AllFilesCommitter) Push() error {
-	cmd := exec.Command("git", "push")
+func (g *AllFilesCommitter) Push(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	runCtx, cancel := context.WithTimeout(ctx, gitOperationTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(runCtx, "git", "push")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
 // Commit adds .sdp/ci-fixes/ and commits with the given message.
-func (g *GitCommitter) Commit(msg string) error {
-	add := exec.Command("git", "add", ".sdp/ci-fixes/")
+func (g *GitCommitter) Commit(ctx context.Context, msg string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	runCtx, cancel := context.WithTimeout(ctx, gitOperationTimeout)
+	defer cancel()
+	add := exec.CommandContext(runCtx, "git", "add", ".sdp/ci-fixes/")
 	add.Stdout = os.Stdout
 	add.Stderr = os.Stderr
 	if err := add.Run(); err != nil {
 		return err
 	}
-	cmd := exec.Command("git", "commit", "-m", msg)
+	cmd := exec.CommandContext(runCtx, "git", "commit", "-m", msg)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
 // Push pushes the current branch.
-func (g *GitCommitter) Push() error {
-	cmd := exec.Command("git", "push")
+func (g *GitCommitter) Push(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	runCtx, cancel := context.WithTimeout(ctx, gitOperationTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(runCtx, "git", "push")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -98,10 +117,12 @@ type GhLogFetcher struct {
 
 // FailedLogs returns the log output of the most recent failed run for the current branch.
 func (g *GhLogFetcher) FailedLogs(prNumber int) (string, error) {
-	branch, err := orchestrate.CurrentBranch()
+	// Use Runner for git branch (respects Runner's context/timeout)
+	out, err := g.Runner.Run("git", "branch", "--show-current")
 	if err != nil {
 		return "", fmt.Errorf("current branch: %w", err)
 	}
+	branch := strings.TrimSpace(string(out))
 	runID, err := g.Runner.Run("gh", "run", "list",
 		"--branch", branch,
 		"--json", "databaseId,conclusion",
@@ -117,9 +138,9 @@ func (g *GhLogFetcher) FailedLogs(prNumber int) (string, error) {
 	if nl := strings.Index(id, "\n"); nl > 0 {
 		id = id[:nl]
 	}
-	out, err := g.Runner.Run("gh", "run", "view", id, "--log-failed")
+	logOut, err := g.Runner.Run("gh", "run", "view", id, "--log-failed")
 	if err != nil {
 		return "", fmt.Errorf("fetch run logs: %w", err)
 	}
-	return string(out), nil
+	return string(logOut), nil
 }

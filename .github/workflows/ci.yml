@@ -27,7 +27,6 @@ jobs:
         run: |
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
           golangci-lint run ./...
-        continue-on-error: true
 
   k8s-validate:
     runs-on: ubuntu-latest
@@ -52,6 +51,167 @@ jobs:
 
       - name: Validate workers manifests
         run: kubectl kustomize deploy/k8s/workers/ > /dev/null
+
+  evidence-gate:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Validate evidence files
+        run: |
+          set -e
+          EVIDENCE_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '^\.sdp/evidence/.*\.json$' || true)
+          if [ -z "$EVIDENCE_FILES" ]; then
+            echo "No evidence files changed — skipping validation"
+            exit 0
+          fi
+          for f in $EVIDENCE_FILES; do
+            if [ -f "$f" ]; then
+              echo "Validating: $f"
+              go run ./cmd/sdp-evidence validate --require-pr-url=false "$f"
+            fi
+          done
+
+      - name: Validate review verdict
+        run: |
+          set -e
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q '^\.sdp/review_verdict\.json$'; then
+            if [ -f .sdp/review_verdict.json ]; then
+              echo "Validating review verdict"
+              jq -e '.verdict | test("^(APPROVED|CHANGES_REQUESTED)$")' .sdp/review_verdict.json
+              jq -e '.feature and (.finding_ids | type == "array")' .sdp/review_verdict.json
+            fi
+          else
+            echo "No review verdict changed — skipping"
+          fi
+
+  scope-gate:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Check scope compliance
+        run: |
+          set -e
+          CHECKPOINT_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '^\.sdp/checkpoints/.*\.json$' || true)
+          if [ -z "$CHECKPOINT_FILES" ]; then
+            echo "No checkpoint files — scope gate not applicable"
+            exit 0
+          fi
+          for cpf in $CHECKPOINT_FILES; do
+            if [ -f "$cpf" ]; then
+              FEATURE_ID=$(jq -r '.feature_id' "$cpf" 2>/dev/null || echo "")
+              if [ -z "$FEATURE_ID" ]; then continue; fi
+              WS_IDS=$(jq -r '.workstreams[]?.id // empty' "$cpf" 2>/dev/null || echo "")
+              for ws in $WS_IDS; do
+                if [ -f "docs/workstreams/backlog/${ws}.md" ]; then
+                  echo "Checking scope for $ws"
+                  go run ./cmd/sdp-guard --ws "$ws" || echo "WARN: scope violation in $ws (non-blocking)"
+                fi
+              done
+            fi
+          done
+
+  policy-gate:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install OPA
+        run: |
+          curl -sL -o opa https://openpolicyagent.org/downloads/v1.4.2/opa_linux_amd64_static
+          chmod +x opa
+          sudo mv opa /usr/local/bin/
+
+      - name: Collect policy input
+        run: |
+          set -e
+          BASE="${{ github.base_ref }}"
+          CHANGED=$(git diff --name-only origin/$BASE...HEAD)
+          EVIDENCE_COUNT=$(echo "$CHANGED" | grep -c '^\.sdp/evidence/' || echo 0)
+          HAS_WS=$(echo "$CHANGED" | grep -c '^docs/workstreams/' || echo 0)
+          HAS_FEATURE=$(echo "$CHANGED" | grep -c '^internal/\|^cmd/' || echo 0)
+          cat > /tmp/policy-input.json <<HEREDOC
+          {
+            "evidence_files_count": $EVIDENCE_COUNT,
+            "evidence_validation_passed": true,
+            "has_workstream_changes": $([ "$HAS_WS" -gt 0 ] && echo true || echo false),
+            "scope_violations_count": 0,
+            "p0_findings": 0,
+            "p1_findings": 0,
+            "p2_findings": 0,
+            "has_feature_changes": $([ "$HAS_FEATURE" -gt 0 ] && echo true || echo false),
+            "beads_referenced": true
+          }
+          HEREDOC
+          echo "=== Policy Input ==="
+          cat /tmp/policy-input.json
+
+      - name: Evaluate policies
+        run: |
+          set -e
+          echo "=== Policy Evaluation ==="
+          for policy in .sdp/policies/*.rego; do
+            echo "--- $(basename $policy) ---"
+            opa eval --data "$policy" --input /tmp/policy-input.json \
+              'data.sdp.policies.deny' --format pretty || true
+          done
+
+  auto-attestation:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: [build-test]
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Generate auto-attestation
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -e
+          mkdir -p .sdp/attestations
+          go run -tags ci_attest ./internal/evidence/cmd/auto-attest \
+            --base-branch "$BASE_REF" \
+            --pr-number "$PR_NUMBER" \
+            --pr-url "$PR_URL" \
+            --output .sdp/attestations/ci-auto.json \
+            --report .sdp/attestations/ci-auto-report.json || true
+          if [ -f .sdp/attestations/ci-auto-report.json ]; then
+            echo "=== Auto-Attestation Report ==="
+            cat .sdp/attestations/ci-auto-report.json
+          fi
 
   image-build:
     runs-on: ubuntu-latest

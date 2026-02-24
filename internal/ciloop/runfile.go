@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"sdp_dev/internal/sdputil"
 )
 
 // RunEvent is a single event appended to a run file.
@@ -45,7 +47,7 @@ func truncateField(s string, max int) string {
 
 // AppendRunEvent finds the latest run file for featureID in dir and appends an event.
 func AppendRunEvent(dir, featureID, phase, state, notes string) error {
-	if err := validateFeatureID(featureID); err != nil {
+	if err := sdputil.ValidateFeatureID(featureID); err != nil {
 		return err
 	}
 	phase = truncateField(phase, maxRunEventFieldBytes)
@@ -60,7 +62,7 @@ func AppendRunEvent(dir, featureID, phase, state, notes string) error {
 		return fmt.Errorf("read run file: %w", err)
 	}
 	var rf RunFile
-	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(data), maxJSONDecodeBytes)).Decode(&rf); err != nil {
+	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(data), sdputil.MaxJSONDecodeBytes)).Decode(&rf); err != nil {
 		return fmt.Errorf("parse run file: %w", err)
 	}
 	rf.Events = append(rf.Events, RunEvent{

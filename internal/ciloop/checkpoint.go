@@ -7,11 +7,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
-)
 
-const maxJSONDecodeBytes = 10 * 1024 * 1024 // 10MB DoS limit (7m40)
+	"sdp_dev/internal/sdputil"
+)
 
 // Checkpoint mirrors the .sdp/checkpoints/F{NNN}.json schema.
 type Checkpoint struct {
@@ -24,17 +23,9 @@ type Checkpoint struct {
 	UpdatedAt string `json:"updated_at,omitempty"`
 }
 
-// validateFeatureID rejects featureID values that would allow path traversal.
-func validateFeatureID(featureID string) error {
-	if strings.ContainsAny(featureID, "/\\..") || featureID == "" {
-		return fmt.Errorf("invalid feature_id %q: must not contain path separators or dots", featureID)
-	}
-	return nil
-}
-
 // LoadCheckpoint reads a checkpoint file for the given feature ID.
 func LoadCheckpoint(dir, featureID string) (*Checkpoint, error) {
-	if err := validateFeatureID(featureID); err != nil {
+	if err := sdputil.ValidateFeatureID(featureID); err != nil {
 		return nil, err
 	}
 	path := filepath.Join(dir, featureID+".json")
@@ -43,19 +34,19 @@ func LoadCheckpoint(dir, featureID string) (*Checkpoint, error) {
 		return nil, fmt.Errorf("read checkpoint %s: %w", path, err)
 	}
 	var cp Checkpoint
-	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(data), maxJSONDecodeBytes)).Decode(&cp); err != nil {
+	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(data), sdputil.MaxJSONDecodeBytes)).Decode(&cp); err != nil {
 		return nil, fmt.Errorf("parse checkpoint %s: %w", path, err)
 	}
 	return &cp, nil
 }
 
 // SaveCheckpoint writes the checkpoint back to disk atomically.
+// Caller is responsible for setting cp.Phase and cp.UpdatedAt before calling.
 func SaveCheckpoint(dir string, cp *Checkpoint) error {
-	if err := validateFeatureID(cp.FeatureID); err != nil {
+	if err := sdputil.ValidateFeatureID(cp.FeatureID); err != nil {
 		return err
 	}
 	cp.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	cp.Phase = "ci"
 	data, err := json.MarshalIndent(cp, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal checkpoint: %w", err)

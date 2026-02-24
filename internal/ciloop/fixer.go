@@ -1,6 +1,7 @@
 package ciloop
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,8 +17,8 @@ type LogFetcher interface {
 
 // Committer commits and pushes on the current branch.
 type Committer interface {
-	Commit(msg string) error
-	Push() error
+	Commit(ctx context.Context, msg string) error
+	Push(ctx context.Context) error
 }
 
 // FixerOptions configures the AutoFixer.
@@ -27,6 +28,7 @@ type FixerOptions struct {
 	// DiagnosticsDir is where fix diagnostics files are written before committing.
 	// Defaults to ".sdp/ci-fixes" when empty.
 	DiagnosticsDir string
+	Ctx            context.Context // for cancellation (e.g. SIGTERM)
 	Committer      Committer
 	LogFetcher     LogFetcher
 	DecisionLogger func(decision, rationale string) error
@@ -74,10 +76,14 @@ func (f *AutoFixer) Fix(checks []CheckResult) error {
 		f.opts.FeatureID,
 	)
 
-	if err := f.opts.Committer.Commit(msg); err != nil {
+	ctx := f.opts.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := f.opts.Committer.Commit(ctx, msg); err != nil {
 		return fmt.Errorf("commit fix: %w", err)
 	}
-	if err := f.opts.Committer.Push(); err != nil {
+	if err := f.opts.Committer.Push(ctx); err != nil {
 		return fmt.Errorf("push fix: %w", err)
 	}
 
@@ -112,7 +118,16 @@ func (f *AutoFixer) writeDiagnostics(checks []CheckResult, fixDescs []string, lo
 		strings.Join(names, ", "),
 		strings.Join(sanitizeFixDescs(fixDescs), "\n"),
 	)
-	return os.WriteFile(filepath.Join(dir, filename), []byte(content), 0o644)
+	fullPath := filepath.Join(dir, filename)
+	tmpPath := fullPath + ".tmp"
+	if err := os.WriteFile(tmpPath, []byte(content), 0o644); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpPath, fullPath); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	return nil
 }
 
 // applyFix parses the CI log and attempts to apply a fix for the given check.

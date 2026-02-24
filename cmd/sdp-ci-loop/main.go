@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -77,9 +78,18 @@ func main() {
 		projectRoot = "."
 	}
 
+	// Remove orphan .tmp files from previous runs
+	ciloop.RemoveOrphanTmpFiles(
+		filepath.Join(projectRoot, ".sdp", "checkpoints"),
+		filepath.Join(projectRoot, ".sdp", "runs"),
+		filepath.Join(projectRoot, ".sdp"),
+		filepath.Join(projectRoot, ".sdp", "ci-fixes"),
+	)
+
 	innerFixer := ciloop.NewFixer(ciloop.FixerOptions{
 		PRNumber:  *prNum,
 		FeatureID: *feature,
+		Ctx:       ctx,
 		Committer: &ciloop.GitCommitter{},
 		LogFetcher: &ciloop.GhLogFetcher{Runner: runner},
 		DecisionLogger: func(decision, rationale string) error {
@@ -106,11 +116,24 @@ func main() {
 		RunFileLogger: runFileLogger,
 		Inner:         innerFixer,
 		PRNumber:      *prNum,
+		Ctx:           ctx,
+	}
+
+	onPollError := func(err error) {
+		if *feature == "" {
+			return
+		}
+		cp, loadErr := ciloop.LoadCheckpoint(*checkpointDir, *feature)
+		if loadErr != nil {
+			return
+		}
+		_ = ciloop.SaveCheckpoint(*checkpointDir, cp)
+		slog.Debug("saved checkpoint on poll error", "feature", *feature, "poll_err", err)
 	}
 
 	opts := ciloop.LoopOptions{Context: ctx, PRNumber: *prNum, MaxIter: *maxIter,
 		MaxPendingRetries: ciloop.DefaultMaxPendingRetries, PollDelay: *pollDelay, RetryDelay: *retryDelay,
-		Poller: poller, OnEscalate: onEscalate, Fixer: fixer}
+		Poller: poller, OnEscalate: onEscalate, OnPollError: onPollError, Fixer: fixer}
 
 	result, err := ciloop.RunLoop(opts)
 	if err != nil {
@@ -144,6 +167,7 @@ func main() {
 func updateArtifacts(checkpointDir, runsDir, featureID string) error {
 	cp, err := ciloop.LoadCheckpoint(checkpointDir, featureID)
 	if err == nil {
+		cp.Phase = "ci" // CI green: record phase for checkpoint
 		if saveErr := ciloop.SaveCheckpoint(checkpointDir, cp); saveErr != nil {
 			return fmt.Errorf("save checkpoint: %w", saveErr)
 		}

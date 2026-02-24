@@ -13,9 +13,6 @@ builds:
     goarch:
       - amd64
       - arm64
-    ignore:
-      - goos: linux
-        goarch: arm64
   - id: sdp-orchestrate
     main: ./cmd/sdp-orchestrate
     binary: sdp-orchestrate
@@ -25,9 +22,6 @@ builds:
     goarch:
       - amd64
       - arm64
-    ignore:
-      - goos: linux
-        goarch: arm64
   - id: sdp-eval
     main: ./cmd/sdp-eval
     binary: sdp-eval
@@ -37,9 +31,15 @@ builds:
     goarch:
       - amd64
       - arm64
-    ignore:
-      - goos: linux
-        goarch: arm64
+  - id: sdp-guard
+    main: ./cmd/sdp-guard
+    binary: sdp-guard
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
   - id: sdp-evidence
     main: ./cmd/sdp-evidence
     binary: sdp-evidence
@@ -60,6 +60,11 @@ archives:
     name_template: "sdp-eval_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     builds:
       - sdp-eval
+  - id: sdp-guard
+    format: tar.gz
+    name_template: "sdp-guard_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - sdp-guard
   - id: sdp-orchestrate
     format: tar.gz
     name_template: "sdp-orchestrate_{{ .Version }}_{{ .Os }}_{{ .Arch }}"

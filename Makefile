@@ -1,5 +1,6 @@
 # sdp_dev Makefile
 .PHONY: test test-internal test-scripts coverage lint quality generate
+.PHONY: build-sdp-orchestrate build-sdp-guard build-sdp-eval build-sdp-ci-loop build-sdp-evidence
 
 test:
 	go test ./... -count=1
@@ -41,6 +42,22 @@ generate:
 sync-skills:
 	rsync -a sdp/prompts/skills/ .opencode/skills/
 	rsync -a sdp/prompts/skills/ .cursor/skills/ 2>/dev/null || true
+
+# Phase 0 CLI builds (for local dev)
+build-sdp-orchestrate:
+	go build -o bin/sdp-orchestrate ./cmd/sdp-orchestrate
+
+build-sdp-guard:
+	go build -o bin/sdp-guard ./cmd/sdp-guard
+
+build-sdp-eval:
+	go build -o bin/sdp-eval ./cmd/sdp-eval
+
+build-sdp-ci-loop:
+	go build -o bin/sdp-ci-loop ./cmd/sdp-ci-loop
+
+build-sdp-evidence:
+	go build -o bin/sdp-evidence ./cmd/sdp-evidence
 
 # Download envtest binaries for adapter-controller tests (optional)
 envtest:

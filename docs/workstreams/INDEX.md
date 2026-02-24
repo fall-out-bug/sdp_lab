@@ -52,13 +52,13 @@
 | 00-016-04 | F016 | Oneshot Outer Loop — opencode Integration | Done |
 | 00-017-01 | F017 | Skill Eval Suite — Framework + Core Evals | Done |
 | 00-017-02 | F017 | Skill Eval Suite — CI Integration | Done |
-| 00-018-01 | F018 | Delete Dead Skills + Agents | Backlog |
+| 00-018-01 | F018 | Delete Dead Skills + Agents | Done |
 | 00-018-02 | F018 | Fix Python→Go + Phantom CLI + Branch Model | Done |
 | 00-018-03 | F018 | Phantom sdp guard context/branch/complete/finding removal | Done |
-| 00-019-01 | F019 | Compress Operational Skills | Backlog |
-| 00-019-02 | F019 | Compress Planning & Design Skills | Backlog |
-| 00-019-03 | F019 | Trim Bloated Agents + Sync Copies | Backlog |
-| 00-020-01 | F020 | @build Scope Surgery | Backlog |
+| 00-019-01 | F019 | Compress Operational Skills | Done |
+| 00-019-02 | F019 | Compress Planning & Design Skills | Done |
+| 00-019-03 | F019 | Trim Bloated Agents + Sync Copies | Done |
+| 00-020-01 | F020 | @build Scope Surgery | Done |
 | 00-021-01 | F021 | Remove Go-Specific Commands from Universal Skills | Done |
 | 00-022-01 | F022 | Context Pre-Hydration — gather context before LLM | Done |
 | 00-023-01 | F023 | Scope Diff Checker — boundary validation | Done |

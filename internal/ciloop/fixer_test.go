@@ -1,6 +1,7 @@
 package ciloop_test
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -17,7 +18,7 @@ type fakeCommitter struct {
 	err     error
 }
 
-func (f *fakeCommitter) Commit(msg string) error {
+func (f *fakeCommitter) Commit(ctx context.Context, msg string) error {
 	if f.err != nil {
 		return f.err
 	}
@@ -25,7 +26,7 @@ func (f *fakeCommitter) Commit(msg string) error {
 	return nil
 }
 
-func (f *fakeCommitter) Push() error {
+func (f *fakeCommitter) Push(ctx context.Context) error {
 	if f.err != nil {
 		return f.err
 	}

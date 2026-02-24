@@ -39,6 +39,8 @@ type LoopOptions struct {
 	Poller            *Poller
 	// OnEscalate is called when a non-auto-fixable failure is detected or Fixer is nil.
 	OnEscalate func(checks []CheckResult) error
+	// OnPollError is called when GetChecks fails (before returning). Use to save checkpoint defensively.
+	OnPollError func(err error)
 	// Fixer handles auto-fixable failures.
 	// When nil, auto-fixable failures escalate immediately (same as non-auto-fixable).
 	Fixer Fixer
@@ -80,6 +82,9 @@ func RunLoop(opts LoopOptions) (LoopResult, error) {
 
 		checks, err := opts.Poller.GetChecks(opts.PRNumber)
 		if err != nil {
+			if opts.OnPollError != nil {
+				opts.OnPollError(err)
+			}
 			return ResultEscalated, err
 		}
 

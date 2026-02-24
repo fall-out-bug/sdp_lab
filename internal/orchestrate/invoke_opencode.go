@@ -79,18 +79,27 @@ func BuildContextSources(projectRoot, featureID, wsID string, scopeFiles []strin
 
 // WritePromptProvenance writes prompt_hash and context_sources to .sdp/prompt-provenance.json.
 // Downstream (evidence builder, post-build hook) can merge into the evidence envelope.
+// Uses tmp+rename for atomic write.
 func WritePromptProvenance(projectRoot string, promptHash string, sources []ContextSource) error {
 	sdpDir := filepath.Join(projectRoot, ".sdp")
 	if err := os.MkdirAll(sdpDir, 0o755); err != nil {
 		return err
 	}
 	path := filepath.Join(sdpDir, "prompt-provenance.json")
+	tmpPath := path + ".tmp"
 	body := map[string]any{"prompt_hash": promptHash, "context_sources": sources}
 	data, err := json.MarshalIndent(body, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	return nil
 }
 
 // InvokeOpenCode runs `opencode run --agent orchestrator` with the given prompt.

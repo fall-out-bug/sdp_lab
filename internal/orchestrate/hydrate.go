@@ -1,13 +1,16 @@
 package orchestrate
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"sdp_dev/internal/prompt"
+	"sdp_dev/internal/sdputil"
 )
 
 const contextPacketPath = ".sdp/context-packet.json"
@@ -27,6 +30,9 @@ type ContextPacket struct {
 // Hydrate gathers all context deterministically and writes .sdp/context-packet.json.
 // Hydration failure blocks LLM invocation (fail-safe). Call before RunBuildPhase or RunReviewPhase.
 func Hydrate(projectRoot, featureID, wsID string, cp *Checkpoint) (*ContextPacket, error) {
+	if err := sdputil.ValidateWSID(wsID); err != nil {
+		return nil, err
+	}
 	pkt := &ContextPacket{}
 
 	wsPath := filepath.Join(projectRoot, "docs", "workstreams", "backlog", wsID+".md")
@@ -80,6 +86,9 @@ func HydrateForReview(projectRoot, featureID string, cp *Checkpoint, workstreams
 		return nil, err
 	}
 	for i := 1; i < len(workstreams); i++ {
+		if err := sdputil.ValidateWSID(workstreams[i]); err != nil {
+			return nil, err
+		}
 		p := filepath.Join(projectRoot, "docs", "workstreams", "backlog", workstreams[i]+".md")
 		if b, err := os.ReadFile(p); err == nil {
 			pkt.Workstream += "\n\n---\n\n" + string(b)
@@ -127,7 +136,7 @@ func LoadContextPacket(projectRoot string) (*ContextPacket, error) {
 		return nil, err
 	}
 	var pkt ContextPacket
-	if err := json.Unmarshal(data, &pkt); err != nil {
+	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(data), sdputil.MaxJSONDecodeBytes)).Decode(&pkt); err != nil {
 		return nil, fmt.Errorf("parse context packet: %w", err)
 	}
 	return &pkt, nil

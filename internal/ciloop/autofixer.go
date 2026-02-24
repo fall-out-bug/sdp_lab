@@ -104,16 +104,39 @@ func (r *AutofixerRegistry) MatchingFixers(failureLog string) []DefFixer {
 	return out
 }
 
+// RunDeterministicFixersOpts configures RunDeterministicFixers.
+type RunDeterministicFixersOpts struct {
+	Ctx             context.Context
+	ProjectRoot     string
+	FailureLog     string
+	Registry       *AutofixerRegistry
+	Committer      Committer
+	DecisionLogger func(decision, rationale string) error
+	RunFileLogger  func(fixerNames []string, duration time.Duration)
+}
+
 // RunDeterministicFixers runs matching fixers in order. If any produces changes,
 // commits and pushes, returns true. Otherwise returns false (fall through to LLM).
 // Uses exec directly for fixer commands (need Dir, Stdout, Stderr).
 func RunDeterministicFixers(ctx context.Context, projectRoot string, failureLog string, registry *AutofixerRegistry, committer Committer, decisionLogger func(decision, rationale string) error, runFileLogger func(fixerNames []string, duration time.Duration)) (changed bool, err error) {
-	matching := registry.MatchingFixers(failureLog)
+	return runDeterministicFixers(RunDeterministicFixersOpts{
+		Ctx: ctx, ProjectRoot: projectRoot, FailureLog: failureLog,
+		Registry: registry, Committer: committer,
+		DecisionLogger: decisionLogger, RunFileLogger: runFileLogger,
+	})
+}
+
+func runDeterministicFixers(opts RunDeterministicFixersOpts) (changed bool, err error) {
+	matching := opts.Registry.MatchingFixers(opts.FailureLog)
 	if len(matching) == 0 {
 		return false, nil
 	}
 
 	start := time.Now()
+	ctx := opts.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	for _, f := range matching {
 		timeout := time.Duration(f.Timeout) * time.Second
 		if timeout <= 0 {
@@ -126,7 +149,7 @@ func RunDeterministicFixers(ctx context.Context, projectRoot string, failureLog 
 			continue
 		}
 		cmd := exec.CommandContext(runCtx, parts[0], parts[1:]...)
-		cmd.Dir = projectRoot
+		cmd.Dir = opts.ProjectRoot
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if runErr := cmd.Run(); runErr != nil {
@@ -138,38 +161,28 @@ func RunDeterministicFixers(ctx context.Context, projectRoot string, failureLog 
 
 	// Check if anything changed
 	diffCmd := exec.CommandContext(ctx, "git", "diff", "--quiet")
-	diffCmd.Dir = projectRoot
+	diffCmd.Dir = opts.ProjectRoot
 	if diffErr := diffCmd.Run(); diffErr == nil {
 		return false, nil // no changes
 	}
 
 	// Changes produced: commit and push
-	msg := fmt.Sprintf("fix(ci): auto-fix %s [deterministic]", strings.Join(func() []string {
-		var names []string
-		for _, f := range matching {
-			names = append(names, f.Name)
-		}
-		return names
-	}(), ", "))
-	if err := committer.Commit(msg); err != nil {
+	names := make([]string, len(matching))
+	for i, f := range matching {
+		names[i] = f.Name
+	}
+	msg := fmt.Sprintf("fix(ci): auto-fix %s [deterministic]", strings.Join(names, ", "))
+	if err := opts.Committer.Commit(ctx, msg); err != nil {
 		return false, fmt.Errorf("commit after deterministic fix: %w", err)
 	}
-	if err := committer.Push(); err != nil {
+	if err := opts.Committer.Push(ctx); err != nil {
 		return false, fmt.Errorf("push after deterministic fix: %w", err)
 	}
-	if decisionLogger != nil {
-		names := make([]string, len(matching))
-		for i, f := range matching {
-			names[i] = f.Name
-		}
-		_ = decisionLogger("AUTO-FIX", fmt.Sprintf("Deterministic fixers applied: %s", strings.Join(names, ", ")))
+	if opts.DecisionLogger != nil {
+		_ = opts.DecisionLogger("AUTO-FIX", fmt.Sprintf("Deterministic fixers applied: %s", strings.Join(names, ", ")))
 	}
-	if runFileLogger != nil {
-		names := make([]string, len(matching))
-		for i, f := range matching {
-			names[i] = f.Name
-		}
-		runFileLogger(names, time.Since(start))
+	if opts.RunFileLogger != nil {
+		opts.RunFileLogger(names, time.Since(start))
 	}
 	return true, nil
 }
@@ -196,36 +209,4 @@ func SplitCommand(s string) []string {
 		parts = append(parts, cur.String())
 	}
 	return parts
-}
-
-// DeterministicFirstFixer wraps an inner Fixer: tries deterministic fixers first,
-// only invokes inner Fixer if they don't produce changes.
-type DeterministicFirstFixer struct {
-	ProjectRoot   string
-	Registry      *AutofixerRegistry
-	Runner        CommandRunner
-	Committer     Committer
-	LogFetcher    LogFetcher
-	DecisionLog   func(decision, rationale string) error
-	RunFileLogger func(fixerNames []string, duration time.Duration)
-	Inner         Fixer
-	PRNumber      int
-}
-
-// Fix implements Fixer: tries deterministic fixers first, then inner Fixer.
-func (d *DeterministicFirstFixer) Fix(checks []CheckResult) error {
-	log, err := d.LogFetcher.FailedLogs(d.PRNumber)
-	if err != nil {
-		return fmt.Errorf("fetch CI logs: %w", err)
-	}
-
-	changed, err := RunDeterministicFixers(context.Background(), d.ProjectRoot, log, d.Registry, d.Committer, d.DecisionLog, d.RunFileLogger)
-	if err != nil {
-		return err
-	}
-	if changed {
-		return nil
-	}
-
-	return d.Inner.Fix(checks)
 }

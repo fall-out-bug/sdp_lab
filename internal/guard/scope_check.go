@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"sdp_dev/internal/sdputil"
 )
 
 // ScopeVerdict is the result of a scope check.
@@ -85,6 +87,9 @@ func ChangedFiles(projectRoot string, useCached bool) ([]string, error) {
 
 // CheckScope compares changed files against workstream scope and allowlist.
 func CheckScope(projectRoot, wsID string, useCached bool) (*ScopeVerdict, error) {
+	if err := sdputil.ValidateWSID(wsID); err != nil {
+		return nil, err
+	}
 	wsPath := filepath.Join(projectRoot, "docs", "workstreams", "backlog", wsID+".md")
 	scopePaths, err := ParseScopeFiles(wsPath)
 	if err != nil {

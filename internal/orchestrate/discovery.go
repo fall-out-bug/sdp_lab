@@ -90,24 +90,30 @@ func topologicalSort(infos []WorkstreamInfo) ([]string, error) {
 		idToInfo[i.ID] = i
 	}
 	var order []string
-	visited := make(map[string]bool)
+	// 0=unvisited, 1=inProgress, 2=completed
+	state := make(map[string]int)
 	var visit func(id string) error
 	visit = func(id string) error {
-		if visited[id] {
+		switch state[id] {
+		case 1:
+			return fmt.Errorf("cycle detected in workstream dependencies: %s", id)
+		case 2:
 			return nil
 		}
-		visited[id] = true
+		state[id] = 1
 		info, ok := idToInfo[id]
 		if !ok {
+			state[id] = 2
 			return nil
 		}
 		for _, dep := range info.DependsOn {
-			if _, ok := idToInfo[dep]; ok && !visited[dep] {
+			if _, ok := idToInfo[dep]; ok {
 				if err := visit(dep); err != nil {
 					return err
 				}
 			}
 		}
+		state[id] = 2
 		order = append(order, id)
 		return nil
 	}

@@ -7,31 +7,98 @@ import (
 	"strings"
 )
 
-// Inspect reads an evidence file, validates it, and returns a human-readable summary.
-// If invalid, returns error and empty string.
 func Inspect(path string, requirePRURL bool) (string, Result, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return "", Result{}, err
 	}
-	var payload map[string]any
-	if err := json.Unmarshal(b, &payload); err != nil {
+	var raw map[string]any
+	if err := json.Unmarshal(b, &raw); err != nil {
 		return "", Result{}, err
 	}
-	res, err := ValidateStrictFile(path, requirePRURL)
-	if err != nil {
-		return "", res, err
+
+	if t, _ := raw["_type"].(string); t == StatementType {
+		return inspectAttestation(path, requirePRURL)
 	}
+	return inspectLegacy(path, raw, requirePRURL)
+}
+
+func inspectAttestation(path string, requirePRURL bool) (string, Result, error) {
+	stmt, err := ReadAttestation(path)
+	if err != nil {
+		return "", Result{}, err
+	}
+	res := ValidateAttestation(stmt, requirePRURL)
 	if !res.OK {
 		return "", res, nil
 	}
-	return formatSummary(payload), res, nil
+	return formatAttestationSummary(stmt), res, nil
 }
 
-func formatSummary(p map[string]any) string {
+func inspectLegacy(path string, payload map[string]any, requirePRURL bool) (string, Result, error) {
+	res := validateLegacyPayload(payload, requirePRURL)
+	if !res.OK {
+		return "", res, nil
+	}
+	return formatLegacySummary(payload), res, nil
+}
+
+func formatAttestationSummary(stmt CodingWorkflowStatement) string {
+	var sb strings.Builder
+	p := stmt.Predicate
+
+	sb.WriteString(fmt.Sprintf("format: in-toto attestation (%s)\n", PredicateTypeCodingWorkflow))
+	if len(stmt.Subject) > 0 {
+		sb.WriteString(fmt.Sprintf("subject: %s\n", stmt.Subject[0].Name))
+	}
+
+	sb.WriteString("intent:\n")
+	sb.WriteString(fmt.Sprintf("  issue_id: %s\n", p.Intent.IssueID))
+	sb.WriteString(fmt.Sprintf("  risk_class: %s\n", p.Intent.RiskClass))
+	if len(p.Intent.AcceptanceCriteria) > 0 {
+		sb.WriteString(fmt.Sprintf("  acceptance_criteria: %d items\n", len(p.Intent.AcceptanceCriteria)))
+	}
+
+	sb.WriteString("plan:\n")
+	sb.WriteString(fmt.Sprintf("  workstreams: %v\n", p.Plan.Workstreams))
+
+	sb.WriteString("execution:\n")
+	sb.WriteString(fmt.Sprintf("  branch: %s\n", p.Execution.Branch))
+	sb.WriteString(fmt.Sprintf("  changed_files: %d\n", len(p.Execution.ChangedFiles)))
+
+	sb.WriteString("verification:\n")
+	sb.WriteString(fmt.Sprintf("  tests: %d\n", len(p.Verification.Tests)))
+	if p.Verification.Coverage != nil {
+		sb.WriteString(fmt.Sprintf("  coverage: %.0f%%\n", p.Verification.Coverage.Value))
+	}
+
+	sb.WriteString(fmt.Sprintf("boundary_compliance: ok=%v reason=%s\n", p.Boundary.Compliance.OK, p.Boundary.Compliance.Reason))
+
+	sb.WriteString("provenance:\n")
+	sb.WriteString(fmt.Sprintf("  run_id: %s\n", p.Provenance.RunID))
+	sb.WriteString(fmt.Sprintf("  orchestrator: %s\n", p.Provenance.Orchestrator))
+	if p.Provenance.PromptHash != "" {
+		sb.WriteString(fmt.Sprintf("  prompt_hash: %s\n", p.Provenance.PromptHash))
+	}
+	if len(p.Provenance.ContextSources) > 0 {
+		sb.WriteString(fmt.Sprintf("  context_sources: %d items\n", len(p.Provenance.ContextSources)))
+	}
+
+	sb.WriteString("trace:\n")
+	sb.WriteString(fmt.Sprintf("  branch: %s\n", p.Trace.Branch))
+	sb.WriteString(fmt.Sprintf("  commits: %d\n", len(p.Trace.Commits)))
+	if p.Trace.PRURL != "" {
+		sb.WriteString(fmt.Sprintf("  pr_url: %s\n", p.Trace.PRURL))
+	}
+
+	return strings.TrimSuffix(sb.String(), "\n")
+}
+
+func formatLegacySummary(p map[string]any) string {
 	var sb strings.Builder
 
-	// intent
+	sb.WriteString("format: legacy evidence envelope\n")
+
 	if intent, ok := p["intent"].(map[string]any); ok {
 		sb.WriteString("intent:\n")
 		if id, _ := intent["issue_id"].(string); id != "" {
@@ -45,36 +112,23 @@ func formatSummary(p map[string]any) string {
 		}
 	}
 
-	// plan
 	if plan, ok := p["plan"].(map[string]any); ok {
 		sb.WriteString("plan:\n")
 		if ws, ok := plan["workstreams"].([]any); ok {
 			sb.WriteString(fmt.Sprintf("  workstreams: %v\n", ws))
 		}
-		if r, _ := plan["ordering_rationale"].(string); r != "" {
-			sb.WriteString(fmt.Sprintf("  ordering_rationale: %s\n", r))
-		}
 	}
 
-	// execution
 	if exec, ok := p["execution"].(map[string]any); ok {
 		sb.WriteString("execution:\n")
 		if branch, _ := exec["branch"].(string); branch != "" {
 			sb.WriteString(fmt.Sprintf("  branch: %s\n", branch))
 		}
-		if cf, ok := exec["changed_files"].([]any); ok && len(cf) > 0 {
+		if cf, ok := exec["changed_files"].([]any); ok {
 			sb.WriteString(fmt.Sprintf("  changed_files: %d\n", len(cf)))
-			for i, f := range cf {
-				if i >= 5 {
-					sb.WriteString(fmt.Sprintf("    ... and %d more\n", len(cf)-5))
-					break
-				}
-				sb.WriteString(fmt.Sprintf("    - %v\n", f))
-			}
 		}
 	}
 
-	// verification
 	if ver, ok := p["verification"].(map[string]any); ok {
 		sb.WriteString("verification:\n")
 		if cov, ok := ver["coverage"].(map[string]any); ok {
@@ -82,36 +136,19 @@ func formatSummary(p map[string]any) string {
 				sb.WriteString(fmt.Sprintf("  coverage: %.0f%%\n", v))
 			}
 		}
-		if tests, ok := ver["tests"].([]any); ok && len(tests) > 0 {
+		if tests, ok := ver["tests"].([]any); ok {
 			sb.WriteString(fmt.Sprintf("  tests: %d\n", len(tests)))
 		}
 	}
 
-	// review
-	if rev, ok := p["review"].(map[string]any); ok {
-		sb.WriteString("review:\n")
-		if sr, ok := rev["self_review"].([]any); ok && len(sr) > 0 {
-			sb.WriteString(fmt.Sprintf("  self_review: %d items\n", len(sr)))
-		}
-		if ar, ok := rev["adversarial_review"].([]any); ok && len(ar) > 0 {
-			sb.WriteString(fmt.Sprintf("  adversarial_review: %d items\n", len(ar)))
-		}
-	}
-
-	// boundary compliance
 	if bnd, ok := p["boundary"].(map[string]any); ok {
 		if comp, ok := bnd["compliance"].(map[string]any); ok {
 			okVal, _ := comp["ok"].(bool)
 			reason, _ := comp["reason"].(string)
-			sb.WriteString(fmt.Sprintf("boundary_compliance: ok=%v", okVal))
-			if reason != "" {
-				sb.WriteString(fmt.Sprintf(" reason=%s", reason))
-			}
-			sb.WriteString("\n")
+			sb.WriteString(fmt.Sprintf("boundary_compliance: ok=%v reason=%s\n", okVal, reason))
 		}
 	}
 
-	// provenance chain
 	if prov, ok := p["provenance"].(map[string]any); ok {
 		sb.WriteString("provenance:\n")
 		if runID, _ := prov["run_id"].(string); runID != "" {
@@ -120,12 +157,6 @@ func formatSummary(p map[string]any) string {
 		if orch, _ := prov["orchestrator"].(string); orch != "" {
 			sb.WriteString(fmt.Sprintf("  orchestrator: %s\n", orch))
 		}
-		if h, _ := prov["hash"].(string); h != "" {
-			sb.WriteString("  hash_chain: present\n")
-		} else {
-			sb.WriteString("  hash_chain: empty\n")
-		}
-		// prompt provenance (F026)
 		if promptHash, _ := prov["prompt_hash"].(string); promptHash != "" {
 			sb.WriteString(fmt.Sprintf("  prompt_hash: %s\n", promptHash))
 		}

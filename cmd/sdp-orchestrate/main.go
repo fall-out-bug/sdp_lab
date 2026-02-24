@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -13,10 +12,13 @@ import (
 	"syscall"
 	"time"
 
+	"sdp_dev/internal/ciloop"
 	"sdp_dev/internal/orchestrate"
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 	feature := flag.String("feature", "", "Feature ID (e.g. F016)")
 	nextAction := flag.Bool("next-action", false, "Output next action as JSON")
 	advance := flag.Bool("advance", false, "Advance to next phase after current action")
@@ -27,7 +29,6 @@ func main() {
 	runtime := flag.String("runtime", "", "Runtime for LLM phases: opencode (invokes opencode run as subprocess)")
 	hydrate := flag.Bool("hydrate", false, "Gather context and write .sdp/context-packet.json (before LLM invocation)")
 	ws := flag.String("ws", "", "Workstream ID for --hydrate (default: current build ws from next-action)")
-	skipGuard := flag.Bool("skip-guard", false, "Skip scope guard check on advance (escape hatch)")
 	flag.Parse()
 
 	if *feature == "" {
@@ -61,13 +62,16 @@ func main() {
 	cpPath := filepath.Join(projectRoot, *checkpointDir)
 	runsPath := filepath.Join(projectRoot, *runsDir)
 
+	// Remove orphan .tmp files from previous runs
+	ciloop.RemoveOrphanTmpFiles(cpPath, runsPath, filepath.Join(projectRoot, ".sdp"))
+
 	cp, err := orchestrate.LoadCheckpoint(cpPath, featureID)
 	if err != nil {
 		if *resume || !errors.Is(err, os.ErrNotExist) {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
-		branch, err := orchestrate.CurrentBranch()
+		branch, err := orchestrate.CurrentBranch(ctx)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
@@ -89,121 +93,19 @@ func main() {
 	}
 
 	if *nextAction {
-		action, err := orchestrate.ComputeNextAction(cp, workstreams, projectRoot)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			os.Exit(1)
-		}
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(action); err != nil {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			os.Exit(1)
-		}
+		runNextAction(cp, workstreams, projectRoot)
 		return
 	}
-
 	if *hydrate {
-		action, err := orchestrate.ComputeNextAction(cp, workstreams, projectRoot)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			os.Exit(1)
-		}
-		if action.Action == "review" {
-			if _, err := orchestrate.HydrateForReview(projectRoot, featureID, cp, workstreams); err != nil {
-				fmt.Fprintf(os.Stderr, "error: hydrate: %v\n", err)
-				os.Exit(1)
-			}
-		} else {
-			wsID := *ws
-			if wsID == "" && action.Action == "build" {
-				wsID = action.WSID
-			}
-			if wsID == "" {
-				fmt.Fprintf(os.Stderr, "error: cannot hydrate: action=%s, specify --ws\n", action.Action)
-				os.Exit(1)
-			}
-			if _, err := orchestrate.Hydrate(projectRoot, featureID, wsID, cp); err != nil {
-				fmt.Fprintf(os.Stderr, "error: hydrate: %v\n", err)
-				os.Exit(1)
-			}
-		}
-		fmt.Println("Wrote .sdp/context-packet.json")
+		runHydrate(projectRoot, featureID, *ws, cp, workstreams)
 		return
 	}
-
 	if *runtime == "opencode" {
 		orchestrate.RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath, cp, workstreams)
 		return
 	}
-
 	if *advance {
-		advanceCtx, advanceStop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-		defer advanceStop()
-		if cp.Phase == orchestrate.PhasePR {
-			if err := orchestrate.AdvancePRPhase(advanceCtx, projectRoot, featureID, cpPath, cp); err != nil {
-				fmt.Fprintf(os.Stderr, "error: %v\n", err)
-				os.Exit(1)
-			}
-			return
-		}
-		if cp.Phase == orchestrate.PhaseCI {
-			if err := orchestrate.AdvanceCIPhase(advanceCtx, projectRoot, featureID, cpPath, runsPath, cp); err != nil {
-				fmt.Fprintf(os.Stderr, "error: %v\n", err)
-				os.Exit(1)
-			}
-			return
-		}
-		if cp.Phase == orchestrate.PhaseBuild && *result != "" && !*skipGuard {
-			wsID := orchestrate.CurrentBuildWS(cp)
-			if wsID != "" {
-				if err := orchestrate.RunGuardCheck(projectRoot, wsID); err != nil {
-					var scopeErr *orchestrate.ScopeViolationError
-					if errors.As(err, &scopeErr) {
-						fmt.Fprintf(os.Stderr, "SCOPE VIOLATION: %s\n", err)
-						if createErr := orchestrate.CreateScopeEscalationBead(scopeErr.WSID, scopeErr.Violations); createErr != nil {
-							fmt.Fprintf(os.Stderr, "warning: bd create failed: %v\n", createErr)
-						}
-					}
-					fmt.Fprintf(os.Stderr, "error: advance blocked by scope guard: %v\n", err)
-					os.Exit(1)
-				}
-			}
-		}
-		// Run phase hooks before advancing
-		cpFilePath := filepath.Join(cpPath, featureID+".json")
-		hookEnv := orchestrate.HookEnv{
-			WSID:           orchestrate.CurrentBuildWS(cp),
-			FeatureID:      featureID,
-			Phase:          cp.Phase,
-			CheckpointPath: cpFilePath,
-		}
-		logHook := func(msg string) { fmt.Fprintln(os.Stderr, msg) }
-		switch cp.Phase {
-		case orchestrate.PhaseInit:
-			if err := orchestrate.RunHooks(advanceCtx, projectRoot, "build", "pre", hookEnv, logHook); err != nil {
-				fmt.Fprintf(os.Stderr, "error: pre-build hook: %v\n", err)
-				os.Exit(1)
-			}
-		case orchestrate.PhaseBuild:
-			if err := orchestrate.RunHooks(advanceCtx, projectRoot, "build", "post", hookEnv, logHook); err != nil {
-				fmt.Fprintf(os.Stderr, "error: post-build hook: %v\n", err)
-				os.Exit(1)
-			}
-		case orchestrate.PhaseReview:
-			if err := orchestrate.RunHooks(advanceCtx, projectRoot, "review", "post", hookEnv, logHook); err != nil {
-				fmt.Fprintf(os.Stderr, "error: post-review hook: %v\n", err)
-				os.Exit(1)
-			}
-		}
-		if err := orchestrate.Advance(cp, workstreams, *result); err != nil {
-			fmt.Fprintf(os.Stderr, "error: advance: %v\n", err)
-			os.Exit(1)
-		}
-		if err := orchestrate.SaveCheckpoint(cpPath, cp); err != nil {
-			fmt.Fprintf(os.Stderr, "error: save checkpoint: %v\n", err)
-			os.Exit(1)
-		}
+		runAdvance(projectRoot, featureID, cpPath, runsPath, *result, false, cp, workstreams)
 		return
 	}
 
@@ -218,7 +120,7 @@ func main() {
 	case "review":
 		cpFilePath := filepath.Join(cpPath, featureID+".json")
 		hookEnv := orchestrate.HookEnv{FeatureID: action.Feature, Phase: "review", CheckpointPath: cpFilePath}
-		if err := orchestrate.RunHooks(context.Background(), projectRoot, "review", "pre", hookEnv, func(msg string) { fmt.Fprintln(os.Stderr, msg) }); err != nil {
+		if err := orchestrate.RunHooks(ctx, projectRoot, "review", "pre", hookEnv, func(msg string) { fmt.Fprintln(os.Stderr, msg) }); err != nil {
 			fmt.Fprintf(os.Stderr, "error: pre-review hook: %v\n", err)
 			os.Exit(1)
 		}

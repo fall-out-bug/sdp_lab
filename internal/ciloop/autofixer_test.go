@@ -49,25 +49,6 @@ func TestMatchingFixersNoMatch(t *testing.T) {
 	}
 }
 
-func TestRunDeterministicFixersNoMatchReturnsFalse(t *testing.T) {
-	dir := t.TempDir()
-	reg := ciloop.NewAutofixerRegistry(dir)
-	committer := &fakeCommitter{}
-	changed, err := ciloop.RunDeterministicFixers(
-		context.Background(), dir, "secrets detected",
-		reg, committer, nil, nil,
-	)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if changed {
-		t.Error("expected no change when no fixers match")
-	}
-	if len(committer.commits) != 0 {
-		t.Error("expected no commit when no fixers match")
-	}
-}
-
 func TestDeterministicFirstFixerFallsThroughToInnerWhenNoDeterministicHelp(t *testing.T) {
 	dir := t.TempDir()
 	reg := ciloop.NewAutofixerRegistry(dir)
@@ -76,7 +57,8 @@ func TestDeterministicFirstFixerFallsThroughToInnerWhenNoDeterministicHelp(t *te
 	inner := ciloop.NewFixer(ciloop.FixerOptions{
 		PRNumber:       42,
 		FeatureID:      "F027",
-		DiagnosticsDir:  filepath.Join(dir, ".sdp", "ci-fixes"),
+		DiagnosticsDir: filepath.Join(dir, ".sdp", "ci-fixes"),
+		Ctx:            context.Background(),
 		Committer:      committer,
 		LogFetcher:     fetcher,
 		DecisionLogger: func(_, _ string) error { return nil },

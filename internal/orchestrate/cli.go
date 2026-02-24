@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"sdp_dev/internal/sdputil"
 )
 
 const (
@@ -20,67 +22,20 @@ const (
 	prPhaseTimeout     = 10 * time.Minute
 )
 
-// runFileJSON is the initial run file schema (safe JSON marshal, no quote injection).
-type runFileJSON struct {
-	RunID        string            `json:"run_id"`
-	FeatureID   string            `json:"feature_id"`
-	Orchestrator string           `json:"orchestrator"`
-	Branch      string            `json:"branch"`
-	StartedAt   string            `json:"started_at"`
-	Events      []runFileEventJSON `json:"events"`
-	LastPhase   string            `json:"last_phase"`
-	LastState   string            `json:"last_state"`
-}
+const cliExecTimeout = 30 * time.Second
 
-type runFileEventJSON struct {
-	At    string `json:"at"`
-	Phase string `json:"phase"`
-	State string `json:"state"`
-}
-
-// CurrentBranch returns the current git branch.
-func CurrentBranch() (string, error) {
-	out, err := exec.Command("git", "branch", "--show-current").Output()
+// CurrentBranch returns the current git branch. Uses ctx for cancellation.
+func CurrentBranch(ctx context.Context) (string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	runCtx, cancel := context.WithTimeout(ctx, cliExecTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(runCtx, "git", "branch", "--show-current").Output()
 	if err != nil {
 		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil
-}
-
-// EnsureRunFile creates the initial run file for a feature (atomic write).
-func EnsureRunFile(dir, featureID, branch string) error {
-	if err := validateFeatureID(featureID); err != nil {
-		return err
-	}
-	now := time.Now().UTC().Format(time.RFC3339)
-	runID := fmt.Sprintf("oneshot-%s-%s", featureID, time.Now().UTC().Format("20060102T150405Z"))
-	path := filepath.Join(dir, runID+".json")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("mkdir runs dir: %w", err)
-	}
-	rf := runFileJSON{
-		RunID:        runID,
-		FeatureID:   featureID,
-		Orchestrator: "sdp-orchestrate",
-		Branch:      branch,
-		StartedAt:   now,
-		Events:      []runFileEventJSON{{At: now, Phase: "init", State: "ok"}},
-		LastPhase:   "init",
-		LastState:   "ok",
-	}
-	body, err := json.MarshalIndent(rf, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal run file: %w", err)
-	}
-	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, body, 0o644); err != nil {
-		return fmt.Errorf("write run file: %w", err)
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("rename run file: %w", err)
-	}
-	return nil
 }
 
 // RunPRPhase executes git push and gh pr create with timeout.
@@ -94,7 +49,7 @@ func RunPRPhase(ctx context.Context, projectRoot, featureID string, cp *Checkpoi
 	if err := push.Run(); err != nil {
 		return fmt.Errorf("git push: %w", err)
 	}
-	head, err := CurrentBranch()
+	head, err := CurrentBranch(phaseCtx)
 	if err != nil {
 		return fmt.Errorf("current branch: %w", err)
 	}
@@ -112,13 +67,18 @@ func RunPRPhase(ctx context.Context, projectRoot, featureID string, cp *Checkpoi
 // ErrNoPR is returned when no PR exists for the current branch.
 var ErrNoPR = errors.New("no PR found for current branch")
 
-// GetPRInfo returns PR number and URL for the current branch.
-func GetPRInfo() (int, string, error) {
-	branch, err := CurrentBranch()
+// GetPRInfo returns PR number and URL for the current branch. Uses ctx for cancellation.
+func GetPRInfo(ctx context.Context) (int, string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	branch, err := CurrentBranch(ctx)
 	if err != nil {
 		return 0, "", err
 	}
-	out, err := exec.Command("gh", "pr", "list", "--head", branch, "--json", "number,url").Output()
+	runCtx, cancel := context.WithTimeout(ctx, cliExecTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(runCtx, "gh", "pr", "list", "--head", branch, "--json", "number,url").Output()
 	if err != nil {
 		return 0, "", err
 	}
@@ -129,7 +89,7 @@ func GetPRInfo() (int, string, error) {
 		Number int    `json:"number"`
 		URL    string `json:"url"`
 	}
-	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(out), maxJSONDecodeBytes)).Decode(&arr); err != nil {
+	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(out), sdputil.MaxJSONDecodeBytes)).Decode(&arr); err != nil {
 		return 0, "", err
 	}
 	if len(arr) == 0 {
@@ -143,7 +103,7 @@ func AdvancePRPhase(ctx context.Context, projectRoot, featureID, cpPath string, 
 	if err := RunPRPhase(ctx, projectRoot, featureID, cp); err != nil {
 		return err
 	}
-	prNum, prURL, err := GetPRInfo()
+	prNum, prURL, err := GetPRInfo(ctx)
 	if err != nil {
 		return err
 	}
@@ -167,7 +127,7 @@ func AdvanceCIPhase(ctx context.Context, projectRoot, featureID, cpPath, runsPat
 		pr = *cp.PRNumber
 	}
 	if pr == 0 {
-		prNum, _, err := GetPRInfo()
+		prNum, _, err := GetPRInfo(ctx)
 		if err != nil {
 			return err
 		}

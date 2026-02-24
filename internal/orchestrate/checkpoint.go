@@ -7,11 +7,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
-)
 
-const maxJSONDecodeBytes = 10 * 1024 * 1024 // 10MB DoS limit (7m40)
+	"sdp_dev/internal/sdputil"
+)
 
 // Checkpoint is the .sdp/checkpoints/F{NNN}.json schema for the orchestrate state machine.
 // Compatible with ciloop.Checkpoint for pr_number, feature_id, branch (used by sdp-ci-loop and stop gate).
@@ -54,16 +53,9 @@ const (
 	PhaseDone   = "done"
 )
 
-func validateFeatureID(featureID string) error {
-	if strings.ContainsAny(featureID, "/\\..") || featureID == "" {
-		return fmt.Errorf("invalid feature_id %q: must not contain path separators or dots", featureID)
-	}
-	return nil
-}
-
 // LoadCheckpoint reads the orchestrate checkpoint for a feature.
 func LoadCheckpoint(dir, featureID string) (*Checkpoint, error) {
-	if err := validateFeatureID(featureID); err != nil {
+	if err := sdputil.ValidateFeatureID(featureID); err != nil {
 		return nil, err
 	}
 	path := filepath.Join(dir, featureID+".json")
@@ -72,7 +64,7 @@ func LoadCheckpoint(dir, featureID string) (*Checkpoint, error) {
 		return nil, fmt.Errorf("read checkpoint %s: %w", path, err)
 	}
 	var cp Checkpoint
-	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(data), maxJSONDecodeBytes)).Decode(&cp); err != nil {
+	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(data), sdputil.MaxJSONDecodeBytes)).Decode(&cp); err != nil {
 		return nil, fmt.Errorf("parse checkpoint %s: %w", path, err)
 	}
 	return &cp, nil
@@ -80,7 +72,7 @@ func LoadCheckpoint(dir, featureID string) (*Checkpoint, error) {
 
 // SaveCheckpoint writes the checkpoint to disk atomically.
 func SaveCheckpoint(dir string, cp *Checkpoint) error {
-	if err := validateFeatureID(cp.FeatureID); err != nil {
+	if err := sdputil.ValidateFeatureID(cp.FeatureID); err != nil {
 		return err
 	}
 	cp.UpdatedAt = time.Now().UTC().Format(time.RFC3339)

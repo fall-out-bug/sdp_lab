@@ -4,9 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"sdp_dev/internal/guard"
+	"sdp_dev/internal/orchestrate"
 )
 
 func main() {
@@ -25,7 +25,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
-	projectRoot, err := findProjectRoot(wd)
+	projectRoot, err := orchestrate.FindProjectRoot(wd)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
@@ -52,18 +52,4 @@ func main() {
 	}
 	fmt.Fprintf(os.Stderr, "out-of-scope changes detected (%d files)\n", len(verdict.Violations))
 	os.Exit(1)
-}
-
-func findProjectRoot(dir string) (string, error) {
-	abs, err := filepath.Abs(dir)
-	if err != nil {
-		return "", err
-	}
-	for d := abs; d != "" && d != "/"; d = filepath.Dir(d) {
-		check := filepath.Join(d, "docs", "workstreams", "backlog")
-		if ents, _ := filepath.Glob(filepath.Join(check, "*.md")); len(ents) > 0 {
-			return d, nil
-		}
-	}
-	return "", fmt.Errorf("project root not found (no docs/workstreams/backlog)")
 }

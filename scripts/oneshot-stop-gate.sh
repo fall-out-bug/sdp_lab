@@ -5,8 +5,8 @@
 
 set -e
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CHECKPOINT_DIR="${ROOT}/.sdp/checkpoints"
-RUNS_DIR="${ROOT}/.sdp/runs"
+CHECKPOINT_DIR="${SDP_CHECKPOINT_DIR:-${ROOT}/.sdp/checkpoints}"
+RUNS_DIR="${SDP_RUNS_DIR:-${ROOT}/.sdp/runs}"
 
 # If stop_hook_active, allow stop (prevent infinite loop)
 PAYLOAD=""

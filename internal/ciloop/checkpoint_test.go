@@ -91,8 +91,8 @@ func TestSaveCheckpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load after save: %v", err)
 	}
-	if loaded.Phase != "ci" {
-		t.Errorf("expected phase=ci after SaveCheckpoint, got %q", loaded.Phase)
+	if loaded.Phase != "build" {
+		t.Errorf("expected phase=build (saved as given), got %q", loaded.Phase)
 	}
 	if loaded.UpdatedAt == "" {
 		t.Error("expected updated_at to be set")

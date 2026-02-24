@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-
-	"sdp_dev/internal/artifact"
 )
 
 var requiredSections = []string{"intent", "plan", "execution", "verification", "review", "risk_notes", "boundary", "provenance", "trace"}
@@ -22,11 +20,20 @@ func ValidateStrictFile(path string, requirePRURL bool) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	var payload map[string]any
-	if err := json.Unmarshal(b, &payload); err != nil {
+
+	var raw map[string]any
+	if err := json.Unmarshal(b, &raw); err != nil {
 		return Result{}, err
 	}
 
+	if t, _ := raw["_type"].(string); t == StatementType {
+		return ValidateAttestationFile(path, requirePRURL)
+	}
+
+	return validateLegacyPayload(raw, requirePRURL), nil
+}
+
+func validateLegacyPayload(payload map[string]any, requirePRURL bool) Result {
 	missing := make([]string, 0)
 	for _, key := range requiredSections {
 		if _, ok := payload[key]; !ok {
@@ -34,25 +41,25 @@ func ValidateStrictFile(path string, requirePRURL bool) (Result, error) {
 		}
 	}
 	if len(missing) > 0 {
-		return Result{OK: false, Missing: missing, Reason: "missing strict evidence sections"}, nil
+		return Result{OK: false, Missing: missing, Reason: "missing strict evidence sections"}
 	}
 
 	if !hasBoundaryContract(payload["boundary"]) {
-		return Result{OK: false, Reason: "invalid boundary contract"}, nil
+		return Result{OK: false, Reason: "invalid boundary contract"}
 	}
 	if !hasProvenanceContract(payload["provenance"]) {
-		return Result{OK: false, Reason: "invalid provenance contract"}, nil
+		return Result{OK: false, Reason: "invalid provenance contract"}
 	}
 
 	if requirePRURL {
 		trace, _ := payload["trace"].(map[string]any)
 		prURL, _ := trace["pr_url"].(string)
 		if strings.TrimSpace(prURL) == "" {
-			return Result{OK: false, Reason: "missing trace.pr_url"}, nil
+			return Result{OK: false, Reason: "missing trace.pr_url"}
 		}
 	}
 
-	return Result{OK: true, Reason: "ok"}, nil
+	return Result{OK: true, Reason: "ok"}
 }
 
 func hasBoundaryContract(v any) bool {
@@ -111,23 +118,22 @@ func hasProvenanceContract(v any) bool {
 		return false
 	}
 	hash, _ := p["hash"].(string)
-	if strings.TrimSpace(hash) != "" && !artifact.IsSHA256Hex(hash) {
+	if strings.TrimSpace(hash) != "" && !isSHA256Hex(hash) {
 		return false
 	}
 	hashPrev, _ := p["hash_prev"].(string)
-	if strings.TrimSpace(hashPrev) != "" && !artifact.IsSHA256Hex(hashPrev) {
+	if strings.TrimSpace(hashPrev) != "" && !isSHA256Hex(hashPrev) {
 		return false
 	}
 	payloadDigest, _ := p["payload_digest"].(string)
-	if strings.TrimSpace(payloadDigest) != "" && !artifact.IsSHA256Hex(payloadDigest) {
+	if strings.TrimSpace(payloadDigest) != "" && !isSHA256Hex(payloadDigest) {
 		return false
 	}
 	if _, ok := p["gate_results"]; !ok {
 		return false
 	}
-	// Optional prompt provenance (F026): when present, must be valid
 	if promptHash, ok := p["prompt_hash"].(string); ok && strings.TrimSpace(promptHash) != "" {
-		if !artifact.IsSHA256Hex(promptHash) {
+		if !isSHA256Hex(promptHash) {
 			return false
 		}
 	}
@@ -143,7 +149,7 @@ func hasProvenanceContract(v any) bool {
 			if strings.TrimSpace(t) == "" || strings.TrimSpace(path) == "" || strings.TrimSpace(h) == "" {
 				return false
 			}
-			if !artifact.IsSHA256Hex(h) {
+			if !isSHA256Hex(h) {
 				return false
 			}
 		}

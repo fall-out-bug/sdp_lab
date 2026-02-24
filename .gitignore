@@ -1,5 +1,7 @@
 .sdp/*
 !.sdp/config.yml
+!.sdp/pipeline-hooks.yaml.example
+!.sdp/policies/
 __pycache__/
 *.pyc
 .tmp/
@@ -23,6 +25,13 @@ __pycache__/
 /sdp-ci-loop
 /sdp-orchestrate
 /sdp-eval
+/sdp-guard
+/beads-fsm
+/brain-gateway
+/cicd-agent
+
+# Build output (make build-sdp-*)
+bin/
 
 # Execution state
 .oneshot/
