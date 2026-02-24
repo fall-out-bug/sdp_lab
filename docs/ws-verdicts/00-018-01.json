@@ -1,0 +1,1 @@
+{"ws_id":"00-018-01","verdict":"PASS","ac_evidence":[{"ac":"3 skill files deleted","status":"pass"},{"ac":"17 agent files deleted","status":"pass"},{"ac":"builder merged into implementer, builder deleted","status":"pass"},{"ac":"README replaced with concise index","status":"pass"},{"ac":"commands.json updated","status":"pass"},{"ac":"No broken references","status":"pass"}]}

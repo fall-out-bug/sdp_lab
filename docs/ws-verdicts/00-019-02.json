@@ -1,0 +1,1 @@
+{"ws_id":"00-019-02","verdict":"PASS","ac_evidence":[{"ac":"@think ≤80 lines","status":"pass"},{"ac":"@reality-check ≤60 lines","status":"pass"},{"ac":"@discovery merged into @feature","status":"pass"},{"ac":"@prd merged into @vision","status":"pass"},{"ac":"Zero Next Steps sections","status":"pass"}]}
