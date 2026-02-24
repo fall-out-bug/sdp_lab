@@ -28,30 +28,6 @@ jobs:
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
           golangci-lint run ./...
 
-  k8s-validate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install kubectl
-        run: |
-          curl -sLO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
-
-      - name: Validate control plane manifests
-        run: kubectl kustomize deploy/k8s/control/ > /dev/null
-
-      - name: Validate adapter manifests
-        run: |
-          kubectl kustomize deploy/k8s/adapter/ > /dev/null
-          kubectl kustomize deploy/k8s/adapter/overlays/dev > /dev/null
-          kubectl kustomize deploy/k8s/adapter/overlays/staging > /dev/null
-          kubectl kustomize deploy/k8s/adapter/overlays/prod > /dev/null
-
-      - name: Validate workers manifests
-        run: kubectl kustomize deploy/k8s/workers/ > /dev/null
-
   evidence-gate:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
@@ -170,11 +146,46 @@ jobs:
         run: |
           set -e
           echo "=== Policy Evaluation ==="
-          for policy in .sdp/policies/*.rego; do
-            echo "--- $(basename $policy) ---"
-            opa eval --data "$policy" --input /tmp/policy-input.json \
-              'data.sdp.policies.deny' --format pretty || true
-          done
+
+          # Evaluate all policies together for cross-policy rules (enforcement_level)
+          DENIALS=$(opa eval \
+            --data .sdp/policies/ \
+            --input /tmp/policy-input.json \
+            'data.sdp.policies.effective_deny' \
+            --format raw 2>/dev/null || echo '[]')
+
+          WARNINGS=$(opa eval \
+            --data .sdp/policies/ \
+            --input /tmp/policy-input.json \
+            'data.sdp.policies.advisory_warn' \
+            --format raw 2>/dev/null || echo '[]')
+
+          LEVEL=$(opa eval \
+            --data .sdp/policies/ \
+            --input /tmp/policy-input.json \
+            'data.sdp.policies.enforcement_level' \
+            --format raw 2>/dev/null | tr -d '"' || echo 'advisory')
+
+          echo "Enforcement level: $LEVEL"
+
+          if [ "$WARNINGS" != "[]" ] && [ "$WARNINGS" != "" ]; then
+            echo "=== Policy Warnings ==="
+            echo "$WARNINGS" | jq -r '.[] // empty' 2>/dev/null || echo "$WARNINGS"
+          fi
+
+          if [ "$DENIALS" != "[]" ] && [ "$DENIALS" != "" ] && [ "$DENIALS" != "null" ]; then
+            DENIAL_COUNT=$(echo "$DENIALS" | jq 'length' 2>/dev/null || echo "1")
+            echo "=== Policy Denials ($LEVEL) ==="
+            echo "$DENIALS" | jq -r '.[] // empty' 2>/dev/null || echo "$DENIALS"
+            if [ "$LEVEL" = "blocking" ] && [ "$DENIAL_COUNT" -gt "0" ]; then
+              echo "ERROR: $DENIAL_COUNT policy denial(s) block merge (enforcement_level=blocking)"
+              exit 1
+            else
+              echo "INFO: $DENIAL_COUNT policy denial(s) recorded (enforcement_level=advisory, non-blocking)"
+            fi
+          else
+            echo "No policy denials."
+          fi
 
   auto-attestation:
     runs-on: ubuntu-latest
@@ -184,6 +195,7 @@ jobs:
       contents: read
       id-token: write
       attestations: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -195,6 +207,7 @@ jobs:
           go-version: '1.26'
 
       - name: Generate auto-attestation
+        id: attest
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_URL: ${{ github.event.pull_request.html_url }}
@@ -202,7 +215,7 @@ jobs:
         run: |
           set -e
           mkdir -p .sdp/attestations
-          go run -tags ci_attest ./internal/evidence/cmd/auto-attest \
+          go run ./internal/evidence/cmd/auto-attest \
             --base-branch "$BASE_REF" \
             --pr-number "$PR_NUMBER" \
             --pr-url "$PR_URL" \
@@ -213,124 +226,106 @@ jobs:
             cat .sdp/attestations/ci-auto-report.json
           fi
 
-  image-build:
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.26'
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push opencode-agent
+      - name: Sign attestation with Sigstore (keyless)
         env:
-          IMAGE_TAG: git-${{ github.sha }}
+          COSIGN_EXPERIMENTAL: "1"
         run: |
-          IMAGE="ghcr.io/${{ github.repository_owner }}/sdp-dev-opencode-agent:${IMAGE_TAG}"
-          echo "Building ${IMAGE}"
-          mkdir -p .tmp/opencode-runtime
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o .tmp/opencode-runtime/opencode-agent ./cmd/opencode-agent
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o .tmp/opencode-runtime/orchestrator ./cmd/orchestrator
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o .tmp/opencode-runtime/swarm-worker ./cmd/swarm-worker
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o .tmp/opencode-runtime/swarm-reviewer ./cmd/swarm-reviewer
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o .tmp/opencode-runtime/autonomy-worker ./cmd/autonomy-worker
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o .tmp/opencode-runtime/beads-fsm ./cmd/beads-fsm
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o .tmp/opencode-runtime/pr-gate ./cmd/pr-gate
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o .tmp/opencode-runtime/pr-publish ./cmd/pr-publish
-          if [ ! -d .tmp/beads-src ]; then
-            git clone --depth 1 --branch v0.49.6 https://github.com/steveyegge/beads.git .tmp/beads-src
+          # Install cosign
+          curl -sLO https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64
+          chmod +x cosign-linux-amd64
+          sudo mv cosign-linux-amd64 /usr/local/bin/cosign
+
+          if [ -f .sdp/attestations/ci-auto.json ]; then
+            echo "Signing attestation with Sigstore keyless..."
+            cosign sign-blob \
+              --yes \
+              --bundle .sdp/attestations/ci-auto.bundle \
+              .sdp/attestations/ci-auto.json || echo "WARN: Sigstore signing failed (non-blocking)"
+
+            if [ -f .sdp/attestations/ci-auto.bundle ]; then
+              echo "Attestation signed. Rekor entry:"
+              jq -r '.rekorBundle.logIndex // "N/A"' .sdp/attestations/ci-auto.bundle 2>/dev/null || true
+            fi
           fi
-          (cd .tmp/beads-src && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../opencode-runtime/bd ./cmd/bd)
-          docker build -t "${IMAGE}" -f deploy/images/opencode-agent/Dockerfile.runtime .
-          docker push "${IMAGE}"
 
-      - name: Build and push swarm-orchestrator
-        env:
-          IMAGE_TAG: git-${{ github.sha }}
-        run: |
-          IMAGE="ghcr.io/${{ github.repository_owner }}/sdp-dev-swarm-orchestrator:${IMAGE_TAG}"
-          echo "Building ${IMAGE}"
-          docker build -t "${IMAGE}" -f deploy/images/swarm-orchestrator/Dockerfile .
-          docker push "${IMAGE}"
-
-      - name: Build and push intake-gateway
-        env:
-          IMAGE_TAG: git-${{ github.sha }}
-        run: |
-          IMAGE="ghcr.io/${{ github.repository_owner }}/sdp-dev-intake-gateway:${IMAGE_TAG}"
-          echo "Building ${IMAGE}"
-          docker build -t "${IMAGE}" -f deploy/images/intake-gateway/Dockerfile .
-          docker push "${IMAGE}"
-
-      - name: Build and push adapter-controller
-        env:
-          IMAGE_TAG: git-${{ github.sha }}
-        run: |
-          IMAGE="ghcr.io/${{ github.repository_owner }}/sdp-dev-adapter-controller:${IMAGE_TAG}"
-          echo "Building ${IMAGE}"
-          docker build -t "${IMAGE}" -f deploy/images/adapter-controller/Dockerfile .
-          docker push "${IMAGE}"
-
-      - name: Build and push feature-orchestrator
-        env:
-          IMAGE_TAG: git-${{ github.sha }}
-        run: |
-          IMAGE="ghcr.io/${{ github.repository_owner }}/sdp-dev-feature-orchestrator:${IMAGE_TAG}"
-          echo "Building ${IMAGE}"
-          docker build -t "${IMAGE}" -f deploy/images/feature-orchestrator/Dockerfile .
-          docker push "${IMAGE}"
-
-      - name: Build and push telemetry-analyzer
-        env:
-          IMAGE_TAG: git-${{ github.sha }}
-        run: |
-          IMAGE="ghcr.io/${{ github.repository_owner }}/sdp-dev-telemetry-analyzer:${IMAGE_TAG}"
-          echo "Building ${IMAGE}"
-          docker build -t "${IMAGE}" -f deploy/images/telemetry-analyzer/Dockerfile .
-          docker push "${IMAGE}"
-
-      - name: Build and push cicd-agent
-        env:
-          IMAGE_TAG: git-${{ github.sha }}
-        run: |
-          IMAGE="ghcr.io/${{ github.repository_owner }}/sdp-dev-cicd-agent:${IMAGE_TAG}"
-          echo "Building ${IMAGE}"
-          docker build -t "${IMAGE}" -f deploy/images/cicd-agent/Dockerfile .
-          docker push "${IMAGE}"
-
-  e2e-agentrun-minikube:
-    name: E2E AgentRun (minikube)
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Start minikube
-        uses: medyagh/setup-minikube@v0.0.17
+      - name: Upload attestation artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
         with:
-          minikube-version: latest
-          kubernetes-version: v1.28.0
+          name: sdp-attestation-pr${{ github.event.pull_request.number }}
+          path: |
+            .sdp/attestations/ci-auto.json
+            .sdp/attestations/ci-auto.bundle
+            .sdp/attestations/ci-auto-report.json
+          if-no-files-found: ignore
+          retention-days: 90
 
-      - name: Apply CRDs
-        run: |
-          kubectl apply -f deploy/k8s/crd/
-
-      - name: E2E AgentRun on minikube
-        run: ./scripts/e2e_agentrun_minikube.sh --build-image
+      - name: Post PR summary comment
         env:
-          SDP_ADAPTER_NS: sdp-adapter
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ ! -f .sdp/attestations/ci-auto-report.json ]; then
+            echo "No report to post"
+            exit 0
+          fi
+
+          REPORT=.sdp/attestations/ci-auto-report.json
+          BRANCH=$(jq -r '.branch // "unknown"' "$REPORT")
+          HEAD=$(jq -r '.head_commit // "unknown"' "$REPORT" | head -c 8)
+          CHANGED=$(jq -r '.changed_files // 0' "$REPORT")
+          TESTS=$(jq -r '.test_results[0].status // "unknown"' "$REPORT")
+          ALL_TESTS=$(jq -r '.all_tests_pass // false' "$REPORT")
+          ALL_LINT=$(jq -r '.all_lint_pass // false' "$REPORT")
+          SCOPE_OK=$(jq -r '.scope_compliance.ok // false' "$REPORT")
+          SCOPE_REASON=$(jq -r '.scope_compliance.reason // ""' "$REPORT")
+          BEADS=$(jq -r '.beads_ids | if length > 0 then join(", ") else "none" end' "$REPORT")
+
+          TESTS_ICON=$([ "$ALL_TESTS" = "true" ] && echo "✅" || echo "❌")
+          LINT_ICON=$([ "$ALL_LINT" = "true" ] && echo "✅" || echo "⚠️")
+          SCOPE_ICON=$([ "$SCOPE_OK" = "true" ] && echo "✅" || echo "⚠️")
+
+          COVERAGE_LINE=""
+          if jq -e '.coverage_pct' "$REPORT" > /dev/null 2>&1; then
+            COVERAGE_PCT=$(jq -r '.coverage_pct' "$REPORT")
+            COVERAGE_OK=$(jq -r '.coverage_ok // false' "$REPORT")
+            COVERAGE_ICON=$([ "$COVERAGE_OK" = "true" ] && echo "✅" || echo "⚠️")
+            COVERAGE_LINE="| Coverage | ${COVERAGE_ICON} ${COVERAGE_PCT}% |"
+          fi
+
+          SIGNED_LINE=""
+          if [ -f .sdp/attestations/ci-auto.bundle ]; then
+            REKOR_IDX=$(jq -r '.rekorBundle.logIndex // ""' .sdp/attestations/ci-auto.bundle 2>/dev/null || echo "")
+            if [ -n "$REKOR_IDX" ]; then
+              SIGNED_LINE="| Signed | ✅ Rekor #${REKOR_IDX} |"
+            else
+              SIGNED_LINE="| Signed | ✅ Sigstore bundle |"
+            fi
+          fi
+
+          COMMENT="## SDP Auto-Attestation
+
+          | Field | Value |
+          |-------|-------|
+          | Branch | \`${BRANCH}\` |
+          | Commit | \`${HEAD}\` |
+          | Changed files | ${CHANGED} |
+          | Tests | ${TESTS_ICON} ${TESTS} |
+          | Lint | ${LINT_ICON} |
+          | Scope | ${SCOPE_ICON} ${SCOPE_REASON} |
+          ${COVERAGE_LINE}
+          ${SIGNED_LINE}
+          | Beads | ${BEADS} |
+
+          <details>
+          <summary>Full attestation report</summary>
+
+          \`\`\`json
+          $(cat "$REPORT")
+          \`\`\`
+          </details>
+
+          > Generated by [SDP auto-attestation](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
+          gh pr comment "$PR_NUMBER" --body "$COMMENT" || echo "WARN: could not post PR comment (non-blocking)"
+

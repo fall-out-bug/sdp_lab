@@ -1,0 +1,93 @@
+# Agent Constraint Rules
+# Controls what agent actions are allowed in each phase.
+# Enforced by stop hooks in Cursor/Claude Code via sdp-guard --check-constraints.
+#
+# Severity levels:
+#   warn: log and continue
+#   block: reject the action
+#   halt: stop the agent session
+#   escalate: stop and notify human
+
+version: "1"
+updated: "2026-02-23"
+
+phases:
+  build:
+    description: "Agent is implementing a workstream"
+    constraints:
+      - id: scope-boundary
+        description: "Agent must not modify files outside declared workstream scope"
+        severity: block
+        check: scope-diff
+        message: "SCOPE VIOLATION: modified file is outside declared workstream scope. Run sdp-guard to see allowed paths."
+
+      - id: no-force-push
+        description: "Agent must not force-push to any remote branch"
+        severity: halt
+        check: command-pattern
+        pattern: "git push.*--force|git push.*-f "
+        message: "HALT: force-push is not allowed during automated execution."
+
+      - id: no-main-branch-push
+        description: "Agent must not push directly to master/main"
+        severity: halt
+        check: command-pattern
+        pattern: "git push.*master|git push.*main"
+        message: "HALT: direct push to master/main is not allowed. Create a feature branch PR."
+
+      - id: no-secret-access
+        description: "Agent must not read secret files (private keys, env files)"
+        severity: block
+        check: file-pattern
+        pattern: "\.env$|id_rsa|id_ed25519|\.key$|secrets\.yaml"
+        message: "BLOCK: attempted to access secret file. Not allowed during automated build."
+
+      - id: no-destructive-git
+        description: "Agent must not run destructive git operations"
+        severity: block
+        check: command-pattern
+        pattern: "git reset --hard|git clean -fd|git checkout -- \\.\\."
+        message: "BLOCK: destructive git operation blocked in build phase."
+
+  review:
+    description: "Agent is reviewing code for the feature"
+    constraints:
+      - id: no-code-modification
+        description: "Agent must not modify .go files during review phase"
+        severity: warn
+        check: file-pattern
+        pattern: "\.go$"
+        message: "WARN: modifying Go source files in review phase. Consider using build phase for changes."
+
+      - id: no-force-push
+        description: "Agent must not force-push"
+        severity: halt
+        check: command-pattern
+        pattern: "git push.*--force|git push.*-f "
+        message: "HALT: force-push is not allowed during review."
+
+  pr:
+    description: "Agent is creating the PR"
+    constraints:
+      - id: require-evidence
+        description: "Evidence file must exist before PR creation"
+        severity: block
+        check: file-exists
+        path: ".sdp/evidence/{feature_id}.json"
+        message: "BLOCK: no evidence attestation found for this feature. Generate evidence before creating PR."
+
+      - id: no-merge-directly
+        description: "Agent must not merge PRs directly (only create)"
+        severity: halt
+        check: command-pattern
+        pattern: "gh pr merge"
+        message: "HALT: automated PR merge is not allowed. Human review required."
+
+# Graduated containment levels (MI9-inspired)
+# Applied based on violation count in current session
+containment:
+  thresholds:
+    warn: 1        # First violation: warn only
+    block: 3       # Third violation: block the action
+    halt: 5        # Fifth violation: halt the agent session
+    escalate: 7    # Seventh violation: halt + create escalation bead

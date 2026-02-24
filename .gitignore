@@ -2,6 +2,7 @@
 !.sdp/config.yml
 !.sdp/pipeline-hooks.yaml.example
 !.sdp/policies/
+!.sdp/agent-constraints.yaml
 __pycache__/
 *.pyc
 .tmp/
