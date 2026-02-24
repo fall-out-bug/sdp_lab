@@ -12,7 +12,25 @@ permissions:
   id-token: write  # Required for Sigstore keyless signing
 
 jobs:
+  protocol-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Protocol E2E (Docker)
+        env:
+          GLM_API_KEY: ${{ secrets.GLM_API_KEY }}
+        run: |
+          docker build -f ci/Dockerfile.protocol-e2e -t sdp-protocol-e2e:latest .
+          docker run --rm \
+            -e GLM_API_KEY="${GLM_API_KEY}" \
+            sdp-protocol-e2e:latest
+
   release:
+    needs: protocol-e2e
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
