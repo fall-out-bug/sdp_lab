@@ -30,6 +30,7 @@ func main() {
 	runtime := flag.String("runtime", "", "Runtime for LLM phases: opencode (invokes opencode run as subprocess)")
 	hydrate := flag.Bool("hydrate", false, "Gather context and write .sdp/context-packet.json (before LLM invocation)")
 	ws := flag.String("ws", "", "Workstream ID for --hydrate (default: current build ws from next-action)")
+	index := flag.Bool("index", false, "Generate INDEX table for feature workstreams (print to stdout)")
 	flag.Parse()
 
 	if *feature == "" {
@@ -52,6 +53,11 @@ func main() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
+	}
+
+	if *index {
+		runIndex(projectRoot, featureID, *checkpointDir)
+		return
 	}
 
 	workstreams, err := orchestrate.DiscoverWorkstreams(projectRoot, featureID)
@@ -141,4 +147,19 @@ func main() {
 	case "done":
 		fmt.Println("CI GREEN - @oneshot complete")
 	}
+}
+
+func runIndex(projectRoot, featureID, checkpointDir string) {
+	cpPath := filepath.Join(projectRoot, checkpointDir)
+	cp, err := orchestrate.LoadCheckpoint(cpPath, featureID)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	rows, err := orchestrate.GenerateIndexTable(projectRoot, featureID, cp)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Print(orchestrate.FormatIndexTable(rows))
 }
