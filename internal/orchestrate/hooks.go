@@ -21,12 +21,22 @@ type HookConfig struct {
 }
 
 // HookEntry defines a single hook.
+// Use executable+args (no shell). Legacy "command" is rejected (shell injection risk).
 type HookEntry struct {
-	Phase   string `yaml:"phase"`   // build, review, ci
-	When    string `yaml:"when"`    // pre, post
-	Command string `yaml:"command"`
-	OnFail  string `yaml:"on_fail"` // halt, warn, ignore
-	Timeout int    `yaml:"timeout"` // seconds; 0 = default 60
+	Phase      string   `yaml:"phase"`       // build, review, ci
+	When       string   `yaml:"when"`        // pre, post
+	Command    string   `yaml:"command"`     // DEPRECATED: reject if present
+	Executable string   `yaml:"executable"`  // e.g. echo, go, bash
+	Args       []string `yaml:"args"`        // args as list (no shell parsing)
+	OnFail     string   `yaml:"on_fail"`     // halt, warn, ignore
+	Timeout    int      `yaml:"timeout"`     // seconds; 0 = default 60
+}
+
+// allowedExecutables is the allowlist for pipeline hooks (no arbitrary shell).
+var allowedExecutables = map[string]bool{
+	"echo": true, "go": true, "make": true, "python3": true,
+	"node": true, "npm": true, "npx": true, "bash": true, "sh": true,
+	"false": true, // for tests (exits 1)
 }
 
 // LoadHookConfig reads .sdp/pipeline-hooks.yaml. Returns nil if file is missing (graceful degradation).
@@ -43,7 +53,29 @@ func LoadHookConfig(projectRoot string) (*HookConfig, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("parse pipeline-hooks: %w", err)
 	}
+	if err := validateHookConfig(&cfg); err != nil {
+		return nil, err
+	}
 	return &cfg, nil
+}
+
+func validateHookConfig(cfg *HookConfig) error {
+	for i, h := range cfg.Hooks {
+		if h.Command != "" {
+			return fmt.Errorf("hook %d: legacy 'command' field is rejected (shell injection risk); use executable+args", i+1)
+		}
+		if h.Executable == "" {
+			return fmt.Errorf("hook %d: executable is required", i+1)
+		}
+		base := filepath.Base(h.Executable)
+		if !allowedExecutables[base] {
+			return fmt.Errorf("hook %d: executable %q not in allowlist", i+1, h.Executable)
+		}
+		if (base == "sh" || base == "bash") && len(h.Args) > 0 && h.Args[0] == "-c" {
+			return fmt.Errorf("hook %d: shell -c is not allowed (use executable+args)", i+1)
+		}
+	}
+	return nil
 }
 
 // HookEnv holds environment variables for hook execution.
@@ -83,7 +115,7 @@ func runHook(ctx context.Context, projectRoot string, h HookEntry, env HookEnv, 
 	hookCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(hookCtx, "sh", "-c", h.Command)
+	cmd := exec.CommandContext(hookCtx, h.Executable, h.Args...)
 	cmd.Dir = projectRoot
 	cmd.Env = append(os.Environ(),
 		"WS_ID="+env.WSID,

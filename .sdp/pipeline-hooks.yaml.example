@@ -4,16 +4,21 @@
 # when: pre | post
 # on_fail: halt | warn | ignore
 # timeout: seconds (0 = default 60)
+#
+# Schema: executable + args (no shell). Legacy "command" is rejected (shell injection risk).
+# Allowlist: echo, go, make, python3, node, npm, npx, bash, sh, false
 
 hooks:
   - phase: build
     when: pre
-    command: hooks/pre-build.sh "$WS_ID"
+    executable: bash
+    args: ["scripts/hooks/pre-build.sh"]
     on_fail: warn
     timeout: 30
 
   - phase: build
     when: post
-    command: hooks/post-build.sh "$WS_ID"
+    executable: bash
+    args: ["scripts/hooks/post-build.sh"]
     on_fail: warn
     timeout: 30
