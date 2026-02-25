@@ -107,10 +107,16 @@ jobs:
   policy-gate:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    needs: [evidence-gate]
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
 
       - name: Install OPA
         run: |
@@ -126,12 +132,29 @@ jobs:
           EVIDENCE_COUNT=$(echo "$CHANGED" | grep -c '^\.sdp/evidence/' || echo 0)
           HAS_WS=$(echo "$CHANGED" | grep -c '^docs/workstreams/' || echo 0)
           HAS_FEATURE=$(echo "$CHANGED" | grep -c '^internal/\|^cmd/' || echo 0)
+
+          # Compute scope_violations_count from checkpoint workstreams
+          SCOPE_VIOLATIONS=0
+          CHECKPOINT_FILES=$(echo "$CHANGED" | grep '^\.sdp/checkpoints/.*\.json$' || true)
+          for cpf in $CHECKPOINT_FILES; do
+            if [ -f "$cpf" ]; then
+              WS_IDS=$(jq -r '.workstreams[]?.id // empty' "$cpf" 2>/dev/null || echo "")
+              for ws in $WS_IDS; do
+                if [ -n "$ws" ] && [ -f "docs/workstreams/backlog/${ws}.md" ]; then
+                  if ! go run ./cmd/sdp-guard --ws "$ws" &>/dev/null; then
+                    SCOPE_VIOLATIONS=$((SCOPE_VIOLATIONS + 1))
+                  fi
+                fi
+              done
+            fi
+          done
+
           cat > /tmp/policy-input.json <<HEREDOC
           {
             "evidence_files_count": $EVIDENCE_COUNT,
             "evidence_validation_passed": true,
             "has_workstream_changes": $([ "$HAS_WS" -gt 0 ] && echo true || echo false),
-            "scope_violations_count": 0,
+            "scope_violations_count": $SCOPE_VIOLATIONS,
             "p0_findings": 0,
             "p1_findings": 0,
             "p2_findings": 0,
