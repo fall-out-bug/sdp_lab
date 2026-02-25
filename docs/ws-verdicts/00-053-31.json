@@ -1,0 +1,14 @@
+{
+  "ws_id": "00-053-31",
+  "feature_id": "F053",
+  "verdict": "PASS",
+  "quality_gates": {"tests_pass": true, "lint_clean": true, "build_ok": true, "vet_ok": true},
+  "ac_evidence": [
+    {"ac": "sdp/docs: add PROTOCOL.md or reference/ stub", "met": true, "evidence": "sdp/docs/PROTOCOL.md created with phases, links, CLI table"},
+    {"ac": "Parser: support feature_id (alias for feature) for drift detect", "met": true, "evidence": "parser/schema.go getFeature() returns FeatureID or Feature; TestParseWorkstreamWithFeatureID"},
+    {"ac": "ws-verdict: coverage_pct required when quality gate present (or document optional)", "met": true, "evidence": "ws-verdict.schema.json: coverage_pct description documents optional/recommended"},
+    {"ac": "CLI reference: audit README/CLAUDE.md vs actual commands", "met": true, "evidence": "PROTOCOL.md CLI table: init, doctor, guard, drift, build, apply, plan, log, status, checkpoint, completion"},
+    {"ac": "go build ./... passes", "met": true, "evidence": "sdp_dev and sdp-plugin build"}
+  ],
+  "existing_work_summary": "sdp/docs had only DECISIONS.md. Parser already had feature_id via getFeature(). ws-verdict schema had coverage_pct without description. No CLI reference in docs."
+}
