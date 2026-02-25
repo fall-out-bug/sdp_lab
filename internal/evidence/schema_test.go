@@ -174,6 +174,32 @@ func mustReadFile(t *testing.T, path string) []byte {
 	return b
 }
 
+// TestCodingWorkflowStatementSchemaRefResolves verifies that coding-workflow-statement
+// $ref to predicate $id resolves when predicate is pre-loaded (AC 00-053-13: $ref works from any cwd).
+func TestCodingWorkflowStatementSchemaRefResolves(t *testing.T) {
+	root := moduleRoot(t)
+	schemaDir := filepath.Join(root, "sdp", "schema")
+	stmtPath := filepath.Join(schemaDir, "coding-workflow-statement.schema.json")
+	if _, err := os.Stat(stmtPath); err != nil {
+		t.Skip("sdp/schema/coding-workflow-statement.schema.json not found (submodule?)")
+	}
+	compiler := jsonschema.NewCompiler()
+	// Pre-load predicate by its $id so $ref "https://sdp.dev/attestation/coding-workflow/v1" resolves
+	predPath := filepath.Join(schemaDir, "coding-workflow-predicate.schema.json")
+	predID := "https://sdp.dev/attestation/coding-workflow/v1"
+	if err := compiler.AddResource(predID, bytes.NewReader(mustReadFile(t, predPath))); err != nil {
+		t.Fatalf("add predicate schema: %v", err)
+	}
+	stmtURL := "file://" + stmtPath
+	if err := compiler.AddResource(stmtURL, bytes.NewReader(mustReadFile(t, stmtPath))); err != nil {
+		t.Fatalf("add statement schema: %v", err)
+	}
+	_, err := compiler.Compile(stmtURL)
+	if err != nil {
+		t.Fatalf("compile coding-workflow-statement (with $ref): %v", err)
+	}
+}
+
 func mustMerge(t *testing.T, base []byte, overrides map[string]any) []byte {
 	t.Helper()
 	var m map[string]any
