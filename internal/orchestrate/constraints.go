@@ -139,6 +139,9 @@ func CheckRequiredFiles(cfg *AgentConstraintConfig, phase, projectRoot, featureI
 			continue
 		}
 		path := strings.ReplaceAll(c.Path, "{feature_id}", featureID)
+		if !isPathSafeForConstraint(projectRoot, path) {
+			continue // skip invalid path (.., absolute outside project)
+		}
 		fullPath := filepath.Join(projectRoot, path)
 		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
 			violations = append(violations, ConstraintViolation{
@@ -167,6 +170,26 @@ func DetermineContainmentLevel(cfg *AgentConstraintConfig, violationCount int) s
 	default:
 		return "warn"
 	}
+}
+
+// isPathSafeForConstraint rejects .. traversal and absolute paths outside projectRoot.
+func isPathSafeForConstraint(projectRoot, path string) bool {
+	if strings.Contains(path, "..") {
+		return false
+	}
+	if filepath.IsAbs(path) {
+		return false
+	}
+	cleaned := filepath.Clean(path)
+	if strings.HasPrefix(cleaned, "..") {
+		return false
+	}
+	full := filepath.Join(projectRoot, cleaned)
+	rel, err := filepath.Rel(projectRoot, full)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 func matchesPattern(s, pattern string) bool {
