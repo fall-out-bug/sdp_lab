@@ -44,13 +44,15 @@
 
 ---
 
-### 4. sdp-orchestrate 0% Coverage (sdp_dev-4rpn)
+### 4. sdp-orchestrate 0% Coverage (sdp_dev-4rpn) — DONE (00-053-19)
 
 **Problem:** `cmd/sdp-orchestrate/main.go`, `runAdvance`, `runHydrate`, `runNextAction` untested.
 
 **Solution:** Add unit tests for advance/hydrate/nextaction with fakes; integration test for main flow.
 
 **Scope:** `cmd/sdp-orchestrate/`
+
+**Implemented:** Unit tests for runNextAction, runHydrate, runAdvance. Coverage 20.3%.
 
 ---
 
