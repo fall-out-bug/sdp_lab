@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"sdp_dev/internal/ciloop"
+	"sdp_dev/internal/evidence"
 	"sdp_dev/internal/orchestrate"
 )
 
@@ -61,6 +62,14 @@ func main() {
 
 	cpPath := filepath.Join(projectRoot, *checkpointDir)
 	runsPath := filepath.Join(projectRoot, *runsDir)
+	if err := evidence.ValidatePath(cpPath, projectRoot); err != nil {
+		fmt.Fprintf(os.Stderr, "checkpoint-dir: %v\n", err)
+		os.Exit(1)
+	}
+	if err := evidence.ValidatePath(runsPath, projectRoot); err != nil {
+		fmt.Fprintf(os.Stderr, "runs-dir: %v\n", err)
+		os.Exit(1)
+	}
 
 	// Remove orphan .tmp files from previous runs
 	ciloop.RemoveOrphanTmpFiles(cpPath, runsPath, filepath.Join(projectRoot, ".sdp"))

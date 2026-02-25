@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"sdp_dev/internal/ciloop"
+	"sdp_dev/internal/evidence"
 	"sdp_dev/internal/orchestrate"
 )
 
@@ -33,6 +34,15 @@ func main() {
 	pollDelay := flag.Duration("poll-delay", 60*time.Second, "Delay between polls")
 	retryDelay := flag.Duration("retry-delay", 60*time.Second, "Delay when checks are pending")
 	flag.Parse()
+
+	if err := evidence.ValidatePath(*checkpointDir, ""); err != nil {
+		fmt.Fprintf(os.Stderr, "checkpoint-dir: %v\n", err)
+		os.Exit(exitEscalate)
+	}
+	if err := evidence.ValidatePath(*runsDir, ""); err != nil {
+		fmt.Fprintf(os.Stderr, "runs-dir: %v\n", err)
+		os.Exit(exitEscalate)
+	}
 
 	// Resolve PR number and branch: flags take precedence, then checkpoint.
 	if *prNum == 0 && *feature != "" {
