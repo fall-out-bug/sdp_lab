@@ -66,18 +66,28 @@ func TestAppendRunEventLatestFile(t *testing.T) {
 	}
 
 	// The earlier file should be untouched.
-	data, _ := os.ReadFile(filepath.Join(dir, "oneshot-F014-20260223T000000Z.json"))
+	data, err := os.ReadFile(filepath.Join(dir, "oneshot-F014-20260223T000000Z.json"))
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
 	var rf1 map[string]interface{}
-	json.Unmarshal(data, &rf1)
+	if err := json.Unmarshal(data, &rf1); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
 	events1 := rf1["events"].([]interface{})
 	if len(events1) != 0 {
 		t.Errorf("expected 0 events in older file, got %d", len(events1))
 	}
 
 	// The later file should have the event.
-	data2, _ := os.ReadFile(filepath.Join(dir, "oneshot-F014-20260223T120000Z.json"))
+	data2, err := os.ReadFile(filepath.Join(dir, "oneshot-F014-20260223T120000Z.json"))
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
 	var rf2 map[string]interface{}
-	json.Unmarshal(data2, &rf2)
+	if err := json.Unmarshal(data2, &rf2); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
 	events2 := rf2["events"].([]interface{})
 	if len(events2) != 1 {
 		t.Errorf("expected 1 event in latest file, got %d", len(events2))
@@ -100,9 +110,14 @@ func TestAppendRunEventWithNotes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	data, _ := os.ReadFile(filepath.Join(dir, "oneshot-F014-20260223T000000Z.json"))
+	data, err := os.ReadFile(filepath.Join(dir, "oneshot-F014-20260223T000000Z.json"))
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
 	var rf map[string]interface{}
-	json.Unmarshal(data, &rf)
+	if err := json.Unmarshal(data, &rf); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
 	events := rf["events"].([]interface{})
 	ev := events[0].(map[string]interface{})
 	if ev["notes"] != "secrets-scan failure" {

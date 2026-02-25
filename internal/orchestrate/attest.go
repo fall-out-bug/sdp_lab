@@ -54,7 +54,7 @@ func GenerateOrchestratorAttestation(projectRoot string, cp *Checkpoint) (eviden
 		scopeReason = fmt.Sprintf("%d files outside declared scope: %s", len(outOfBoundary), strings.Join(outOfBoundary, ", "))
 	}
 
-	subjects := []intoto.Subject{{
+	subjects := []intoto.Subject{{ //nolint:staticcheck // intoto v0 types for compatibility
 		Name:   fmt.Sprintf("branch:%s", branch),
 		Digest: common.DigestSet{"sha256": headSHA},
 	}}
@@ -136,8 +136,6 @@ func WriteOrchestratorAttestation(projectRoot string, cp *Checkpoint) error {
 	return evidence.WriteAttestation(outPath, stmt)
 }
 
-var beadsIDRe = regexp.MustCompile(`sdp_dev-[a-z0-9]{4}`)
-
 // lookupBeadsIDsForFeature reads the beads mapping file to find issues for a feature.
 func lookupBeadsIDsForFeature(projectRoot, featureID string) []string {
 	mappingPath := filepath.Join(projectRoot, ".beads-sdp-mapping.jsonl")
@@ -145,7 +143,7 @@ func lookupBeadsIDsForFeature(projectRoot, featureID string) []string {
 	if err != nil {
 		return nil
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Feature ID "F028" → workstream prefix "00-028"
 	featureNum := extractFeatureNum(featureID)
@@ -218,7 +216,7 @@ func collectWorkstreamScopePrefixes(projectRoot string, wsIDs []string) []string
 				}
 			}
 		}
-		f.Close()
+		_ = f.Close()
 	}
 	return prefixes
 }

@@ -45,7 +45,9 @@ func TestValidateInvalidMissingFile(t *testing.T) {
 func TestValidateInvalidEvidence(t *testing.T) {
 	tmp := t.TempDir()
 	bad := filepath.Join(tmp, "bad.json")
-	os.WriteFile(bad, []byte(`{"intent":{}}`), 0644)
+	if err := os.WriteFile(bad, []byte(`{"intent":{}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	bin := filepath.Join(t.TempDir(), "sdp-evidence")
 	if err := exec.Command("go", "build", "-o", bin, ".").Run(); err != nil {
@@ -89,7 +91,9 @@ func TestInspectInvalidExitsNonZero(t *testing.T) {
 	}
 	tmp := t.TempDir()
 	bad := filepath.Join(tmp, "bad.json")
-	os.WriteFile(bad, []byte(`{"intent":{}}`), 0644)
+	if err := os.WriteFile(bad, []byte(`{"intent":{}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
 	wd, _ := os.Getwd()
 	root := filepath.Dir(filepath.Dir(wd))
 	cmd := exec.Command(bin, "inspect", "--evidence", bad)

@@ -57,12 +57,12 @@ func EvaluatePolicies(projectRoot string, input PolicyInput) (PolicyResult, erro
 	if err != nil {
 		return PolicyResult{}, fmt.Errorf("create temp input: %w", err)
 	}
-	defer os.Remove(tmpInput.Name())
+	defer func() { _ = os.Remove(tmpInput.Name()) }()
 	if _, err := tmpInput.Write(inputJSON); err != nil {
-		tmpInput.Close()
+		_ = tmpInput.Close()
 		return PolicyResult{}, fmt.Errorf("write temp input: %w", err)
 	}
-	tmpInput.Close()
+	_ = tmpInput.Close()
 
 	result := PolicyResult{}
 

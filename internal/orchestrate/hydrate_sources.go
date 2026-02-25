@@ -7,7 +7,8 @@ import (
 	"strings"
 )
 
-func gitLSFiles(projectRoot string) (map[string]bool, error) {
+// gitLSFiles returns tracked files for scope checks. Reserved for future use.
+func gitLSFiles(projectRoot string) (map[string]bool, error) { //nolint:unused
 	cmd := exec.Command("git", "ls-files")
 	cmd.Dir = projectRoot
 	out, err := cmd.Output()

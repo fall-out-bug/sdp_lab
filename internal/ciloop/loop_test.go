@@ -191,7 +191,7 @@ func TestLoopOptionsPollDelayIsRespected(t *testing.T) {
 		Poller:     ciloop.NewPoller(runner),
 		OnEscalate: func(checks []ciloop.CheckResult) error { return nil },
 	}
-	ciloop.RunLoop(opts)
+	_, _ = ciloop.RunLoop(opts)
 	elapsed := time.Since(start)
 	if elapsed < 10*time.Millisecond {
 		t.Errorf("expected poll delay of at least 10ms, elapsed: %v", elapsed)
