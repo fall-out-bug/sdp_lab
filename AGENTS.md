@@ -4,14 +4,14 @@
 
 This project has **two repos** with different roles:
 
-| | `sdp_lab` (this repo) | `sdp` (submodule at `sdp/`) |
+| | `sdp_dev` (this repo) | `sdp` (submodule at `sdp/`) |
 |---|---|---|
 | **Remote** | `origin → sdp_private.git` | `origin → sdp.git` |
 | **Visibility** | Private | Public |
 | **Contains** | Go code, K8s manifests, roadmap, research | Protocol: prompts, JSON schemas, hooks |
 | **Changes** | Daily — all features built here | Rare — only when protocol spec changes |
 
-**Rule:** All work happens in `sdp_lab`. The `sdp/` submodule is only touched when publishing protocol artifacts (schemas, prompts, hooks).
+**Rule:** All work happens in `sdp_dev`. The `sdp/` submodule is only touched when publishing protocol artifacts (schemas, prompts, hooks).
 
 ## Issue Tracking (beads)
 
@@ -49,7 +49,7 @@ git checkout -b feature/FXXX-short-name   # e.g. feature/F004-sequential-reconci
 
 Write code. Run tests. Follow TDD if the workstream says so.
 
-### Step 3: Push & PR (sdp_lab)
+### Step 3: Push & PR (sdp_dev)
 
 ```bash
 go test ./...
@@ -105,15 +105,15 @@ docs/topic                  # documentation-only changes
 
 | Change Type | Where | Example |
 |---|---|---|
-| Go code (`internal/`, `cmd/`) | sdp_lab only | F004 reconciler rewrite |
-| K8s manifests (`deploy/`) | sdp_lab only | F009 beads-bridge CronJob |
-| Tests | sdp_lab only | F004 integration test |
-| Roadmap, workstreams, plans | sdp_lab only | Any planning work |
-| JSON Schema for evidence | sdp_lab (create) → sdp (publish) | F001 |
-| Prompts, hooks | sdp_lab (develop) → sdp (publish) | Rare |
+| Go code (`internal/`, `cmd/`) | sdp_dev only | F004 reconciler rewrite |
+| K8s manifests (`deploy/`) | sdp_dev only | F009 beads-bridge CronJob |
+| Tests | sdp_dev only | F004 integration test |
+| Roadmap, workstreams, plans | sdp_dev only | Any planning work |
+| JSON Schema for evidence | sdp_dev (create) → sdp (publish) | F001 |
+| Prompts, hooks | sdp_dev (develop) → sdp (publish) | Rare |
 | README, Manifesto | sdp submodule directly | Rare |
 
-**If unsure:** it goes in sdp_lab. The only things in `sdp/` are spec artifacts that external users need.
+**If unsure:** it goes in sdp_dev. The only things in `sdp/` are spec artifacts that external users need.
 
 ## Quality Gates
 

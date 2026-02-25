@@ -1,7 +1,7 @@
 # SDP CI Analysis: Duplication and Unnecessary Elements
 
 **Date:** 2026-02-24  
-**Scope:** sdp repo (submodule) + sdp_dev (sdp_lab) CI workflows
+**Scope:** sdp repo (submodule) + sdp_dev CI workflows
 
 ---
 
@@ -26,7 +26,7 @@
 | `protocol-e2e.yml` | PR → main/dev (path-filtered) | protocol-e2e (Docker) |
 | `go-release.yml` | Tag push `v*.*.*` | protocol-e2e (Docker) → release (GoReleaser, GPG, SLSA, SBOM) |
 
-### sdp_dev (sdp_lab, private)
+### sdp_dev (private)
 
 | Workflow | Trigger | Jobs |
 |----------|---------|------|

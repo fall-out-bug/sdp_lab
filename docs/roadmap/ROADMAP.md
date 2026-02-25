@@ -1,4 +1,4 @@
-# sdp_lab Roadmap — Standards-Based Trust Layer for AI Coding Agents
+# sdp_dev Roadmap — Standards-Based Trust Layer for AI Coding Agents
 
 > **Updated:** 2026-02-24
 > **Direction:** Standards-based enforcement (in-toto, OPA, Sigstore) + autonomous agent pipeline
@@ -258,6 +258,10 @@ in-toto Envelope (DSSE)
 - AgentSpec (runtime constraints): arXiv 2503.18666
 - PROV-AGENT (W3C PROV for agents): arXiv 2508.02866
 - VET (verifiable execution traces): arXiv 2512.15892
+
+### Ongoing
+- **F053** — Phase 4 Beads Remediation (00-053-01 … 00-053-46). See [INDEX](../workstreams/INDEX.md).
+- **F054** — Continuous Protocol Improvement (00-054-01 … 00-054-05). Skills, AGENTS.md, workflow. Part of future swarm. Source: [multifaceted analysis](../plans/2026-02-25-agent-protocol-multifaceted-analysis.md).
 
 ### Project History
 - [Agent Loop Reliability](../plans/2026-02-23-agent-loop-reliability.md)

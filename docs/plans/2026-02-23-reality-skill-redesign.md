@@ -97,7 +97,7 @@ Hybrid: manifest-first, structural fallback. Two-step flow:
 ```markdown
 ### Repository: sdp (submodule)
 - **Purpose:** Protocol specification (prompts, JSON schemas, hooks)
-- **Role:** Public spec dependency consumed by sdp_lab
+- **Role:** Public spec dependency consumed by sdp_dev
 - **Ownership:** Protocol artifacts
 - **Change cadence:** Rare (only when protocol spec changes)
 - **Confidence:** HIGH (manifest + structure match)
@@ -134,7 +134,7 @@ Hybrid: git-based discovery + automated validation.
 | Submodule | Structural | sdp as submodule in sdp_dev |
 | Shared schema | Contract | `evidence-envelope.schema.json` |
 | Build dependency | Optional | Makefile sdp-plugin quality target |
-| Doc reference | Informational | MANIFESTO links to sdp_lab |
+| Doc reference | Informational | MANIFESTO links to sdp_dev |
 
 **Mermaid output:**
 
@@ -179,7 +179,7 @@ Layered Scorecard: четыре измерения, разные правила 
 | **Quality** | Frontmatter valid, scope_files non-empty, AC present, no broken links | Structural checks per doc type |
 | **Freshness** | `git log -1 --format="%ci" -- <path>` | Decay: 100 − (days × decay_factor) |
 | **Coverage** | ROADMAP features → WS files; WS → scope_files; orphan docs | % expected docs present |
-| **Consistency** | sdp_lab ↔ sdp; ROADMAP ↔ INDEX; CLI in docs vs `sdp --help` | Cross-ref + protocol-consistency |
+| **Consistency** | sdp_dev ↔ sdp; ROADMAP ↔ INDEX; CLI in docs vs `sdp --help` | Cross-ref + protocol-consistency |
 
 ### Document Tiers
 
@@ -188,7 +188,7 @@ Layered Scorecard: четыре измерения, разные правила 
 | **1 — Canonical** | MANIFESTO, ROADMAP, AGENTS, INDEX | < 14 days = Fresh | Must be linked, consistent, structural |
 | **2 — Execution** | WS files (00-XXX-YY.md) | < 30 days | scope_files exist, AC present, drift PASS |
 | **3 — Planning** | plans/, drafts/ | < 90 days | Freshness only, no drift check |
-| **Cross-repo** | sdp/ README, PROTOCOL vs sdp_lab refs | < 30 days | Cross-reference validation |
+| **Cross-repo** | sdp/ README, PROTOCOL vs sdp_dev refs | < 30 days | Cross-reference validation |
 
 ### Staleness Detection
 
