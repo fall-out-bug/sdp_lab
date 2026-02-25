@@ -119,6 +119,14 @@ docs/topic                  # documentation-only changes
 
 **If unsure:** it goes in sdp_dev. The only things in `sdp/` are spec artifacts that external users need.
 
+### Artifact Placement
+
+| Artifact | Location | Rule |
+|----------|----------|------|
+| Review artifacts | `docs/reviews/` | F053-REVIEW-SUMMARY.md, etc. |
+| Workstream files | `docs/workstreams/backlog/` | WS only; one file per 00-FFF-SS |
+| Idea drafts | `docs/drafts/idea-*` | One per feature (e.g. idea-f053-*.md) |
+
 ## Quality Gates
 
 Before pushing code changes:
@@ -161,7 +169,18 @@ The `@oneshot` skill uses `sdp-orchestrate` as the outer loop. Run it either way
 - **On PATH:** `go build -o $(go env GOPATH)/bin/sdp-orchestrate ./cmd/sdp-orchestrate` (or install via Makefile/CI)
 - **Fallback:** `go run ./cmd/sdp-orchestrate` from project root
 
+**"Продолжай F053"** = `go run ./cmd/sdp-orchestrate --feature F053 --next-action` (or `sdp-orchestrate --feature F053 --next-action`). Convention: "продолжай {feature}" means run the next action for that feature.
+
 Example: `go run ./cmd/sdp-orchestrate --feature F053 --next-action`
+
+### Command Decision Tree
+
+| Need | Command |
+|------|---------|
+| Execute one workstream | `/build 00-FFF-SS` |
+| Execute all WS for feature | `@oneshot` or `sdp-orchestrate --feature FXXX` |
+| Multi-agent quality review | `/review FXXX` |
+| Create workstreams from findings | `@design phase4-remediation` |
 
 ## Key Files
 

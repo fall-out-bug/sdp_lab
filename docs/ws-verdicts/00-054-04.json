@@ -1,0 +1,18 @@
+{
+  "ws_id": "00-054-04",
+  "feature_id": "F054",
+  "verdict": "PASS",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {"ac": "AGENTS.md: artifact placement rules (reviews/, backlog/, drafts/)", "met": true, "evidence": "AGENTS.md Artifact Placement table"},
+    {"ac": "AGENTS.md: продолжай = sdp-orchestrate --next-action convention", "met": true, "evidence": "AGENTS.md sdp-orchestrate section"},
+    {"ac": "Optional: decision tree for /build, /oneshot, /review, /design", "met": true, "evidence": "AGENTS.md Command Decision Tree"},
+    {"ac": "00-054-06 syncs these rules to sdp/CLAUDE.md", "met": true, "evidence": "Content added to AGENTS.md; 00-054-06 (depends_on) will sync to sdp/CLAUDE.md"}
+  ],
+  "existing_work_summary": "AGENTS.md had What Goes Where, sdp-orchestrate example; no placement table or продолжай convention."
+}
