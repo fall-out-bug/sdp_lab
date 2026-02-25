@@ -106,12 +106,16 @@ docs/topic                  # documentation-only changes
 | Change Type | Where | Example |
 |---|---|---|
 | Go code (`internal/`, `cmd/`) | sdp_dev only | F004 reconciler rewrite |
+| Lab binaries (orchestrate, ci-loop, evidence, guard, eval) | sdp_dev `cmd/` | `make build-sdp-orchestrate` |
+| Protocol CLI (`sdp quality`, `sdp apply`, etc.) | sdp `sdp-plugin/` | Published to sdp repo |
 | K8s manifests (`deploy/`) | sdp_dev only | F009 beads-bridge CronJob |
 | Tests | sdp_dev only | F004 integration test |
 | Roadmap, workstreams, plans | sdp_dev only | Any planning work |
 | JSON Schema for evidence | sdp_dev (create) → sdp (publish) | F001 |
 | Prompts, hooks | sdp_dev (develop) → sdp (publish) | Rare |
 | README, Manifesto | sdp submodule directly | Rare |
+
+**Boundary:** See [docs/architecture/REPO-BOUNDARY.md](docs/architecture/REPO-BOUNDARY.md) for component → repo → publish mapping.
 
 **If unsure:** it goes in sdp_dev. The only things in `sdp/` are spec artifacts that external users need.
 
@@ -161,6 +165,7 @@ Example: `go run ./cmd/sdp-orchestrate --feature F053 --next-action`
 
 | File | Purpose |
 |---|---|
+| `docs/architecture/REPO-BOUNDARY.md` | sdp vs sdp_dev boundary, component mapping |
 | `docs/roadmap/ROADMAP.md` | Features F001-F013, phases, dependencies |
 | `docs/workstreams/INDEX.md` | All workstreams with status |
 | `docs/workstreams/backlog/00-XXX-YY.md` | Individual workstream: goal, scope, acceptance criteria |

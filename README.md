@@ -10,6 +10,7 @@ Private planning and orchestration workspace for SDP evolution.
 
 ## Folders
 
+- `docs/architecture/REPO-BOUNDARY.md` - sdp vs sdp_dev boundary (binaries, publish mapping).
 - `docs/PRIVATE_BLUEPRINT.md` - full private architecture and roadmap.
 - `docs/OSS_EXPORT_TEMPLATE.md` - sanitized structure for public RFCs.
 - `docs/REDACTION_RULES.md` - what must never leak to OSS.
