@@ -121,7 +121,7 @@
 
 ## Risks
 
-- **flock not on Windows**: Document UNIX requirement. SDP targets macOS/Linux CI.
+- **flock not on Windows**: Evidence file lock requires UNIX (macOS/Linux). Windows is not supported. SDP targets macOS/Linux CI.
 - **Singleton Writer stale config**: Acceptable for CLI (one invocation = one process).
 - **in-toto v1 Go types are protobuf**: Keep using deprecated `StatementHeader` for JSON serialization (works). Add `nolint:staticcheck` comments.
 - **Few-shot examples need maintenance**: Tie to schema versions.
