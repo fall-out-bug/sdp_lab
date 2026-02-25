@@ -1,6 +1,7 @@
 package orchestrate
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -35,7 +36,7 @@ type PolicyInput struct {
 
 // EvaluatePolicies evaluates .sdp/policies/*.rego against the given input.
 // Returns PolicyResult. If OPA is not installed, returns empty result (graceful degradation).
-func EvaluatePolicies(projectRoot string, input PolicyInput) (PolicyResult, error) {
+func EvaluatePolicies(ctx context.Context, projectRoot string, input PolicyInput) (PolicyResult, error) {
 	policiesDir := filepath.Join(projectRoot, ".sdp", "policies")
 	if _, err := os.Stat(policiesDir); os.IsNotExist(err) {
 		return PolicyResult{Level: "advisory"}, nil
@@ -67,25 +68,28 @@ func EvaluatePolicies(projectRoot string, input PolicyInput) (PolicyResult, erro
 	result := PolicyResult{}
 
 	// Query enforcement level
-	level := queryOPAString(opaPath, policiesDir, tmpInput.Name(), "data.sdp.policies.enforcement_level")
+	level := queryOPAString(ctx, opaPath, policiesDir, tmpInput.Name(), "data.sdp.policies.enforcement_level")
 	if level == "" {
 		level = "advisory"
 	}
 	result.Level = level
 
 	// Query effective denials
-	denials := queryOPAStringSet(opaPath, policiesDir, tmpInput.Name(), "data.sdp.policies.effective_deny")
+	denials := queryOPAStringSet(ctx, opaPath, policiesDir, tmpInput.Name(), "data.sdp.policies.effective_deny")
 	result.Denials = denials
 
 	// Query advisory warnings
-	warnings := queryOPAStringSet(opaPath, policiesDir, tmpInput.Name(), "data.sdp.policies.advisory_warn")
+	warnings := queryOPAStringSet(ctx, opaPath, policiesDir, tmpInput.Name(), "data.sdp.policies.advisory_warn")
 	result.Warnings = warnings
 
 	return result, nil
 }
 
-func queryOPAString(opaPath, policiesDir, inputFile, query string) string {
-	cmd := exec.Command(opaPath, "eval",
+func queryOPAString(ctx context.Context, opaPath, policiesDir, inputFile, query string) string {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	cmd := exec.CommandContext(ctx, opaPath, "eval",
 		"--data", policiesDir,
 		"--input", inputFile,
 		"--format", "raw",
@@ -98,8 +102,11 @@ func queryOPAString(opaPath, policiesDir, inputFile, query string) string {
 	return strings.Trim(strings.TrimSpace(string(out)), `"`)
 }
 
-func queryOPAStringSet(opaPath, policiesDir, inputFile, query string) []string {
-	cmd := exec.Command(opaPath, "eval",
+func queryOPAStringSet(ctx context.Context, opaPath, policiesDir, inputFile, query string) []string {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	cmd := exec.CommandContext(ctx, opaPath, "eval",
 		"--data", policiesDir,
 		"--input", inputFile,
 		"--format", "raw",

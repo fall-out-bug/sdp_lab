@@ -76,7 +76,7 @@ func runAdvance(projectRoot, featureID, cpPath, runsPath, result string, skipGua
 	changedFiles := orchestrate.GetChangedFiles(projectRoot)
 	scopeViolations := 0
 	policyInput := orchestrate.BuildPolicyInput(cp, scopeViolations, changedFiles)
-	policyResult, policyErr := orchestrate.EvaluatePolicies(projectRoot, policyInput)
+	policyResult, policyErr := orchestrate.EvaluatePolicies(advanceCtx, projectRoot, policyInput)
 	if policyErr != nil {
 		fmt.Fprintf(os.Stderr, "warning: policy evaluation error: %v\n", policyErr)
 	} else {
