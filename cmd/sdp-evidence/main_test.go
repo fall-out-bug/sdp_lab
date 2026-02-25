@@ -84,6 +84,25 @@ func TestInspectValid(t *testing.T) {
 	}
 }
 
+func TestValidateRejectsPathTraversal(t *testing.T) {
+	dir := t.TempDir()
+	_ = os.WriteFile(filepath.Join(dir, "ok.json"), []byte(`{}`), 0o644)
+	bin := filepath.Join(t.TempDir(), "sdp-evidence")
+	if err := exec.Command("go", "build", "-o", bin, ".").Run(); err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	// Try to escape with .. — should be rejected before ReadFile
+	cmd := exec.Command(bin, "validate", filepath.Join(dir, "..", "..", "etc", "passwd"))
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatal("validate should reject path traversal")
+	}
+	if !strings.Contains(string(out), "escapes") && !strings.Contains(string(out), "validation") {
+		t.Errorf("error should mention path validation: %s", out)
+	}
+}
+
 func TestInspectInvalidExitsNonZero(t *testing.T) {
 	bin := filepath.Join(t.TempDir(), "sdp-evidence")
 	if err := exec.Command("go", "build", "-o", bin, ".").Run(); err != nil {
