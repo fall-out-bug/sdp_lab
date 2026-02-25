@@ -31,6 +31,7 @@ func main() {
 	hydrate := flag.Bool("hydrate", false, "Gather context and write .sdp/context-packet.json (before LLM invocation)")
 	ws := flag.String("ws", "", "Workstream ID for --hydrate (default: current build ws from next-action)")
 	index := flag.Bool("index", false, "Generate INDEX table for feature workstreams (print to stdout)")
+	status := flag.Bool("status", false, "Output status: pending WS, open beads, next action")
 	flag.Parse()
 
 	if *feature == "" {
@@ -107,6 +108,10 @@ func main() {
 		}
 	}
 
+	if *status {
+		runStatus(projectRoot, featureID, cp, workstreams)
+		return
+	}
 	if *nextAction {
 		runNextAction(cp, workstreams, projectRoot)
 		return

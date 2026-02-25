@@ -171,12 +171,15 @@ The `@oneshot` skill uses `sdp-orchestrate` as the outer loop. Run it either way
 
 **"Продолжай F053"** = `go run ./cmd/sdp-orchestrate --feature F053 --next-action` (or `sdp-orchestrate --feature F053 --next-action`). Convention: "продолжай {feature}" means run the next action for that feature.
 
+**Status:** `go run ./cmd/sdp-orchestrate --feature F053 --status` (or `sdp status --feature F053`) — outputs pending workstreams, open beads count (`bd ready`), and next action. Use when checking "Проверь beads" or "Найди оставшиеся".
+
 Example: `go run ./cmd/sdp-orchestrate --feature F053 --next-action`
 
 ### Command Decision Tree
 
 | Need | Command |
 |------|---------|
+| Check status (pending WS, beads, next action) | `sdp-orchestrate --feature FXXX --status` |
 | Execute one workstream | `/build 00-FFF-SS` |
 | Execute all WS for feature | `@oneshot` or `sdp-orchestrate --feature FXXX` |
 | Multi-agent quality review | `/review FXXX` |
