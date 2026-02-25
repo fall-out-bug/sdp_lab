@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"sdp_dev/internal/executil"
 )
 
 // PolicyResult holds the output of OPA policy evaluation.
@@ -89,13 +91,12 @@ func queryOPAString(ctx context.Context, opaPath, policiesDir, inputFile, query 
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	cmd := exec.CommandContext(ctx, opaPath, "eval",
+	out, err := executil.DefaultRunner.Output(ctx, "", opaPath, "eval",
 		"--data", policiesDir,
 		"--input", inputFile,
 		"--format", "raw",
 		query,
 	)
-	out, err := cmd.Output()
 	if err != nil {
 		return ""
 	}
@@ -106,13 +107,12 @@ func queryOPAStringSet(ctx context.Context, opaPath, policiesDir, inputFile, que
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	cmd := exec.CommandContext(ctx, opaPath, "eval",
+	out, err := executil.DefaultRunner.Output(ctx, "", opaPath, "eval",
 		"--data", policiesDir,
 		"--input", inputFile,
 		"--format", "raw",
 		query,
 	)
-	out, err := cmd.Output()
 	if err != nil {
 		return nil
 	}

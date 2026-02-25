@@ -2,13 +2,14 @@ package guard
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	"sdp_dev/internal/executil"
 	"sdp_dev/internal/sdputil"
 )
 
@@ -69,9 +70,7 @@ func ChangedFiles(projectRoot string, useCached bool) ([]string, error) {
 	} else {
 		args = append(args, "HEAD~1", "HEAD")
 	}
-	cmd := exec.Command("git", args...)
-	cmd.Dir = projectRoot
-	out, err := cmd.Output()
+	out, err := executil.DefaultRunner.Output(context.Background(), projectRoot, "git", args...)
 	if err != nil {
 		return nil, fmt.Errorf("git diff: %w", err)
 	}

@@ -15,6 +15,8 @@ import (
 
 	intoto "github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/common"
+
+	"sdp_dev/internal/executil"
 )
 
 type AutoAttestOptions struct {
@@ -184,9 +186,7 @@ func collectTestResults(ctx context.Context, repoRoot string) ([]GateResult, flo
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	cmd := exec.CommandContext(ctx, "go", "test", "./...", "-count=1", "-cover", "-json")
-	cmd.Dir = repoRoot
-	out, err := cmd.Output()
+	out, err := executil.DefaultRunner.Output(ctx, repoRoot, "go", "test", "./...", "-count=1", "-cover", "-json")
 
 	passed := 0
 	failed := 0
@@ -261,9 +261,7 @@ func collectLintResults(ctx context.Context, repoRoot string) []GateResult {
 	var results []GateResult
 
 	// Always run go vet
-	cmd := exec.CommandContext(ctx, "go", "vet", "./...")
-	cmd.Dir = repoRoot
-	vetOut, vetErr := cmd.CombinedOutput()
+	vetOut, vetErr := executil.DefaultRunner.CombinedOutput(ctx, repoRoot, "go", "vet", "./...")
 	vetStatus := "pass"
 	if vetErr != nil {
 		vetStatus = fmt.Sprintf("fail: %s", strings.TrimSpace(string(vetOut)))
@@ -273,9 +271,7 @@ func collectLintResults(ctx context.Context, repoRoot string) []GateResult {
 	// Run golangci-lint if available
 	lintPath, err := exec.LookPath("golangci-lint")
 	if err == nil {
-		lintCmd := exec.CommandContext(ctx, lintPath, "run", "--out-format=line-number", "--timeout=120s", "./...")
-		lintCmd.Dir = repoRoot
-		lintOut, lintErr := lintCmd.CombinedOutput()
+		lintOut, lintErr := executil.DefaultRunner.CombinedOutput(ctx, repoRoot, lintPath, "run", "--out-format=line-number", "--timeout=120s", "./...")
 		lintStatus := "pass"
 		if lintErr != nil {
 			lines := countNonEmptyLines(string(lintOut))
@@ -400,9 +396,7 @@ func runGit(ctx context.Context, dir string, args ...string) (string, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Dir = dir
-	out, err := cmd.Output()
+	out, err := executil.DefaultRunner.Output(ctx, dir, "git", args...)
 	if err != nil {
 		return "", fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
 	}

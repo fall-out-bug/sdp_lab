@@ -1,17 +1,17 @@
 package orchestrate
 
 import (
+	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"sdp_dev/internal/executil"
 )
 
 // gitLSFiles returns tracked files for scope checks. Reserved for future use.
 func gitLSFiles(projectRoot string) (map[string]bool, error) { //nolint:unused
-	cmd := exec.Command("git", "ls-files")
-	cmd.Dir = projectRoot
-	out, err := cmd.Output()
+	out, err := executil.DefaultRunner.Output(context.Background(), projectRoot, "git", "ls-files")
 	if err != nil {
 		return nil, err
 	}
@@ -25,9 +25,7 @@ func gitLSFiles(projectRoot string) (map[string]bool, error) { //nolint:unused
 }
 
 func gitStatusPorcelain(projectRoot string) (string, error) {
-	cmd := exec.Command("git", "status", "--porcelain")
-	cmd.Dir = projectRoot
-	out, err := cmd.Output()
+	out, err := executil.DefaultRunner.Output(context.Background(), projectRoot, "git", "status", "--porcelain")
 	if err != nil {
 		return "", err
 	}
@@ -35,9 +33,7 @@ func gitStatusPorcelain(projectRoot string) (string, error) {
 }
 
 func bdShow(projectRoot, beadsID string) (string, error) {
-	cmd := exec.Command("bd", "show", beadsID)
-	cmd.Dir = projectRoot
-	out, err := cmd.Output()
+	out, err := executil.DefaultRunner.Output(context.Background(), projectRoot, "bd", "show", beadsID)
 	if err != nil {
 		return "", err
 	}
