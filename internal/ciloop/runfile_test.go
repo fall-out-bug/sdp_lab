@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
+	"sync"
 	"testing"
 
 	"sdp_dev/internal/ciloop"
@@ -122,5 +124,41 @@ func TestAppendRunEventWithNotes(t *testing.T) {
 	ev := events[0].(map[string]interface{})
 	if ev["notes"] != "secrets-scan failure" {
 		t.Errorf("expected notes to be set, got %v", ev["notes"])
+	}
+}
+
+// TestAppendRunEventConcurrent verifies flock prevents corruption under concurrent access.
+func TestAppendRunEventConcurrent(t *testing.T) {
+	dir := t.TempDir()
+	writeRunFile(t, dir, "oneshot-F014-20260223T000000Z")
+
+	const concurrency = 20
+	var wg sync.WaitGroup
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			notes := "event-" + strconv.Itoa(n)
+			if err := ciloop.AppendRunEvent(dir, "F014", "ci", "ok", notes); err != nil {
+				t.Errorf("AppendRunEvent: %v", err)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	data, err := os.ReadFile(filepath.Join(dir, "oneshot-F014-20260223T000000Z.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rf map[string]interface{}
+	if err := json.Unmarshal(data, &rf); err != nil {
+		t.Fatalf("corrupt JSON: %v", err)
+	}
+	events, ok := rf["events"].([]interface{})
+	if !ok {
+		t.Fatalf("expected events array, got %T", rf["events"])
+	}
+	if len(events) != concurrency {
+		t.Errorf("expected %d events, got %d (flock may be missing)", concurrency, len(events))
 	}
 }
