@@ -148,6 +148,15 @@ go vet ./...                # no issues
 - NEVER say "ready to push when you are" — YOU must push
 - If push fails, resolve and retry until it succeeds
 
+## sdp-orchestrate (oneshot outer loop)
+
+The `@oneshot` skill uses `sdp-orchestrate` as the outer loop. Run it either way:
+
+- **On PATH:** `go build -o $(go env GOPATH)/bin/sdp-orchestrate ./cmd/sdp-orchestrate` (or install via Makefile/CI)
+- **Fallback:** `go run ./cmd/sdp-orchestrate` from project root
+
+Example: `go run ./cmd/sdp-orchestrate --feature F053 --next-action`
+
 ## Key Files
 
 | File | Purpose |
