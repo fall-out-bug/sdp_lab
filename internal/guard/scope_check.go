@@ -84,6 +84,30 @@ func ChangedFiles(projectRoot string, useCached bool) ([]string, error) {
 	return files, nil
 }
 
+// inScope returns true if file matches any scope path (exact or prefix).
+// Paths like "sdp/sdp-plugin/internal/quality/" match files under that directory.
+func inScope(file string, scopePaths []string) bool {
+	for _, p := range scopePaths {
+		if file == p {
+			return true
+		}
+		if !strings.HasPrefix(file, p) {
+			continue
+		}
+		// Prefix match: "p" or "p/" matches "p/foo" but not "p_other"
+		if len(file) == len(p) {
+			return true
+		}
+		if len(p) > 0 && p[len(p)-1] == '/' {
+			return true // p is dir path like "verify/"
+		}
+		if file[len(p)] == '/' {
+			return true // p is "verify", file is "verify/foo"
+		}
+	}
+	return false
+}
+
 // CheckScope compares changed files against workstream scope and allowlist.
 func CheckScope(projectRoot, wsID string, useCached bool) (*ScopeVerdict, error) {
 	if err := sdputil.ValidateWSID(wsID); err != nil {
@@ -93,10 +117,6 @@ func CheckScope(projectRoot, wsID string, useCached bool) (*ScopeVerdict, error)
 	scopePaths, err := ParseScopeFiles(wsPath)
 	if err != nil {
 		return nil, fmt.Errorf("parse scope: %w", err)
-	}
-	scopeSet := make(map[string]bool)
-	for _, p := range scopePaths {
-		scopeSet[p] = true
 	}
 
 	changed, err := ChangedFiles(projectRoot, useCached)
@@ -111,7 +131,7 @@ func CheckScope(projectRoot, wsID string, useCached bool) (*ScopeVerdict, error)
 
 	var violations, warnings []string
 	for _, f := range changed {
-		if scopeSet[f] {
+		if inScope(f, scopePaths) {
 			continue
 		}
 		if IsAllowlisted(f, allowlist) {
