@@ -32,13 +32,15 @@
 
 ---
 
-### 3. Checkpoint Data Loss (sdp_dev-a2iw)
+### 3. Checkpoint Data Loss (sdp_dev-a2iw) — DONE (00-053-18)
 
 **Problem:** `orchestrate.Checkpoint` and `ciloop.Checkpoint` are different structs. ciloop loads + saves overwrites with smaller struct — Workstreams, Review, CreatedAt lost.
 
 **Solution:** Shared checkpoint package with one struct, or ciloop merge logic preserving unknown fields, or separate checkpoint files.
 
 **Scope:** `internal/orchestrate/checkpoint.go`, `internal/ciloop/checkpoint.go`, `cmd/sdp-ci-loop/main.go`
+
+**Implemented:** Merge-safe save in ciloop.SaveCheckpoint — loads raw map, overlays ciloop fields, preserves Workstreams/Review/CreatedAt.
 
 ---
 
