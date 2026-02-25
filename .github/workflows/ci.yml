@@ -21,7 +21,7 @@ jobs:
         run: go build ./...
 
       - name: Test
-        run: go test ./... -count=1
+        run: go test -short ./... -count=1
 
       - name: Lint
         run: |
@@ -31,7 +31,7 @@ jobs:
       - name: Coverage (optional artifact)
         run: |
           mkdir -p .tmp
-          go test ./internal/... -coverprofile=.tmp/coverage.out -covermode=atomic 2>/dev/null || true
+          go test -short ./internal/... -coverprofile=.tmp/coverage.out -covermode=atomic 2>/dev/null || true
         continue-on-error: true
 
       - name: Upload coverage artifact

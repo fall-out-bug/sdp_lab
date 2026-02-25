@@ -7,6 +7,11 @@
 #
 # Schema: executable + args (no shell). Legacy "command" is rejected (shell injection risk).
 # Allowlist: echo, go, make, python3, node, npm, npx, bash, sh, false
+#
+# Integration test contract (AGENTS.md):
+#   - CI and sdp build run: go test -short ./...
+#   - Integration tests: use t.Skip() or testing.Short(); never delete to fix flakiness
+#   - Full test run (no -short): only locally
 
 hooks:
   - phase: build

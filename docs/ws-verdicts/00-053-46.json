@@ -1,0 +1,18 @@
+{
+  "ws_id": "00-053-46",
+  "feature_id": "F053",
+  "verdict": "PASS",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {"ac": "Pipeline hooks or CI run go test -short ./... (or equivalent)", "met": true, "evidence": "ci.yml: go test -short ./...; sdp build: go test -short ./..."},
+    {"ac": "AGENTS.md documents: Integration tests: use t.Skip() + -short; never delete; CI: go test -short", "met": true, "evidence": "AGENTS.md Quality Gates section"},
+    {"ac": "Example in pipeline-hooks or README", "met": true, "evidence": ".sdp/pipeline-hooks.yaml.example comment block"},
+    {"ac": "go build ./... passes", "met": true, "evidence": "go build ./... succeeds"}
+  ],
+  "existing_work_summary": "CI ran go test ./... -count=1; sdp build ran go test ./...; auto-attest main_test.go uses testing.Short() for integration skip."
+}
