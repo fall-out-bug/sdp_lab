@@ -8,8 +8,11 @@ __pycache__/
 .tmp/
 .kube/
 
-# Coverage files (go test -coverprofile writes here; Makefile uses .tmp/)
+# Coverage files (Makefile uses .tmp/; CI if added should use .tmp/ or build/)
 coverage.out
+coverage.html
+*.cover
+cover.out
 *.out
 
 # Go binaries (built locally; use make build-sdp-* → bin/)

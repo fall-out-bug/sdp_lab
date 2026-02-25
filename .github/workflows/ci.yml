@@ -28,6 +28,20 @@ jobs:
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
           golangci-lint run ./...
 
+      - name: Coverage (optional artifact)
+        run: |
+          mkdir -p .tmp
+          go test ./internal/... -coverprofile=.tmp/coverage.out -covermode=atomic 2>/dev/null || true
+        continue-on-error: true
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: .tmp/coverage.out
+          retention-days: 7
+          if-no-files-found: ignore
+
   evidence-gate:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
