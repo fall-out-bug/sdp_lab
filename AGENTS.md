@@ -1,5 +1,7 @@
 # Agent Instructions
 
+> **Sync:** When updating shared conventions (placement, "продолжай", command tree), also update `sdp/CLAUDE.md`. See [docs/plans/2026-02-25-agents-claude-sync-rules.md](docs/plans/2026-02-25-agents-claude-sync-rules.md).
+
 ## Project Structure
 
 This project has **two repos** with different roles:
