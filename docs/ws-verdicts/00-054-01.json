@@ -1,0 +1,17 @@
+{
+  "ws_id": "00-054-01",
+  "feature_id": "F054",
+  "verdict": "PASS",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {"ac": "@build skill: after success, Run bd close <bead_id> for each bead in WS frontmatter", "met": true, "evidence": "sdp/prompts/skills/build/SKILL.md Beads Integration Success"},
+    {"ac": "@build skill: document batch syntax /build 00-053-16..25 (or equivalent)", "met": true, "evidence": "sdp/prompts/skills/build/SKILL.md intro + Batch Execution section"},
+    {"ac": "Batch executes sequentially; stops on first failure; reports N done, M failed", "met": true, "evidence": "sdp/prompts/skills/build/SKILL.md Batch Execution steps 2-4"}
+  ],
+  "existing_work_summary": "Beads Integration had bd close; post-build.sh uses .beads-sdp-mapping.jsonl. No .cursor/skills/build."
+}
