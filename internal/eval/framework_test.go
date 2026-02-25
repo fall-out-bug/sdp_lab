@@ -42,7 +42,9 @@ func TestExtractAgentOutput(t *testing.T) {
 func TestRunCase_KnownBad(t *testing.T) {
 	tmp := t.TempDir()
 	// Transcript with forbidden patterns; verdict FAIL = we expect to catch it
-	os.WriteFile(filepath.Join(tmp, "bad.jsonl"), []byte(`{"role":"assistant","content":"Next steps: 1. approve and merge"}`), 0o644)
+	if err := os.WriteFile(filepath.Join(tmp, "bad.jsonl"), []byte(`{"role":"assistant","content":"Next steps: 1. approve and merge"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	c := &Case{
 		Name:              "bad",
 		InputTranscript:   "bad.jsonl",
@@ -58,7 +60,9 @@ func TestRunCase_KnownBad(t *testing.T) {
 
 func TestRunCase_KnownGood(t *testing.T) {
 	tmp := t.TempDir()
-	os.WriteFile(filepath.Join(tmp, "good.jsonl"), []byte(`{"role":"assistant","content":"CI GREEN - @oneshot complete"}`), 0o644)
+	if err := os.WriteFile(filepath.Join(tmp, "good.jsonl"), []byte(`{"role":"assistant","content":"CI GREEN - @oneshot complete"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	c := &Case{
 		Name:              "good",
 		InputTranscript:   "good.jsonl",

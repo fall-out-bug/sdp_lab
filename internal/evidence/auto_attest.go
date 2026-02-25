@@ -62,7 +62,7 @@ func AutoAttest(opts AutoAttestOptions) (CodingWorkflowStatement, error) {
 		subjectName = fmt.Sprintf("PR #%s", opts.PRNumber)
 	}
 
-	subjects := []intoto.Subject{{
+	subjects := []intoto.Subject{{ //nolint:staticcheck // intoto v0 types for compatibility
 		Name:   subjectName,
 		Digest: common.DigestSet{"sha256": headSHA},
 	}}
@@ -342,7 +342,7 @@ func collectDeclaredScopePrefixes(repoRoot string) []string {
 		if err != nil {
 			continue
 		}
-		defer f.Close() //nolint:gocritic // defer in loop is acceptable here
+		defer func() { _ = f.Close() }() //nolint:gocritic // defer in loop is acceptable here
 		inScopeSection := false
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {

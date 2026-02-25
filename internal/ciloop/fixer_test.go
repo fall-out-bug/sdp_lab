@@ -246,7 +246,9 @@ func TestFixerCommitMessageContainsFixCi(t *testing.T) {
 		DecisionLogger: func(decision, rationale string) error { return nil },
 	})
 	checks := []ciloop.CheckResult{{Name: "go-test", State: ciloop.StateFailure}}
-	fixer.Fix(checks)
+	if err := fixer.Fix(checks); err != nil {
+		t.Fatalf("Fix: %v", err)
+	}
 	if len(committer.commits) == 0 {
 		t.Fatal("no commit made")
 	}
@@ -272,7 +274,9 @@ func TestFixerLogsDecision(t *testing.T) {
 		},
 	})
 	checks := []ciloop.CheckResult{{Name: "go-test", State: ciloop.StateFailure}}
-	fixer.Fix(checks)
+	if err := fixer.Fix(checks); err != nil {
+		t.Fatalf("Fix: %v", err)
+	}
 	if !logged {
 		t.Error("DecisionLogger was not called")
 	}

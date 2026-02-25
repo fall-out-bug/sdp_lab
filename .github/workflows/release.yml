@@ -12,7 +12,16 @@ permissions:
   id-token: write  # Required for Sigstore keyless signing
 
 jobs:
+  protocol-e2e:
+    uses: fall-out-bug/sdp/.github/workflows/protocol-e2e-reusable.yml@main
+    with:
+      submodules: true
+      dockerfile_path: sdp/ci/Dockerfile.protocol-e2e
+      build_args: --build-arg SDP_PLUGIN_PATH=sdp/sdp-plugin
+    secrets: inherit
+
   release:
+    needs: protocol-e2e
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

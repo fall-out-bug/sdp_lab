@@ -131,9 +131,9 @@ type Trace struct {
 	PRURL    string   `json:"pr_url"`
 }
 
-func NewStatement(subjects []intoto.Subject, predicate CodingWorkflowPredicate) CodingWorkflowStatement {
+func NewStatement(subjects []intoto.Subject, predicate CodingWorkflowPredicate) CodingWorkflowStatement { //nolint:staticcheck // intoto v0 types for compatibility
 	return CodingWorkflowStatement{
-		StatementHeader: intoto.StatementHeader{
+		StatementHeader: intoto.StatementHeader{ //nolint:staticcheck
 			Type:          StatementType,
 			PredicateType: PredicateTypeCodingWorkflow,
 			Subject:       subjects,

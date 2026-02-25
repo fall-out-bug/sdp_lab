@@ -25,7 +25,7 @@ func main() {
 
 	switch os.Args[1] {
 	case "inspect":
-		inspectCmd.Parse(os.Args[2:])
+		_ = inspectCmd.Parse(os.Args[2:])
 		if *inspectEvidence == "" && inspectCmd.NArg() > 0 {
 			*inspectEvidence = inspectCmd.Arg(0)
 		}
@@ -50,7 +50,7 @@ func main() {
 		fmt.Println(summary)
 		os.Exit(0)
 	case "validate":
-		validateCmd.Parse(os.Args[2:])
+		_ = validateCmd.Parse(os.Args[2:])
 		if *evidencePath == "" {
 			// Allow positional: validate <path>
 			if validateCmd.NArg() > 0 {

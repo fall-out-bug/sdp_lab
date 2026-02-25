@@ -33,7 +33,6 @@ var OptionalTerminalPhases = []string{"review", "publish"}
 // Missing phases produce warnings only; terminal transition is not blocked.
 func ValidateTraceChain(events []TraceEvent) TraceValidationResult {
 	phases := make(map[string]bool)
-	var ordered []string
 	for _, e := range events {
 		p := strings.TrimSpace(e.Phase)
 		if p == "" || p == "heartbeat" {
@@ -41,7 +40,6 @@ func ValidateTraceChain(events []TraceEvent) TraceValidationResult {
 		}
 		if !phases[p] {
 			phases[p] = true
-			ordered = append(ordered, p)
 		}
 	}
 

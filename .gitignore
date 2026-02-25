@@ -44,3 +44,4 @@ bin/
 .cursor/agents
 .opencode/skills
 .prompts
+evaluator-orchestrator

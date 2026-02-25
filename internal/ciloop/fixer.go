@@ -89,7 +89,7 @@ func (f *AutoFixer) Fix(checks []CheckResult) error {
 
 	if f.opts.DecisionLogger != nil {
 		// Sanitize: never pass CI log content to stdout (security: a8ae).
-		f.opts.DecisionLogger(
+		_ = f.opts.DecisionLogger(
 			"AUTO-FIX",
 			fmt.Sprintf("Applied fix for: %s", strings.Join(sanitizeFixDescs(fixDescs), ", ")),
 		)

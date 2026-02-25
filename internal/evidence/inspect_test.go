@@ -104,7 +104,9 @@ func TestInspectPromptProvenance(t *testing.T) {
 func TestInspectInvalidEvidence(t *testing.T) {
 	tmp := t.TempDir()
 	bad := filepath.Join(tmp, "bad.json")
-	os.WriteFile(bad, []byte(`{"intent":{}}`), 0644)
+	if err := os.WriteFile(bad, []byte(`{"intent":{}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
 	summary, res, err := Inspect(bad, false)
 	if err != nil {
 		t.Fatalf("Inspect should not return error for invalid evidence: %v", err)

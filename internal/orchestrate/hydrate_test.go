@@ -46,23 +46,20 @@ func TestHydrate(t *testing.T) {
 }
 
 func TestHydrate_WritesFile(t *testing.T) {
-	root := findProjectRoot(t)
 	tmpDir := t.TempDir()
 	// Copy minimal structure for Hydrate to work
 	wsDir := filepath.Join(tmpDir, "docs", "workstreams", "backlog")
 	if err := os.MkdirAll(wsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	// Use real project root for read, but write to tmpDir - actually Hydrate writes to projectRoot
-	// So we need projectRoot to have the workstream. Let's use real root.
-	root = findProjectRoot(t)
+	root := findProjectRoot(t)
 	cp := &Checkpoint{FeatureID: "F022", Phase: PhaseBuild}
 	pkt, err := Hydrate(root, "F022", "00-022-01", cp)
 	if err != nil {
 		t.Fatalf("Hydrate: %v", err)
 	}
 	path := filepath.Join(root, contextPacketPath)
-	defer os.Remove(path)
+	defer func() { _ = os.Remove(path) }()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)

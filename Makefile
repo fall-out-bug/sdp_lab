@@ -1,5 +1,5 @@
 # sdp_dev Makefile
-.PHONY: test test-internal test-scripts coverage lint quality generate
+.PHONY: test test-internal test-scripts coverage lint quality generate protocol-e2e
 .PHONY: build-sdp-orchestrate build-sdp-guard build-sdp-eval build-sdp-ci-loop build-sdp-evidence
 
 test:
@@ -58,6 +58,10 @@ build-sdp-ci-loop:
 
 build-sdp-evidence:
 	go build -o bin/sdp-evidence ./cmd/sdp-evidence
+
+# Protocol E2E test (Docker)
+protocol-e2e:
+	@./ci/run-protocol-e2e.sh
 
 # Download envtest binaries for adapter-controller tests (optional)
 envtest:
