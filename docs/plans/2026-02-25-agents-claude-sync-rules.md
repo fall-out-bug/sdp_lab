@@ -2,6 +2,8 @@
 
 **Purpose:** Keep agent instructions consistent between `sdp_dev` (AGENTS.md) and `sdp` submodule (CLAUDE.md).
 
+**Note:** The `sdp` submodule uses `CLAUDE.md` as its primary agent instructions file. `AGENTS.md` was removed from sdp; sync focuses on `sdp/CLAUDE.md`.
+
 ## Shared Sections
 
 When updating these, update **both** files:
