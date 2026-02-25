@@ -1,7 +1,7 @@
 # sdp_dev Makefile
 # Build outputs: binaries → bin/, coverage → .tmp/
 .PHONY: test test-internal test-scripts coverage lint quality generate protocol-e2e
-.PHONY: build-sdp-orchestrate build-sdp-guard build-sdp-eval build-sdp-ci-loop build-sdp-evidence
+.PHONY: build-sdp-orchestrate build-sdp-guard build-sdp-eval build-sdp-ci-loop build-sdp-evidence build-sdp-ws-verdict-validate
 .PHONY: clean-root
 
 test:
@@ -64,12 +64,18 @@ build-sdp-ci-loop:
 build-sdp-evidence:
 	go build -o bin/sdp-evidence ./cmd/sdp-evidence
 
+build-sdp-ws-verdict-validate:
+	go build -o bin/sdp-ws-verdict-validate ./cmd/sdp-ws-verdict-validate
+
+validate-ws-verdicts:
+	@go run ./cmd/sdp-ws-verdict-validate .
+
 # Remove orphaned binaries and coverage files from root (gitignored artifacts)
 clean-root:
 	@rm -f adapter-controller autonomy-worker beads-fsm brain-gateway cicd-agent
 	@rm -f evaluator-orchestrator feature-orchestrator intake-gateway orchestrator
 	@rm -f pr-publish registry-agent swarm-orchestrator swarm-worker telemetry-analyzer
-	@rm -f sdp-ci-loop sdp-eval sdp-evidence sdp-guard sdp-orchestrate
+	@rm -f sdp-ci-loop sdp-eval sdp-evidence sdp-guard sdp-orchestrate sdp-ws-verdict-validate
 	@rm -f *.out coverage*.out adapter_cover.out aw2.out aw_cov.out full_coverage.out swarm_cov.out swarm_coverage.out swarm_qa_coverage.out 2>/dev/null || true
 	@echo "Root cleaned."
 

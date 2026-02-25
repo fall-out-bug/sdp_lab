@@ -19,6 +19,13 @@ hooks:
   - phase: build
     when: post
     executable: bash
+    args: ["scripts/hooks/validate-ws-verdicts.sh"]
+    on_fail: halt
+    timeout: 60
+
+  - phase: build
+    when: post
+    executable: bash
     args: ["scripts/hooks/post-build.sh"]
     on_fail: warn
     timeout: 30

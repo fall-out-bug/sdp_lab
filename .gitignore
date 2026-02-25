@@ -31,6 +31,7 @@ cover.out
 /sdp-orchestrate
 /sdp-eval
 /sdp-guard
+/sdp-ws-verdict-validate
 /beads-fsm
 /brain-gateway
 /cicd-agent
