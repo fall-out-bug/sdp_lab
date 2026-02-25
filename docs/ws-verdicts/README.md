@@ -9,12 +9,14 @@ Workstream verdicts record completion and acceptance-criteria evidence for each 
 
 ## Schema
 
-Each verdict file should contain at least:
+Each verdict file must conform to `sdp/schema/ws-verdict.schema.json`. Required fields:
 
 - `ws_id` — workstream ID (e.g. `00-015-01`)
-- `status` — `done` | `in_progress` | `blocked`
-- `completed_at` — ISO8601 when marked done (optional)
-- `ac_evidence` — array of `{ "ac": "description", "evidence": "file or command" }` per acceptance criterion
+- `feature_id` — feature ID (e.g. `F001`)
+- `verdict` — `PASS` | `FAIL` | `PARTIAL`
+- `quality_gates` — object with `tests_pass`, `lint_clean` (boolean)
+- `existing_work_summary` — one-line summary of pre-existing code found before implementation
+- `ac_evidence` — array of `{ "ac": "description", "met": true|false, "evidence": "file or command" }` per acceptance criterion
 
 ## When to Create
 
@@ -27,9 +29,12 @@ Each verdict file should contain at least:
 ```json
 {
   "ws_id": "00-015-01",
-  "status": "done",
+  "feature_id": "F015",
+  "verdict": "PASS",
+  "quality_gates": { "tests_pass": true, "lint_clean": true },
+  "existing_work_summary": "Pre-existing hooks in .cursor/hooks.json",
   "ac_evidence": [
-    { "ac": "Hook fires when Cursor agent finishes", "evidence": "scripts/oneshot-stop-gate.sh + .cursor/hooks.json" }
+    { "ac": "Hook fires when Cursor agent finishes", "met": true, "evidence": "scripts/oneshot-stop-gate.sh + .cursor/hooks.json" }
   ]
 }
 ```
