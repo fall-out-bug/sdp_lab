@@ -56,13 +56,15 @@
 
 ---
 
-### 5. internal/evidence 40% Coverage (sdp_dev-c5fj)
+### 5. internal/evidence 40% Coverage (sdp_dev-c5fj) — DONE (00-053-20)
 
 **Problem:** `auto_attest.go`, `attestation.go`, `cmd/auto-attest` at 0% coverage.
 
 **Solution:** Add tests for AutoAttest, NewStatement, auto-attest CLI paths.
 
 **Scope:** `internal/evidence/`, `cmd/auto-attest/`
+
+**Implemented:** attestation_test, auto_attest_test, auto-attest main_test.
 
 ---
 
