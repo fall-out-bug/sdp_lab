@@ -117,6 +117,20 @@ func capitalize(s string) string {
 	return strings.ToUpper(s[:1]) + strings.ToLower(s[1:])
 }
 
+// sectionHeadersForFeature returns INDEX.md section headers to try for a feature.
+func sectionHeadersForFeature(featureID string) []string {
+	switch strings.ToUpper(featureID) {
+	case "F053":
+		return []string{"### Phase 4 Remediation", "### F053"}
+	case "F054":
+		return []string{"### F054: Continuous Protocol Improvement", "### F054"}
+	case "F055":
+		return []string{"### F055: Evidence + Enforcement Reality", "### F055"}
+	default:
+		return []string{"### " + featureID, "### " + strings.ToUpper(featureID)}
+	}
+}
+
 // FormatIndexTable returns markdown table lines for the rows.
 func FormatIndexTable(rows []IndexRow) string {
 	if len(rows) == 0 {
@@ -150,14 +164,15 @@ func UpdateIndexFile(projectRoot, featureID string, cp *Checkpoint) error {
 		return nil
 	}
 
-	// Find F053 section: "### Phase 4 Remediation" followed by table until next ### or ---
+	// Map featureID to section header in INDEX.md (try in order)
 	content := string(data)
-	sectionHeader := "### Phase 4 Remediation"
-	start := strings.Index(content, sectionHeader)
-	if start < 0 {
-		// Try alternate header
-		sectionHeader = "### F053"
-		start = strings.Index(content, sectionHeader)
+	sectionHeaders := sectionHeadersForFeature(featureID)
+	var start int = -1
+	for _, h := range sectionHeaders {
+		if idx := strings.Index(content, h); idx >= 0 {
+			start = idx
+			break
+		}
 	}
 	if start < 0 {
 		return fmt.Errorf("INDEX.md: section for %s not found", featureID)
