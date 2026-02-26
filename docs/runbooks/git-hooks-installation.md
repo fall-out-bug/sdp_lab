@@ -498,8 +498,5 @@ For the sdp_dev lab repo (Go, evidence, ws-verdict):
 
 ## References
 
-- Pre-commit hook: `sdp/hooks/pre-commit.sh`
-- Post-commit hook: `sdp/hooks/post-commit.sh`
-- Pre-push hook: `sdp/hooks/pre-push.sh`
-- Install script: `sdp/hooks/install-hooks.sh`
-- PROJECT_MAP: `tools/hw_checker/docs/PROJECT_MAP.md` → Git Hooks section
+- **sdp (protocol):** `sdp/hooks/pre-commit.sh`, `sdp/hooks/pre-push.sh`, `sdp/hooks/install-git-hooks.sh`
+- **sdp_dev (lab):** `scripts/hooks/` — delegates to sdp/hooks/ when sdp submodule present; `scripts/hooks/validate-ws-verdicts.sh` for ws-verdict schema validation
