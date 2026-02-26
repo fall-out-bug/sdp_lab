@@ -3,6 +3,8 @@
 !.sdp/pipeline-hooks.yaml.example
 !.sdp/policies/
 !.sdp/agent-constraints.yaml
+!.sdp/evidence/
+!.sdp/checkpoints/
 __pycache__/
 *.pyc
 .tmp/

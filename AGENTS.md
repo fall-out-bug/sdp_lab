@@ -129,6 +129,8 @@ docs/topic                  # documentation-only changes
 | Workstream files | `docs/workstreams/backlog/` | WS only; one file per 00-FFF-SS |
 | Idea drafts | `docs/drafts/idea-*` | One per feature (e.g. idea-f053-*.md) |
 
+Evidence and checkpoint must be committed with the PR. When running as part of @oneshot, after `sdp-orchestrate --advance` writes `.sdp/evidence/` and `.sdp/checkpoints/`, commit them (see @build skill step 3b).
+
 ## Quality Gates
 
 Before pushing code changes:
