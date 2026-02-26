@@ -16,3 +16,10 @@ if [ -f "$SCRIPTS_DIR/pre-commit.sh" ]; then
   chmod +x "$SCRIPTS_DIR/pre-commit.sh"
   echo "Installed pre-commit"
 fi
+
+# pre-push: go test -short, evidence validation for feature branches
+if [ -f "$SCRIPTS_DIR/pre-push.sh" ]; then
+  ln -sf ../../scripts/hooks/pre-push.sh "$HOOKS_DIR/pre-push"
+  chmod +x "$SCRIPTS_DIR/pre-push.sh"
+  echo "Installed pre-push"
+fi
