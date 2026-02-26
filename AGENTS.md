@@ -69,6 +69,8 @@ bd sync               # Sync with git
 
 ## Feature Delivery Flow
 
+**Base branch:** `dev`. Feature branches branch from `dev`; PRs target `dev`. `main`/`master` for releases only.
+
 ### Step 1: Pick Work
 
 ```bash
@@ -80,7 +82,7 @@ bd update <id> --status in_progress
 ### Step 2: Branch & Build
 
 ```bash
-git checkout master
+git checkout dev
 git pull
 git checkout -b feature/FXXX-short-name   # e.g. feature/F004-sequential-reconciler
 ```
@@ -93,7 +95,7 @@ Write code. Run tests. Follow TDD if the workstream says so.
 go test ./...
 git add -A && git commit -m "F004: rewrite AgentRunReconciler to sequential phases"
 git push -u origin HEAD
-gh pr create --base master --title "F004: sequential reconciler"
+gh pr create --base dev --title "F004: sequential reconciler"
 ```
 
 ### Step 4: Merge & Close
@@ -113,17 +115,18 @@ If the feature publishes artifacts to the `sdp` protocol repo:
 # Copy artifact into submodule
 cp schema/evidence-envelope.schema.json sdp/schema/
 
-# Commit inside the submodule
+# Commit inside the submodule (sdp: branch from dev)
 cd sdp
+git checkout dev && git pull
 git checkout -b schema/evidence-envelope
 git add schema/
 git commit -m "Add evidence envelope JSON Schema"
 git push -u origin HEAD
-gh pr create --base main --title "Add evidence envelope JSON Schema"
+gh pr create --base dev --title "Add evidence envelope JSON Schema"
 cd ..
 
 # After sdp PR is merged:
-cd sdp && git checkout main && git pull && cd ..
+cd sdp && git checkout dev && git pull && cd ..
 git add sdp
 git commit -m "Update sdp submodule: evidence schema published"
 git push
