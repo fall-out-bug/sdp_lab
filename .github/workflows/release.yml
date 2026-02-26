@@ -12,13 +12,14 @@ permissions:
   id-token: write  # Required for Sigstore keyless signing
 
 jobs:
+  # Protocol E2E: runs sdp init, CLI checks, sdp-orchestrate, and (if GLM_API_KEY set) opencode LLM code generation
   protocol-e2e:
     uses: fall-out-bug/sdp/.github/workflows/protocol-e2e-reusable.yml@main
     with:
       submodules: true
       dockerfile_path: sdp/ci/Dockerfile.protocol-e2e
       build_args: --build-arg SDP_PLUGIN_PATH=sdp/sdp-plugin
-    secrets: inherit
+    secrets: inherit  # GLM_API_KEY required for Phase 5 (opencode LLM E2E)
 
   release:
     needs: protocol-e2e
