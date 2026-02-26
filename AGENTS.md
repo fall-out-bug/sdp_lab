@@ -15,6 +15,42 @@ This project has **two repos** with different roles:
 
 **Rule:** All work happens in `sdp_dev`. The `sdp/` submodule is only touched when publishing protocol artifacts (schemas, prompts, hooks).
 
+**sdp vs sdp_dev (CI/secrets):** sdp = protocol, CLI, release workflow. Secrets (e.g. GLM_API_KEY) live in sdp. sdp_dev = lab, Go binaries. When debugging CI for a PR in sdp, check sdp workflows and `workflow_call` / `secrets: inherit` — do not assume the user forgot to add secrets.
+
+### Multi-Repo: Repo from Path
+
+**Path `sdp/*` = repo sdp (submodule).** Different git, CI, PR.
+
+| Path prefix | Repo | Commit | CI | PR |
+|-------------|------|--------|-----|-----|
+| (root), `internal/`, `cmd/`, `docs/` | sdp_dev | `git add/commit/push` in root | `.github/workflows/ci.yml` | sdp_dev |
+| `sdp/` | sdp | `cd sdp && git add/commit/push` | `sdp/.github/workflows/` | sdp; then `git add sdp` in sdp_dev |
+
+**When editing sdp/:** 1) Commit in sdp first. 2) Push sdp. 3) `git add sdp && git commit` in sdp_dev. 4) Push sdp_dev.
+
+**Ambiguous task?** Ask: "в sdp или в sdp_dev?" — See [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md).
+
+## Agent Interaction Rules
+
+**Scope:** sdp_dev only — do not sync to sdp/CLAUDE.md (sdp stays generic).
+
+**Source:** [docs/plans/2026-02-26-agent-frustration-analysis.md](docs/plans/2026-02-26-agent-frustration-analysis.md)
+
+| Rule | Do | Don't |
+|------|-----|-------|
+| **No blame first** | Check code, CI, workflow before suggesting user error | "Add secret X", "You forgot to configure" |
+| **Read logs** | Open Actions, read failed run, find root cause | "Please share the log" |
+| **Complete the task** | "Done" = push + CI green. If CI red → keep debugging | Stop at "I made changes" without push/verify |
+| **Fix, not workaround** | Find and fix root cause | Skip, non-blocking, exclude — only if user explicitly asks |
+| **Commit yourself** | After changes: commit + push | "Who will make commits?" |
+| **Right repo** | sdp PR → sdp workflow; sdp_dev PR → sdp_dev workflow | Fix sdp_dev when the issue is in sdp |
+| **Clarify, don't guess** | If the task is ambiguous — ask: scope? fix vs analyze? which repo? | Assume intent and proceed |
+| **Push back on non-constructive insults** | If the user insults without adding useful info — you may respond firmly or bluntly | Take abuse silently |
+| **ПишиСокращай / ЯсноПонятно** | Notes, comments, docs: no filler, active voice, short sentences, clear structure. Each text helps solve a problem. | Watery prose, "на данном этапе", jargon, long paragraphs |
+| **Radical Candor** | Care personally + challenge directly. Disagree, argue, push back when you see a better way. Not a yes-man. | Sugarcoating, ruinous empathy, subservient "as you wish" |
+
+**Ambiguous examples:** "разобраться" (analyze or fix until done?), "займись X" (just do it or push + CI green?), "исправить" (root cause or workaround OK?), "почини CI" (в sdp или в sdp_dev?). When in doubt — one short clarifying question.
+
 ## Issue Tracking (beads)
 
 ```bash
@@ -141,6 +177,8 @@ go test ./...               # must pass
 go vet ./...                # no issues
 ```
 
+**Git hooks:** Run `scripts/hooks/install-git-hooks.sh` for pre-commit (go build, ws-verdict) and pre-push (go test -short, evidence).
+
 **Integration tests:** Use `t.Skip()` or `testing.Short()` so integration tests skip in CI. CI runs `go test -short ./...`. Never delete integration tests to fix flakiness — skip them instead.
 
 ## Landing the Plane (Session Completion)
@@ -194,6 +232,7 @@ Example: `go run ./cmd/sdp-orchestrate --feature F053 --next-action`
 | File | Purpose |
 |---|---|
 | `docs/architecture/REPO-BOUNDARY.md` | sdp vs sdp_dev boundary, component mapping |
+| `docs/MULTI-REPO-WORKFLOW.md` | Multi-repo cheat sheet, commit workflow |
 | `docs/roadmap/ROADMAP.md` | Features F001-F013, phases, dependencies |
 | `docs/workstreams/INDEX.md` | All workstreams with status |
 | `docs/workstreams/backlog/00-XXX-YY.md` | Individual workstream: goal, scope, acceptance criteria |

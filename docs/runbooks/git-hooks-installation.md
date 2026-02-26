@@ -477,6 +477,25 @@ mv .git/hooks/pre-push.disabled .git/hooks/pre-push
 4. **Test hooks** - Create test commit after installation
 5. **Keep hooks updated** - Run install after pulling changes
 
+## sdp_dev (Go project)
+
+For the sdp_dev lab repo (Go, evidence, ws-verdict):
+
+```bash
+# From repo root
+./scripts/hooks/install-git-hooks.sh
+```
+
+**Hooks installed:**
+- **pre-commit** — `go build ./...`; if `docs/ws-verdicts/*.json` staged, validates against schema
+- **pre-push** — `go test -short ./...`; on feature branches, if `internal/` or `cmd/` changed, requires `.sdp/evidence/*.json` and validates with sdp-evidence
+
+**Build sdp-evidence** (for pre-push validation): `make build-sdp-evidence`
+
+**Bypass:** `git push --no-verify` skips hooks; CI still runs all gates.
+
+**Paths:** `scripts/hooks/pre-commit.sh`, `scripts/hooks/pre-push.sh`, `scripts/hooks/install-git-hooks.sh`
+
 ## References
 
 - Pre-commit hook: `sdp/hooks/pre-commit.sh`
