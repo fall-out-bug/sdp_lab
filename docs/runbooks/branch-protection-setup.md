@@ -4,13 +4,6 @@
 
 This guide explains how to configure branch protection for SDP repositories.
 
-## Automatic Setup
-
-```bash
-# Requires: gh CLI authenticated with admin access
-./scripts/setup-branch-protection.sh
-```
-
 ## Manual Setup (GitHub UI)
 
 ### Step 1: Navigate to Settings
@@ -19,9 +12,9 @@ This guide explains how to configure branch protection for SDP repositories.
 2. Click "Branches" in sidebar
 3. Click "Add rule" or edit existing
 
-### Step 2: Configure main branch
+### Step 2: Configure master branch
 
-**Branch name pattern:** `main`
+**Branch name pattern:** `master` (or `main` for repos using main)
 
 **Settings:**
 - ✅ Require a pull request before merging
@@ -29,40 +22,53 @@ This guide explains how to configure branch protection for SDP repositories.
 - ✅ Require status checks to pass before merging
   - ✅ Require branches to be up to date
   - **Required checks:**
-    - `Critical Checks (Blocking)` ← from ci-critical.yml
+    - `build-test`
+    - `evidence-gate`
+    - `policy-gate`
+    - `scope-gate`
 - ✅ Do not allow bypassing the above settings
 
-### Step 3: Configure dev branch
+### Step 3: Optional — dev branch
 
 **Branch name pattern:** `dev`
 
 **Settings:**
 - ✅ Require status checks to pass before merging
-  - **Required checks:**
-    - `Critical Checks (Blocking)`
+  - **Required checks:** `build-test`, `evidence-gate`, `policy-gate`, `scope-gate`
 
 ## Verify Setup
 
 ```bash
 # Check protection status
-gh api repos/{owner}/{repo}/branches/main/protection
+gh api repos/{owner}/{repo}/branches/master/protection
 
 # Test by creating failing PR
 git checkout -b test-protection
-echo "test" > test.txt
-git add test.txt
-git commit -m "test: verify protection"
+echo "test" >> internal/something.go
+git add internal/something.go
+git commit -m "test: verify evidence-gate"
 git push -u origin test-protection
-gh pr create --title "Test protection" --body "Should be blocked"
+gh pr create --title "Test protection" --body "Should be blocked (no evidence)"
 ```
+
+
+## Verification Tests (F055-03)
+
+After configuring branch protection, verify gates block:
+
+1. **evidence-gate fail (no evidence):** PR with `internal/` or `cmd/` change, no `.sdp/evidence/*.json` in diff → evidence-gate must fail.
+2. **evidence-gate fail (invalid evidence):** PR with `internal/` change + `.sdp/evidence/F055.json` containing invalid JSON → evidence-gate must fail.
+3. **scope-gate fail:** PR with out-of-scope file (e.g. change file not in WS scope) → scope-gate must fail.
 
 ## Troubleshooting
 
 ### Check not appearing
 
-Ensure workflow name matches exactly:
-- Workflow: `name: Critical Quality Gates`
-- Job: `name: Critical Checks (Blocking)`
+Ensure job names match exactly from `.github/workflows/ci.yml`:
+- `build-test`
+- `evidence-gate`
+- `scope-gate`
+- `policy-gate`
 
 Required check uses job name, not workflow name.
 
@@ -73,7 +79,6 @@ By default, admins can bypass. To prevent:
 
 ## Notes
 
-- The `Critical Checks (Blocking)` job from `ci-critical.yml` is the required status check
-- This workflow runs on every PR to main/dev branches
-- PRs cannot merge until this check passes
-- The warning workflow (`ci-warnings.yml`) is NOT required and doesn't block
+- Jobs are from `.github/workflows/ci.yml`
+- PRs cannot merge until all required checks pass
+- GitHub branch protection requires GitHub Pro (or public repo) for private repositories
