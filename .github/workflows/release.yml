@@ -1,5 +1,5 @@
-# Release SDP CLIs on tag push (e.g. v0.1.0)
-# Publishes cross-platform binaries + signs checksums with Sigstore (keyless)
+# Release sdp_dev lab binaries (sdp-evidence, sdp-guard, sdp-orchestrate, etc.)
+# Protocol E2E and sdp CLI release run from sdp repo (see sdp/.github/workflows/release.yml)
 name: Release
 
 on:
@@ -9,20 +9,10 @@ on:
 
 permissions:
   contents: write
-  id-token: write  # Required for Sigstore keyless signing
+  id-token: write
 
 jobs:
-  # Protocol E2E: runs sdp init, CLI checks, sdp-orchestrate, and (if GLM_API_KEY set) opencode LLM code generation
-  protocol-e2e:
-    uses: fall-out-bug/sdp/.github/workflows/protocol-e2e-reusable.yml@main
-    with:
-      submodules: true
-      dockerfile_path: sdp/ci/Dockerfile.protocol-e2e
-      build_args: --build-arg SDP_PLUGIN_PATH=sdp/sdp-plugin
-    secrets: inherit  # GLM_API_KEY required for Phase 5 (opencode LLM E2E)
-
   release:
-    needs: protocol-e2e
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
