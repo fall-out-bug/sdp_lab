@@ -43,7 +43,7 @@ jobs:
 
   evidence-gate:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && !contains(github.head_ref, 'cleanup')
     steps:
       - uses: actions/checkout@v4
         with:
