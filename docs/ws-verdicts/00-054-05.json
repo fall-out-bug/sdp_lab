@@ -1,0 +1,17 @@
+{
+  "ws_id": "00-054-05",
+  "feature_id": "F054",
+  "verdict": "PASS",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {"ac": "/status F053 or sdp status --feature F053 outputs: pending WS list, open beads count, next action", "met": true, "evidence": "sdp-orchestrate --status --feature F053"},
+    {"ac": "Uses sdp-orchestrate --next-action or equivalent", "met": true, "evidence": "runStatus calls ComputeNextAction, outputs next action JSON"},
+    {"ac": "Documented in AGENTS.md", "met": true, "evidence": "AGENTS.md Status line + Command Decision Tree"}
+  ],
+  "existing_work_summary": "sdp-orchestrate had --next-action, --index; no status. Added --status, main_status.go."
+}

@@ -1,0 +1,19 @@
+{
+  "ws_id": "00-054-06",
+  "feature_id": "F054",
+  "verdict": "PASS",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {"ac": "Document sync rules: which sections are shared between AGENTS.md and sdp/CLAUDE.md", "met": true, "evidence": "docs/plans/2026-02-25-agents-claude-sync-rules.md"},
+    {"ac": "Placement rules and продолжай convention present in both", "met": true, "evidence": "AGENTS.md Artifact Placement; sdp/CLAUDE.md Shared Conventions"},
+    {"ac": "Add Sync note to AGENTS.md", "met": true, "evidence": "AGENTS.md top blockquote"},
+    {"ac": "Add Sync note to sdp/CLAUDE.md", "met": true, "evidence": "sdp/CLAUDE.md top blockquote"},
+    {"ac": "Optional: doc the manual process", "met": true, "evidence": "sync rules doc Sync Process section"}
+  ],
+  "existing_work_summary": "00-054-04 added placement and продолжай to AGENTS.md. sdp/CLAUDE.md had no shared conventions section."
+}

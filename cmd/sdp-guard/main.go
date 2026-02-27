@@ -4,7 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
+	"sdp_dev/internal/evidence"
 	"sdp_dev/internal/guard"
 	"sdp_dev/internal/orchestrate"
 )
@@ -76,6 +78,11 @@ func runConstraintCheck(projectRoot, phase, command, file string) {
 		violations = append(violations, orchestrate.CheckCommand(cfg, phase, command)...)
 	}
 	if file != "" {
+		absFile, _ := filepath.Abs(file)
+		if err := evidence.ValidatePath(absFile, projectRoot); err != nil {
+			fmt.Fprintf(os.Stderr, "path validation: %v\n", err)
+			os.Exit(1)
+		}
 		violations = append(violations, orchestrate.CheckFileAccess(cfg, phase, file)...)
 	}
 

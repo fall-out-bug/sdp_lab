@@ -1,3 +1,5 @@
+// Package orchestrate implements the oneshot outer loop.
+// Logging follows ADR-003 (docs/decisions/ADR-003-logging-strategy.md).
 package orchestrate
 
 import (
@@ -41,14 +43,14 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				fatal("error: pre-build hook: %v", err)
 			}
 			if _, err := Hydrate(projectRoot, featureID, action.WSID, cp); err != nil {
-				slog.Error("hydration failed", "error", err, "ws", action.WSID)
+				slog.Error("hydration failed", "error", err, "ws_id", action.WSID, "phase", "build")
 				os.Exit(1)
 			}
 			phaseCtx, cancel := context.WithTimeout(ctx, buildPhaseTimeout)
 			commit, err := RunBuildPhase(phaseCtx, projectRoot, action.Feature, action.WSID, nil)
 			cancel()
 			if err != nil {
-				slog.Error("opencode build failed", "error", err, "ws", action.WSID)
+				slog.Error("opencode build failed", "error", err, "ws_id", action.WSID, "phase", "build")
 				os.Exit(1)
 			}
 			pending := 0
@@ -75,14 +77,14 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				fatal("error: pre-review hook: %v", err)
 			}
 			if _, err := HydrateForReview(projectRoot, action.Feature, cp, workstreams); err != nil {
-				slog.Error("hydration failed", "error", err, "feature", action.Feature)
+				slog.Error("hydration failed", "error", err, "feature", action.Feature, "phase", "review")
 				os.Exit(1)
 			}
 			phaseCtx, cancel := context.WithTimeout(ctx, reviewPhaseTimeout)
 			approved, err := RunReviewPhase(phaseCtx, projectRoot, action.Feature, nil)
 			cancel()
 			if err != nil || !approved {
-				slog.Error("opencode review failed", "error", err, "approved", approved, "feature", action.Feature)
+				slog.Error("opencode review failed", "error", err, "approved", approved, "feature", action.Feature, "phase", "review")
 				os.Exit(1)
 			}
 			if err := RunHooks(ctx, projectRoot, "review", "post", hookEnv, func(msg string) { slog.Info("hook", "msg", msg) }); err != nil {
@@ -103,7 +105,7 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				fatal("error: %v", err)
 			}
 		case "done":
-			slog.Info("oneshot complete", "feature", featureID)
+			slog.Info("oneshot complete", "feature", featureID, "phase", "done")
 			fmt.Println("CI GREEN - @oneshot complete")
 			return
 		}

@@ -1,0 +1,17 @@
+{
+  "ws_id": "00-054-03",
+  "feature_id": "F054",
+  "verdict": "PASS",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {"ac": "@review: when CHANGES_REQUESTED, includes handoff block with @design invocation", "met": true, "evidence": "sdp/prompts/skills/review/SKILL.md synthesis section"},
+    {"ac": "Block is prominent (not buried in output)", "met": true, "evidence": "Placed at end of synthesis, before Beads; marked prominently"},
+    {"ac": "Skill ≤200 LOC", "met": true, "evidence": "130 LOC"}
+  ],
+  "existing_work_summary": "Review skill had synthesis and verdict; no handoff block for CHANGES_REQUESTED."
+}

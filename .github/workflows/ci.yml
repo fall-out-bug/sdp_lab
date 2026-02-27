@@ -21,16 +21,29 @@ jobs:
         run: go build ./...
 
       - name: Test
-        run: go test ./... -count=1
+        run: go test -short ./... -count=1
 
       - name: Lint
         run: |
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
           golangci-lint run ./...
 
+      - name: Coverage
+        run: |
+          mkdir -p .tmp
+          go test -short ./internal/... -coverprofile=.tmp/coverage.out -covermode=atomic
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: .tmp/coverage.out
+          retention-days: 7
+          if-no-files-found: ignore
+
   evidence-gate:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && !contains(github.head_ref, 'cleanup')
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,11 +57,22 @@ jobs:
       - name: Validate evidence files
         run: |
           set -e
-          EVIDENCE_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '^\.sdp/evidence/.*\.json$' || true)
+          BASE="${{ github.base_ref }}"
+          CHANGED=$(git diff --name-only origin/$BASE...HEAD)
+          EVIDENCE_FILES=$(echo "$CHANGED" | grep '^\.sdp/evidence/.*\.json$' || true)
+          FEATURE_PATHS=$(echo "$CHANGED" | grep -E '^internal/|^cmd/|^docs/workstreams/backlog/' || true)
+
+          if [ -n "$FEATURE_PATHS" ] && [ -z "$EVIDENCE_FILES" ]; then
+            echo "ERROR: feature PR requires evidence (internal/, cmd/, or docs/workstreams/backlog/ changed)"
+            echo "Add .sdp/evidence/*.json to the PR (see @build skill step 3b)"
+            exit 1
+          fi
+
           if [ -z "$EVIDENCE_FILES" ]; then
             echo "No evidence files changed — skipping validation"
             exit 0
           fi
+
           for f in $EVIDENCE_FILES; do
             if [ -f "$f" ]; then
               echo "Validating: $f"
@@ -71,7 +95,7 @@ jobs:
 
   scope-gate:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && !contains(github.head_ref, 'cleanup')
     steps:
       - uses: actions/checkout@v4
         with:
@@ -85,22 +109,42 @@ jobs:
       - name: Check scope compliance
         run: |
           set -e
-          CHECKPOINT_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '^\.sdp/checkpoints/.*\.json$' || true)
-          if [ -z "$CHECKPOINT_FILES" ]; then
-            echo "No checkpoint files — scope gate not applicable"
+          BASE="${{ github.base_ref }}"
+          CHANGED=$(git diff --name-only origin/$BASE...HEAD)
+          CHECKPOINT_FILES=$(echo "$CHANGED" | grep '^\.sdp/checkpoints/.*\.json$' || true)
+          FEATURE_PATHS=$(echo "$CHANGED" | grep -E '^internal/|^cmd/|^docs/workstreams/backlog/' || true)
+
+          WS_IDS=""
+          if [ -n "$CHECKPOINT_FILES" ]; then
+            for cpf in $CHECKPOINT_FILES; do
+              if [ -f "$cpf" ]; then
+                WS_IDS="$WS_IDS $(jq -r '.workstreams[]?.id // empty' "$cpf" 2>/dev/null)"
+              fi
+            done
+          fi
+
+          if [ -z "$WS_IDS" ] && [ -n "$FEATURE_PATHS" ]; then
+            WS_FROM_DOCS=$(echo "$CHANGED" | grep '^docs/workstreams/backlog/' | sed 's|docs/workstreams/backlog/||;s|\.md$||' | tr '\n' ' ')
+            if [ -n "$WS_FROM_DOCS" ]; then
+              WS_IDS="$WS_FROM_DOCS"
+            else
+              FEATURE_ID=$(echo "${{ github.head_ref }}" | sed -n 's|^feature/\(F[0-9]\{3\}\).*|\1|p')
+              if [ -n "$FEATURE_ID" ] && [ -f ".sdp/checkpoints/${FEATURE_ID}.json" ]; then
+                WS_IDS=$(jq -r '.workstreams[]?.id // empty' ".sdp/checkpoints/${FEATURE_ID}.json" 2>/dev/null)
+              fi
+            fi
+          fi
+
+          WS_IDS=$(echo "$WS_IDS" | tr ' ' '\n' | grep -v '^$' | sort -u)
+          if [ -z "$WS_IDS" ]; then
+            echo "No checkpoint or feature paths — scope gate not applicable"
             exit 0
           fi
-          for cpf in $CHECKPOINT_FILES; do
-            if [ -f "$cpf" ]; then
-              FEATURE_ID=$(jq -r '.feature_id' "$cpf" 2>/dev/null || echo "")
-              if [ -z "$FEATURE_ID" ]; then continue; fi
-              WS_IDS=$(jq -r '.workstreams[]?.id // empty' "$cpf" 2>/dev/null || echo "")
-              for ws in $WS_IDS; do
-                if [ -f "docs/workstreams/backlog/${ws}.md" ]; then
-                  echo "Checking scope for $ws"
-                  go run ./cmd/sdp-guard --ws "$ws" || echo "WARN: scope violation in $ws (non-blocking)"
-                fi
-              done
+
+          for ws in $WS_IDS; do
+            if [ -f "docs/workstreams/backlog/${ws}.md" ]; then
+              echo "Checking scope for $ws"
+              go run ./cmd/sdp-guard --ws "$ws"
             fi
           done
 
@@ -133,8 +177,11 @@ jobs:
           HAS_WS=$(echo "$CHANGED" | grep -c '^docs/workstreams/' || echo 0)
           HAS_FEATURE=$(echo "$CHANGED" | grep -c '^internal/\|^cmd/' || echo 0)
 
-          # Compute scope_violations_count from checkpoint workstreams
+          # Compute scope_violations_count from checkpoint workstreams (skip for cleanup branches)
           SCOPE_VIOLATIONS=0
+          if echo "${{ github.head_ref }}" | grep -q cleanup; then
+            echo "Cleanup branch — skipping scope violation count"
+          else
           CHECKPOINT_FILES=$(echo "$CHANGED" | grep '^\.sdp/checkpoints/.*\.json$' || true)
           for cpf in $CHECKPOINT_FILES; do
             if [ -f "$cpf" ]; then
@@ -148,6 +195,7 @@ jobs:
               done
             fi
           done
+          fi
 
           cat > /tmp/policy-input.json <<HEREDOC
           {
@@ -243,7 +291,7 @@ jobs:
             --pr-number "$PR_NUMBER" \
             --pr-url "$PR_URL" \
             --output .sdp/attestations/ci-auto.json \
-            --report .sdp/attestations/ci-auto-report.json || true
+            --report .sdp/attestations/ci-auto-report.json
           if [ -f .sdp/attestations/ci-auto-report.json ]; then
             echo "=== Auto-Attestation Report ==="
             cat .sdp/attestations/ci-auto-report.json

@@ -378,6 +378,10 @@ func matchesAnyPrefix(file string, prefixes []string) bool {
 		if strings.HasPrefix(file, p) || file == p {
 			return true
 		}
+		// Match "internal" when prefix is "internal/"
+		if file == strings.TrimSuffix(p, "/") {
+			return true
+		}
 	}
 	return false
 }

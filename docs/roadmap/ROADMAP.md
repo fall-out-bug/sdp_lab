@@ -261,7 +261,8 @@ in-toto Envelope (DSSE)
 
 ### Ongoing
 - **F053** — Phase 4 Beads Remediation (00-053-01 … 00-053-46). See [INDEX](../workstreams/INDEX.md).
-- **F054** — Continuous Protocol Improvement (00-054-01 … 00-054-05). Skills, AGENTS.md, workflow. Part of future swarm. Source: [multifaceted analysis](../plans/2026-02-25-agent-protocol-multifaceted-analysis.md).
+- **F054** — Continuous Protocol Improvement (00-054-01 … 00-054-06). Skills, AGENTS.md, CLAUDE.md sync sdp↔sdp_lab, workflow. Part of future swarm. Source: [multifaceted analysis](../plans/2026-02-25-agent-protocol-multifaceted-analysis.md).
+- **F055** — Evidence + Enforcement Reality (00-055-01 … 00-055-03). Make evidence and scope gates actually block merge. Separate from F054 to avoid interference. Source: [evidence enforcement plan](../plans/2026-02-25-evidence-enforcement-reality-plan.md).
 
 ### Project History
 - [Agent Loop Reliability](../plans/2026-02-23-agent-loop-reliability.md)

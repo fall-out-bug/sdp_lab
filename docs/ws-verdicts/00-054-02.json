@@ -1,0 +1,18 @@
+{
+  "ws_id": "00-054-02",
+  "feature_id": "F054",
+  "verdict": "PASS",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {"ac": "@design: before creating draft, check existing docs/drafts/idea-* — no duplicates", "met": true, "evidence": "sdp/prompts/skills/design/SKILL.md Pre-flight"},
+    {"ac": "@design: before creating WS from beads, verify each bead not already fixed in code", "met": true, "evidence": "sdp/prompts/skills/design/SKILL.md Step 3"},
+    {"ac": "@design: review beads → in scope by default; OOS only with justification", "met": true, "evidence": "sdp/prompts/skills/design/SKILL.md Pre-flight"},
+    {"ac": "Skill ≤200 LOC", "met": true, "evidence": "118 LOC"}
+  ],
+  "existing_work_summary": "Design skill had workflow; no pre-draft or bead verification. Added Pre-flight and Step 3 rules."
+}
