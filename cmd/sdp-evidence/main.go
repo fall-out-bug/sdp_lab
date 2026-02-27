@@ -38,6 +38,10 @@ func main() {
 		if absErr != nil {
 			path = *inspectEvidence
 		}
+		if err := evidence.ValidatePath(path, ""); err != nil {
+			fmt.Fprintf(os.Stderr, "inspect: %v\n", err)
+			os.Exit(1)
+		}
 		summary, res, err := evidence.Inspect(path, *inspectRequirePRURL)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "inspect: %v\n", err)
@@ -65,6 +69,10 @@ func main() {
 		path, err := filepath.Abs(*evidencePath)
 		if err != nil {
 			path = *evidencePath
+		}
+		if err := evidence.ValidatePath(path, ""); err != nil {
+			fmt.Fprintf(os.Stderr, "validate: %v\n", err)
+			os.Exit(1)
 		}
 		res, err := evidence.ValidateStrictFile(path, *requirePRURL)
 		if err != nil {

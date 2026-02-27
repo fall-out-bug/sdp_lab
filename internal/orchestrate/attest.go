@@ -2,10 +2,10 @@ package orchestrate
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -15,6 +15,7 @@ import (
 	"github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/common"
 
 	"sdp_dev/internal/evidence"
+	"sdp_dev/internal/executil"
 )
 
 // GenerateOrchestratorAttestation creates an in-toto attestation from a checkpoint.
@@ -249,23 +250,18 @@ func GetChangedFiles(projectRoot string) []string {
 }
 
 func getChangedFilesSinceBranch(projectRoot, baseBranch string) []string {
-	cmd := exec.Command("git", "diff", "--name-only", "origin/"+baseBranch+"...HEAD")
-	cmd.Dir = projectRoot
-	out, err := cmd.Output()
+	ctx := context.Background()
+	out, err := executil.DefaultRunner.Output(ctx, projectRoot, "git", "diff", "--name-only", "origin/"+baseBranch+"...HEAD")
 	if err != nil {
 		// Fallback: uncommitted changes
-		cmd2 := exec.Command("git", "diff", "--name-only", "HEAD")
-		cmd2.Dir = projectRoot
-		out2, _ := cmd2.Output()
+		out2, _ := executil.DefaultRunner.Output(ctx, projectRoot, "git", "diff", "--name-only", "HEAD")
 		return splitLines(string(out2))
 	}
 	return splitLines(string(out))
 }
 
 func gitHeadSHA(projectRoot string) (string, error) {
-	cmd := exec.Command("git", "rev-parse", "HEAD")
-	cmd.Dir = projectRoot
-	out, err := cmd.Output()
+	out, err := executil.DefaultRunner.Output(context.Background(), projectRoot, "git", "rev-parse", "HEAD")
 	if err != nil {
 		return "", err
 	}

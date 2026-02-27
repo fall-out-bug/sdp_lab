@@ -13,7 +13,7 @@ import (
 
 const (
 	PredicateTypeCodingWorkflow = "https://sdp.dev/attestation/coding-workflow/v1"
-	StatementType               = intoto.StatementInTotoV01
+	StatementType               = "https://in-toto.io/Statement/v1"
 )
 
 type CodingWorkflowStatement struct {

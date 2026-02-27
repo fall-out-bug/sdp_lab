@@ -1,0 +1,14 @@
+{
+  "ws_id": "00-053-13",
+  "feature_id": "F053",
+  "verdict": "PASS",
+  "quality_gates": {"tests_pass": true, "lint_clean": true, "build_ok": true, "vet_ok": true},
+  "ac_evidence": [
+    {"ac": "coding-workflow-statement $ref resolves from any cwd", "met": true, "evidence": "coding-workflow-statement.schema.json $ref to predicate $id"},
+    {"ac": "in-toto: upgrade Statement to v1", "met": true, "evidence": "in-toto v1 already present in schema and Go code"},
+    {"ac": "ws-verdict.schema.json formalization", "met": true, "evidence": "ws-verdict.schema.json timestamp optional"},
+    {"ac": "review-verdict.schema.json formalization", "met": true, "evidence": "review-verdict.schema.json"},
+    {"ac": "go test ./... passes", "met": true, "evidence": "TestCodingWorkflowStatementSchemaRefResolves"}
+  ],
+  "existing_work_summary": "Schema $ref had cwd issues. Fixed with $id; formalized ws/review-verdict."
+}

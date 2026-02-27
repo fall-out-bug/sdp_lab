@@ -70,17 +70,19 @@ func RunLoop(opts LoopOptions) (LoopResult, error) {
 		}
 		if opts.PollDelay > 0 {
 			if opts.Context != nil {
+				timer := time.NewTimer(opts.PollDelay)
 				select {
 				case <-opts.Context.Done():
+					timer.Stop()
 					return ResultEscalated, opts.Context.Err()
-				case <-time.After(opts.PollDelay):
+				case <-timer.C:
 				}
 			} else {
 				time.Sleep(opts.PollDelay)
 			}
 		}
 
-		checks, err := opts.Poller.GetChecks(opts.PRNumber)
+		checks, err := opts.Poller.GetChecks(opts.Context, opts.PRNumber)
 		if err != nil {
 			if opts.OnPollError != nil {
 				opts.OnPollError(err)
@@ -106,10 +108,12 @@ func RunLoop(opts LoopOptions) (LoopResult, error) {
 			}
 			if opts.RetryDelay > 0 {
 				if opts.Context != nil {
+					timer := time.NewTimer(opts.RetryDelay)
 					select {
 					case <-opts.Context.Done():
+						timer.Stop()
 						return ResultEscalated, opts.Context.Err()
-					case <-time.After(opts.RetryDelay):
+					case <-timer.C:
 					}
 				} else {
 					time.Sleep(opts.RetryDelay)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -22,7 +23,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	stmt, err := evidence.AutoAttest(evidence.AutoAttestOptions{
+	stmt, err := evidence.AutoAttest(context.Background(), evidence.AutoAttestOptions{
 		BaseBranch: *baseBranch,
 		PRNumber:   *prNumber,
 		PRURL:      *prURL,

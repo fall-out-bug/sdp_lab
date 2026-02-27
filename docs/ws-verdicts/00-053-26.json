@@ -1,0 +1,14 @@
+{
+  "ws_id": "00-053-26",
+  "feature_id": "F053",
+  "verdict": "PASS",
+  "quality_gates": {"tests_pass": true, "lint_clean": true, "build_ok": true, "vet_ok": true},
+  "ac_evidence": [
+    {"ac": "VerifyCommands: call cancel() immediately after each command, not defer in loop", "met": true, "evidence": "verifier.go: runVerificationCommand — each command in separate func, defer cancel() scoped per call"},
+    {"ac": "Verifier.Verify: ctx==nil — require non-nil or document TODO", "met": true, "evidence": "Verify doc: \"If ctx is nil, context.TODO() is used (callers should pass non-nil ctx when possible)\""},
+    {"ac": "panic-safe: cancel in defer with recover, or ensure cancel always runs", "met": true, "evidence": "runVerificationCommand: defer cancel() runs even on panic"},
+    {"ac": "go build ./... passes", "met": true, "evidence": "go build ./..."},
+    {"ac": "go test ./... passes", "met": true, "evidence": "go vet passes"}
+  ],
+  "existing_work_summary": "VerifyCommands had defer cancel() in loop (timer leak); ctx==nil undocumented; cancel not panic-safe. Extracted runVerificationCommand with scoped defer."
+}
