@@ -1,5 +1,3 @@
 {
-  "mcpServers": {},
-  "defaultAgent": "orchestrator",
-  "_comment": "For oneshot: route feature commands to sdp-orchestrate as outer loop. agent: orchestrator maps to sdp-orchestrate invocation. opencode lacks Stop hooks — outer loop CLI replaces them."
+  "$schema": "https://opencode.ai/config.json",
 }

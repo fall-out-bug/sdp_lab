@@ -1,6 +1,15 @@
-# SDP OhMyOpenCode Integration
+# SDP OpenCode Integration
 
-This directory contains configuration for integrating SDP with OhMyOpenCode.
+This directory contains configuration for integrating SDP with OpenCode (OhMyOpenCode).
+
+## OpenCode-First Approach
+
+SDP is now **OpenCode-first**. Configuration lives in `.opencode/` directory:
+- `.opencode/hooks/` - Hook configurations (this directory)
+- `.opencode/agents` - Symlink to `sdp/prompts/agents`
+- `.opencode/commands` - Symlink to `sdp/prompts/commands`
+
+Legacy Claude config (`.claude/`) is maintained for compatibility but OpenCode is the primary environment.
 
 ## sdp-omc-guard
 
@@ -22,9 +31,9 @@ echo '{"tool_name":"edit","tool_input":{"file_path":"test.go"},"cwd":"."}' | \
 #   2 = deny (files out of scope)
 ```
 
-### Hook Configuration
+### OpenCode Hook Configuration
 
-Add to `.claude/settings.json` or equivalent:
+Add to `~/.config/opencode/opencode.json` or use the pre-configured `.opencode/hooks/pre-tool-use.json`:
 
 ```json
 {

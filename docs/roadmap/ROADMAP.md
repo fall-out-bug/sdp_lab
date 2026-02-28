@@ -266,17 +266,20 @@ in-toto Envelope (DSSE)
 
 | System | What SDP Adopts | Feature |
 |--------|------------------|--------|
-| **OhMyOpenCode** | Permission → Guard bridge, Session evidence | F056 |
-| **Beads** | Graph deps, Ready queue, Wisps | F058 |
-| **Gas Town** | GUPP pattern, Witness monitoring, Agent CV | F057 |
-
+| **OhMyOpenCode** | Permission → Guard bridge, Session evidence | F059 |
+| **Beads** | Graph deps, Ready queue, Wisps | F061 |
+| **Gas Town** | GUPP pattern, Witness monitoring, Agent CV | F060 |
+| **vibe-kanban** | Kanban orchestration, MCP config centralization | F062 |
+| **opencode-mem** | Persistent memory, Session continuity, User profiles | F063 |
+| **opencode-beads** | Beads plugin for OpenCode | F061 |
 ### Ongoing
 - **F053** — Phase 4 Beads Remediation (00-053-01 … 00-053-46). See [INDEX](../workstreams/INDEX.md).
 - **F054** — Continuous Protocol Improvement (00-054-01 … 00-054-06). Skills, AGENTS.md, CLAUDE.md sync sdp↔sdp_lab, workflow. Part of future swarm. Source: [multifaceted analysis](../plans/2026-02-25-agent-protocol-multifaceted-analysis.md).
-- **F055** — Evidence + Enforcement Reality (00-055-01 … 00-055-03). Make evidence and scope gates actually block merge. Separate from F054 to avoid interference. Source: [evidence enforcement plan](../plans/2026-02-25-evidence-enforcement-reality-plan.md).
-- **F056** — OhMyOpenCode Evidence Integration (00-056-01 … 00-056-04). Pre-tool-call guard, session evidence emitter, permission↔guard bridge, stuck detection. Phase 5. Source: [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md).
-- **F057** — Gas Town Adapter (00-057-01 … 00-057-04). Convoy→WS bridge, hook→guard, witness escalation, Agent CV→provenance. Phase 8-9 target. Source: [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md).
-- **F058** — Beads Graph Integration (00-058-01 … 00-058-04). SQL dep query, `sdp ready` bridge, formula templates, wisps. Phase 5 target. Source: [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md).
+- **F059** — OhMyOpenCode Evidence Integration (00-059-01 … 00-059-04). Pre-tool-call guard, session evidence emitter, permission↔guard bridge, stuck detection. Phase 5. **Status: DONE** (sdp-omc-guard, sdp-ready implemented).
+- **F060** — Gas Town Adapter (00-060-01 … 00-060-04). Convoy→WS bridge, hook→guard, witness escalation, Agent CV→provenance. Phase 8-9 target. Source: [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md).
+- **F061** — Beads Graph Integration (00-061-01 … 00-061-04). SQL dep query, `sdp ready` bridge, formula templates, wisps. Phase 5 target. **Status: DONE** (sdp-ready, beads client implemented, opencode-beads plugin installed).
+- **F062** — vibe-kanban Integration. Kanban-style task orchestration for coding agents. Evaluate for SDP swarm orchestration layer. Phase 8-9 target.
+- **F063** — opencode-mem Integration. Persistent memory for session continuity, user preference learning, project-specific context. Phase 5 target. **Recommendation: INTEGRATE** (9/10 synergy score).
 
 
 ### Project History
