@@ -181,22 +181,129 @@ SDP's core value is **evidence + enforcement**. Three ecosystem tools provide co
 | Content hashing | Beads | ComputeContentHash for dedup |
 | Audit log | Beads `interactions.jsonl` | Append-only typed entries |
 
-### Enterprise Value
-
 "Dependency-aware execution. Agents only see work that's actually ready. Formula templates for repeatable workflows."
 
 ---
 
-## Integration Priority Matrix
+## F062: vibe-kanban Integration
+
+**Phase:** 8-9 (K8s Orchestration)
+**LOC estimate:** ~1,000
+**Repository:** sdp_lab (private)
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│           vibe-kanban (Task Orchestration)                  │
+│  Kanban Board │ MCP Config │ Agent Router                  │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│           SDP Bridge Layer                                 │
+│                                                             │
+│  ┌─────────────────┐  ┌─────────────────┐                  │
+│  │ sdp-kanban-bridge│  │ task-evidence   │                  │
+│  │ (Beads sync)    │  │ (completion)    │                  │
+│  └─────────────────┘  └─────────────────┘                  │
+│                                                             │
+│  Output: Multi-agent coordination with evidence            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Workstreams
+
+| WS | Title | AC |
+|----|-------|----|
+| **00-062-01** | Analyze vibe-kanban architecture | Done |
+| **00-062-02** | Design SDP ↔ vibe-kanban bridge | Architecture doc |
+| **00-062-03** | Implement orchestration layer | K8s deployment |
+
+### Synergies from vibe-kanban
+
+| Pattern | Source | SDP Adoption |
+|---------|--------|--------------|
+| Kanban board | vibe-kanban | Visual task management for agents |
+| MCP centralization | vibe-kanban | Unified agent configuration |
+| Agent routing | vibe-kanban | Task → best agent matching |
+
+### Enterprise Value
+
+"Visual orchestration for 20+ agents. Kanban board shows real-time task status. MCP config centralized."
+
+---
+
+## F063: opencode-mem Memory Module
+
+**Phase:** 5 (Policy-as-Code)
+**LOC estimate:** ~400 (config + integration)
+**Repository:** sdp (public adapter) + sdp_lab (private config)
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│           opencode-mem (Persistent Memory)                  │
+│  SQLite + HNSW │ User Profiles │ Auto-Capture              │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│           SDP Integration Layer                             │
+│                                                             │
+│  ┌─────────────────┐  ┌─────────────────┐                  │
+│  │ memory-context  │  │ session-sync   │                  │
+│  │ (prompt inject) │  │ (lifecycle)    │                  │
+│  └─────────────────┘  └─────────────────┘                  │
+│                                                             │
+│  Output: Session continuity + user preference learning     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Workstreams
+
+| WS | Title | AC |
+|----|-------|----|
+| **00-063-01** | Analyze opencode-mem capabilities | Done (9/10 synergy) |
+| **00-063-02** | Install opencode-mem plugin | Plugin in opencode.json |
+| **00-063-03** | Configure memory for SDP sessions | Context injection working |
+| **00-063-04** | Integrate with evidence flow | Memory events in evidence |
+
+### Synergies from opencode-mem
+
+| Pattern | Source | SDP Adoption |
+|---------|--------|--------------|
+| Session continuity | opencode-mem | Context preserved across sessions |
+| User profile learning | opencode-mem | Preferences learned from behavior |
+| Project-scoped memory | opencode-mem | Per-project context |
+| Auto-capture on idle | opencode-mem | Learnings captured automatically |
+| Post-compaction recovery | opencode-mem | Memory restored after context trim |
+
+### Key Capabilities
+
+- **SQLite + HNSW**: Local-first vector search, 50K vectors/shard
+- **12+ embedding models**: Local (Xenova) or API (OpenAI, Cohere)
+- **User profiles**: Preferences with confidence scoring
+- **Project metadata**: Auto-includes gitRepoUrl, projectPath
+
+### Enterprise Value
+
+"Session continuity for AI agents. User preferences learned automatically. Project context preserved across sessions."
+
+---
 
 | Feature | Source | SDP Value | Phase | Priority |
 |---------|--------|-----------|-------|----------|
 | Pre-tool-call guard | OhMyOpenCode + Gas Town | Enforcement | 5 | **P0** |
 | Session evidence | OhMyOpenCode | Provenance | 5 | **P0** |
 | `bd ready` bridge | Beads | Work intake | 5 | **P1** |
+| Persistent memory | opencode-mem | Session continuity | 5 | **P1** |
+| User profile learning | opencode-mem | Personalization | 5 | **P1** |
 | Stuck detection | Gas Town | Reliability | 6 | **P1** |
 | Agent CV chain | Gas Town | Capability routing | 8 | **P2** |
 | Convoy → WS | Gas Town | Batch tracking | 8 | **P2** |
+| Kanban orchestration | vibe-kanban | Multi-agent coordination | 8 | **P2** |
 | Formula templates | Beads | Reusability | 6 | **P2** |
 | Wisps | Beads | Session isolation | 7 | **P3** |
 
@@ -290,6 +397,9 @@ SDP's core value is **evidence + enforcement**. Three ecosystem tools provide co
 - [OhMyOpenCode](https://github.com/oh-my-opencode) — Permission-gated agent runtime
 - [Gas Town](https://github.com/steveyegge/gastown) — Multi-agent orchestration with GUPP
 - [Beads](https://github.com/steveyegge/beads) — Git-backed issue tracker with dependency graph
+- [vibe-kanban](https://github.com/BloopAI/vibe-kanban) — Kanban-style task orchestration for coding agents
+- [opencode-mem](https://github.com/tickernelz/opencode-mem) — Persistent memory for AI coding agents
+- [opencode-beads](https://github.com/joshuadavidthomas/opencode-beads) — Beads plugin for OpenCode
 
 ### SDP Documents
 
