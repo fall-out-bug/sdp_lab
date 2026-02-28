@@ -1,0 +1,28 @@
+{
+  "$schema": "https://opencode-mem.dev/schema/config.json",
+  "storagePath": ".sdp/mem",
+  
+  "embeddingModel": "Xenova/nomic-embed-text-v1",
+  "embeddingDimensions": 768,
+  
+  "similarityThreshold": 0.5,
+  "maxMemories": 20,
+  "maxProfileItems": 10,
+  "maxVectorsPerShard": 100000,
+  
+  "autoCaptureEnabled": true,
+  "userProfileAnalysisInterval": 5,
+  "userProfileMaxPreferences": 30,
+  
+  "chatMessage": {
+    "injectOn": "first_or_post_compaction",
+    "maxMemories": 20
+  },
+  
+  "webServerEnabled": false,
+  
+  "tags": {
+    "project": "sdp_lab",
+    "type": "development"
+  }
+}

@@ -3,6 +3,9 @@
 !.sdp/pipeline-hooks.yaml.example
 !.sdp/policies/
 !.sdp/agent-constraints.yaml
+
+# opencode-mem storage
+.sdp/mem/
 __pycache__/
 *.pyc
 .tmp/
