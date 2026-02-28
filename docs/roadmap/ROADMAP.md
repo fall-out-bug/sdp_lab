@@ -1,11 +1,12 @@
-# sdp_lab Roadmap — Standards-Based Trust Layer for AI Coding Agents
+# sdp_dev Roadmap — Standards-Based Trust Layer + Ecosystem Integration
 
-> **Updated:** 2026-02-24
-> **Direction:** Standards-based enforcement (in-toto, OPA, Sigstore) + autonomous agent pipeline
+> **Updated:** 2026-03-01
+> **Direction:** Standards-based enforcement (in-toto, OPA, Sigstore) + ecosystem integration (OhMyOpenCode, Gas Town, Beads)
 > **Pivot:** [ADR-002 Standards Pivot](../decisions/ADR-002-standards-pivot.md) — why we moved from custom to standards
 > **Research:** [Enforcement Hypotheses](../plans/2026-02-24-enforcement-hypotheses.md) — SLSA, in-toto, MI9, AgentSpec
 > **Audit:** [Phase 0 Enforcement Audit](../plans/2026-02-24-phase0-enforcement-audit.md) — why Phase 0 tools didn't enforce
 > **K8s Archive:** `archive/k8s-v0` branch — domain knowledge for future K8s rebuild
+> **Synergies:** [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md) — OhMyOpenCode, Gas Town, Beads integration analysis
 
 ---
 
@@ -258,6 +259,25 @@ in-toto Envelope (DSSE)
 - AgentSpec (runtime constraints): arXiv 2503.18666
 - PROV-AGENT (W3C PROV for agents): arXiv 2508.02866
 - VET (verifiable execution traces): arXiv 2512.15892
+
+### Ecosystem Synergies
+
+**Source:** [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md)
+
+| System | What SDP Adopts | Feature |
+|--------|------------------|--------|
+| **OhMyOpenCode** | Permission → Guard bridge, Session evidence | F056 |
+| **Beads** | Graph deps, Ready queue, Wisps | F058 |
+| **Gas Town** | GUPP pattern, Witness monitoring, Agent CV | F057 |
+
+### Ongoing
+- **F053** — Phase 4 Beads Remediation (00-053-01 … 00-053-46). See [INDEX](../workstreams/INDEX.md).
+- **F054** — Continuous Protocol Improvement (00-054-01 … 00-054-06). Skills, AGENTS.md, CLAUDE.md sync sdp↔sdp_lab, workflow. Part of future swarm. Source: [multifaceted analysis](../plans/2026-02-25-agent-protocol-multifaceted-analysis.md).
+- **F055** — Evidence + Enforcement Reality (00-055-01 … 00-055-03). Make evidence and scope gates actually block merge. Separate from F054 to avoid interference. Source: [evidence enforcement plan](../plans/2026-02-25-evidence-enforcement-reality-plan.md).
+- **F056** — OhMyOpenCode Evidence Integration (00-056-01 … 00-056-04). Pre-tool-call guard, session evidence emitter, permission↔guard bridge, stuck detection. Phase 5. Source: [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md).
+- **F057** — Gas Town Adapter (00-057-01 … 00-057-04). Convoy→WS bridge, hook→guard, witness escalation, Agent CV→provenance. Phase 8-9 target. Source: [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md).
+- **F058** — Beads Graph Integration (00-058-01 … 00-058-04). SQL dep query, `sdp ready` bridge, formula templates, wisps. Phase 5 target. Source: [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md).
+
 
 ### Project History
 - [Agent Loop Reliability](../plans/2026-02-23-agent-loop-reliability.md)
