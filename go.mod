@@ -1,6 +1,6 @@
 module sdp_dev
 
-go 1.25.0
+go 1.26
 
 require (
 	github.com/in-toto/in-toto-golang v0.10.0

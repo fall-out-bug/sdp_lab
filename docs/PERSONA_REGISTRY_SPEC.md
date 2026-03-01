@@ -46,5 +46,5 @@ To add a new persona:
 
 ## 5. References
 
-- [internal/evaluator/swarm_plan.go](../internal/evaluator/swarm_plan.go)
+- [specs/persona-registry.yaml](../specs/persona-registry.yaml)
 - [deploy/k8s/kubeopencode/agents.yaml](../deploy/k8s/kubeopencode/agents.yaml)

@@ -227,4 +227,4 @@ A: With Sigstore signing enabled, the attestation is uploaded to Rekor (public t
 - [in-toto attestation format](https://github.com/in-toto/attestation)
 - [OPA policies](https://www.openpolicyagent.org/)
 - [Sigstore](https://docs.sigstore.dev/)
-- [ADR-002: Standards Pivot](docs/decisions/ADR-002-standards-pivot.md)
+- [ADR-002: Standards Pivot](decisions/ADR-002-standards-pivot.md)

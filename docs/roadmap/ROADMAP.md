@@ -288,6 +288,19 @@ in-toto Envelope (DSSE)
 - **F066** — Sigstore Signing (00-066-01). Keyless signing with Fulcio+Rekor. **Status: DONE**.
 - **F067** — Discrepancy Detection (00-067-01). Agent vs CI attestation comparison. **Status: DONE**.
 
+### Phase 6-8: Dual-Surface Productization (Planned)
+
+- **F068** — Unified Integration Contracts (00-068-01 ... 00-068-03). Standard contracts for orchestration/runtime/policy/evidence across all adapters.
+- **F069** — OSS Combine Bootstrap (00-069-01 ... 00-069-03). One-command setup for OhMyOpenCode + Beads + Gas Town + SDP demo flow.
+- **F070** — OSS Observability and Explainability (00-070-01 ... 00-070-03). Live event stream, allow/deny explanations, minimal audit export.
+- **F071** — Ralph Decommission and Orchestrator V2 (00-071-01 ... 00-071-03). Remove primitive Ralph loop from enterprise profile and migrate to typed FSM orchestration.
+- **F072** — Advanced Agent Architecture for AI SDLC (00-072-01 ... 00-072-04). Hierarchical planning, parallel branches, verifier quorum, uncertainty escalation.
+- **F073** — BYOM Model Gateway (00-073-01 ... 00-073-03). Provider abstraction and policy-based model routing for customer-selected models.
+- **F074** — Enterprise Governance Pack (00-074-01 ... 00-074-03). Multi-tenant RBAC, signed evidence gates, SIEM/compliance exports.
+- **F075** — Enterprise K8s Runtime Pack (00-075-01 ... 00-075-03). HA deployment, queue control, canary rollout for agent workflows.
+- **F076** — Documentation Agent Automation (00-076-01). Automatic changelog updates and documentation consistency checks on each commit.
+- **F077** — CI to Local Bridge for Improvement Loop (00-077-01 ... 00-077-04). GitHub CI findings are synchronized into local Beads queue for autonomous improvement agents.
+
 
 ### Project History
 - [Agent Loop Reliability](../plans/2026-02-23-agent-loop-reliability.md)

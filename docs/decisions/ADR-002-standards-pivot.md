@@ -47,4 +47,4 @@ Research found the problem is solved in adjacent domains:
 
 - [Phase 0 Enforcement Audit](../plans/2026-02-24-phase0-enforcement-audit.md)
 - [Enforcement Hypotheses](../plans/2026-02-24-enforcement-hypotheses.md)
-- [Standards Pivot Plan](.cursor/plans/sdp_standards_pivot_*.plan.md)
+- [Multifaceted Agent Protocol Analysis](../plans/2026-02-25-agent-protocol-multifaceted-analysis.md)

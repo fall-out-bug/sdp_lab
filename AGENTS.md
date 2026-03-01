@@ -138,6 +138,55 @@ sdp-ready --format json        # List ready work (JSON format)
 sdp-ready --phase 5            # Filter by roadmap phase (0=all)
 sdp-ready --no-cache           # Bypass 5-minute cache
 ```
+
+### sdp-protocol-check CLI
+
+Validate SDP protocol hygiene across roadmap, index, and workstream files:
+
+```bash
+sdp-protocol-check                      # Text report, non-strict Beads mode
+sdp-protocol-check --format json        # JSON report for CI
+sdp-protocol-check --strict-beads       # Require concrete sdplab-<id>
+sdp-protocol-check --strict             # Treat protocol drift as errors
+```
+
+Checks include:
+- Workstream frontmatter required fields (`ws_id`, `feature_id`, `status`, `priority`, `size`, `depends_on`)
+- Feature consistency across `ROADMAP.md`, `INDEX.md`, and backlog files
+- Beads section presence and `sdplab-*` linkage
+- Acceptance Criteria section with checkbox items
+
+### sdp-doc-sync CLI
+
+Documentation automation for changelog and consistency checks:
+
+```bash
+sdp-doc-sync --mode check                 # Validate docs consistency (protocol + links)
+sdp-doc-sync --mode check --strict        # Treat docs drift as errors
+sdp-doc-sync --mode changelog             # Update docs/CHANGELOG.md from latest commit range
+sdp-doc-sync --mode changelog --since HEAD~3..HEAD
+```
+
+## Continuous Background Agents
+
+Use a three-agent loop for continuous improvement:
+
+1. **Analysis Agent** — Runs on each commit, inspects logs/evidence, creates Beads improvement tasks.
+2. **Improvement Agent** — Consumes created Beads tasks and implements fixes.
+3. **Documentation Agent** — Runs `sdp-doc-sync` to keep changelog and docs consistency current.
+
+Execution model (CI in GitHub, agents local):
+- **CI = Sensor layer** — runs checks and publishes findings artifacts/issues.
+- **Local bridge = Transport layer** — syncs GitHub findings into local Beads queue.
+- **Local agents = Actuator layer** — consume Beads tasks and implement improvements.
+
+Recommended commit/PR checks:
+
+```bash
+sdp-protocol-check --format json
+sdp-doc-sync --mode check --strict
+```
+
 ## Landing the Plane (Session Completion)
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
