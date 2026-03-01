@@ -13,8 +13,8 @@ Both contracts follow semantic versioning and are designed for backward compatib
 
 ## Schemas
 
-- [OrchestrationEvent](./schema/contracts/orchestration-event.schema.json)
-- [RuntimeDecision](./schema/contracts/runtime-decision.schema.json)
+- [OrchestrationEvent](../../schema/contracts/orchestration-event.schema.json)
+- [RuntimeDecision](../../schema/contracts/runtime-decision.schema.json)
 
 ## Versioning Strategy
 
