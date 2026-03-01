@@ -239,7 +239,7 @@ func printDepsText(deps []beads.Dependency, depType string) {
 }
 
 func printStatsText(stats map[beads.DependencyType]int, breakdown map[int]int) {
-	fmt.Println("📊 Beads Dependency Statistics\n")
+	fmt.Println("📊 Beads Dependency Statistics")
 
 	fmt.Println("Dependencies by type:")
 	for depType, count := range stats {

@@ -192,7 +192,11 @@ func validateWorkstreamFile(projectRoot, filename, content string, strictBeads, 
 				if strings.Contains(item, "sdplab-") {
 					valid = true
 					if strictBeads {
-						if !regexp.MustCompile(`sdplab-[a-z0-9]+`).MatchString(strings.ToLower(item)) {
+						// Check for placeholder patterns in strict mode
+						lowerItem := strings.ToLower(item)
+						if strings.Contains(lowerItem, "sdplab-xx") || strings.Contains(lowerItem, "sdplab-xxx") || strings.Contains(lowerItem, "sdplab-placeholder") {
+							issues = append(issues, ValidationIssue{Severity: "error", File: file, Message: "Beads entry must reference concrete issue id (sdplab-<id>) in strict mode - placeholder detected"})
+						} else if !regexp.MustCompile(`sdplab-[a-z0-9]+`).MatchString(lowerItem) {
 							issues = append(issues, ValidationIssue{Severity: "error", File: file, Message: "Beads entry must reference concrete issue id (sdplab-<id>) in strict mode"})
 						}
 					} else if strings.Contains(item, "sdplab-XX") {
