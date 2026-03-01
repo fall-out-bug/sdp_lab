@@ -1,0 +1,23 @@
+# Guard Scope Configuration
+# Profile: oss-combine v1.0.0
+
+guard:
+  default_scope: default
+  evidence_path: .sdp/evidence
+  
+  scopes:
+    default:
+      path: docs/workstreams/backlog
+      description: Default workstream scope for task execution
+      evidence_path: .sdp/evidence
+      enabled: true
+    contracts:
+      path: internal/adapters
+      description: Adapter contract scope for SDK development
+      evidence_path: .sdp/evidence
+      enabled: true
+    bridge:
+      path: internal/bridge
+      description: GitHub-Beads bridge scope for findings sync
+      evidence_path: .sdp/evidence
+      enabled: true

@@ -152,7 +152,7 @@ func (p *OSSCombineProfile) Validate() error {
 		for _, t := range missing {
 			msgs = append(msgs, fmt.Sprintf("  - %s: %s", t.Name, t.InstallHint))
 		}
-		return fmt.Errorf(strings.Join(msgs, "\n"))
+		return fmt.Errorf("%s", strings.Join(msgs, "\n"))
 	}
 
 	return nil
