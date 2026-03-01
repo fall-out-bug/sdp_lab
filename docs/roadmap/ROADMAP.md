@@ -285,8 +285,8 @@ in-toto Envelope (DSSE)
 
 - **F064** — CI Observer Job (00-064-01). Collects git diff, test results, coverage, lint output. **Status: DONE**.
 - **F065** — Auto-Attestation Generation (00-065-01). Generates in-toto attestation from CI facts. **Status: DONE**.
-- **F066** — Sigstore Signing (00-066-01). Keyless signing with Fulcio+Rekor. **Status: IN PROGRESS**.
-- **F067** — Discrepancy Detection (00-067-01). Agent vs CI attestation comparison. Phase 4 target.
+- **F066** — Sigstore Signing (00-066-01). Keyless signing with Fulcio+Rekor. **Status: DONE**.
+- **F067** — Discrepancy Detection (00-067-01). Agent vs CI attestation comparison. **Status: DONE**.
 
 
 ### Project History
