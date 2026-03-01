@@ -220,7 +220,7 @@ func EmptyMapping() *MappingFile {
 
 // ReadyCommand wraps the `bd ready` command and parses output.
 func ReadyCommand() ([]ReadyIssue, error) {
-	cmd := exec.Command("bd", "ready", "--format", "json")
+	cmd := exec.Command("bd", "ready", "--json")
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("bd ready: %w", err)
