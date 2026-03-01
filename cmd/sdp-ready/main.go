@@ -40,7 +40,7 @@ type CacheEntry struct {
 func main() {
 	format := flag.String("format", "text", "Output format: json or text")
 	useCache := flag.Bool("cache", true, "Use cached results (5 min TTL)")
-	cacheTTL := flag.Duration("cache-ttl", 5*time.Minute, "Cache TTL")
+	cacheTTL := flag.Duration("cache-ttl", 1*time.Minute, "Cache TTL")
 	noCache := flag.Bool("no-cache", false, "Disable cache")
 	phaseFilter := flag.Int("phase", 0, "Filter by roadmap phase (0=all)")
 	flag.Parse()
@@ -83,7 +83,7 @@ func main() {
 
 	if len(issues) == 0 {
 		// Use bd ready command
-		issues, err = beads.ReadyCommand()
+		issues, err = beads.ReadyWithBlockersCommand()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: bd ready: %v\n", err)
 			os.Exit(1)

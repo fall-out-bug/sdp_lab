@@ -1,9 +1,9 @@
-// Package beads
+package beads
+
 
 import (
+	"database/sql"
 	"testing"
-	"time"
-
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -21,7 +21,7 @@ func TestDependencyType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if string(tt.dep) != tt.name {
-				t.Errorf("DependencyType %s = %s, want %s", tt.name)
+				t.Errorf("DependencyType mismatch: got %s, want %s", string(tt.dep), tt.name)
 			}
         })
 	 }

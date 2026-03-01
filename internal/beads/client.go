@@ -233,3 +233,62 @@ func ReadyCommand() ([]ReadyIssue, error) {
 
 	return issues, nil
 }
+
+// ReadyWithBlockersCommand gets ready issues with blocker information.
+// This calls bd ready first, then enriches with blocker data from bd show.
+func ReadyWithBlockersCommand() ([]ReadyIssue, error) {
+	// Get base ready issues
+	issues, err := ReadyCommand()
+	if err != nil {
+		return nil, err
+	}
+
+	// Enrich each issue with blocker information
+	for i := range issues {
+		blockers, err := getBlockersForIssue(issues[i].ID)
+		if err != nil {
+			// Log warning but continue
+			fmt.Fprintf(os.Stderr, "warning: get blockers for %s: %v\n", issues[i].ID, err)
+			continue
+		}
+		issues[i].BlockedBy = blockers
+	}
+
+	return issues, nil
+}
+
+// getBlockersForIssue fetches blocker information for a single issue.
+func getBlockersForIssue(issueID string) ([]string, error) {
+	cmd := exec.Command("bd", "show", issueID, "--json")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("bd show: %w", err)
+	}
+
+	// Parse issue details
+	var issueData []struct {
+		Dependencies []struct {
+			ID             string `json:"id"`
+			Status         string `json:"status"`
+			DependencyType string `json:"dependency_type"`
+		} `json:"dependencies"`
+	}
+
+	if err := json.Unmarshal(output, &issueData); err != nil {
+		return nil, fmt.Errorf("parse bd show output: %w", err)
+	}
+
+	if len(issueData) == 0 {
+		return nil, nil
+	}
+
+	// Extract blockers (dependencies with type='blocks' and status != 'done')
+	var blockers []string
+	for _, dep := range issueData[0].Dependencies {
+		if dep.DependencyType == "blocks" && dep.Status != "done" && dep.Status != "closed" {
+			blockers = append(blockers, dep.ID)
+		}
+	}
+
+	return blockers, nil
+}
