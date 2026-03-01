@@ -100,9 +100,9 @@ func (c *Client) QueryReadyIssues() ([]ReadyIssue, error) {
 		FROM issues
 		WHERE status = 'open'
 		AND id NOT IN (
-			SELECT DISTINCT issue_id FROM dependencies WHERE dependency_type = 'blocks'
+			SELECT DISTINCT issue_id FROM dependencies WHERE type = 'blocks'
 		)
-		ORDER BY priority DESC, created_at ASC
+		ORDER BY priority ASC, created_at ASC
 	`
 
 	rows, err := c.db.Query(query)

@@ -22,6 +22,8 @@ func main() {
 	switch cmd {
 	case "formula":
 		formulaCmd(os.Args[2:])
+	case "query":
+		queryCmd(os.Args[2:])
 	case "help":
 		printUsage()
 	default:
@@ -38,12 +40,18 @@ Commands:
   formula apply <formula.yaml> [--vars key=value]  Generate workstreams from formula
   formula list                                    List available formulas
   formula show <name>                             Show formula details
+  query ready [--format json|text]                Query ready issues (no blockers)
+  query deps [--type blocks|parent-child|discovered-from|related]
+  query stats                                     Show dependency statistics
 
 Examples:
   sdp-beads-bridge formula apply .beads/formulas/feature.yaml
   sdp-beads-bridge formula apply feature.yaml --vars name=auth priority=1
   sdp-beads-bridge formula list
-  sdp-beads-bridge formula show my-feature`)
+  sdp-beads-bridge formula show my-feature
+  sdp-beads-bridge query ready --format json
+  sdp-beads-bridge query deps --type blocks
+  sdp-beads-bridge query stats`)
 }
 
 func formulaCmd(args []string) {
