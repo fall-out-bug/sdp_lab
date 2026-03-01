@@ -9,13 +9,11 @@ This document tracks issues and improvement opportunities discovered while using
 **Issue 1**: Priority display inconsistency
 - JSON output shows priority as integer (1, 2, 3)
 - Text output shows priority as "P1", "P2", etc.
-- **Recommendation**: Standardize to consistent format
-
+- **Status**: ✅ FIXED - Switch logic corrected in printText()
 **Issue 2**: Phase awareness
 - Tool surfaces F060 (Phase 8-9 K8s) work alongside F061 (Phase 5 current)
 - No filtering by phase/applicability
-- **Recommendation**: Add `--phase` flag or priority boost for current phase work
-
+- **Status**: ✅ FIXED - Added `--phase` flag with feature→phase mapping
 **Issue 3**: bd ready --format json doesn't exist
 - Had to use `--json` instead
 - Fixed in internal/beads/client.go
@@ -24,8 +22,7 @@ This document tracks issues and improvement opportunities discovered while using
 
 **Issue 4**: Unknown flag --comment for bd close
 - Expected `--comment` but actual flag is `--reason` or `-r`
-- **Recommendation**: Document Beads CLI flags in SDP AGENTS.md
-
+- **Status**: ✅ FIXED - Documented in AGENTS.md
 **Issue 5**: Legacy database detected
 - Required `bd migrate --update-repo-id` after clone
 - **Recommendation**: Add setup step to AGENTS.md
@@ -56,8 +53,7 @@ This document tracks issues and improvement opportunities discovered while using
 
 ## Improvement Backlog
 
-1. `sdp-ready --phase <N>` - Filter by roadmap phase
-2. `sdp sync` - Sync workstream status with Beads
+1. `sdp-ready --phase <N>` - Filter by roadmap phase ✅ DONE
 3. Better flag parsing (use cobra)
 4. Auto-generate Beads issues from workstream files
 5. Formula hash verification (detect drift)

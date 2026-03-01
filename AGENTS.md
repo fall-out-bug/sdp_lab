@@ -17,9 +17,10 @@ This project has **two repos** with different roles:
 
 ```bash
 bd ready              # Find available work
+bd ready --json       # Find available work (JSON output)
 bd show <id>          # View issue details
 bd update <id> --status in_progress  # Claim work
-bd close <id>         # Complete work
+bd close <id> -r "reason"  # Complete work with reason
 bd sync               # Sync with git
 ```
 
@@ -125,6 +126,18 @@ go test ./...               # must pass
 go vet ./...                # no issues
 ```
 
+## SDP Tools
+
+### sdp-ready CLI
+
+Find ready work from Beads queue with SDP workstream mapping:
+
+```bash
+sdp-ready                      # List ready work (text format)
+sdp-ready --format json        # List ready work (JSON format)
+sdp-ready --phase 5            # Filter by roadmap phase (0=all)
+sdp-ready --no-cache           # Bypass 5-minute cache
+```
 ## Landing the Plane (Session Completion)
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.

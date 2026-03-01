@@ -42,6 +42,8 @@ func main() {
 	useCache := flag.Bool("cache", true, "Use cached results (5 min TTL)")
 	cacheTTL := flag.Duration("cache-ttl", 5*time.Minute, "Cache TTL")
 	noCache := flag.Bool("no-cache", false, "Disable cache")
+	phaseFilter := flag.Int("phase", 0, "Filter by roadmap phase (0=all)")
+	flag.Parse()
 	flag.Parse()
 
 	if *noCache {
@@ -93,7 +95,7 @@ func main() {
 		}
 	}
 
-	// Map to WS output
+	// Map to WS output (with optional phase filter)
 	output := make([]WSOutput, 0, len(issues))
 	for _, issue := range issues {
 		ws := WSOutput{
@@ -105,6 +107,15 @@ func main() {
 			Ready:     len(issue.BlockedBy) == 0,
 		}
 		ws.WSID = mapping.GetSDPID(issue.ID)
+
+		// Filter by phase if specified
+		if *phaseFilter > 0 {
+			phase := getPhaseFromWSID(ws.WSID)
+			if phase != *phaseFilter {
+				continue
+			}
+		}
+
 		output = append(output, ws)
 	}
 
@@ -144,12 +155,14 @@ func printText(issues []WSOutput) {
 
 		priority := ""
 		switch {
-		case issue.Priority >= 1:
+		case issue.Priority == 1:
 			priority = "P1"
 		case issue.Priority == 2:
 			priority = "P2"
 		case issue.Priority >= 3:
 			priority = "P3"
+		default:
+			priority = fmt.Sprintf("P%d", issue.Priority)
 		}
 
 		wsRef := ""
@@ -230,4 +243,59 @@ func saveCache(projectRoot, path string, issues []beads.ReadyIssue) error {
 	}
 
 	return os.WriteFile(cacheDir+"/ready.json", data, 0o644)
+}
+
+// getPhaseFromWSID extracts the phase number from a workstream ID.
+// WSID format: 00-XXX-YY where XXX is the feature number.
+// Feature → Phase mapping based on ROADMAP.md.
+func getPhaseFromWSID(wsid string) int {
+	if wsid == "" {
+		return 0
+	}
+
+	// Parse feature number from WSID (00-XXX-YY)
+	parts := strings.Split(wsid, "-")
+	if len(parts) != 3 {
+		return 0
+	}
+
+	featureStr := parts[1]
+	var feature int
+	if _, err := fmt.Sscanf(featureStr, "%d", &feature); err != nil {
+		return 0
+	}
+
+	// Feature → Phase mapping (from ROADMAP.md)
+	// Phase 0: F001-F027 (Agent Loop Reliability) - done
+	// Phase 1-2: F028-F052 (Enforcement Foundation, Archive) - done
+	// Phase 3: in-toto Migration (F053 partial)
+	// Phase 4: Auto-Attestation
+	// Phase 5: Policy-as-Code (F059, F061, F063)
+	// Phase 6: Runtime Governance
+	// Phase 7: Ecosystem & Launch
+	// Phase 8-9: K8s (F060, F062)
+	switch {
+	case feature >= 1 && feature <= 27:
+		return 0 // Phase 0 - Agent Loop Reliability (done)
+	case feature >= 28 && feature <= 52:
+		return 2 // Phase 1-2 - Enforcement Foundation, Archive (done)
+	case feature == 53:
+		return 3 // Phase 3 - in-toto Migration
+	case feature == 54:
+		return 3 // Phase 3 - Continuous Protocol Improvement
+	case feature >= 55 && feature <= 58:
+		return 4 // Phase 4 - Auto-Attestation
+	case feature == 59:
+		return 5 // Phase 5 - OhMyOpenCode Integration
+	case feature == 60:
+		return 8 // Phase 8-9 - Gas Town (K8s)
+	case feature == 61:
+		return 5 // Phase 5 - Beads Integration
+	case feature == 62:
+		return 8 // Phase 8-9 - vibe-kanban (K8s)
+	case feature == 63:
+		return 5 // Phase 5 - opencode-mem Integration
+	default:
+		return 0
+	}
 }
