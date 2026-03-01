@@ -277,9 +277,16 @@ in-toto Envelope (DSSE)
 - **F054** — Continuous Protocol Improvement (00-054-01 … 00-054-06). Skills, AGENTS.md, CLAUDE.md sync sdp↔sdp_lab, workflow. Part of future swarm. Source: [multifaceted analysis](../plans/2026-02-25-agent-protocol-multifaceted-analysis.md).
 - **F059** — OhMyOpenCode Evidence Integration (00-059-01 … 00-059-04). Pre-tool-call guard, session evidence emitter, permission↔guard bridge, stuck detection. Phase 5. **Status: DONE** (sdp-omc-guard, sdp-ready implemented).
 - **F060** — Gas Town Adapter (00-060-01 … 00-060-04). Convoy→WS bridge, hook→guard, witness escalation, Agent CV→provenance. Phase 8-9 target. Source: [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md).
-- **F061** — Beads Graph Integration (00-061-01 … 00-061-04). SQL dep query, `sdp ready` bridge, formula templates, wisps. Phase 5 target. **Status: DONE** (sdp-ready, beads client implemented, opencode-beads plugin installed).
+**F061** — Beads Graph Integration (00-061-01 … 00-061-04). SQL dep query, `sdp ready` bridge, formula templates, wisps. Phase 5 target. **Status: DONE** (sdp-ready, beads client implemented, opencode-beads plugin installed).
 - **F062** — vibe-kanban Integration. Kanban-style task orchestration for coding agents. Evaluate for SDP swarm orchestration layer. Phase 8-9 target.
 - **F063** — opencode-mem Integration. Persistent memory for session continuity, user preference learning, project-specific context. Phase 5 target. **Recommendation: INTEGRATE** (9/10 synergy score).
+
+### Phase 4: Auto-Attestation
+
+- **F064** — CI Observer Job (00-064-01). Collects git diff, test results, coverage, lint output. **Status: DONE**.
+- **F065** — Auto-Attestation Generation (00-065-01). Generates in-toto attestation from CI facts. **Status: DONE**.
+- **F066** — Sigstore Signing (00-066-01). Keyless signing with Fulcio+Rekor. **Status: IN PROGRESS**.
+- **F067** — Discrepancy Detection (00-067-01). Agent vs CI attestation comparison. Phase 4 target.
 
 
 ### Project History
