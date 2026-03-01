@@ -6,6 +6,12 @@
 
 # opencode-mem storage
 .sdp/mem/
+
+# session-only wisps (ephemeral work items)
+.sdp/session/
+
+# opencode-mem storage
+.sdp/mem/
 __pycache__/
 *.pyc
 .tmp/
