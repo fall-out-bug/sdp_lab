@@ -191,19 +191,8 @@ func isValidSpecVersion(version string) bool {
 
 // isValidEventType checks if an event type is known.
 func isValidEventType(eventType string) bool {
-	validEventTypes := map[string]bool{
-		"task.started":        true,
-		"task.completed":      true,
-		"task.failed":         true,
-		"phase.transition":    true,
-		"handoff.initiated":   true,
-		"handoff.completed":   true,
-		"decision.made":       true,
-		"evidence.generated":  true,
-		"quality.gate.passed": true,
-		"quality.gate.failed": true,
-	}
-	return validEventTypes[eventType]
+	// Allow any non-empty event type - different adapters may emit different events
+	return eventType != ""
 }
 
 // isValidDecisionType checks if a decision type is known.

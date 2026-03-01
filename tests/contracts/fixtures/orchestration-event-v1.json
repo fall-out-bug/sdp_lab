@@ -1,0 +1,17 @@
+{
+  "spec_version": "v1.0",
+  "event_id": "550e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "source": {
+    "system": "omo",
+    "component": "agent",
+    "version": "1.0.0"
+  },
+  "event_type": "task.completed",
+  "payload": {
+    "task_id": "task-123",
+    "feature_id": "F068",
+    "workstream_id": "00-068-02",
+    "status": "success"
+  }
+}
