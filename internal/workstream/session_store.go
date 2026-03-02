@@ -185,6 +185,27 @@ func (s *SessionStore) GetWisp(id string) (*Wisp, error) {
 	return &w, nil
 }
 
+// getWispUnlocked reads a wisp without acquiring the lock.
+// Caller must hold s.mu.RLock() or s.mu.Lock().
+func (s *SessionStore) getWispUnlocked(id string) (*Wisp, error) {
+	if err := validateID(id); err != nil {
+		return nil, fmt.Errorf("invalid wisp id: %w", err)
+	}
+
+	wispPath := filepath.Join(s.basePath, "wisps", id+".json")
+	data, err := os.ReadFile(wispPath)
+	if err != nil {
+		return nil, fmt.Errorf("read wisp: %w", err)
+	}
+
+	var w Wisp
+	if err := json.Unmarshal(data, &w); err != nil {
+		return nil, fmt.Errorf("unmarshal wisp: %w", err)
+	}
+
+	return &w, nil
+}
+
 // UpdateWispStatus updates a wisp's status.
 func (s *SessionStore) UpdateWispStatus(id, status string) error {
 	w, err := s.GetWisp(id)
@@ -228,7 +249,7 @@ func (s *SessionStore) ListWisps() ([]*Wisp, error) {
 			continue
 		}
 		
-		w, err := s.GetWisp(filepath.Base(entry.Name()[:len(entry.Name())-5]))
+		w, err := s.getWispUnlocked(filepath.Base(entry.Name()[:len(entry.Name())-5]))
 		if err != nil {
 			continue
 		}

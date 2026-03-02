@@ -178,7 +178,9 @@ func (p *DefaultMergePolicy) mergeData(results []BranchResult) (interface{}, []C
 				continue
 			}
 			dataMap = make(map[string]interface{})
-			_ = json.Unmarshal(bytes, &dataMap)
+			if err := json.Unmarshal(bytes, &dataMap); err != nil {
+				continue
+			}
 		}
 
 		if mergedData == nil {

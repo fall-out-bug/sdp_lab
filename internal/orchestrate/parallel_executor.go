@@ -182,8 +182,8 @@ func (p *ParallelExecutor) executeWithTimeout(ctx context.Context, branch *Branc
 	timeoutCtx, cancel := context.WithTimeout(ctx, p.timeout)
 	defer cancel()
 
-	resultChan := make(chan interface{})
-	errChan := make(chan error)
+	resultChan := make(chan interface{}, 1)
+	errChan := make(chan error, 1)
 
 	go func() {
 		result, err := p.executor.ExecuteBranch(timeoutCtx, branch)

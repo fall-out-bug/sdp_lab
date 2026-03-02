@@ -327,7 +327,10 @@ func (q *Quorum) GetVerifiers() []VerifierID {
 }
 
 func (v *VerifierResult) ToJSON() string {
-	bytes, _ := json.Marshal(v)
+	bytes, err := json.Marshal(v)
+	if err != nil {
+		return "{}"
+	}
 	return string(bytes)
 }
 

@@ -63,7 +63,10 @@ type RoutingEvidence struct {
 }
 
 func (e *RoutingEvidence) ToJSON() string {
-	bytes, _ := json.Marshal(e)
+	bytes, err := json.Marshal(e)
+	if err != nil {
+		return "{}"
+	}
 	return string(bytes)
 }
 
