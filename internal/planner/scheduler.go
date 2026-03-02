@@ -136,6 +136,8 @@ func (s *Scheduler) startTask(ctx context.Context, plan *Plan, task *Task) error
 	task.StartedAt = &now
 
 	if s.executor != nil {
+		// Use detached context for background task execution.
+		// The parent context may be cancelled before task completes.
 		go func() {
 			err := s.executor.Execute(context.Background(), task)
 			if err != nil {

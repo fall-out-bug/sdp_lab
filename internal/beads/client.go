@@ -14,6 +14,18 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// parseTime parses a time string in RFC3339 format, returning a default time on error.
+// This ensures issues are still returned even if timestamps are malformed.
+func parseTime(s string) time.Time {
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		// Log to stderr for debugging, but don't fail the operation
+		fmt.Fprintf(os.Stderr, "beads: failed to parse time %q: %v\n", s, err)
+		return time.Time{}
+	}
+	return t
+}
+
 // Issue represents a Beads issue.
 type Issue struct {
 	ID        string    `json:"id"`
@@ -119,8 +131,8 @@ func (c *Client) QueryReadyIssues() ([]ReadyIssue, error) {
 		if err != nil {
 			return nil, fmt.Errorf("scan issue: %w", err)
 		}
-		issue.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-		issue.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+		issue.CreatedAt = parseTime(createdAt)
+		issue.UpdatedAt = parseTime(updatedAt)
 		issues = append(issues, issue)
 	}
 
@@ -160,8 +172,8 @@ func (c *Client) GetBlockingIssues(issueID string) ([]Issue, error) {
 		if err != nil {
 			return nil, fmt.Errorf("scan blocking issue: %w", err)
 		}
-		issue.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-		issue.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+		issue.CreatedAt = parseTime(createdAt)
+		issue.UpdatedAt = parseTime(updatedAt)
 		issues = append(issues, issue)
 	}
 

@@ -57,7 +57,7 @@ func (dq *DependencyQuery) GetDependencies(depType DependencyType) ([]Dependency
 		if err != nil {
 			return nil, fmt.Errorf("scan dependency: %w", err)
 		}
-		dep.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+		dep.CreatedAt = parseTime(createdAt)
 		deps = append(deps, dep)
 	}
 
@@ -86,7 +86,7 @@ func (dq *DependencyQuery) GetBlockingDependencies(issueID string) ([]Dependency
 		if err != nil {
 			return nil, fmt.Errorf("scan blocking dependency: %w", err)
 		}
-		dep.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+		dep.CreatedAt = parseTime(createdAt)
 		deps = append(deps, dep)
 	}
 
@@ -130,8 +130,8 @@ func (dq *DependencyQuery) GetReadyIssuesWithDeps() ([]ReadyIssue, error) {
 		if err != nil {
 			return nil, fmt.Errorf("scan ready issue: %w", err)
 		}
-		issue.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-		issue.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+		issue.CreatedAt = parseTime(createdAt)
+		issue.UpdatedAt = parseTime(updatedAt)
 		issues = append(issues, issue)
 	}
 
@@ -160,7 +160,7 @@ func (dq *DependencyQuery) GetDependencyGraph() (map[string][]Dependency, error)
 		if err != nil {
 			return nil, fmt.Errorf("scan dependency graph: %w", err)
 		}
-		dep.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+		dep.CreatedAt = parseTime(createdAt)
 		graph[dep.FromIssueID] = append(graph[dep.FromIssueID], dep)
 	}
 
@@ -190,7 +190,7 @@ func (dq *DependencyQuery) GetRelatedIssues(issueID string) ([]Dependency, error
 		if err != nil {
 			return nil, fmt.Errorf("scan related issue: %w", err)
 		}
-		dep.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+		dep.CreatedAt = parseTime(createdAt)
 		deps = append(deps, dep)
 	}
 
@@ -255,8 +255,8 @@ func (dq *DependencyQuery) GetTransitiveBlockers(issueID string) ([]Issue, error
 		if err != nil {
 			return nil, fmt.Errorf("scan transitive blocker: %w", err)
 		}
-		issue.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-		issue.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+		issue.CreatedAt = parseTime(createdAt)
+		issue.UpdatedAt = parseTime(updatedAt)
 		issues = append(issues, issue)
 	}
 

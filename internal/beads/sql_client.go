@@ -128,8 +128,8 @@ func (sc *SQLClient) QueryIssues(opts ...QueryOption) ([]Issue, error) {
 		if err != nil {
 			return nil, fmt.Errorf("scan issue: %w", err)
 		}
-		issue.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-		issue.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+		issue.CreatedAt = parseTime(createdAt)
+		issue.UpdatedAt = parseTime(updatedAt)
 		issues = append(issues, issue)
 	}
 
@@ -173,8 +173,8 @@ func (sc *SQLClient) QueryIssuesByDependency(depType DependencyType, asSource bo
 		if err != nil {
 			return nil, fmt.Errorf("scan issue: %w", err)
 		}
-		issue.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
-		issue.UpdatedAt, _ = time.Parse(time.RFC3339, updatedAt)
+		issue.CreatedAt = parseTime(createdAt)
+		issue.UpdatedAt = parseTime(updatedAt)
 		issues = append(issues, issue)
 	}
 
