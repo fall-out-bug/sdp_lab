@@ -342,7 +342,7 @@ func collectDeclaredScopePrefixes(repoRoot string) []string {
 		if err != nil {
 			continue
 		}
-		defer func() { _ = f.Close() }() //nolint:gocritic // defer in loop is acceptable here
+		defer func(f *os.File) { _ = f.Close() }(f) // Pass f as parameter to capture value, not reference
 		inScopeSection := false
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {

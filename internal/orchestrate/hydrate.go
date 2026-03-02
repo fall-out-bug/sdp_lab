@@ -57,9 +57,9 @@ func Hydrate(projectRoot, featureID, wsID string, cp *Checkpoint) (*ContextPacke
 	}
 
 	agentsPath := filepath.Join(projectRoot, "AGENTS.md")
-	agentsContent, _ := os.ReadFile(agentsPath)
+	agentsContent, _ := os.ReadFile(agentsPath) // Best-effort read; AGENTS.md may not exist
 	pkt.QualityGates = parseQualityGates(string(agentsContent))
-	pkt.DriftStatus, _ = gitStatusPorcelain(projectRoot)
+	pkt.DriftStatus, _ = gitStatusPorcelain(projectRoot) // Best-effort; git status may fail in non-git contexts
 
 	if err := pkt.Validate(); err != nil {
 		return nil, fmt.Errorf("context packet validation: %w", err)

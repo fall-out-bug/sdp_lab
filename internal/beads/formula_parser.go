@@ -11,6 +11,21 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// validateFormulaName validates that a formula name is safe for file path construction.
+// It prevents path traversal by rejecting names containing '..' or path separators.
+func validateFormulaName(name string) error {
+	if name == "" {
+		return fmt.Errorf("formula name cannot be empty")
+	}
+	if strings.Contains(name, "..") {
+		return fmt.Errorf("formula name %q contains invalid path traversal sequence", name)
+	}
+	if strings.ContainsAny(name, "/\\") {
+		return fmt.Errorf("formula name %q contains invalid path separator", name)
+	}
+	return nil
+}
+
 // Formula represents a Beads workflow formula.
 type Formula struct {
 	// Name is the formula identifier.
@@ -151,6 +166,14 @@ func (p *FormulaParser) Parse(data []byte, sourcePath string) (*Formula, error) 
 
 // FindFormula searches for a formula by name.
 func (p *FormulaParser) FindFormula(name string) (*Formula, error) {
+	// Validate name to prevent path traversal
+	if strings.Contains(name, "..") {
+		return nil, fmt.Errorf("invalid formula name %q: path traversal not allowed", name)
+	}
+	if strings.ContainsAny(name, "/\\") {
+		return nil, fmt.Errorf("invalid formula name %q: path separators not allowed", name)
+	}
+
 	for _, searchPath := range p.searchPaths {
 		// Try YAML first
 		yamlPath := filepath.Join(searchPath, name+".yaml")

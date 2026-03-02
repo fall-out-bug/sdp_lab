@@ -2,16 +2,32 @@
 package workstream
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
-	"sync"
+	"regexp"
+	"strings"
 	"time"
 )
 
+// validIDRegex matches alphanumeric, hyphen, underscore IDs
+var validIDRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+
+// validateID checks that an ID is safe for use in file paths.
+// It prevents path traversal attacks by rejecting IDs containing
+// directory separators or parent directory references.
+func validateID(id string) error {
+	if id == "" {
+		return fmt.Errorf("id cannot be empty")
+	}
+	if strings.Contains(id, "..") {
+		return fmt.Errorf("id %q contains invalid path traversal sequence", id)
+	}
+	if strings.ContainsAny(id, "/\\") {
+		return fmt.Errorf("id %q contains invalid path separator", id)
+	}
+	if !validIDRegex.MatchString(id) {
+		return fmt.Errorf("id %q contains invalid characters (allowed: alphanumeric, hyphen, underscore)", id)
+	}
+	return nil
+}
 // Wisp is an ephemeral work item that exists only for the current session.
 type Wisp struct {
 	// ID is the unique identifier.
@@ -104,6 +120,11 @@ func (s *SessionStore) CreateWisp(w Wisp) (*Wisp, error) {
 	if w.ID == "" {
 		w.ID = s.generateWispID(w.Title, time.Now())
 	}
+
+	// Validate ID to prevent path traversal
+	if err := validateID(w.ID); err != nil {
+		return nil, fmt.Errorf("invalid wisp id: %w", err)
+	}
 	
 	// Set defaults
 	if w.Status == "" {
@@ -142,6 +163,11 @@ func (s *SessionStore) CreateWisp(w Wisp) (*Wisp, error) {
 
 // GetWisp retrieves a wisp by ID.
 func (s *SessionStore) GetWisp(id string) (*Wisp, error) {
+	// Validate ID to prevent path traversal
+	if err := validateID(id); err != nil {
+		return nil, fmt.Errorf("invalid wisp id: %w", err)
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	

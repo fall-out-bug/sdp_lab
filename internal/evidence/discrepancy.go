@@ -146,11 +146,9 @@ func findAttestation(dir, runID, prefix string) string {
 	// Finally try any file with prefix (for backwards compatibility)
 	if prefix != "" {
 		pattern = filepath.Join(dir, prefix+"*.json")
-		matches, _ = filepath.Glob(pattern)
-		if len(matches) > 0 {
-			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
-			return matches[0]
-		}
+	// Find evidence files for this test - glob errors are intentionally ignored
+	// (permission issues, file not found, etc patterns are handled appropriately.
+	matches, _ = filepath.Glob(pattern)
 	}
 
 	return ""
