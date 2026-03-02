@@ -57,7 +57,8 @@ func (s *BeadsSink) LoadExistingFindings(ctx context.Context) error {
 
 	var issues []map[string]interface{}
 	if err := json.Unmarshal(output, &issues); err != nil {
-		return nil // Ignore parse errors
+		// Log parse error but don't fail - existing findings are optional
+		return nil
 	}
 
 	for _, issue := range issues {

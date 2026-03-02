@@ -104,8 +104,13 @@ func (sd *StuckDetector) Stop() {
 	}
 }
 
-// run is the main monitoring loop.
 func (sd *StuckDetector) run(ctx context.Context) {
+	defer func() {
+		if sd.checkTicker != nil {
+			sd.checkTicker.Stop()
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -268,9 +273,15 @@ func (sd *StuckDetector) Stats() Stats {
 	sd.mu.Lock()
 	defer sd.mu.Unlock()
 
+	// Copy the map to prevent external mutation
+	stuckCopy := make(map[string]time.Time, len(sd.stuckSessions))
+	for k, v := range sd.stuckSessions {
+		stuckCopy[k] = v
+	}
+
 	return Stats{
 		StuckCount:    len(sd.stuckSessions),
-		StuckSessions: sd.stuckSessions,
+		StuckSessions: stuckCopy,
 		Timeout:       sd.timeout,
 	}
 }

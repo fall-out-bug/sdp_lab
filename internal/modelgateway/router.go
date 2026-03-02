@@ -2,6 +2,8 @@ package modelgateway
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -370,5 +372,8 @@ func (s *InMemoryTenantStore) Set(config *TenantConfig) {
 }
 
 func hashInput(input RoutingInput) string {
-	return fmt.Sprintf("%x", time.Now().UnixNano())
+	// Hash the actual input for deterministic routing decisions
+	h := sha256.New()
+	fmt.Fprintf(h, "%s|%s|%v", input.SessionID, input.Prompt, input.Constraints)
+	return hex.EncodeToString(h.Sum(nil))[:16]
 }

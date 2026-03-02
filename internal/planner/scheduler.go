@@ -157,6 +157,9 @@ func (s *Scheduler) CancelPlan(ctx context.Context, planID string) error {
 		return err
 	}
 
+	plan.mu.Lock()
+	defer plan.mu.Unlock()
+
 	for _, task := range plan.tasks {
 		if task.Status == TaskStatusInProgress {
 			if s.executor != nil {
