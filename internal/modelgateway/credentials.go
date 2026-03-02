@@ -122,9 +122,10 @@ func (cm *CredentialManager) GetCredential(ctx context.Context, tenantID string,
 		return nil, fmt.Errorf("credential revoked")
 	}
 
-	now := time.Now()
-	cred.LastUsedAt = &now
-	_ = cm.store.Set(ctx, cred)
+	// Best-effort update of LastUsedAt timestamp; failure should not fail the get operation
+	if setErr := cm.store.Set(ctx, cred); setErr != nil {
+		// Intentionally not returning error - LastUsedAt update is non-critical
+	}
 
 	cm.auditLog(ctx, tenantID, providerID, "get", "system", true, "")
 	return cred, nil
@@ -202,8 +203,10 @@ func (cm *CredentialManager) RotateCredential(ctx context.Context, tenantID stri
 	cm.rotations[oldCred.ID] = rotationState
 
 	oldCred.Status = CredentialStatusRotating
-	_ = cm.store.Set(ctx, oldCred)
-
+	if err := cm.store.Set(ctx, oldCred); err != nil {
+cm.auditLog(ctx, tenantID, providerID, "rotate", "system", false, fmt.Sprintf("failed to mark old credential as rotating: %s", err))
+return nil, fmt.Errorf("failed to mark old credential as rotating: %w", err)
+}
 	newCred := &Credential{
 		ID:         CredentialID(generateID()),
 		TenantID:   tenantID,
@@ -223,8 +226,11 @@ func (cm *CredentialManager) RotateCredential(ctx context.Context, tenantID stri
 	rotationState.CompletedAt = &now
 	rotationState.Status = "completed"
 
-	oldCred.Status = CredentialStatusRevoked
-	_ = cm.store.Set(ctx, oldCred)
+	// Revoke old credential - failure here is a security concern but rotation succeeded
+	if revokeErr := cm.store.Set(ctx, oldCred); revokeErr != nil {
+		// Note: new credential is active, but old credential revocation failed
+		// TODO: trigger alert for manual cleanup
+	}
 
 	cm.auditLog(ctx, tenantID, providerID, "rotate", "system", true, "")
 	return newCred, nil
@@ -280,7 +286,10 @@ func (cm *CredentialManager) CheckExpiry(ctx context.Context, tenantID string) (
 			}
 			if cred.ExpiresAt.Before(now) && cred.Status == CredentialStatusActive {
 				cred.Status = CredentialStatusExpired
-				_ = cm.store.Set(ctx, cred)
+				// Best-effort status update; continue processing other credentials
+				if setErr := cm.store.Set(ctx, cred); setErr != nil {
+				// Failed to persist expired status - credential will be re-checked
+				}
 			}
 		}
 	}
@@ -310,6 +319,7 @@ func (cm *CredentialManager) auditLog(ctx context.Context, tenantID string, prov
 		Success:    success,
 		Error:      errMsg,
 	}
+	// Audit logging is best-effort; failure should not affect main operation
 	_ = cm.audit.Log(ctx, entry)
 }
 

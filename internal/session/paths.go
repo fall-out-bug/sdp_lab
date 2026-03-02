@@ -1,8 +1,9 @@
 package session
 
 import (
-	"os"
-	"path/filepath"
+	"fmt"
+"os"
+"path/filepath"
 )
 
 // Paths provides canonical path helpers for session-related directories and files.
@@ -54,10 +55,22 @@ func InitPaths(projectRoot string) {
 }
 
 // GetPaths returns the default paths helper.
-// Must call InitPaths first.
-func GetPaths() *Paths {
+// Must call InitPaths first. Returns ErrNotInitialized if InitPaths was not called.
+func GetPaths() (*Paths, error) {
+	if defaultPaths == nil {
+		return nil, ErrNotInitialized
+	}
+	return defaultPaths, nil
+}
+
+// MustGetPaths returns the default paths helper or panics if not initialized.
+// Use this only when initialization is guaranteed.
+func MustGetPaths() *Paths {
 	if defaultPaths == nil {
 		panic("session: InitPaths not called")
 	}
 	return defaultPaths
 }
+
+// ErrNotInitialized is returned when GetPaths is called before InitPaths.
+var ErrNotInitialized = fmt.Errorf("session: InitPaths not called")

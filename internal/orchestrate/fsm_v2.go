@@ -244,7 +244,19 @@ func (f *FSMV2) Transition(ctx context.Context, to State) error {
 
 	now := time.Now()
 	if transitionErr != nil {
-		f.state.LastError = transitionErr.(*TransitionError)
+		if te, ok := transitionErr.(*TransitionError); ok {
+			f.state.LastError = te
+		} else {
+			f.state.LastError = &TransitionError{
+				Code:      "UNKNOWN_ERROR",
+				Message:   transitionErr.Error(),
+				FromState: from,
+				ToState:   to,
+				Timestamp: time.Now(),
+				Retryable: false,
+				Cause:     transitionErr,
+			}
+		}
 		f.state.Attempts++
 
 		if f.state.Attempts >= f.maxRetries {
