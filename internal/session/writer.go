@@ -5,35 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
 	"sync"
 )
 
 // DefaultLogDir is the default directory for session logs relative to project root.
 const DefaultLogDir = ".sdp/log"
-
-// validSessionIDRegex matches alphanumeric, hyphen, underscore session IDs
-var validSessionIDRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
-
-// validateSessionID checks that a session ID is safe for use in file paths.
-// It prevents path traversal attacks by rejecting IDs containing
-// directory separators or parent directory references.
-func validateSessionID(sessionID string) error {
-	if sessionID == "" {
-		return fmt.Errorf("session ID cannot be empty")
-	}
-	if strings.Contains(sessionID, "..") {
-		return fmt.Errorf("session ID %q contains invalid path traversal sequence", sessionID)
-	}
-	if strings.ContainsAny(sessionID, "/\\") {
-		return fmt.Errorf("session ID %q contains invalid path separator", sessionID)
-	}
-	if !validSessionIDRegex.MatchString(sessionID) {
-		return fmt.Errorf("session ID %q contains invalid characters", sessionID)
-	}
-	return nil
-}
 
 // Writer writes hash-chained events to a session log file.
 type Writer struct {
@@ -48,7 +24,7 @@ type Writer struct {
 // NewWriter creates a new session log writer.
 // The log file is created at .sdp/log/session-{sessionID}.jsonl.
 func NewWriter(projectRoot, sessionID string) (*Writer, error) {
-	if err := validateSessionID(sessionID); err != nil {
+	if err := ValidateSessionID(sessionID); err != nil {
 		return nil, fmt.Errorf("invalid session ID: %w", err)
 	}
 

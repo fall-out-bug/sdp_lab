@@ -262,6 +262,10 @@ func (s *MigrationShim) runV2(ctx context.Context, fsmCtx *FSMContext) error {
 }
 
 func (s *MigrationShim) dryRunV2(ctx context.Context, fsmCtx *FSMContext) error {
+	s.v2.mu.Lock()
+	snapshot := cloneFSMState(s.v2.state)
+	s.v2.mu.Unlock()
+
 	transitions := []struct {
 		name string
 		fn   func(context.Context) error
@@ -276,6 +280,9 @@ func (s *MigrationShim) dryRunV2(ctx context.Context, fsmCtx *FSMContext) error 
 	for _, t := range transitions {
 		state := s.v2.CurrentState()
 		if err := t.fn(ctx); err != nil {
+			s.v2.mu.Lock()
+			s.v2.state = snapshot
+			s.v2.mu.Unlock()
 			s.recordEvent(ctx, &MigrationEvent{
 				Timestamp:    time.Now(),
 				WorkstreamID: fsmCtx.WorkstreamID,
@@ -288,6 +295,10 @@ func (s *MigrationShim) dryRunV2(ctx context.Context, fsmCtx *FSMContext) error 
 		}
 	}
 
+	s.v2.mu.Lock()
+	s.v2.state = snapshot
+	s.v2.mu.Unlock()
+
 	s.recordEvent(ctx, &MigrationEvent{
 		Timestamp:    time.Now(),
 		WorkstreamID: fsmCtx.WorkstreamID,
@@ -296,6 +307,37 @@ func (s *MigrationShim) dryRunV2(ctx context.Context, fsmCtx *FSMContext) error 
 		Success:      true,
 	})
 	return nil
+}
+
+func cloneFSMState(src *FSMState) *FSMState {
+	if src == nil {
+		return nil
+	}
+
+	dst := *src
+	if src.LastError != nil {
+		lastErr := *src.LastError
+		dst.LastError = &lastErr
+	}
+	if src.ExitedAt != nil {
+		exitedAt := *src.ExitedAt
+		dst.ExitedAt = &exitedAt
+	}
+	if len(src.Checkpoints) > 0 {
+		dst.Checkpoints = make([]CheckpointRecord, len(src.Checkpoints))
+		for i, cp := range src.Checkpoints {
+			dst.Checkpoints[i] = cp
+			if cp.Details != nil {
+				details := make(map[string]interface{}, len(cp.Details))
+				for k, v := range cp.Details {
+					details[k] = v
+				}
+				dst.Checkpoints[i].Details = details
+			}
+		}
+	}
+
+	return &dst
 }
 
 func (s *MigrationShim) classifyFailure(err error) FailureClass {

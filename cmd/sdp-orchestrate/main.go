@@ -101,7 +101,10 @@ func main() {
 		return
 	}
 	if *runtime == "opencode" {
-		orchestrate.RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath, cp, workstreams)
+		if err := orchestrate.RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath, cp, workstreams); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
 		return
 	}
 	if *advance {

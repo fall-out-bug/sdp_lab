@@ -37,6 +37,9 @@ type BranchResult struct {
 	Error    error
 }
 
+// BranchExecutor implementations must stop work when ctx is canceled.
+// ExecuteWithTimeout relies on this contract; otherwise branch goroutines may
+// outlive timeout boundaries.
 type BranchExecutor interface {
 	ExecuteBranch(ctx context.Context, branch *Branch) (interface{}, error)
 	CancelBranch(ctx context.Context, branchID BranchID) error

@@ -65,6 +65,28 @@ func TestCompareAttestations_MissingCI(t *testing.T) {
 	}
 }
 
+func TestFindAttestation_ThirdFallbackReturnsMatch(t *testing.T) {
+	dir := t.TempDir()
+
+	first := filepath.Join(dir, "run-alpha.json")
+	second := filepath.Join(dir, "run-zeta.json")
+	if err := os.WriteFile(first, []byte("{}"), 0o644); err != nil {
+		t.Fatalf("write first file: %v", err)
+	}
+	if err := os.WriteFile(second, []byte("{}"), 0o644); err != nil {
+		t.Fatalf("write second file: %v", err)
+	}
+
+	got := findAttestation(dir, "does-not-exist", "run-")
+	if got == "" {
+		t.Fatal("expected fallback attestation path, got empty string")
+	}
+
+	if got != second {
+		t.Fatalf("fallback path = %q, want %q", got, second)
+	}
+}
+
 func TestCompareFileScope_Identical(t *testing.T) {
 	agent := testStatement()
 	agent.Predicate.Execution.ChangedFiles = []string{"a.go", "b.go"}

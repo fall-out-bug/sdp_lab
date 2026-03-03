@@ -6,9 +6,12 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 )
+
+var compiledPatternCache sync.Map
 
 // Constraint defines a single rule for agent behavior in a phase.
 type Constraint struct {
@@ -29,17 +32,17 @@ type PhaseConstraints struct {
 
 // Containment thresholds.
 type ContainmentThresholds struct {
-	Warn      int `yaml:"warn"`
-	Block     int `yaml:"block"`
-	Halt      int `yaml:"halt"`
-	Escalate  int `yaml:"escalate"`
+	Warn     int `yaml:"warn"`
+	Block    int `yaml:"block"`
+	Halt     int `yaml:"halt"`
+	Escalate int `yaml:"escalate"`
 }
 
 // AgentConstraintConfig is the full config from .sdp/agent-constraints.yaml.
 type AgentConstraintConfig struct {
-	Version  string                      `yaml:"version"`
-	Updated  string                      `yaml:"updated"`
-	Phases   map[string]PhaseConstraints `yaml:"phases"`
+	Version     string                      `yaml:"version"`
+	Updated     string                      `yaml:"updated"`
+	Phases      map[string]PhaseConstraints `yaml:"phases"`
 	Containment struct {
 		Thresholds ContainmentThresholds `yaml:"thresholds"`
 	} `yaml:"containment"`
@@ -173,9 +176,15 @@ func matchesPattern(s, pattern string) bool {
 	if pattern == "" {
 		return false
 	}
-	matched, err := regexp.MatchString(pattern, s)
+
+	if cached, ok := compiledPatternCache.Load(pattern); ok {
+		return cached.(*regexp.Regexp).MatchString(s)
+	}
+
+	re, err := regexp.Compile(pattern)
 	if err != nil {
 		return strings.Contains(s, pattern)
 	}
-	return matched
+	compiledPatternCache.Store(pattern, re)
+	return re.MatchString(s)
 }

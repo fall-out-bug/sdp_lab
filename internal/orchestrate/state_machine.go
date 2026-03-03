@@ -7,7 +7,7 @@ import (
 
 // NextAction describes what the agent should do next.
 type NextAction struct {
-	Action  string `json:"action"`  // build, review, pr, ci-loop, done
+	Action  string `json:"action"` // build, review, pr, ci-loop, done
 	WSID    string `json:"ws_id,omitempty"`
 	Feature string `json:"feature,omitempty"`
 	PR      int    `json:"pr,omitempty"`
@@ -137,10 +137,8 @@ func FindProjectRoot(dir string) (string, error) {
 	}
 	for d := abs; d != "" && d != "/"; d = filepath.Dir(d) {
 		check := filepath.Join(d, "docs", "workstreams", "backlog")
-		if _, err := filepath.Glob(filepath.Join(check, "*.md")); err == nil {
-			if ents, _ := filepath.Glob(filepath.Join(check, "*.md")); len(ents) > 0 {
-				return d, nil
-			}
+		if ents, err := filepath.Glob(filepath.Join(check, "*.md")); err == nil && len(ents) > 0 {
+			return d, nil
 		}
 	}
 	return "", fmt.Errorf("project root not found (no docs/workstreams/backlog)")

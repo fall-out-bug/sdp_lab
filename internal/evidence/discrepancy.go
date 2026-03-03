@@ -146,14 +146,17 @@ func findAttestation(dir, runID, prefix string) string {
 	// Finally try any file with prefix (for backwards compatibility)
 	if prefix != "" {
 		pattern = filepath.Join(dir, prefix+"*.json")
-	// Find evidence files for this test - glob errors are intentionally ignored
-	// (permission issues, file not found, etc patterns are handled appropriately.
-	matches, _ = filepath.Glob(pattern)
+		// Find evidence files for this test - glob errors are intentionally ignored
+		// (permission issues, file not found, etc patterns are handled appropriately).
+		matches, _ = filepath.Glob(pattern)
+		if len(matches) > 0 {
+			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
+			return matches[0]
+		}
 	}
 
 	return ""
 }
-
 
 // compareFileScope compares the changed files between attestations.
 func compareFileScope(agent, ci CodingWorkflowStatement) []Discrepancy {
@@ -278,13 +281,13 @@ func compareCoverage(agent, ci CodingWorkflowStatement, threshold float64) []Dis
 		}
 
 		if diff > threshold {
-		severity := "low"
-		if diff >= 10 {
-			severity = "medium"
-		}
-		if diff >= 20 {
-			severity = "high"
-		}
+			severity := "low"
+			if diff >= 10 {
+				severity = "medium"
+			}
+			if diff >= 20 {
+				severity = "high"
+			}
 
 			discrepancies = append(discrepancies, Discrepancy{
 				Type:        DiscrepancyCoverage,
