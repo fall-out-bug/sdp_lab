@@ -94,6 +94,15 @@ func runAdvance(projectRoot, featureID, cpPath, runsPath, result string, skipGua
 		}
 	}
 
+	report, contractErr := orchestrate.EnforceContractGate(projectRoot, featureID)
+	if contractErr != nil {
+		fmt.Fprintf(os.Stderr, "error: contract gate blocked: %v\n", contractErr)
+		if report != nil {
+			fmt.Fprintf(os.Stderr, "contract gate report: blocked=%v phase=%s\n", report.Blocked, report.Phase)
+		}
+		os.Exit(1)
+	}
+
 	// Validate FSM transition before advancing.
 	if err := orchestrate.ValidateAdvance(cp, workstreams); err != nil {
 		fmt.Fprintf(os.Stderr, "error: FSM conformance violation: %v\n", err)
