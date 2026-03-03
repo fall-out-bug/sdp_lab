@@ -7,6 +7,10 @@
 > **Audit:** [Phase 0 Enforcement Audit](../plans/2026-02-24-phase0-enforcement-audit.md) — why Phase 0 tools didn't enforce
 > **K8s Archive:** `archive/k8s-v0` branch — domain knowledge for future K8s rebuild
 > **Synergies:** [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md) — OhMyOpenCode, Gas Town, Beads integration analysis
+> **Unified Plan:** [UNIFIED_VISION_ROADMAP_2026-03-03.md](UNIFIED_VISION_ROADMAP_2026-03-03.md) — consolidated execution model across roadmap/index/beads
+> **Market Loop:** [MARKET_INTELLIGENCE_OPERATING_LOOP.md](MARKET_INTELLIGENCE_OPERATING_LOOP.md) — recurring market-driven prioritization
+> **Consistency Policy:** [CONSISTENCY_MITIGATION_POLICY.md](CONSISTENCY_MITIGATION_POLICY.md) — mandatory drift checks before feature planning
+> **A* Alignment Stream:** [STATE_ALIGNMENT_STREAM_ASTAR.md](STATE_ALIGNMENT_STREAM_ASTAR.md) — stabilization-first execution before new features
 
 ---
 
@@ -246,6 +250,21 @@ in-toto Envelope (DSSE)
 
 ## Key References
 
+### Feature ID continuity note
+
+Reserved (intentionally unused) feature IDs: `F050`, `F051`, `F055`, `F056`, `F057`, `F058`.
+
+These IDs are kept for historical continuity and are not active roadmap items.
+
+### Feature coverage registry
+
+This roadmap focuses active strategy phases. Full feature coverage is maintained in `docs/workstreams/INDEX.md` and includes:
+
+- Archived pre-pivot features: `F001`..`F013`
+- Phase 0/7 completed bootstrap features: `F014`..`F030`
+- Auto-generated planning ranges: `F031`..`F052`
+- Active strategy and ecosystem ranges: `F059`..`F077`
+
 ### Standards & Tools
 - [in-toto attestation](https://github.com/in-toto/attestation) — envelope format
 - [OPA/Rego](https://www.openpolicyagent.org/) — policy-as-code
@@ -273,8 +292,7 @@ in-toto Envelope (DSSE)
 | **opencode-mem** | Persistent memory, Session continuity, User profiles | F063 |
 | **opencode-beads** | Beads plugin for OpenCode | F061 |
 ### Ongoing
-- **F053** — Phase 4 Beads Remediation (00-053-01 … 00-053-46). See [INDEX](../workstreams/INDEX.md).
-- **F054** — Continuous Protocol Improvement (00-054-01 … 00-054-06). Skills, AGENTS.md, CLAUDE.md sync sdp↔sdp_lab, workflow. Part of future swarm. Source: [multifaceted analysis](../plans/2026-02-25-agent-protocol-multifaceted-analysis.md).
+- **F053/F054** — Historical planning tracks; no active workstream files in `INDEX.md` or `backlog/` yet. Keep analysis in [multifaceted analysis](../plans/2026-02-25-agent-protocol-multifaceted-analysis.md) until re-materialized into concrete WS IDs.
 - **F059** — OhMyOpenCode Evidence Integration (00-059-01 … 00-059-04). Pre-tool-call guard, session evidence emitter, permission↔guard bridge, stuck detection. Phase 5. **Status: DONE** (sdp-omc-guard, sdp-ready implemented).
 - **F060** — Gas Town Adapter (00-060-01 … 00-060-04). Convoy→WS bridge, hook→guard, witness escalation, Agent CV→provenance. Phase 8-9 target. Source: [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md).
 **F061** — Beads Graph Integration (00-061-01 … 00-061-04). SQL dep query, `sdp ready` bridge, formula templates, wisps. Phase 5 target. **Status: DONE** (sdp-ready, beads client implemented, opencode-beads plugin installed).
@@ -300,6 +318,27 @@ in-toto Envelope (DSSE)
 - **F075** — Enterprise K8s Runtime Pack (00-075-01 ... 00-075-03). HA deployment, queue control, canary rollout for agent workflows.
 - **F076** — Documentation Agent Automation (00-076-01). Automatic changelog updates and documentation consistency checks on each commit.
 - **F077** — CI to Local Bridge for Improvement Loop (00-077-01 ... 00-077-04). GitHub CI findings are synchronized into local Beads queue for autonomous improvement agents.
+
+
+### Layer Rollout Matrix (Vision Alignment)
+
+Reference: `docs/vision/SDP_LAYERED_VISION.md`
+
+| Layer | Roadmap focus | Delivery signal |
+|-------|---------------|-----------------|
+| L1 Protocol | F068 + protocol contracts and skill specs | Stable input/output + self-check contracts across runtimes |
+| L2 Runtime Governance | F059, F064-F067, protocol-compliance gates | Drift blocked before merge, no unsupported claims |
+| L3 Orchestration Fabric | F071, F072, F077 + ecosystem bridges | Deterministic phase transitions with gate-controlled advancement |
+| L4 Enterprise Trust | F074 | Signed evidence envelopes and compliance-grade audit trails |
+| L5 OSS Harness Runtime | F075 + K8s phases 8-9 | Portable operator/harness execution with trust controls |
+
+### KPI Baseline for Layer Completion
+
+- Evidence validity rate (`valid_evidence_envelope`) >= 99%
+- Claim evidence linkage (`claims_with_evidence_refs`) = 100%
+- Drift block effectiveness (`blocked_drift_before_done`) = 100% for critical drift
+- Protocol compliance (`protocol_compliant_runs`) >= 95% before L3 graduation
+- Gate reliability (`false_positive_gate_blocks`) <= 2% in rolling 30-day window
 
 
 ### Project History
