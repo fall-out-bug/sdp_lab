@@ -55,3 +55,8 @@ bin/
 .prompts
 evaluator-orchestrator
 sdp-ready
+
+.cache/
+.sisyphus/
+sdp-gh-findings-sync
+sdp-up
