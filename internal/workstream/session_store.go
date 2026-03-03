@@ -2,8 +2,15 @@
 package workstream
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -28,38 +35,39 @@ func validateID(id string) error {
 	}
 	return nil
 }
+
 // Wisp is an ephemeral work item that exists only for the current session.
 type Wisp struct {
 	// ID is the unique identifier.
 	ID string `json:"id"`
-	
+
 	// Title is the wisp title.
 	Title string `json:"title"`
-	
+
 	// Description is the wisp description.
 	Description string `json:"description,omitempty"`
-	
+
 	// Type is the wisp type (task, bug, etc.).
 	Type string `json:"type"`
-	
+
 	// Priority is the priority (1-3).
 	Priority int `json:"priority"`
-	
+
 	// Status is the current status.
 	Status string `json:"status"`
-	
+
 	// Labels are tags for categorization.
 	Labels []string `json:"labels,omitempty"`
-	
+
 	// SourceSession is the session that created this wisp.
 	SourceSession string `json:"source_session"`
-	
+
 	// CreatedAt is when the wisp was created.
 	CreatedAt time.Time `json:"created_at"`
-	
+
 	// ExpiresAt is when the wisp expires.
 	ExpiresAt time.Time `json:"expires_at"`
-	
+
 	// Metadata stores additional data.
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
@@ -75,7 +83,7 @@ type SessionStore struct {
 type SessionStoreConfig struct {
 	// BasePath is the .sdp/session directory.
 	BasePath string
-	
+
 	// TTL is the default wisp lifetime.
 	TTL time.Duration
 }
@@ -94,17 +102,17 @@ func NewSessionStore(cfg SessionStoreConfig) (*SessionStore, error) {
 		}
 		basePath = filepath.Join(cwd, ".sdp", "session")
 	}
-	
+
 	ttl := cfg.TTL
 	if ttl == 0 {
 		ttl = DefaultWispTTL
 	}
-	
+
 	// Ensure directory exists
 	if err := os.MkdirAll(basePath, 0755); err != nil {
 		return nil, fmt.Errorf("create session dir: %w", err)
 	}
-	
+
 	return &SessionStore{
 		basePath: basePath,
 		ttl:      ttl,
@@ -115,7 +123,7 @@ func NewSessionStore(cfg SessionStoreConfig) (*SessionStore, error) {
 func (s *SessionStore) CreateWisp(w Wisp) (*Wisp, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	// Generate ID if not set
 	if w.ID == "" {
 		w.ID = s.generateWispID(w.Title, time.Now())
@@ -125,7 +133,7 @@ func (s *SessionStore) CreateWisp(w Wisp) (*Wisp, error) {
 	if err := validateID(w.ID); err != nil {
 		return nil, fmt.Errorf("invalid wisp id: %w", err)
 	}
-	
+
 	// Set defaults
 	if w.Status == "" {
 		w.Status = "open"
@@ -142,22 +150,22 @@ func (s *SessionStore) CreateWisp(w Wisp) (*Wisp, error) {
 	if w.ExpiresAt.IsZero() {
 		w.ExpiresAt = w.CreatedAt.Add(s.ttl)
 	}
-	
+
 	// Write to file
 	wispPath := filepath.Join(s.basePath, "wisps", w.ID+".json")
 	if err := os.MkdirAll(filepath.Dir(wispPath), 0755); err != nil {
 		return nil, fmt.Errorf("create wisps dir: %w", err)
 	}
-	
+
 	data, err := json.MarshalIndent(w, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("marshal wisp: %w", err)
 	}
-	
+
 	if err := os.WriteFile(wispPath, data, 0644); err != nil {
 		return nil, fmt.Errorf("write wisp: %w", err)
 	}
-	
+
 	return &w, nil
 }
 
@@ -170,18 +178,18 @@ func (s *SessionStore) GetWisp(id string) (*Wisp, error) {
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	wispPath := filepath.Join(s.basePath, "wisps", id+".json")
 	data, err := os.ReadFile(wispPath)
 	if err != nil {
 		return nil, fmt.Errorf("read wisp: %w", err)
 	}
-	
+
 	var w Wisp
 	if err := json.Unmarshal(data, &w); err != nil {
 		return nil, fmt.Errorf("unmarshal wisp: %w", err)
 	}
-	
+
 	return &w, nil
 }
 
@@ -212,18 +220,18 @@ func (s *SessionStore) UpdateWispStatus(id, status string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	w.Status = status
-	
+
 	wispPath := filepath.Join(s.basePath, "wisps", id+".json")
 	data, err := json.MarshalIndent(w, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal wisp: %w", err)
 	}
-	
+
 	return os.WriteFile(wispPath, data, 0644)
 }
 
@@ -231,7 +239,7 @@ func (s *SessionStore) UpdateWispStatus(id, status string) error {
 func (s *SessionStore) ListWisps() ([]*Wisp, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	wispsDir := filepath.Join(s.basePath, "wisps")
 	entries, err := os.ReadDir(wispsDir)
 	if err != nil {
@@ -240,28 +248,28 @@ func (s *SessionStore) ListWisps() ([]*Wisp, error) {
 		}
 		return nil, fmt.Errorf("read wisps dir: %w", err)
 	}
-	
+
 	var wisps []*Wisp
 	now := time.Now()
-	
+
 	for _, entry := range entries {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
 			continue
 		}
-		
+
 		w, err := s.getWispUnlocked(filepath.Base(entry.Name()[:len(entry.Name())-5]))
 		if err != nil {
 			continue
 		}
-		
+
 		// Skip expired wisps
 		if w.ExpiresAt.Before(now) {
 			continue
 		}
-		
+
 		wisps = append(wisps, w)
 	}
-	
+
 	return wisps, nil
 }
 
@@ -269,7 +277,7 @@ func (s *SessionStore) ListWisps() ([]*Wisp, error) {
 func (s *SessionStore) ExpireWisps() (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	wispsDir := filepath.Join(s.basePath, "wisps")
 	entries, err := os.ReadDir(wispsDir)
 	if err != nil {
@@ -278,15 +286,15 @@ func (s *SessionStore) ExpireWisps() (int, error) {
 		}
 		return 0, fmt.Errorf("read wisps dir: %w", err)
 	}
-	
+
 	now := time.Now()
 	expired := 0
-	
+
 	for _, entry := range entries {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
 			continue
 		}
-		
+
 		sid := entry.Name()[:len(entry.Name())-5]
 		_ = sid // ID extracted from filename
 		wispPath := filepath.Join(wispsDir, entry.Name())
@@ -294,18 +302,18 @@ func (s *SessionStore) ExpireWisps() (int, error) {
 		if err != nil {
 			continue
 		}
-		
+
 		var w Wisp
 		if err := json.Unmarshal(data, &w); err != nil {
 			continue
 		}
-		
+
 		if w.ExpiresAt.Before(now) {
 			os.Remove(wispPath)
 			expired++
 		}
 	}
-	
+
 	return expired, nil
 }
 
@@ -313,7 +321,7 @@ func (s *SessionStore) ExpireWisps() (int, error) {
 func (s *SessionStore) ClearSession() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	wispsDir := filepath.Join(s.basePath, "wisps")
 	return os.RemoveAll(wispsDir)
 }
@@ -324,18 +332,18 @@ func (s *SessionStore) Stats() (*SessionStats, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	stats := &SessionStats{
 		ActiveWisps: len(wisps),
 		ByStatus:    make(map[string]int),
 		ByType:      make(map[string]int),
 	}
-	
+
 	for _, w := range wisps {
 		stats.ByStatus[w.Status]++
 		stats.ByType[w.Type]++
 	}
-	
+
 	return stats, nil
 }
 

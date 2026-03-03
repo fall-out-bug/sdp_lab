@@ -4,7 +4,6 @@ package beads
 import (
 	"database/sql"
 	"fmt"
-	"time"
 )
 
 // SQLClient provides advanced SQL query capabilities for Beads.

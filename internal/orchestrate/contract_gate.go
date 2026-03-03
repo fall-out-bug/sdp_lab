@@ -45,7 +45,8 @@ func EnforceContractGate(projectRoot, featureID string) (*harness.ComplianceRepo
 		return nil, err
 	}
 
-	report := harness.EvaluateCompliance(contract, snapshot)
+	reportValue := harness.EvaluateCompliance(contract, snapshot)
+	report := &reportValue
 	if err := saveContractGateReport(reportPath, report); err != nil {
 		return report, err
 	}

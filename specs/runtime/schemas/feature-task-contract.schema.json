@@ -85,6 +85,7 @@
         "enum": [
           "test_results",
           "build_log",
+          "gate_results",
           "lint_report",
           "typecheck_report",
           "diff_summary",

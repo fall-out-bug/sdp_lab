@@ -155,6 +155,7 @@ Feature throughput resumes only after step 5 is green.
 
 - `docs/roadmap/CONSISTENCY_MITIGATION_POLICY.md`
 - `docs/roadmap/CRITICAL_ROADMAP_REVIEW_2026-03-03.md`
+- `docs/roadmap/IMPLEMENTATION_DRIFT_AUDIT_2026-03-03.md`
 - `docs/roadmap/UNIFIED_VISION_ROADMAP_2026-03-03.md`
 - `docs/research/MARKET_LANDSCAPE_AI_TRUST_TOOLS_2026-03-03.md`
 - `docs/plans/2026-03-03-oss-growth-playbook-12weeks.md`

@@ -25,28 +25,28 @@ phases:
         description: "Agent must not force-push to any remote branch"
         severity: halt
         check: command-pattern
-        pattern: "git push.*--force|git push.*-f "
+        pattern: 'git push.*--force|git push.*-f '
         message: "HALT: force-push is not allowed during automated execution."
 
       - id: no-main-branch-push
         description: "Agent must not push directly to master/main"
         severity: halt
         check: command-pattern
-        pattern: "git push.*master|git push.*main"
+        pattern: 'git push.*master|git push.*main'
         message: "HALT: direct push to master/main is not allowed. Create a feature branch PR."
 
       - id: no-secret-access
         description: "Agent must not read secret files (private keys, env files)"
         severity: block
         check: file-pattern
-        pattern: "\.env$|id_rsa|id_ed25519|\.key$|secrets\.yaml"
+        pattern: '\.env$|id_rsa|id_ed25519|\.key$|secrets\.yaml'
         message: "BLOCK: attempted to access secret file. Not allowed during automated build."
 
       - id: no-destructive-git
         description: "Agent must not run destructive git operations"
         severity: block
         check: command-pattern
-        pattern: "git reset --hard|git clean -fd|git checkout -- \\.\\."
+        pattern: 'git reset --hard|git clean -fd|git checkout -- \.\.'
         message: "BLOCK: destructive git operation blocked in build phase."
 
   review:
@@ -56,14 +56,14 @@ phases:
         description: "Agent must not modify .go files during review phase"
         severity: warn
         check: file-pattern
-        pattern: "\.go$"
+        pattern: '\.go$'
         message: "WARN: modifying Go source files in review phase. Consider using build phase for changes."
 
       - id: no-force-push
         description: "Agent must not force-push"
         severity: halt
         check: command-pattern
-        pattern: "git push.*--force|git push.*-f "
+        pattern: 'git push.*--force|git push.*-f '
         message: "HALT: force-push is not allowed during review."
 
   pr:
@@ -80,7 +80,7 @@ phases:
         description: "Agent must not merge PRs directly (only create)"
         severity: halt
         check: command-pattern
-        pattern: "gh pr merge"
+        pattern: 'gh pr merge'
         message: "HALT: automated PR merge is not allowed. Human review required."
 
 # Graduated containment levels (MI9-inspired)

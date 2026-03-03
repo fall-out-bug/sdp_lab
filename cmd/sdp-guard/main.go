@@ -84,8 +84,8 @@ func main() {
 func runConstraintCheck(projectRoot, phase, command, file string) {
 	cfg, err := orchestrate.LoadConstraintConfig(projectRoot)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not load constraints: %v\n", err)
-		os.Exit(0) // graceful degradation
+		fmt.Fprintf(os.Stderr, "error: could not load constraints: %v\n", err)
+		os.Exit(1)
 	}
 
 	var violations []orchestrate.ConstraintViolation

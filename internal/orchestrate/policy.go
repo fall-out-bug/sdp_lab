@@ -18,23 +18,22 @@ type PolicyResult struct {
 
 // PolicyInput is the data passed to OPA for evaluation.
 type PolicyInput struct {
-	Phase                   string   `json:"phase"`
-	FeatureID               string   `json:"feature_id"`
-	WorkstreamID            string   `json:"workstream_id,omitempty"`
-	ChangedFiles            []string `json:"changed_files"`
-	ScopeViolationsCount    int      `json:"scope_violations_count"`
-	EvidenceFilesCount      int      `json:"evidence_files_count"`
-	EvidenceValidationPassed bool    `json:"evidence_validation_passed"`
-	HasWorkstreamChanges    bool     `json:"has_workstream_changes"`
-	HasFeatureChanges       bool     `json:"has_feature_changes"`
-	BeadsReferenced         bool     `json:"beads_referenced"`
-	P0Findings              int      `json:"p0_findings"`
-	P1Findings              int      `json:"p1_findings"`
-	P2Findings              int      `json:"p2_findings"`
+	Phase                    string   `json:"phase"`
+	FeatureID                string   `json:"feature_id"`
+	WorkstreamID             string   `json:"workstream_id,omitempty"`
+	ChangedFiles             []string `json:"changed_files"`
+	ScopeViolationsCount     int      `json:"scope_violations_count"`
+	EvidenceFilesCount       int      `json:"evidence_files_count"`
+	EvidenceValidationPassed bool     `json:"evidence_validation_passed"`
+	HasWorkstreamChanges     bool     `json:"has_workstream_changes"`
+	HasFeatureChanges        bool     `json:"has_feature_changes"`
+	BeadsReferenced          bool     `json:"beads_referenced"`
+	P0Findings               int      `json:"p0_findings"`
+	P1Findings               int      `json:"p1_findings"`
+	P2Findings               int      `json:"p2_findings"`
 }
 
 // EvaluatePolicies evaluates .sdp/policies/*.rego against the given input.
-// Returns PolicyResult. If OPA is not installed, returns empty result (graceful degradation).
 func EvaluatePolicies(projectRoot string, input PolicyInput) (PolicyResult, error) {
 	policiesDir := filepath.Join(projectRoot, ".sdp", "policies")
 	if _, err := os.Stat(policiesDir); os.IsNotExist(err) {
@@ -44,8 +43,7 @@ func EvaluatePolicies(projectRoot string, input PolicyInput) (PolicyResult, erro
 	// Check if opa is available
 	opaPath, err := exec.LookPath("opa")
 	if err != nil {
-		// OPA not installed — skip policy evaluation silently
-		return PolicyResult{Level: "advisory"}, nil
+		return PolicyResult{}, fmt.Errorf("opa not found in PATH: %w", err)
 	}
 
 	// Write input to temp file

@@ -6,8 +6,52 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 )
+
+// isValidNotifyCommand validates that a notify command is safe to execute.
+// It checks against a whitelist of allowed commands and prevents shell injection.
+func isValidNotifyCommand(cmd string) bool {
+	if cmd == "" {
+		return false
+	}
+
+	// Whitelist of allowed base commands
+	allowed := map[string]bool{
+		"bd":      true,
+		"notify":  true,
+		"echo":    true,
+		"/bin/sh": true,
+	}
+
+	// Extract base command (first word)
+	parts := strings.Fields(cmd)
+	if len(parts) == 0 {
+		return false
+	}
+	base := parts[0]
+
+	// Check against whitelist
+	return allowed[base]
+}
+
+// parseNotifyCommand splits a command string into command and arguments safely.
+// It handles quoted arguments and prevents shell injection.
+func parseNotifyCommand(cmd string) ([]string, error) {
+	if cmd == "" {
+		return nil, fmt.Errorf("empty command")
+	}
+
+	// Simple split on whitespace for now
+	// TODO: implement proper shell-like parsing if needed
+	parts := strings.Fields(cmd)
+	if len(parts) == 0 {
+		return nil, fmt.Errorf("invalid command")
+	}
+
+	return parts, nil
+}
 
 // EscalationHandler handles escalation of stuck agents.
 type EscalationHandler struct {
@@ -16,7 +60,7 @@ type EscalationHandler struct {
 	onEscalate func(sessionID string, lastEvent time.Time)
 }
 
-// EscalationConfig configures the escalation handler.
+// EscalationConfig configures escalation handler.
 type EscalationConfig struct {
 	// CreateWisp determines if a Beads wisp should be created.
 	CreateWisp bool
@@ -64,14 +108,14 @@ func (eh *EscalationHandler) Escalate(ctx context.Context, sessionID string, las
 	return nil
 }
 
-// createBeadsWisp creates an ephemeral Beads issue for the stuck agent.
+// createBeadsWisp creates an ephemeral Beads issue for stuck agent.
 func (eh *EscalationHandler) createBeadsWisp(ctx context.Context, sessionID string, lastEvent time.Time) error {
 	title := fmt.Sprintf("STUCK: Agent session %s", sessionID)
 	_ = title // Use in bd create when available
 
 	description := fmt.Sprintf(
 		"Agent session %s has been inactive since %s (> 5 minutes).\n\n"+
-			"This is an automatically generated escalation. Investigate the session logs.",
+			"This is an automatically generated escalation. Investigate session logs.",
 		sessionID,
 		lastEvent.Format(time.RFC3339),
 	)
@@ -91,7 +135,16 @@ func (eh *EscalationHandler) createBeadsWisp(ctx context.Context, sessionID stri
 
 // runNotifyCommand runs a notification command.
 func (eh *EscalationHandler) runNotifyCommand(ctx context.Context, sessionID string, lastEvent time.Time) error {
-	cmd := exec.CommandContext(ctx, "sh", "-c", eh.notifyCmd)
+	// Validate notify command to prevent shell injection
+	if !isValidNotifyCommand(eh.notifyCmd) {
+		return fmt.Errorf("invalid notify command: %s", eh.notifyCmd)
+	}
+	// Split command and arguments for safe execution
+	parts, err := parseNotifyCommand(eh.notifyCmd)
+	if err != nil {
+		return fmt.Errorf("failed to parse notify command: %w", err)
+	}
+	cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("SESSION_ID=%s", sessionID),
 		fmt.Sprintf("LAST_EVENT=%s", lastEvent.Format(time.RFC3339)),

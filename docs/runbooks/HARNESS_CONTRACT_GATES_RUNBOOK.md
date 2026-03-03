@@ -45,6 +45,15 @@ sdp-guard \
   --snapshot .sdp/contracts/feature-F123.snapshot.json
 ```
 
+If `sdp-guard` is not installed globally, run from repo root:
+
+```bash
+go run ./cmd/sdp-guard \
+  --check-contract \
+  --contract .sdp/contracts/feature-F123.json \
+  --snapshot .sdp/contracts/feature-F123.snapshot.json
+```
+
 Exit codes:
 
 - `0`: all required gates pass
@@ -122,6 +131,10 @@ Example blocked output:
 
 ```json
 {
+  "run_id": "run-2026-03-03-001",
+  "contract_version": "v1",
+  "phase": "validate",
+  "generated_at": "2026-03-03T10:00:00Z",
   "blocked": true,
   "gate_results": [
     {

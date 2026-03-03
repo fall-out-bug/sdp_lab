@@ -180,7 +180,7 @@ jobs:
       - name: Run repository consistency checks
         run: |
           set -e
-          python3 scripts/check_repo_consistency.py --json
+          python3 scripts/check_repo_consistency.py --strict-ac --json
 
   policy-gate:
     runs-on: ubuntu-latest
@@ -204,8 +204,9 @@ jobs:
 
       - name: Collect policy input
         run: |
-          set -e
+          set -euo pipefail
           BASE="${{ github.base_ref }}"
+          EVIDENCE_VALIDATION_PASSED=$([ "${{ needs.evidence-gate.result }}" = "success" ] && echo true || echo false)
           CHANGED=$(git diff --name-only origin/$BASE...HEAD)
           EVIDENCE_COUNT=$(echo "$CHANGED" | grep -c '^\.sdp/evidence/' || echo 0)
           HAS_WS=$(echo "$CHANGED" | grep -c '^docs/workstreams/' || echo 0)
@@ -219,7 +220,7 @@ jobs:
               WS_IDS=$(jq -r '.workstreams[]?.id // empty' "$cpf" 2>/dev/null || echo "")
               for ws in $WS_IDS; do
                 if [ -n "$ws" ] && [ -f "docs/workstreams/backlog/${ws}.md" ]; then
-                  if ! go run ./cmd/sdp-guard --ws "$ws" &>/dev/null; then
+                  if ! go run ./cmd/sdp-guard --ws "$ws"; then
                     SCOPE_VIOLATIONS=$((SCOPE_VIOLATIONS + 1))
                   fi
                 fi
@@ -271,7 +272,7 @@ jobs:
           cat > /tmp/policy-input.json <<HEREDOC
           {
             "evidence_files_count": $EVIDENCE_COUNT,
-            "evidence_validation_passed": true,
+            "evidence_validation_passed": $EVIDENCE_VALIDATION_PASSED,
             "has_workstream_changes": $([ "$HAS_WS" -gt 0 ] && echo true || echo false),
             "scope_violations_count": $SCOPE_VIOLATIONS,
             "p0_findings": $P0_FINDINGS,
@@ -287,7 +288,7 @@ jobs:
 
       - name: Evaluate policies
         run: |
-          set -e
+          set -euo pipefail
           echo "=== Policy Evaluation ==="
 
           # Evaluate all policies together for cross-policy rules (enforcement_level)
@@ -295,19 +296,19 @@ jobs:
             --data .sdp/policies/ \
             --input /tmp/policy-input.json \
             'data.sdp.policies.effective_deny' \
-            --format raw 2>/dev/null || echo '[]')
+            --format raw)
 
           WARNINGS=$(opa eval \
             --data .sdp/policies/ \
             --input /tmp/policy-input.json \
             'data.sdp.policies.advisory_warn' \
-            --format raw 2>/dev/null || echo '[]')
+            --format raw)
 
           LEVEL=$(opa eval \
             --data .sdp/policies/ \
             --input /tmp/policy-input.json \
             'data.sdp.policies.enforcement_level' \
-            --format raw 2>/dev/null | tr -d '"' || echo 'advisory')
+            --format raw | tr -d '"')
 
           echo "Enforcement level: $LEVEL"
 
@@ -386,6 +387,11 @@ jobs:
             cat .sdp/attestations/ci-auto-report.json
           fi
 
+          if [ "$ATTEST_FAILED" = "true" ]; then
+            echo "ERROR: auto-attestation generation failed"
+            exit 1
+          fi
+
       - name: Sign attestation with Sigstore (keyless)
         env:
           COSIGN_EXPERIMENTAL: "1"
@@ -400,7 +406,7 @@ jobs:
             cosign sign-blob \
               --yes \
               --bundle .sdp/attestations/ci-auto.bundle \
-              .sdp/attestations/ci-auto.json || echo "WARN: Sigstore signing failed (non-blocking)"
+              .sdp/attestations/ci-auto.json
 
             if [ -f .sdp/attestations/ci-auto.bundle ]; then
               echo "Attestation signed. Rekor entry:"
