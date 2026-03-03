@@ -25,8 +25,18 @@ jobs:
 
       - name: Lint
         run: |
-          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.0
           golangci-lint run ./...
+
+  push-protection:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    steps:
+      - name: Reject direct pushes to protected branches
+        run: |
+          echo "ERROR: direct pushes to master/main bypass PR-only compliance gates."
+          echo "Use pull requests for protected branches."
+          exit 1
 
   contract-compat:
     runs-on: ubuntu-latest
@@ -112,16 +122,70 @@ jobs:
               for ws in $WS_IDS; do
                 if [ -f "docs/workstreams/backlog/${ws}.md" ]; then
                   echo "Checking scope for $ws"
-                  go run ./cmd/sdp-guard --ws "$ws" || echo "WARN: scope violation in $ws (non-blocking)"
+                  go run ./cmd/sdp-guard --ws "$ws"
                 fi
               done
             fi
           done
 
+  protocol-compliance:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: [build-test]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Enforce harness contract gates
+        run: |
+          set -e
+          BASE="${{ github.base_ref }}"
+          CONTRACTS=$(git diff --name-only origin/$BASE...HEAD | grep '^\.sdp/contracts/F[0-9]\+\.json$' | grep -v '\.snapshot\.json$' | grep -v '\.gate-report\.json$' || true)
+
+          if [ -z "$CONTRACTS" ]; then
+            echo "No feature contracts changed — protocol compliance not applicable"
+            exit 0
+          fi
+
+          for contract in $CONTRACTS; do
+            if [ ! -f "$contract" ]; then
+              echo "WARN: contract file missing in workspace: $contract"
+              continue
+            fi
+
+            snapshot="${contract%.json}.snapshot.json"
+            if [ ! -f "$snapshot" ]; then
+              echo "ERROR: missing required snapshot for contract: $snapshot"
+              exit 1
+            fi
+
+            echo "Checking contract compliance for: $contract"
+            go run ./cmd/sdp-guard --check-contract --contract "$contract" --snapshot "$snapshot"
+          done
+
+  consistency-gate:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run repository consistency checks
+        run: |
+          set -e
+          python3 scripts/check_repo_consistency.py --json
+
   policy-gate:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
-    needs: [evidence-gate]
+    needs: [evidence-gate, protocol-compliance, consistency-gate]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -163,17 +227,59 @@ jobs:
             fi
           done
 
+          P0_FINDINGS=0
+          P1_FINDINGS=0
+          P2_FINDINGS=0
+          BEADS_REFERENCED=false
+
+          if [ -f .sdp/review_verdict.json ]; then
+            P0_FINDINGS=$(jq -r '
+              if has("p0_findings") then .p0_findings
+              elif (.findings? | type) == "array" then ([.findings[] | select((.priority // .severity // "" | ascii_downcase) == "p0")] | length)
+              else 0 end
+            ' .sdp/review_verdict.json 2>/dev/null || echo 0)
+
+            P1_FINDINGS=$(jq -r '
+              if has("p1_findings") then .p1_findings
+              elif (.findings? | type) == "array" then ([.findings[] | select((.priority // .severity // "" | ascii_downcase) == "p1")] | length)
+              elif (.blocking_ids? | type) == "array" then (.blocking_ids | length)
+              else 0 end
+            ' .sdp/review_verdict.json 2>/dev/null || echo 0)
+
+            P2_FINDINGS=$(jq -r '
+              if has("p2_findings") then .p2_findings
+              elif (.findings? | type) == "array" then ([.findings[] | select((.priority // .severity // "" | ascii_downcase) == "p2")] | length)
+              else 0 end
+            ' .sdp/review_verdict.json 2>/dev/null || echo 0)
+
+            VERDICT_FINDINGS_COUNT=$(jq -r '
+              if (.finding_ids? | type) == "array" then (.finding_ids | length)
+              elif (.blocking_ids? | type) == "array" then (.blocking_ids | length)
+              else 0 end
+            ' .sdp/review_verdict.json 2>/dev/null || echo 0)
+            if [ "$VERDICT_FINDINGS_COUNT" -gt 0 ]; then
+              BEADS_REFERENCED=true
+            fi
+          fi
+
+          if git log --format=%s "origin/$BASE...HEAD" | grep -Eq 'sdplab-[a-z0-9]+'; then
+            BEADS_REFERENCED=true
+          fi
+
+          ENFORCEMENT_MODE="${SDP_POLICY_ENFORCEMENT_MODE:-advisory}"
+
           cat > /tmp/policy-input.json <<HEREDOC
           {
             "evidence_files_count": $EVIDENCE_COUNT,
             "evidence_validation_passed": true,
             "has_workstream_changes": $([ "$HAS_WS" -gt 0 ] && echo true || echo false),
             "scope_violations_count": $SCOPE_VIOLATIONS,
-            "p0_findings": 0,
-            "p1_findings": 0,
-            "p2_findings": 0,
+            "p0_findings": $P0_FINDINGS,
+            "p1_findings": $P1_FINDINGS,
+            "p2_findings": $P2_FINDINGS,
             "has_feature_changes": $([ "$HAS_FEATURE" -gt 0 ] && echo true || echo false),
-            "beads_referenced": true
+            "beads_referenced": $BEADS_REFERENCED,
+            "enforcement_mode": "${ENFORCEMENT_MODE}"
           }
           HEREDOC
           echo "=== Policy Input ==="
@@ -252,12 +358,29 @@ jobs:
         run: |
           set -e
           mkdir -p .sdp/attestations
-          go run ./internal/evidence/cmd/auto-attest \
+          ATTEST_FAILED=false
+          if ! go run ./internal/evidence/cmd/auto-attest \
             --base-branch "$BASE_REF" \
             --pr-number "$PR_NUMBER" \
             --pr-url "$PR_URL" \
             --output .sdp/attestations/ci-auto.json \
-            --report .sdp/attestations/ci-auto-report.json || true
+            --report .sdp/attestations/ci-auto-report.json; then
+            ATTEST_FAILED=true
+          fi
+
+          if [ "$ATTEST_FAILED" = "true" ] && [ ! -f .sdp/attestations/ci-auto-report.json ]; then
+            cat > .sdp/attestations/ci-auto-report.json <<'EOF'
+          {
+            "attestation_generation_failed": true,
+            "failure_reason": "auto-attest command failed; see job logs",
+            "all_tests_pass": false,
+            "all_lint_pass": false,
+            "scope_compliance": {"ok": false, "reason": "auto-attestation unavailable"},
+            "beads_ids": []
+          }
+          EOF
+          fi
+
           if [ -f .sdp/attestations/ci-auto-report.json ]; then
             echo "=== Auto-Attestation Report ==="
             cat .sdp/attestations/ci-auto-report.json
@@ -317,10 +440,13 @@ jobs:
           SCOPE_OK=$(jq -r '.scope_compliance.ok // false' "$REPORT")
           SCOPE_REASON=$(jq -r '.scope_compliance.reason // ""' "$REPORT")
           BEADS=$(jq -r '.beads_ids | if length > 0 then join(", ") else "none" end' "$REPORT")
+          ATTEST_FAILED=$(jq -r '.attestation_generation_failed // false' "$REPORT")
+          ATTEST_REASON=$(jq -r '.failure_reason // ""' "$REPORT")
 
           TESTS_ICON=$([ "$ALL_TESTS" = "true" ] && echo "✅" || echo "❌")
           LINT_ICON=$([ "$ALL_LINT" = "true" ] && echo "✅" || echo "⚠️")
           SCOPE_ICON=$([ "$SCOPE_OK" = "true" ] && echo "✅" || echo "⚠️")
+          ATTEST_ICON=$([ "$ATTEST_FAILED" = "true" ] && echo "⚠️" || echo "✅")
 
           COVERAGE_LINE=""
           if jq -e '.coverage_pct' "$REPORT" > /dev/null 2>&1; then
@@ -350,6 +476,7 @@ jobs:
           | Tests | ${TESTS_ICON} ${TESTS} |
           | Lint | ${LINT_ICON} |
           | Scope | ${SCOPE_ICON} ${SCOPE_REASON} |
+          | Attestation generation | ${ATTEST_ICON} ${ATTEST_REASON} |
           ${COVERAGE_LINE}
           ${SIGNED_LINE}
           | Beads | ${BEADS} |
@@ -366,3 +493,50 @@ jobs:
 
           gh pr comment "$PR_NUMBER" --body "$COMMENT" || echo "WARN: could not post PR comment (non-blocking)"
 
+  required-checks:
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - build-test
+      - push-protection
+      - contract-compat
+      - evidence-gate
+      - scope-gate
+      - protocol-compliance
+      - consistency-gate
+      - policy-gate
+      - auto-attestation
+    steps:
+      - name: Validate all required CI jobs
+        env:
+          BUILD_TEST: ${{ needs.build-test.result }}
+          PUSH_PROTECTION: ${{ needs.push-protection.result }}
+          CONTRACT_COMPAT: ${{ needs.contract-compat.result }}
+          EVIDENCE_GATE: ${{ needs.evidence-gate.result }}
+          SCOPE_GATE: ${{ needs.scope-gate.result }}
+          PROTOCOL_COMPLIANCE: ${{ needs.protocol-compliance.result }}
+          CONSISTENCY_GATE: ${{ needs.consistency-gate.result }}
+          POLICY_GATE: ${{ needs.policy-gate.result }}
+          AUTO_ATTESTATION: ${{ needs.auto-attestation.result }}
+        run: |
+          set -euo pipefail
+
+          check_result() {
+            local name="$1"
+            local result="$2"
+            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
+              echo "ERROR: $name result is $result"
+              exit 1
+            fi
+            echo "OK: $name result is $result"
+          }
+
+          check_result "build-test" "$BUILD_TEST"
+          check_result "push-protection" "$PUSH_PROTECTION"
+          check_result "contract-compat" "$CONTRACT_COMPAT"
+          check_result "evidence-gate" "$EVIDENCE_GATE"
+          check_result "scope-gate" "$SCOPE_GATE"
+          check_result "protocol-compliance" "$PROTOCOL_COMPLIANCE"
+          check_result "consistency-gate" "$CONSISTENCY_GATE"
+          check_result "policy-gate" "$POLICY_GATE"
+          check_result "auto-attestation" "$AUTO_ATTESTATION"
