@@ -374,6 +374,6 @@ func (s *InMemoryTenantStore) Set(config *TenantConfig) {
 func hashInput(input RoutingInput) string {
 	// Hash the actual input for deterministic routing decisions
 	h := sha256.New()
-	fmt.Fprintf(h, "%s|%s|%v", input.SessionID, input.Prompt, input.Constraints)
+	fmt.Fprintf(h, "%s|%s|%d|%v|%v", input.TaskClass, input.Sensitivity, input.MaxLatencyMs, input.RequiresVision, input.RequiresFunctions)
 	return hex.EncodeToString(h.Sum(nil))[:16]
 }

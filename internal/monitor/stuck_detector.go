@@ -18,6 +18,7 @@ type StuckDetector struct {
 	timeout       time.Duration
 	checkTicker   *time.Ticker
 	stopCh        chan struct{}
+	stopOnce      sync.Once
 	onStuck       func(sessionID string, lastEvent time.Time)
 	onRecovered   func(sessionID string)
 	stuckSessions map[string]time.Time
@@ -96,9 +97,11 @@ func (sd *StuckDetector) Start(ctx context.Context) {
 	go sd.run(ctx)
 }
 
-// Stop stops the monitoring.
+// Stop stops the monitoring. Safe to call multiple times.
 func (sd *StuckDetector) Stop() {
-	close(sd.stopCh)
+	sd.stopOnce.Do(func() {
+		close(sd.stopCh)
+	})
 	if sd.checkTicker != nil {
 		sd.checkTicker.Stop()
 	}

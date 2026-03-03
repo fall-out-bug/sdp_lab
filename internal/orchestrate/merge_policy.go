@@ -331,6 +331,13 @@ func (p *IsolatedMergePolicy) Merge(ctx context.Context, results []BranchResult)
 
 	mergeResult, err := p.inner.Merge(ctx, cleanResults)
 	if err != nil {
+		if mergeResult == nil {
+			return &MergeResult{
+				Status:       MergeStatusFailed,
+				FailedBranch: failedBranches,
+				Timestamp:    time.Now(),
+			}, err
+		}
 		return mergeResult, err
 	}
 

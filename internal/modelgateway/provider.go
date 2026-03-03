@@ -117,6 +117,7 @@ type Provider interface {
 type ProviderFactory func(config ProviderConfig) (Provider, error)
 
 type ProviderRegistry struct {
+	mu        sync.RWMutex
 	providers map[ProviderID]Provider
 	factories map[ProviderID]ProviderFactory
 }
@@ -129,11 +130,15 @@ func NewProviderRegistry() *ProviderRegistry {
 }
 
 func (r *ProviderRegistry) RegisterFactory(id ProviderID, factory ProviderFactory) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.factories[id] = factory
 }
 
 func (r *ProviderRegistry) CreateProvider(config ProviderConfig) (Provider, error) {
+	r.mu.RLock()
 	factory, exists := r.factories[config.ID]
+	r.mu.RUnlock()
 	if !exists {
 		return nil, &ProviderError{
 			Code:       "PROVIDER_NOT_FOUND",
@@ -146,15 +151,21 @@ func (r *ProviderRegistry) CreateProvider(config ProviderConfig) (Provider, erro
 }
 
 func (r *ProviderRegistry) Register(p Provider) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.providers[p.ID()] = p
 }
 
 func (r *ProviderRegistry) Get(id ProviderID) (Provider, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	p, ok := r.providers[id]
 	return p, ok
 }
 
 func (r *ProviderRegistry) List() []ProviderID {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	var ids []ProviderID
 	for id := range r.providers {
 		ids = append(ids, id)
@@ -163,6 +174,8 @@ func (r *ProviderRegistry) List() []ProviderID {
 }
 
 func (r *ProviderRegistry) Capabilities(id ProviderID) (ModelCapabilities, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	p, ok := r.providers[id]
 	if !ok {
 		return ModelCapabilities{}, false

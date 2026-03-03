@@ -23,6 +23,7 @@ type SyncStats struct {
 
 // BeadsSink creates and updates Beads tasks from findings.
 type BeadsSink struct {
+	mu       sync.RWMutex
 	prefix   string // Issue prefix (e.g., "sdplab-")
 	dryRun   bool
 	labels   []string
@@ -42,6 +43,8 @@ func NewBeadsSink(prefix string, dryRun bool, defaultLabels []string) *BeadsSink
 
 // GetStats returns the current sync statistics.
 func (s *BeadsSink) GetStats() SyncStats {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.stats
 }
 
@@ -61,6 +64,8 @@ func (s *BeadsSink) LoadExistingFindings(ctx context.Context) error {
 		return nil
 	}
 
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for _, issue := range issues {
 		if id, ok := issue["id"].(string); ok {
 			s.findings[id] = true
@@ -72,11 +77,15 @@ func (s *BeadsSink) LoadExistingFindings(ctx context.Context) error {
 
 // SyncProtocolFindings syncs protocol findings to Beads.
 func (s *BeadsSink) SyncProtocolFindings(ctx context.Context, findings *ProtocolFindings) error {
+	s.mu.Lock()
 	s.stats.Processed += len(findings.Findings)
+	s.mu.Unlock()
 
 	for _, f := range findings.Findings {
 		if err := s.syncProtocolFinding(ctx, &f, &findings.Source); err != nil {
+			s.mu.Lock()
 			s.stats.Failed++
+			s.mu.Unlock()
 			continue
 		}
 	}
@@ -86,11 +95,15 @@ func (s *BeadsSink) SyncProtocolFindings(ctx context.Context, findings *Protocol
 
 // SyncDocsFindings syncs docs findings to Beads.
 func (s *BeadsSink) SyncDocsFindings(ctx context.Context, findings *DocsFindings) error {
+	s.mu.Lock()
 	s.stats.Processed += len(findings.Findings)
+	s.mu.Unlock()
 
 	for _, f := range findings.Findings {
 		if err := s.syncDocsFinding(ctx, &f, &findings.Source); err != nil {
+			s.mu.Lock()
 			s.stats.Failed++
+			s.mu.Unlock()
 			continue
 		}
 	}
@@ -101,14 +114,21 @@ func (s *BeadsSink) SyncDocsFindings(ctx context.Context, findings *DocsFindings
 func (s *BeadsSink) syncProtocolFinding(ctx context.Context, f *ProtocolFinding, source *FindingsSource) error {
 	// Only create tasks for errors and warnings
 	if f.Severity != "error" && f.Severity != "warning" {
+		s.mu.Lock()
 		s.stats.Skipped++
+		s.mu.Unlock()
 		return nil
 	}
 
 	// Generate unique key for deduplication
 	key := fmt.Sprintf("finding-%s", f.FindingKey)
-	if s.findings[key] {
+	s.mu.RLock()
+	exists := s.findings[key]
+	s.mu.RUnlock()
+	if exists {
+		s.mu.Lock()
 		s.stats.Skipped++
+		s.mu.Unlock()
 		return nil
 	}
 
@@ -127,7 +147,9 @@ func (s *BeadsSink) syncProtocolFinding(ctx context.Context, f *ProtocolFinding,
 	// Create the issue
 	if s.dryRun {
 		fmt.Printf("[DRY-RUN] Would create: %s\n", title)
+		s.mu.Lock()
 		s.stats.Created++
+		s.mu.Unlock()
 		return nil
 	}
 
@@ -135,22 +157,31 @@ func (s *BeadsSink) syncProtocolFinding(ctx context.Context, f *ProtocolFinding,
 		return err
 	}
 
+	s.mu.Lock()
 	s.stats.Created++
 	s.findings[key] = true
+	s.mu.Unlock()
 	return nil
 }
 
 func (s *BeadsSink) syncDocsFinding(ctx context.Context, f *DocsFinding, source *FindingsSource) error {
 	// Only create tasks for errors and warnings
 	if f.Severity != "error" && f.Severity != "warning" {
+		s.mu.Lock()
 		s.stats.Skipped++
+		s.mu.Unlock()
 		return nil
 	}
 
 	// Generate unique key for deduplication
 	key := fmt.Sprintf("finding-%s", f.FindingKey)
-	if s.findings[key] {
+	s.mu.RLock()
+	exists := s.findings[key]
+	s.mu.RUnlock()
+	if exists {
+		s.mu.Lock()
 		s.stats.Skipped++
+		s.mu.Unlock()
 		return nil
 	}
 
@@ -169,7 +200,9 @@ func (s *BeadsSink) syncDocsFinding(ctx context.Context, f *DocsFinding, source 
 	// Create the issue
 	if s.dryRun {
 		fmt.Printf("[DRY-RUN] Would create: %s\n", title)
+		s.mu.Lock()
 		s.stats.Created++
+		s.mu.Unlock()
 		return nil
 	}
 
@@ -177,8 +210,10 @@ func (s *BeadsSink) syncDocsFinding(ctx context.Context, f *DocsFinding, source 
 		return err
 	}
 
+	s.mu.Lock()
 	s.stats.Created++
 	s.findings[key] = true
+	s.mu.Unlock()
 	return nil
 }
 
