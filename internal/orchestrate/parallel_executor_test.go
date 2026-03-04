@@ -153,7 +153,7 @@ func TestFanIn(t *testing.T) {
 				return map[string]interface{}{"data": string(branch.ID)}, nil
 			},
 		},
-		WithMergePolicy(NewDefaultMergePolicy()),
+		WithMergePolicy(NewDefaultMergePolicy(WithFailFast(false))),
 	)
 
 	specs := []BranchSpec{
@@ -162,7 +162,8 @@ func TestFanIn(t *testing.T) {
 	}
 
 	branchIDs, _ := executor.FanOut(context.Background(), specs)
-	_ = executor.Execute(context.Background(), branchIDs)
+	for range executor.Execute(context.Background(), branchIDs) {
+	}
 
 	result, err := executor.FanIn(context.Background(), branchIDs)
 	if err != nil {
@@ -186,7 +187,7 @@ func TestFanInWithFailures(t *testing.T) {
 				return "success", nil
 			},
 		},
-		WithMergePolicy(NewDefaultMergePolicy()),
+		WithMergePolicy(NewDefaultMergePolicy(WithFailFast(false))),
 	)
 
 	specs := []BranchSpec{
@@ -195,7 +196,8 @@ func TestFanInWithFailures(t *testing.T) {
 	}
 
 	branchIDs, _ := executor.FanOut(context.Background(), specs)
-	_ = executor.Execute(context.Background(), branchIDs)
+	for range executor.Execute(context.Background(), branchIDs) {
+	}
 
 	result, err := executor.FanIn(context.Background(), branchIDs)
 	if err != nil {
@@ -369,7 +371,7 @@ func TestConflictResolutionUnion(t *testing.T) {
 	}
 }
 
-func TestIsolatedMergePolicy(t *testing.T) {
+func TestParallelExecutorIsolatedMergePolicy(t *testing.T) {
 	inner := NewDefaultMergePolicy(WithFailFast(false))
 	policy := NewIsolatedMergePolicy(inner)
 
@@ -406,7 +408,7 @@ func TestIsolatedMergePolicyAllFailed(t *testing.T) {
 	}
 }
 
-func TestPolicyConsistencyChecker(t *testing.T) {
+func TestParallelExecutorPolicyConsistencyChecker(t *testing.T) {
 	checker := NewPolicyConsistencyChecker()
 
 	consistent := []BranchResult{

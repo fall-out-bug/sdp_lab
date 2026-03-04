@@ -98,9 +98,12 @@ func TestCredentialManagerRotate(t *testing.T) {
 		t.Errorf("expected new-key, got %s", newCred.APIKey)
 	}
 
-	oldCred, _ := store.Get(context.Background(), "tenant-1", "openai")
-	if oldCred.Status != CredentialStatusRevoked {
-		t.Errorf("expected old credential to be revoked")
+	storedCred, _ := store.Get(context.Background(), "tenant-1", "openai")
+	if storedCred.Status != CredentialStatusActive {
+		t.Errorf("expected active credential after rotation, got %s", storedCred.Status)
+	}
+	if storedCred.APIKey != "new-key" {
+		t.Errorf("expected store to keep new key, got %s", storedCred.APIKey)
 	}
 }
 

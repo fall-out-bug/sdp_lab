@@ -29,7 +29,7 @@ func TestWriter_HashChain(t *testing.T) {
 	}
 
 	evt3, err := writer.AppendToolResult("write", true, "", json.RawMessage(`{}`))
-	if err != err {
+	if err != nil {
 		t.Fatalf("append tool_result: %v", err)
 	}
 
@@ -217,7 +217,11 @@ func TestPaths(t *testing.T) {
 	if paths.CacheDir() != filepath.Join(tmpDir, ".sdp", "cache") {
 		t.Error("CacheDir path mismatch")
 	}
-	if paths.SessionLog("abc123") != filepath.Join(tmpDir, ".sdp", "log", "session-abc123.jsonl") {
+	logPath, err := paths.SessionLog("abc123")
+	if err != nil {
+		t.Fatalf("SessionLog: %v", err)
+	}
+	if logPath != filepath.Join(tmpDir, ".sdp", "log", "session-abc123.jsonl") {
 		t.Error("SessionLog path mismatch")
 	}
 

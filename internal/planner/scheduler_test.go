@@ -73,14 +73,14 @@ func TestScheduler_CreatePlan(t *testing.T) {
 					t.Error("plan is nil")
 					return
 				}
-				if plan.ID != tt.id {
-					t.Errorf("plan.ID = %v, want %v", plan.ID, tt.id)
+				if plan.ID() != tt.id {
+					t.Errorf("plan.ID() = %v, want %v", plan.ID(), tt.id)
 				}
-				if plan.Title != tt.title {
-					t.Errorf("plan.Title = %v, want %v", plan.Title, tt.title)
+				if plan.Title() != tt.title {
+					t.Errorf("plan.Title() = %v, want %v", plan.Title(), tt.title)
 				}
-				if plan.Goal != tt.goal {
-					t.Errorf("plan.Goal = %v, want %v", plan.Goal, tt.goal)
+				if plan.Goal() != tt.goal {
+					t.Errorf("plan.Goal() = %v, want %v", plan.Goal(), tt.goal)
 				}
 			}
 		})
@@ -117,8 +117,8 @@ func TestScheduler_GetPlan(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetPlan failed: %v", err)
 	}
-	if got.ID != created.ID {
-		t.Errorf("GetPlan() = %v, want %v", got.ID, created.ID)
+	if got.ID() != created.ID() {
+		t.Errorf("GetPlan().ID() = %v, want %v", got.ID(), created.ID())
 	}
 }
 
@@ -214,11 +214,11 @@ func TestScheduler_GetProgress(t *testing.T) {
 	if progress == nil {
 		t.Fatal("progress is nil")
 	}
-	if progress.Total != 2 {
-		t.Errorf("progress.Total = %d, want 2", progress.Total)
+	if progress.TotalTasks != 2 {
+		t.Errorf("progress.TotalTasks = %d, want 2", progress.TotalTasks)
 	}
-	if progress.Completed != 1 {
-		t.Errorf("progress.Completed = %d, want 1", progress.Completed)
+	if progress.CompletedTasks != 1 {
+		t.Errorf("progress.CompletedTasks = %d, want 1", progress.CompletedTasks)
 	}
 }
 
@@ -259,6 +259,7 @@ func TestScheduler_WithMockExecutor(t *testing.T) {
 	ctx := context.Background()
 
 	plan, _ := s.CreatePlan(ctx, "plan-001", "Test Plan", "Goal")
+	_ = plan.AddPhase(&Phase{ID: "phase-001", Name: "Phase 1"})
 	_ = plan.AddTask(&Task{ID: "task-001", Title: "Task 1", Status: TaskStatusPending})
 
 	// Schedule should still succeed (error is handled in goroutine)

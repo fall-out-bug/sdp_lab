@@ -167,7 +167,12 @@ func (q *Quorum) Execute(ctx context.Context, input interface{}) (*QuorumVerdict
 		return nil, fmt.Errorf("no verifiers registered")
 	}
 
-	timeoutCtx, cancel := context.WithTimeout(ctx, q.policy.Timeout)
+	timeout := q.policy.Timeout
+	if timeout <= 0 {
+		timeout = 5 * time.Minute
+	}
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	resultChan := make(chan *VerifierResult, len(q.verifiers))

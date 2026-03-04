@@ -17,17 +17,19 @@ func isValidNotifyCommand(cmd string) bool {
 		return false
 	}
 
-	// Whitelist of allowed base commands
-	allowed := map[string]bool{
-		"bd":      true,
-		"notify":  true,
-		"echo":    true,
-		"/bin/sh": true,
+	if strings.ContainsAny(cmd, ";|&`$<>") {
+		return false
 	}
 
-	// Extract base command (first word)
-	parts := strings.Fields(cmd)
-	if len(parts) == 0 {
+	// Whitelist of allowed base commands
+	allowed := map[string]bool{
+		"bd":     true,
+		"notify": true,
+		"echo":   true,
+	}
+
+	parts, err := parseNotifyCommand(cmd)
+	if err != nil || len(parts) == 0 {
 		return false
 	}
 	base := parts[0]
@@ -39,13 +41,59 @@ func isValidNotifyCommand(cmd string) bool {
 // parseNotifyCommand splits a command string into command and arguments safely.
 // It handles quoted arguments and prevents shell injection.
 func parseNotifyCommand(cmd string) ([]string, error) {
+	cmd = strings.TrimSpace(cmd)
 	if cmd == "" {
 		return nil, fmt.Errorf("empty command")
 	}
 
-	// Simple split on whitespace for now
-	// TODO: implement proper shell-like parsing if needed
-	parts := strings.Fields(cmd)
+	parts := make([]string, 0, 4)
+	var current strings.Builder
+	var quote rune
+	escaped := false
+
+	for _, r := range cmd {
+		if escaped {
+			current.WriteRune(r)
+			escaped = false
+			continue
+		}
+
+		if r == '\\' {
+			escaped = true
+			continue
+		}
+
+		if quote != 0 {
+			if r == quote {
+				quote = 0
+			} else {
+				current.WriteRune(r)
+			}
+			continue
+		}
+
+		switch r {
+		case '\'', '"':
+			quote = r
+		case ' ', '\t', '\n', '\r':
+			if current.Len() > 0 {
+				parts = append(parts, current.String())
+				current.Reset()
+			}
+		default:
+			current.WriteRune(r)
+		}
+	}
+
+	if escaped {
+		return nil, fmt.Errorf("invalid trailing escape")
+	}
+	if quote != 0 {
+		return nil, fmt.Errorf("unterminated quote")
+	}
+	if current.Len() > 0 {
+		parts = append(parts, current.String())
+	}
 	if len(parts) == 0 {
 		return nil, fmt.Errorf("invalid command")
 	}
@@ -84,6 +132,10 @@ func NewEscalationHandler(cfg EscalationConfig) *EscalationHandler {
 
 // Escalate handles an escalation event.
 func (eh *EscalationHandler) Escalate(ctx context.Context, sessionID string, lastEvent time.Time) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	// Call custom handler first
 	if eh.onEscalate != nil {
 		eh.onEscalate(sessionID, lastEvent)
@@ -100,8 +152,7 @@ func (eh *EscalationHandler) Escalate(ctx context.Context, sessionID string, las
 	// Run notification command if configured
 	if eh.notifyCmd != "" {
 		if err := eh.runNotifyCommand(ctx, sessionID, lastEvent); err != nil {
-			// Log error but continue
-			fmt.Fprintf(os.Stderr, "failed to run notify command: %v\n", err)
+			return err
 		}
 	}
 

@@ -28,9 +28,9 @@ func TestIsValidNotifyCommand(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "valid /bin/sh",
+			name:     "reject shell binary",
 			cmd:      "/bin/sh -c echo test",
-			expected: true,
+			expected: false,
 		},
 		{
 			name:     "empty command",
@@ -96,7 +96,12 @@ func TestParseNotifyCommand(t *testing.T) {
 				if len(result) != len(tt.expected) {
 					t.Errorf("parseNotifyCommand(%q) returned %d parts; want %d", tt.cmd, len(result), len(tt.expected))
 				}
-				for i, part := range result {
+				limit := len(result)
+				if len(tt.expected) < limit {
+					limit = len(tt.expected)
+				}
+				for i := 0; i < limit; i++ {
+					part := result[i]
 					if part != tt.expected[i] {
 						t.Errorf("parseNotifyCommand(%q) result[%d] = %q; want %q", tt.cmd, i, part, tt.expected[i])
 					}
