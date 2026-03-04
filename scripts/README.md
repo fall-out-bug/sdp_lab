@@ -11,6 +11,23 @@
 - `oneshot-stop-gate.sh`
 - `oneshot-stop-gate_test.sh`
 
+## Go quality gates (container-first)
+
+Primary workflow:
+
+```bash
+./scripts/run_go_quality_gates.sh
+```
+
+This script runs `go build ./...`, `go test ./... -count=1`, and `go vet ./...`
+inside Docker (`golang:1.26-bookworm`) by default to avoid host toolchain drift.
+
+Optional host fallback:
+
+```bash
+SDP_GO_QUALITY_MODE=host ./scripts/run_go_quality_gates.sh
+```
+
 ## Legacy K8s scripts (kept for reference)
 
 These scripts target archived or historical K8s execution paths and are not part of the current active workflow:

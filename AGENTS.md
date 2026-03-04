@@ -121,9 +121,9 @@ docs/topic                  # documentation-only changes
 Before pushing code changes:
 
 ```bash
-go build ./...              # must succeed
-go test ./...               # must pass
-go vet ./...                # no issues
+./scripts/run_go_quality_gates.sh                # container-first: build + test + vet
+# fallback when Docker is unavailable:
+SDP_GO_QUALITY_MODE=host ./scripts/run_go_quality_gates.sh
 ```
 
 ## SDP Tools

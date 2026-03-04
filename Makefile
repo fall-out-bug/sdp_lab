@@ -1,5 +1,5 @@
 # sdp_dev Makefile
-.PHONY: test test-internal test-scripts coverage lint quality generate protocol-e2e
+.PHONY: test test-internal test-scripts coverage lint quality quality-go generate protocol-e2e
 .PHONY: build-sdp-orchestrate build-sdp-guard build-sdp-eval build-sdp-ci-loop build-sdp-evidence
 
 test:
@@ -25,7 +25,10 @@ lint:
 	golangci-lint run ./...
 	go vet ./...
 
-quality: test test-scripts lint
+quality-go:
+	@./scripts/run_go_quality_gates.sh
+
+quality: quality-go test-scripts
 	@echo "Running sdp quality..."
 	@if [ -d sdp/sdp-plugin ]; then \
 		(cd sdp/sdp-plugin && go build -o /tmp/sdp-quality ./cmd/sdp) && /tmp/sdp-quality quality all; \
