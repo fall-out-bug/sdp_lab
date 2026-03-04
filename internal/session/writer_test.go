@@ -217,6 +217,9 @@ func TestPaths(t *testing.T) {
 	if paths.CacheDir() != filepath.Join(tmpDir, ".sdp", "cache") {
 		t.Error("CacheDir path mismatch")
 	}
+	if paths.MemDir() != filepath.Join(tmpDir, ".sdp", "mem") {
+		t.Error("MemDir path mismatch")
+	}
 	logPath, err := paths.SessionLog("abc123")
 	if err != nil {
 		t.Fatalf("SessionLog: %v", err)

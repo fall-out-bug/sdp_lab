@@ -48,6 +48,10 @@ func (p *Paths) CacheDir() string {
 	return filepath.Join(p.ProjectRoot, ".sdp", "cache")
 }
 
+func (p *Paths) MemDir() string {
+	return filepath.Join(p.ProjectRoot, ".sdp", "mem")
+}
+
 // SessionLog returns the path to a session log file.
 // Returns an error if sessionID contains path traversal characters.
 func (p *Paths) SessionLog(sessionID string) (string, error) {

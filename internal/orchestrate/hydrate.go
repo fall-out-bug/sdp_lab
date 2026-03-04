@@ -11,6 +11,7 @@ import (
 
 	"sdp_dev/internal/prompt"
 	"sdp_dev/internal/sdputil"
+	"sdp_dev/internal/session"
 )
 
 const contextPacketPath = ".sdp/context-packet.json"
@@ -25,6 +26,7 @@ type ContextPacket struct {
 	Dependencies       map[string]string `json:"dependencies,omitempty"`
 	QualityGates       string            `json:"quality_gates"`
 	DriftStatus        string            `json:"drift_status"`
+	MemoryContext      string            `json:"memory_context,omitempty"`
 }
 
 // Hydrate gathers all context deterministically and writes .sdp/context-packet.json.
@@ -69,6 +71,10 @@ func Hydrate(projectRoot, featureID, wsID string, cp *Checkpoint) (*ContextPacke
 	pkt.DriftStatus, err = gitStatusPorcelain(projectRoot)
 	if err != nil {
 		pkt.DriftStatus = fmt.Sprintf("ERROR: collect drift status: %v", err)
+	}
+	pkt.MemoryContext, err = session.LoadMemoryContext(projectRoot)
+	if err != nil {
+		pkt.MemoryContext = fmt.Sprintf("ERROR: load memory context: %v", err)
 	}
 
 	if err := pkt.Validate(); err != nil {
@@ -167,6 +173,10 @@ func (p *ContextPacket) FormatForPrompt() string {
 	b.WriteString(p.DriftStatus)
 	if p.DriftStatus == "" {
 		b.WriteString("(clean)\n")
+	}
+	if strings.TrimSpace(p.MemoryContext) != "" {
+		b.WriteString("\n\n### Memory Context\n\n")
+		b.WriteString(p.MemoryContext)
 	}
 	return b.String()
 }
