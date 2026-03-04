@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const maxTransitiveBlockerDepth = 10
+
 // DependencyType represents the type of relationship between issues.
 type DependencyType string
 
@@ -52,12 +54,9 @@ func (dq *DependencyQuery) GetDependencies(depType DependencyType) ([]Dependency
 	var deps []Dependency
 	for rows.Next() {
 		var dep Dependency
-		var createdAt string
-		err := rows.Scan(&dep.FromIssueID, &dep.ToIssueID, &dep.DependencyType, &createdAt)
-		if err != nil {
-			return nil, fmt.Errorf("scan dependency: %w", err)
+		if err := scanDependencyRow(rows, &dep, "scan dependency"); err != nil {
+			return nil, err
 		}
-		dep.CreatedAt = parseTime(createdAt)
 		deps = append(deps, dep)
 	}
 
@@ -81,12 +80,9 @@ func (dq *DependencyQuery) GetBlockingDependencies(issueID string) ([]Dependency
 	var deps []Dependency
 	for rows.Next() {
 		var dep Dependency
-		var createdAt string
-		err := rows.Scan(&dep.FromIssueID, &dep.ToIssueID, &dep.DependencyType, &createdAt)
-		if err != nil {
-			return nil, fmt.Errorf("scan blocking dependency: %w", err)
+		if err := scanDependencyRow(rows, &dep, "scan blocking dependency"); err != nil {
+			return nil, err
 		}
-		dep.CreatedAt = parseTime(createdAt)
 		deps = append(deps, dep)
 	}
 
@@ -125,13 +121,9 @@ func (dq *DependencyQuery) GetReadyIssuesWithDeps() ([]ReadyIssue, error) {
 	var issues []ReadyIssue
 	for rows.Next() {
 		var issue ReadyIssue
-		var createdAt, updatedAt string
-		err := rows.Scan(&issue.ID, &issue.Title, &issue.Status, &issue.Priority, &createdAt, &updatedAt)
-		if err != nil {
-			return nil, fmt.Errorf("scan ready issue: %w", err)
+		if err := scanIssueRow(rows, &issue.Issue, "scan ready issue"); err != nil {
+			return nil, err
 		}
-		issue.CreatedAt = parseTime(createdAt)
-		issue.UpdatedAt = parseTime(updatedAt)
 		issues = append(issues, issue)
 	}
 
@@ -155,12 +147,9 @@ func (dq *DependencyQuery) GetDependencyGraph() (map[string][]Dependency, error)
 	graph := make(map[string][]Dependency)
 	for rows.Next() {
 		var dep Dependency
-		var createdAt string
-		err := rows.Scan(&dep.FromIssueID, &dep.ToIssueID, &dep.DependencyType, &createdAt)
-		if err != nil {
-			return nil, fmt.Errorf("scan dependency graph: %w", err)
+		if err := scanDependencyRow(rows, &dep, "scan dependency graph"); err != nil {
+			return nil, err
 		}
-		dep.CreatedAt = parseTime(createdAt)
 		graph[dep.FromIssueID] = append(graph[dep.FromIssueID], dep)
 	}
 
@@ -185,12 +174,9 @@ func (dq *DependencyQuery) GetRelatedIssues(issueID string) ([]Dependency, error
 	var deps []Dependency
 	for rows.Next() {
 		var dep Dependency
-		var createdAt string
-		err := rows.Scan(&dep.FromIssueID, &dep.ToIssueID, &dep.DependencyType, &createdAt)
-		if err != nil {
-			return nil, fmt.Errorf("scan related issue: %w", err)
+		if err := scanDependencyRow(rows, &dep, "scan related issue"); err != nil {
+			return nil, err
 		}
-		dep.CreatedAt = parseTime(createdAt)
 		deps = append(deps, dep)
 	}
 
@@ -220,7 +206,7 @@ func (dq *DependencyQuery) HasOpenBlockers(issueID string) (bool, error) {
 // GetTransitiveBlockers returns all issues that transitively block the given issue.
 func (dq *DependencyQuery) GetTransitiveBlockers(issueID string) ([]Issue, error) {
 	// Use recursive CTE for transitive blocking
-	query := `
+	query := fmt.Sprintf(`
 		WITH RECURSIVE blockers AS (
 			SELECT i.id, i.title, i.status, i.priority, i.created_at, i.updated_at, 1 as depth
 			FROM issues i
@@ -234,12 +220,12 @@ func (dq *DependencyQuery) GetTransitiveBlockers(issueID string) ([]Issue, error
 			FROM issues i
 			JOIN dependencies d ON i.id = d.depends_on_id AND d.type = 'blocks'
 			JOIN blockers b ON d.issue_id = b.id
-			WHERE b.depth < 10  -- Prevent infinite loops
+			WHERE b.depth < %d  -- Prevent infinite loops
 		)
 		SELECT DISTINCT id, title, status, priority, created_at, updated_at
 		FROM blockers
 		ORDER BY depth
-	`
+	`, maxTransitiveBlockerDepth)
 
 	rows, err := dq.client.db.Query(query, issueID)
 	if err != nil {
@@ -250,13 +236,9 @@ func (dq *DependencyQuery) GetTransitiveBlockers(issueID string) ([]Issue, error
 	var issues []Issue
 	for rows.Next() {
 		var issue Issue
-		var createdAt, updatedAt string
-		err := rows.Scan(&issue.ID, &issue.Title, &issue.Status, &issue.Priority, &createdAt, &updatedAt)
-		if err != nil {
-			return nil, fmt.Errorf("scan transitive blocker: %w", err)
+		if err := scanIssueRow(rows, &issue, "scan transitive blocker"); err != nil {
+			return nil, err
 		}
-		issue.CreatedAt = parseTime(createdAt)
-		issue.UpdatedAt = parseTime(updatedAt)
 		issues = append(issues, issue)
 	}
 

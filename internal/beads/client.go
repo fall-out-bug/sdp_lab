@@ -126,13 +126,9 @@ func (c *Client) QueryReadyIssues() ([]ReadyIssue, error) {
 	var issues []ReadyIssue
 	for rows.Next() {
 		var issue ReadyIssue
-		var createdAt, updatedAt string
-		err := rows.Scan(&issue.ID, &issue.Title, &issue.Status, &issue.Priority, &createdAt, &updatedAt)
-		if err != nil {
-			return nil, fmt.Errorf("scan issue: %w", err)
+		if err := scanIssueRow(rows, &issue.Issue, "scan issue"); err != nil {
+			return nil, err
 		}
-		issue.CreatedAt = parseTime(createdAt)
-		issue.UpdatedAt = parseTime(updatedAt)
 		issues = append(issues, issue)
 	}
 
@@ -167,13 +163,9 @@ func (c *Client) GetBlockingIssues(issueID string) ([]Issue, error) {
 	var issues []Issue
 	for rows.Next() {
 		var issue Issue
-		var createdAt, updatedAt string
-		err := rows.Scan(&issue.ID, &issue.Title, &issue.Status, &issue.Priority, &createdAt, &updatedAt)
-		if err != nil {
-			return nil, fmt.Errorf("scan blocking issue: %w", err)
+		if err := scanIssueRow(rows, &issue, "scan blocking issue"); err != nil {
+			return nil, err
 		}
-		issue.CreatedAt = parseTime(createdAt)
-		issue.UpdatedAt = parseTime(updatedAt)
 		issues = append(issues, issue)
 	}
 

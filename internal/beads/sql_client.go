@@ -6,6 +6,21 @@ import (
 	"fmt"
 )
 
+const noOpenBlockersClause = `
+			AND i.id NOT IN (
+				SELECT DISTINCT d.issue_id
+				FROM dependencies d
+				WHERE d.dependency_type = 'blocks'
+				AND EXISTS (
+					SELECT 1 FROM issues bi
+					WHERE bi.id = d.blocks_issue_id
+					AND bi.status != 'done'
+				)
+			)
+		`
+
+const defaultQueryLimit = 50
+
 // SQLClient provides advanced SQL query capabilities for Beads.
 type SQLClient struct {
 	db *sql.DB
@@ -68,7 +83,7 @@ func WithLimit(limit int) QueryOption {
 func (sc *SQLClient) QueryIssues(opts ...QueryOption) ([]Issue, error) {
 	options := &QueryOptions{
 		Status: "open",
-		Limit:  50,
+		Limit:  defaultQueryLimit,
 	}
 	for _, opt := range opts {
 		opt(options)
@@ -92,18 +107,7 @@ func (sc *SQLClient) QueryIssues(opts ...QueryOption) ([]Issue, error) {
 	}
 
 	if options.NoBlockers {
-		query += `
-			AND i.id NOT IN (
-				SELECT DISTINCT d.issue_id 
-				FROM dependencies d 
-				WHERE d.dependency_type = 'blocks'
-				AND EXISTS (
-					SELECT 1 FROM issues bi 
-					WHERE bi.id = d.blocks_issue_id 
-					AND bi.status != 'done'
-				)
-			)
-		`
+		query += noOpenBlockersClause
 	}
 
 	query += " ORDER BY i.priority ASC, i.created_at ASC"
@@ -122,13 +126,9 @@ func (sc *SQLClient) QueryIssues(opts ...QueryOption) ([]Issue, error) {
 	var issues []Issue
 	for rows.Next() {
 		var issue Issue
-		var createdAt, updatedAt string
-		err := rows.Scan(&issue.ID, &issue.Title, &issue.Status, &issue.Priority, &createdAt, &updatedAt)
-		if err != nil {
-			return nil, fmt.Errorf("scan issue: %w", err)
+		if err := scanIssueRow(rows, &issue, "scan issue"); err != nil {
+			return nil, err
 		}
-		issue.CreatedAt = parseTime(createdAt)
-		issue.UpdatedAt = parseTime(updatedAt)
 		issues = append(issues, issue)
 	}
 
@@ -167,13 +167,9 @@ func (sc *SQLClient) QueryIssuesByDependency(depType DependencyType, asSource bo
 	var issues []Issue
 	for rows.Next() {
 		var issue Issue
-		var createdAt, updatedAt string
-		err := rows.Scan(&issue.ID, &issue.Title, &issue.Status, &issue.Priority, &createdAt, &updatedAt)
-		if err != nil {
-			return nil, fmt.Errorf("scan issue: %w", err)
+		if err := scanIssueRow(rows, &issue, "scan issue"); err != nil {
+			return nil, err
 		}
-		issue.CreatedAt = parseTime(createdAt)
-		issue.UpdatedAt = parseTime(updatedAt)
 		issues = append(issues, issue)
 	}
 
@@ -203,18 +199,7 @@ func (sc *SQLClient) CountIssues(opts ...QueryOption) (int, error) {
 	}
 
 	if options.NoBlockers {
-		query += `
-			AND i.id NOT IN (
-				SELECT DISTINCT d.issue_id 
-				FROM dependencies d 
-				WHERE d.dependency_type = 'blocks'
-				AND EXISTS (
-					SELECT 1 FROM issues bi 
-					WHERE bi.id = d.blocks_issue_id 
-					AND bi.status != 'done'
-				)
-			)
-		`
+		query += noOpenBlockersClause
 	}
 
 	var count int
