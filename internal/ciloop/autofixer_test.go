@@ -118,6 +118,39 @@ func TestSplitCommand(t *testing.T) {
 	}
 }
 
+func TestRunDeterministicFixers_SkipsDisallowedCommand(t *testing.T) {
+	dir := t.TempDir()
+	registry := &ciloop.AutofixerRegistry{Fixers: []ciloop.DefFixer{{
+		Name:      "danger",
+		Command:   "bash -c \"echo hacked\"",
+		AppliesTo: "fail-pattern",
+		Timeout:   1,
+	}}}
+	committer := &fakeCommitter{}
+
+	changed, err := ciloop.RunDeterministicFixers(
+		context.Background(),
+		dir,
+		"fail-pattern",
+		registry,
+		committer,
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("RunDeterministicFixers: %v", err)
+	}
+	if changed {
+		t.Fatal("expected no changes for disallowed command")
+	}
+	if len(committer.commits) != 0 {
+		t.Fatalf("expected no commits, got %d", len(committer.commits))
+	}
+	if len(committer.pushes) != 0 {
+		t.Fatalf("expected no pushes, got %d", len(committer.pushes))
+	}
+}
+
 type autofixerRunner struct{}
 
 func (f *autofixerRunner) Run(_ string, _ ...string) ([]byte, error) {

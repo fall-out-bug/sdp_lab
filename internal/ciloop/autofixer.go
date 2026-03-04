@@ -21,25 +21,29 @@ type DefFixer struct {
 	Timeout   int // seconds
 }
 
+const defaultFixerTimeoutSeconds = 30
+
+var allowedFixerPathArg = regexp.MustCompile(`^[a-zA-Z0-9_./\-]+$`)
+
 // builtinFixers are the default deterministic fixers (goimports, go mod tidy, go fmt).
 var builtinFixers = []DefFixer{
 	{
 		Name:      "goimports",
 		Command:   "goimports -w .",
 		AppliesTo: `could not import|imported and not used|undefined:`,
-		Timeout:   30,
+		Timeout:   defaultFixerTimeoutSeconds,
 	},
 	{
 		Name:      "go-mod-tidy",
 		Command:   "go mod tidy",
 		AppliesTo: `missing go\.sum entry|go\.mod file not found|cannot find package`,
-		Timeout:   30,
+		Timeout:   defaultFixerTimeoutSeconds,
 	},
 	{
 		Name:      "go-fmt",
 		Command:   "go fmt ./...",
 		AppliesTo: `gofmt|formatting`,
-		Timeout:   30,
+		Timeout:   defaultFixerTimeoutSeconds,
 	},
 }
 
@@ -81,7 +85,7 @@ func ParseAutoFixersYAML(data []byte) ([]DefFixer, error) {
 		if f.Name != "" && f.Command != "" && f.AppliesTo != "" {
 			t := f.Timeout
 			if t <= 0 {
-				t = 30
+				t = defaultFixerTimeoutSeconds
 			}
 			out = append(out, DefFixer{Name: f.Name, Command: f.Command, AppliesTo: f.AppliesTo, Timeout: t})
 		}
@@ -106,8 +110,8 @@ func (r *AutofixerRegistry) MatchingFixers(failureLog string) []DefFixer {
 
 // RunDeterministicFixersOpts configures RunDeterministicFixers.
 type RunDeterministicFixersOpts struct {
-	Ctx             context.Context
-	ProjectRoot     string
+	Ctx            context.Context
+	ProjectRoot    string
 	FailureLog     string
 	Registry       *AutofixerRegistry
 	Committer      Committer
@@ -137,14 +141,19 @@ func runDeterministicFixers(opts RunDeterministicFixersOpts) (changed bool, err 
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	applied := make([]DefFixer, 0, len(matching))
 	for _, f := range matching {
 		timeout := time.Duration(f.Timeout) * time.Second
 		if timeout <= 0 {
-			timeout = 30 * time.Second
+			timeout = time.Duration(defaultFixerTimeoutSeconds) * time.Second
 		}
 		runCtx, cancel := context.WithTimeout(ctx, timeout)
 		parts := SplitCommand(f.Command)
 		if len(parts) == 0 {
+			cancel()
+			continue
+		}
+		if !isAllowedFixerCommand(parts) {
 			cancel()
 			continue
 		}
@@ -156,7 +165,11 @@ func runDeterministicFixers(opts RunDeterministicFixersOpts) (changed bool, err 
 			cancel()
 			continue // fixer failed, try next
 		}
+		applied = append(applied, f)
 		cancel()
+	}
+	if len(applied) == 0 {
+		return false, nil
 	}
 
 	// Check if anything changed
@@ -167,8 +180,8 @@ func runDeterministicFixers(opts RunDeterministicFixersOpts) (changed bool, err 
 	}
 
 	// Changes produced: commit and push
-	names := make([]string, len(matching))
-	for i, f := range matching {
+	names := make([]string, len(applied))
+	for i, f := range applied {
 		names[i] = f.Name
 	}
 	msg := fmt.Sprintf("fix(ci): auto-fix %s [deterministic]", strings.Join(names, ", "))
@@ -185,6 +198,26 @@ func runDeterministicFixers(opts RunDeterministicFixersOpts) (changed bool, err 
 		opts.RunFileLogger(names, time.Since(start))
 	}
 	return true, nil
+}
+
+func isAllowedFixerCommand(parts []string) bool {
+	if len(parts) == 0 {
+		return false
+	}
+	switch parts[0] {
+	case "goimports":
+		return len(parts) == 3 && parts[1] == "-w" && allowedFixerPathArg.MatchString(parts[2])
+	case "go":
+		if len(parts) == 3 && parts[1] == "mod" && parts[2] == "tidy" {
+			return true
+		}
+		if len(parts) == 3 && parts[1] == "fmt" && parts[2] == "./..." {
+			return true
+		}
+		return false
+	default:
+		return false
+	}
 }
 
 // SplitCommand splits a command string into executable and args (handles quoted args).
