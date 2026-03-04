@@ -43,7 +43,7 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				return err
 			}
 			phaseCtx, cancel := context.WithTimeout(ctx, buildPhaseTimeout)
-			commit, err := RunBuildPhase(phaseCtx, projectRoot, action.Feature, action.WSID)
+			commit, err := RunBuildPhase(phaseCtx, projectRoot, action.Feature, action.WSID, nil)
 			cancel()
 			if err != nil {
 				slog.Error("opencode build failed", "error", err, "ws", action.WSID)
@@ -83,7 +83,7 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				return err
 			}
 			phaseCtx, cancel := context.WithTimeout(ctx, reviewPhaseTimeout)
-			approved, err := RunReviewPhase(phaseCtx, projectRoot, action.Feature)
+			approved, err := RunReviewPhase(phaseCtx, projectRoot, action.Feature, nil)
 			cancel()
 			if err != nil || !approved {
 				slog.Error("opencode review failed", "error", err, "approved", approved, "feature", action.Feature)

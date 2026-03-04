@@ -101,7 +101,7 @@ Some ideas in the lab. No promises, no timelines. Just interesting problems:
 - **Cross-project federation** — one evidence layer serving multiple repos. Hard. Interesting.
 - **Telemetry-driven backlog** — LLM analysis of run patterns that auto-generates improvement issues.
 
-These live in [`sdp_lab`](https://github.com/fall-out-bug/sdp_lab) — our research playground. It's private for now, but we're happy to invite people who want to play with these ideas together. Just open an issue in the main repo and say hi.
+These live in [`sdp_dev`](https://github.com/fall-out-bug/sdp_dev) — our research playground. It's private for now, but we're happy to invite people who want to play with these ideas together. Just open an issue in the main repo and say hi.
 
 ## The Honest Numbers
 
@@ -124,7 +124,7 @@ If you care about knowing what your agents actually did — not just that they r
 - Read the protocol: [`sdp`](https://github.com/fall-out-bug/sdp) — prompts, schemas, hooks
 - Try the evidence validation (release coming)
 - Contribute to kubeopencode upstream — we're pushing evidence hooks there
-- Ask for access to `sdp_lab` if you want to experiment with the research stuff
+- Ask for access to `sdp_dev` if you want to experiment with the research stuff
 - Open an issue if you have ideas about what "proof of agent work" should look like
 
 ---

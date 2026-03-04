@@ -1,0 +1,13 @@
+{
+  "ws_id": "00-053-25",
+  "feature_id": "F053",
+  "verdict": "PASS",
+  "quality_gates": {"tests_pass": true, "lint_clean": true, "build_ok": true, "vet_ok": true},
+  "ac_evidence": [
+    {"ac": "Replace \"Task tool, agent panel\" with platform-agnostic wording", "met": true, "evidence": "sdp/prompts/skills/review/SKILL.md: \"use your platform's subagent spawn\""},
+    {"ac": "Replace \".claude/agents/\" with generic path (e.g. \"agents/{role}.md\")", "met": true, "evidence": "sdp/prompts/skills/review/SKILL.md: agents/qa.md, agents/security.md, ..."},
+    {"ac": "Skill remains usable in Cursor and Claude Code", "met": true, "evidence": "Wording applies to both; path agents/ is platform-neutral"},
+    {"ac": "Skill size ≤200 LOC", "met": true, "evidence": "119 LOC"}
+  ],
+  "existing_work_summary": "Review skill had Cursor/Claude-specific \"Task tool, agent panel\" and \".claude/agents/\". Replaced with platform-agnostic wording."
+}

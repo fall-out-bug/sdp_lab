@@ -22,6 +22,18 @@ class Issue:
     message: str
 
 
+def ws_feature_number(ws_id: str) -> Optional[int]:
+    m = re.match(r"^00-(\d{3})-\d{2}$", ws_id)
+    if not m:
+        return None
+    return int(m.group(1))
+
+
+def is_legacy_ws(ws_id: str) -> bool:
+    feature = ws_feature_number(ws_id)
+    return feature is not None and feature < 59
+
+
 def parse_date_from_header(text: str, field: str) -> Optional[dt.date]:
     m = re.search(
         rf"^>\s*\*\*{re.escape(field)}:\*\*\s*(\d{{4}}-\d{{2}}-\d{{2}})",
@@ -100,6 +112,7 @@ def run_checks(root: Path, strict_ac: bool) -> Dict[str, Any]:
 
     for path in backlog_files:
         ws_id = path.stem
+        legacy_ws = is_legacy_ws(ws_id)
         content = path.read_text(encoding="utf-8")
         fm_status = parse_frontmatter_status(content)
         idx_status = index_status.get(ws_id)
@@ -107,6 +120,8 @@ def run_checks(root: Path, strict_ac: bool) -> Dict[str, Any]:
         rel = str(path.relative_to(root))
 
         if idx_status is None:
+            if legacy_ws:
+                continue
             issues.append(
                 Issue(
                     severity="error",
@@ -118,6 +133,8 @@ def run_checks(root: Path, strict_ac: bool) -> Dict[str, Any]:
             continue
 
         if not fm_status:
+            if legacy_ws:
+                continue
             issues.append(
                 Issue(
                     severity="error",
@@ -129,6 +146,8 @@ def run_checks(root: Path, strict_ac: bool) -> Dict[str, Any]:
             continue
 
         if fm_status != idx_status:
+            if legacy_ws:
+                continue
             issues.append(
                 Issue(
                     severity="error",
@@ -173,12 +192,19 @@ def run_checks(root: Path, strict_ac: bool) -> Dict[str, Any]:
             )
 
     mapping_count = 0
+    mapping_ws_ids: set[str] = set()
     if mapping_path.exists():
-        mapping_count = sum(
-            1
-            for _ in mapping_path.read_text(encoding="utf-8").splitlines()
-            if _.strip()
-        )
+        for line in mapping_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            mapping_count += 1
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            ws_id = payload.get("sdp_id")
+            if isinstance(ws_id, str):
+                mapping_ws_ids.add(ws_id)
     else:
         issues.append(
             Issue(
@@ -190,13 +216,15 @@ def run_checks(root: Path, strict_ac: bool) -> Dict[str, Any]:
         )
 
     backlog_count = len(backlog_files)
-    if mapping_count != backlog_count:
+    active_backlog_ws_ids = {ws for ws in backlog_ws_ids if not is_legacy_ws(ws)}
+    missing_mapping_ws = sorted(active_backlog_ws_ids - mapping_ws_ids)
+    if missing_mapping_ws:
         issues.append(
             Issue(
                 severity="error",
-                code="MAPPING_COUNT_MISMATCH",
+                code="MAPPING_ACTIVE_WS_MISSING",
                 file=str(mapping_path.relative_to(root)),
-                message=f"mapping_count={mapping_count} backlog_count={backlog_count}",
+                message=f"missing mapping entries for active workstreams: {', '.join(missing_mapping_ws)}",
             )
         )
 

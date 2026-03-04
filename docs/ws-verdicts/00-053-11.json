@@ -1,0 +1,12 @@
+{
+  "ws_id": "00-053-11",
+  "feature_id": "F053",
+  "verdict": "PASS",
+  "quality_gates": {"tests_pass": true, "lint_clean": true, "build_ok": true, "vet_ok": true},
+  "ac_evidence": [
+    {"ac": "Skill documents: sdp-orchestrate on PATH or go run ./cmd/sdp-orchestrate", "met": true, "evidence": "sdp/prompts/skills/oneshot/SKILL.md"},
+    {"ac": "AGENTS.md or README mentions build instructions for orchestrate", "met": true, "evidence": "AGENTS.md sdp-orchestrate section"},
+    {"ac": "No phantom CLI — command exists and is runnable", "met": true, "evidence": "go run ./cmd/sdp-orchestrate --feature F053 --next-action runs"}
+  ],
+  "existing_work_summary": "Oneshot referenced sdp-orchestrate; PATH/fallback undocumented. Documented both."
+}

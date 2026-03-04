@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"sdp_dev/internal/eval"
+	"sdp_dev/internal/evidence"
 )
 
 func main() {
@@ -20,6 +21,17 @@ func main() {
 		*casesDir = filepath.Join(*projectRoot, "internal", "eval", "cases")
 	}
 
+	absRoot, _ := filepath.Abs(*projectRoot)
+	if err := evidence.ValidatePath(absRoot, ""); err != nil {
+		fmt.Fprintf(os.Stderr, "project-root: %v\n", err)
+		os.Exit(1)
+	}
+	absCases, _ := filepath.Abs(*casesDir)
+	if err := evidence.ValidatePath(absCases, absRoot); err != nil {
+		fmt.Fprintf(os.Stderr, "cases-dir: %v\n", err)
+		os.Exit(1)
+	}
+
 	skillFilter := *skill
 	if *all {
 		skillFilter = ""
@@ -30,7 +42,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	results, err := eval.Run(*projectRoot, *casesDir, skillFilter)
+	results, err := eval.Run(absRoot, absCases, skillFilter)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)

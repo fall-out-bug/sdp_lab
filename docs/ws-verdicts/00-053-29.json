@@ -1,0 +1,13 @@
+{
+  "ws_id": "00-053-29",
+  "feature_id": "F053",
+  "verdict": "PASS",
+  "quality_gates": {"tests_pass": true, "lint_clean": true, "build_ok": true, "vet_ok": true},
+  "ac_evidence": [
+    {"ac": "scanner.Err() checked after Scan loop", "met": true, "evidence": "00-053-08: coverage_lang.go Java path"},
+    {"ac": "JSON parsing uses json.Unmarshal where appropriate", "met": true, "evidence": "00-053-08: parseCoverageJSON with json.Unmarshal"},
+    {"ac": "CombinedOutput error handled", "met": true, "evidence": "00-053-08: Python path → result.Report with truncateOutput"},
+    {"ac": "listCmd.Output error path fixed", "met": true, "evidence": "00-053-08: coverage_lang.go fixed listErr handling"}
+  ],
+  "existing_work_summary": "Addressed by 00-053-08. coverage_lang error handling (scanner.Err, CombinedOutput, listCmd.Output, json.Unmarshal) fixed there."
+}

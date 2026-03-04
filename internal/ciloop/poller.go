@@ -2,6 +2,7 @@ package ciloop
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -46,17 +47,35 @@ func NewPoller(runner CommandRunner) *Poller {
 
 // GetChecks fetches current check states for the given PR number.
 // Retries with exponential backoff (2s, 4s, 8s) on transient failures, max 3 retries.
-func (p *Poller) GetChecks(prNumber int) ([]CheckResult, error) {
+// Respects ctx cancellation: returns ctx.Err() if ctx is done before completion.
+func (p *Poller) GetChecks(ctx context.Context, prNumber int) ([]CheckResult, error) {
 	delays := []time.Duration{2 * time.Second, 4 * time.Second, 8 * time.Second}
 	var out []byte
 	var err error
 	for attempt := 0; attempt <= len(delays); attempt++ {
+		if ctx != nil {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+			}
+		}
 		out, err = p.runner.Run("gh", "pr", "checks", strconv.Itoa(prNumber), "--json", "name,state")
 		if err == nil {
 			break
 		}
 		if attempt < len(delays) {
-			time.Sleep(delays[attempt])
+			if ctx != nil {
+				timer := time.NewTimer(delays[attempt])
+				select {
+				case <-ctx.Done():
+					timer.Stop()
+					return nil, ctx.Err()
+				case <-timer.C:
+				}
+			} else {
+				time.Sleep(delays[attempt])
+			}
 		} else {
 			return nil, fmt.Errorf("gh pr checks: %w", err)
 		}

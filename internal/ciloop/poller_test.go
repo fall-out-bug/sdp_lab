@@ -1,6 +1,7 @@
 package ciloop_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -39,7 +40,7 @@ var mixedJSON = []byte(`[
 
 func TestGetChecksGreen(t *testing.T) {
 	p := ciloop.NewPoller(&fakeRunner{output: greenJSON})
-	checks, err := p.GetChecks(42)
+	checks, err := p.GetChecks(context.Background(), 42)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +56,7 @@ func TestGetChecksGreen(t *testing.T) {
 
 func TestGetChecksPending(t *testing.T) {
 	p := ciloop.NewPoller(&fakeRunner{output: pendingJSON})
-	checks, err := p.GetChecks(42)
+	checks, err := p.GetChecks(context.Background(), 42)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +68,7 @@ func TestGetChecksPending(t *testing.T) {
 
 func TestGetChecksFailure(t *testing.T) {
 	p := ciloop.NewPoller(&fakeRunner{output: failureJSON})
-	checks, err := p.GetChecks(42)
+	checks, err := p.GetChecks(context.Background(), 42)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +80,7 @@ func TestGetChecksFailure(t *testing.T) {
 
 func TestGetChecksCommandError(t *testing.T) {
 	p := ciloop.NewPoller(&fakeRunner{err: errors.New("gh: not found")})
-	_, err := p.GetChecks(42)
+	_, err := p.GetChecks(context.Background(), 42)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -87,7 +88,7 @@ func TestGetChecksCommandError(t *testing.T) {
 
 func TestGetChecksMixed(t *testing.T) {
 	p := ciloop.NewPoller(&fakeRunner{output: mixedJSON})
-	checks, err := p.GetChecks(42)
+	checks, err := p.GetChecks(context.Background(), 42)
 	if err != nil {
 		t.Fatal(err)
 	}

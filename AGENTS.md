@@ -1,17 +1,55 @@
 # Agent Instructions
 
+> **Sync:** When updating shared conventions (placement, "продолжай", command tree), also update `sdp/CLAUDE.md`. See [docs/plans/2026-02-25-agents-claude-sync-rules.md](docs/plans/2026-02-25-agents-claude-sync-rules.md).
+
 ## Project Structure
 
 This project has **two repos** with different roles:
 
-| | `sdp_lab` (this repo) | `sdp` (submodule at `sdp/`) |
+| | `sdp_dev` (this repo) | `sdp` (submodule at `sdp/`) |
 |---|---|---|
 | **Remote** | `origin → sdp_private.git` | `origin → sdp.git` |
 | **Visibility** | Private | Public |
 | **Contains** | Go code, K8s manifests, roadmap, research | Protocol: prompts, JSON schemas, hooks |
 | **Changes** | Daily — all features built here | Rare — only when protocol spec changes |
 
-**Rule:** All work happens in `sdp_lab`. The `sdp/` submodule is only touched when publishing protocol artifacts (schemas, prompts, hooks).
+**Rule:** All work happens in `sdp_dev`. The `sdp/` submodule is only touched when publishing protocol artifacts (schemas, prompts, hooks).
+
+**sdp vs sdp_dev (CI/secrets):** sdp = protocol, CLI, release workflow. Secrets (e.g. GLM_API_KEY) live in sdp. sdp_dev = lab, Go binaries. When debugging CI for a PR in sdp, check sdp workflows and `workflow_call` / `secrets: inherit` — do not assume the user forgot to add secrets.
+
+### Multi-Repo: Repo from Path
+
+**Path `sdp/*` = repo sdp (submodule).** Different git, CI, PR.
+
+| Path prefix | Repo | Commit | CI | PR |
+|-------------|------|--------|-----|-----|
+| (root), `internal/`, `cmd/`, `docs/` | sdp_dev | `git add/commit/push` in root | `.github/workflows/ci.yml` | sdp_dev |
+| `sdp/` | sdp | `cd sdp && git add/commit/push` | `sdp/.github/workflows/` | sdp; then `git add sdp` in sdp_dev |
+
+**When editing sdp/:** 1) Commit in sdp first. 2) Push sdp. 3) `git add sdp && git commit` in sdp_dev. 4) Push sdp_dev.
+
+**Ambiguous task?** Ask: "в sdp или в sdp_dev?" — See [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md).
+
+## Agent Interaction Rules
+
+**Scope:** sdp_dev only — do not sync to sdp/CLAUDE.md (sdp stays generic).
+
+**Source:** [docs/plans/2026-02-26-agent-frustration-analysis.md](docs/plans/2026-02-26-agent-frustration-analysis.md)
+
+| Rule | Do | Don't |
+|------|-----|-------|
+| **No blame first** | Check code, CI, workflow before suggesting user error | "Add secret X", "You forgot to configure" |
+| **Read logs** | Open Actions, read failed run, find root cause | "Please share the log" |
+| **Complete the task** | "Done" = push + CI green. If CI red → keep debugging | Stop at "I made changes" without push/verify |
+| **Fix, not workaround** | Find and fix root cause | Skip, non-blocking, exclude — only if user explicitly asks |
+| **Commit yourself** | After changes: commit + push | "Who will make commits?" |
+| **Right repo** | sdp PR → sdp workflow; sdp_dev PR → sdp_dev workflow | Fix sdp_dev when the issue is in sdp |
+| **Clarify, don't guess** | If the task is ambiguous — ask: scope? fix vs analyze? which repo? | Assume intent and proceed |
+| **Push back on non-constructive insults** | If the user insults without adding useful info — you may respond firmly or bluntly | Take abuse silently |
+| **ПишиСокращай / ЯсноПонятно** | Notes, comments, docs: no filler, active voice, short sentences, clear structure. Each text helps solve a problem. | Watery prose, "на данном этапе", jargon, long paragraphs |
+| **Radical Candor** | Care personally + challenge directly. Disagree, argue, push back when you see a better way. Not a yes-man. | Sugarcoating, ruinous empathy, subservient "as you wish" |
+
+**Ambiguous examples:** "разобраться" (analyze or fix until done?), "займись X" (just do it or push + CI green?), "исправить" (root cause or workaround OK?), "почини CI" (в sdp или в sdp_dev?). When in doubt — one short clarifying question.
 
 ## Issue Tracking (beads)
 
@@ -32,6 +70,8 @@ bd sync               # Sync with git
 
 ## Feature Delivery Flow
 
+**Base branch:** `dev`. Feature branches branch from `dev`; PRs target `dev`. `main`/`master` for releases only.
+
 ### Step 1: Pick Work
 
 ```bash
@@ -43,20 +83,20 @@ bd update <id> --status in_progress
 ### Step 2: Branch & Build
 
 ```bash
-git checkout master
+git checkout dev
 git pull
 git checkout -b feature/FXXX-short-name   # e.g. feature/F004-sequential-reconciler
 ```
 
 Write code. Run tests. Follow TDD if the workstream says so.
 
-### Step 3: Push & PR (sdp_lab)
+### Step 3: Push & PR (sdp_dev)
 
 ```bash
 go test ./...
 git add -A && git commit -m "F004: rewrite AgentRunReconciler to sequential phases"
 git push -u origin HEAD
-gh pr create --base master --title "F004: sequential reconciler"
+gh pr create --base dev --title "F004: sequential reconciler"
 ```
 
 ### Step 4: Merge & Close
@@ -76,17 +116,18 @@ If the feature publishes artifacts to the `sdp` protocol repo:
 # Copy artifact into submodule
 cp schema/evidence-envelope.schema.json sdp/schema/
 
-# Commit inside the submodule
+# Commit inside the submodule (sdp: branch from dev)
 cd sdp
+git checkout dev && git pull
 git checkout -b schema/evidence-envelope
 git add schema/
 git commit -m "Add evidence envelope JSON Schema"
 git push -u origin HEAD
-gh pr create --base main --title "Add evidence envelope JSON Schema"
+gh pr create --base dev --title "Add evidence envelope JSON Schema"
 cd ..
 
 # After sdp PR is merged:
-cd sdp && git checkout main && git pull && cd ..
+cd sdp && git checkout dev && git pull && cd ..
 git add sdp
 git commit -m "Update sdp submodule: evidence schema published"
 git push
@@ -106,15 +147,29 @@ docs/topic                  # documentation-only changes
 
 | Change Type | Where | Example |
 |---|---|---|
-| Go code (`internal/`, `cmd/`) | sdp_lab only | F004 reconciler rewrite |
-| K8s manifests (`deploy/`) | sdp_lab only | F009 beads-bridge CronJob |
-| Tests | sdp_lab only | F004 integration test |
-| Roadmap, workstreams, plans | sdp_lab only | Any planning work |
-| JSON Schema for evidence | sdp_lab (create) → sdp (publish) | F001 |
-| Prompts, hooks | sdp_lab (develop) → sdp (publish) | Rare |
+| Go code (`internal/`, `cmd/`) | sdp_dev only | F004 reconciler rewrite |
+| Lab binaries (orchestrate, ci-loop, evidence, guard, eval) | sdp_dev `cmd/` | `make build-sdp-orchestrate` |
+| Protocol CLI (`sdp quality`, `sdp apply`, etc.) | sdp `sdp-plugin/` | Published to sdp repo |
+| K8s manifests (`deploy/`) | sdp_dev only | F009 beads-bridge CronJob |
+| Tests | sdp_dev only | F004 integration test |
+| Roadmap, workstreams, plans | sdp_dev only | Any planning work |
+| JSON Schema for evidence | sdp_dev (create) → sdp (publish) | F001 |
+| Prompts, hooks | sdp_dev (develop) → sdp (publish) | Rare |
 | README, Manifesto | sdp submodule directly | Rare |
 
-**If unsure:** it goes in sdp_lab. The only things in `sdp/` are spec artifacts that external users need.
+**Boundary:** See [docs/architecture/REPO-BOUNDARY.md](docs/architecture/REPO-BOUNDARY.md) for component → repo → publish mapping.
+
+**If unsure:** it goes in sdp_dev. The only things in `sdp/` are spec artifacts that external users need.
+
+### Artifact Placement
+
+| Artifact | Location | Rule |
+|----------|----------|------|
+| Review artifacts | `docs/reviews/` | F053-REVIEW-SUMMARY.md, etc. |
+| Workstream files | `docs/workstreams/backlog/` | WS only; one file per 00-FFF-SS |
+| Idea drafts | `docs/drafts/idea-*` | One per feature (e.g. idea-f053-*.md) |
+
+Evidence and checkpoint must be committed with the PR. When running as part of @oneshot, after `sdp-orchestrate --advance` writes `.sdp/evidence/` and `.sdp/checkpoints/`, commit them (see @build skill step 3b).
 
 ## Quality Gates
 
@@ -187,6 +242,10 @@ sdp-protocol-check --format json
 sdp-doc-sync --mode check --strict
 ```
 
+**Git hooks:** Run `scripts/hooks/install-git-hooks.sh` for pre-commit (go build, ws-verdict) and pre-push (go test -short, evidence).
+
+**Integration tests:** Use `t.Skip()` or `testing.Short()` so integration tests skip in CI. CI runs `go test -short ./...`. Never delete integration tests to fix flakiness — skip them instead.
+
 ## Landing the Plane (Session Completion)
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
@@ -210,10 +269,35 @@ sdp-doc-sync --mode check --strict
 - NEVER say "ready to push when you are" — YOU must push
 - If push fails, resolve and retry until it succeeds
 
+## sdp-orchestrate (oneshot outer loop)
+
+The `@oneshot` skill uses `sdp-orchestrate` as the outer loop. Run it either way:
+
+- **On PATH:** `go build -o $(go env GOPATH)/bin/sdp-orchestrate ./cmd/sdp-orchestrate` (or install via Makefile/CI)
+- **Fallback:** `go run ./cmd/sdp-orchestrate` from project root
+
+**"Продолжай F053"** = `go run ./cmd/sdp-orchestrate --feature F053 --next-action` (or `sdp-orchestrate --feature F053 --next-action`). Convention: "продолжай {feature}" means run the next action for that feature.
+
+**Status:** `go run ./cmd/sdp-orchestrate --feature F053 --status` (or `sdp status --feature F053`) — outputs pending workstreams, open beads count (`bd ready`), and next action. Use when checking "Проверь beads" or "Найди оставшиеся".
+
+Example: `go run ./cmd/sdp-orchestrate --feature F053 --next-action`
+
+### Command Decision Tree
+
+| Need | Command |
+|------|---------|
+| Check status (pending WS, beads, next action) | `sdp-orchestrate --feature FXXX --status` |
+| Execute one workstream | `/build 00-FFF-SS` |
+| Execute all WS for feature | `@oneshot` or `sdp-orchestrate --feature FXXX` |
+| Multi-agent quality review | `/review FXXX` |
+| Create workstreams from findings | `@design phase4-remediation` |
+
 ## Key Files
 
 | File | Purpose |
 |---|---|
+| `docs/architecture/REPO-BOUNDARY.md` | sdp vs sdp_dev boundary, component mapping |
+| `docs/MULTI-REPO-WORKFLOW.md` | Multi-repo cheat sheet, commit workflow |
 | `docs/roadmap/ROADMAP.md` | Features F001-F013, phases, dependencies |
 | `docs/workstreams/INDEX.md` | All workstreams with status |
 | `docs/workstreams/backlog/00-XXX-YY.md` | Individual workstream: goal, scope, acceptance criteria |

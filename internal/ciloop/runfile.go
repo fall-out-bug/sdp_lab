@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"sdp_dev/internal/sdputil"
@@ -46,6 +47,7 @@ func truncateField(s string, max int) string {
 }
 
 // AppendRunEvent finds the latest run file for featureID in dir and appends an event.
+// Uses flock for inter-process safety (concurrent access from multiple processes).
 func AppendRunEvent(dir, featureID, phase, state, notes string) error {
 	if err := sdputil.ValidateFeatureID(featureID); err != nil {
 		return err
@@ -57,12 +59,21 @@ func AppendRunEvent(dir, featureID, phase, state, notes string) error {
 	if err != nil {
 		return err
 	}
-	data, err := os.ReadFile(path)
+	f, err := os.OpenFile(path, os.O_RDWR, 0o644)
+	if err != nil {
+		return fmt.Errorf("open run file: %w", err)
+	}
+	defer f.Close()
+	if err := flock(f.Fd(), syscall.LOCK_EX); err != nil {
+		return fmt.Errorf("lock run file: %w", err)
+	}
+	defer func() { _ = flock(f.Fd(), syscall.LOCK_UN) }()
+	data, err := io.ReadAll(io.LimitReader(f, sdputil.MaxJSONDecodeBytes))
 	if err != nil {
 		return fmt.Errorf("read run file: %w", err)
 	}
 	var rf RunFile
-	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(data), sdputil.MaxJSONDecodeBytes)).Decode(&rf); err != nil {
+	if err := json.NewDecoder(bytes.NewReader(data)).Decode(&rf); err != nil {
 		return fmt.Errorf("parse run file: %w", err)
 	}
 	rf.Events = append(rf.Events, RunEvent{
@@ -77,15 +88,25 @@ func AppendRunEvent(dir, featureID, phase, state, notes string) error {
 	if err != nil {
 		return fmt.Errorf("marshal run file: %w", err)
 	}
-	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, out, 0o644); err != nil {
+	if err := f.Truncate(0); err != nil {
+		return fmt.Errorf("truncate run file: %w", err)
+	}
+	if _, err := f.Seek(0, 0); err != nil {
+		return fmt.Errorf("seek run file: %w", err)
+	}
+	if _, err := f.Write(out); err != nil {
 		return fmt.Errorf("write run file: %w", err)
 	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("rename run file: %w", err)
-	}
 	return nil
+}
+
+func flock(fd uintptr, op int) error {
+	for {
+		err := syscall.Flock(int(fd), op)
+		if err != syscall.EINTR {
+			return err
+		}
+	}
 }
 
 func findRunFile(dir, featureID string) (string, error) {

@@ -1,11 +1,13 @@
 package ciloop_test
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"sdp_dev/internal/ciloop"
+	"sdp_dev/internal/orchestrate"
 )
 
 func TestLoadCheckpoint(t *testing.T) {
@@ -96,5 +98,74 @@ func TestSaveCheckpoint(t *testing.T) {
 	}
 	if loaded.UpdatedAt == "" {
 		t.Error("expected updated_at to be set")
+	}
+}
+
+// TestSaveCheckpointPreservesOrchestrateFields verifies ciloop save does not drop Workstreams, Review, CreatedAt.
+func TestSaveCheckpointPreservesOrchestrateFields(t *testing.T) {
+	dir := t.TempDir()
+	// Write orchestrate-style checkpoint with workstreams, review, created_at
+	ocp := &orchestrate.Checkpoint{
+		Schema:     "1.0",
+		FeatureID:  "F053",
+		Branch:     "feature/F053-x",
+		Phase:      "build",
+		CreatedAt:  "2026-02-25T10:00:00Z",
+		Workstreams: []orchestrate.WSStatus{{ID: "00-053-01", Status: "done"}, {ID: "00-053-02", Status: "pending"}},
+		Review:     &orchestrate.ReviewStatus{Iteration: 1, Status: "pending"},
+	}
+	if err := orchestrate.SaveCheckpoint(dir, ocp); err != nil {
+		t.Fatalf("orchestrate save: %v", err)
+	}
+	// ciloop loads, updates phase, saves
+	ccp, err := ciloop.LoadCheckpoint(dir, "F053")
+	if err != nil {
+		t.Fatalf("ciloop load: %v", err)
+	}
+	ccp.Phase = "ci"
+	if err := ciloop.SaveCheckpoint(dir, ccp); err != nil {
+		t.Fatalf("ciloop save: %v", err)
+	}
+	// Verify orchestrate fields preserved
+	loaded, err := orchestrate.LoadCheckpoint(dir, "F053")
+	if err != nil {
+		t.Fatalf("orchestrate load after ciloop save: %v", err)
+	}
+	if loaded.Phase != "ci" {
+		t.Errorf("phase should be ci (ciloop update), got %q", loaded.Phase)
+	}
+	if loaded.CreatedAt != "2026-02-25T10:00:00Z" {
+		t.Errorf("created_at lost: got %q", loaded.CreatedAt)
+	}
+	if len(loaded.Workstreams) != 2 {
+		t.Errorf("workstreams lost: got %d", len(loaded.Workstreams))
+	}
+	if loaded.Review == nil || loaded.Review.Status != "pending" {
+		t.Errorf("review lost: %+v", loaded.Review)
+	}
+}
+
+// TestSaveCheckpointNewFile creates checkpoint when none exists (no merge).
+func TestSaveCheckpointNewFile(t *testing.T) {
+	dir := t.TempDir()
+	prNum := 7
+	cp := &ciloop.Checkpoint{
+		Schema:    "1.0",
+		FeatureID: "F099",
+		Branch:    "feature/F099",
+		PRNumber:  &prNum,
+		Phase:     "pr",
+	}
+	if err := ciloop.SaveCheckpoint(dir, cp); err != nil {
+		t.Fatalf("save new: %v", err)
+	}
+	// Should have only ciloop fields
+	var raw map[string]any
+	data, _ := os.ReadFile(filepath.Join(dir, "F099.json"))
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := raw["workstreams"]; ok {
+		t.Error("new file should not have workstreams")
 	}
 }

@@ -1,0 +1,12 @@
+{
+  "ws_id": "00-053-05",
+  "feature_id": "F053",
+  "verdict": "PASS",
+  "quality_gates": {"tests_pass": true, "lint_clean": true, "build_ok": true, "vet_ok": true},
+  "ac_evidence": [
+    {"ac": "Schema or doc defines: check_id, status (pass/fail), note per check", "met": true, "evidence": "sdp/schema/promptops-check.schema.json"},
+    {"ac": "PromptOps review skill outputs structured format", "met": true, "evidence": "sdp/schema/review-verdict.schema.json reviewerResult.checks"},
+    {"ac": "Example in skill matches schema", "met": true, "evidence": "sdp/prompts/skills/review/SKILL.md PromptOps checks example"}
+  ],
+  "existing_work_summary": "No structured PromptOps output. Added promptops-check, review-verdict schemas."
+}
