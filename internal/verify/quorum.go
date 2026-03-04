@@ -161,13 +161,18 @@ func (q *Quorum) UnregisterVerifier(id VerifierID) {
 
 func (q *Quorum) Execute(ctx context.Context, input interface{}) (*QuorumVerdict, error) {
 	q.mu.RLock()
-	defer q.mu.RUnlock()
-
 	if len(q.verifiers) == 0 {
+		q.mu.RUnlock()
 		return nil, fmt.Errorf("no verifiers registered")
 	}
+	policy := q.policy
+	verifiers := make([]Verifier, 0, len(q.verifiers))
+	for _, v := range q.verifiers {
+		verifiers = append(verifiers, v)
+	}
+	q.mu.RUnlock()
 
-	timeout := q.policy.Timeout
+	timeout := policy.Timeout
 	if timeout <= 0 {
 		timeout = 5 * time.Minute
 	}
@@ -175,11 +180,11 @@ func (q *Quorum) Execute(ctx context.Context, input interface{}) (*QuorumVerdict
 	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	resultChan := make(chan *VerifierResult, len(q.verifiers))
-	errorChan := make(chan error, len(q.verifiers))
+	resultChan := make(chan *VerifierResult, len(verifiers))
+	errorChan := make(chan error, len(verifiers))
 
 	var wg sync.WaitGroup
-	for _, v := range q.verifiers {
+	for _, v := range verifiers {
 		wg.Add(1)
 		go func(verifier Verifier) {
 			defer wg.Done()
@@ -228,15 +233,15 @@ func (q *Quorum) Execute(ctx context.Context, input interface{}) (*QuorumVerdict
 		return nil, fmt.Errorf("all verifiers failed: %v", errors)
 	}
 
-	return q.evaluateVerdict(results), nil
+	return q.evaluateVerdict(results, len(verifiers), policy), nil
 }
 
-func (q *Quorum) evaluateVerdict(results []VerifierResult) *QuorumVerdict {
+func (q *Quorum) evaluateVerdict(results []VerifierResult, totalVerifiers int, policy QuorumPolicy) *QuorumVerdict {
 	verdict := &QuorumVerdict{
-		TotalVerifiers: len(q.verifiers),
+		TotalVerifiers: totalVerifiers,
 		Results:        results,
 		Timestamp:      time.Now(),
-		PolicyApplied:  q.policy,
+		PolicyApplied:  policy,
 	}
 
 	rolesPresent := make(map[VerifierRole]bool)
@@ -254,7 +259,7 @@ func (q *Quorum) evaluateVerdict(results []VerifierResult) *QuorumVerdict {
 		}
 	}
 
-	for _, role := range q.policy.RequiredRoles {
+	for _, role := range policy.RequiredRoles {
 		if !rolesPresent[role] {
 			verdict.Dissenting = append(verdict.Dissenting, VerifierResult{
 				Role:    role,
@@ -264,17 +269,17 @@ func (q *Quorum) evaluateVerdict(results []VerifierResult) *QuorumVerdict {
 		}
 	}
 
-	verdict.Passed = q.evaluatePolicy(verdict)
+	verdict.Passed = q.evaluatePolicy(verdict, policy)
 
 	return verdict
 }
 
-func (q *Quorum) evaluatePolicy(verdict *QuorumVerdict) bool {
-	if verdict.Rejections >= q.policy.RejectThreshold {
+func (q *Quorum) evaluatePolicy(verdict *QuorumVerdict, policy QuorumPolicy) bool {
+	if verdict.Rejections >= policy.RejectThreshold {
 		return false
 	}
 
-	if verdict.Approvals < q.policy.MinApprovals {
+	if verdict.Approvals < policy.MinApprovals {
 		return false
 	}
 
@@ -285,9 +290,9 @@ func (q *Quorum) evaluatePolicy(verdict *QuorumVerdict) bool {
 		}
 	}
 
-	for _, role := range q.policy.RequiredRoles {
+	for _, role := range policy.RequiredRoles {
 		if !rolesPresent[role] {
-			if q.policy.RequireAll {
+			if policy.RequireAll {
 				return false
 			}
 		}

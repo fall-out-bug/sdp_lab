@@ -132,8 +132,10 @@ func (s *Scheduler) canStartTask(plan *Plan, task *Task) bool {
 
 func (s *Scheduler) startTask(ctx context.Context, plan *Plan, task *Task) error {
 	now := time.Now()
+	plan.mu.Lock()
 	task.Status = TaskStatusInProgress
 	task.StartedAt = &now
+	plan.mu.Unlock()
 
 	if s.executor != nil {
 		// Use detached context for background task execution.

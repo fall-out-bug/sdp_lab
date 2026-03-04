@@ -318,6 +318,69 @@ func TestFSMV2_GetCheckpoints(t *testing.T) {
 	}
 }
 
+func TestFSMV2_GetState_ReturnsDefensiveCopy(t *testing.T) {
+	ctx := context.Background()
+	fsm := NewFSMV2(ctx, &FSMContext{WorkstreamID: "00-071-02", FeatureID: "F071"})
+
+	fsm.mu.Lock()
+	fsm.state.LastError = &TransitionError{Code: "X", Message: "orig"}
+	fsm.state.Checkpoints = []CheckpointRecord{{
+		Name:    "cp1",
+		Result:  "passed",
+		Details: map[string]interface{}{"k": "v"},
+	}}
+	fsm.mu.Unlock()
+
+	copyState := fsm.GetState()
+	if copyState == nil {
+		t.Fatal("expected state copy")
+	}
+
+	copyState.State = StateFailed
+	copyState.LastError.Message = "changed"
+	copyState.Checkpoints[0].Details["k"] = "mutated"
+
+	fresh := fsm.GetState()
+	if fresh.State != StatePending {
+		t.Fatalf("internal state mutated: got %s want %s", fresh.State, StatePending)
+	}
+	if fresh.LastError == nil || fresh.LastError.Message != "orig" {
+		t.Fatalf("last error mutated: got %+v", fresh.LastError)
+	}
+	if got := fresh.Checkpoints[0].Details["k"]; got != "v" {
+		t.Fatalf("checkpoint details mutated: got %v want v", got)
+	}
+}
+
+func TestFSMV2_GetCheckpoints_ReturnsDefensiveCopy(t *testing.T) {
+	ctx := context.Background()
+	fsm := NewFSMV2(ctx, &FSMContext{WorkstreamID: "00-071-02", FeatureID: "F071"})
+
+	fsm.mu.Lock()
+	fsm.state.Checkpoints = []CheckpointRecord{{
+		Name:    "cp1",
+		Result:  "passed",
+		Details: map[string]interface{}{"k": "v"},
+	}}
+	fsm.mu.Unlock()
+
+	checkpoints := fsm.GetCheckpoints()
+	if len(checkpoints) != 1 {
+		t.Fatalf("expected 1 checkpoint, got %d", len(checkpoints))
+	}
+
+	checkpoints[0].Name = "changed"
+	checkpoints[0].Details["k"] = "mutated"
+
+	fresh := fsm.GetCheckpoints()
+	if fresh[0].Name != "cp1" {
+		t.Fatalf("checkpoint name mutated: got %s", fresh[0].Name)
+	}
+	if got := fresh[0].Details["k"]; got != "v" {
+		t.Fatalf("checkpoint details mutated: got %v want v", got)
+	}
+}
+
 func TestGetTransition(t *testing.T) {
 	trans := GetTransition(StatePending, StateValidated)
 	if trans == nil {

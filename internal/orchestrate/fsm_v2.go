@@ -22,6 +22,8 @@ const (
 	StateRolledBack State = "rolled_back"
 )
 
+const defaultFSMMaxRetries = 3
+
 func (s State) String() string {
 	return string(s)
 }
@@ -123,7 +125,7 @@ func NewFSMV2(ctx context.Context, fsmCtx *FSMContext, opts ...FSMOption) *FSMV2
 			EnteredAt: time.Now(),
 		},
 		context:    fsmCtx,
-		maxRetries: 3,
+		maxRetries: defaultFSMMaxRetries,
 	}
 
 	for _, opt := range opts {
@@ -149,128 +151,108 @@ func (f *FSMV2) Transition(ctx context.Context, to State) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	from := f.state.State
+	from, transition, err := f.validateTransitionRequest(to)
+	if err != nil {
+		return err
+	}
+	if err := f.runBeforeTransitionHooks(ctx, from, to); err != nil {
+		return err
+	}
+	if err := f.enforcePolicyForTransition(ctx, from, to, transition); err != nil {
+		return err
+	}
 
+	if transitionErr := f.executeTransitionWork(ctx, from, to, transition); transitionErr != nil {
+		return f.applyTransitionFailure(ctx, from, to, transition, transitionErr)
+	}
+
+	f.applyTransitionSuccess(ctx, from, to, transition)
+	return nil
+}
+
+func (f *FSMV2) validateTransitionRequest(to State) (State, *Transition, error) {
+	from := f.state.State
 	if from.IsTerminal() {
-		return &TransitionError{
-			Code:      "TERMINAL_STATE",
-			Message:   "cannot transition from terminal state",
-			FromState: from,
-			ToState:   to,
-			Timestamp: time.Now(),
-			Retryable: false,
-		}
+		return from, nil, newTransitionError("TERMINAL_STATE", "cannot transition from terminal state", from, to, false, nil)
 	}
 
 	transition := GetTransition(from, to)
 	if transition == nil {
-		return &TransitionError{
-			Code:      "INVALID_TRANSITION",
-			Message:   fmt.Sprintf("transition %s → %s is not defined", from, to),
-			FromState: from,
-			ToState:   to,
-			Timestamp: time.Now(),
-			Retryable: false,
-		}
+		msg := fmt.Sprintf("transition %s → %s is not defined", from, to)
+		return from, nil, newTransitionError("INVALID_TRANSITION", msg, from, to, false, nil)
 	}
 
+	return from, transition, nil
+}
+
+func (f *FSMV2) runBeforeTransitionHooks(ctx context.Context, from, to State) error {
 	for _, hook := range f.hooks {
 		if err := hook.BeforeTransition(ctx, from, to, f.context); err != nil {
-			return &TransitionError{
-				Code:      "HOOK_FAILED",
-				Message:   fmt.Sprintf("before hook failed: %v", err),
-				FromState: from,
-				ToState:   to,
-				Timestamp: time.Now(),
-				Retryable: false,
-				Cause:     err,
-			}
+			msg := fmt.Sprintf("before hook failed: %v", err)
+			return newTransitionError("HOOK_FAILED", msg, from, to, false, err)
 		}
 	}
+	return nil
+}
 
-	if transition.PolicyCheck && f.decisionMaker != nil {
-		decision, err := f.checkPolicy(ctx, transition)
-		if err != nil {
-			return &TransitionError{
-				Code:      "POLICY_CHECK_FAILED",
-				Message:   fmt.Sprintf("policy check failed: %v", err),
-				FromState: from,
-				ToState:   to,
-				Timestamp: time.Now(),
-				Retryable: false,
-				Cause:     err,
-			}
-		}
-		if decision.Decision != "allow" {
-			return &TransitionError{
-				Code:      "POLICY_DENIED",
-				Message:   fmt.Sprintf("policy denied transition: %s", decision.Reason.Message),
-				FromState: from,
-				ToState:   to,
-				Timestamp: time.Now(),
-				Retryable: false,
-			}
-		}
+func (f *FSMV2) enforcePolicyForTransition(ctx context.Context, from, to State, transition *Transition) error {
+	if !transition.PolicyCheck || f.decisionMaker == nil {
+		return nil
 	}
 
-	var transitionErr error
+	decision, err := f.checkPolicy(ctx, transition)
+	if err != nil {
+		msg := fmt.Sprintf("policy check failed: %v", err)
+		return newTransitionError("POLICY_CHECK_FAILED", msg, from, to, false, err)
+	}
+	if decision.Decision != "allow" {
+		msg := fmt.Sprintf("policy denied transition: %s", decision.Reason.Message)
+		return newTransitionError("POLICY_DENIED", msg, from, to, false, nil)
+	}
+
+	return nil
+}
+
+func (f *FSMV2) executeTransitionWork(ctx context.Context, from, to State, transition *Transition) error {
 	if transition.Validator != nil {
 		if err := transition.Validator(ctx, f.context, f.state); err != nil {
-			transitionErr = &TransitionError{
-				Code:      "VALIDATION_FAILED",
-				Message:   fmt.Sprintf("validation failed: %v", err),
-				FromState: from,
-				ToState:   to,
-				Timestamp: time.Now(),
-				Retryable: true,
-				Cause:     err,
-			}
+			msg := fmt.Sprintf("validation failed: %v", err)
+			return newTransitionError("VALIDATION_FAILED", msg, from, to, true, err)
 		}
 	}
 
-	if transitionErr == nil && transition.Action != nil {
+	if transition.Action != nil {
 		if err := transition.Action(ctx, f.context, f.state); err != nil {
-			transitionErr = &TransitionError{
-				Code:      "ACTION_FAILED",
-				Message:   fmt.Sprintf("transition action failed: %v", err),
-				FromState: from,
-				ToState:   to,
-				Timestamp: time.Now(),
-				Retryable: true,
-				Cause:     err,
-			}
+			msg := fmt.Sprintf("transition action failed: %v", err)
+			return newTransitionError("ACTION_FAILED", msg, from, to, true, err)
 		}
 	}
 
+	return nil
+}
+
+func (f *FSMV2) applyTransitionFailure(ctx context.Context, from, to State, transition *Transition, transitionErr error) error {
+	if te, ok := transitionErr.(*TransitionError); ok {
+		f.state.LastError = te
+	} else {
+		f.state.LastError = newTransitionError("UNKNOWN_ERROR", transitionErr.Error(), from, to, false, transitionErr)
+	}
+
+	f.state.Attempts++
+	if f.state.Attempts >= f.maxRetries {
+		toState := StateFailed
+		if transition.OnFailure != nil {
+			toState = transition.OnFailure()
+		}
+		f.state.State = toState
+	}
+
+	f.emitEvent(ctx, "transition_failed", from, to, transitionErr)
+	return transitionErr
+}
+
+func (f *FSMV2) applyTransitionSuccess(ctx context.Context, from, to State, transition *Transition) {
 	now := time.Now()
-	if transitionErr != nil {
-		if te, ok := transitionErr.(*TransitionError); ok {
-			f.state.LastError = te
-		} else {
-			f.state.LastError = &TransitionError{
-				Code:      "UNKNOWN_ERROR",
-				Message:   transitionErr.Error(),
-				FromState: from,
-				ToState:   to,
-				Timestamp: time.Now(),
-				Retryable: false,
-				Cause:     transitionErr,
-			}
-		}
-		f.state.Attempts++
-
-		if f.state.Attempts >= f.maxRetries {
-			toState := StateFailed
-			if transition.OnFailure != nil {
-				toState = transition.OnFailure()
-			}
-			f.state.State = toState
-		}
-
-		f.emitEvent(ctx, "transition_failed", from, to, transitionErr)
-		return transitionErr
-	}
-
 	nowPtr := &now
 	f.state.ExitedAt = nowPtr
 
@@ -293,7 +275,18 @@ func (f *FSMV2) Transition(ctx context.Context, to State) error {
 	}
 
 	f.emitEvent(ctx, "state_transition", from, to, nil)
-	return nil
+}
+
+func newTransitionError(code, message string, from, to State, retryable bool, cause error) *TransitionError {
+	return &TransitionError{
+		Code:      code,
+		Message:   message,
+		FromState: from,
+		ToState:   to,
+		Timestamp: time.Now(),
+		Retryable: retryable,
+		Cause:     cause,
+	}
 }
 
 func (f *FSMV2) checkPolicy(ctx context.Context, transition *Transition) (*sdk.RuntimeDecision, error) {
@@ -392,11 +385,47 @@ func (f *FSMV2) Rollback(ctx context.Context) error {
 func (f *FSMV2) GetState() *FSMState {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
-	return f.state
+	if f.state == nil {
+		return nil
+	}
+
+	stateCopy := *f.state
+	stateCopy.LastError = cloneTransitionError(f.state.LastError)
+	stateCopy.Checkpoints = cloneCheckpointRecords(f.state.Checkpoints)
+	return &stateCopy
 }
 
 func (f *FSMV2) GetCheckpoints() []CheckpointRecord {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
-	return f.state.Checkpoints
+	if f.state == nil {
+		return nil
+	}
+	return cloneCheckpointRecords(f.state.Checkpoints)
+}
+
+func cloneCheckpointRecords(in []CheckpointRecord) []CheckpointRecord {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]CheckpointRecord, len(in))
+	for i := range in {
+		out[i] = in[i]
+		if in[i].Details != nil {
+			detailsCopy := make(map[string]interface{}, len(in[i].Details))
+			for k, v := range in[i].Details {
+				detailsCopy[k] = v
+			}
+			out[i].Details = detailsCopy
+		}
+	}
+	return out
+}
+
+func cloneTransitionError(in *TransitionError) *TransitionError {
+	if in == nil {
+		return nil
+	}
+	errCopy := *in
+	return &errCopy
 }

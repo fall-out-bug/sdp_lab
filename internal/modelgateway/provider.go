@@ -312,11 +312,23 @@ type ProviderHealth struct {
 }
 
 func (r *ProviderRegistry) HealthCheck(ctx context.Context) []ProviderHealth {
-	var health []ProviderHealth
+	type providerSnapshot struct {
+		id ProviderID
+		p  Provider
+	}
+
+	r.mu.RLock()
+	snapshots := make([]providerSnapshot, 0, len(r.providers))
 	for id, p := range r.providers {
+		snapshots = append(snapshots, providerSnapshot{id: id, p: p})
+	}
+	r.mu.RUnlock()
+
+	var health []ProviderHealth
+	for _, item := range snapshots {
 		health = append(health, ProviderHealth{
-			ProviderID: id,
-			Available:  p.IsAvailable(ctx),
+			ProviderID: item.id,
+			Available:  item.p.IsAvailable(ctx),
 			LastCheck:  time.Now(),
 		})
 	}
