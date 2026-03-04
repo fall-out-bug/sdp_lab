@@ -461,18 +461,21 @@ jobs:
 
           # Evaluate all policies together for cross-policy rules (enforcement_level)
           DENIALS=$(opa eval \
+            --v0-compatible \
             --data .sdp/policies/ \
             --input /tmp/policy-input.json \
             'data.sdp.policies.effective_deny' \
             --format raw)
 
           WARNINGS=$(opa eval \
+            --v0-compatible \
             --data .sdp/policies/ \
             --input /tmp/policy-input.json \
             'data.sdp.policies.advisory_warn' \
             --format raw)
 
           LEVEL=$(opa eval \
+            --v0-compatible \
             --data .sdp/policies/ \
             --input /tmp/policy-input.json \
             'data.sdp.policies.enforcement_level' \
