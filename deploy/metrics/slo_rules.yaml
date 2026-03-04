@@ -1,0 +1,109 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: sdp-runtime-slo-rules
+  namespace: sdp-observability
+  labels:
+    app.kubernetes.io/name: sdp-runtime
+    app.kubernetes.io/part-of: sdp
+spec:
+  groups:
+    - name: sdp-runtime-recording
+      interval: 30s
+      rules:
+        - record: sdp_runtime_latency_p95_ms
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum(rate(sdp_agent_run_duration_seconds_bucket[15m])) by (le)
+            ) * 1000
+        - record: sdp_runtime_failure_rate
+          expr: |
+            1 - (
+              sum(rate(sdp_agent_runs_total{status="succeeded"}[30m]))
+              /
+              (sum(rate(sdp_agent_runs_total[30m])) + 1e-9)
+            )
+        - record: sdp_runtime_escalation_rate
+          expr: |
+            sum(rate(sdp_feature_orchestrator_escalated_total[30m]))
+            /
+            (sum(rate(sdp_agent_runs_total[30m])) + 1e-9)
+        - record: sdp_runtime_queue_backpressure_ratio
+          expr: |
+            clamp_min((sdp_dispatch_queue_depth - 10) / 40, 0)
+    - name: sdp-runtime-alerts
+      interval: 30s
+      rules:
+        - alert: SDPProtocolP95LatencyHigh
+          expr: sdp_runtime_latency_p95_ms > 1500
+          for: 15m
+          labels:
+            severity: warn
+            slo: latency
+          annotations:
+            summary: SDP protocol p95 latency above 1500ms
+            description: p95 latency exceeds warn threshold for 15m.
+        - alert: SDPProtocolP95LatencyCritical
+          expr: sdp_runtime_latency_p95_ms > 2500
+          for: 10m
+          labels:
+            severity: page
+            slo: latency
+          annotations:
+            summary: SDP protocol p95 latency above 2500ms
+            description: p95 latency exceeds page threshold for 10m.
+        - alert: SDPProtocolSuccessRateLow
+          expr: (1 - sdp_runtime_failure_rate) < 0.97
+          for: 15m
+          labels:
+            severity: page
+            slo: failure-rate
+          annotations:
+            summary: SDP protocol success rate below 97%
+            description: success rate dropped below SLO page threshold.
+        - alert: SDPEscalationRateHigh
+          expr: sdp_runtime_escalation_rate >= 0.03
+          for: 10m
+          labels:
+            severity: page
+            slo: escalation
+          annotations:
+            summary: SDP escalation rate above 3%
+            description: escalation rate exceeds SLO page threshold.
+        - alert: SDPDispatchQueueDepthHigh
+          expr: sdp_dispatch_queue_depth > 10
+          for: 15m
+          labels:
+            severity: warn
+            slo: queue-depth
+          annotations:
+            summary: SDP dispatch queue depth above 10
+            description: queue depth above warning threshold for 15m.
+        - alert: SDPDispatchQueueDepthCritical
+          expr: sdp_dispatch_queue_depth > 50
+          for: 5m
+          labels:
+            severity: page
+            slo: queue-depth
+          annotations:
+            summary: SDP dispatch queue depth above 50
+            description: queue depth above critical threshold for 5m.
+        - alert: SDPBackpressureActive
+          expr: sdp_runtime_queue_backpressure_ratio > 0
+          for: 10m
+          labels:
+            severity: warn
+            slo: backpressure
+          annotations:
+            summary: SDP adaptive backpressure is active
+            description: queue controller is throttling dispatch due to queue pressure.
+        - alert: SDPActiveRunsStuck
+          expr: sdp_feature_orchestrator_active_runs == 0 and sdp_dispatch_queue_depth > 0
+          for: 10m
+          labels:
+            severity: warn
+            slo: failover
+          annotations:
+            summary: No active runs while queue is non-empty
+            description: possible runtime failover or dispatch loop issue.
