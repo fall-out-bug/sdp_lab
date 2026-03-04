@@ -403,6 +403,28 @@ func TestGetTransition_Invalid(t *testing.T) {
 	}
 }
 
+func TestBuildOrchestrationEvent_IncludesErrorPayload(t *testing.T) {
+	errSample := errors.New("boom")
+	event := buildOrchestrationEvent(&FSMContext{
+		WorkstreamID: "00-071-02",
+		FeatureID:    "F071",
+		BeadsID:      "sdplab-1",
+		SessionID:    "s-1",
+		GitBranch:    "dev",
+		GitCommitSHA: "abc123",
+	}, "transition_failed", StateValidated, StateFailed, errSample)
+
+	if event == nil {
+		t.Fatal("expected event")
+	}
+	if got := event.Payload["error"]; got != "boom" {
+		t.Fatalf("error payload = %v, want boom", got)
+	}
+	if got := event.Payload["from_state"]; got != "validated" {
+		t.Fatalf("from_state = %v, want validated", got)
+	}
+}
+
 func TestGetValidTransitions(t *testing.T) {
 	trans := GetValidTransitions(StatePending)
 	if len(trans) != 2 {

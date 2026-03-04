@@ -309,9 +309,14 @@ func (f *FSMV2) emitEvent(ctx context.Context, eventType string, from, to State,
 		return
 	}
 
+	event := buildOrchestrationEvent(f.context, eventType, from, to, err)
+	_ = f.eventProducer.EmitEventAsync(ctx, event)
+}
+
+func buildOrchestrationEvent(fsmCtx *FSMContext, eventType string, from, to State, err error) *sdk.OrchestrationEvent {
 	event := &sdk.OrchestrationEvent{
 		SpecVersion: "1.0.0",
-		EventID:     fmt.Sprintf("%s-%d", f.context.WorkstreamID, time.Now().UnixNano()),
+		EventID:     fmt.Sprintf("%s-%d", fsmCtx.WorkstreamID, time.Now().UnixNano()),
 		Timestamp:   time.Now(),
 		Source: sdk.EventSource{
 			System:    "sdp-lab",
@@ -322,16 +327,16 @@ func (f *FSMV2) emitEvent(ctx context.Context, eventType string, from, to State,
 		Payload: map[string]interface{}{
 			"from_state": string(from),
 			"to_state":   string(to),
-			"workstream": f.context.WorkstreamID,
+			"workstream": fsmCtx.WorkstreamID,
 		},
 		Context: &sdk.ExecutionContext{
-			WorkstreamID: f.context.WorkstreamID,
-			FeatureID:    f.context.FeatureID,
-			BeadsID:      f.context.BeadsID,
-			SessionID:    f.context.SessionID,
+			WorkstreamID: fsmCtx.WorkstreamID,
+			FeatureID:    fsmCtx.FeatureID,
+			BeadsID:      fsmCtx.BeadsID,
+			SessionID:    fsmCtx.SessionID,
 			GitContext: &sdk.GitContext{
-				Branch:    f.context.GitBranch,
-				CommitSHA: f.context.GitCommitSHA,
+				Branch:    fsmCtx.GitBranch,
+				CommitSHA: fsmCtx.GitCommitSHA,
 			},
 		},
 	}
@@ -340,7 +345,7 @@ func (f *FSMV2) emitEvent(ctx context.Context, eventType string, from, to State,
 		event.Payload["error"] = err.Error()
 	}
 
-	_ = f.eventProducer.EmitEventAsync(ctx, event)
+	return event
 }
 
 func (f *FSMV2) Validate(ctx context.Context) error {
