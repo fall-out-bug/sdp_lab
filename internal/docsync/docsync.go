@@ -111,7 +111,7 @@ func UpdateChangelog(projectRoot, sinceRange string) (string, error) {
 	}
 	fmt.Fprintln(entry)
 
-	newContent := existing
+	var newContent string
 	if strings.Contains(existing, "## "+date+"\n") {
 		newContent = strings.Replace(existing, "## "+date+"\n", entry.String()+"\n", 1)
 	} else {

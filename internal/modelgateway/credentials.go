@@ -139,7 +139,7 @@ func (cm *CredentialManager) GetCredential(ctx context.Context, tenantID string,
 
 	// Best-effort update of LastUsedAt timestamp; failure should not fail the get operation
 	if setErr := cm.store.Set(ctx, cred); setErr != nil {
-		// Intentionally not returning error - LastUsedAt update is non-critical
+		_ = setErr
 	}
 
 	cm.auditLog(ctx, tenantID, providerID, "get", "system", true, "")
@@ -297,7 +297,7 @@ func (cm *CredentialManager) CheckExpiry(ctx context.Context, tenantID string) (
 				cred.Status = CredentialStatusExpired
 				// Best-effort status update; continue processing other credentials
 				if setErr := cm.store.Set(ctx, cred); setErr != nil {
-					// Failed to persist expired status - credential will be re-checked
+					_ = setErr
 				}
 			}
 		}
@@ -423,7 +423,9 @@ func (l *InMemoryAuditLog) Query(ctx context.Context, tenantID string, since tim
 
 func generateID() string {
 	bytes := make([]byte, credentialIDBytes)
-	rand.Read(bytes)
+	if _, err := rand.Read(bytes); err != nil {
+		return fmt.Sprintf("fallback-%d", time.Now().UnixNano())
+	}
 	return hex.EncodeToString(bytes)
 }
 

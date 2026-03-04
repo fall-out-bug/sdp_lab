@@ -107,7 +107,9 @@ func (s *Scheduler) Schedule(ctx context.Context, planID string) ([]TaskID, erro
 		}
 
 		if err := s.startTask(ctx, plan, task); err != nil {
-			plan.BlockTask(task.ID, err.Error())
+			if blockErr := plan.BlockTask(task.ID, err.Error()); blockErr != nil {
+				return nil, fmt.Errorf("failed to block task %s after start error: %w", task.ID, blockErr)
+			}
 			continue
 		}
 
@@ -143,9 +145,9 @@ func (s *Scheduler) startTask(ctx context.Context, plan *Plan, task *Task) error
 		go func() {
 			err := s.executor.Execute(context.Background(), task)
 			if err != nil {
-				plan.BlockTask(task.ID, err.Error())
+				_ = plan.BlockTask(task.ID, err.Error())
 			} else {
-				plan.CompleteTask(task.ID)
+				_ = plan.CompleteTask(task.ID)
 			}
 		}()
 	}
@@ -165,7 +167,7 @@ func (s *Scheduler) CancelPlan(ctx context.Context, planID string) error {
 	for _, task := range plan.tasks {
 		if task.Status == TaskStatusInProgress {
 			if s.executor != nil {
-				s.executor.Cancel(ctx, task.ID)
+				_ = s.executor.Cancel(ctx, task.ID)
 			}
 			task.Status = TaskStatusPending
 			task.StartedAt = nil

@@ -14,7 +14,9 @@ func TestCompareAttestations_MissingAgent(t *testing.T) {
 	ciStmt := testStatement()
 	ciPath := filepath.Join(dir, "ci-auto-test.json")
 	b, _ := json.Marshal(ciStmt)
-	os.WriteFile(ciPath, b, 0o644)
+	if err := os.WriteFile(ciPath, b, 0o644); err != nil {
+		t.Fatalf("write ci attestation: %v", err)
+	}
 
 	report, err := CompareAttestations("test", CompareOptions{EvidenceDir: dir})
 	if err != nil {
@@ -60,7 +62,9 @@ func TestCompareAttestations_MissingCI(t *testing.T) {
 	agentStmt := testStatement()
 	agentPath := filepath.Join(dir, "run-test.json")
 	b, _ := json.Marshal(agentStmt)
-	os.WriteFile(agentPath, b, 0o644)
+	if err := os.WriteFile(agentPath, b, 0o644); err != nil {
+		t.Fatalf("write agent attestation: %v", err)
+	}
 
 	report, err := CompareAttestations("test", CompareOptions{EvidenceDir: dir})
 	if err != nil {

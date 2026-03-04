@@ -80,7 +80,10 @@ func applyFormula(args []string) {
 	featureFlag := fs.String("feature", "", "Feature ID (e.g., F061)")
 	projectFlag := fs.String("project", "00", "Project ID")
 	outputFlag := fs.String("output", "docs/workstreams/backlog", "Output directory")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		fmt.Fprintf(os.Stderr, "parse flags: %v\n", err)
+		os.Exit(1)
+	}
 
 	if fs.NArg() < 1 {
 		fmt.Fprintln(os.Stderr, "Usage: sdp-beads-bridge formula apply <formula.yaml> [--vars key=value]")
@@ -159,7 +162,10 @@ func listFormulas() {
 func showFormula(args []string) {
 	fs := flag.NewFlagSet("show", flag.ExitOnError)
 	jsonFlag := fs.Bool("json", false, "Output as JSON")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		fmt.Fprintf(os.Stderr, "parse flags: %v\n", err)
+		os.Exit(1)
+	}
 
 	if fs.NArg() < 1 {
 		fmt.Fprintln(os.Stderr, "Usage: sdp-beads-bridge formula show <name>")
@@ -186,11 +192,11 @@ func showFormula(args []string) {
 		fmt.Printf(" (v%s)", formula.Version)
 	}
 	fmt.Println()
-	
+
 	if formula.Description != "" {
 		fmt.Printf("\n%s\n", formula.Description)
 	}
-	
+
 	fmt.Printf("\nSteps (%d):\n", len(formula.Steps))
 	for i, step := range formula.Steps {
 		fmt.Printf("  %d. %s", i+1, step.Name)
@@ -199,7 +205,7 @@ func showFormula(args []string) {
 		}
 		fmt.Println()
 	}
-	
+
 	if len(formula.Variables) > 0 {
 		fmt.Printf("\nVariables (%d):\n", len(formula.Variables))
 		for name, v := range formula.Variables {
@@ -216,11 +222,11 @@ func showFormula(args []string) {
 			fmt.Println()
 		}
 	}
-	
+
 	if len(formula.Dependencies) > 0 {
 		fmt.Printf("\nDependencies: %v\n", formula.Dependencies)
 	}
-	
+
 	if formula.Extends != "" {
 		fmt.Printf("\nExtends: %s\n", formula.Extends)
 	}

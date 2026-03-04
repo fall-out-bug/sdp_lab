@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -144,7 +145,7 @@ func TestEscalationHandler_Escalate(t *testing.T) {
 		}
 
 		eh := NewEscalationHandler(cfg)
-		_ = eh.Escalate(nil, "session-123", time.Now())
+		_ = eh.Escalate(context.Background(), "session-123", time.Now())
 
 		if !onEscalateCalled {
 			t.Error("onEscalate was not called")
@@ -163,7 +164,7 @@ func TestEscalationHandler_SafeCommands(t *testing.T) {
 		eh := NewEscalationHandler(cfg)
 
 		// This should fail because "rm" is not in whitelist
-		err := eh.Escalate(nil, "session-123", time.Now())
+		err := eh.Escalate(context.Background(), "session-123", time.Now())
 
 		if err == nil {
 			t.Error("expected error for invalid notify command, got nil")

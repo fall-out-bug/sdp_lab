@@ -140,22 +140,22 @@ func (c *GitHubClient) FetchArtifacts(ctx context.Context, runID int64, destDir 
 		"-D", destDir,
 	)
 
-	output, err := cmd.CombinedOutput()
-	if err != nil {
+	if output, err := cmd.CombinedOutput(); err != nil {
 		// Artifact may not exist, try to get all artifacts
 		cmd = exec.CommandContext(ctx, "gh", "run", "download", fmt.Sprintf("%d", runID),
 			"-R", c.repo,
 			"-D", destDir,
 		)
-		output, err = cmd.CombinedOutput()
-		if err != nil {
-			return nil, fmt.Errorf("gh run download failed: %w\n%s", err, string(output))
+		fallbackOutput, fallbackErr := cmd.CombinedOutput()
+		if fallbackErr != nil {
+			return nil, fmt.Errorf("gh run download failed: %w\n%s", fallbackErr, string(fallbackOutput))
 		}
+		_ = output
 	}
 
 	// Find all JSON files in destDir
 	var files []string
-	err = filepath.Walk(destDir, func(path string, info os.FileInfo, err error) error {
+	walkErr := filepath.Walk(destDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -165,7 +165,7 @@ func (c *GitHubClient) FetchArtifacts(ctx context.Context, runID int64, destDir 
 		return nil
 	})
 
-	return files, err
+	return files, walkErr
 }
 
 // GetLatestWorkflowRuns fetches the latest workflow runs.

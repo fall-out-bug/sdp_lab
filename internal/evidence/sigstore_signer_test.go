@@ -142,6 +142,7 @@ func newTestSigner() *Signer {
 }
 
 func testStatement() CodingWorkflowStatement {
+	//nolint:staticcheck // compatibility with current statement constructor expecting in-toto v0 Subject
 	return NewStatement([]intoto.Subject{{Name: "test", Digest: map[string]string{"sha256": "abc123"}}}, CodingWorkflowPredicate{
 		Intent:       Intent{IssueID: "sdp_dev-test", Trigger: "unit-test", RiskClass: "low"},
 		Plan:         Plan{Workstreams: []string{"00-001-01"}, OrderingRationale: "test"},

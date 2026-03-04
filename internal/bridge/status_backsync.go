@@ -154,9 +154,7 @@ func ParseGitHubIssueRef(externalRef, defaultRepo string) (GitHubIssueRef, error
 		return GitHubIssueRef{}, ErrEmptyGitHubReference
 	}
 
-	if strings.HasPrefix(ref, "gh:") {
-		ref = strings.TrimPrefix(ref, "gh:")
-	}
+	ref = strings.TrimPrefix(ref, "gh:")
 
 	if strings.HasPrefix(ref, "gh-") {
 		if strings.TrimSpace(defaultRepo) == "" {

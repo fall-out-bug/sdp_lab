@@ -117,7 +117,9 @@ func TestWriter_HashVerification(t *testing.T) {
 		t.Error("evt3 should link to evt2")
 	}
 
-	writer.Finalize("completed")
+	if _, _, err := writer.Finalize("completed"); err != nil {
+		t.Fatalf("finalize: %v", err)
+	}
 }
 
 func TestWriter_ValidJSONL(t *testing.T) {
@@ -130,9 +132,15 @@ func TestWriter_ValidJSONL(t *testing.T) {
 	}
 
 	// Write events
-	writer.AppendToolCall("read", json.RawMessage(`{"file_path": "test.go"}`), []string{"test.go"}, "00-059")
-	writer.AppendGuardCheck("00-059", "write", []string{"test.go"}, true, nil, "ok")
-	writer.Finalize("completed")
+	if _, err := writer.AppendToolCall("read", json.RawMessage(`{"file_path": "test.go"}`), []string{"test.go"}, "00-059"); err != nil {
+		t.Fatalf("append tool_call: %v", err)
+	}
+	if _, err := writer.AppendGuardCheck("00-059", "write", []string{"test.go"}, true, nil, "ok"); err != nil {
+		t.Fatalf("append guard_check: %v", err)
+	}
+	if _, _, err := writer.Finalize("completed"); err != nil {
+		t.Fatalf("finalize: %v", err)
+	}
 
 	// Read and parse each line
 	logPath := filepath.Join(tmpDir, DefaultLogDir, "session-"+sessionID+".jsonl")
@@ -173,7 +181,7 @@ func TestWriter_Concurrency(t *testing.T) {
 	done := make(chan bool)
 	for i := 0; i < 10; i++ {
 		go func(n int) {
-			writer.AppendToolCall("read", json.RawMessage(`{"n": `+string(rune('0'+n))+`}`), nil, "")
+			_, _ = writer.AppendToolCall("read", json.RawMessage(`{"n": `+string(rune('0'+n))+`}`), nil, "")
 			done <- true
 		}(i)
 	}
@@ -183,7 +191,9 @@ func TestWriter_Concurrency(t *testing.T) {
 		<-done
 	}
 
-	writer.Finalize("completed")
+	if _, _, err := writer.Finalize("completed"); err != nil {
+		t.Fatalf("finalize: %v", err)
+	}
 
 	// Verify no interleaving corruption
 	logPath := filepath.Join(tmpDir, DefaultLogDir, "session-"+sessionID+".jsonl")

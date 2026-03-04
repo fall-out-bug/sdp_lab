@@ -17,17 +17,16 @@ import (
 )
 
 var (
-	repo       = flag.String("repo", "", "GitHub repository (owner/repo)")
-	branch     = flag.String("branch", "", "Branch to monitor (default: all branches)")
-	runID      = flag.Int64("run", 0, "Specific workflow run ID to sync")
-	localDir   = flag.String("dir", "", "Local directory with findings JSON files")
-	poll       = flag.Bool("poll", false, "Enable polling mode")
-	interval   = flag.Duration("interval", 5*time.Minute, "Polling interval")
-	prefix     = flag.String("prefix", "sdplab-", "Beads issue prefix")
-	labels     = flag.String("labels", "", "Comma-separated default labels")
-	dryRun     = flag.Bool("dry-run", false, "Show what would be created without creating")
-	output     = flag.String("output", "", "Output file for sync report")
-	onlyErrors = flag.Bool("errors-only", false, "Only sync error-level findings")
+	repo     = flag.String("repo", "", "GitHub repository (owner/repo)")
+	branch   = flag.String("branch", "", "Branch to monitor (default: all branches)")
+	runID    = flag.Int64("run", 0, "Specific workflow run ID to sync")
+	localDir = flag.String("dir", "", "Local directory with findings JSON files")
+	poll     = flag.Bool("poll", false, "Enable polling mode")
+	interval = flag.Duration("interval", 5*time.Minute, "Polling interval")
+	prefix   = flag.String("prefix", "sdplab-", "Beads issue prefix")
+	labels   = flag.String("labels", "", "Comma-separated default labels")
+	dryRun   = flag.Bool("dry-run", false, "Show what would be created without creating")
+	output   = flag.String("output", "", "Output file for sync report")
 )
 
 func main() {

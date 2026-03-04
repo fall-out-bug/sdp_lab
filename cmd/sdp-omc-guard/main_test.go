@@ -181,7 +181,7 @@ func TestGuardHook_EmitEvidence(t *testing.T) {
 	cmd := exec.Command(binaryPath, "--ws", "00-059-01", "--session-id", "evidence-test-001", "--emit-evidence")
 	cmd.Dir = tmpDir
 	cmd.Stdin = strings.NewReader(string(inputJSON))
-	cmd.Output() // Ignore exit code for this test
+	_, _ = cmd.Output() // Ignore exit code for this test
 
 	// Check evidence file was created
 	evidencePath := filepath.Join(tmpDir, ".sdp", "log", "session-evidence-test-001.jsonl")

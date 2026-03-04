@@ -252,9 +252,15 @@ func TestInMemoryCredentialStore(t *testing.T) {
 func TestInMemoryCredentialStoreList(t *testing.T) {
 	store := NewInMemoryCredentialStore()
 
-	store.Set(context.Background(), &Credential{TenantID: "tenant-1", ProviderID: "openai"})
-	store.Set(context.Background(), &Credential{TenantID: "tenant-1", ProviderID: "anthropic"})
-	store.Set(context.Background(), &Credential{TenantID: "tenant-2", ProviderID: "openai"})
+	if err := store.Set(context.Background(), &Credential{TenantID: "tenant-1", ProviderID: "openai"}); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+	if err := store.Set(context.Background(), &Credential{TenantID: "tenant-1", ProviderID: "anthropic"}); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+	if err := store.Set(context.Background(), &Credential{TenantID: "tenant-2", ProviderID: "openai"}); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
 
 	creds, err := store.List(context.Background(), "tenant-1")
 	if err != nil {

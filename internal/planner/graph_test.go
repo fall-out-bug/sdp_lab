@@ -1,6 +1,7 @@
 package planner
 
 import (
+	"context"
 	"testing"
 )
 
@@ -334,7 +335,7 @@ func TestTaskValidation(t *testing.T) {
 func TestSchedulerCreatePlan(t *testing.T) {
 	scheduler := NewScheduler(nil, nil)
 
-	plan, err := scheduler.CreatePlan(nil, "plan-001", "Test Plan", "Test Goal")
+	plan, err := scheduler.CreatePlan(context.Background(), "plan-001", "Test Plan", "Test Goal")
 	if err != nil {
 		t.Fatalf("failed to create plan: %v", err)
 	}
@@ -347,7 +348,7 @@ func TestSchedulerCreatePlan(t *testing.T) {
 func TestSchedulerGetPlan(t *testing.T) {
 	scheduler := NewScheduler(nil, nil)
 
-	_, _ = scheduler.CreatePlan(nil, "plan-001", "Test Plan", "Test Goal")
+	_, _ = scheduler.CreatePlan(context.Background(), "plan-001", "Test Plan", "Test Goal")
 
 	plan, err := scheduler.GetPlan("plan-001")
 	if err != nil {

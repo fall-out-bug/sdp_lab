@@ -39,7 +39,10 @@ func queryCmd(args []string) {
 func queryReadyCmd(args []string) {
 	fs := flag.NewFlagSet("ready", flag.ExitOnError)
 	formatFlag := fs.String("format", "text", "Output format: json or text")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		fmt.Fprintf(os.Stderr, "parse flags: %v\n", err)
+		os.Exit(1)
+	}
 
 	// Use bd ready command (fastest)
 	issues, err := beads.ReadyCommand()
@@ -75,7 +78,10 @@ func queryDepsCmd(args []string) {
 	fs := flag.NewFlagSet("deps", flag.ExitOnError)
 	typeFlag := fs.String("type", "blocks", "Dependency type: blocks, parent-child, discovered-from, related")
 	formatFlag := fs.String("format", "text", "Output format: json or text")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		fmt.Fprintf(os.Stderr, "parse flags: %v\n", err)
+		os.Exit(1)
+	}
 
 	// Create Beads client
 	client, err := beads.NewClient("")
@@ -106,7 +112,10 @@ func queryDepsCmd(args []string) {
 func queryStatsCmd(args []string) {
 	fs := flag.NewFlagSet("stats", flag.ExitOnError)
 	formatFlag := fs.String("format", "text", "Output format: json or text")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		fmt.Fprintf(os.Stderr, "parse flags: %v\n", err)
+		os.Exit(1)
+	}
 
 	// Create Beads client
 	client, err := beads.NewClient("")
@@ -149,7 +158,10 @@ func queryBlockersCmd(args []string) {
 	fs := flag.NewFlagSet("blockers", flag.ExitOnError)
 	formatFlag := fs.String("format", "text", "Output format: json or text")
 	transitiveFlag := fs.Bool("transitive", false, "Show transitive blockers")
-	fs.Parse(args)
+	if err := fs.Parse(args); err != nil {
+		fmt.Fprintf(os.Stderr, "parse flags: %v\n", err)
+		os.Exit(1)
+	}
 
 	if fs.NArg() < 1 {
 		fmt.Fprintln(os.Stderr, "Usage: sdp-beads-bridge query blockers <issue-id>")

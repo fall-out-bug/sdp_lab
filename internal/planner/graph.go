@@ -68,7 +68,6 @@ func (t *Task) ToMap() map[string]interface{} {
 	}
 }
 
-
 type Phase struct {
 	ID          string
 	Name        string
@@ -89,7 +88,6 @@ type Plan struct {
 	status    PlanStatus
 	createdAt time.Time
 	updatedAt time.Time
-	metadata  map[string]interface{}
 }
 
 type PlanStatus string
@@ -438,7 +436,6 @@ type PlanGraph struct {
 	Nodes []*PlanNode `json:"nodes"`
 	Edges []*PlanEdge `json:"edges"`
 }
-
 
 func (g *PlanGraph) AddEdge(edge *PlanEdge) {
 	g.Edges = append(g.Edges, edge)
