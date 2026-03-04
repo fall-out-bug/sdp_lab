@@ -77,13 +77,23 @@ func TestFindAttestation_ThirdFallbackReturnsMatch(t *testing.T) {
 		t.Fatalf("write second file: %v", err)
 	}
 
-	got := findAttestation(dir, "does-not-exist", "run-")
+	got, err := findAttestation(dir, "does-not-exist", "run-")
+	if err != nil {
+		t.Fatalf("findAttestation error: %v", err)
+	}
 	if got == "" {
 		t.Fatal("expected fallback attestation path, got empty string")
 	}
 
 	if got != second {
 		t.Fatalf("fallback path = %q, want %q", got, second)
+	}
+}
+
+func TestFindAttestation_BadPatternReturnsError(t *testing.T) {
+	_, err := findAttestation(t.TempDir(), "[", "run-")
+	if err == nil {
+		t.Fatal("expected bad glob pattern error, got nil")
 	}
 }
 

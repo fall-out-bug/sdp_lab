@@ -180,6 +180,12 @@ func collectTestResults(repoRoot string) ([]GateResult, float64) {
 	cmd := exec.Command("go", "test", "./...", "-count=1", "-cover", "-json")
 	cmd.Dir = repoRoot
 	out, err := cmd.Output()
+	if err != nil {
+		return []GateResult{{
+			Name:   "go-test",
+			Status: fmt.Sprintf("fail: %v", err),
+		}}, -1
+	}
 
 	passed := 0
 	failed := 0
@@ -216,7 +222,7 @@ func collectTestResults(repoRoot string) ([]GateResult, float64) {
 	}
 
 	status := "pass"
-	if err != nil || failed > 0 {
+	if failed > 0 {
 		status = "fail"
 	}
 
@@ -338,11 +344,12 @@ func collectDeclaredScopePrefixes(repoRoot string) []string {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
 			continue
 		}
+
 		f, err := os.Open(filepath.Join(backlogDir, e.Name()))
 		if err != nil {
 			continue
 		}
-		defer func(f *os.File) { _ = f.Close() }(f) // Pass f as parameter to capture value, not reference
+
 		inScopeSection := false
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
@@ -362,6 +369,11 @@ func collectDeclaredScopePrefixes(repoRoot string) []string {
 					prefixes = append(prefixes, path)
 				}
 			}
+		}
+
+		_ = f.Close()
+		if scanner.Err() != nil {
+			continue
 		}
 	}
 	return prefixes

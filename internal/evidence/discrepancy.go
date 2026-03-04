@@ -62,11 +62,17 @@ func CompareAttestations(runID string, opts CompareOptions) (DiscrepancyReport, 
 	}
 
 	// Find agent attestation (not CI)
-	agentPath := findAttestation(opts.EvidenceDir, runID, "run-")
+	agentPath, err := findAttestation(opts.EvidenceDir, runID, "run-")
+	if err != nil {
+		return report, fmt.Errorf("find agent attestation: %w", err)
+	}
 	report.AgentFile = agentPath
 
 	// Find CI attestation
-	ciPath := findAttestation(opts.EvidenceDir, runID, "ci-auto-")
+	ciPath, err := findAttestation(opts.EvidenceDir, runID, "ci-auto-")
+	if err != nil {
+		return report, fmt.Errorf("find CI attestation: %w", err)
+	}
 	report.CIFile = ciPath
 
 	// Load agent attestation
@@ -127,35 +133,42 @@ func CompareAttestations(runID string, opts CompareOptions) (DiscrepancyReport, 
 }
 
 // findAttestation searches for an attestation file matching the run ID.
-func findAttestation(dir, runID, prefix string) string {
+func findAttestation(dir, runID, prefix string) (string, error) {
 	// First try exact prefix + runID pattern
 	pattern := filepath.Join(dir, prefix+runID+".json")
-	matches, _ := filepath.Glob(pattern)
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return "", fmt.Errorf("glob exact attestation pattern %q: %w", pattern, err)
+	}
 	if len(matches) > 0 {
-		return matches[0]
+		return matches[0], nil
 	}
 
 	// Then try prefix + runID as substring
 	pattern = filepath.Join(dir, prefix+"*"+runID+"*.json")
-	matches, _ = filepath.Glob(pattern)
+	matches, err = filepath.Glob(pattern)
+	if err != nil {
+		return "", fmt.Errorf("glob partial attestation pattern %q: %w", pattern, err)
+	}
 	if len(matches) > 0 {
 		sort.Sort(sort.Reverse(sort.StringSlice(matches)))
-		return matches[0]
+		return matches[0], nil
 	}
 
 	// Finally try any file with prefix (for backwards compatibility)
 	if prefix != "" {
 		pattern = filepath.Join(dir, prefix+"*.json")
-		// Find evidence files for this test - glob errors are intentionally ignored
-		// (permission issues, file not found, etc patterns are handled appropriately).
-		matches, _ = filepath.Glob(pattern)
+		matches, err = filepath.Glob(pattern)
+		if err != nil {
+			return "", fmt.Errorf("glob fallback attestation pattern %q: %w", pattern, err)
+		}
 		if len(matches) > 0 {
 			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
-			return matches[0]
+			return matches[0], nil
 		}
 	}
 
-	return ""
+	return "", nil
 }
 
 // compareFileScope compares the changed files between attestations.
