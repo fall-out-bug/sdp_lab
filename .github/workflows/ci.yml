@@ -184,10 +184,171 @@ jobs:
 
       - name: Run repository consistency checks
         run: |
-          set -e
-          python3 scripts/check_repo_consistency.py --strict-ac --json
-          go run ./cmd/sdp-protocol-check --format json --strict
-          go run ./cmd/sdp-doc-sync --mode check --strict
+          set -euo pipefail
+          mkdir -p .sdp/findings
+          TS=$(date -u +%Y%m%d-%H%M%SZ)
+          RC=0
+          python3 scripts/check_repo_consistency.py --strict-ac --json > ".sdp/findings/check-repo-consistency-${TS}.json" || RC=1
+          go run ./cmd/sdp-protocol-check --format json --strict > ".sdp/findings/_raw-sdp-protocol-check-${TS}.json" || RC=1
+          go run ./cmd/sdp-doc-sync --mode check --format json --strict > ".sdp/findings/_raw-sdp-doc-sync-${TS}.json" || RC=1
+          TS="${TS}" RUN_ID="${{ github.run_id }}" RUN_NUMBER="${{ github.run_number }}" REPOSITORY="${{ github.repository }}" BRANCH="${{ github.ref_name }}" COMMIT_SHA="${{ github.sha }}" python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import uuid
+          from collections import Counter
+          from datetime import datetime, timezone
+
+          ts = os.environ["TS"]
+          run_id = int(os.environ.get("RUN_ID", "0") or 0)
+          run_number = int(os.environ.get("RUN_NUMBER", "0") or 0)
+          repository = os.environ.get("REPOSITORY", "")
+          branch = os.environ.get("BRANCH", "")
+          commit_sha = os.environ.get("COMMIT_SHA", "")
+
+          findings_dir = ".sdp/findings"
+          protocol_raw_path = f"{findings_dir}/_raw-sdp-protocol-check-{ts}.json"
+          docs_raw_path = f"{findings_dir}/_raw-sdp-doc-sync-{ts}.json"
+          protocol_out_path = f"{findings_dir}/sdp-protocol-check-{ts}.json"
+          docs_out_path = f"{findings_dir}/sdp-doc-sync-{ts}.json"
+          now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+          def load_issues(path):
+            try:
+              with open(path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+              issues = payload.get("issues", [])
+              if isinstance(issues, list):
+                return issues
+            except Exception:
+              return []
+            return []
+
+          def finding_key(*parts):
+            digest = hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
+            return digest[:16]
+
+          def protocol_category(file_path, message):
+            msg = (message or "").lower()
+            fp = (file_path or "").lower()
+            if "roadmap" in msg or "roadmap" in fp:
+              return "roadmap"
+            if "index" in msg or "index" in fp:
+              return "index"
+            if "backlog" in msg or "workstream" in msg or "workstreams" in fp:
+              return "workstream_structure"
+            if "feature" in msg:
+              return "feature_consistency"
+            return "documentation"
+
+          def summarize(findings):
+            sev = Counter()
+            cat = Counter()
+            for item in findings:
+              sev[item.get("severity", "info")] += 1
+              cat[item.get("category", "documentation")] += 1
+            return {
+              "total": len(findings),
+              "by_severity": dict(sev),
+              "by_category": dict(cat),
+            }
+
+          protocol_issues = load_issues(protocol_raw_path)
+          protocol_findings = []
+          for issue in protocol_issues:
+            severity = issue.get("severity", "warning")
+            file_path = issue.get("file", "")
+            message = issue.get("message", "")
+            code = issue.get("code", "")
+            category = protocol_category(file_path, message)
+            protocol_findings.append({
+              "finding_key": finding_key("protocol", severity, file_path, message, code),
+              "severity": severity,
+              "category": category,
+              "code": code,
+              "file": file_path,
+              "message": message,
+            })
+
+          docs_issues = load_issues(docs_raw_path)
+          docs_findings = []
+          for issue in docs_issues:
+            severity = issue.get("severity", "warning")
+            file_path = issue.get("file", "")
+            message = issue.get("message", "")
+            code = issue.get("code", "")
+            docs_findings.append({
+              "finding_key": finding_key("docs", severity, file_path, message, code),
+              "severity": severity,
+              "category": "consistency",
+              "code": code,
+              "file": file_path,
+              "message": message,
+            })
+
+          protocol_payload = {
+            "spec_version": "v1.0",
+            "findings_id": str(uuid.uuid4()),
+            "timestamp": now,
+            "source": {
+              "check_name": "sdp-protocol-check",
+              "workflow": "CI",
+              "run_id": run_id,
+              "run_number": run_number,
+              "repository": repository,
+              "branch": branch,
+              "commit_sha": commit_sha,
+            },
+            "configuration": {
+              "strict_all": True,
+            },
+            "findings": protocol_findings,
+            "summary": summarize(protocol_findings),
+          }
+
+          docs_payload = {
+            "spec_version": "v1.0",
+            "findings_id": str(uuid.uuid4()),
+            "timestamp": now,
+            "source": {
+              "check_name": "sdp-doc-sync",
+              "workflow": "CI",
+              "run_id": run_id,
+              "run_number": run_number,
+              "repository": repository,
+              "branch": branch,
+              "commit_sha": commit_sha,
+            },
+            "configuration": {
+              "strict_mode": True,
+              "check_links": True,
+              "changelog_mode": False,
+            },
+            "findings": docs_findings,
+            "summary": summarize(docs_findings),
+          }
+
+          with open(protocol_out_path, "w", encoding="utf-8") as f:
+            json.dump(protocol_payload, f, indent=2)
+            f.write("\n")
+
+          with open(docs_out_path, "w", encoding="utf-8") as f:
+            json.dump(docs_payload, f, indent=2)
+            f.write("\n")
+          PY
+          rm -f ".sdp/findings/_raw-sdp-protocol-check-${TS}.json" ".sdp/findings/_raw-sdp-doc-sync-${TS}.json"
+          if [ "$RC" -ne 0 ]; then
+            exit "$RC"
+          fi
+
+      - name: Upload findings artifact for local bridge
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sdp-findings
+          path: .sdp/findings/*.json
+          if-no-files-found: ignore
+          retention-days: 14
 
   policy-gate:
     runs-on: ubuntu-latest
