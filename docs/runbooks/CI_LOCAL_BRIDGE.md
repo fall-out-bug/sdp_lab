@@ -33,6 +33,19 @@ Back-sync
 - Each finding must include stable key fields: `source`, `path`, `rule_id`, `message`, `run_ref`.
 - Beads task metadata must include source GitHub run identifier and finding hash.
 
+## Back-sync Mapping Policy
+
+- Canonical Beads-to-GitHub mapping is stored in `external_ref` using `gh:owner/repo#<issue_number>`.
+- Parser accepts `owner/repo#<issue_number>` directly and `gh-<issue_number>` only when a default repository is configured.
+- Deterministic Beads status to GitHub label mapping:
+  - `open` -> `sdp/open`
+  - `in_progress` -> `sdp/in-progress`
+  - `blocked` -> `sdp/blocked`
+  - `deferred` -> `sdp/deferred`
+  - `closed` -> `sdp/done`
+- Every back-sync operation posts a deterministic status comment:
+  - `SDP Beads issue <id> status synchronized to <status>.`
+
 ## Operating Modes
 
 - `polling`: daemon checks GitHub every N minutes.
@@ -61,6 +74,14 @@ Back-sync
 - If GitHub API is unavailable, store pending sync tasks locally and retry with backoff.
 - If Beads write fails, keep finding in retry queue; never drop findings silently.
 - If back-sync fails, mark issue with `backsync-pending` label for next attempt.
+
+## Outage Recovery Procedure
+
+1. Verify GitHub token scope and API availability (`gh auth status`, API health).
+2. Re-run one-shot sync against the affected scope first, then re-enable polling.
+3. Confirm retry audit entries include prior failures and final recovery success.
+4. Remove `backsync-pending` only after labels/comments are synchronized.
+5. If retries continue to fail, keep the Beads issue open and attach the latest audit error in notes.
 
 ## Security and Access
 
