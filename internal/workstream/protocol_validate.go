@@ -37,23 +37,14 @@ func ValidateProtocol(projectRoot string, strictBeads, strictAll bool) (Validati
 	roadmapPath := filepath.Join(projectRoot, "docs", "roadmap", "ROADMAP.md")
 	backlogDir := filepath.Join(projectRoot, "docs", "workstreams", "backlog")
 
-	indexContent, err := os.ReadFile(indexPath)
+	indexContent, roadmapContent, entries, err := loadProtocolFiles(indexPath, roadmapPath, backlogDir)
 	if err != nil {
-		return report, fmt.Errorf("read INDEX.md: %w", err)
-	}
-	roadmapContent, err := os.ReadFile(roadmapPath)
-	if err != nil {
-		return report, fmt.Errorf("read ROADMAP.md: %w", err)
+		return report, err
 	}
 
-	entries, err := os.ReadDir(backlogDir)
-	if err != nil {
-		return report, fmt.Errorf("read backlog directory: %w", err)
-	}
-
-	indexFeatures := extractFeatures(string(indexContent))
-	roadmapFeatures := extractFeatures(string(roadmapContent))
-	indexWSIDs := extractWSIDs(string(indexContent))
+	indexFeatures := extractFeatures(indexContent)
+	roadmapFeatures := extractFeatures(roadmapContent)
+	indexWSIDs := extractWSIDs(indexContent)
 
 	wsFeatures := map[string]bool{}
 	wsFiles := map[string]bool{}
@@ -81,29 +72,8 @@ func ValidateProtocol(projectRoot string, strictBeads, strictAll bool) (Validati
 		}
 	}
 
-	for feature := range wsFeatures {
-		legacyFeature := isLegacyFeatureID(feature)
-		if !indexFeatures[feature] {
-			severity := "warning"
-			if strictAll && !legacyFeature {
-				severity = "error"
-			}
-			report.Issues = append(report.Issues, ValidationIssue{Severity: severity, File: rel(projectRoot, indexPath), Message: fmt.Sprintf("feature %s referenced by backlog WS but missing in INDEX.md", feature)})
-		}
-		if !roadmapFeatures[feature] {
-			severity := "warning"
-			if strictAll && !legacyFeature {
-				severity = "error"
-			}
-			report.Issues = append(report.Issues, ValidationIssue{Severity: severity, File: rel(projectRoot, roadmapPath), Message: fmt.Sprintf("feature %s referenced by backlog WS but missing in ROADMAP.md", feature)})
-		}
-	}
-
-	for wsid := range indexWSIDs {
-		if !wsFiles[wsid] {
-			report.Issues = append(report.Issues, ValidationIssue{Severity: "warning", File: rel(projectRoot, indexPath), Message: fmt.Sprintf("INDEX references %s but backlog file not found", wsid)})
-		}
-	}
+	report.Issues = append(report.Issues, validateFeatureReferences(projectRoot, strictAll, wsFeatures, indexFeatures, roadmapFeatures, indexPath, roadmapPath)...)
+	report.Issues = append(report.Issues, validateIndexWorkstreamReferences(projectRoot, indexWSIDs, wsFiles, indexPath)...)
 
 	sort.Slice(report.Issues, func(i, j int) bool {
 		if report.Issues[i].Severity == report.Issues[j].Severity {
@@ -118,6 +88,49 @@ func ValidateProtocol(projectRoot string, strictBeads, strictAll bool) (Validati
 	return report, nil
 }
 
+func loadProtocolFiles(indexPath, roadmapPath, backlogDir string) (string, string, []os.DirEntry, error) {
+	indexContent, err := os.ReadFile(indexPath)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("read INDEX.md: %w", err)
+	}
+
+	roadmapContent, err := os.ReadFile(roadmapPath)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("read ROADMAP.md: %w", err)
+	}
+
+	entries, err := os.ReadDir(backlogDir)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("read backlog directory: %w", err)
+	}
+
+	return string(indexContent), string(roadmapContent), entries, nil
+}
+
+func validateFeatureReferences(projectRoot string, strictAll bool, wsFeatures, indexFeatures, roadmapFeatures map[string]bool, indexPath, roadmapPath string) []ValidationIssue {
+	issues := make([]ValidationIssue, 0)
+	for feature := range wsFeatures {
+		severity := severityForStrict(strictAll, isLegacyFeatureID(feature))
+		if !indexFeatures[feature] {
+			issues = append(issues, ValidationIssue{Severity: severity, File: rel(projectRoot, indexPath), Message: fmt.Sprintf("feature %s referenced by backlog WS but missing in INDEX.md", feature)})
+		}
+		if !roadmapFeatures[feature] {
+			issues = append(issues, ValidationIssue{Severity: severity, File: rel(projectRoot, roadmapPath), Message: fmt.Sprintf("feature %s referenced by backlog WS but missing in ROADMAP.md", feature)})
+		}
+	}
+	return issues
+}
+
+func validateIndexWorkstreamReferences(projectRoot string, indexWSIDs, wsFiles map[string]bool, indexPath string) []ValidationIssue {
+	issues := make([]ValidationIssue, 0)
+	for wsid := range indexWSIDs {
+		if !wsFiles[wsid] {
+			issues = append(issues, ValidationIssue{Severity: "warning", File: rel(projectRoot, indexPath), Message: fmt.Sprintf("INDEX references %s but backlog file not found", wsid)})
+		}
+	}
+	return issues
+}
+
 type wsMeta struct {
 	WSID      string
 	FeatureID string
@@ -130,6 +143,20 @@ func validateWorkstreamFile(projectRoot, filename, content string, strictBeads, 
 	legacyWS := isLegacyWorkstreamFilename(filename)
 
 	fm := parseFrontmatter(content)
+	frontmatterIssues, earlyExit := validateFrontmatterAndMeta(file, filename, fm, strictAll, legacyWS, &meta)
+	issues = append(issues, frontmatterIssues...)
+	if earlyExit {
+		return meta, issues
+	}
+
+	issues = append(issues, validateBeadsSection(file, content, strictBeads, strictAll, legacyWS)...)
+	issues = append(issues, validateAcceptanceCriteriaSection(file, content, strictAll, legacyWS)...)
+
+	return meta, issues
+}
+
+func validateFrontmatterAndMeta(file, filename string, fm map[string]string, strictAll, legacyWS bool, meta *wsMeta) ([]ValidationIssue, bool) {
+	issues := []ValidationIssue{}
 	required := []string{"ws_id", "feature_id", "status", "priority", "size", "depends_on"}
 	missing := 0
 	for _, k := range required {
@@ -139,12 +166,8 @@ func validateWorkstreamFile(projectRoot, filename, content string, strictBeads, 
 	}
 
 	if missing == len(required) {
-		severity := "warning"
-		if strictAll && !legacyWS {
-			severity = "error"
-		}
-		issues = append(issues, ValidationIssue{Severity: severity, File: file, Message: "legacy workstream format detected (no protocol frontmatter); strict checks skipped"})
-		return meta, issues
+		issues = append(issues, ValidationIssue{Severity: severityForStrict(strictAll, legacyWS), File: file, Message: "legacy workstream format detected (no protocol frontmatter); strict checks skipped"})
+		return issues, true
 	}
 
 	for _, k := range required {
@@ -171,68 +194,71 @@ func validateWorkstreamFile(projectRoot, filename, content string, strictBeads, 
 		}
 	}
 
+	return issues, false
+}
+
+var strictBeadsIDPattern = regexp.MustCompile(`sdplab-[a-z0-9]+`)
+
+func validateBeadsSection(file, content string, strictBeads, strictAll, legacyWS bool) []ValidationIssue {
+	issues := []ValidationIssue{}
 	beadsSection, hasBeads := extractSection(content, "Beads")
 	if !hasBeads {
-		severity := "warning"
-		if strictAll && !legacyWS {
-			severity = "error"
+		issues = append(issues, ValidationIssue{Severity: severityForStrict(strictAll, legacyWS), File: file, Message: "missing section '## Beads'"})
+		return issues
+	}
+
+	beadsItems := checkboxOrBulletItems(beadsSection, false)
+	if len(beadsItems) == 0 {
+		issues = append(issues, ValidationIssue{Severity: severityForStrict(strictAll, legacyWS), File: file, Message: "section '## Beads' must contain at least one bullet item"})
+		return issues
+	}
+
+	valid := false
+	for _, item := range beadsItems {
+		if !strings.Contains(item, "sdplab-") {
+			continue
 		}
-		issues = append(issues, ValidationIssue{Severity: severity, File: file, Message: "missing section '## Beads'"})
-	} else {
-		beadsItems := checkboxOrBulletItems(beadsSection, false)
-		if len(beadsItems) == 0 {
-			severity := "warning"
-			if strictAll && !legacyWS {
-				severity = "error"
+
+		valid = true
+		if strictBeads {
+			lowerItem := strings.ToLower(item)
+			if strings.Contains(lowerItem, "sdplab-xx") || strings.Contains(lowerItem, "sdplab-xxx") || strings.Contains(lowerItem, "sdplab-placeholder") {
+				issues = append(issues, ValidationIssue{Severity: "error", File: file, Message: "Beads entry must reference concrete issue id (sdplab-<id>) in strict mode - placeholder detected"})
+			} else if !strictBeadsIDPattern.MatchString(lowerItem) {
+				issues = append(issues, ValidationIssue{Severity: "error", File: file, Message: "Beads entry must reference concrete issue id (sdplab-<id>) in strict mode"})
 			}
-			issues = append(issues, ValidationIssue{Severity: severity, File: file, Message: "section '## Beads' must contain at least one bullet item"})
-		} else {
-			valid := false
-			for _, item := range beadsItems {
-				if strings.Contains(item, "sdplab-") {
-					valid = true
-					if strictBeads {
-						// Check for placeholder patterns in strict mode
-						lowerItem := strings.ToLower(item)
-						if strings.Contains(lowerItem, "sdplab-xx") || strings.Contains(lowerItem, "sdplab-xxx") || strings.Contains(lowerItem, "sdplab-placeholder") {
-							issues = append(issues, ValidationIssue{Severity: "error", File: file, Message: "Beads entry must reference concrete issue id (sdplab-<id>) in strict mode - placeholder detected"})
-						} else if !regexp.MustCompile(`sdplab-[a-z0-9]+`).MatchString(lowerItem) {
-							issues = append(issues, ValidationIssue{Severity: "error", File: file, Message: "Beads entry must reference concrete issue id (sdplab-<id>) in strict mode"})
-						}
-					} else if strings.Contains(item, "sdplab-XX") {
-						issues = append(issues, ValidationIssue{Severity: "warning", File: file, Message: "Beads entry uses placeholder id sdplab-XX"})
-					}
-				}
-			}
-			if !valid {
-				severity := "warning"
-				if strictAll && !legacyWS {
-					severity = "error"
-				}
-				issues = append(issues, ValidationIssue{Severity: severity, File: file, Message: "Beads section must include sdplab-* reference"})
-			}
+		} else if strings.Contains(item, "sdplab-XX") {
+			issues = append(issues, ValidationIssue{Severity: "warning", File: file, Message: "Beads entry uses placeholder id sdplab-XX"})
 		}
 	}
 
+	if !valid {
+		issues = append(issues, ValidationIssue{Severity: severityForStrict(strictAll, legacyWS), File: file, Message: "Beads section must include sdplab-* reference"})
+	}
+
+	return issues
+}
+
+func validateAcceptanceCriteriaSection(file, content string, strictAll, legacyWS bool) []ValidationIssue {
+	issues := []ValidationIssue{}
 	acSection, hasAC := extractSection(content, "Acceptance Criteria")
 	if !hasAC {
-		severity := "warning"
-		if strictAll && !legacyWS {
-			severity = "error"
-		}
-		issues = append(issues, ValidationIssue{Severity: severity, File: file, Message: "missing section '## Acceptance Criteria'"})
-	} else {
-		ac := checkboxOrBulletItems(acSection, true)
-		if len(ac) == 0 {
-			severity := "warning"
-			if strictAll && !legacyWS {
-				severity = "error"
-			}
-			issues = append(issues, ValidationIssue{Severity: severity, File: file, Message: "Acceptance Criteria section must contain at least one checkbox item"})
-		}
+		issues = append(issues, ValidationIssue{Severity: severityForStrict(strictAll, legacyWS), File: file, Message: "missing section '## Acceptance Criteria'"})
+		return issues
 	}
 
-	return meta, issues
+	if ac := checkboxOrBulletItems(acSection, true); len(ac) == 0 {
+		issues = append(issues, ValidationIssue{Severity: severityForStrict(strictAll, legacyWS), File: file, Message: "Acceptance Criteria section must contain at least one checkbox item"})
+	}
+
+	return issues
+}
+
+func severityForStrict(strictAll, legacy bool) string {
+	if strictAll && !legacy {
+		return "error"
+	}
+	return "warning"
 }
 
 func parseFrontmatter(content string) map[string]string {
