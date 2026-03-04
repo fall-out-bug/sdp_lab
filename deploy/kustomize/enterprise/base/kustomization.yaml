@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../k8s/adapter/base
+  - networkpolicy.yaml
+patches:
+  - path: deployment-security-patch.yaml
+labels:
+  - pairs:
+      app.kubernetes.io/name: adapter-controller
+      app.kubernetes.io/component: controller

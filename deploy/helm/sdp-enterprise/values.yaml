@@ -1,0 +1,33 @@
+global:
+  createNamespaces: false
+  imagePullPolicy: IfNotPresent
+  podSecurity:
+    enforce: restricted
+  networkPolicy:
+    enabled: true
+    natsNamespace: sdp-adapter
+    natsPodSelector:
+      app: nats
+    natsPort: 4222
+
+tenants:
+  - name: default
+    namespace: sdp-adapter
+    replicas: 1
+    image:
+      repository: ghcr.io/fall-out-bug/sdp-dev-adapter-controller
+      tag: latest
+    natsURL: nats://nats:4222
+    workspace:
+      type: emptyDir
+      pvcName: adapter-workspaces
+      createPVC: false
+      storage: 20Gi
+      storageClassName: ""
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi

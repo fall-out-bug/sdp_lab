@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adapter-controller
+  namespace: sdp-adapter
+spec:
+  template:
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 2000
+      containers:
+        - name: controller
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
