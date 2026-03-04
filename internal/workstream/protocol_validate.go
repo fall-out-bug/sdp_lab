@@ -67,7 +67,7 @@ func ValidateProtocol(projectRoot string, strictBeads, strictAll bool) (Validati
 		if meta.WSID != "" {
 			wsFiles[meta.WSID] = true
 		}
-		if meta.FeatureID != "" {
+		if meta.FeatureID != "" && strings.ToLower(meta.Status) != "archived" {
 			wsFeatures[meta.FeatureID] = true
 		}
 	}
@@ -134,6 +134,7 @@ func validateIndexWorkstreamReferences(projectRoot string, indexWSIDs, wsFiles m
 type wsMeta struct {
 	WSID      string
 	FeatureID string
+	Status    string
 }
 
 func validateWorkstreamFile(projectRoot, filename, content string, strictBeads, strictAll bool) (wsMeta, []ValidationIssue) {
@@ -192,6 +193,10 @@ func validateFrontmatterAndMeta(file, filename string, fm map[string]string, str
 		if err := sdputil.ValidateFeatureID(fid); err != nil {
 			issues = append(issues, ValidationIssue{Severity: "error", File: file, Message: err.Error()})
 		}
+	}
+
+	if status, ok := fm["status"]; ok {
+		meta.Status = status
 	}
 
 	return issues, false
@@ -316,8 +321,40 @@ func checkboxOrBulletItems(section string, checkboxOnly bool) []string {
 
 func extractFeatures(content string) map[string]bool {
 	result := map[string]bool{}
-	re := regexp.MustCompile(`\*\*(F[0-9]{3,4})\*\*`)
-	for _, m := range re.FindAllStringSubmatch(content, -1) {
+	rangeRe := regexp.MustCompile("`(F[0-9]{3,4})`\\s*\\.\\.\\s*`(F[0-9]{3,4})`")
+	for _, m := range rangeRe.FindAllStringSubmatch(content, -1) {
+		if len(m) < 3 {
+			continue
+		}
+		var start, end int
+		if _, err := fmt.Sscanf(m[1], "F%d", &start); err != nil {
+			continue
+		}
+		if _, err := fmt.Sscanf(m[2], "F%d", &end); err != nil {
+			continue
+		}
+		if end < start {
+			continue
+		}
+		if end-start > 1000 {
+			continue
+		}
+		width := len(m[1]) - 1
+		if w := len(m[2]) - 1; w > width {
+			width = w
+		}
+		for n := start; n <= end; n++ {
+			result[fmt.Sprintf("F%0*d", width, n)] = true
+		}
+	}
+	boldRe := regexp.MustCompile(`\*\*(F[0-9]{3,4})\*\*`)
+	for _, m := range boldRe.FindAllStringSubmatch(content, -1) {
+		if len(m) > 1 {
+			result[m[1]] = true
+		}
+	}
+	backtickRe := regexp.MustCompile("`(F[0-9]{3,4})`")
+	for _, m := range backtickRe.FindAllStringSubmatch(content, -1) {
 		if len(m) > 1 {
 			result[m[1]] = true
 		}

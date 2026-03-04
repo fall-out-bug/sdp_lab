@@ -3,6 +3,7 @@ package workstream
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -180,6 +181,236 @@ depends_on: []
 	if report.HasErrors() {
 		t.Fatalf("expected legacy strict findings as warnings, got: %+v", report.Issues)
 	}
+}
+
+func TestValidateProtocolArchivedFeatureIgnoredInRoadmapCoverage(t *testing.T) {
+	root := t.TempDir()
+	mkdir(t, filepath.Join(root, "docs", "workstreams", "backlog"))
+	mkdir(t, filepath.Join(root, "docs", "workstreams"))
+	mkdir(t, filepath.Join(root, "docs", "roadmap"))
+
+	write(t, filepath.Join(root, "docs", "workstreams", "INDEX.md"), "# Workstream Index\n")
+	write(t, filepath.Join(root, "docs", "roadmap", "ROADMAP.md"), "# Roadmap\n")
+	write(t, filepath.Join(root, "docs", "workstreams", "backlog", "00-001-01.md"), `---
+ws_id: 00-001-01
+feature_id: F001
+status: archived
+priority: P1
+size: S
+depends_on: []
+---
+
+# 00-001-01: Archived Example
+
+## Beads
+
+- sdplab-1: archived
+
+## Acceptance Criteria
+
+- [ ] archived
+`)
+
+	report, err := ValidateProtocol(root, true, true)
+	if err != nil {
+		t.Fatalf("ValidateProtocol error: %v", err)
+	}
+	for _, issue := range report.Issues {
+		if strings.Contains(issue.Message, "feature F001 referenced by backlog WS but missing in ROADMAP.md") {
+			t.Fatalf("unexpected roadmap drift warning for archived feature: %+v", report.Issues)
+		}
+		if strings.Contains(issue.Message, "feature F001 referenced by backlog WS but missing in INDEX.md") {
+			t.Fatalf("unexpected index drift warning for archived feature: %+v", report.Issues)
+		}
+	}
+}
+
+func TestValidateProtocolActiveFeatureStillCheckedForRoadmapCoverage(t *testing.T) {
+	root := t.TempDir()
+	mkdir(t, filepath.Join(root, "docs", "workstreams", "backlog"))
+	mkdir(t, filepath.Join(root, "docs", "workstreams"))
+	mkdir(t, filepath.Join(root, "docs", "roadmap"))
+
+	write(t, filepath.Join(root, "docs", "workstreams", "INDEX.md"), "# Workstream Index\n")
+	write(t, filepath.Join(root, "docs", "roadmap", "ROADMAP.md"), "# Roadmap\n")
+	write(t, filepath.Join(root, "docs", "workstreams", "backlog", "00-100-01.md"), `---
+ws_id: 00-100-01
+feature_id: F100
+status: backlog
+priority: P1
+size: S
+depends_on: []
+---
+
+# 00-100-01: Active Example
+
+## Beads
+
+- sdplab-1: active
+
+## Acceptance Criteria
+
+- [ ] active
+`)
+
+	report, err := ValidateProtocol(root, true, true)
+	if err != nil {
+		t.Fatalf("ValidateProtocol error: %v", err)
+	}
+	if !hasIssueContaining(report.Issues, "feature F100 referenced by backlog WS but missing in ROADMAP.md") {
+		t.Fatalf("expected roadmap coverage issue for active feature, got: %+v", report.Issues)
+	}
+}
+
+func TestValidateProtocolMixedArchivedAndActiveStillChecksFeature(t *testing.T) {
+	root := t.TempDir()
+	mkdir(t, filepath.Join(root, "docs", "workstreams", "backlog"))
+	mkdir(t, filepath.Join(root, "docs", "workstreams"))
+	mkdir(t, filepath.Join(root, "docs", "roadmap"))
+
+	write(t, filepath.Join(root, "docs", "workstreams", "INDEX.md"), "# Workstream Index\n")
+	write(t, filepath.Join(root, "docs", "roadmap", "ROADMAP.md"), "# Roadmap\n")
+
+	write(t, filepath.Join(root, "docs", "workstreams", "backlog", "00-100-01.md"), `---
+ws_id: 00-100-01
+feature_id: F100
+status: archived
+priority: P1
+size: S
+depends_on: []
+---
+
+# 00-100-01: Archived
+
+## Beads
+
+- sdplab-1: archived
+
+## Acceptance Criteria
+
+- [ ] archived
+`)
+
+	write(t, filepath.Join(root, "docs", "workstreams", "backlog", "00-100-02.md"), `---
+ws_id: 00-100-02
+feature_id: F100
+status: backlog
+priority: P1
+size: S
+depends_on: []
+---
+
+# 00-100-02: Active
+
+## Beads
+
+- sdplab-2: active
+
+## Acceptance Criteria
+
+- [ ] active
+`)
+
+	report, err := ValidateProtocol(root, true, true)
+	if err != nil {
+		t.Fatalf("ValidateProtocol error: %v", err)
+	}
+	if !hasIssueContaining(report.Issues, "feature F100 referenced by backlog WS but missing in ROADMAP.md") {
+		t.Fatalf("expected roadmap coverage issue when feature has active ws, got: %+v", report.Issues)
+	}
+}
+
+func TestValidateProtocolRoadmapBacktickFeatureCountsAsPresent(t *testing.T) {
+	root := t.TempDir()
+	mkdir(t, filepath.Join(root, "docs", "workstreams", "backlog"))
+	mkdir(t, filepath.Join(root, "docs", "workstreams"))
+	mkdir(t, filepath.Join(root, "docs", "roadmap"))
+
+	write(t, filepath.Join(root, "docs", "workstreams", "INDEX.md"), `# Workstream Index
+
+| Feature | Description | Workstreams | Status |
+|---------|-------------|-------------|--------|
+| **F100** | Example | 00-100-01 | Backlog |
+`)
+	write(t, filepath.Join(root, "docs", "roadmap", "ROADMAP.md"), "# Roadmap\n\n- `F100` — Example\n")
+	write(t, filepath.Join(root, "docs", "workstreams", "backlog", "00-100-01.md"), `---
+ws_id: 00-100-01
+feature_id: F100
+status: backlog
+priority: P1
+size: S
+depends_on: []
+---
+
+# 00-100-01: Active Example
+
+## Beads
+
+- sdplab-1: active
+
+## Acceptance Criteria
+
+- [ ] active
+`)
+
+	report, err := ValidateProtocol(root, true, true)
+	if err != nil {
+		t.Fatalf("ValidateProtocol error: %v", err)
+	}
+	if hasIssueContaining(report.Issues, "feature F100 referenced by backlog WS but missing in ROADMAP.md") {
+		t.Fatalf("did not expect roadmap drift issue when roadmap uses backtick feature id, got: %+v", report.Issues)
+	}
+}
+
+func TestValidateProtocolRoadmapBacktickRangeCountsAsPresent(t *testing.T) {
+	root := t.TempDir()
+	mkdir(t, filepath.Join(root, "docs", "workstreams", "backlog"))
+	mkdir(t, filepath.Join(root, "docs", "workstreams"))
+	mkdir(t, filepath.Join(root, "docs", "roadmap"))
+
+	write(t, filepath.Join(root, "docs", "workstreams", "INDEX.md"), `# Workstream Index
+
+| Feature | Description | Workstreams | Status |
+|---------|-------------|-------------|--------|
+| **F015** | Example | 00-015-01 | Backlog |
+`)
+	write(t, filepath.Join(root, "docs", "roadmap", "ROADMAP.md"), "# Roadmap\n\n- Completed bootstrap features: `F014`..`F030`\n")
+	write(t, filepath.Join(root, "docs", "workstreams", "backlog", "00-015-01.md"), `---
+ws_id: 00-015-01
+feature_id: F015
+status: backlog
+priority: P1
+size: S
+depends_on: []
+---
+
+# 00-015-01: Active Example
+
+## Beads
+
+- sdplab-1: active
+
+## Acceptance Criteria
+
+- [ ] active
+`)
+
+	report, err := ValidateProtocol(root, true, true)
+	if err != nil {
+		t.Fatalf("ValidateProtocol error: %v", err)
+	}
+	if hasIssueContaining(report.Issues, "feature F015 referenced by backlog WS but missing in ROADMAP.md") {
+		t.Fatalf("did not expect roadmap drift issue when roadmap includes backtick range, got: %+v", report.Issues)
+	}
+}
+
+func hasIssueContaining(issues []ValidationIssue, needle string) bool {
+	for _, issue := range issues {
+		if strings.Contains(issue.Message, needle) {
+			return true
+		}
+	}
+	return false
 }
 
 func makeProject(t *testing.T, featureID, wsFile, wsContent string) string {
