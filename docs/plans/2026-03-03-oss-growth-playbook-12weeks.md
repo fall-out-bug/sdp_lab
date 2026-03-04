@@ -782,10 +782,10 @@ Create a markdown file `docs/plans/kpi-week-X.md` for each week:
 
 | Content Type | Published | Views | Downloads | Comments |
 |--------------|-----------|-------|------------|-----------|
-| Blog Post | [Title](link) | XX | - | XX |
-| Video | [Title](link) | XX | - | XX |
+| Blog Post | Title (link TBD) | XX | - | XX |
+| Video | Title (link TBD) | XX | - | XX |
 | GitHub Release | v0.XX.X | - | XX | - |
-| Example/Integration | [Name](link) | - | XX | XX |
+| Example/Integration | Name (link TBD) | - | XX | XX |
 
 ## Milestones
 
@@ -913,18 +913,18 @@ Downloads: 0 → 300/month
 
 ## Appendix: Weekly KPI Reports
 
-- [Week 1](kpi-week-1.md)
-- [Week 2](kpi-week-2.md)
-- [Week 3](kpi-week-3.md)
-- [Week 4](kpi-week-4.md)
-- [Week 5](kpi-week-5.md)
-- [Week 6](kpi-week-6.md)
-- [Week 7](kpi-week-7.md)
-- [Week 8](kpi-week-8.md)
-- [Week 9](kpi-week-9.md)
-- [Week 10](kpi-week-10.md)
-- [Week 11](kpi-week-11.md)
-- [Week 12](kpi-week-12.md)
+- Week 1 (`kpi-week-1.md`)
+- Week 2 (`kpi-week-2.md`)
+- Week 3 (`kpi-week-3.md`)
+- Week 4 (`kpi-week-4.md`)
+- Week 5 (`kpi-week-5.md`)
+- Week 6 (`kpi-week-6.md`)
+- Week 7 (`kpi-week-7.md`)
+- Week 8 (`kpi-week-8.md`)
+- Week 9 (`kpi-week-9.md`)
+- Week 10 (`kpi-week-10.md`)
+- Week 11 (`kpi-week-11.md`)
+- Week 12 (`kpi-week-12.md`)
 ```
 
 ---
@@ -1136,18 +1136,18 @@ After 12 weeks, SDP is a **usable evidence layer** for AI coding agents with:
 
 ## Priority 1 (Must Ship)
 
-- [ ] Task 1: Description (@username) — [Evidence](link) — [Deadline](YYYY-MM-DD)
-- [ ] Task 2: Description (@username) — [Evidence](link) — [Deadline](YYYY-MM-DD)
-- [ ] Task 3: Description (@username) — [Evidence](link) — [Deadline](YYYY-MM-DD)
+- [ ] Task 1: Description (@username) — Evidence (link TBD) — Deadline (YYYY-MM-DD)
+- [ ] Task 2: Description (@username) — Evidence (link TBD) — Deadline (YYYY-MM-DD)
+- [ ] Task 3: Description (@username) — Evidence (link TBD) — Deadline (YYYY-MM-DD)
 
 ## Priority 2 (Should Ship)
 
-- [ ] Task 4: Description (@username) — [Evidence](link) — [Deadline](YYYY-MM-DD)
-- [ ] Task 5: Description (@username) — [Evidence](link) — [Deadline](YYYY-MM-DD)
+- [ ] Task 4: Description (@username) — Evidence (link TBD) — Deadline (YYYY-MM-DD)
+- [ ] Task 5: Description (@username) — Evidence (link TBD) — Deadline (YYYY-MM-DD)
 
 ## Priority 3 (Nice to Ship)
 
-- [ ] Task 6: Description (@username) — [Evidence](link) — [Deadline](YYYY-MM-DD)
+- [ ] Task 6: Description (@username) — Evidence (link TBD) — Deadline (YYYY-MM-DD)
 
 ## Blockers
 
@@ -1156,25 +1156,25 @@ After 12 weeks, SDP is a **usable evidence layer** for AI coding agents with:
 
 ## Deliverables
 
-- [ ] Deliverable 1: [Link](url) — [Status](🔴/🟡/🟢)
-- [ ] Deliverable 2: [Link](url) — [Status](🔴/🟡/🟢)
-- [ ] Deliverable 3: [Link](url) — [Status](🔴/🟡/🟢)
+- [ ] Deliverable 1: Link (url TBD) — Status (red/yellow/green)
+- [ ] Deliverable 2: Link (url TBD) — Status (red/yellow/green)
+- [ ] Deliverable 3: Link (url TBD) — Status (red/yellow/green)
 
 ## This Week's Shipment
 
 **Release:** v0.XX.X  
-**Release Notes:** [Link](url)  
-**Binary Downloads:** [Linux](url) [macOS](url) [Windows](url)  
-**Blog Post:** [Title](url)  
-**Video:** [Title](url)  
-**Examples:** [Link](url)
+**Release Notes:** Link (url TBD)  
+**Binary Downloads:** Linux (url TBD), macOS (url TBD), Windows (url TBD)  
+**Blog Post:** Title (url TBD)  
+**Video:** Title (url TBD)  
+**Examples:** Link (url TBD)
 
 ## Next Week Preview
 
 **Planned Release:** v0.XX.X  
 **Key Features:** Feature 1, Feature 2, Feature 3  
-**Planned Blog Post:** [Title](url)  
-**Planned Video:** [Title](url)
+**Planned Blog Post:** Title (url TBD)  
+**Planned Video:** Title (url TBD)
 ```
 
 ---
@@ -1261,7 +1261,7 @@ Feedback welcome! Looking for Go developers interested in AI agent governance.
 - [GitHub repo](https://github.com/fall-out-bug/sdp)
 - [Documentation](https://docs.sdp.dev)
 - [Installation guide](https://docs.sdp.dev/installation)
-- [Discord/Slack](link)
+- Discord/Slack (link TBD)
 ```
 
 ---
@@ -1306,22 +1306,22 @@ sdp-evidence validate --evidence .sdp/evidence/run-123.json
 
 ## Breaking Changes
 
-**[If any]** This release includes breaking changes. Please see the [migration guide](link).
+**[If any]** This release includes breaking changes. Please see the migration guide (link TBD).
 
 ## Documentation
 
-- [New documentation page](link)
-- [Updated documentation page](link)
+- New documentation page (link TBD)
+- Updated documentation page (link TBD)
 
 ## Integrations
 
-- [Integration 1](link) — New
-- [Integration 2](link) — Updated
+- Integration 1 (link TBD) — New
+- Integration 2 (link TBD) — Updated
 
 ## Examples
 
-- [Example 1](link) — New
-- [Example 2](link) — Updated
+- Example 1 (link TBD) — New
+- Example 2 (link TBD) — Updated
 
 ## Upgrading
 
@@ -1341,8 +1341,8 @@ curl -sSL https://github.com/fall-out-bug/sdp/releases/download/v0.XX.X/sdp-evid
 
 ## Contributors
 
-- [@username1](link) — [Contribution]
-- [@username2](link) — [Contribution]
+- @username1 (profile link TBD) — Contribution
+- @username2 (profile link TBD) — Contribution
 
 ## Next Release
 

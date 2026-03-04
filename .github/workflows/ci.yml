@@ -177,10 +177,17 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
       - name: Run repository consistency checks
         run: |
           set -e
           python3 scripts/check_repo_consistency.py --strict-ac --json
+          go run ./cmd/sdp-protocol-check --format json --strict
+          go run ./cmd/sdp-doc-sync --mode check --strict
 
   policy-gate:
     runs-on: ubuntu-latest

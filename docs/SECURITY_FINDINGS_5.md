@@ -91,7 +91,7 @@
 
 | File:Line | Severity | Description |
 |-----------|----------|-------------|
-| `internal/docsync/docsync.go:167-168` | **MEDIUM** | `resolved := filepath.Clean(filepath.Join(filepath.Dir(path), target))` — target from markdown `[text](target)`. If target is `../../../etc/passwd`, resolved can be outside `docsRoot`. Currently only `os.Stat(resolved)` is used (existence check), but pattern is unsafe if code later reads the file. |
+| `internal/docsync/docsync.go:167-168` | **MEDIUM** | `resolved := filepath.Clean(filepath.Join(filepath.Dir(path), target))` — target from markdown link syntax (for example `../../../etc/passwd`) can push resolution outside `docsRoot`. Currently only `os.Stat(resolved)` is used (existence check), but pattern is unsafe if code later reads the file. |
 
 **Recommendation:** Verify `resolved` is under `docsRoot` using `filepath.Rel(projectRoot, resolved)` and reject if result starts with `..`.
 

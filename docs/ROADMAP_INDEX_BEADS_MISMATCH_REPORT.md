@@ -27,7 +27,7 @@
 | **F053** | Phase 4 Beads Remediation (00-053-01 … 00-053-46) | No | No | No |
 | **F054** | Continuous Protocol Improvement (00-054-01 … 00-054-06) | No | No | No |
 
-**Impact:** ROADMAP says "See [INDEX](../workstreams/INDEX.md)" for F053, but INDEX has no F053/F054 sections. No backlog files `00-053-*.md` or `00-054-*.md` exist.
+**Impact:** ROADMAP says "See [INDEX](workstreams/INDEX.md)" for F053, but INDEX has no F053/F054 sections. No backlog files `00-053-*.md` or `00-054-*.md` exist.
 
 **File references:**
 - `/home/fall_out_bug/projects/vibe_coding/sdp_lab/docs/roadmap/ROADMAP.md` (lines 276–277)
