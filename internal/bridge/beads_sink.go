@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -22,23 +21,29 @@ type SyncStats struct {
 	Failed    int `json:"failed"`
 }
 
+type beadsIssueSummary struct {
+	ID     string   `json:"id"`
+	Status string   `json:"status"`
+	Labels []string `json:"labels"`
+}
+
 // BeadsSink creates and updates Beads tasks from findings.
 type BeadsSink struct {
-	mu       sync.RWMutex
-	prefix   string // Issue prefix (e.g., "sdplab-")
-	dryRun   bool
-	labels   []string
-	stats    SyncStats
-	findings map[string]bool // Track existing findings by key
+	mu     sync.RWMutex
+	prefix string // Issue prefix (e.g., "sdplab-")
+	dryRun bool
+	labels []string
+	stats  SyncStats
+	dedupe *DedupeStore
 }
 
 // NewBeadsSink creates a new Beads sink.
 func NewBeadsSink(prefix string, dryRun bool, defaultLabels []string) *BeadsSink {
 	return &BeadsSink{
-		prefix:   prefix,
-		dryRun:   dryRun,
-		labels:   defaultLabels,
-		findings: make(map[string]bool),
+		prefix: prefix,
+		dryRun: dryRun,
+		labels: defaultLabels,
+		dedupe: NewDedupeStore(),
 	}
 }
 
@@ -51,27 +56,26 @@ func (s *BeadsSink) GetStats() SyncStats {
 
 // LoadExistingFindings loads existing findings keys from Beads.
 func (s *BeadsSink) LoadExistingFindings(ctx context.Context) error {
-	// Query existing issues with finding_key label
-	cmd := exec.CommandContext(ctx, "bd", "list", "-l", "ci-finding", "--json")
+	cmd := exec.CommandContext(ctx, "bd", "list", "--all", "-l", "ci-finding", "--json", "-n", "0")
 	output, err := cmd.Output()
 	if err != nil {
-		// May not have any existing findings, that's OK
-		return nil
+		return fmt.Errorf("list existing ci findings: %w", err)
 	}
 
-	var issues []map[string]interface{}
+	var issues []beadsIssueSummary
 	if err := json.Unmarshal(output, &issues); err != nil {
-		// Log parse error but don't fail - existing findings are optional
-		return nil
+		return fmt.Errorf("parse existing ci findings: %w", err)
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	existing := make([]ExistingIssue, 0, len(issues))
 	for _, issue := range issues {
-		if id, ok := issue["id"].(string); ok {
-			s.findings[id] = true
-		}
+		existing = append(existing, ExistingIssue{
+			ID:     issue.ID,
+			Status: issue.Status,
+			Labels: issue.Labels,
+		})
 	}
+	s.dedupe.ImportExisting(existing)
 
 	return nil
 }
@@ -121,47 +125,38 @@ func (s *BeadsSink) syncProtocolFinding(ctx context.Context, f *ProtocolFinding,
 		return nil
 	}
 
-	// Generate unique key for deduplication
-	key := fmt.Sprintf("finding-%s", f.FindingKey)
-	s.mu.RLock()
-	exists := s.findings[key]
-	s.mu.RUnlock()
-	if exists {
+	findingHash, payloadHash := ProtocolFindingHashes(*source, *f)
+	decision := s.dedupe.Decide(findingHash, payloadHash)
+	if decision.Action == DedupeSkip {
 		s.mu.Lock()
 		s.stats.Skipped++
 		s.mu.Unlock()
 		return nil
+	}
+	if (decision.Action == DedupeUpdate || decision.Action == DedupeReopenUpdate) && decision.IssueID == "" {
+		decision.Action = DedupeCreate
 	}
 
 	// Build title
 	title := fmt.Sprintf("[%s] %s: %s", f.Category, f.Code, truncate(f.Message, 60))
 
 	// Build description
-	desc := s.buildProtocolDescription(f, source)
+	desc := s.buildProtocolDescription(f, source, findingHash, payloadHash)
 
 	// Build labels
-	labels := s.buildLabels(f.Severity, f.Category, f.Context.FeatureID, f.Context.WSID)
+	labels := s.buildLabels(f.Severity, f.Category, f.Context.FeatureID, f.Context.WSID, findingHash, payloadHash)
 
 	// Determine priority
 	priority := severityToPriority(f.Severity)
 
-	// Create the issue
 	if s.dryRun {
-		fmt.Printf("[DRY-RUN] Would create: %s\n", title)
-		s.mu.Lock()
-		s.stats.Created++
-		s.mu.Unlock()
+		s.handleDryRunDecision(decision, findingHash, payloadHash, title)
 		return nil
 	}
 
-	if err := s.createBeadsIssue(ctx, title, desc, priority, labels); err != nil {
+	if err := s.applyDecision(ctx, decision, title, desc, priority, labels); err != nil {
 		return err
 	}
-
-	s.mu.Lock()
-	s.stats.Created++
-	s.findings[key] = true
-	s.mu.Unlock()
 	return nil
 }
 
@@ -174,51 +169,42 @@ func (s *BeadsSink) syncDocsFinding(ctx context.Context, f *DocsFinding, source 
 		return nil
 	}
 
-	// Generate unique key for deduplication
-	key := fmt.Sprintf("finding-%s", f.FindingKey)
-	s.mu.RLock()
-	exists := s.findings[key]
-	s.mu.RUnlock()
-	if exists {
+	findingHash, payloadHash := DocsFindingHashes(*source, *f)
+	decision := s.dedupe.Decide(findingHash, payloadHash)
+	if decision.Action == DedupeSkip {
 		s.mu.Lock()
 		s.stats.Skipped++
 		s.mu.Unlock()
 		return nil
+	}
+	if (decision.Action == DedupeUpdate || decision.Action == DedupeReopenUpdate) && decision.IssueID == "" {
+		decision.Action = DedupeCreate
 	}
 
 	// Build title
 	title := fmt.Sprintf("[docs:%s] %s", f.Category, truncate(f.Message, 60))
 
 	// Build description
-	desc := s.buildDocsDescription(f, source)
+	desc := s.buildDocsDescription(f, source, findingHash, payloadHash)
 
 	// Build labels
-	labels := s.buildLabels(f.Severity, f.Category, "", "")
+	labels := s.buildLabels(f.Severity, f.Category, "", "", findingHash, payloadHash)
 
 	// Determine priority
 	priority := severityToPriority(f.Severity)
 
-	// Create the issue
 	if s.dryRun {
-		fmt.Printf("[DRY-RUN] Would create: %s\n", title)
-		s.mu.Lock()
-		s.stats.Created++
-		s.mu.Unlock()
+		s.handleDryRunDecision(decision, findingHash, payloadHash, title)
 		return nil
 	}
 
-	if err := s.createBeadsIssue(ctx, title, desc, priority, labels); err != nil {
+	if err := s.applyDecision(ctx, decision, title, desc, priority, labels); err != nil {
 		return err
 	}
-
-	s.mu.Lock()
-	s.stats.Created++
-	s.findings[key] = true
-	s.mu.Unlock()
 	return nil
 }
 
-func (s *BeadsSink) buildProtocolDescription(f *ProtocolFinding, source *FindingsSource) string {
+func (s *BeadsSink) buildProtocolDescription(f *ProtocolFinding, source *FindingsSource, findingHash, payloadHash string) string {
 	var buf bytes.Buffer
 
 	buf.WriteString(fmt.Sprintf("**Category:** %s\n", f.Category))
@@ -255,12 +241,14 @@ func (s *BeadsSink) buildProtocolDescription(f *ProtocolFinding, source *Finding
 		buf.WriteString("\n")
 	}
 
+	buf.WriteString(fmt.Sprintf("**Finding Hash:** `%s`\n", findingHash))
+	buf.WriteString(fmt.Sprintf("**Payload Hash:** `%s`\n\n", payloadHash))
 	buf.WriteString(fmt.Sprintf("---\n*Source: %s (run %d)*\n", source.CheckName, source.RunID))
 
 	return buf.String()
 }
 
-func (s *BeadsSink) buildDocsDescription(f *DocsFinding, source *FindingsSource) string {
+func (s *BeadsSink) buildDocsDescription(f *DocsFinding, source *FindingsSource, findingHash, payloadHash string) string {
 	var buf bytes.Buffer
 
 	buf.WriteString(fmt.Sprintf("**Category:** %s\n", f.Category))
@@ -291,12 +279,14 @@ func (s *BeadsSink) buildDocsDescription(f *DocsFinding, source *FindingsSource)
 		buf.WriteString("\n")
 	}
 
+	buf.WriteString(fmt.Sprintf("**Finding Hash:** `%s`\n", findingHash))
+	buf.WriteString(fmt.Sprintf("**Payload Hash:** `%s`\n\n", payloadHash))
 	buf.WriteString(fmt.Sprintf("---\n*Source: %s (run %d)*\n", source.CheckName, source.RunID))
 
 	return buf.String()
 }
 
-func (s *BeadsSink) buildLabels(severity, category, featureID, wsID string) []string {
+func (s *BeadsSink) buildLabels(severity, category, featureID, wsID, findingHash, payloadHash string) []string {
 	labels := []string{"ci-finding", severity}
 
 	if category != "" {
@@ -311,13 +301,21 @@ func (s *BeadsSink) buildLabels(severity, category, featureID, wsID string) []st
 		labels = append(labels, wsID)
 	}
 
+	if findingHash != "" {
+		labels = append(labels, findingHashLabel(findingHash))
+	}
+
+	if payloadHash != "" {
+		labels = append(labels, payloadHashLabel(payloadHash))
+	}
+
 	// Add default labels
 	labels = append(labels, s.labels...)
 
 	return labels
 }
 
-func (s *BeadsSink) createBeadsIssue(ctx context.Context, title, description string, priority int, labels []string) error {
+func (s *BeadsSink) createBeadsIssue(ctx context.Context, title, description string, priority int, labels []string) (string, error) {
 	args := []string{
 		"create",
 		"--silent",
@@ -330,10 +328,115 @@ func (s *BeadsSink) createBeadsIssue(ctx context.Context, title, description str
 	}
 
 	cmd := exec.CommandContext(ctx, "bd", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("bd create failed: %w: %s", err, strings.TrimSpace(string(output)))
+	}
 
-	return cmd.Run()
+	issueID := strings.TrimSpace(string(output))
+	if issueID == "" {
+		return "", fmt.Errorf("bd create returned empty issue id")
+	}
+
+	return issueID, nil
+}
+
+func (s *BeadsSink) updateBeadsIssue(ctx context.Context, issueID, title, description string, priority int, labels []string) error {
+	args := []string{"update", issueID, "--title", title, "-d", description, "-p", fmt.Sprintf("%d", priority)}
+	for _, label := range labels {
+		args = append(args, "--add-label", label)
+	}
+
+	cmd := exec.CommandContext(ctx, "bd", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("bd update %s failed: %w: %s", issueID, err, strings.TrimSpace(string(output)))
+	}
+
+	return nil
+}
+
+func (s *BeadsSink) reopenBeadsIssue(ctx context.Context, issueID, reason string) error {
+	args := []string{"reopen", issueID}
+	if reason != "" {
+		args = append(args, "--reason", reason)
+	}
+
+	cmd := exec.CommandContext(ctx, "bd", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("bd reopen %s failed: %w: %s", issueID, err, strings.TrimSpace(string(output)))
+	}
+
+	return nil
+}
+
+func (s *BeadsSink) handleDryRunDecision(decision DedupeDecision, findingHash, payloadHash, title string) {
+	switch decision.Action {
+	case DedupeCreate:
+		fmt.Printf("[DRY-RUN] Would create: %s\n", title)
+		s.dedupe.RecordCreated(findingHash, payloadHash, "dry-run")
+		s.mu.Lock()
+		s.stats.Created++
+		s.mu.Unlock()
+	case DedupeUpdate:
+		fmt.Printf("[DRY-RUN] Would update: %s\n", decision.IssueID)
+		s.dedupe.RecordUpdated(findingHash, payloadHash)
+		s.mu.Lock()
+		s.stats.Updated++
+		s.mu.Unlock()
+	case DedupeReopenUpdate:
+		fmt.Printf("[DRY-RUN] Would reopen+update: %s\n", decision.IssueID)
+		s.dedupe.RecordUpdated(findingHash, payloadHash)
+		s.mu.Lock()
+		s.stats.Updated++
+		s.mu.Unlock()
+	default:
+		s.mu.Lock()
+		s.stats.Skipped++
+		s.mu.Unlock()
+	}
+}
+
+func (s *BeadsSink) applyDecision(ctx context.Context, decision DedupeDecision, title, description string, priority int, labels []string) error {
+	switch decision.Action {
+	case DedupeCreate:
+		issueID, err := s.createBeadsIssue(ctx, title, description, priority, labels)
+		if err != nil {
+			return err
+		}
+		s.dedupe.RecordCreated(decision.FindingHash, decision.PayloadHash, issueID)
+		s.mu.Lock()
+		s.stats.Created++
+		s.mu.Unlock()
+		return nil
+	case DedupeUpdate:
+		if err := s.updateBeadsIssue(ctx, decision.IssueID, title, description, priority, labels); err != nil {
+			return err
+		}
+		s.dedupe.RecordUpdated(decision.FindingHash, decision.PayloadHash)
+		s.mu.Lock()
+		s.stats.Updated++
+		s.mu.Unlock()
+		return nil
+	case DedupeReopenUpdate:
+		if err := s.reopenBeadsIssue(ctx, decision.IssueID, "finding payload changed"); err != nil {
+			return err
+		}
+		if err := s.updateBeadsIssue(ctx, decision.IssueID, title, description, priority, labels); err != nil {
+			return err
+		}
+		s.dedupe.RecordUpdated(decision.FindingHash, decision.PayloadHash)
+		s.mu.Lock()
+		s.stats.Updated++
+		s.mu.Unlock()
+		return nil
+	default:
+		s.mu.Lock()
+		s.stats.Skipped++
+		s.mu.Unlock()
+		return nil
+	}
 }
 
 // severityToPriority maps finding severity to Beads priority.
