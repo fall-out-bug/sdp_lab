@@ -5,8 +5,23 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
+)
+
+const (
+	defaultExpiryAlertWindow = 7 * 24 * time.Hour
+	credentialIDBytes        = 8
+	auditErrorMaxLen         = 256
+)
+
+var (
+	auditAuthBearerHeaderRE = regexp.MustCompile(`(?i)authorization\s*[:=]\s*bearer\s+[^\s,;]+`)
+	auditKVSecretRE         = regexp.MustCompile(`(?i)(api[_-]?key|token|password|secret|authorization)\s*[:=]\s*[^\s,;]+`)
+	auditSkTokenRE          = regexp.MustCompile(`\bsk-[A-Za-z0-9_-]+\b`)
+	auditBearerRE           = regexp.MustCompile(`(?i)\bBearer\s+[^\s,;]+`)
 )
 
 type CredentialID string
@@ -270,7 +285,7 @@ func (cm *CredentialManager) CheckExpiry(ctx context.Context, tenantID string) (
 
 	var expiring []*Credential
 	now := time.Now()
-	alertWindow := 7 * 24 * time.Hour
+	alertWindow := defaultExpiryAlertWindow
 
 	for _, cred := range creds {
 		if cred.ExpiresAt != nil {
@@ -311,7 +326,7 @@ func (cm *CredentialManager) auditLog(ctx context.Context, tenantID string, prov
 		Action:     action,
 		Actor:      actor,
 		Success:    success,
-		Error:      errMsg,
+		Error:      sanitizeAuditError(errMsg),
 	}
 	// Audit logging is best-effort; failure should not affect main operation
 	_ = cm.audit.Log(ctx, entry)
@@ -407,7 +422,31 @@ func (l *InMemoryAuditLog) Query(ctx context.Context, tenantID string, since tim
 }
 
 func generateID() string {
-	bytes := make([]byte, 8)
+	bytes := make([]byte, credentialIDBytes)
 	rand.Read(bytes)
 	return hex.EncodeToString(bytes)
+}
+
+func sanitizeAuditError(errMsg string) string {
+	sanitized := strings.TrimSpace(errMsg)
+	if sanitized == "" {
+		return ""
+	}
+
+	sanitized = auditAuthBearerHeaderRE.ReplaceAllString(sanitized, "Authorization: <redacted>")
+	sanitized = auditKVSecretRE.ReplaceAllStringFunc(sanitized, func(m string) string {
+		idx := strings.IndexAny(m, ":=")
+		if idx < 0 {
+			return "<redacted>"
+		}
+		return m[:idx+1] + " <redacted>"
+	})
+	sanitized = auditBearerRE.ReplaceAllString(sanitized, "Bearer <redacted>")
+	sanitized = auditSkTokenRE.ReplaceAllString(sanitized, "sk-<redacted>")
+
+	if len(sanitized) > auditErrorMaxLen {
+		sanitized = sanitized[:auditErrorMaxLen] + "..."
+	}
+
+	return sanitized
 }

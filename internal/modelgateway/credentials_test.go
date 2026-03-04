@@ -2,6 +2,7 @@ package modelgateway
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 )
@@ -178,6 +179,38 @@ func TestAuditLog(t *testing.T) {
 	}
 	if len(entries) < 2 {
 		t.Errorf("expected at least 2 audit entries, got %d", len(entries))
+	}
+}
+
+func TestAuditLogSanitizesSensitiveError(t *testing.T) {
+	audit := NewInMemoryAuditLog()
+	cm := NewCredentialManager(WithAuditLogger(audit))
+
+	cm.auditLog(
+		context.Background(),
+		"tenant-1",
+		"openai",
+		"get",
+		"system",
+		false,
+		"request failed: api_key=abc123 sk-test-secret Authorization:Bearer token123",
+	)
+
+	entries, err := audit.Query(context.Background(), "tenant-1", time.Now().Add(-1*time.Hour))
+	if err != nil {
+		t.Fatalf("query failed: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	errMsg := entries[0].Error
+	for _, forbidden := range []string{"abc123", "sk-test-secret", "token123"} {
+		if strings.Contains(errMsg, forbidden) {
+			t.Fatalf("sanitized error still contains secret %q: %q", forbidden, errMsg)
+		}
+	}
+	if !strings.Contains(errMsg, "<redacted>") {
+		t.Fatalf("expected redaction marker in %q", errMsg)
 	}
 }
 
