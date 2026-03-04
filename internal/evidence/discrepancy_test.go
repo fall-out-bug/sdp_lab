@@ -39,6 +39,20 @@ func TestCompareAttestations_MissingAgent(t *testing.T) {
 	}
 }
 
+func TestCompareAttestations_InvalidRunID(t *testing.T) {
+	_, err := CompareAttestations("../bad", CompareOptions{EvidenceDir: t.TempDir()})
+	if err == nil {
+		t.Fatal("expected invalid run id error")
+	}
+}
+
+func TestCompareAttestations_InvalidEvidenceDir(t *testing.T) {
+	_, err := CompareAttestations("run-1", CompareOptions{EvidenceDir: "../escape"})
+	if err == nil {
+		t.Fatal("expected invalid evidence dir error")
+	}
+}
+
 func TestCompareAttestations_MissingCI(t *testing.T) {
 	dir := t.TempDir()
 

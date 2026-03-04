@@ -5,9 +5,19 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 )
+
+const (
+	defaultCoverageThreshold  = 5.0
+	fileScopeHighSeverityOver = 3
+	coverageMediumSeverityAt  = 10.0
+	coverageHighSeverityAt    = 20.0
+)
+
+var safeRunIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
 // DiscrepancyType represents a category of discrepancy between attestations.
 type DiscrepancyType string
@@ -49,11 +59,21 @@ type CompareOptions struct {
 
 // CompareAttestations compares agent and CI attestations for a given run.
 func CompareAttestations(runID string, opts CompareOptions) (DiscrepancyReport, error) {
+	if err := validateRunID(runID); err != nil {
+		return DiscrepancyReport{}, fmt.Errorf("invalid run id: %w", err)
+	}
+
 	if opts.EvidenceDir == "" {
 		opts.EvidenceDir = ".sdp/evidence"
 	}
+	cleanEvidenceDir, err := validateEvidenceDir(opts.EvidenceDir)
+	if err != nil {
+		return DiscrepancyReport{}, fmt.Errorf("invalid evidence directory: %w", err)
+	}
+	opts.EvidenceDir = cleanEvidenceDir
+
 	if opts.CoverageThreshold == 0 {
-		opts.CoverageThreshold = 5.0
+		opts.CoverageThreshold = defaultCoverageThreshold
 	}
 
 	report := DiscrepancyReport{
@@ -61,56 +81,23 @@ func CompareAttestations(runID string, opts CompareOptions) (DiscrepancyReport, 
 		RunID: runID,
 	}
 
-	// Find agent attestation (not CI)
-	agentPath, err := findAttestation(opts.EvidenceDir, runID, "run-")
+	agentPath, ciPath, err := findAttestationPair(opts.EvidenceDir, runID)
 	if err != nil {
-		return report, fmt.Errorf("find agent attestation: %w", err)
+		return report, err
 	}
 	report.AgentFile = agentPath
-
-	// Find CI attestation
-	ciPath, err := findAttestation(opts.EvidenceDir, runID, "ci-auto-")
-	if err != nil {
-		return report, fmt.Errorf("find CI attestation: %w", err)
-	}
 	report.CIFile = ciPath
 
-	// Load agent attestation
-	var agentStmt CodingWorkflowStatement
-	if agentPath != "" {
-		var err error
-		agentStmt, err = ReadAttestation(agentPath)
-		if err != nil {
-			return report, fmt.Errorf("read agent attestation: %w", err)
-		}
-	} else {
-		report.Discrepancies = append(report.Discrepancies, Discrepancy{
-			Type:        DiscrepancyMissingAgent,
-			Severity:    "high",
-			Description: "Agent attestation not found for run",
-		})
-		report.OK = false
+	agentStmt, hasAgent, err := readAttestationOrRecordMissing(&report, agentPath, true)
+	if err != nil {
+		return report, err
+	}
+	ciStmt, hasCI, err := readAttestationOrRecordMissing(&report, ciPath, false)
+	if err != nil {
+		return report, err
 	}
 
-	// Load CI attestation
-	var ciStmt CodingWorkflowStatement
-	if ciPath != "" {
-		var err error
-		ciStmt, err = ReadAttestation(ciPath)
-		if err != nil {
-			return report, fmt.Errorf("read CI attestation: %w", err)
-		}
-	} else {
-		report.Discrepancies = append(report.Discrepancies, Discrepancy{
-			Type:        DiscrepancyMissingCI,
-			Severity:    "medium",
-			Description: "CI attestation not found for run",
-		})
-		// Missing CI is not critical - CI may not have run yet
-	}
-
-	// If both exist, compare them
-	if agentPath != "" && ciPath != "" {
+	if hasAgent && hasCI {
 		report.Discrepancies = append(report.Discrepancies, compareFileScope(agentStmt, ciStmt)...)
 		report.Discrepancies = append(report.Discrepancies, compareTestResults(agentStmt, ciStmt)...)
 		report.Discrepancies = append(report.Discrepancies, compareCoverage(agentStmt, ciStmt, opts.CoverageThreshold)...)
@@ -118,18 +105,64 @@ func CompareAttestations(runID string, opts CompareOptions) (DiscrepancyReport, 
 		report.Discrepancies = append(report.Discrepancies, compareCommits(agentStmt, ciStmt)...)
 	}
 
-	// Determine overall status
-	for _, d := range report.Discrepancies {
-		if d.Severity == "critical" || d.Severity == "high" {
-			report.OK = false
-			break
-		}
+	if hasCriticalOrHighDiscrepancy(report.Discrepancies) {
+		report.OK = false
 	}
 
-	// Generate summary
 	report.Summary = generateSummary(report)
 
 	return report, nil
+}
+
+func findAttestationPair(evidenceDir, runID string) (string, string, error) {
+	agentPath, err := findAttestation(evidenceDir, runID, "run-")
+	if err != nil {
+		return "", "", fmt.Errorf("find agent attestation: %w", err)
+	}
+	ciPath, err := findAttestation(evidenceDir, runID, "ci-auto-")
+	if err != nil {
+		return "", "", fmt.Errorf("find CI attestation: %w", err)
+	}
+	return agentPath, ciPath, nil
+}
+
+func readAttestationOrRecordMissing(report *DiscrepancyReport, path string, isAgent bool) (CodingWorkflowStatement, bool, error) {
+	if path == "" {
+		if isAgent {
+			report.Discrepancies = append(report.Discrepancies, Discrepancy{
+				Type:        DiscrepancyMissingAgent,
+				Severity:    "high",
+				Description: "Agent attestation not found for run",
+			})
+			report.OK = false
+			return CodingWorkflowStatement{}, false, nil
+		}
+		report.Discrepancies = append(report.Discrepancies, Discrepancy{
+			Type:        DiscrepancyMissingCI,
+			Severity:    "medium",
+			Description: "CI attestation not found for run",
+		})
+		return CodingWorkflowStatement{}, false, nil
+	}
+
+	stmt, err := ReadAttestation(path)
+	if err != nil {
+		if isAgent {
+			return CodingWorkflowStatement{}, false, fmt.Errorf("read agent attestation: %w", err)
+		}
+		return CodingWorkflowStatement{}, false, fmt.Errorf("read CI attestation: %w", err)
+	}
+
+	return stmt, true, nil
+}
+
+func hasCriticalOrHighDiscrepancy(discrepancies []Discrepancy) bool {
+	for _, d := range discrepancies {
+		if d.Severity == "critical" || d.Severity == "high" {
+			return true
+		}
+	}
+	return false
 }
 
 // findAttestation searches for an attestation file matching the run ID.
@@ -203,7 +236,7 @@ func compareFileScope(agent, ci CodingWorkflowStatement) []Discrepancy {
 
 	if len(agentOnly) > 0 {
 		severity := "medium"
-		if len(agentOnly) > 3 {
+		if len(agentOnly) > fileScopeHighSeverityOver {
 			severity = "high"
 		}
 		discrepancies = append(discrepancies, Discrepancy{
@@ -217,7 +250,7 @@ func compareFileScope(agent, ci CodingWorkflowStatement) []Discrepancy {
 
 	if len(ciOnly) > 0 {
 		severity := "medium"
-		if len(ciOnly) > 3 {
+		if len(ciOnly) > fileScopeHighSeverityOver {
 			severity = "high"
 		}
 		discrepancies = append(discrepancies, Discrepancy{
@@ -295,10 +328,10 @@ func compareCoverage(agent, ci CodingWorkflowStatement, threshold float64) []Dis
 
 		if diff > threshold {
 			severity := "low"
-			if diff >= 10 {
+			if diff >= coverageMediumSeverityAt {
 				severity = "medium"
 			}
-			if diff >= 20 {
+			if diff >= coverageHighSeverityAt {
 				severity = "high"
 			}
 
@@ -435,4 +468,31 @@ func ReadDiscrepancyReport(path string) (DiscrepancyReport, error) {
 		return DiscrepancyReport{}, fmt.Errorf("parse report: %w", err)
 	}
 	return report, nil
+}
+
+func validateRunID(runID string) error {
+	if !safeRunIDPattern.MatchString(runID) {
+		return fmt.Errorf("run id %q must match %s", runID, safeRunIDPattern.String())
+	}
+	if strings.Contains(runID, "..") || strings.Contains(runID, "/") || strings.Contains(runID, "\\") {
+		return fmt.Errorf("run id %q contains path separators or traversal segments", runID)
+	}
+	return nil
+}
+
+func validateEvidenceDir(dir string) (string, error) {
+	if strings.Contains(dir, "\x00") {
+		return "", fmt.Errorf("evidence directory contains null byte")
+	}
+	clean := filepath.Clean(dir)
+	if clean == "" {
+		return "", fmt.Errorf("evidence directory is empty")
+	}
+	if !filepath.IsAbs(clean) {
+		prefix := ".." + string(filepath.Separator)
+		if clean == ".." || strings.HasPrefix(clean, prefix) {
+			return "", fmt.Errorf("evidence directory %q escapes working directory", dir)
+		}
+	}
+	return clean, nil
 }

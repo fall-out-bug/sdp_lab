@@ -23,22 +23,54 @@ type AutoAttestOptions struct {
 	RepoRoot   string
 }
 
+type autoAttestFacts struct {
+	changedFiles []string
+	branch       string
+	headSHA      string
+	commits      []string
+	beadsIDs     []string
+	issueID      string
+	testResults  []GateResult
+	coverage     float64
+	lintResults  []GateResult
+	boundary     Boundary
+}
+
 // AutoAttest collects facts from CI (git diff, tests, lint, scope) and generates
 // an in-toto CodingWorkflowStatement. No agent action required — CI is the observer.
 func AutoAttest(opts AutoAttestOptions) (CodingWorkflowStatement, error) {
+	facts, err := collectAutoAttestFacts(opts)
+	if err != nil {
+		return CodingWorkflowStatement{}, err
+	}
+
+	subjectName := opts.PRURL
+	if subjectName == "" {
+		subjectName = fmt.Sprintf("PR #%s", opts.PRNumber)
+	}
+
+	subjects := []intoto.Subject{{ //nolint:staticcheck // intoto v0 types for compatibility
+		Name:   subjectName,
+		Digest: common.DigestSet{"sha256": facts.headSHA},
+	}}
+
+	return NewStatement(subjects, buildAutoAttestPredicate(opts, facts)), nil
+}
+
+func collectAutoAttestFacts(opts AutoAttestOptions) (autoAttestFacts, error) {
 	changedFiles, err := gitChangedFiles(opts.RepoRoot, opts.BaseBranch)
 	if err != nil {
-		return CodingWorkflowStatement{}, fmt.Errorf("git changed files: %w", err)
+		return autoAttestFacts{}, fmt.Errorf("git changed files: %w", err)
 	}
 
 	branch, err := gitCurrentBranch(opts.RepoRoot)
 	if err != nil {
-		return CodingWorkflowStatement{}, fmt.Errorf("git branch: %w", err)
+		return autoAttestFacts{}, fmt.Errorf("git branch: %w", err)
 	}
 
 	headSHA, err := gitHeadSHA(opts.RepoRoot)
 	if err != nil {
-		return CodingWorkflowStatement{}, fmt.Errorf("git head SHA: %w", err)
+		return autoAttestFacts{}, fmt.Errorf("git head SHA: %w", err)
 	}
 
 	commits, err := gitCommitsSinceBase(opts.RepoRoot, opts.BaseBranch)
@@ -54,60 +86,61 @@ func AutoAttest(opts AutoAttestOptions) (CodingWorkflowStatement, error) {
 
 	testResults, coverage := collectTestResults(opts.RepoRoot)
 	lintResults := collectLintResults(opts.RepoRoot)
+	boundary, _ := checkScopeCompliance(opts.RepoRoot, changedFiles)
 
-	boundary, boundaryOK := checkScopeCompliance(opts.RepoRoot, changedFiles)
+	return autoAttestFacts{
+		changedFiles: changedFiles,
+		branch:       branch,
+		headSHA:      headSHA,
+		commits:      commits,
+		beadsIDs:     beadsIDs,
+		issueID:      issueID,
+		testResults:  testResults,
+		coverage:     coverage,
+		lintResults:  lintResults,
+		boundary:     boundary,
+	}, nil
+}
 
-	subjectName := opts.PRURL
-	if subjectName == "" {
-		subjectName = fmt.Sprintf("PR #%s", opts.PRNumber)
-	}
-
-	subjects := []intoto.Subject{{ //nolint:staticcheck // intoto v0 types for compatibility
-		Name:   subjectName,
-		Digest: common.DigestSet{"sha256": headSHA},
-	}}
-
-	predicate := CodingWorkflowPredicate{
+func buildAutoAttestPredicate(opts AutoAttestOptions, facts autoAttestFacts) CodingWorkflowPredicate {
+	return CodingWorkflowPredicate{
 		Intent: Intent{
-			IssueID: issueID,
+			IssueID: facts.issueID,
 			Trigger: "ci-auto-attestation",
 		},
 		Plan: Plan{
-			Workstreams:       extractWorkstreamsFromBranch(branch),
+			Workstreams:       extractWorkstreamsFromBranch(facts.branch),
 			OrderingRationale: "auto-detected from branch name",
 		},
 		Execution: Execution{
-			ClaimedIssueIDs: beadsIDs,
-			Branch:          branch,
-			ChangedFiles:    changedFiles,
+			ClaimedIssueIDs: facts.beadsIDs,
+			Branch:          facts.branch,
+			ChangedFiles:    facts.changedFiles,
 		},
 		Verification: Verification{
-			Tests: testResults,
-			Lint:  lintResults,
+			Tests: facts.testResults,
+			Lint:  facts.lintResults,
 			Coverage: func() *Coverage {
-				if coverage >= 0 {
-					return &Coverage{Value: coverage, Threshold: 80}
+				if facts.coverage >= 0 {
+					return &Coverage{Value: facts.coverage, Threshold: 80}
 				}
 				return nil
 			}(),
 		},
-		Boundary: boundary,
+		Boundary: facts.boundary,
 		Provenance: Provenance{
-			RunID:        fmt.Sprintf("ci-auto-%s-%s", opts.PRNumber, headSHA[:minLen(len(headSHA), 8)]),
+			RunID:        fmt.Sprintf("ci-auto-%s-%s", opts.PRNumber, facts.headSHA[:minLen(len(facts.headSHA), 8)]),
 			Orchestrator: "github-actions",
 			Runtime:      "ci",
 			CapturedAt:   time.Now().UTC().Format(time.RFC3339),
 		},
 		Trace: Trace{
-			BeadsIDs: beadsIDs,
-			Branch:   branch,
-			Commits:  commits,
+			BeadsIDs: facts.beadsIDs,
+			Branch:   facts.branch,
+			Commits:  facts.commits,
 			PRURL:    opts.PRURL,
 		},
 	}
-	_ = boundaryOK
-
-	return NewStatement(subjects, predicate), nil
 }
 
 func gitChangedFiles(repoRoot, baseBranch string) ([]string, error) {
