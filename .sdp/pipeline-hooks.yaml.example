@@ -8,12 +8,12 @@
 hooks:
   - phase: build
     when: pre
-    command: hooks/pre-build.sh "$WS_ID"
+    command: hooks/pre-build.sh
     on_fail: warn
     timeout: 30
 
   - phase: build
     when: post
-    command: hooks/post-build.sh "$WS_ID"
+    command: hooks/post-build.sh
     on_fail: warn
     timeout: 30

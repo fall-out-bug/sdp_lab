@@ -50,4 +50,13 @@ func main() {
 		}
 		fmt.Fprintf(os.Stderr, "report written to %s\n", *report)
 	}
+
+	if shouldFailClosed(stmt) {
+		fmt.Fprintf(os.Stderr, "auto-attest: tests failed (fail-closed gate)\n")
+		os.Exit(1)
+	}
+}
+
+func shouldFailClosed(stmt evidence.CodingWorkflowStatement) bool {
+	return !evidence.AllTestsPass(stmt)
 }

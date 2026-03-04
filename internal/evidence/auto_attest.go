@@ -436,12 +436,7 @@ func minLen(a, b int) int {
 
 // WriteAutoAttestationReport writes a human-readable summary JSON alongside the attestation.
 func WriteAutoAttestationReport(outputPath string, stmt CodingWorkflowStatement) error {
-	allTestsPass := true
-	for _, t := range stmt.Predicate.Verification.Tests {
-		if strings.HasPrefix(t.Status, "fail") {
-			allTestsPass = false
-		}
-	}
+	allTestsPass := AllTestsPass(stmt)
 	allLintPass := true
 	for _, l := range stmt.Predicate.Verification.Lint {
 		if strings.HasPrefix(l.Status, "fail") {
@@ -476,4 +471,13 @@ func WriteAutoAttestationReport(outputPath string, stmt CodingWorkflowStatement)
 	}
 	b = append(b, '\n')
 	return os.WriteFile(outputPath, b, 0o644)
+}
+
+func AllTestsPass(stmt CodingWorkflowStatement) bool {
+	for _, t := range stmt.Predicate.Verification.Tests {
+		if strings.HasPrefix(t.Status, "fail") {
+			return false
+		}
+	}
+	return true
 }
