@@ -76,7 +76,7 @@ func runAdvance(projectRoot, featureID, cpPath, runsPath, result string, skipGua
 	changedFiles := orchestrate.GetChangedFiles(projectRoot)
 	scopeViolations := 0
 	policyInput := orchestrate.BuildPolicyInput(cp, scopeViolations, changedFiles)
-	policyResult, policyErr := orchestrate.EvaluatePolicies(advanceCtx, projectRoot, policyInput)
+	policyResult, policyErr := orchestrate.EvaluatePolicies(projectRoot, policyInput)
 	if policyErr != nil {
 		fmt.Fprintf(os.Stderr, "warning: policy evaluation error: %v\n", policyErr)
 	} else {
@@ -92,6 +92,15 @@ func runAdvance(projectRoot, featureID, cpPath, runsPath, result string, skipGua
 				os.Exit(1)
 			}
 		}
+	}
+
+	report, contractErr := orchestrate.EnforceContractGate(projectRoot, featureID)
+	if contractErr != nil {
+		fmt.Fprintf(os.Stderr, "error: contract gate blocked: %v\n", contractErr)
+		if report != nil {
+			fmt.Fprintf(os.Stderr, "contract gate report: blocked=%v phase=%s\n", report.Blocked, report.Phase)
+		}
+		os.Exit(1)
 	}
 
 	// Validate FSM transition before advancing.

@@ -1,0 +1,183 @@
+{{- $root := . -}}
+{{- range $tenant := .Values.tenants }}
+{{- $tenantName := include "sdp-enterprise.tenantName" $tenant.name }}
+---
+{{- if $root.Values.global.createNamespaces }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $tenant.namespace }}
+  labels:
+    pod-security.kubernetes.io/enforce: {{ $root.Values.global.podSecurity.enforce | quote }}
+    app.kubernetes.io/part-of: sdp-enterprise
+    sdp.dev/tenant: {{ $tenant.name | quote }}
+---
+{{- end }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $tenantName }}
+  namespace: {{ $tenant.namespace }}
+  labels:
+{{ include "sdp-enterprise.tenantLabels" $root | indent 4 }}
+    sdp.dev/tenant: {{ $tenant.name | quote }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $tenantName }}
+  namespace: {{ $tenant.namespace }}
+  labels:
+{{ include "sdp-enterprise.tenantLabels" $root | indent 4 }}
+    sdp.dev/tenant: {{ $tenant.name | quote }}
+rules:
+  - apiGroups: ["sdp.dev"]
+    resources: ["agentruns", "agentruns/status", "tasks", "tasks/status"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $tenantName }}
+  namespace: {{ $tenant.namespace }}
+  labels:
+{{ include "sdp-enterprise.tenantLabels" $root | indent 4 }}
+    sdp.dev/tenant: {{ $tenant.name | quote }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $tenantName }}
+    namespace: {{ $tenant.namespace }}
+roleRef:
+  kind: Role
+  name: {{ $tenantName }}
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $tenantName }}
+  namespace: {{ $tenant.namespace }}
+  labels:
+{{ include "sdp-enterprise.tenantLabels" $root | indent 4 }}
+    sdp.dev/tenant: {{ $tenant.name | quote }}
+spec:
+  replicas: {{ $tenant.replicas }}
+  selector:
+    matchLabels:
+      app: {{ $tenantName }}
+  template:
+    metadata:
+      labels:
+        app: {{ $tenantName }}
+        app.kubernetes.io/name: adapter-controller
+        app.kubernetes.io/part-of: sdp-enterprise
+        sdp.dev/tenant: {{ $tenant.name | quote }}
+    spec:
+      serviceAccountName: {{ $tenantName }}
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 2000
+      containers:
+        - name: controller
+          image: {{ $tenant.image.repository }}:{{ $tenant.image.tag }}
+          imagePullPolicy: {{ $root.Values.global.imagePullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+{{ toYaml $tenant.resources | indent 12 }}
+          env:
+            - name: NATS_URL
+              value: {{ $tenant.natsURL | quote }}
+            - name: SDP_WORK_DIR
+              value: /workspaces
+          volumeMounts:
+            - name: workspaces
+              mountPath: /workspaces
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: workspaces
+{{- if eq $tenant.workspace.type "pvc" }}
+          persistentVolumeClaim:
+            claimName: {{ $tenant.workspace.pvcName }}
+{{- else }}
+          emptyDir: {}
+{{- end }}
+        - name: tmp
+          emptyDir: {}
+{{- if and (eq $tenant.workspace.type "pvc") $tenant.workspace.createPVC }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $tenant.workspace.pvcName }}
+  namespace: {{ $tenant.namespace }}
+  labels:
+{{ include "sdp-enterprise.tenantLabels" $root | indent 4 }}
+    sdp.dev/tenant: {{ $tenant.name | quote }}
+spec:
+  accessModes: ["ReadWriteOnce"]
+{{- if $tenant.workspace.storageClassName }}
+  storageClassName: {{ $tenant.workspace.storageClassName | quote }}
+{{- end }}
+  resources:
+    requests:
+      storage: {{ $tenant.workspace.storage | quote }}
+{{- end }}
+{{- if $root.Values.global.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $tenantName }}
+  namespace: {{ $tenant.namespace }}
+  labels:
+{{ include "sdp-enterprise.tenantLabels" $root | indent 4 }}
+    sdp.dev/tenant: {{ $tenant.name | quote }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $tenantName }}
+  policyTypes: ["Ingress", "Egress"]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $root.Values.global.networkPolicy.natsNamespace | quote }}
+          podSelector:
+            matchLabels:
+{{ toYaml $root.Values.global.networkPolicy.natsPodSelector | indent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ $root.Values.global.networkPolicy.natsPort }}
+{{- end }}
+{{- end }}

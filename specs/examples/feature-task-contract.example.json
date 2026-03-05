@@ -1,0 +1,48 @@
+{
+  "version": "v1",
+  "run_id": "run-2026-03-03-001",
+  "created_at": "2026-03-03T10:00:00Z",
+  "objective": "Implement harness-level drift control for feature execution",
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "statement": "Harness blocks silent acceptance-criteria degradation",
+      "priority": "P1"
+    },
+    {
+      "id": "AC-2",
+      "statement": "Every completion claim has evidence references",
+      "priority": "P1"
+    }
+  ],
+  "required_metrics": [
+    {
+      "name": "ac_coverage",
+      "target": "100%",
+      "direction": "equals"
+    },
+    {
+      "name": "gate_pass_rate",
+      "target": "100%",
+      "direction": "equals"
+    }
+  ],
+  "required_evidence": [
+    "test_results",
+    "build_log",
+    "gate_results",
+    "decision_log"
+  ],
+  "quality_gates": {
+    "build": true,
+    "test": true,
+    "lint": true,
+    "typecheck": true
+  },
+  "constraints": {
+    "allow_scope_reduction": false,
+    "allow_metric_reduction": false,
+    "security_policy": "strict",
+    "performance_budget": "p95<2s"
+  }
+}

@@ -74,3 +74,47 @@ Updated: 2026-02-21
 | Auditability | Every run has provenance chain, evidence envelope, trace links |
 | Testability | Adapter components unit-tested, controller tested via envtest |
 | Portability | CRD shim decouples from upstream merge timeline |
+
+## Layered Architecture Requirements (OSS-First)
+
+Reference: `docs/vision/SDP_LAYERED_VISION.md`
+
+### L1 — Protocol Contracts
+
+11. **FR-011: skill/agent IO contracts**
+    - Every skill/command/agent defines stable input/output contract.
+    - Complex tasks define subagent fan-out/fan-in behavior.
+    - Self-check criteria are explicit and machine-testable.
+
+### L2 — Runtime Governance
+
+12. **FR-012: contract drift enforcement at harness level**
+    - Immutable task contract baseline for feature runs.
+    - Gate blocks on acceptance criteria or metric degradation.
+    - Clarifications classified as no-impact/additive/reductive/policy-sensitive.
+
+13. **FR-013: provenance + evidence default policy**
+    - No completion claim without evidence references.
+    - CI-level protocol compliance check required on PRs with contract artifacts.
+
+### L3 — Orchestration Fabric
+
+14. **FR-014: orchestrator-managed phase gating**
+    - Phase transitions must pass contract gates before advance.
+    - Drift and gate outcomes persisted as machine-readable reports.
+
+15. **FR-015: ecosystem bridge contracts**
+    - Interop contracts for OpenCode and Gas Town adapters.
+    - Beads + vibe-kanban integration points remain protocol-boundary compatible.
+
+### L4 — Enterprise Trust Envelope
+
+16. **FR-016: signed evidence envelope standards**
+    - Enterprise mode enforces stricter signature and audit requirements.
+    - Same protocol semantics as OSS, stronger policy defaults.
+
+### L5 — OSS Harness Runtime
+
+17. **FR-017: portable harness runtime**
+    - K8s/operator execution path remains OSS.
+    - Runtime can be deployed independently from enterprise controls.

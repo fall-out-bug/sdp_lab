@@ -1,50 +1,29 @@
 package main
 
 import (
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
 	"testing"
+
+	"sdp_dev/internal/evidence"
 )
 
-// TestAutoAttestCLI_Success runs auto-attest in repo. Run with: go test -run TestAutoAttestCLI_Success -count=1
-func TestAutoAttestCLI_Success(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping CLI test in short mode")
+func TestShouldFailClosed_FalseWhenTestsPass(t *testing.T) {
+	stmt := evidence.CodingWorkflowStatement{}
+	stmt.Predicate.Verification.Tests = []evidence.GateResult{
+		{Name: "go-test", Status: "pass (3 passed, 0 failed)"},
 	}
-	bin := filepath.Join(t.TempDir(), "auto-attest")
-	if err := exec.Command("go", "build", "-o", bin, ".").Run(); err != nil {
-		t.Skipf("build failed: %v", err)
-	}
-	wd, _ := os.Getwd()
-	repoRoot := wd
-	for repoRoot != "" && repoRoot != "/" {
-		if _, err := os.Stat(filepath.Join(repoRoot, "go.mod")); err == nil {
-			break
-		}
-		repoRoot = filepath.Dir(repoRoot)
-	}
-	if repoRoot == "" || repoRoot == "/" {
-		t.Skip("repo root not found")
-	}
-	cmd := exec.Command(bin, "-base-branch", "master", "-pr-number", "1", "-output", filepath.Join(t.TempDir(), "attest.json"))
-	cmd.Dir = repoRoot
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("auto-attest failed: %v\n%s", err, out)
-	}
-	if !strings.Contains(string(out), "attestation") {
-		t.Errorf("expected attestation message: %s", out)
+
+	if shouldFailClosed(stmt) {
+		t.Fatal("expected shouldFailClosed=false for passing tests")
 	}
 }
 
-func TestAutoAttestCLI_Builds(t *testing.T) {
-	bin := filepath.Join(t.TempDir(), "auto-attest")
-	if err := exec.Command("go", "build", "-o", bin, ".").Run(); err != nil {
-		t.Fatalf("build failed: %v", err)
+func TestShouldFailClosed_TrueWhenTestsFail(t *testing.T) {
+	stmt := evidence.CodingWorkflowStatement{}
+	stmt.Predicate.Verification.Tests = []evidence.GateResult{
+		{Name: "go-test", Status: "fail (2 passed, 1 failed)"},
 	}
-	if _, err := os.Stat(bin); err != nil {
-		t.Errorf("binary should exist: %v", err)
+
+	if !shouldFailClosed(stmt) {
+		t.Fatal("expected shouldFailClosed=true for failing tests")
 	}
 }

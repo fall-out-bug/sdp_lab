@@ -95,12 +95,12 @@ func GenerateOrchestratorAttestation(projectRoot string, cp *Checkpoint) (eviden
 			},
 		},
 		Provenance: evidence.Provenance{
-			RunID:        fmt.Sprintf("orch-%s-%s", cp.FeatureID, headSHA[:minLen(len(headSHA), 8)]),
-			Orchestrator: "sdp-orchestrate",
-			Runtime:      "local",
-			Phase:        cp.Phase,
+			RunID:         fmt.Sprintf("orch-%s-%s", cp.FeatureID, headSHA[:minLen(len(headSHA), 8)]),
+			Orchestrator:  "sdp-orchestrate",
+			Runtime:       "local",
+			Phase:         cp.Phase,
 			SourceIssueID: issueID,
-			CapturedAt:   time.Now().UTC().Format(time.RFC3339),
+			CapturedAt:    time.Now().UTC().Format(time.RFC3339),
 		},
 		Trace: evidence.Trace{
 			BeadsIDs: beadsIDs,
@@ -192,32 +192,38 @@ func collectWorkstreamScopePrefixes(projectRoot string, wsIDs []string) []string
 
 	for _, wsID := range wsIDs {
 		wsPath := filepath.Join(backlogDir, wsID+".md")
-		f, err := os.Open(wsPath)
-		if err != nil {
-			continue
-		}
+		if err := func() error {
+			f, err := os.Open(wsPath)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = f.Close() }()
 
-		inScope := false
-		scanner := bufio.NewScanner(f)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if strings.HasPrefix(line, "## Scope Files") {
-				inScope = true
-				continue
-			}
-			if inScope && strings.HasPrefix(line, "##") {
-				break
-			}
-			if inScope && strings.HasPrefix(line, "- ") {
-				path := strings.TrimPrefix(line, "- ")
-				path = strings.TrimSpace(strings.Trim(path, "`"))
-				if path != "" && !seen[path] {
-					seen[path] = true
-					prefixes = append(prefixes, path)
+			inScope := false
+			scanner := bufio.NewScanner(f)
+			for scanner.Scan() {
+				line := scanner.Text()
+				if strings.HasPrefix(line, "## Scope Files") {
+					inScope = true
+					continue
+				}
+				if inScope && strings.HasPrefix(line, "##") {
+					break
+				}
+				if inScope && strings.HasPrefix(line, "- ") {
+					path := strings.TrimPrefix(line, "- ")
+					path = strings.TrimSpace(strings.Trim(path, "`"))
+					if path != "" && !seen[path] {
+						seen[path] = true
+						prefixes = append(prefixes, path)
+					}
 				}
 			}
+
+			return scanner.Err()
+		}(); err != nil {
+			continue
 		}
-		_ = f.Close()
 	}
 	return prefixes
 }

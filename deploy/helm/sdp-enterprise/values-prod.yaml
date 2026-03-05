@@ -1,0 +1,21 @@
+tenants:
+  - name: prod
+    namespace: sdp-adapter
+    replicas: 3
+    image:
+      repository: ghcr.io/fall-out-bug/sdp-dev-adapter-controller
+      tag: latest
+    natsURL: nats://nats:4222
+    workspace:
+      type: pvc
+      pvcName: adapter-workspaces
+      createPVC: true
+      storage: 100Gi
+      storageClassName: ""
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2
+        memory: 2Gi

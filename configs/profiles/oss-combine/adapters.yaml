@@ -1,0 +1,24 @@
+# Adapter Endpoints Configuration
+# Profile: oss-combine v1.0.0
+
+adapters:
+  omo:
+    endpoint: opencode://session
+    contract: schema/contracts/orchestration-event.schema.json
+    version: 1.0.0
+    enabled: true
+  beads:
+    endpoint: beads://local
+    contract: schema/contracts/runtime-decision.schema.json
+    version: 1.0.0
+    enabled: true
+  gas-town:
+    endpoint: gastown://build
+    contract: schema/contracts/orchestration-event.schema.json
+    version: 1.0.0
+    enabled: true
+  sdp-lab:
+    endpoint: sdp://internal
+    contract: schema/contracts/runtime-decision.schema.json
+    version: 1.0.0
+    enabled: true

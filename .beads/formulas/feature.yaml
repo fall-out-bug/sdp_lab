@@ -1,0 +1,67 @@
+name: feature
+description: "Standard feature implementation workflow"
+version: "1.0"
+
+variables:
+  name:
+    description: "Feature name"
+    type: string
+    required: true
+  priority:
+    description: "Priority level (1-3)"
+    type: int
+    default: 2
+  module:
+    description: "Target module/package"
+    type: string
+    default: "internal"
+
+steps:
+  - name: design
+    title: "Design {{name}}"
+    description: "Create design document for {{name}}"
+    type: task
+    size: M
+    scope_files:
+      - "docs/design/{{name}}.md"
+    acceptance_criteria:
+      - "Design doc covers approach and trade-offs"
+      - "Files to change identified"
+
+  - name: implement
+    title: "Implement {{name}}"
+    description: "Write the code for {{name}} in {{module}}"
+    type: task
+    size: L
+    dependencies: [design]
+    scope_files:
+      - "{{module}}/{{name}}.go"
+      - "{{module}}/{{name}}_test.go"
+    acceptance_criteria:
+      - "Implementation follows design"
+      - "Unit tests written"
+      - "Code passes lint"
+
+  - name: review
+    title: "Review {{name}}"
+    description: "Review implementation of {{name}}"
+    type: task
+    size: S
+    dependencies: [implement]
+    acceptance_criteria:
+      - "Self-review complete"
+      - "No obvious bugs"
+      - "Code is readable"
+
+  - name: integrate
+    title: "Integrate {{name}}"
+    description: "Integrate {{name}} into the system"
+    type: task
+    size: M
+    dependencies: [review]
+    scope_files:
+      - "cmd/{{name}}/main.go"
+    acceptance_criteria:
+      - "CLI command working"
+      - "Integration tests pass"
+      - "Documentation updated"

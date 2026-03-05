@@ -55,9 +55,10 @@ This project has **two repos** with different roles:
 
 ```bash
 bd ready              # Find available work
+bd ready --json       # Find available work (JSON output)
 bd show <id>          # View issue details
 bd update <id> --status in_progress  # Claim work
-bd close <id>         # Complete work
+bd close <id> -r "reason"  # Complete work with reason
 bd sync               # Sync with git
 ```
 
@@ -175,9 +176,70 @@ Evidence and checkpoint must be committed with the PR. When running as part of @
 Before pushing code changes:
 
 ```bash
-go build ./...              # must succeed
-go test ./...               # must pass
-go vet ./...                # no issues
+./scripts/run_go_quality_gates.sh                # container-first: build + test + vet
+# fallback when Docker is unavailable:
+SDP_GO_QUALITY_MODE=host ./scripts/run_go_quality_gates.sh
+```
+
+## SDP Tools
+
+### sdp-ready CLI
+
+Find ready work from Beads queue with SDP workstream mapping:
+
+```bash
+sdp-ready                      # List ready work (text format)
+sdp-ready --format json        # List ready work (JSON format)
+sdp-ready --phase 5            # Filter by roadmap phase (0=all)
+sdp-ready --no-cache           # Bypass 5-minute cache
+```
+
+### sdp-protocol-check CLI
+
+Validate SDP protocol hygiene across roadmap, index, and workstream files:
+
+```bash
+sdp-protocol-check                      # Text report, non-strict Beads mode
+sdp-protocol-check --format json        # JSON report for CI
+sdp-protocol-check --strict-beads       # Require concrete sdplab-<id>
+sdp-protocol-check --strict             # Treat protocol drift as errors
+```
+
+Checks include:
+- Workstream frontmatter required fields (`ws_id`, `feature_id`, `status`, `priority`, `size`, `depends_on`)
+- Feature consistency across `ROADMAP.md`, `INDEX.md`, and backlog files
+- Beads section presence and `sdplab-*` linkage
+- Acceptance Criteria section with checkbox items
+
+### sdp-doc-sync CLI
+
+Documentation automation for changelog and consistency checks:
+
+```bash
+sdp-doc-sync --mode check                 # Validate docs consistency (protocol + links)
+sdp-doc-sync --mode check --strict        # Treat docs drift as errors
+sdp-doc-sync --mode changelog             # Update docs/CHANGELOG.md from latest commit range
+sdp-doc-sync --mode changelog --since HEAD~3..HEAD
+```
+
+## Continuous Background Agents
+
+Use a three-agent loop for continuous improvement:
+
+1. **Analysis Agent** — Runs on each commit, inspects logs/evidence, creates Beads improvement tasks.
+2. **Improvement Agent** — Consumes created Beads tasks and implements fixes.
+3. **Documentation Agent** — Runs `sdp-doc-sync` to keep changelog and docs consistency current.
+
+Execution model (CI in GitHub, agents local):
+- **CI = Sensor layer** — runs checks and publishes findings artifacts/issues.
+- **Local bridge = Transport layer** — syncs GitHub findings into local Beads queue.
+- **Local agents = Actuator layer** — consume Beads tasks and implement improvements.
+
+Recommended commit/PR checks:
+
+```bash
+sdp-protocol-check --format json
+sdp-doc-sync --mode check --strict
 ```
 
 **Git hooks:** Run `scripts/hooks/install-git-hooks.sh` for pre-commit (go build, ws-verdict) and pre-push (go test -short, evidence).

@@ -3,21 +3,24 @@
 !.sdp/pipeline-hooks.yaml.example
 !.sdp/policies/
 !.sdp/agent-constraints.yaml
-!.sdp/evidence/
-!.sdp/checkpoints/
+
+# opencode-mem storage
+.sdp/mem/
+
+# session-only wisps (ephemeral work items)
+.sdp/session/
+
+# opencode-mem storage
+.sdp/mem/
 __pycache__/
 *.pyc
 .tmp/
 .kube/
 
-# Coverage files (Makefile uses .tmp/; CI if added should use .tmp/ or build/)
-coverage.out
-coverage.html
-*.cover
-cover.out
+# Coverage files
 *.out
 
-# Go binaries (built locally; use make build-sdp-* → bin/)
+# Go binaries (built locally, root only)
 /adapter-controller
 /autonomy-worker
 /feature-orchestrator
@@ -33,7 +36,6 @@ cover.out
 /sdp-orchestrate
 /sdp-eval
 /sdp-guard
-/sdp-ws-verdict-validate
 /beads-fsm
 /brain-gateway
 /cicd-agent
@@ -52,3 +54,9 @@ bin/
 .opencode/skills
 .prompts
 evaluator-orchestrator
+sdp-ready
+
+.cache/
+.sisyphus/
+sdp-gh-findings-sync
+sdp-up

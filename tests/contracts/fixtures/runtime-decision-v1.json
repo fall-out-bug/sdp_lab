@@ -1,0 +1,29 @@
+{
+  "spec_version": "v1.0",
+  "decision_id": "660e8400-e29b-41d4-a716-446655440001",
+  "timestamp": "2024-01-15T10:31:00Z",
+  "decision_type": "scope.boundary",
+  "decision": "allow",
+  "reason": {
+    "code": "WITHIN_SCOPE",
+    "message": "Task is within declared scope boundaries"
+  },
+  "context": {
+    "request": {
+      "action": "write_file",
+      "resource": "/home/user/project/main.go",
+      "parameters": {
+        "content": "package main\n\nfunc main() {}"
+      }
+    },
+    "actor": {
+      "type": "agent",
+      "id": "worker-1",
+      "roles": ["coder"]
+    },
+    "environment": "development",
+    "workstream_id": "00-068-02",
+    "feature_id": "F068",
+    "session_id": "ses-abc123"
+  }
+}

@@ -15,28 +15,37 @@ import (
 
 const defaultHookTimeout = 60 * time.Second
 
+const hookDisallowedChars = ";|&`$<>()\\\n\r"
+
+var allowedHookCommands = map[string]bool{
+	"bd":                 true,
+	"echo":               true,
+	"false":              true,
+	"git":                true,
+	"go":                 true,
+	"make":               true,
+	"notify":             true,
+	"sdp":                true,
+	"sdp-doc-sync":       true,
+	"sdp-evidence":       true,
+	"sdp-protocol-check": true,
+	"slack-notify":       true,
+	"trivy":              true,
+	"true":               true,
+}
+
 // HookConfig is the schema for .sdp/pipeline-hooks.yaml.
 type HookConfig struct {
 	Hooks []HookEntry `yaml:"hooks"`
 }
 
 // HookEntry defines a single hook.
-// Use executable+args (no shell). Legacy "command" is rejected (shell injection risk).
 type HookEntry struct {
-	Phase      string   `yaml:"phase"`       // build, review, ci
-	When       string   `yaml:"when"`        // pre, post
-	Command    string   `yaml:"command"`     // DEPRECATED: reject if present
-	Executable string   `yaml:"executable"`  // e.g. echo, go, bash
-	Args       []string `yaml:"args"`        // args as list (no shell parsing)
-	OnFail     string   `yaml:"on_fail"`     // halt, warn, ignore
-	Timeout    int      `yaml:"timeout"`     // seconds; 0 = default 60
-}
-
-// allowedExecutables is the allowlist for pipeline hooks (no arbitrary shell).
-var allowedExecutables = map[string]bool{
-	"echo": true, "go": true, "make": true, "python3": true,
-	"node": true, "npm": true, "npx": true, "bash": true, "sh": true,
-	"false": true, // for tests (exits 1)
+	Phase   string `yaml:"phase"` // build, review, ci
+	When    string `yaml:"when"`  // pre, post
+	Command string `yaml:"command"`
+	OnFail  string `yaml:"on_fail"` // halt, warn, ignore
+	Timeout int    `yaml:"timeout"` // seconds; 0 = default 60
 }
 
 // LoadHookConfig reads .sdp/pipeline-hooks.yaml. Returns nil if file is missing (graceful degradation).
@@ -53,29 +62,7 @@ func LoadHookConfig(projectRoot string) (*HookConfig, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("parse pipeline-hooks: %w", err)
 	}
-	if err := validateHookConfig(&cfg); err != nil {
-		return nil, err
-	}
 	return &cfg, nil
-}
-
-func validateHookConfig(cfg *HookConfig) error {
-	for i, h := range cfg.Hooks {
-		if h.Command != "" {
-			return fmt.Errorf("hook %d: legacy 'command' field is rejected (shell injection risk); use executable+args", i+1)
-		}
-		if h.Executable == "" {
-			return fmt.Errorf("hook %d: executable is required", i+1)
-		}
-		base := filepath.Base(h.Executable)
-		if !allowedExecutables[base] {
-			return fmt.Errorf("hook %d: executable %q not in allowlist", i+1, h.Executable)
-		}
-		if (base == "sh" || base == "bash") && len(h.Args) > 0 && h.Args[0] == "-c" {
-			return fmt.Errorf("hook %d: shell -c is not allowed (use executable+args)", i+1)
-		}
-	}
-	return nil
 }
 
 // HookEnv holds environment variables for hook execution.
@@ -108,6 +95,11 @@ func RunHooks(ctx context.Context, projectRoot string, phase, when string, env H
 }
 
 func runHook(ctx context.Context, projectRoot string, h HookEntry, env HookEnv, log func(string)) error {
+	parts, err := parseAndValidateHookCommand(projectRoot, h.Command)
+	if err != nil {
+		return fmt.Errorf("hook %s-%s: %w", h.Phase, h.When, err)
+	}
+
 	timeout := defaultHookTimeout
 	if h.Timeout > 0 {
 		timeout = time.Duration(h.Timeout) * time.Second
@@ -115,7 +107,7 @@ func runHook(ctx context.Context, projectRoot string, h HookEntry, env HookEnv, 
 	hookCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(hookCtx, h.Executable, h.Args...)
+	cmd := exec.CommandContext(hookCtx, parts[0], parts[1:]...)
 	cmd.Dir = projectRoot
 	cmd.Env = append(os.Environ(),
 		"WS_ID="+env.WSID,
@@ -127,7 +119,7 @@ func runHook(ctx context.Context, projectRoot string, h HookEntry, env HookEnv, 
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	err := cmd.Run()
+	err = cmd.Run()
 	out := strings.TrimSpace(stdout.String() + "\n" + stderr.String())
 	if out != "" && log != nil {
 		log(fmt.Sprintf("hook %s-%s: %s", h.Phase, h.When, out))
@@ -148,4 +140,105 @@ func runHook(ctx context.Context, projectRoot string, h HookEntry, env HookEnv, 
 	default:
 		return fmt.Errorf("hook %s-%s failed: %w", h.Phase, h.When, err)
 	}
+}
+
+func parseAndValidateHookCommand(projectRoot, cmd string) ([]string, error) {
+	trimmed := strings.TrimSpace(cmd)
+	if trimmed == "" {
+		return nil, fmt.Errorf("empty command")
+	}
+	if strings.ContainsAny(trimmed, hookDisallowedChars) {
+		return nil, fmt.Errorf("command contains disallowed shell metacharacters")
+	}
+
+	parts, err := parseCommandParts(trimmed)
+	if err != nil {
+		return nil, err
+	}
+
+	if !isAllowedHookExecutable(projectRoot, parts[0]) {
+		return nil, fmt.Errorf("command %q is not in allowlist", parts[0])
+	}
+
+	return parts, nil
+}
+
+func parseCommandParts(cmd string) ([]string, error) {
+	parts := make([]string, 0, 4)
+	var current strings.Builder
+	var quote rune
+	escaped := false
+
+	for _, r := range cmd {
+		if escaped {
+			current.WriteRune(r)
+			escaped = false
+			continue
+		}
+
+		if r == '\\' {
+			escaped = true
+			continue
+		}
+
+		if quote != 0 {
+			if r == quote {
+				quote = 0
+			} else {
+				current.WriteRune(r)
+			}
+			continue
+		}
+
+		switch r {
+		case '\'', '"':
+			quote = r
+		case ' ', '\t':
+			if current.Len() > 0 {
+				parts = append(parts, current.String())
+				current.Reset()
+			}
+		default:
+			current.WriteRune(r)
+		}
+	}
+
+	if escaped {
+		return nil, fmt.Errorf("invalid trailing escape")
+	}
+	if quote != 0 {
+		return nil, fmt.Errorf("unterminated quote")
+	}
+	if current.Len() > 0 {
+		parts = append(parts, current.String())
+	}
+	if len(parts) == 0 {
+		return nil, fmt.Errorf("invalid command")
+	}
+
+	return parts, nil
+}
+
+func isAllowedHookExecutable(projectRoot, command string) bool {
+	if allowedHookCommands[command] {
+		return true
+	}
+
+	if strings.HasPrefix(command, "./") || strings.Contains(command, "/") {
+		candidate := command
+		if !filepath.IsAbs(candidate) {
+			candidate = filepath.Join(projectRoot, candidate)
+		}
+		clean := filepath.Clean(candidate)
+		rel, err := filepath.Rel(projectRoot, clean)
+		if err != nil {
+			return false
+		}
+		if strings.HasPrefix(rel, "..") {
+			return false
+		}
+		return true
+	}
+
+	return false
 }

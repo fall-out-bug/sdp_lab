@@ -92,4 +92,4 @@ Scope: SDP integration with Beads for autonomous task tracking and sync
 
 - [BEADS_AUTONOMY_SPEC.md](BEADS_AUTONOMY_SPEC.md) — fields, labels, transitions, evidence
 - [.beads/config.yaml](../.beads/config.yaml) — repo config
-- [internal/beads/adapter.go](../internal/beads/adapter.go) — Go wrapper
+- [internal/beads/client.go](../internal/beads/client.go) — Go wrapper client

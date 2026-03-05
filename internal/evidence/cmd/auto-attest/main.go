@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -23,7 +22,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	stmt, err := evidence.AutoAttest(context.Background(), evidence.AutoAttestOptions{
+	stmt, err := evidence.AutoAttest(evidence.AutoAttestOptions{
 		BaseBranch: *baseBranch,
 		PRNumber:   *prNumber,
 		PRURL:      *prURL,
@@ -51,4 +50,13 @@ func main() {
 		}
 		fmt.Fprintf(os.Stderr, "report written to %s\n", *report)
 	}
+
+	if shouldFailClosed(stmt) {
+		fmt.Fprintf(os.Stderr, "auto-attest: tests failed (fail-closed gate)\n")
+		os.Exit(1)
+	}
+}
+
+func shouldFailClosed(stmt evidence.CodingWorkflowStatement) bool {
+	return !evidence.AllTestsPass(stmt)
 }

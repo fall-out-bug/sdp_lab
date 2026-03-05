@@ -18,7 +18,25 @@ func main() {
 	phase := flag.String("phase", "build", "Phase for constraint checking (build, review, pr)")
 	command := flag.String("command", "", "Command to check against constraint rules")
 	file := flag.String("file", "", "File path to check against constraint rules")
+	checkContract := flag.Bool("check-contract", false, "Run harness contract compliance check")
+	classifyClarification := flag.Bool("classify-clarification", false, "Classify user clarification as no-impact/additive/reductive/policy-sensitive")
+	applyClarification := flag.Bool("apply-clarification", false, "Apply a clarification to contract (requires --contract and --clarification)")
+	contractPath := flag.String("contract", "", "Path to feature contract JSON")
+	snapshotPath := flag.String("snapshot", "", "Path to task snapshot JSON")
+	clarificationPath := flag.String("clarification", "", "Path to clarification JSON")
+	clarificationText := flag.String("clarification-text", "", "Raw chat clarification text for heuristic classification")
+	approvedBy := flag.String("approved-by", "", "Approver identity for reductive/policy-sensitive clarifications")
 	flag.Parse()
+
+	if *checkContract {
+		runContractCheck(*contractPath, *snapshotPath)
+		return
+	}
+
+	if *classifyClarification || *applyClarification {
+		runClarificationFlow(*contractPath, *clarificationPath, *clarificationText, *applyClarification, *approvedBy)
+		return
+	}
 
 	wd, err := os.Getwd()
 	if err != nil {
@@ -37,7 +55,7 @@ func main() {
 	}
 
 	if *ws == "" {
-		fmt.Fprintln(os.Stderr, "error: --ws is required (or use --check-constraints)")
+		fmt.Fprintln(os.Stderr, "error: --ws is required (or use --check-constraints/--check-contract/--classify-clarification/--apply-clarification)")
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -68,8 +86,8 @@ func main() {
 func runConstraintCheck(projectRoot, phase, command, file string) {
 	cfg, err := orchestrate.LoadConstraintConfig(projectRoot)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not load constraints: %v\n", err)
-		os.Exit(0) // graceful degradation
+		fmt.Fprintf(os.Stderr, "error: could not load constraints: %v\n", err)
+		os.Exit(1)
 	}
 
 	var violations []orchestrate.ConstraintViolation

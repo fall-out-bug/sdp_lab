@@ -32,13 +32,11 @@ func TestLoadHookConfig_Valid(t *testing.T) {
 hooks:
   - phase: build
     when: post
-    executable: echo
-    args: ["post-build"]
+    command: "echo post-build"
     on_fail: halt
   - phase: review
     when: pre
-    executable: echo
-    args: ["pre-review"]
+    command: "echo pre-review"
     on_fail: warn
 `
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
@@ -70,8 +68,7 @@ func TestRunHooks_PreBuildHalt(t *testing.T) {
 hooks:
   - phase: build
     when: pre
-    executable: false
-    args: []
+    command: "false"
     on_fail: halt
 `
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
@@ -96,8 +93,7 @@ func TestRunHooks_PostBuildWarn(t *testing.T) {
 hooks:
   - phase: build
     when: post
-    executable: false
-    args: []
+    command: "false"
     on_fail: warn
 `
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
@@ -122,8 +118,7 @@ func TestRunHooks_Ignore(t *testing.T) {
 hooks:
   - phase: ci
     when: post
-    executable: false
-    args: []
+    command: "false"
     on_fail: ignore
 `
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
@@ -145,9 +140,7 @@ func TestRunHooks_MissingConfig(t *testing.T) {
 	}
 }
 
-// --- 00-053-16: executable+args (no sh -c) ---
-
-func TestLoadHookConfig_RejectsLegacyCommand(t *testing.T) {
+func TestRunHooks_RejectsShellMetacharacters(t *testing.T) {
 	dir := t.TempDir()
 	sdp := filepath.Join(dir, ".sdp")
 	if err := os.MkdirAll(sdp, 0o755); err != nil {
@@ -158,79 +151,23 @@ func TestLoadHookConfig_RejectsLegacyCommand(t *testing.T) {
 hooks:
   - phase: build
     when: pre
-    command: "echo legacy"
+    command: "echo ok; rm -rf /"
     on_fail: halt
 `
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	_, err := orchestrate.LoadHookConfig(dir)
+
+	err := orchestrate.RunHooks(context.Background(), dir, "build", "pre", orchestrate.HookEnv{}, nil)
 	if err == nil {
-		t.Error("expected error when legacy command field present")
+		t.Fatal("expected rejection error for metacharacters")
 	}
-	if !strings.Contains(err.Error(), "command") {
-		t.Errorf("error should mention command: %v", err)
-	}
-}
-
-func TestLoadHookConfig_ExecutableAndArgs(t *testing.T) {
-	dir := t.TempDir()
-	sdp := filepath.Join(dir, ".sdp")
-	if err := os.MkdirAll(sdp, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(sdp, "pipeline-hooks.yaml")
-	content := `
-hooks:
-  - phase: build
-    when: post
-    executable: echo
-    args: ["post-build"]
-    on_fail: halt
-`
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	cfg, err := orchestrate.LoadHookConfig(dir)
-	if err != nil {
-		t.Fatalf("LoadHookConfig: %v", err)
-	}
-	if cfg == nil || len(cfg.Hooks) != 1 {
-		t.Fatalf("expected 1 hook, got %v", cfg)
-	}
-	h := cfg.Hooks[0]
-	if h.Executable != "echo" || len(h.Args) != 1 || h.Args[0] != "post-build" {
-		t.Errorf("hook: executable=%q args=%v", h.Executable, h.Args)
+	if !strings.Contains(err.Error(), "disallowed") {
+		t.Fatalf("expected disallowed error, got: %v", err)
 	}
 }
 
-func TestRunHooks_ExecutableArgsNoShell(t *testing.T) {
-	dir := t.TempDir()
-	sdp := filepath.Join(dir, ".sdp")
-	if err := os.MkdirAll(sdp, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(sdp, "pipeline-hooks.yaml")
-	content := `
-hooks:
-  - phase: build
-    when: post
-    executable: echo
-    args: ["hello", "world"]
-    on_fail: halt
-`
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	ctx := context.Background()
-	env := orchestrate.HookEnv{WSID: "00-053-16", FeatureID: "F053", Phase: "build"}
-	err := orchestrate.RunHooks(ctx, dir, "build", "post", env, nil)
-	if err != nil {
-		t.Errorf("RunHooks: %v", err)
-	}
-}
-
-func TestRunHooks_RejectsShellC(t *testing.T) {
+func TestRunHooks_RejectsShellInterpreter(t *testing.T) {
 	dir := t.TempDir()
 	sdp := filepath.Join(dir, ".sdp")
 	if err := os.MkdirAll(sdp, 0o755); err != nil {
@@ -241,16 +178,18 @@ func TestRunHooks_RejectsShellC(t *testing.T) {
 hooks:
   - phase: build
     when: pre
-    executable: sh
-    args: ["-c", "echo injected"]
+    command: "sh -c echo-safe"
     on_fail: halt
 `
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	ctx := context.Background()
-	err := orchestrate.RunHooks(ctx, dir, "build", "pre", orchestrate.HookEnv{}, nil)
+
+	err := orchestrate.RunHooks(context.Background(), dir, "build", "pre", orchestrate.HookEnv{}, nil)
 	if err == nil {
-		t.Error("expected error when sh -c used (shell injection)")
+		t.Fatal("expected rejection error for disallowed command")
+	}
+	if !strings.Contains(err.Error(), "allowlist") {
+		t.Fatalf("expected allowlist error, got: %v", err)
 	}
 }

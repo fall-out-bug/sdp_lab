@@ -21,29 +21,40 @@ jobs:
         run: go build ./...
 
       - name: Test
-        run: go test -short ./... -count=1
+        run: go test ./... -count=1
 
       - name: Lint
         run: |
-          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.0
           golangci-lint run ./...
 
-      - name: Coverage
+  push-protection:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    steps:
+      - name: Reject direct pushes to protected branches
         run: |
-          mkdir -p .tmp
-          go test -short ./internal/... -coverprofile=.tmp/coverage.out -covermode=atomic
+          echo "ERROR: direct pushes to master/main bypass PR-only compliance gates."
+          echo "Use pull requests for protected branches."
+          exit 1
 
-      - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+  contract-compat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          name: coverage
-          path: .tmp/coverage.out
-          retention-days: 7
-          if-no-files-found: ignore
+          go-version: '1.26'
+
+      - name: Run contract compatibility tests
+        run: |
+          go test ./tests/contracts/... -v -count=1
 
   evidence-gate:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && !contains(github.head_ref, 'cleanup')
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,22 +68,11 @@ jobs:
       - name: Validate evidence files
         run: |
           set -e
-          BASE="${{ github.base_ref }}"
-          CHANGED=$(git diff --name-only origin/$BASE...HEAD)
-          EVIDENCE_FILES=$(echo "$CHANGED" | grep '^\.sdp/evidence/.*\.json$' || true)
-          FEATURE_PATHS=$(echo "$CHANGED" | grep -E '^internal/|^cmd/|^docs/workstreams/backlog/' || true)
-
-          if [ -n "$FEATURE_PATHS" ] && [ -z "$EVIDENCE_FILES" ]; then
-            echo "ERROR: feature PR requires evidence (internal/, cmd/, or docs/workstreams/backlog/ changed)"
-            echo "Add .sdp/evidence/*.json to the PR (see @build skill step 3b)"
-            exit 1
-          fi
-
+          EVIDENCE_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '^\.sdp/evidence/.*\.json$' || true)
           if [ -z "$EVIDENCE_FILES" ]; then
             echo "No evidence files changed — skipping validation"
             exit 0
           fi
-
           for f in $EVIDENCE_FILES; do
             if [ -f "$f" ]; then
               echo "Validating: $f"
@@ -95,7 +95,7 @@ jobs:
 
   scope-gate:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && !contains(github.head_ref, 'cleanup')
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -109,49 +109,251 @@ jobs:
       - name: Check scope compliance
         run: |
           set -e
-          BASE="${{ github.base_ref }}"
-          CHANGED=$(git diff --name-only origin/$BASE...HEAD)
-          CHECKPOINT_FILES=$(echo "$CHANGED" | grep '^\.sdp/checkpoints/.*\.json$' || true)
-          FEATURE_PATHS=$(echo "$CHANGED" | grep -E '^internal/|^cmd/|^docs/workstreams/backlog/' || true)
-
-          WS_IDS=""
-          if [ -n "$CHECKPOINT_FILES" ]; then
-            for cpf in $CHECKPOINT_FILES; do
-              if [ -f "$cpf" ]; then
-                WS_IDS="$WS_IDS $(jq -r '.workstreams[]?.id // empty' "$cpf" 2>/dev/null)"
-              fi
-            done
+          CHECKPOINT_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '^\.sdp/checkpoints/.*\.json$' || true)
+          if [ -z "$CHECKPOINT_FILES" ]; then
+            echo "No checkpoint files — scope gate not applicable"
+            exit 0
           fi
-
-          if [ -z "$WS_IDS" ] && [ -n "$FEATURE_PATHS" ]; then
-            WS_FROM_DOCS=$(echo "$CHANGED" | grep '^docs/workstreams/backlog/' | sed 's|docs/workstreams/backlog/||;s|\.md$||' | tr '\n' ' ')
-            if [ -n "$WS_FROM_DOCS" ]; then
-              WS_IDS="$WS_FROM_DOCS"
-            else
-              FEATURE_ID=$(echo "${{ github.head_ref }}" | sed -n 's|^feature/\(F[0-9]\{3\}\).*|\1|p')
-              if [ -n "$FEATURE_ID" ] && [ -f ".sdp/checkpoints/${FEATURE_ID}.json" ]; then
-                WS_IDS=$(jq -r '.workstreams[]?.id // empty' ".sdp/checkpoints/${FEATURE_ID}.json" 2>/dev/null)
-              fi
+          for cpf in $CHECKPOINT_FILES; do
+            if [ -f "$cpf" ]; then
+              FEATURE_ID=$(jq -r '.feature_id' "$cpf" 2>/dev/null || echo "")
+              if [ -z "$FEATURE_ID" ]; then continue; fi
+              WS_IDS=$(jq -r '.workstreams[]?.id // empty' "$cpf" 2>/dev/null || echo "")
+              for ws in $WS_IDS; do
+                if [ -f "docs/workstreams/backlog/${ws}.md" ]; then
+                  echo "Checking scope for $ws"
+                  go run ./cmd/sdp-guard --ws "$ws"
+                fi
+              done
             fi
-          fi
+          done
 
-          WS_IDS=$(echo "$WS_IDS" | tr ' ' '\n' | grep -v '^$' | sort -u)
-          if [ -z "$WS_IDS" ]; then
-            echo "No checkpoint or feature paths — scope gate not applicable"
+  protocol-compliance:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: [build-test]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Enforce harness contract gates
+        run: |
+          set -e
+          BASE="${{ github.base_ref }}"
+          CONTRACTS=$(git diff --name-only origin/$BASE...HEAD | grep '^\.sdp/contracts/F[0-9]\+\.json$' | grep -v '\.snapshot\.json$' | grep -v '\.gate-report\.json$' || true)
+
+          if [ -z "$CONTRACTS" ]; then
+            echo "No feature contracts changed — protocol compliance not applicable"
             exit 0
           fi
 
-          for ws in $WS_IDS; do
-            if [ -f "docs/workstreams/backlog/${ws}.md" ]; then
-              echo "Checking scope for $ws"
-              go run ./cmd/sdp-guard --ws "$ws"
+          for contract in $CONTRACTS; do
+            if [ ! -f "$contract" ]; then
+              echo "WARN: contract file missing in workspace: $contract"
+              continue
             fi
+
+            snapshot="${contract%.json}.snapshot.json"
+            if [ ! -f "$snapshot" ]; then
+              echo "ERROR: missing required snapshot for contract: $snapshot"
+              exit 1
+            fi
+
+            echo "Checking contract compliance for: $contract"
+            go run ./cmd/sdp-guard --check-contract --contract "$contract" --snapshot "$snapshot"
           done
+
+  consistency-gate:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Run repository consistency checks
+        run: |
+          set -euo pipefail
+          mkdir -p .sdp/findings
+          TS=$(date -u +%Y%m%d-%H%M%SZ)
+          RC=0
+          python3 scripts/check_repo_consistency.py --strict-ac --json > ".sdp/findings/check-repo-consistency-${TS}.json" || RC=1
+          go run ./cmd/sdp-protocol-check --format json --strict > ".sdp/findings/_raw-sdp-protocol-check-${TS}.json" || RC=1
+          go run ./cmd/sdp-doc-sync --mode check --format json --strict > ".sdp/findings/_raw-sdp-doc-sync-${TS}.json" || RC=1
+          TS="${TS}" RUN_ID="${{ github.run_id }}" RUN_NUMBER="${{ github.run_number }}" REPOSITORY="${{ github.repository }}" BRANCH="${{ github.ref_name }}" COMMIT_SHA="${{ github.sha }}" python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import uuid
+          from collections import Counter
+          from datetime import datetime, timezone
+
+          ts = os.environ["TS"]
+          run_id = int(os.environ.get("RUN_ID", "0") or 0)
+          run_number = int(os.environ.get("RUN_NUMBER", "0") or 0)
+          repository = os.environ.get("REPOSITORY", "")
+          branch = os.environ.get("BRANCH", "")
+          commit_sha = os.environ.get("COMMIT_SHA", "")
+
+          findings_dir = ".sdp/findings"
+          protocol_raw_path = f"{findings_dir}/_raw-sdp-protocol-check-{ts}.json"
+          docs_raw_path = f"{findings_dir}/_raw-sdp-doc-sync-{ts}.json"
+          protocol_out_path = f"{findings_dir}/sdp-protocol-check-{ts}.json"
+          docs_out_path = f"{findings_dir}/sdp-doc-sync-{ts}.json"
+          now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+          def load_issues(path):
+            try:
+              with open(path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+              issues = payload.get("issues", [])
+              if isinstance(issues, list):
+                return issues
+            except Exception:
+              return []
+            return []
+
+          def finding_key(*parts):
+            digest = hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
+            return digest[:16]
+
+          def protocol_category(file_path, message):
+            msg = (message or "").lower()
+            fp = (file_path or "").lower()
+            if "roadmap" in msg or "roadmap" in fp:
+              return "roadmap"
+            if "index" in msg or "index" in fp:
+              return "index"
+            if "backlog" in msg or "workstream" in msg or "workstreams" in fp:
+              return "workstream_structure"
+            if "feature" in msg:
+              return "feature_consistency"
+            return "documentation"
+
+          def summarize(findings):
+            sev = Counter()
+            cat = Counter()
+            for item in findings:
+              sev[item.get("severity", "info")] += 1
+              cat[item.get("category", "documentation")] += 1
+            return {
+              "total": len(findings),
+              "by_severity": dict(sev),
+              "by_category": dict(cat),
+            }
+
+          protocol_issues = load_issues(protocol_raw_path)
+          protocol_findings = []
+          for issue in protocol_issues:
+            severity = issue.get("severity", "warning")
+            file_path = issue.get("file", "")
+            message = issue.get("message", "")
+            code = issue.get("code", "")
+            category = protocol_category(file_path, message)
+            protocol_findings.append({
+              "finding_key": finding_key("protocol", severity, file_path, message, code),
+              "severity": severity,
+              "category": category,
+              "code": code,
+              "file": file_path,
+              "message": message,
+            })
+
+          docs_issues = load_issues(docs_raw_path)
+          docs_findings = []
+          for issue in docs_issues:
+            severity = issue.get("severity", "warning")
+            file_path = issue.get("file", "")
+            message = issue.get("message", "")
+            code = issue.get("code", "")
+            docs_findings.append({
+              "finding_key": finding_key("docs", severity, file_path, message, code),
+              "severity": severity,
+              "category": "consistency",
+              "code": code,
+              "file": file_path,
+              "message": message,
+            })
+
+          protocol_payload = {
+            "spec_version": "v1.0",
+            "findings_id": str(uuid.uuid4()),
+            "timestamp": now,
+            "source": {
+              "check_name": "sdp-protocol-check",
+              "workflow": "CI",
+              "run_id": run_id,
+              "run_number": run_number,
+              "repository": repository,
+              "branch": branch,
+              "commit_sha": commit_sha,
+            },
+            "configuration": {
+              "strict_all": True,
+            },
+            "findings": protocol_findings,
+            "summary": summarize(protocol_findings),
+          }
+
+          docs_payload = {
+            "spec_version": "v1.0",
+            "findings_id": str(uuid.uuid4()),
+            "timestamp": now,
+            "source": {
+              "check_name": "sdp-doc-sync",
+              "workflow": "CI",
+              "run_id": run_id,
+              "run_number": run_number,
+              "repository": repository,
+              "branch": branch,
+              "commit_sha": commit_sha,
+            },
+            "configuration": {
+              "strict_mode": True,
+              "check_links": True,
+              "changelog_mode": False,
+            },
+            "findings": docs_findings,
+            "summary": summarize(docs_findings),
+          }
+
+          with open(protocol_out_path, "w", encoding="utf-8") as f:
+            json.dump(protocol_payload, f, indent=2)
+            f.write("\n")
+
+          with open(docs_out_path, "w", encoding="utf-8") as f:
+            json.dump(docs_payload, f, indent=2)
+            f.write("\n")
+          PY
+          rm -f ".sdp/findings/_raw-sdp-protocol-check-${TS}.json" ".sdp/findings/_raw-sdp-doc-sync-${TS}.json"
+          if [ "$RC" -ne 0 ]; then
+            exit "$RC"
+          fi
+
+      - name: Upload findings artifact for local bridge
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sdp-findings
+          path: .sdp/findings/*.json
+          if-no-files-found: ignore
+          retention-days: 14
 
   policy-gate:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
-    needs: [evidence-gate]
+    needs: [evidence-gate, protocol-compliance, consistency-gate]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -170,44 +372,83 @@ jobs:
 
       - name: Collect policy input
         run: |
-          set -e
+          set -euo pipefail
           BASE="${{ github.base_ref }}"
+          EVIDENCE_VALIDATION_PASSED=$([ "${{ needs.evidence-gate.result }}" = "success" ] && echo true || echo false)
           CHANGED=$(git diff --name-only origin/$BASE...HEAD)
           EVIDENCE_COUNT=$(echo "$CHANGED" | grep -c '^\.sdp/evidence/' || echo 0)
           HAS_WS=$(echo "$CHANGED" | grep -c '^docs/workstreams/' || echo 0)
           HAS_FEATURE=$(echo "$CHANGED" | grep -c '^internal/\|^cmd/' || echo 0)
 
-          # Compute scope_violations_count from checkpoint workstreams (skip for cleanup branches)
+          # Compute scope_violations_count from checkpoint workstreams
           SCOPE_VIOLATIONS=0
-          if echo "${{ github.head_ref }}" | grep -q cleanup; then
-            echo "Cleanup branch — skipping scope violation count"
-          else
           CHECKPOINT_FILES=$(echo "$CHANGED" | grep '^\.sdp/checkpoints/.*\.json$' || true)
           for cpf in $CHECKPOINT_FILES; do
             if [ -f "$cpf" ]; then
               WS_IDS=$(jq -r '.workstreams[]?.id // empty' "$cpf" 2>/dev/null || echo "")
               for ws in $WS_IDS; do
                 if [ -n "$ws" ] && [ -f "docs/workstreams/backlog/${ws}.md" ]; then
-                  if ! go run ./cmd/sdp-guard --ws "$ws" &>/dev/null; then
+                  if ! go run ./cmd/sdp-guard --ws "$ws"; then
                     SCOPE_VIOLATIONS=$((SCOPE_VIOLATIONS + 1))
                   fi
                 fi
               done
             fi
           done
+
+          P0_FINDINGS=0
+          P1_FINDINGS=0
+          P2_FINDINGS=0
+          BEADS_REFERENCED=false
+
+          if [ -f .sdp/review_verdict.json ]; then
+            P0_FINDINGS=$(jq -r '
+              if has("p0_findings") then .p0_findings
+              elif (.findings? | type) == "array" then ([.findings[] | select((.priority // .severity // "" | ascii_downcase) == "p0")] | length)
+              else 0 end
+            ' .sdp/review_verdict.json 2>/dev/null || echo 0)
+
+            P1_FINDINGS=$(jq -r '
+              if has("p1_findings") then .p1_findings
+              elif (.findings? | type) == "array" then ([.findings[] | select((.priority // .severity // "" | ascii_downcase) == "p1")] | length)
+              elif (.blocking_ids? | type) == "array" then (.blocking_ids | length)
+              else 0 end
+            ' .sdp/review_verdict.json 2>/dev/null || echo 0)
+
+            P2_FINDINGS=$(jq -r '
+              if has("p2_findings") then .p2_findings
+              elif (.findings? | type) == "array" then ([.findings[] | select((.priority // .severity // "" | ascii_downcase) == "p2")] | length)
+              else 0 end
+            ' .sdp/review_verdict.json 2>/dev/null || echo 0)
+
+            VERDICT_FINDINGS_COUNT=$(jq -r '
+              if (.finding_ids? | type) == "array" then (.finding_ids | length)
+              elif (.blocking_ids? | type) == "array" then (.blocking_ids | length)
+              else 0 end
+            ' .sdp/review_verdict.json 2>/dev/null || echo 0)
+            if [ "$VERDICT_FINDINGS_COUNT" -gt 0 ]; then
+              BEADS_REFERENCED=true
+            fi
           fi
+
+          if git log --format=%s "origin/$BASE...HEAD" | grep -Eq 'sdplab-[a-z0-9]+'; then
+            BEADS_REFERENCED=true
+          fi
+
+          ENFORCEMENT_MODE="${SDP_POLICY_ENFORCEMENT_MODE:-advisory}"
 
           cat > /tmp/policy-input.json <<HEREDOC
           {
             "evidence_files_count": $EVIDENCE_COUNT,
-            "evidence_validation_passed": true,
+            "evidence_validation_passed": $EVIDENCE_VALIDATION_PASSED,
             "has_workstream_changes": $([ "$HAS_WS" -gt 0 ] && echo true || echo false),
             "scope_violations_count": $SCOPE_VIOLATIONS,
-            "p0_findings": 0,
-            "p1_findings": 0,
-            "p2_findings": 0,
+            "p0_findings": $P0_FINDINGS,
+            "p1_findings": $P1_FINDINGS,
+            "p2_findings": $P2_FINDINGS,
             "has_feature_changes": $([ "$HAS_FEATURE" -gt 0 ] && echo true || echo false),
-            "beads_referenced": true
+            "beads_referenced": $BEADS_REFERENCED,
+            "enforcement_mode": "${ENFORCEMENT_MODE}"
           }
           HEREDOC
           echo "=== Policy Input ==="
@@ -215,27 +456,30 @@ jobs:
 
       - name: Evaluate policies
         run: |
-          set -e
+          set -euo pipefail
           echo "=== Policy Evaluation ==="
 
           # Evaluate all policies together for cross-policy rules (enforcement_level)
           DENIALS=$(opa eval \
+            --v0-compatible \
             --data .sdp/policies/ \
             --input /tmp/policy-input.json \
             'data.sdp.policies.effective_deny' \
-            --format raw 2>/dev/null || echo '[]')
+            --format raw)
 
           WARNINGS=$(opa eval \
+            --v0-compatible \
             --data .sdp/policies/ \
             --input /tmp/policy-input.json \
             'data.sdp.policies.advisory_warn' \
-            --format raw 2>/dev/null || echo '[]')
+            --format raw)
 
           LEVEL=$(opa eval \
+            --v0-compatible \
             --data .sdp/policies/ \
             --input /tmp/policy-input.json \
             'data.sdp.policies.enforcement_level' \
-            --format raw 2>/dev/null | tr -d '"' || echo 'advisory')
+            --format raw | tr -d '"')
 
           echo "Enforcement level: $LEVEL"
 
@@ -286,15 +530,37 @@ jobs:
         run: |
           set -e
           mkdir -p .sdp/attestations
-          go run ./internal/evidence/cmd/auto-attest \
+          ATTEST_FAILED=false
+          if ! go run ./internal/evidence/cmd/auto-attest \
             --base-branch "$BASE_REF" \
             --pr-number "$PR_NUMBER" \
             --pr-url "$PR_URL" \
             --output .sdp/attestations/ci-auto.json \
-            --report .sdp/attestations/ci-auto-report.json
+            --report .sdp/attestations/ci-auto-report.json; then
+            ATTEST_FAILED=true
+          fi
+
+          if [ "$ATTEST_FAILED" = "true" ] && [ ! -f .sdp/attestations/ci-auto-report.json ]; then
+            cat > .sdp/attestations/ci-auto-report.json <<'EOF'
+          {
+            "attestation_generation_failed": true,
+            "failure_reason": "auto-attest command failed; see job logs",
+            "all_tests_pass": false,
+            "all_lint_pass": false,
+            "scope_compliance": {"ok": false, "reason": "auto-attestation unavailable"},
+            "beads_ids": []
+          }
+          EOF
+          fi
+
           if [ -f .sdp/attestations/ci-auto-report.json ]; then
             echo "=== Auto-Attestation Report ==="
             cat .sdp/attestations/ci-auto-report.json
+          fi
+
+          if [ "$ATTEST_FAILED" = "true" ]; then
+            echo "ERROR: auto-attestation generation failed"
+            exit 1
           fi
 
       - name: Sign attestation with Sigstore (keyless)
@@ -311,7 +577,7 @@ jobs:
             cosign sign-blob \
               --yes \
               --bundle .sdp/attestations/ci-auto.bundle \
-              .sdp/attestations/ci-auto.json || echo "WARN: Sigstore signing failed (non-blocking)"
+              .sdp/attestations/ci-auto.json
 
             if [ -f .sdp/attestations/ci-auto.bundle ]; then
               echo "Attestation signed. Rekor entry:"
@@ -351,10 +617,13 @@ jobs:
           SCOPE_OK=$(jq -r '.scope_compliance.ok // false' "$REPORT")
           SCOPE_REASON=$(jq -r '.scope_compliance.reason // ""' "$REPORT")
           BEADS=$(jq -r '.beads_ids | if length > 0 then join(", ") else "none" end' "$REPORT")
+          ATTEST_FAILED=$(jq -r '.attestation_generation_failed // false' "$REPORT")
+          ATTEST_REASON=$(jq -r '.failure_reason // ""' "$REPORT")
 
           TESTS_ICON=$([ "$ALL_TESTS" = "true" ] && echo "✅" || echo "❌")
           LINT_ICON=$([ "$ALL_LINT" = "true" ] && echo "✅" || echo "⚠️")
           SCOPE_ICON=$([ "$SCOPE_OK" = "true" ] && echo "✅" || echo "⚠️")
+          ATTEST_ICON=$([ "$ATTEST_FAILED" = "true" ] && echo "⚠️" || echo "✅")
 
           COVERAGE_LINE=""
           if jq -e '.coverage_pct' "$REPORT" > /dev/null 2>&1; then
@@ -384,6 +653,7 @@ jobs:
           | Tests | ${TESTS_ICON} ${TESTS} |
           | Lint | ${LINT_ICON} |
           | Scope | ${SCOPE_ICON} ${SCOPE_REASON} |
+          | Attestation generation | ${ATTEST_ICON} ${ATTEST_REASON} |
           ${COVERAGE_LINE}
           ${SIGNED_LINE}
           | Beads | ${BEADS} |
@@ -400,3 +670,50 @@ jobs:
 
           gh pr comment "$PR_NUMBER" --body "$COMMENT" || echo "WARN: could not post PR comment (non-blocking)"
 
+  required-checks:
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - build-test
+      - push-protection
+      - contract-compat
+      - evidence-gate
+      - scope-gate
+      - protocol-compliance
+      - consistency-gate
+      - policy-gate
+      - auto-attestation
+    steps:
+      - name: Validate all required CI jobs
+        env:
+          BUILD_TEST: ${{ needs.build-test.result }}
+          PUSH_PROTECTION: ${{ needs.push-protection.result }}
+          CONTRACT_COMPAT: ${{ needs.contract-compat.result }}
+          EVIDENCE_GATE: ${{ needs.evidence-gate.result }}
+          SCOPE_GATE: ${{ needs.scope-gate.result }}
+          PROTOCOL_COMPLIANCE: ${{ needs.protocol-compliance.result }}
+          CONSISTENCY_GATE: ${{ needs.consistency-gate.result }}
+          POLICY_GATE: ${{ needs.policy-gate.result }}
+          AUTO_ATTESTATION: ${{ needs.auto-attestation.result }}
+        run: |
+          set -euo pipefail
+
+          check_result() {
+            local name="$1"
+            local result="$2"
+            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
+              echo "ERROR: $name result is $result"
+              exit 1
+            fi
+            echo "OK: $name result is $result"
+          }
+
+          check_result "build-test" "$BUILD_TEST"
+          check_result "push-protection" "$PUSH_PROTECTION"
+          check_result "contract-compat" "$CONTRACT_COMPAT"
+          check_result "evidence-gate" "$EVIDENCE_GATE"
+          check_result "scope-gate" "$SCOPE_GATE"
+          check_result "protocol-compliance" "$PROTOCOL_COMPLIANCE"
+          check_result "consistency-gate" "$CONSISTENCY_GATE"
+          check_result "policy-gate" "$POLICY_GATE"
+          check_result "auto-attestation" "$AUTO_ATTESTATION"

@@ -47,4 +47,4 @@ Labels: `autonomy`, `strict-evidence`, `workstream:self-improvement`, `risk:medi
 ## 8. References
 
 - [specs/self-improvement-contract.yaml](../specs/self-improvement-contract.yaml)
-- [internal/selfimprove/](../internal/selfimprove/)
+- [CI_LOCAL_BRIDGE.md](runbooks/CI_LOCAL_BRIDGE.md)

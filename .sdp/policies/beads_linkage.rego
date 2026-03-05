@@ -7,7 +7,7 @@ beads_linked = false {
     input.beads_referenced == false
 }
 
-warn[msg] {
+deny[msg] {
     input.has_feature_changes
     input.beads_referenced == false
     msg := "Feature changes without beads issue reference in commits"

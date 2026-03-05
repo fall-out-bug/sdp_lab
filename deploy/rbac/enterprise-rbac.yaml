@@ -1,0 +1,163 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sdp-operator
+  labels:
+    app.kubernetes.io/name: sdp
+    app.kubernetes.io/component: rbac
+rules:
+- apiGroups: [""]
+  resources: ["pods", "secrets", "configmaps"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["sdp.dev"]
+  resources: ["agentruns", "tasks", "workstreams"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+- apiGroups: ["sdp.dev"]
+  resources: ["evidence"]
+  verbs: ["get", "list", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sdp-reviewer
+  labels:
+    app.kubernetes.io/name: sdp
+    app.kubernetes.io/component: rbac
+rules:
+- apiGroups: [""]
+  resources: ["pods", "configmaps"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["sdp.dev"]
+  resources: ["agentruns", "tasks", "workstreams"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["sdp.dev"]
+  resources: ["evidence"]
+  verbs: ["get", "list"]
+- apiGroups: ["sdp.dev"]
+  resources: ["reviews"]
+  verbs: ["get", "list", "create", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sdp-auditor
+  labels:
+    app.kubernetes.io/name: sdp
+    app.kubernetes.io/component: rbac
+rules:
+- apiGroups: [""]
+  resources: ["pods", "configmaps"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["sdp.dev"]
+  resources: ["agentruns", "tasks", "workstreams", "evidence"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["sdp.dev"]
+  resources: ["auditlogs"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sdp-admin
+  labels:
+    app.kubernetes.io/name: sdp
+    app.kubernetes.io/component: rbac
+rules:
+- apiGroups: [""]
+  resources: ["pods", "secrets", "configmaps", "namespaces"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["sdp.dev"]
+  resources: ["agentruns", "tasks", "workstreams", "evidence", "reviews", "tenants", "credentials"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles", "rolebindings"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sdp-operator-binding
+  labels:
+    app.kubernetes.io/name: sdp
+    app.kubernetes.io/component: rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: sdp-operator
+subjects:
+- kind: ServiceAccount
+  name: sdp-operator
+  namespace: sdp-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sdp-reviewer-binding
+  labels:
+    app.kubernetes.io/name: sdp
+    app.kubernetes.io/component: rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: sdp-reviewer
+subjects:
+- kind: ServiceAccount
+  name: sdp-reviewer
+  namespace: sdp-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sdp-auditor-binding
+  labels:
+    app.kubernetes.io/name: sdp
+    app.kubernetes.io/component: rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: sdp-auditor
+subjects:
+- kind: ServiceAccount
+  name: sdp-auditor
+  namespace: sdp-system
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sdp-tenant-alpha
+  labels:
+    sdp.dev/tenant: alpha
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sdp-tenant-beta
+  labels:
+    sdp.dev/tenant: beta
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: sdp-tenant-admin
+  namespace: sdp-tenant-alpha
+rules:
+- apiGroups: ["sdp.dev"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["secrets", "configmaps"]
+  verbs: ["get", "list", "create", "update", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: sdp-tenant-alpha-admin-binding
+  namespace: sdp-tenant-alpha
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: sdp-tenant-admin
+subjects:
+- kind: User
+  name: tenant-alpha-admin
+  apiGroup: rbac.authorization.k8s.io

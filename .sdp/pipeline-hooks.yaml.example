@@ -4,33 +4,16 @@
 # when: pre | post
 # on_fail: halt | warn | ignore
 # timeout: seconds (0 = default 60)
-#
-# Schema: executable + args (no shell). Legacy "command" is rejected (shell injection risk).
-# Allowlist: echo, go, make, python3, node, npm, npx, bash, sh, false
-#
-# Integration test contract (AGENTS.md):
-#   - CI and sdp build run: go test -short ./...
-#   - Integration tests: use t.Skip() or testing.Short(); never delete to fix flakiness
-#   - Full test run (no -short): only locally
 
 hooks:
   - phase: build
     when: pre
-    executable: bash
-    args: ["scripts/hooks/pre-build.sh"]
+    command: hooks/pre-build.sh
     on_fail: warn
     timeout: 30
 
   - phase: build
     when: post
-    executable: bash
-    args: ["scripts/hooks/validate-ws-verdicts.sh"]
-    on_fail: halt
-    timeout: 60
-
-  - phase: build
-    when: post
-    executable: bash
-    args: ["scripts/hooks/post-build.sh"]
+    command: hooks/post-build.sh
     on_fail: warn
     timeout: 30

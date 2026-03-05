@@ -1,0 +1,53 @@
+{
+  "run_id": "run-2026-03-03-001",
+  "phase": "validate",
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "status": "done"
+    },
+    {
+      "id": "AC-2",
+      "status": "done"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "ac_coverage",
+      "value": "100%"
+    },
+    {
+      "name": "gate_pass_rate",
+      "value": "100%"
+    }
+  ],
+  "evidence": [
+    "test_results",
+    "build_log",
+    "gate_results",
+    "decision_log"
+  ],
+  "quality_results": {
+    "build": true,
+    "test": true,
+    "lint": true,
+    "typecheck": true
+  },
+  "process_report": {
+    "contract_coverage_summary": true,
+    "gate_results": true,
+    "evidence_index": true,
+    "decision_log": true
+  },
+  "claims": [
+    {
+      "id": "CLAIM-1",
+      "statement": "All required quality gates passed",
+      "evidence_refs": [
+        "test_results",
+        "build_log",
+        "gate_results"
+      ]
+    }
+  ]
+}

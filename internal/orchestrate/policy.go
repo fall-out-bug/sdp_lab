@@ -1,15 +1,12 @@
 package orchestrate
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"sdp_dev/internal/executil"
 )
 
 // PolicyResult holds the output of OPA policy evaluation.
@@ -21,24 +18,23 @@ type PolicyResult struct {
 
 // PolicyInput is the data passed to OPA for evaluation.
 type PolicyInput struct {
-	Phase                   string   `json:"phase"`
-	FeatureID               string   `json:"feature_id"`
-	WorkstreamID            string   `json:"workstream_id,omitempty"`
-	ChangedFiles            []string `json:"changed_files"`
-	ScopeViolationsCount    int      `json:"scope_violations_count"`
-	EvidenceFilesCount      int      `json:"evidence_files_count"`
-	EvidenceValidationPassed bool    `json:"evidence_validation_passed"`
-	HasWorkstreamChanges    bool     `json:"has_workstream_changes"`
-	HasFeatureChanges       bool     `json:"has_feature_changes"`
-	BeadsReferenced         bool     `json:"beads_referenced"`
-	P0Findings              int      `json:"p0_findings"`
-	P1Findings              int      `json:"p1_findings"`
-	P2Findings              int      `json:"p2_findings"`
+	Phase                    string   `json:"phase"`
+	FeatureID                string   `json:"feature_id"`
+	WorkstreamID             string   `json:"workstream_id,omitempty"`
+	ChangedFiles             []string `json:"changed_files"`
+	ScopeViolationsCount     int      `json:"scope_violations_count"`
+	EvidenceFilesCount       int      `json:"evidence_files_count"`
+	EvidenceValidationPassed bool     `json:"evidence_validation_passed"`
+	HasWorkstreamChanges     bool     `json:"has_workstream_changes"`
+	HasFeatureChanges        bool     `json:"has_feature_changes"`
+	BeadsReferenced          bool     `json:"beads_referenced"`
+	P0Findings               int      `json:"p0_findings"`
+	P1Findings               int      `json:"p1_findings"`
+	P2Findings               int      `json:"p2_findings"`
 }
 
 // EvaluatePolicies evaluates .sdp/policies/*.rego against the given input.
-// Returns PolicyResult. If OPA is not installed, returns empty result (graceful degradation).
-func EvaluatePolicies(ctx context.Context, projectRoot string, input PolicyInput) (PolicyResult, error) {
+func EvaluatePolicies(projectRoot string, input PolicyInput) (PolicyResult, error) {
 	policiesDir := filepath.Join(projectRoot, ".sdp", "policies")
 	if _, err := os.Stat(policiesDir); os.IsNotExist(err) {
 		return PolicyResult{Level: "advisory"}, nil
@@ -47,8 +43,7 @@ func EvaluatePolicies(ctx context.Context, projectRoot string, input PolicyInput
 	// Check if opa is available
 	opaPath, err := exec.LookPath("opa")
 	if err != nil {
-		// OPA not installed — skip policy evaluation silently
-		return PolicyResult{Level: "advisory"}, nil
+		return PolicyResult{}, fmt.Errorf("opa not found in PATH: %w", err)
 	}
 
 	// Write input to temp file
@@ -70,49 +65,45 @@ func EvaluatePolicies(ctx context.Context, projectRoot string, input PolicyInput
 	result := PolicyResult{}
 
 	// Query enforcement level
-	level := queryOPAString(ctx, opaPath, policiesDir, tmpInput.Name(), "data.sdp.policies.enforcement_level")
+	level := queryOPAString(opaPath, policiesDir, tmpInput.Name(), "data.sdp.policies.enforcement_level")
 	if level == "" {
 		level = "advisory"
 	}
 	result.Level = level
 
 	// Query effective denials
-	denials := queryOPAStringSet(ctx, opaPath, policiesDir, tmpInput.Name(), "data.sdp.policies.effective_deny")
+	denials := queryOPAStringSet(opaPath, policiesDir, tmpInput.Name(), "data.sdp.policies.effective_deny")
 	result.Denials = denials
 
 	// Query advisory warnings
-	warnings := queryOPAStringSet(ctx, opaPath, policiesDir, tmpInput.Name(), "data.sdp.policies.advisory_warn")
+	warnings := queryOPAStringSet(opaPath, policiesDir, tmpInput.Name(), "data.sdp.policies.advisory_warn")
 	result.Warnings = warnings
 
 	return result, nil
 }
 
-func queryOPAString(ctx context.Context, opaPath, policiesDir, inputFile, query string) string {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	out, err := executil.DefaultRunner.Output(ctx, "", opaPath, "eval",
+func queryOPAString(opaPath, policiesDir, inputFile, query string) string {
+	cmd := exec.Command(opaPath, "eval",
 		"--data", policiesDir,
 		"--input", inputFile,
 		"--format", "raw",
 		query,
 	)
+	out, err := cmd.Output()
 	if err != nil {
 		return ""
 	}
 	return strings.Trim(strings.TrimSpace(string(out)), `"`)
 }
 
-func queryOPAStringSet(ctx context.Context, opaPath, policiesDir, inputFile, query string) []string {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	out, err := executil.DefaultRunner.Output(ctx, "", opaPath, "eval",
+func queryOPAStringSet(opaPath, policiesDir, inputFile, query string) []string {
+	cmd := exec.Command(opaPath, "eval",
 		"--data", policiesDir,
 		"--input", inputFile,
 		"--format", "raw",
 		query,
 	)
+	out, err := cmd.Output()
 	if err != nil {
 		return nil
 	}

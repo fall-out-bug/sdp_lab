@@ -11,10 +11,10 @@ import (
 func TestHydrate(t *testing.T) {
 	root := findProjectRoot(t)
 	cp := &Checkpoint{
-		Schema:     "1.0",
-		FeatureID:  "F022",
-		Branch:     "feature/F022-context-pre-hydration",
-		Phase:      PhaseBuild,
+		Schema:      "1.0",
+		FeatureID:   "F022",
+		Branch:      "feature/F022-context-pre-hydration",
+		Phase:       PhaseBuild,
 		Workstreams: []WSStatus{{ID: "00-022-01", Status: "pending"}},
 	}
 	pkt, err := Hydrate(root, "F022", "00-022-01", cp)
@@ -99,6 +99,25 @@ func TestParseQualityGates(t *testing.T) {
 	got := parseQualityGates(content)
 	if !strings.Contains(got, "Quality Gates") {
 		t.Errorf("parseQualityGates: want Quality Gates section, got %q", got)
+	}
+}
+
+func TestFormatForPromptIncludesMemoryContext(t *testing.T) {
+	p := &ContextPacket{
+		Workstream:         "ws",
+		AcceptanceCriteria: []string{"ac1"},
+		ScopeFiles:         []string{"internal/session/memory.go"},
+		QualityGates:       "go test ./...",
+		DriftStatus:        "",
+		MemoryContext:      "[MEMORY]\nProject Memories:\n- hello",
+	}
+
+	got := p.FormatForPrompt()
+	if !strings.Contains(got, "### Memory Context") {
+		t.Fatalf("expected memory context heading in prompt, got %q", got)
+	}
+	if !strings.Contains(got, "Project Memories") {
+		t.Fatalf("expected memory context body in prompt, got %q", got)
 	}
 }
 

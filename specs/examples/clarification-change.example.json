@@ -1,0 +1,17 @@
+{
+  "id": "CR-2026-03-03-01",
+  "reason": "User clarified that latency metric must be tracked",
+  "add_metrics": [
+    {
+      "name": "latency_p95_ms",
+      "target": 2500,
+      "direction": "at_most"
+    }
+  ],
+  "add_evidence": [
+    "trace_link"
+  ],
+  "enable_quality_gates": [
+    "typecheck"
+  ]
+}

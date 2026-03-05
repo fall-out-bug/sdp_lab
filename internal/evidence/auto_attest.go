@@ -2,7 +2,6 @@ package evidence
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -15,8 +14,6 @@ import (
 
 	intoto "github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/common"
-
-	"sdp_dev/internal/executil"
 )
 
 type AutoAttestOptions struct {
@@ -26,42 +23,26 @@ type AutoAttestOptions struct {
 	RepoRoot   string
 }
 
+type autoAttestFacts struct {
+	changedFiles []string
+	branch       string
+	headSHA      string
+	commits      []string
+	beadsIDs     []string
+	issueID      string
+	testResults  []GateResult
+	coverage     float64
+	lintResults  []GateResult
+	boundary     Boundary
+}
+
 // AutoAttest collects facts from CI (git diff, tests, lint, scope) and generates
 // an in-toto CodingWorkflowStatement. No agent action required — CI is the observer.
-func AutoAttest(ctx context.Context, opts AutoAttestOptions) (CodingWorkflowStatement, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	changedFiles, err := gitChangedFiles(ctx, opts.RepoRoot, opts.BaseBranch)
+func AutoAttest(opts AutoAttestOptions) (CodingWorkflowStatement, error) {
+	facts, err := collectAutoAttestFacts(opts)
 	if err != nil {
-		return CodingWorkflowStatement{}, fmt.Errorf("git changed files: %w", err)
+		return CodingWorkflowStatement{}, err
 	}
-
-	branch, err := gitCurrentBranch(ctx, opts.RepoRoot)
-	if err != nil {
-		return CodingWorkflowStatement{}, fmt.Errorf("git branch: %w", err)
-	}
-
-	headSHA, err := gitHeadSHA(ctx, opts.RepoRoot)
-	if err != nil {
-		return CodingWorkflowStatement{}, fmt.Errorf("git head SHA: %w", err)
-	}
-
-	commits, err := gitCommitsSinceBase(ctx, opts.RepoRoot, opts.BaseBranch)
-	if err != nil {
-		commits = []string{headSHA}
-	}
-
-	beadsIDs := extractBeadsIDsFromCommits(ctx, opts.RepoRoot, opts.BaseBranch)
-	issueID := firstOrEmpty(beadsIDs)
-	if issueID == "" {
-		issueID = fmt.Sprintf("ci-auto-pr%s", opts.PRNumber)
-	}
-
-	testResults, coverage := collectTestResults(ctx, opts.RepoRoot)
-	lintResults := collectLintResults(ctx, opts.RepoRoot)
-
-	boundary, boundaryOK := checkScopeCompliance(opts.RepoRoot, changedFiles)
 
 	subjectName := opts.PRURL
 	if subjectName == "" {
@@ -70,84 +51,130 @@ func AutoAttest(ctx context.Context, opts AutoAttestOptions) (CodingWorkflowStat
 
 	subjects := []intoto.Subject{{ //nolint:staticcheck // intoto v0 types for compatibility
 		Name:   subjectName,
-		Digest: common.DigestSet{"sha256": headSHA},
+		Digest: common.DigestSet{"sha256": facts.headSHA},
 	}}
 
-	predicate := CodingWorkflowPredicate{
+	return NewStatement(subjects, buildAutoAttestPredicate(opts, facts)), nil
+}
+
+func collectAutoAttestFacts(opts AutoAttestOptions) (autoAttestFacts, error) {
+	changedFiles, err := gitChangedFiles(opts.RepoRoot, opts.BaseBranch)
+	if err != nil {
+		return autoAttestFacts{}, fmt.Errorf("git changed files: %w", err)
+	}
+
+	branch, err := gitCurrentBranch(opts.RepoRoot)
+	if err != nil {
+		return autoAttestFacts{}, fmt.Errorf("git branch: %w", err)
+	}
+
+	headSHA, err := gitHeadSHA(opts.RepoRoot)
+	if err != nil {
+		return autoAttestFacts{}, fmt.Errorf("git head SHA: %w", err)
+	}
+
+	commits, err := gitCommitsSinceBase(opts.RepoRoot, opts.BaseBranch)
+	if err != nil {
+		commits = []string{headSHA}
+	}
+
+	beadsIDs := extractBeadsIDsFromCommits(opts.RepoRoot, opts.BaseBranch)
+	issueID := firstOrEmpty(beadsIDs)
+	if issueID == "" {
+		issueID = fmt.Sprintf("ci-auto-pr%s", opts.PRNumber)
+	}
+
+	testResults, coverage := collectTestResults(opts.RepoRoot)
+	lintResults := collectLintResults(opts.RepoRoot)
+	boundary, _ := checkScopeCompliance(opts.RepoRoot, changedFiles)
+
+	return autoAttestFacts{
+		changedFiles: changedFiles,
+		branch:       branch,
+		headSHA:      headSHA,
+		commits:      commits,
+		beadsIDs:     beadsIDs,
+		issueID:      issueID,
+		testResults:  testResults,
+		coverage:     coverage,
+		lintResults:  lintResults,
+		boundary:     boundary,
+	}, nil
+}
+
+func buildAutoAttestPredicate(opts AutoAttestOptions, facts autoAttestFacts) CodingWorkflowPredicate {
+	return CodingWorkflowPredicate{
 		Intent: Intent{
-			IssueID: issueID,
+			IssueID: facts.issueID,
 			Trigger: "ci-auto-attestation",
 		},
 		Plan: Plan{
-			Workstreams:       extractWorkstreamsFromBranch(branch),
+			Workstreams:       extractWorkstreamsFromBranch(facts.branch),
 			OrderingRationale: "auto-detected from branch name",
 		},
 		Execution: Execution{
-			ClaimedIssueIDs: beadsIDs,
-			Branch:          branch,
-			ChangedFiles:    changedFiles,
+			ClaimedIssueIDs: facts.beadsIDs,
+			Branch:          facts.branch,
+			ChangedFiles:    facts.changedFiles,
 		},
 		Verification: Verification{
-			Tests: testResults,
-			Lint:  lintResults,
+			Tests: facts.testResults,
+			Lint:  facts.lintResults,
 			Coverage: func() *Coverage {
-				if coverage >= 0 {
-					return &Coverage{Value: coverage, Threshold: 80}
+				if facts.coverage >= 0 {
+					return &Coverage{Value: facts.coverage, Threshold: 80}
 				}
 				return nil
 			}(),
 		},
-		Boundary: boundary,
+		Boundary: facts.boundary,
 		Provenance: Provenance{
-			RunID:        fmt.Sprintf("ci-auto-%s-%s", opts.PRNumber, headSHA[:minLen(len(headSHA), 8)]),
+			RunID:        fmt.Sprintf("ci-auto-%s-%s", opts.PRNumber, facts.headSHA[:minLen(len(facts.headSHA), 8)]),
 			Orchestrator: "github-actions",
 			Runtime:      "ci",
 			CapturedAt:   time.Now().UTC().Format(time.RFC3339),
 		},
 		Trace: Trace{
-			BeadsIDs: beadsIDs,
-			Branch:   branch,
-			Commits:  commits,
+			BeadsIDs: facts.beadsIDs,
+			Branch:   facts.branch,
+			Commits:  facts.commits,
 			PRURL:    opts.PRURL,
 		},
 	}
-	_ = boundaryOK
-
-	return NewStatement(subjects, predicate), nil
 }
 
-func gitChangedFiles(ctx context.Context, repoRoot, baseBranch string) ([]string, error) {
+func gitChangedFiles(repoRoot, baseBranch string) ([]string, error) {
 	if baseBranch == "" {
 		baseBranch = "master"
 	}
-	out, err := runGit(ctx, repoRoot, "diff", "--name-only", "origin/"+baseBranch+"...HEAD")
+	out, err := runGit(repoRoot, "diff", "--name-only", "origin/"+baseBranch+"...HEAD")
 	if err != nil {
 		return nil, err
 	}
 	return splitLines(out), nil
 }
 
-func gitCurrentBranch(ctx context.Context, repoRoot string) (string, error) {
-	out, err := runGit(ctx, repoRoot, "branch", "--show-current")
+func gitCurrentBranch(repoRoot string) (string, error) {
+	out, err := runGit(repoRoot, "branch", "--show-current")
 	if err != nil {
 		return "", err
 	}
 	return strings.TrimSpace(out), nil
 }
 
-func gitHeadSHA(ctx context.Context, repoRoot string) (string, error) {
-	out, err := runGit(ctx, repoRoot, "rev-parse", "HEAD")
+func gitHeadSHA(repoRoot string) (string, error) {
+	out, err := runGit(repoRoot, "rev-parse", "HEAD")
 	if err != nil {
 		return "", err
 	}
 	return strings.TrimSpace(out), nil
 }
 
-func gitCommitsSinceBase(ctx context.Context, repoRoot, baseBranch string) ([]string, error) {
+func gitCommitsSinceBase(repoRoot, baseBranch string) ([]string, error) {
 	if baseBranch == "" {
 		baseBranch = "master"
 	}
-	out, err := runGit(ctx, repoRoot, "log", "--format=%H", "origin/"+baseBranch+"...HEAD")
+	out, err := runGit(repoRoot, "log", "--format=%H", "origin/"+baseBranch+"...HEAD")
 	if err != nil {
 		return nil, err
 	}
@@ -156,11 +183,11 @@ func gitCommitsSinceBase(ctx context.Context, repoRoot, baseBranch string) ([]st
 
 var beadsIDRe = regexp.MustCompile(`sdp_dev-[a-z0-9]{4}`)
 
-func extractBeadsIDsFromCommits(ctx context.Context, repoRoot, baseBranch string) []string {
+func extractBeadsIDsFromCommits(repoRoot, baseBranch string) []string {
 	if baseBranch == "" {
 		baseBranch = "master"
 	}
-	out, _ := runGit(ctx, repoRoot, "log", "--format=%s %b", "origin/"+baseBranch+"...HEAD")
+	out, _ := runGit(repoRoot, "log", "--format=%s %b", "origin/"+baseBranch+"...HEAD")
 	seen := map[string]bool{}
 	var ids []string
 	for _, id := range beadsIDRe.FindAllString(out, -1) {
@@ -182,11 +209,16 @@ func extractWorkstreamsFromBranch(branch string) []string {
 }
 
 // collectTestResults runs go test with -count=1 -cover and parses JSON output.
-func collectTestResults(ctx context.Context, repoRoot string) ([]GateResult, float64) {
-	if ctx == nil {
-		ctx = context.Background()
+func collectTestResults(repoRoot string) ([]GateResult, float64) {
+	cmd := exec.Command("go", "test", "./...", "-count=1", "-cover", "-json")
+	cmd.Dir = repoRoot
+	out, err := cmd.Output()
+	if err != nil {
+		return []GateResult{{
+			Name:   "go-test",
+			Status: fmt.Sprintf("fail: %v", err),
+		}}, -1
 	}
-	out, err := executil.DefaultRunner.Output(ctx, repoRoot, "go", "test", "./...", "-count=1", "-cover", "-json")
 
 	passed := 0
 	failed := 0
@@ -223,7 +255,7 @@ func collectTestResults(ctx context.Context, repoRoot string) ([]GateResult, flo
 	}
 
 	status := "pass"
-	if err != nil || failed > 0 {
+	if failed > 0 {
 		status = "fail"
 	}
 
@@ -254,14 +286,13 @@ func parseCoverageLine(line string) float64 {
 }
 
 // collectLintResults runs go vet and golangci-lint if available.
-func collectLintResults(ctx context.Context, repoRoot string) []GateResult {
-	if ctx == nil {
-		ctx = context.Background()
-	}
+func collectLintResults(repoRoot string) []GateResult {
 	var results []GateResult
 
 	// Always run go vet
-	vetOut, vetErr := executil.DefaultRunner.CombinedOutput(ctx, repoRoot, "go", "vet", "./...")
+	cmd := exec.Command("go", "vet", "./...")
+	cmd.Dir = repoRoot
+	vetOut, vetErr := cmd.CombinedOutput()
 	vetStatus := "pass"
 	if vetErr != nil {
 		vetStatus = fmt.Sprintf("fail: %s", strings.TrimSpace(string(vetOut)))
@@ -271,7 +302,9 @@ func collectLintResults(ctx context.Context, repoRoot string) []GateResult {
 	// Run golangci-lint if available
 	lintPath, err := exec.LookPath("golangci-lint")
 	if err == nil {
-		lintOut, lintErr := executil.DefaultRunner.CombinedOutput(ctx, repoRoot, lintPath, "run", "--out-format=line-number", "--timeout=120s", "./...")
+		lintCmd := exec.Command(lintPath, "run", "--out-format=line-number", "--timeout=120s", "./...")
+		lintCmd.Dir = repoRoot
+		lintOut, lintErr := lintCmd.CombinedOutput()
 		lintStatus := "pass"
 		if lintErr != nil {
 			lines := countNonEmptyLines(string(lintOut))
@@ -344,11 +377,12 @@ func collectDeclaredScopePrefixes(repoRoot string) []string {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
 			continue
 		}
+
 		f, err := os.Open(filepath.Join(backlogDir, e.Name()))
 		if err != nil {
 			continue
 		}
-		defer func() { _ = f.Close() }() //nolint:gocritic // defer in loop is acceptable here
+
 		inScopeSection := false
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
@@ -369,17 +403,19 @@ func collectDeclaredScopePrefixes(repoRoot string) []string {
 				}
 			}
 		}
+
+		_ = f.Close()
+		if scanner.Err() != nil {
+			continue
+		}
 	}
 	return prefixes
 }
 
 func matchesAnyPrefix(file string, prefixes []string) bool {
 	for _, p := range prefixes {
-		if strings.HasPrefix(file, p) || file == p {
-			return true
-		}
-		// Match "internal" when prefix is "internal/"
-		if file == strings.TrimSuffix(p, "/") {
+		trimmed := strings.TrimSuffix(p, "/")
+		if strings.HasPrefix(file, p) || file == p || file == trimmed {
 			return true
 		}
 	}
@@ -396,11 +432,10 @@ func countNonEmptyLines(s string) int {
 	return count
 }
 
-func runGit(ctx context.Context, dir string, args ...string) (string, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	out, err := executil.DefaultRunner.Output(ctx, dir, "git", args...)
+func runGit(dir string, args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
 	}
@@ -435,12 +470,7 @@ func minLen(a, b int) int {
 
 // WriteAutoAttestationReport writes a human-readable summary JSON alongside the attestation.
 func WriteAutoAttestationReport(outputPath string, stmt CodingWorkflowStatement) error {
-	allTestsPass := true
-	for _, t := range stmt.Predicate.Verification.Tests {
-		if strings.HasPrefix(t.Status, "fail") {
-			allTestsPass = false
-		}
-	}
+	allTestsPass := AllTestsPass(stmt)
 	allLintPass := true
 	for _, l := range stmt.Predicate.Verification.Lint {
 		if strings.HasPrefix(l.Status, "fail") {
@@ -475,4 +505,13 @@ func WriteAutoAttestationReport(outputPath string, stmt CodingWorkflowStatement)
 	}
 	b = append(b, '\n')
 	return os.WriteFile(outputPath, b, 0o644)
+}
+
+func AllTestsPass(stmt CodingWorkflowStatement) bool {
+	for _, t := range stmt.Predicate.Verification.Tests {
+		if strings.HasPrefix(t.Status, "fail") {
+			return false
+		}
+	}
+	return true
 }
