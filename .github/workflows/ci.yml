@@ -32,8 +32,24 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
     steps:
-      - name: Reject direct pushes to protected branches
+      - name: Allow commits associated with merged PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+
+          PR_COUNT=$(curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+            | jq 'length')
+
+          if [ "${PR_COUNT}" -gt 0 ]; then
+            echo "OK: commit ${GITHUB_SHA} is associated with ${PR_COUNT} pull request(s)."
+            exit 0
+          fi
+
+          echo "ERROR: commit ${GITHUB_SHA} is not associated with any pull request."
           echo "ERROR: direct pushes to master/main bypass PR-only compliance gates."
           echo "Use pull requests for protected branches."
           exit 1
