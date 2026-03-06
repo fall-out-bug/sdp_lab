@@ -263,7 +263,8 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 - Archived pre-pivot features: `F001`..`F013`
 - Phase 0/7 completed bootstrap features: `F014`..`F030`
 - Auto-generated planning ranges: `F031`..`F052`
-- Active strategy and ecosystem ranges: `F059`..`F077`
+- Active strategy and ecosystem ranges: `F059`..`F085`
+- Parked long-horizon ideas: `F086`..`F089`
 
 ### Standards & Tools
 - [in-toto attestation](https://github.com/in-toto/attestation) — envelope format
@@ -319,6 +320,27 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 - **F076** — Documentation Agent Automation (00-076-01). Automatic changelog updates and documentation consistency checks on each commit.
 - **F077** — CI to Local Bridge for Improvement Loop (00-077-01 ... 00-077-04). GitHub CI findings are synchronized into local Beads queue for autonomous improvement agents.
 
+### Phase 8C: Trust Surface and Enterprise Readiness (High Priority)
+
+- **F078** — Trust Surface Consistency (00-078-01 ... 00-078-03). Enforce version/link/metadata consistency and release-surface checks for OSS trust.
+- **F079** — Enterprise Trust Pack (00-079-01 ... 00-079-03). Public maturity matrix, canonical guarantees/non-guarantees, CI gates map with local reproduce path.
+- **F080** — Contract Governance Policy (00-080-01 ... 00-080-03). Schema semver rules, compatibility gates, canonical examples and conformance tests.
+- **F081** — 30-Min Production Pilot (00-081-01 ... 00-081-03). CI-gate-only onboarding, contracted-runtime pilot, rollback/disable playbook.
+
+### Phase 8D: Medium-Priority Trust Expansion (Backlog)
+
+- **F082** — Compliance Control Mapping. Audit-grade mapping: control -> evidence field -> frequency -> verifier -> residual risk.
+- **F083** — Policy Engine Enforcement Pack. OPA/Rego policy bundles for evidence completeness and allow/deny decisions.
+- **F084** — Enterprise Runtime Hardening. Incremental hardening package around identity, signatures, and operational guardrails.
+- **F085** — Platform Productization Kit. Reusable org-level integration templates and operating model.
+
+### Parking Lot: Long-Horizon Ideas
+
+- **F086** — Cross-Project Evidence Federation.
+- **F087** — Adversarial Reviewer Quorum.
+- **F088** — Autonomous Backlog Synthesis from findings telemetry.
+- **F089** — Adaptive Gate Tuning based on historical signal quality.
+
 
 ### Layer Rollout Matrix (Vision Alignment)
 
@@ -326,11 +348,11 @@ Reference: `docs/vision/SDP_LAYERED_VISION.md`
 
 | Layer | Roadmap focus | Delivery signal |
 |-------|---------------|-----------------|
-| L1 Protocol | F068 + protocol contracts and skill specs | Stable input/output + self-check contracts across runtimes |
-| L2 Runtime Governance | F059, F064-F067, protocol-compliance gates | Drift blocked before merge, no unsupported claims |
+| L1 Protocol | F068, F080 + protocol contracts and compatibility policy | Stable input/output + self-check contracts across runtimes |
+| L2 Runtime Governance | F059, F064-F067, F078 + protocol-compliance gates | Drift blocked before merge, no unsupported claims |
 | L3 Orchestration Fabric | F071, F072, F077 + ecosystem bridges | Deterministic phase transitions with gate-controlled advancement |
-| L4 Enterprise Trust | F074 | Signed evidence envelopes and compliance-grade audit trails |
-| L5 OSS Harness Runtime | F075 + K8s phases 8-9 | Portable operator/harness execution with trust controls |
+| L4 Enterprise Trust | F074, F079, F081, F082, F083 | Verifiable claims, pilot-ready governance, and compliance mapping |
+| L5 OSS Harness Runtime | F075, F084, F085 + K8s phases 8-9 | Portable operator/harness execution with trust controls |
 
 ### KPI Baseline for Layer Completion
 
