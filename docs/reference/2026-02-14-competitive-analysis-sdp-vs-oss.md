@@ -70,10 +70,12 @@ Why:
 - Explicit instructions endpoint semantics for agent tooling.
 
 ### Roadmap mapping
-- `00-068-03` Help/Status IA
-- `00-069-01` Next-step contract and state model
-- `00-069-03` Next-step in status/help/error outputs
-- `00-072-02` Import pipeline (OpenSpec adapter)
+> Historical note: the original 2026-02-14 workstream IDs in this section drifted as the backlog evolved. The OpenSpec mapping below is updated to the current planned child workstreams defined in `docs/plans/2026-03-08-openspec-integration-plan.md`.
+
+- `00-068-04` Status and instructions contract surface
+- `00-069-04` Guided next-step state in status/help output
+- `00-069-05` Structured failure guidance and walkthrough
+- `00-072-05` OpenSpec change import into planning graph
 
 ---
 
@@ -218,11 +220,13 @@ Why:
 
 ## Roadmap Adoption Matrix (F068-F073)
 
+> Note: this matrix records adoption hypotheses from 2026-02-14. OpenSpec rows were refreshed on 2026-03-08; other rows remain research inputs until they are re-groomed into concrete backlog items.
+
 | Source Repo | Capability to Adopt | SDP Target WS | Implementation Mechanism | KPI |
 |-------------|---------------------|---------------|--------------------------|-----|
 | BMAD-METHOD | Contextual next-step helper | 00-068-03, 00-069-02 | Intent-based help/status recommender | Higher first-run completion |
-| OpenSpec | Artifact readiness/blocked model | 00-069-01, 00-069-03 | State graph + deterministic “next action” blocks | Lower “what now?” friction |
-| OpenSpec | CLI agent instructions endpoint pattern | 00-069-03 | JSON guidance payload in status/help | Better automation compatibility |
+| OpenSpec | Artifact readiness/blocked model | 00-069-04, 00-069-05 | State graph + deterministic “next action” blocks | Lower “what now?” friction |
+| OpenSpec | CLI agent instructions endpoint pattern | 00-068-04, 00-069-04 | JSON guidance payload in contracts plus status/help | Better automation compatibility |
 | ccpm | Team handoff discipline | 00-071-02 | Structured handoff package with ownership and risks | Reduced handoff loss |
 | ccpm | Team operational views | 00-071-04, 00-071-05 | Status slices: blocked/in-progress/next | Faster team alignment |
 | claude-flow | Claims lifecycle concepts | 00-071-03 | Non-blocking coordination signals + ownership transitions | Fewer parallel collisions |
