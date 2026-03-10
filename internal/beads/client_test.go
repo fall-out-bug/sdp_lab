@@ -34,8 +34,9 @@ func TestReadyCommand(t *testing.T) {
 		if issue.Status == "" {
 			t.Error("Issue status is empty")
 		}
-		if issue.Priority < 1 {
-			t.Error("Issue priority should be >= 1")
+		// bd encodes P0 as priority 0, so valid priorities are non-negative.
+		if issue.Priority < 0 {
+			t.Error("Issue priority should be >= 0")
 		}
 	}
 
