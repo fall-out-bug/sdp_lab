@@ -59,7 +59,9 @@ bd ready --json       # Find available work (JSON output)
 bd show <id>          # View issue details
 bd update <id> --status in_progress  # Claim work
 bd close <id> -r "reason"  # Complete work with reason
-bd sync               # Sync with git
+./scripts/beads_import_only.sh  # Rebuild local beads DB from repo snapshot
+./scripts/beads_export.sh       # Export beads DB back to .beads/issues.jsonl
+bd doctor             # Diagnose local beads/Dolt health
 ```
 
 ### Beads ↔ Workstream Sync
@@ -256,7 +258,8 @@ sdp-doc-sync --mode check --strict
 4. **PUSH TO REMOTE** — this is MANDATORY:
    ```bash
    git pull --rebase
-   bd sync
+   ./scripts/beads_import_only.sh   # if .beads/issues.jsonl changed after pull
+   ./scripts/beads_export.sh        # if you changed beads in this session
    git push
    git status  # MUST show "up to date with origin"
    ```
