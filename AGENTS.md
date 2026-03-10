@@ -72,7 +72,8 @@ bd doctor             # Diagnose local beads/Dolt health
 
 ## Feature Delivery Flow
 
-**Base branch:** `dev`. Feature branches branch from `dev`; PRs target `dev`. `main`/`master` for releases only.
+**Base branch (`sdp_lab`):** `dev`. Feature branches branch from `dev`; PRs target `dev`. `main`/`master` stay release/history branches.
+**Base branch (`sdp` public protocol repo):** `main`. When editing `sdp/`, branch from `main` and PR back to `main`.
 
 ### Step 1: Pick Work
 
@@ -118,18 +119,18 @@ If the feature publishes artifacts to the `sdp` protocol repo:
 # Copy artifact into submodule
 cp schema/evidence-envelope.schema.json sdp/schema/
 
-# Commit inside the submodule (sdp: branch from dev)
+# Commit inside the submodule (sdp: branch from main)
 cd sdp
-git checkout dev && git pull
+git checkout main && git pull
 git checkout -b schema/evidence-envelope
 git add schema/
 git commit -m "Add evidence envelope JSON Schema"
 git push -u origin HEAD
-gh pr create --base dev --title "Add evidence envelope JSON Schema"
+gh pr create --base main --title "Add evidence envelope JSON Schema"
 cd ..
 
 # After sdp PR is merged:
-cd sdp && git checkout dev && git pull && cd ..
+cd sdp && git checkout main && git pull && cd ..
 git add sdp
 git commit -m "Update sdp submodule: evidence schema published"
 git push

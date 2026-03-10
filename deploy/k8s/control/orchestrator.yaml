@@ -27,7 +27,7 @@ spec:
             - name: SDP_REPO_URL
               value: https://github.com/fall-out-bug/sdp_lab.git
             - name: SDP_REPO_BRANCH
-              value: main
+              value: dev
             - name: GH_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -63,7 +63,7 @@ spec:
             - name: SDP_REPO_URL
               value: https://github.com/fall-out-bug/sdp_lab.git
             - name: SDP_REPO_BRANCH
-              value: main
+              value: dev
             - name: GH_TOKEN
               valueFrom:
                 secretKeyRef:
