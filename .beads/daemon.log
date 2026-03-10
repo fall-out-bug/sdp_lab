@@ -1,0 +1,47 @@
+time=2026-03-10T21:35:27.127+03:00 level=INFO msg="Daemon started" interval=5s auto_commit=false auto_push=false
+time=2026-03-10T21:35:27.127+03:00 level=INFO msg="using database" path=/Users/fall_out_bug/projects/vibe_coding/sdp_dev/.beads/beads.db
+time=2026-03-10T21:35:27.147+03:00 level=INFO msg="database opened" path=/Users/fall_out_bug/projects/vibe_coding/sdp_dev/.beads/beads.db backend=sqlite freshness_checking=true
+time=2026-03-10T21:35:27.147+03:00 level=INFO msg="upgrading .beads/.gitignore"
+time=2026-03-10T21:35:27.147+03:00 level=WARN msg="failed to upgrade .gitignore" error="open .beads/.gitignore: no such file or directory"
+time=2026-03-10T21:35:27.147+03:00 level=ERROR msg="repository fingerprint validation failed" error="\nLEGACY DATABASE DETECTED!\n\nThis database was created before version 0.17.5 and lacks a repository fingerprint.\nTo continue using this database, you must explicitly set its repository ID:\n\n  bd migrate --update-repo-id\n\nThis ensures the database is bound to this repository and prevents accidental\ndatabase sharing between different repositories.\n\nIf this is a fresh clone, run:\n  rm -rf .beads && bd init\n\nNote: Auto-claiming legacy databases is intentionally disabled to prevent\nsilent corruption when databases are copied between repositories.\n"
+time=2026-03-10T21:36:05.110+03:00 level=INFO msg="Daemon started" interval=5s auto_commit=false auto_push=false
+time=2026-03-10T21:36:05.110+03:00 level=INFO msg="using database" path=/Users/fall_out_bug/projects/vibe_coding/sdp_dev/.beads/beads.db
+time=2026-03-10T21:36:05.127+03:00 level=INFO msg="database opened" path=/Users/fall_out_bug/projects/vibe_coding/sdp_dev/.beads/beads.db backend=sqlite freshness_checking=true
+time=2026-03-10T21:36:05.127+03:00 level=INFO msg="upgrading .beads/.gitignore"
+time=2026-03-10T21:36:05.127+03:00 level=WARN msg="failed to upgrade .gitignore" error="open .beads/.gitignore: no such file or directory"
+time=2026-03-10T21:36:05.127+03:00 level=ERROR msg="repository fingerprint validation failed" error="\nLEGACY DATABASE DETECTED!\n\nThis database was created before version 0.17.5 and lacks a repository fingerprint.\nTo continue using this database, you must explicitly set its repository ID:\n\n  bd migrate --update-repo-id\n\nThis ensures the database is bound to this repository and prevents accidental\ndatabase sharing between different repositories.\n\nIf this is a fresh clone, run:\n  rm -rf .beads && bd init\n\nNote: Auto-claiming legacy databases is intentionally disabled to prevent\nsilent corruption when databases are copied between repositories.\n"
+time=2026-03-10T21:36:05.587+03:00 level=INFO msg="daemon already running (lock held), exiting"
+time=2026-03-10T21:36:05.587+03:00 level=INFO msg="daemon already running (lock held), exiting"
+time=2026-03-10T21:36:05.592+03:00 level=INFO msg="Daemon started" interval=5s auto_commit=false auto_push=false
+time=2026-03-10T21:36:05.592+03:00 level=INFO msg="using database" path=/Users/fall_out_bug/projects/vibe_coding/sdp_dev/.beads/beads.db
+time=2026-03-10T21:36:05.611+03:00 level=INFO msg="database opened" path=/Users/fall_out_bug/projects/vibe_coding/sdp_dev/.beads/beads.db backend=sqlite freshness_checking=true
+time=2026-03-10T21:36:05.611+03:00 level=INFO msg="upgrading .beads/.gitignore"
+time=2026-03-10T21:36:05.611+03:00 level=WARN msg="failed to upgrade .gitignore" error="open .beads/.gitignore: no such file or directory"
+time=2026-03-10T21:36:05.611+03:00 level=ERROR msg="repository fingerprint validation failed" error="\nLEGACY DATABASE DETECTED!\n\nThis database was created before version 0.17.5 and lacks a repository fingerprint.\nTo continue using this database, you must explicitly set its repository ID:\n\n  bd migrate --update-repo-id\n\nThis ensures the database is bound to this repository and prevents accidental\ndatabase sharing between different repositories.\n\nIf this is a fresh clone, run:\n  rm -rf .beads && bd init\n\nNote: Auto-claiming legacy databases is intentionally disabled to prevent\nsilent corruption when databases are copied between repositories.\n"
+time=2026-03-10T21:38:25.198+03:00 level=INFO msg="Daemon started" interval=5s auto_commit=false auto_push=false
+time=2026-03-10T21:38:25.199+03:00 level=INFO msg="using database" path=/Users/fall_out_bug/projects/vibe_coding/sdp_dev/.beads/beads.db
+time=2026-03-10T21:38:25.240+03:00 level=INFO msg="database opened" path=/Users/fall_out_bug/projects/vibe_coding/sdp_dev/.beads/beads.db backend=sqlite freshness_checking=true
+time=2026-03-10T21:38:25.240+03:00 level=INFO msg="upgrading .beads/.gitignore"
+time=2026-03-10T21:38:25.240+03:00 level=WARN msg="failed to upgrade .gitignore" error="open .beads/.gitignore: no such file or directory"
+time=2026-03-10T21:38:25.245+03:00 level=INFO msg="Repository fingerprint validated" repo_id=1f570675
+time=2026-03-10T21:38:25.251+03:00 level=WARN msg="database missing version metadata" setting_to=0.49.6
+time=2026-03-10T21:38:25.251+03:00 level=INFO msg="starting RPC server" socket=/Users/fall_out_bug/projects/vibe_coding/sdp_dev/.beads/bd.sock
+time=2026-03-10T21:38:25.252+03:00 level=INFO msg="RPC server ready (socket listening)"
+time=2026-03-10T21:38:25.259+03:00 level=INFO msg="registered in global registry"
+time=2026-03-10T21:38:25.295+03:00 level=INFO msg="initial import complete"
+time=2026-03-10T21:38:25.300+03:00 level=INFO msg="Starting sync cycle" mode="sync cycle"
+time=2026-03-10T21:38:25.370+03:00 level=INFO msg="Exported to JSONL"
+time=2026-03-10T21:38:27.669+03:00 level=INFO msg="Sync branch is up to date" branch=main
+time=2026-03-10T21:38:27.750+03:00 level=INFO msg="Imported from JSONL"
+time=2026-03-10T21:38:27.779+03:00 level=INFO msg="Sync cycle complete"
+time=2026-03-10T21:38:27.779+03:00 level=INFO msg="monitoring parent process" pid=0
+time=2026-03-10T21:38:27.779+03:00 level=INFO msg="using event-driven mode"
+time=2026-03-10T21:38:27.786+03:00 level=INFO msg="Auto-pull disabled: use 'git pull' manually to sync remote changes"
+time=2026-03-10T21:40:33.653+03:00 level=INFO msg="JSONL removed/renamed, re-establishing watch"
+time=2026-03-10T21:40:33.705+03:00 level=INFO msg="Successfully re-established JSONL watch" delay=50ms
+time=2026-03-10T21:40:33.705+03:00 level=INFO msg="JSONL file created" path=/Users/fall_out_bug/projects/vibe_coding/sdp_dev/.git/beads-worktrees/main/.beads/issues.jsonl
+time=2026-03-10T21:40:34.707+03:00 level=INFO msg="Import triggered by file change"
+time=2026-03-10T21:40:34.729+03:00 level=INFO msg="Starting auto-import" mode=auto-import
+time=2026-03-10T21:40:36.589+03:00 level=INFO msg="Sync branch is up to date" branch=main
+time=2026-03-10T21:40:36.589+03:00 level=INFO msg="🔍 Checking JSONL content hash AFTER pull (fix: auto-pull-not-pulling)"
+time=2026-03-10T21:40:36.590+03:00 level=INFO msg="Skipping: JSONL content unchanged" mode=auto-import

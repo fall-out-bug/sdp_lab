@@ -6,14 +6,14 @@
 
 This project has **two repos** with different roles:
 
-| | `sdp_dev` (this repo) | `sdp` (submodule at `sdp/`) |
+| | `sdp_lab` (this repo; local clone path may still be `sdp_dev`) | `sdp` (submodule at `sdp/`) |
 |---|---|---|
-| **Remote** | `origin → sdp_private.git` | `origin → sdp.git` |
+| **Remote** | `origin → sdp_lab.git` | `origin → sdp.git` |
 | **Visibility** | Private | Public |
 | **Contains** | Go code, K8s manifests, roadmap, research | Protocol: prompts, JSON schemas, hooks |
 | **Changes** | Daily — all features built here | Rare — only when protocol spec changes |
 
-**Rule:** All work happens in `sdp_dev`. The `sdp/` submodule is only touched when publishing protocol artifacts (schemas, prompts, hooks).
+**Rule:** All work happens in the `sdp_lab` repo in this checkout. The local directory may still be named `sdp_dev`, but the canonical remote identity is `sdp_lab`. The `sdp/` submodule is only touched when publishing protocol artifacts (schemas, prompts, hooks).
 
 **sdp vs sdp_dev (CI/secrets):** sdp = protocol, CLI, release workflow. Secrets (e.g. GLM_API_KEY) live in sdp. sdp_dev = lab, Go binaries. When debugging CI for a PR in sdp, check sdp workflows and `workflow_call` / `secrets: inherit` — do not assume the user forgot to add secrets.
 
@@ -32,7 +32,7 @@ This project has **two repos** with different roles:
 
 ## Agent Interaction Rules
 
-**Scope:** sdp_dev only — do not sync to sdp/CLAUDE.md (sdp stays generic).
+**Scope:** sdp_lab repo only — do not sync to sdp/CLAUDE.md (sdp stays generic).
 
 **Source:** [docs/plans/2026-02-26-agent-frustration-analysis.md](docs/plans/2026-02-26-agent-frustration-analysis.md)
 
@@ -64,8 +64,8 @@ bd sync               # Sync with git
 
 ### Beads ↔ Workstream Sync
 
-- **Mapping:** `.beads-sdp-mapping.jsonl` maps `00-XXX-YY` (WS ID) → `sdp_dev-abc` (beads ID)
-- **WS files:** Each `docs/workstreams/backlog/00-XXX-YY.md` has `Feature: FXXX (sdp_dev-abc)` with the beads ID
+- **Mapping:** `.beads-sdp-mapping.jsonl` maps `00-XXX-YY` (WS ID) → Beads IDs. Current project prefix is `sdplab-*`; legacy `sdp_dev-*` IDs still exist in historical items and must remain supported.
+- **WS files:** Each `docs/workstreams/backlog/00-XXX-YY.md` links to a Beads ID in `Feature:` or `Bead:` metadata.
 - **Validation:** `wc -l .beads-sdp-mapping.jsonl` must equal `ls docs/workstreams/backlog/*.md | wc -l`
 
 ## Feature Delivery Flow
@@ -304,3 +304,116 @@ Example: `go run ./cmd/sdp-orchestrate --feature F053 --next-action`
 | `docs/plans/2026-02-22-dream-swarm-design.md` | Architecture decisions for the dream swarm |
 | `.beads-sdp-mapping.jsonl` | WS ID ↔ beads ID mapping |
 | `docs/MANIFESTO.md` | What SDP is and where it fits |
+
+<!-- BEGIN BEADS INTEGRATION -->
+## Issue Tracking with bd (beads)
+
+**IMPORTANT**: This project uses **bd (beads)** for ALL issue tracking. Do NOT use markdown TODOs, task lists, or other tracking methods.
+
+### Why bd?
+
+- Dependency-aware: Track blockers and relationships between issues
+- Git-friendly: Dolt-powered version control with native sync
+- Agent-optimized: JSON output, ready work detection, discovered-from links
+- Prevents duplicate tracking systems and confusion
+
+### Quick Start
+
+**Check for ready work:**
+
+```bash
+bd ready --json
+```
+
+**Create new issues:**
+
+```bash
+bd create "Issue title" --description="Detailed context" -t bug|feature|task -p 0-4 --json
+bd create "Issue title" --description="What this issue is about" -p 1 --deps discovered-from:bd-123 --json
+```
+
+**Claim and update:**
+
+```bash
+bd update <id> --claim --json
+bd update bd-42 --priority 1 --json
+```
+
+**Complete work:**
+
+```bash
+bd close bd-42 --reason "Completed" --json
+```
+
+### Issue Types
+
+- `bug` - Something broken
+- `feature` - New functionality
+- `task` - Work item (tests, docs, refactoring)
+- `epic` - Large feature with subtasks
+- `chore` - Maintenance (dependencies, tooling)
+
+### Priorities
+
+- `0` - Critical (security, data loss, broken builds)
+- `1` - High (major features, important bugs)
+- `2` - Medium (default, nice-to-have)
+- `3` - Low (polish, optimization)
+- `4` - Backlog (future ideas)
+
+### Workflow for AI Agents
+
+1. **Check ready work**: `bd ready` shows unblocked issues
+2. **Claim your task atomically**: `bd update <id> --claim`
+3. **Work on it**: Implement, test, document
+4. **Discover new work?** Create linked issue:
+   - `bd create "Found bug" --description="Details about what was found" -p 1 --deps discovered-from:<parent-id>`
+5. **Complete**: `bd close <id> --reason "Done"`
+
+### Auto-Sync
+
+bd automatically syncs via Dolt:
+
+- Each write auto-commits to Dolt history
+- Use `bd dolt push`/`bd dolt pull` for remote sync
+- No manual export/import needed!
+
+### Important Rules
+
+- ✅ Use bd for ALL task tracking
+- ✅ Always use `--json` flag for programmatic use
+- ✅ Link discovered work with `discovered-from` dependencies
+- ✅ Check `bd ready` before asking "what should I work on?"
+- ❌ Do NOT create markdown TODO lists
+- ❌ Do NOT use external issue trackers
+- ❌ Do NOT duplicate tracking systems
+
+For more details, see README.md and docs/QUICKSTART.md.
+
+## Landing the Plane (Session Completion)
+
+**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
+
+**MANDATORY WORKFLOW:**
+
+1. **File issues for remaining work** - Create issues for anything that needs follow-up
+2. **Run quality gates** (if code changed) - Tests, linters, builds
+3. **Update issue status** - Close finished work, update in-progress items
+4. **PUSH TO REMOTE** - This is MANDATORY:
+   ```bash
+   git pull --rebase
+   bd sync
+   git push
+   git status  # MUST show "up to date with origin"
+   ```
+5. **Clean up** - Clear stashes, prune remote branches
+6. **Verify** - All changes committed AND pushed
+7. **Hand off** - Provide context for next session
+
+**CRITICAL RULES:**
+- Work is NOT complete until `git push` succeeds
+- NEVER stop before pushing - that leaves work stranded locally
+- NEVER say "ready to push when you are" - YOU must push
+- If push fails, resolve and retry until it succeeds
+
+<!-- END BEADS INTEGRATION -->

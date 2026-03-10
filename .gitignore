@@ -60,3 +60,7 @@ sdp-ready
 .sisyphus/
 sdp-gh-findings-sync
 sdp-up
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db
