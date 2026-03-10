@@ -181,16 +181,20 @@ func gitCommitsSinceBase(repoRoot, baseBranch string) ([]string, error) {
 	return splitLines(out), nil
 }
 
-var beadsIDRe = regexp.MustCompile(`sdp_dev-[a-z0-9]{4}`)
+var beadsIDRe = regexp.MustCompile(`(?:sdplab|sdp_dev)-[a-z0-9]+(?:\.[0-9]+)*`)
 
 func extractBeadsIDsFromCommits(repoRoot, baseBranch string) []string {
 	if baseBranch == "" {
 		baseBranch = "master"
 	}
 	out, _ := runGit(repoRoot, "log", "--format=%s %b", "origin/"+baseBranch+"...HEAD")
+	return extractBeadsIDsFromText(out)
+}
+
+func extractBeadsIDsFromText(text string) []string {
 	seen := map[string]bool{}
 	var ids []string
-	for _, id := range beadsIDRe.FindAllString(out, -1) {
+	for _, id := range beadsIDRe.FindAllString(text, -1) {
 		if !seen[id] {
 			seen[id] = true
 			ids = append(ids, id)

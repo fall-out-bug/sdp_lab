@@ -7,7 +7,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/adapter-controller ./
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/beads-fsm ./cmd/beads-fsm
 
 # Build bd from beads repo (required for beads operations when workspace available)
-ARG BD_VERSION=v0.49.6
+ARG BD_VERSION=v0.59.0
 RUN git clone --depth 1 --branch "${BD_VERSION}" https://github.com/steveyegge/beads /tmp/beads \
   && cd /tmp/beads && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/bd ./cmd/bd
 

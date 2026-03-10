@@ -62,6 +62,37 @@ func TestExtractWorkstreamsFromBranch(t *testing.T) {
 	}
 }
 
+func TestExtractBeadsIDsFromText(t *testing.T) {
+	tests := []struct {
+		name string
+		text string
+		want []string
+	}{
+		{
+			name: "current and legacy prefixes",
+			text: "feat: sdplab-8rx\nbody sdp_dev-2aq.7.3 and sdplab-8rx again",
+			want: []string{"sdplab-8rx", "sdp_dev-2aq.7.3"},
+		},
+		{
+			name: "no ids",
+			text: "feat: no beads id here",
+			want: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		got := extractBeadsIDsFromText(tt.text)
+		if len(got) != len(tt.want) {
+			t.Fatalf("%s: len = %d, want %d (%v)", tt.name, len(got), len(tt.want), got)
+		}
+		for i := range got {
+			if got[i] != tt.want[i] {
+				t.Fatalf("%s: got[%d] = %q, want %q", tt.name, i, got[i], tt.want[i])
+			}
+		}
+	}
+}
+
 func TestMatchesAnyPrefix(t *testing.T) {
 	prefixes := []string{"internal/", "cmd/", "docs/"}
 	if !matchesAnyPrefix("internal/evidence/foo.go", prefixes) {
@@ -87,11 +118,11 @@ func TestWriteAutoAttestationReport(t *testing.T) {
 			Intent: Intent{IssueID: "x"},
 			Trace:  Trace{Branch: "main"},
 			Verification: Verification{
-				Tests: []GateResult{{Name: "go-test", Status: "pass (1 passed, 0 failed)"}},
-				Lint:  []GateResult{{Name: "go-vet", Status: "pass"}},
+				Tests:    []GateResult{{Name: "go-test", Status: "pass (1 passed, 0 failed)"}},
+				Lint:     []GateResult{{Name: "go-vet", Status: "pass"}},
 				Coverage: &Coverage{Value: 85, Threshold: 80},
 			},
-			Boundary: Boundary{Compliance: BoundaryCompliance{OK: true, Reason: "ok"}},
+			Boundary:   Boundary{Compliance: BoundaryCompliance{OK: true, Reason: "ok"}},
 			Provenance: Provenance{RunID: "run-1", CapturedAt: "2026-01-01T00:00:00Z"},
 		},
 	)

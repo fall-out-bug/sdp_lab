@@ -24,7 +24,7 @@ spec:
           imagePullPolicy: Never
           env:
             - name: SDP_REPO_URL
-              value: https://github.com/fall-out-bug/sdp_private.git
+              value: https://github.com/fall-out-bug/sdp_lab.git
             - name: SDP_REPO_BRANCH
               value: feat/sdp_dev-h23.1.1-oa1-01-deterministic-fallback-for-unknown-model
             - name: GH_TOKEN
@@ -70,7 +70,7 @@ spec:
             - name: SDP_MODEL
               value: glm-4.7
             - name: SDP_REPO_URL
-              value: https://github.com/fall-out-bug/sdp_private.git
+              value: https://github.com/fall-out-bug/sdp_lab.git
             - name: SDP_REPO_BRANCH
               value: feat/sdp_dev-h23.1.1-oa1-01-deterministic-fallback-for-unknown-model
             - name: GH_TOKEN

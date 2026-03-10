@@ -25,7 +25,7 @@ spec:
           imagePullPolicy: Never
           env:
             - name: SDP_REPO_URL
-              value: https://github.com/fall-out-bug/sdp_private.git
+              value: https://github.com/fall-out-bug/sdp_lab.git
             - name: SDP_REPO_BRANCH
               value: main
             - name: GH_TOKEN
@@ -61,7 +61,7 @@ spec:
             - --work-dir=/workspace
           env:
             - name: SDP_REPO_URL
-              value: https://github.com/fall-out-bug/sdp_private.git
+              value: https://github.com/fall-out-bug/sdp_lab.git
             - name: SDP_REPO_BRANCH
               value: main
             - name: GH_TOKEN

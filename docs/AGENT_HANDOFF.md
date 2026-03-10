@@ -33,8 +33,8 @@ Updated: 2026-02-22
 ```bash
 bd prime
 bd ready
-bd sync --import-only   # if JSONL was updated after git pull
-gh pr list --state open --repo fall-out-bug/sdp_private
+./scripts/beads_import_only.sh   # if JSONL was updated after git pull
+gh pr list --state open --repo fall-out-bug/sdp_lab
 git status --short --branch
 make quality            # verify gates before starting work
 ```
@@ -44,14 +44,14 @@ make quality            # verify gates before starting work
 - Use Beads as source of truth.
 - Keep exactly one active task (`in_progress`) unless explicitly coordinating parallel lanes.
 - Run validation gates before closure (`make quality` and any task-specific checks).
-- On session completion: commit, `bd sync`, push, and confirm clean status.
+- On session completion: commit, `./scripts/beads_export.sh` if beads changed, push, and confirm clean status.
 
 ## Suggested Next Steps for New Agent
 
-1. Run `bd ready` and `bd sync`.
+1. Run `bd ready` and `./scripts/beads_import_only.sh`.
 2. Claim `sdp_dev-hex` (swarm/autonomy coverage 80%+) or `sdp_dev-sod` (probe /feature).
 3. For sdp_dev-oip: add next validation run timestamp when completing handoff checklist.
-4. Before finishing: `make quality`, commit, `bd sync`, `git push`.
+4. Before finishing: `make quality`, commit, `./scripts/beads_export.sh` if beads changed, `git push`.
 
 ## Validation Runs (handoff-checklist)
 

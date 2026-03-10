@@ -5,7 +5,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/cicd-agent ./cmd/cicd-agent
 
 # Build bd from beads repo (required for deploy chore issues)
-ARG BD_VERSION=v0.49.6
+ARG BD_VERSION=v0.59.0
 RUN git clone --depth 1 --branch "${BD_VERSION}" https://github.com/steveyegge/beads /tmp/beads \
   && cd /tmp/beads && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/bd ./cmd/bd
 

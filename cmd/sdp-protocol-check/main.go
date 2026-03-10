@@ -12,7 +12,7 @@ import (
 
 func main() {
 	format := flag.String("format", "text", "Output format: text or json")
-	strictBeads := flag.Bool("strict-beads", false, "Require numeric Beads IDs (sdplab-<number>)")
+	strictBeads := flag.Bool("strict-beads", false, "Require concrete Beads IDs (sdplab-<id>)")
 	strict := flag.Bool("strict", false, "Treat legacy/protocol drift findings as errors")
 	projectRoot := flag.String("project-root", "", "Project root (auto-detected if empty)")
 	flag.Parse()

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 IMAGE="ghcr.io/fall-out-bug/sdp-dev-opencode-agent:latest"
-BD_VERSION="v0.49.6"
+BD_VERSION="v0.59.0"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUNTIME_BIN_DIR="${ROOT_DIR}/.tmp/opencode-runtime"
 BD_SRC_DIR="${ROOT_DIR}/.tmp/beads-src-${BD_VERSION}"

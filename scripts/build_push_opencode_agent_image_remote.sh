@@ -6,7 +6,7 @@ PORT="22"
 IMAGE=""
 REMOTE_DIR="/tmp/sdp_dev_image_build"
 RETRIES="5"
-BD_VERSION="v0.49.6"
+BD_VERSION="v0.59.0"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUNTIME_BIN_DIR="${ROOT_DIR}/.tmp/opencode-runtime"
 
