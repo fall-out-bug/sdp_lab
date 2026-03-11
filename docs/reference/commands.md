@@ -140,7 +140,7 @@ Complete reference for all SDP CLI commands and skills.
 **What it does:**
 1. Final quality verification
 2. Creates git tag
-3. Merges to main branch
+3. Merges to the repo release branch (`dev` in `sdp_lab`, `main` in public `sdp`)
 4. Triggers deployment pipeline
 
 **Pre-deployment Checklist:**

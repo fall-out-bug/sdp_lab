@@ -185,7 +185,7 @@ Skills are Claude Code commands that execute specific SDP workflows. They are de
 **Process:**
 1. Final quality verification
 2. Create git tag
-3. Merge to main branch
+3. Merge to the repo release branch (`dev` in `sdp_lab`, `main` in public `sdp`)
 4. Generate changelog
 5. Trigger deployment
 
@@ -300,7 +300,7 @@ Skills are Claude Code commands that execute specific SDP workflows. They are de
 ```
 
 **Workflow:**
-1. Create hotfix branch from main
+1. Create hotfix branch from the repo release branch (`dev` in `sdp_lab`, `main` in public `sdp`)
 2. Implement minimal fix
 3. Fast verification
 4. Deploy immediately

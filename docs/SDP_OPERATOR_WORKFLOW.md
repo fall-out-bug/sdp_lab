@@ -16,11 +16,11 @@ flowchart TD
         Show[bd show id]
         Claim[bd update id --status in_progress]
         Close[bd close id --reason]
-        Sync[bd sync]
+        Export[./scripts/beads_export.sh]
     end
 
     subgraph orchestrate [Orchestrate]
-        Preflight[git pull + bd sync --import-only]
+        Preflight[git fetch/rebase + ./scripts/beads_import_only.sh]
         Dispatch[orchestrate_k8s_issue.sh --host --issue]
         Worker[opencode-agent runs swarm-worker]
         Reviewer[swarm-reviewer]
@@ -40,7 +40,7 @@ flowchart TD
     Ready --> Show --> Claim
     Claim --> Preflight --> Dispatch
     Dispatch --> Worker --> SDP --> Reviewer
-    Reviewer --> PRGate --> FSM --> Close --> Sync
+    Reviewer --> PRGate --> FSM --> Close --> Export
 ```
 
 ## NATS Flow (Swarm Platform)
@@ -68,10 +68,10 @@ flowchart LR
 2. **Get context:** `bd show <id>`
 3. **Claim:** `bd update <id> --status in_progress`
 4. **Dispatch:** Locally or via `scripts/orchestrate_k8s_issue.sh --host <user@ip> --issue <id>`
-5. **In pod:** git pull, `bd sync --import-only`, swarm-worker executes task
+5. **In pod:** git fetch/rebase onto `$SDP_REPO_BRANCH`, run `./scripts/beads_import_only.sh`, then swarm-worker executes task
 6. **Quality:** `sdp quality all`, `go test ./...`
 7. **Evidence:** strict evidence, `cmd/pr-gate`, `cmd/beads-fsm`
-8. **Complete:** `bd close <id> --reason "..."`, `bd sync`
+8. **Complete:** `bd close <id> --reason "..."`, `./scripts/beads_export.sh`
 
 ## Workstreams
 
@@ -86,7 +86,8 @@ flowchart LR
 scripts/orchestrate_k8s_issue.sh --host <user@ip> --issue <beads-id> [--timeout 300] [--retries 3]
 ```
 
-Preflight: git pull, bd sync --import-only, then exec into opencode-agent pod to run swarm-worker.
+Preflight: `git fetch origin "$SDP_REPO_BRANCH"` + `git rebase FETCH_HEAD`, then `./scripts/beads_import_only.sh`, then exec into opencode-agent pod to run swarm-worker.
+In `sdp_lab` manifests, `SDP_REPO_BRANCH` defaults to `dev`; public `sdp` work keeps `main`.
 
 ## Quality Gates
 

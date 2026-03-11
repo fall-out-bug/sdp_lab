@@ -7,9 +7,11 @@
 **Recommended:** Create Beads tasks first, then workstream markdown.
 
 ```
-✅ Right:  bd create → work → bd sync → commit
-❌ Wrong:  Create .md file → (forget bd sync)
+✅ Right:  bd create → work → ./scripts/beads_export.sh → commit
+❌ Wrong:  Create .md file → (forget snapshot export)
 ```
+
+After `git pull`, run `./scripts/beads_import_only.sh` so the local Dolt-backed Beads state is rebuilt from the tracked `.beads/issues.jsonl` snapshot before you continue.
 
 **If you created workstream markdown manually** (e.g., via @design or copy-paste):
 
@@ -61,7 +63,7 @@ For migration to succeed, workstream must have YAML frontmatter with:
 ## Output
 
 - **Mapping file:** `.beads-sdp-mapping.jsonl` (ws_id ↔ beads_id, deduplicated on each run)
-- **Beads tasks:** Created in `.beads/issues.jsonl`
+- **Beads tasks:** Exported into tracked snapshot `.beads/issues.jsonl`
 
 **Note:** Migration calls `persist_mapping()` at the end to deduplicate the mapping file (fixes legacy append-duplicates).
 

@@ -2,6 +2,8 @@
 
 **Scope:** SDP CLI tool (developer library, not hosted service)
 
+**Branch rule:** use the repo release branch as the base for emergency work: `dev` in `sdp_lab`, `main` in public `sdp`.
+
 ## Severity Definitions
 
 ### P0 - Critical (Immediate Response Required)
@@ -14,7 +16,7 @@
 **Examples:**
 - `sdp parse` deletes workstream files
 - CVE published with exploit
-- `go build` fails on main branch
+- `go build` fails on the release branch
 
 ### P1 - High (Next Release)
 - **Breaking change:** CLI behavior change without migration path
@@ -50,8 +52,9 @@
 # 1. Identify severity
 bd create --title="P0: Data loss in parse command" --priority=0 --type=bug
 
-# 2. Create hotfix branch from main
-git checkout main
+# 2. Create hotfix branch from the repo release branch
+BASE_BRANCH=dev   # sdp_lab; use main in public sdp
+git checkout "${BASE_BRANCH}"
 git pull
 git checkout -b hotfix/parse-data-loss
 
@@ -68,7 +71,7 @@ go build ./cmd/sdp
 # 5. Tag and release (bypass PR)
 git commit -m "hotfix: fix data loss in parse command (P0)"
 git tag v0.8.1
-git push origin main --tags
+git push origin "${BASE_BRANCH}" --tags
 
 # 6. Trigger Goreleaser
 gh release create v0.8.1 --generate-notes
@@ -106,10 +109,11 @@ git checkout -b security/cve-2025-xxxxx
 # Implement fix without public commits
 
 # 4. Release fix
-git checkout main
+BASE_BRANCH=dev   # sdp_lab; use main in public sdp
+git checkout "${BASE_BRANCH}"
 git merge security/cve-2025-xxxxx
 git tag v0.8.2-security
-git push origin main --tags
+git push origin "${BASE_BRANCH}" --tags
 
 # 5. Publish advisory
 gh security advisory publish

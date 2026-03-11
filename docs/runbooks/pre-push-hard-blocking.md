@@ -228,7 +228,7 @@ git push --no-verify
 ### Phase 4: CI/CD Enforcement
 - CI/CD pipeline runs with `SDP_HARD_PUSH=1`
 - PR checks enforce quality gates
-- Bad code never reaches main branch
+- Bad code never reaches the protected release branch (`dev` in `sdp_lab`, `main` in public `sdp`)
 
 ## Rollback Plan
 

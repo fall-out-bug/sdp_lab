@@ -1,18 +1,19 @@
 # Beads SDP Requirements (Private)
 
-Status: baseline v1
-Scope: SDP integration with Beads for autonomous task tracking and sync
+Status: baseline v2
+Scope: SDP integration with Beads for autonomous task tracking and repo snapshot sync
 
-## 1. Sync branch
+## 1. Branch + snapshot contract
 
-**Requirement:** All clones and agents must use a predictable branch for Beads commits.
+**Requirement:** All clones and agents must use a predictable branch and a predictable repo snapshot flow.
 
-- **Config:** `.beads/config.yaml` sets `sync-branch: <branch>` (e.g. `beads-sync` or `main`)
-- **Env override:** `BEADS_SYNC_BRANCH` or `BD_SYNC_BRANCH` for local override
-- **Behavior:** `bd sync` commits `.beads/issues.jsonl` and `.beads/metadata.json` to this branch
-- **SDP usage:** `SDP_REPO_BRANCH` in worker manifests should align with sync-branch when agents run `bd sync`
+- **sdp_lab:** `.beads/config.yaml` sets `sync-branch: "dev"` and worker manifests default `SDP_REPO_BRANCH=dev`
+- **sdp:** `.beads/config.yaml` sets `sync-branch: "main"` and protocol PRs still target `main`
+- **Active workflow (bd >= 0.59):** run `./scripts/beads_import_only.sh` after git sync and `./scripts/beads_export.sh` before commit/push
+- **Compatibility:** the helper scripts may call `bd sync` only when an older Beads CLI still provides it
+- **Tracked state:** `.beads/issues.jsonl` remains the shared repo snapshot; the local Dolt database is hydrated from and exported back to that snapshot
 
-**Upstream PR candidate:** Document `sync-branch` as first-class config; ensure `bd sync --import-only` respects remote branch for pull-before-merge semantics.
+**Operator usage:** `SDP_REPO_BRANCH` in manifests should match the repo branch you expect agents to rebase onto before running `./scripts/beads_import_only.sh`.
 
 ---
 
@@ -58,7 +59,7 @@ Scope: SDP integration with Beads for autonomous task tracking and sync
 - `Show(id string) (*Issue, error)` — `bd show <id> --json`
 - `Claim(id string) error` — `bd update <id> --status in_progress`
 - `Close(id string, reason string) error` — `bd close <id> --reason "..."`
-- `Sync(importOnly bool) error` — `bd sync` or `bd sync --import-only`
+- `Sync(importOnly bool) error` — repo snapshot import/export (`./scripts/beads_import_only.sh` / `./scripts/beads_export.sh` in active workflows, legacy `bd sync` fallback where still needed)
 - `Create(opts CreateOpts) (string, error)` — `bd create` with typed options
 
 **Rationale:** Decouples SDP from bd CLI output format; enables testing with mock; prepares for future Beads API if upstream adds one.
@@ -70,10 +71,10 @@ Scope: SDP integration with Beads for autonomous task tracking and sync
 **Requirement:** Before dispatching a task, the pod must have the latest Beads state.
 
 **Sequence:**
-1. `git pull origin $SDP_REPO_BRANCH` (or `git fetch` + `git rebase FETCH_HEAD` to avoid multi-branch rebase issues)
-2. `bd sync --import-only` — import remote JSONL if newer
+1. `git fetch origin $SDP_REPO_BRANCH` + `git rebase FETCH_HEAD`
+2. `./scripts/beads_import_only.sh` — hydrate the local Dolt-backed Beads DB from the tracked repo snapshot
 
-**Implementation:** `scripts/orchestrate_k8s_issue.sh` preflight and `cmd/opencode-agent` syncWorkspace already perform git sync; ensure `bd sync --import-only` runs after git pull in orchestrate preflight.
+**Implementation:** `scripts/orchestrate_k8s_issue.sh` already rebases onto `$SDP_REPO_BRANCH` and then runs `./scripts/beads_import_only.sh` in the worker pod.
 
 ---
 
@@ -81,7 +82,7 @@ Scope: SDP integration with Beads for autonomous task tracking and sync
 
 | Candidate | Description | Priority |
 |-----------|-------------|----------|
-| sync-branch | First-class config; document import-only semantics | High |
+| repo snapshot helpers | Keep `beads_import_only` / `beads_export` flow documented across repo workflows | High |
 | bd ready --filter | Extend filters (workstream, spec_id) for scheduler | Medium |
 | --no-daemon batch | Document headless/scheduler usage; ensure no-daemon path is stable | Medium |
 | Hooks for claim/close | Callbacks for SDP trace, evidence injection | Low (future) |
@@ -92,4 +93,6 @@ Scope: SDP integration with Beads for autonomous task tracking and sync
 
 - [BEADS_AUTONOMY_SPEC.md](BEADS_AUTONOMY_SPEC.md) — fields, labels, transitions, evidence
 - [.beads/config.yaml](../.beads/config.yaml) — repo config
+- [scripts/beads_import_only.sh](../scripts/beads_import_only.sh) — snapshot import helper
+- [scripts/beads_export.sh](../scripts/beads_export.sh) — snapshot export helper
 - [internal/beads/client.go](../internal/beads/client.go) — Go wrapper client

@@ -82,12 +82,14 @@ Behavior:
 
 - verifies deployment health
 - runs preflight GitHub health gate (`gh auth status` + `git ls-remote` with transient retry)
-- runs `bd sync --import-only` inside the pod
+- rebases onto `SDP_REPO_BRANCH` and runs `./scripts/beads_import_only.sh` inside the pod
 - triggers an explicit single `opencode-agent` cycle
 - guards explicit dispatch with per-issue lock (`/tmp/sdp-orchestrate-<issue>.lock`) to avoid duplicate cycles
 - polls task status (`closed` success, `blocked` failure)
 - extracts PR URL from issue notes when present
 - writes run trace artifact to `.sdp/runs/orchestrate-<issue>-<timestamp>.json`
+
+In `sdp_lab`, worker manifests default to `https://github.com/fall-out-bug/sdp_lab.git` on branch `dev`. Override `SDP_REPO_BRANCH` only for an intentional stacked/test run.
 
 ## DNS stability (WSL2)
 

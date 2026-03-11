@@ -12,6 +12,7 @@ Verify the full E2E flow: NATS -> Bridge -> swarm-orchestrator (or feature-orche
 - `sdp-credentials` secret with `github_token`, `z_ai_api_key`, `openrouter_api_key`
 - Project workspace cloned in swarm-workspaces PVC or opencode-agent init container
 - Beads initialized in workspace (`.beads/issues.jsonl`)
+- `sdp_lab` manifests default to `https://github.com/fall-out-bug/sdp_lab.git` on branch `dev`; only switch to another branch when you intentionally want a different workspace base
 
 ## PATH requirements (quality pipeline)
 
@@ -76,7 +77,7 @@ adapter-controller and swarm-orchestrator use file-based run locks. By default t
 
 3. **Observe flow**:
 
-   - **Path A (swarm-orchestrator):** Bridge polls Beads every 5s, publishes `sdp.beads.<project>.ready`; swarm-orchestrator receives event, calls `dispatchK8s`; K8s exec: preflight (git sync, bd sync) -> claim (bd update in_progress) -> opencode-agent with `SDP_ISSUE`.
+   - **Path A (swarm-orchestrator):** Bridge polls Beads every 5s, publishes `sdp.beads.<project>.ready`; swarm-orchestrator receives event, calls `dispatchK8s`; K8s exec: preflight (git fetch/rebase + `./scripts/beads_import_only.sh`) -> claim (bd update in_progress) -> opencode-agent with `SDP_ISSUE`.
    - **Path B (feature-orchestrator):** Aggregator subscribes to `sdp.beads.*.ready`, maintains priority queue; feature-orchestrator poll loop creates AgentRun CRDs; adapter-controller reconciles AgentRun -> Tasks -> opencode-agent.
    - opencode-agent runs swarm-worker `--issue <id>`, then swarm-reviewer. Issue transitions to closed, PR created.
 

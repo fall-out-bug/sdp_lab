@@ -63,7 +63,7 @@ Rollback triggers (immediate fallback to adapter path):
 - Operator reconcile creates duplicate worker/reviewer jobs for a single run ID or issue.
 - Operator cannot preserve PR/evidence trace linkage in issue notes and `.sdp/evidence` artifacts.
 - Failure rate for terminal runs increases above baseline for two consecutive validation windows.
-- Any regression that blocks `bd sync`/FSM transitions or violates strict evidence gates.
+- Any regression that blocks Beads import/export helpers (`./scripts/beads_import_only.sh`, `./scripts/beads_export.sh`), FSM transitions, or strict evidence gates.
 
 ## Start command (next active work)
 

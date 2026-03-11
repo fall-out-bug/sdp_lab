@@ -45,7 +45,7 @@ Skill → event types emitted. Use for pipeline verification and `sdp log show -
 | Design  | @design   | plan              | `sdp design record`, `sdp parse`       |
 | Build   | @build    | generation        | TDD runner (F054)                       |
 | Review  | @review   | verification      | `sdp verify` (per gate)                 |
-| Deploy  | @deploy   | approval          | `sdp deploy --target main`              |
+| Deploy  | @deploy   | approval          | `sdp deploy --target <release-branch>`  |
 
 ## Skill × event types
 
