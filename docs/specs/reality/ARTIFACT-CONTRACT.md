@@ -274,9 +274,9 @@ Pro must not rename or change base enums used by OSS.
 4. `conflicted` claims must preserve both sides of the contradiction.
 5. Final readiness verdict must cite the claims that justify it.
 
-## Future Schema Split
+## Schema Split
 
-When formal schemas are added, split by artifact family:
+Schema files are split by artifact family:
 
 - `schema/reality/claim.schema.json`
 - `schema/reality/source.schema.json`
