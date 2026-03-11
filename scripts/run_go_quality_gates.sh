@@ -8,6 +8,22 @@ DOCKER_IMAGE="${SDP_GO_QUALITY_DOCKER_IMAGE:-golang:1.26-bookworm}"
 
 cd "$ROOT"
 
+run_reality_validation_with_go() {
+  local go_cmd="${1:-go}"
+
+  if [[ ! -d "$ROOT/schema/reality" ]]; then
+    echo "==> reality validation skipped (schema/reality missing)"
+    return 0
+  fi
+  if [[ ! -d "$ROOT/.sdp/reality" ]]; then
+    echo "==> reality validation skipped (.sdp/reality missing)"
+    return 0
+  fi
+
+  echo "==> ${go_cmd} run ./cmd/sdp-reality-validate ."
+  "${go_cmd}" run ./cmd/sdp-reality-validate .
+}
+
 run_host_quality_gates() {
   if [[ ! -x "$GO" ]]; then
     echo "missing executable: $GO" >&2
@@ -27,6 +43,8 @@ run_host_quality_gates() {
 
   echo "==> go vet ./..."
   "$GO" vet ./...
+
+  run_reality_validation_with_go "$GO"
 }
 
 run_container_quality_gates() {
@@ -50,7 +68,7 @@ run_container_quality_gates() {
     -v "$ROOT:/workspace" \
     -w /workspace \
     "$DOCKER_IMAGE" \
-    sh -c 'set -eu; go version; go build ./...; go test ./... -count=1; go vet ./...'
+    sh -c 'set -eu; go version; go build ./...; go test ./... -count=1; go vet ./...; if [ -d ./schema/reality ] && [ -d ./.sdp/reality ]; then go run ./cmd/sdp-reality-validate .; else echo "==> reality validation skipped (.sdp/reality or schema/reality missing)"; fi'
 }
 
 case "$MODE" in

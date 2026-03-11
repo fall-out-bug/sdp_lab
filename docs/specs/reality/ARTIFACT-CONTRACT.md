@@ -274,6 +274,12 @@ Pro must not rename or change base enums used by OSS.
 4. `conflicted` claims must preserve both sides of the contradiction.
 5. Final readiness verdict must cite the claims that justify it.
 
+Validation command for OSS artifacts:
+
+```bash
+go run ./cmd/sdp-reality-validate .
+```
+
 ## Schema Split
 
 Schema files are split by artifact family:
