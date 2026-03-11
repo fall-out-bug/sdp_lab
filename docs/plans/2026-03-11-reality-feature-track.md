@@ -35,7 +35,7 @@ First executable slice already exists:
 
 ### Phase B: F090 parity hardening
 
-Remaining:
+Completed:
 
 - `00-090-04` close the gap between `OSS-SPEC.md`, `sdp/prompts/skills/reality/SKILL.md`, and the current runtime baseline
 

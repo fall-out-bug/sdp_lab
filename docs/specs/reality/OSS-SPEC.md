@@ -74,10 +74,10 @@ Every conclusion must be tagged as one of:
 
 | Mode | Purpose | Expected Depth |
 |---|---|---|
-| `--quick` | fast baseline scan | top modules, entrypoints, risks |
-| `--deep` | full single-repo baseline | feature inventory, architecture map, quality |
-| `--focus=architecture|quality|testing|docs|security` | domain-specific pass | one area, deeper evidence |
-| `--bootstrap-sdp` | generate agent-readiness outputs | workstream and scope bootstrap |
+| `--quick` | fast baseline scan | same artifact families, reduced finding detail |
+| `--deep` | full single-repo baseline | feature inventory, architecture map, quality, drift, readiness |
+| `--focus=architecture|quality|testing|docs|security` | domain-specific reporting emphasis | one area, deeper local review |
+| `--bootstrap-sdp` | generate agent-readiness outputs | workstream and scope bootstrap with starter recommendations |
 
 ## Workflow
 
@@ -111,17 +111,19 @@ Required analyzers:
 - testing analyzer
 - documentation drift analyzer
 
-### Phase 4: Limited Multi-Agent Cross-Check
+### Phase 4: Limited Cross-Check Review
 
 OSS must still avoid single-agent overconfidence.
 
 Minimum review structure:
 
-1. primary analyst generates findings
-2. secondary reviewer checks findings and challenges weak claims
-3. synthesizer merges only supported findings
+1. primary source-first pass generates findings from code and executable config
+2. secondary heuristic review checks findings against tests, manifests, and docs
+3. synthesis keeps supported findings and downgrades weak claims
 
-If the reviewer cannot confirm a claim, the claim must be downgraded to `inferred`, `conflicted`, or `unknown`.
+If the review pass cannot confirm a claim, the claim must be downgraded to `inferred`, `conflicted`, or `unknown`.
+
+Spawning multiple LLM agents is optional and not required for OSS.
 
 ### Phase 5: Synthesis
 
@@ -217,7 +219,7 @@ OSS owns:
 - single-repo baseline analysis
 - open artifact formats
 - local analyzers
-- limited cross-check review
+- limited cross-check review inside one run
 - SDP bootstrap starter outputs
 
 Anything requiring persistent memory, native external connectors, multi-repo orchestration, or consulting-grade adversarial synthesis belongs in `reality-pro`.
