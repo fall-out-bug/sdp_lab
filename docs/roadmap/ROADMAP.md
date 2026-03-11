@@ -265,6 +265,7 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 - Auto-generated planning ranges: `F031`..`F052`
 - Active strategy and ecosystem ranges: `F059`..`F085`
 - Parked long-horizon ideas: `F086`..`F089`
+- Reality analysis surfaces: `F090`..`F091`
 
 ### Standards & Tools
 - [in-toto attestation](https://github.com/in-toto/attestation) — envelope format
@@ -296,9 +297,11 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 - **F053/F054** — Historical planning tracks; no active workstream files in `INDEX.md` or `backlog/` yet. Keep analysis in [multifaceted analysis](../plans/2026-02-25-agent-protocol-multifaceted-analysis.md) until re-materialized into concrete WS IDs.
 - **F059** — OhMyOpenCode Evidence Integration (00-059-01 … 00-059-04). Pre-tool-call guard, session evidence emitter, permission↔guard bridge, stuck detection. Phase 5. **Status: DONE** (sdp-omc-guard, sdp-ready implemented).
 - **F060** — Gas Town Adapter (00-060-01 … 00-060-04). Convoy→WS bridge, hook→guard, witness escalation, Agent CV→provenance. Phase 8-9 target. Source: [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md).
-**F061** — Beads Graph Integration (00-061-01 … 00-061-04). SQL dep query, `sdp ready` bridge, formula templates, wisps. Phase 5 target. **Status: DONE** (sdp-ready, beads client implemented, opencode-beads plugin installed).
+- **F061** — Beads Graph Integration (00-061-01 … 00-061-04). SQL dep query, `sdp ready` bridge, formula templates, wisps. Phase 5 target. **Status: DONE** (sdp-ready, beads client implemented, opencode-beads plugin installed).
 - **F062** — vibe-kanban Integration. Kanban-style task orchestration for coding agents. Evaluate for SDP swarm orchestration layer. Phase 8-9 target.
 - **F063** — opencode-mem Integration. Persistent memory for session continuity, user preference learning, project-specific context. Phase 5 target. **Recommendation: INTEGRATE** (9/10 synergy score).
+- **F090** — Reality OSS Baseline (00-090-01 … 00-090-04). Open-contract schemas, OSS emitter, validation gate, then runtime/spec parity hardening. Phase 8E. **Status: IN PROGRESS**.
+- **F091** — Reality-Pro Consulting Surface (00-091-01 … 00-091-05). Staged bootstrap for pro-only schemas, reposet ingestion, persistent memory, dissent review, and pro report emitters. Phase 8E. **Status: BACKLOG**.
 
 ### Phase 4: Auto-Attestation
 
@@ -333,6 +336,11 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 - **F083** — Policy Engine Enforcement Pack. OPA/Rego policy bundles for evidence completeness and allow/deny decisions.
 - **F084** — Enterprise Runtime Hardening. Incremental hardening package around identity, signatures, and operational guardrails.
 - **F085** — Platform Productization Kit. Reusable org-level integration templates and operating model.
+
+### Phase 8E: Reality Analysis Surfaces (In Progress)
+
+- **F090** — Reality OSS Baseline (00-090-01 ... 00-090-04). Contract materialization, emitter, validator, and remaining runtime/spec parity work.
+- **F091** — Reality-Pro Consulting Surface (00-091-01 ... 00-091-05). Staged bootstrap for pro schemas, reposet ingestion, persistent memory, review orchestration, and pro artifact emitters.
 
 ### Parking Lot: Long-Horizon Ideas
 
