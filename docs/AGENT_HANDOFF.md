@@ -1,62 +1,90 @@
 # Agent Handoff
 
-Updated: 2026-02-22
+Updated: 2026-03-11
 
-**Validation Run 5:** 2026-02-22T14:00:00Z (handoff-checklist run 5/10)
+## Scope First
 
-## Current State
+- Continue day-to-day development in `sdp_lab` only.
+- In this checkout, `sdp_lab` is the root repo at `/Users/fall_out_bug/projects/vibe_coding/sdp_dev`.
+- Treat `sdp/` as a separate public protocol repo. Do not move feature work there by default.
+- Touch `sdp/` only for protocol artifacts, public docs, prompts, hooks, or explicitly scoped protocol fixes.
 
-- **Branch:** `master`
-- **Working tree:** Clean after beads close + AGENT_HANDOFF update.
-- **Quality gates:** `make quality` — verify before push.
-- **Beads:** 35/37 workstream beads closed (build+review+fix plan). Ready: `sdp_dev-hex`, `sdp_dev-sod`.
+## Current Branches
 
-## Most Recent Delivery
+- `sdp_lab`: `codex/reality-specs` at `d7e78f7`
+- `sdp`: `codex/beads-059-alignment` at `dab76bf`
+- Both branches are pushed and clean.
 
-- **Build+Review+Fix plan:** sdp_dev-986 (WS-021-01) closed — Task DependsOn for DAG ordering.
-- swarm-worker coverage 42%→65% (sdp_dev-hex in progress).
-- sdp_dev-oip: blocked on minikube (handoff validation 5/10).
+## What Was Just Landed
 
-## Open Work Situation
+- `beads` upgraded to `0.59.0` in `sdp_lab` runtime/build paths.
+- `sdp_lab` active workflow no longer depends on `bd sync`; use:
+  - `./scripts/beads_import_only.sh`
+  - `./scripts/beads_export.sh`
+- `sdp_lab` branch policy is explicit now:
+  - private lab repo works from `dev`
+  - public `sdp` repo works from `main`
+- K8s defaults in `sdp_lab` now point at `sdp_lab.git` and default repo branch `dev`.
+- Public `sdp` repo has a separate pushed branch with the beads 0.59 compatibility layer.
 
-- **Ready task** (run `bd ready`):
-  1. `sdp_dev-hex` [P2] QA: Raise swarm-worker coverage 65%→80% (autonomy 80.6% ok)
-  2. `sdp_dev-sod` [P2] Probe: /feature end-to-end returns PR
-- **In progress:**
-  - `sdp_dev-hex` [P2] swarm-worker coverage 65% (target 80%)
-- **Blocked:**
-  - `sdp_dev-oip` [P1] handoff validation — requires minikube cluster
-  - `sdp_dev-j2b` epic — blocked by sdp_dev-oip
+## Continue In sdp_lab
 
-## Suggested Startup Commands
+Default next work should stay in `sdp_lab`.
+
+Priority follow-ups:
+- `sdplab-vc0` — Sweep remaining beads 0.59 workflow drift
+- `sdplab-a4w` — Audit `sdp-plugin` for Dolt-native beads semantics
+
+Interpretation:
+- `sdplab-vc0` is mostly docs / historical drift / cleanup.
+- `sdplab-a4w` is the deeper technical follow-up around SQLite-era assumptions in the public plugin.
+- If the task is not clearly about protocol/public surface, keep it in `sdp_lab`.
+
+## When To Enter sdp/
+
+Enter `sdp/` only if one of these is true:
+- you are opening or finishing the PR for `codex/beads-059-alignment`
+- you are publishing protocol-facing artifacts from `sdp_lab`
+- the requested change is explicitly about public prompts / schemas / hooks / protocol docs
+
+If not, stay in root.
+
+## Startup Commands
 
 ```bash
+cd /Users/fall_out_bug/projects/vibe_coding/sdp_dev
 bd prime
+./scripts/beads_import_only.sh
 bd ready
-./scripts/beads_import_only.sh   # if JSONL was updated after git pull
-gh pr list --state open --repo fall-out-bug/sdp_lab
+bd show sdplab-vc0
+bd show sdplab-a4w
 git status --short --branch
-make quality            # verify gates before starting work
 ```
 
-## Session Rules Reminder
+## Session Rules
 
-- Use Beads as source of truth.
-- Keep exactly one active task (`in_progress`) unless explicitly coordinating parallel lanes.
-- Run validation gates before closure (`make quality` and any task-specific checks).
-- On session completion: commit, `./scripts/beads_export.sh` if beads changed, push, and confirm clean status.
+- Use Beads as source of truth for follow-up work.
+- Keep root repo and submodule commits separate.
+- If you edit `sdp/`:
+  1. Commit and push inside `sdp/`
+  2. Return to root
+  3. Commit the updated submodule pointer in `sdp_lab`
+- On session completion in `sdp_lab`:
+  1. `git pull --rebase`
+  2. `./scripts/beads_import_only.sh` if `.beads/issues.jsonl` changed after pull
+  3. `./scripts/beads_export.sh` if Beads changed in this session
+  4. run required quality gates
+  5. `git push`
 
-## Suggested Next Steps for New Agent
+## Open PR Candidates
 
-1. Run `bd ready` and `./scripts/beads_import_only.sh`.
-2. Claim `sdp_dev-hex` (swarm/autonomy coverage 80%+) or `sdp_dev-sod` (probe /feature).
-3. For sdp_dev-oip: add next validation run timestamp when completing handoff checklist.
-4. Before finishing: `make quality`, commit, `./scripts/beads_export.sh` if beads changed, `git push`.
+- `sdp`: open PR from `codex/beads-059-alignment` to `main`
+- `sdp_lab`: open PR from `codex/reality-specs`
 
-## Validation Runs (handoff-checklist)
+## Residual Warning
 
-- 2026-02-21T08:01:43Z (run 1/10)
-- 2026-02-21T08:13:51Z (run 2/10)
-- 2026-02-21T12:00:00Z (run 3/10)
-- 2026-02-22T12:00:00Z (run 4/10)
-- 2026-02-22T14:00:00Z (run 5/10)
+`bd doctor` in `sdp_lab` is green except for 2 legacy SQLite artifacts:
+- `.beads/beads.db`
+- `sdp/.beads/beads.db`
+
+These are non-blocking local leftovers, not active storage.
