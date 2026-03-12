@@ -1,65 +1,125 @@
 {
   "spec_version": "v1.0",
   "generated_at": "2026-03-12T10:38:01Z",
-  "gaps": [
+  "current_verdict": "not_ready",
+  "target_verdict": "ready",
+  "phases": [
     {
-      "gap_id": "gap:contract-boundary",
-      "title": "Service-to-protocol coordination is only partially evidenced",
-      "expected_state": "Versioning, ownership, and contract rollout between service and protocol repos are explicit.",
-      "observed_state": "Available evidence suggests: The reposet shows a service repo consuming a protocol repo, but coordination still depends on unresolved operator knowledge.",
-      "gap_type": "partial",
-      "severity": "high",
-      "status": "triaged",
-      "supporting_claim_ids": [
-        "finding:contract-boundary:final"
+      "phase_id": "phase:boundary-clarity",
+      "title": "Stabilize boundaries and intent",
+      "objective": "Make repo ownership, contract rollout, and key open questions explicit before broad agent execution.",
+      "allowed_scope": [
+        "docs/reality/",
+        "docs/specs/",
+        "docs/workstreams/",
+        "schema/reality/"
       ],
-      "affected_repos": [
-        "repo:sdp",
-        "repo:sdp_dev"
+      "blocked_zones": [
+        "repo:sdp:sdp-plugin/internal/checkpoint/checkpoint_test.go",
+        "repo:sdp:sdp-plugin/internal/quality/coverage_extra_test.go",
+        "repo:sdp:sdp-plugin/internal/reality/emitter.go",
+        "repo:sdp:src/sdp/agents/contract_validator_test.go"
       ],
-      "recommended_actions": [
-        "Add contract rollout checks before cross-repo changes land.",
-        "Record protocol ownership and versioning rules in the reposet bootstrap plan."
-      ]
-    },
-    {
-      "gap_id": "gap:hotspot-risk",
-      "title": "Hotspot concentration still limits autonomous change scope",
-      "expected_state": "High-risk files are isolated behind tests or reduced into narrow modules.",
-      "observed_state": "Repo memory still tracks 108 hotspot zones, so broad autonomous changes would overreach.",
-      "gap_type": "partial",
-      "severity": "medium",
-      "status": "accepted",
-      "supporting_claim_ids": [
-        "finding:hotspot-risk:final"
+      "required_evidence": [
+        ".sdp/reality/repo-memory.json",
+        ".sdp/reality/intent-gap-report.json",
+        "docs/reality/multi-repo-map.md"
       ],
-      "affected_repos": [
-        "repo:sdp",
-        "repo:sdp_dev"
+      "verification_requirements": [
+        "go run ./cmd/sdp-protocol-check",
+        "refresh repo-memory and reviewed findings"
       ],
-      "recommended_actions": [
-        "Fence the largest hotspots with narrow workstreams before orchestration expands scope."
-      ]
-    },
-    {
-      "gap_id": "gap:unresolved-questions",
-      "title": "Open questions still block confident synthesis",
-      "expected_state": "Important cross-repo questions are answered or explicitly assigned to owners.",
-      "observed_state": "Available evidence suggests: Reality memory still carries 2 unresolved question(s), so some claims would overstate certainty.",
-      "gap_type": "ambiguous",
-      "severity": "medium",
-      "status": "triaged",
-      "supporting_claim_ids": [
+      "exit_criteria": [
+        "Cross-repo ownership and rollout expectations are documented.",
+        "Open intent questions are either answered or assigned to owners."
+      ],
+      "justification_claim_ids": [
+        "finding:contract-boundary:final",
         "finding:unresolved-questions:final"
+      ]
+    },
+    {
+      "phase_id": "phase:hotspot-containment",
+      "title": "Reduce hotspot blast radius",
+      "objective": "Fence high-risk zones with narrow workstreams and verification before agents touch them directly.",
+      "allowed_scope": [
+        "targeted tests around hotspot files",
+        "small modules adjacent to top hotspots",
+        "quality gate scripts and evidence outputs"
       ],
-      "affected_repos": [
-        "repo:sdp",
-        "repo:sdp_dev"
+      "blocked_zones": [
+        "repo:sdp:sdp-plugin/internal/checkpoint/checkpoint_test.go",
+        "repo:sdp:sdp-plugin/internal/quality/coverage_extra_test.go",
+        "repo:sdp:sdp-plugin/internal/reality/emitter.go",
+        "repo:sdp:src/sdp/agents/contract_validator_test.go"
       ],
-      "recommended_actions": [
-        "Promote unresolved questions into explicit bootstrap backlog items with owners."
+      "required_evidence": [
+        ".sdp/reality/bootstrap-backlog.json",
+        "targeted test evidence for hotspot files"
+      ],
+      "verification_requirements": [
+        "run targeted go test slices",
+        "./scripts/run_go_quality_gates.sh"
+      ],
+      "exit_criteria": [
+        "Top hotspot paths are either isolated behind tests or explicitly deferred.",
+        "Bootstrap backlog clearly marks blocked zones and safe-first slices."
+      ],
+      "justification_claim_ids": [
+        "finding:hotspot-risk:final"
+      ]
+    },
+    {
+      "phase_id": "phase:bootstrap-delivery",
+      "title": "Execute bootstrap workstreams",
+      "objective": "Land the first safe SDP workstreams with reviewed evidence and rerun reality-pro after each slice.",
+      "allowed_scope": [
+        ".sdp/reality/bootstrap-backlog.json",
+        "docs/reality/",
+        "docs/reality/intent-gap.md",
+        "docs/specs/",
+        "docs/workstreams/"
+      ],
+      "blocked_zones": [
+        "repo:sdp:sdp-plugin/internal/checkpoint/checkpoint_test.go",
+        "repo:sdp:sdp-plugin/internal/quality/coverage_extra_test.go",
+        "repo:sdp:sdp-plugin/internal/reality/emitter.go",
+        "repo:sdp:src/sdp/agents/contract_validator_test.go"
+      ],
+      "required_evidence": [
+        ".sdp/reality/bootstrap-backlog.json",
+        ".sdp/reality/agent-readiness-plan.json"
+      ],
+      "verification_requirements": [
+        "rerun sdp-reality-pro-ingest",
+        "rerun sdp-reality-pro-review",
+        "rerun sdp-reality-pro-report"
+      ],
+      "exit_criteria": [
+        "Sequenced bootstrap workstreams are complete.",
+        "A follow-up reality-pro run improves readiness verdict or shrinks blocked zones."
+      ],
+      "justification_claim_ids": [
+        "finding:contract-boundary:final",
+        "finding:hotspot-risk:final",
+        "finding:unresolved-questions:final"
       ]
     }
+  ],
+  "key_risks": [
+    "Hotspot concentration still limits autonomous change scope",
+    "Hotspot: repo:sdp:sdp-plugin/internal/checkpoint/checkpoint_test.go",
+    "Hotspot: repo:sdp:sdp-plugin/internal/quality/coverage_extra_test.go",
+    "Hotspot: repo:sdp:sdp-plugin/internal/reality/emitter.go",
+    "Open questions still block confident synthesis",
+    "Open questions still block confident synthesis: primary observation required qualifier after skeptic review.",
+    "Service-to-protocol coordination is only partially evidenced",
+    "Service-to-protocol coordination is only partially evidenced: primary observation required qualifier after skeptic review."
+  ],
+  "sequencing_notes": [
+    "Do boundary clarity before hotspot work widens scope.",
+    "Keep blocked zones explicit until tests or narrower seams reduce risk.",
+    "Rerun reality-pro after each bootstrap slice to refresh memory and reviewed synthesis."
   ],
   "claims": [
     {
@@ -275,18 +335,32 @@
   ],
   "sources": [
     {
-      "source_id": "source:repo-memory",
+      "source_id": "source:conflicts-report",
       "kind": "doc",
-      "locator": ".sdp/reality/repo-memory.json",
-      "revision": "2026-03-12T10:38:01Z",
-      "path": ".sdp/reality/repo-memory.json"
+      "locator": ".sdp/reality/conflicts-report.json",
+      "revision": "2026-03-12T09:27:13Z",
+      "path": ".sdp/reality/conflicts-report.json"
+    },
+    {
+      "source_id": "source:intent-gap-report",
+      "kind": "doc",
+      "locator": ".sdp/reality/intent-gap-report.json",
+      "revision": "2026-03-12T09:27:13Z",
+      "path": ".sdp/reality/intent-gap-report.json"
     },
     {
       "source_id": "source:multi-repo-map",
       "kind": "doc",
       "locator": "docs/reality/multi-repo-map.md",
-      "revision": "2026-03-12T10:38:01Z",
+      "revision": "2026-03-12T09:27:13Z",
       "path": "docs/reality/multi-repo-map.md"
+    },
+    {
+      "source_id": "source:repo-memory",
+      "kind": "doc",
+      "locator": ".sdp/reality/repo-memory.json",
+      "revision": "2026-03-12T09:27:13Z",
+      "path": ".sdp/reality/repo-memory.json"
     }
   ]
 }

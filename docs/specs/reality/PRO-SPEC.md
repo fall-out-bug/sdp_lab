@@ -111,6 +111,7 @@ Current private lab baseline:
 - `go run ./cmd/sdp-reality-pro-ingest --repo .`
 - `go run ./cmd/sdp-reality-pro-ingest --reposet .,/abs/path/to/other/repo`
 - `go run ./cmd/sdp-reality-pro-review --project-root .`
+- `go run ./cmd/sdp-reality-pro-report --project-root .`
 
 ## Phase Model
 
@@ -212,6 +213,15 @@ Recover:
 - integration and data-flow map
 - constraints and hotspots
 
+Current private lab baseline emits:
+
+- `.sdp/reality/c4-system-context.json`
+- `.sdp/reality/c4-container.json`
+- `.sdp/reality/c4-component.json`
+- `docs/reality/c4-system-context.md`
+- `docs/reality/c4-containers.md`
+- `docs/reality/c4-components.md`
+
 ### Phase 7: Readiness and Bootstrap Synthesis
 
 Produce:
@@ -222,6 +232,15 @@ Produce:
 - test-first recommendations
 - documentation priorities
 - bootstrap backlog for SDP delivery
+
+Current private lab baseline emits:
+
+- `.sdp/reality/bootstrap-backlog.json`
+- `.sdp/reality/agent-readiness-plan.json`
+- `docs/reality/intent-gap.md`
+- `docs/reality/multi-repo-map.md`
+
+These outputs are deterministic syntheses over repo memory plus reviewed findings. They are executable now, but they are not yet the full multi-source consulting pipeline described in this spec.
 
 ### Phase 8: Synthesis Review
 

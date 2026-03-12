@@ -1,6 +1,6 @@
 {
   "spec_version": "v1.0",
-  "generated_at": "2026-03-12T09:27:13Z",
+  "generated_at": "2026-03-12T10:38:02Z",
   "repos": [
     {
       "repo_id": "repo:sdp",
@@ -8,15 +8,15 @@
       "root_path": "/Users/fall_out_bug/projects/vibe_coding/sdp_dev/sdp",
       "role": "protocol",
       "summary": "protocol repo with 811 source files across 11 top-level modules.",
-      "last_indexed_at": "2026-03-12T09:14:05Z"
+      "last_indexed_at": "2026-03-12T10:38:02Z"
     },
     {
       "repo_id": "repo:sdp_dev",
       "name": "sdp_dev",
       "root_path": "/Users/fall_out_bug/projects/vibe_coding/sdp_dev",
       "role": "service",
-      "summary": "service repo with 1229 source files across 8 top-level modules.",
-      "last_indexed_at": "2026-03-12T09:14:05Z"
+      "summary": "service repo with 1237 source files across 8 top-level modules.",
+      "last_indexed_at": "2026-03-12T10:38:02Z"
     }
   ],
   "module_summaries": [
@@ -1945,7 +1945,7 @@
     {
       "module_id": "module:repo:sdp_dev:cmd",
       "repo_id": "repo:sdp_dev",
-      "summary": "cmd contains 31 source files.",
+      "summary": "cmd contains 35 source files.",
       "paths": [
         "cmd/sdp-beads-bridge/main.go",
         "cmd/sdp-beads-bridge/query.go",
@@ -1973,6 +1973,10 @@
         "cmd/sdp-ready/main_test.go",
         "cmd/sdp-reality-pro-ingest/main.go",
         "cmd/sdp-reality-pro-ingest/main_test.go",
+        "cmd/sdp-reality-pro-report/main.go",
+        "cmd/sdp-reality-pro-report/main_test.go",
+        "cmd/sdp-reality-pro-review/main.go",
+        "cmd/sdp-reality-pro-review/main_test.go",
         "cmd/sdp-reality-validate/main.go",
         "cmd/sdp-reality-validate/main_test.go",
         "cmd/sdp-up/main.go",
@@ -1994,7 +1998,7 @@
     {
       "module_id": "module:repo:sdp_dev:internal",
       "repo_id": "repo:sdp_dev",
-      "summary": "internal contains 164 source files.",
+      "summary": "internal contains 168 source files.",
       "paths": [
         "internal/adapters/sdk/contracts.go",
         "internal/adapters/sdk/examples/main.go",
@@ -2140,6 +2144,10 @@
         "internal/prompt/sections_test.go",
         "internal/realitypro/memory.go",
         "internal/realitypro/memory_test.go",
+        "internal/realitypro/report.go",
+        "internal/realitypro/report_test.go",
+        "internal/realitypro/review.go",
+        "internal/realitypro/review_test.go",
         "internal/runtime/queue_controller.go",
         "internal/runtime/queue_controller_test.go",
         "internal/sdputil/limits.go",
@@ -2304,6 +2312,13 @@
       "repo_id": "repo:sdp",
       "path": "src/sdp/agents/contract_validator_test.go",
       "reason": "line_count=870",
+      "severity": "high"
+    },
+    {
+      "hotspot_id": "hotspot:repo:sdp_dev:internal:realitypro:report.go",
+      "repo_id": "repo:sdp_dev",
+      "path": "internal/realitypro/report.go",
+      "reason": "line_count=1457",
       "severity": "high"
     },
     {

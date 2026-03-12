@@ -1,6 +1,6 @@
 # Reality Feature Track
 
-Updated: 2026-03-11
+Updated: 2026-03-12
 
 ## Numbering Decision
 
@@ -62,9 +62,6 @@ Completed:
 Completed:
 
 - `00-091-04` specialist review orchestration
-
-Remaining:
-
 - `00-091-05` pro report and artifact emitters
 
 ## Open vs Private Boundary

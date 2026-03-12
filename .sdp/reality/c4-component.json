@@ -1,0 +1,598 @@
+{
+  "spec_version": "v1.0",
+  "generated_at": "2026-03-12T10:38:01Z",
+  "container_id": "container:sdp_dev",
+  "components": [
+    {
+      "component_id": "component:repo:sdp:cmd",
+      "name": "sdp/cmd",
+      "description": "cmd contains 13 source files.",
+      "technology": "Go",
+      "paths": [
+        "cmd/sdp-ci-loop/main.go",
+        "cmd/sdp-ci-loop/main_test.go",
+        "cmd/sdp-eval/main.go",
+        "cmd/sdp-eval/main_test.go",
+        "cmd/sdp-evidence/main.go",
+        "cmd/sdp-evidence/main_test.go",
+        "cmd/sdp-guard/main.go",
+        "cmd/sdp-guard/main_test.go",
+        "cmd/sdp-orchestrate/main.go",
+        "cmd/sdp-orchestrate/main_advance.go",
+        "cmd/sdp-orchestrate/main_hydrate.go",
+        "cmd/sdp-orchestrate/main_nextaction.go",
+        "cmd/sdp-orchestrate/main_test.go"
+      ],
+      "responsibilities": [
+        "Exposes executable entrypoints"
+      ]
+    },
+    {
+      "component_id": "component:repo:sdp:internal",
+      "name": "sdp/internal",
+      "description": "internal contains 68 source files.",
+      "technology": "Go",
+      "paths": [
+        "internal/ciloop/autofixer.go",
+        "internal/ciloop/autofixer_test.go",
+        "internal/ciloop/checkpoint.go",
+        "internal/ciloop/checkpoint_test.go",
+        "internal/ciloop/classifier.go",
+        "internal/ciloop/classifier_test.go",
+        "internal/ciloop/cleanup.go",
+        "internal/ciloop/cmdhelpers.go",
+        "internal/ciloop/deterministic_fixer.go",
+        "internal/ciloop/deterministic_fixer_test.go",
+        "internal/ciloop/fixer.go",
+        "internal/ciloop/fixer_test.go",
+        "internal/ciloop/loop.go",
+        "internal/ciloop/loop_test.go",
+        "internal/ciloop/poller.go",
+        "internal/ciloop/poller_test.go",
+        "internal/ciloop/runfile.go",
+        "internal/ciloop/runfile_test.go",
+        "internal/eval/framework.go",
+        "internal/eval/framework_test.go"
+      ],
+      "interfaces": [
+        "cli"
+      ],
+      "responsibilities": [
+        "Implements core runtime behavior",
+        "Interfaces: cli"
+      ]
+    },
+    {
+      "component_id": "component:repo:sdp:scripts",
+      "name": "sdp/scripts",
+      "description": "scripts contains 15 source files.",
+      "technology": "Shell",
+      "paths": [
+        "scripts/beads_export.sh",
+        "scripts/beads_import_only.sh",
+        "scripts/check-workstream-beads-consistency.sh",
+        "scripts/check_complexity.sh",
+        "scripts/commit-with-coauthor.sh",
+        "scripts/install-project.sh",
+        "scripts/install.sh",
+        "scripts/quality-metrics.sh",
+        "scripts/reorganize-docs.sh",
+        "scripts/setup-branch-protection.sh",
+        "scripts/sync-skills-to-commands.js",
+        "scripts/test-beads.sh",
+        "scripts/test-root-installer.sh",
+        "scripts/test_hook_enforcement.sh",
+        "scripts/verify-beads-setup.sh"
+      ],
+      "responsibilities": [
+        "Automates repeatable maintenance and quality tasks"
+      ]
+    },
+    {
+      "component_id": "component:repo:sdp:sdp-plugin",
+      "name": "sdp/sdp-plugin",
+      "description": "sdp-plugin contains 591 source files.",
+      "technology": "Go",
+      "paths": [
+        "sdp-plugin/cmd/sdp/acceptance.go",
+        "sdp-plugin/cmd/sdp/acceptance_test.go",
+        "sdp-plugin/cmd/sdp/apply.go",
+        "sdp-plugin/cmd/sdp/beads.go",
+        "sdp-plugin/cmd/sdp/beads_test.go",
+        "sdp-plugin/cmd/sdp/build.go",
+        "sdp-plugin/cmd/sdp/checkpoint.go",
+        "sdp-plugin/cmd/sdp/checkpoint_clean.go",
+        "sdp-plugin/cmd/sdp/checkpoint_create.go",
+        "sdp-plugin/cmd/sdp/checkpoint_list.go",
+        "sdp-plugin/cmd/sdp/checkpoint_resume.go",
+        "sdp-plugin/cmd/sdp/checkpoint_test.go",
+        "sdp-plugin/cmd/sdp/cmd_integration_test.go",
+        "sdp-plugin/cmd/sdp/collision.go",
+        "sdp-plugin/cmd/sdp/collision_check.go",
+        "sdp-plugin/cmd/sdp/collision_check_test.go",
+        "sdp-plugin/cmd/sdp/collision_detect.go",
+        "sdp-plugin/cmd/sdp/collision_detect_test.go",
+        "sdp-plugin/cmd/sdp/completion.go",
+        "sdp-plugin/cmd/sdp/completion_test.go"
+      ],
+      "interfaces": [
+        "cli",
+        "handler"
+      ],
+      "responsibilities": [
+        "Carries protocol runtime and CLI integration logic",
+        "Interfaces: cli, handler"
+      ]
+    },
+    {
+      "component_id": "component:repo:sdp:src",
+      "name": "sdp/src",
+      "description": "src contains 87 source files.",
+      "technology": "Markdown and JSON Schema",
+      "paths": [
+        "src/sdp/agents/code_analyzer.go",
+        "src/sdp/agents/code_analyzer_backend.go",
+        "src/sdp/agents/code_analyzer_contract.go",
+        "src/sdp/agents/code_analyzer_frontend.go",
+        "src/sdp/agents/code_analyzer_test.go",
+        "src/sdp/agents/contract_generator.go",
+        "src/sdp/agents/contract_generator_contract.go",
+        "src/sdp/agents/contract_generator_inferrer.go",
+        "src/sdp/agents/contract_generator_test.go",
+        "src/sdp/agents/contract_validator.go",
+        "src/sdp/agents/contract_validator_compare.go",
+        "src/sdp/agents/contract_validator_file.go",
+        "src/sdp/agents/contract_validator_report.go",
+        "src/sdp/agents/contract_validator_test.go",
+        "src/sdp/agents/synthesis_agent.go",
+        "src/sdp/agents/synthesis_agent_test.go",
+        "src/sdp/agents/synthesis_parser.go",
+        "src/sdp/agents/synthesis_types.go",
+        "src/sdp/agents/synthesis_validation.go",
+        "src/sdp/cli/contract_commands.go"
+      ],
+      "responsibilities": [
+        "Feeds downstream service repos with protocol assets",
+        "src contains 87 source files."
+      ]
+    },
+    {
+      "component_id": "component:repo:sdp_dev:cmd",
+      "name": "sdp_dev/cmd",
+      "description": "cmd contains 31 source files.",
+      "technology": "Go",
+      "paths": [
+        "cmd/sdp-beads-bridge/main.go",
+        "cmd/sdp-beads-bridge/query.go",
+        "cmd/sdp-ci-loop/main.go",
+        "cmd/sdp-ci-loop/main_test.go",
+        "cmd/sdp-doc-sync/main.go",
+        "cmd/sdp-eval/main.go",
+        "cmd/sdp-eval/main_test.go",
+        "cmd/sdp-evidence/main.go",
+        "cmd/sdp-evidence/main_test.go",
+        "cmd/sdp-gh-findings-sync/main.go",
+        "cmd/sdp-guard/main.go",
+        "cmd/sdp-guard/main_contract.go",
+        "cmd/sdp-guard/main_test.go",
+        "cmd/sdp-omc-guard/main.go",
+        "cmd/sdp-omc-guard/main_test.go",
+        "cmd/sdp-orchestrate/main.go",
+        "cmd/sdp-orchestrate/main_advance.go",
+        "cmd/sdp-orchestrate/main_hydrate.go",
+        "cmd/sdp-orchestrate/main_nextaction.go",
+        "cmd/sdp-orchestrate/main_status.go"
+      ],
+      "responsibilities": [
+        "Exposes executable entrypoints"
+      ]
+    },
+    {
+      "component_id": "component:repo:sdp_dev:docs",
+      "name": "sdp_dev/docs",
+      "description": "docs contains 2 source files.",
+      "technology": "Shell",
+      "paths": [
+        "docs/integrations/audit-log.sh",
+        "docs/integrations/telegram.sh"
+      ],
+      "responsibilities": [
+        "Captures operator-facing intent and guidance"
+      ]
+    },
+    {
+      "component_id": "component:repo:sdp_dev:internal",
+      "name": "sdp_dev/internal",
+      "description": "internal contains 164 source files.",
+      "technology": "Go",
+      "paths": [
+        "internal/adapters/sdk/contracts.go",
+        "internal/adapters/sdk/examples/main.go",
+        "internal/adapters/sdk/interfaces.go",
+        "internal/adapters/sdk/validation.go",
+        "internal/adapters/sdk/validation_test.go",
+        "internal/authz/tenant_scope.go",
+        "internal/authz/tenant_scope_test.go",
+        "internal/beads/client.go",
+        "internal/beads/client_test.go",
+        "internal/beads/dependency.go",
+        "internal/beads/dependency_test.go",
+        "internal/beads/formula_parser.go",
+        "internal/beads/scan_helpers.go",
+        "internal/beads/sql_client.go",
+        "internal/bridge/beads_sink.go",
+        "internal/bridge/dedupe_store.go",
+        "internal/bridge/dedupe_store_test.go",
+        "internal/bridge/github_findings.go",
+        "internal/bridge/status_backsync.go",
+        "internal/bridge/status_backsync_test.go"
+      ],
+      "interfaces": [
+        "cli"
+      ],
+      "responsibilities": [
+        "Implements core runtime behavior",
+        "Interfaces: cli"
+      ]
+    },
+    {
+      "component_id": "component:repo:sdp_dev:scripts",
+      "name": "sdp_dev/scripts",
+      "description": "scripts contains 42 source files.",
+      "technology": "Shell",
+      "paths": [
+        "scripts/apply_control_manifests.sh",
+        "scripts/apply_observability_manifests.sh",
+        "scripts/apply_worker_manifests.sh",
+        "scripts/autonomy_slo_report.sh",
+        "scripts/beads_export.sh",
+        "scripts/beads_import_only.sh",
+        "scripts/bootstrap_remote_k8s.sh",
+        "scripts/build_push_opencode_agent_image.sh",
+        "scripts/build_push_opencode_agent_image_remote.sh",
+        "scripts/check_remote_k8s.sh",
+        "scripts/check_repo_consistency.py",
+        "scripts/create_test_autonomy_task.sh",
+        "scripts/demo/oss_combine_run.sh",
+        "scripts/deploy_swarm_platform.sh",
+        "scripts/e2e_agentrun_minikube.sh",
+        "scripts/feature_to_pr.sh",
+        "scripts/feature_to_pr_test.sh",
+        "scripts/go_with_project_toolchain.sh",
+        "scripts/handoff_validation_10runs.sh",
+        "scripts/hooks/install-git-hooks.sh"
+      ],
+      "responsibilities": [
+        "Automates repeatable maintenance and quality tasks"
+      ]
+    },
+    {
+      "component_id": "component:repo:sdp_dev:tests",
+      "name": "sdp_dev/tests",
+      "description": "tests contains 1 source files.",
+      "technology": "Go workspace",
+      "paths": [
+        "tests/contracts/compatibility_test.go"
+      ],
+      "responsibilities": [
+        "Verifies behavior at repository level"
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "relationship_id": "component-rel:component:repo:sdp:cmd:invokes-runtime-packages:component:repo:sdp:internal",
+      "from": "component:repo:sdp:cmd",
+      "to": "component:repo:sdp:internal",
+      "description": "invokes runtime packages",
+      "technology": "Go packages",
+      "confidence": 0.9
+    },
+    {
+      "relationship_id": "component-rel:component:repo:sdp:cmd:surfaces-plugin-runtime:component:repo:sdp:sdp-plugin",
+      "from": "component:repo:sdp:cmd",
+      "to": "component:repo:sdp:sdp-plugin",
+      "description": "surfaces plugin runtime",
+      "technology": "CLI",
+      "confidence": 0.88
+    },
+    {
+      "relationship_id": "component-rel:component:repo:sdp:scripts:automates-command-workflows:component:repo:sdp:cmd",
+      "from": "component:repo:sdp:scripts",
+      "to": "component:repo:sdp:cmd",
+      "description": "automates command workflows",
+      "technology": "shell automation",
+      "confidence": 0.78
+    },
+    {
+      "relationship_id": "component-rel:component:repo:sdp:src:provides-assets-consumed-by-plugin-runtime:component:repo:sdp:sdp-plugin",
+      "from": "component:repo:sdp:src",
+      "to": "component:repo:sdp:sdp-plugin",
+      "description": "provides assets consumed by plugin runtime",
+      "technology": "protocol assets",
+      "confidence": 0.81
+    },
+    {
+      "relationship_id": "component-rel:component:repo:sdp_dev:cmd:invokes-runtime-packages:component:repo:sdp_dev:internal",
+      "from": "component:repo:sdp_dev:cmd",
+      "to": "component:repo:sdp_dev:internal",
+      "description": "invokes runtime packages",
+      "technology": "Go packages",
+      "confidence": 0.9
+    },
+    {
+      "relationship_id": "component-rel:component:repo:sdp_dev:docs:documents-runtime-behavior:component:repo:sdp_dev:internal",
+      "from": "component:repo:sdp_dev:docs",
+      "to": "component:repo:sdp_dev:internal",
+      "description": "documents runtime behavior",
+      "technology": "Markdown",
+      "confidence": 0.74
+    },
+    {
+      "relationship_id": "component-rel:component:repo:sdp_dev:internal:consumes-protocol-contracts-and-skills:component:repo:sdp:internal",
+      "from": "component:repo:sdp_dev:internal",
+      "to": "component:repo:sdp:internal",
+      "description": "consumes protocol contracts and skills",
+      "technology": "schemas and prompts",
+      "confidence": 0.84
+    },
+    {
+      "relationship_id": "component-rel:component:repo:sdp_dev:scripts:automates-command-workflows:component:repo:sdp_dev:cmd",
+      "from": "component:repo:sdp_dev:scripts",
+      "to": "component:repo:sdp_dev:cmd",
+      "description": "automates command workflows",
+      "technology": "shell automation",
+      "confidence": 0.78
+    },
+    {
+      "relationship_id": "component-rel:component:repo:sdp_dev:tests:verifies-runtime-paths:component:repo:sdp_dev:internal",
+      "from": "component:repo:sdp_dev:tests",
+      "to": "component:repo:sdp_dev:internal",
+      "description": "verifies runtime paths",
+      "technology": "tests",
+      "confidence": 0.8
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "finding:contract-boundary:final",
+      "title": "Service-to-protocol coordination is only partially evidenced",
+      "statement": "Available evidence suggests: The reposet shows a service repo consuming a protocol repo, but coordination still depends on unresolved operator knowledge.",
+      "status": "inferred",
+      "confidence": 0.67,
+      "source_ids": [
+        "source:repo-memory",
+        "source:multi-repo-map"
+      ],
+      "review_state": "arbitrated",
+      "affected_repos": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "open_questions": [
+        "sdp: how does this repo coordinate versioning with the rest of the reposet?",
+        "sdp_dev: how does this repo coordinate versioning with the rest of the reposet?"
+      ],
+      "tags": [
+        "final",
+        "architecture-analyst"
+      ],
+      "counter_evidence": [
+        "Repo memory captures repository shape, but not full operator intent or historical rollout decisions."
+      ]
+    },
+    {
+      "claim_id": "finding:contract-boundary:primary",
+      "title": "Service-to-protocol coordination is only partially evidenced",
+      "statement": "The reposet shows a service repo consuming a protocol repo, but coordination still depends on unresolved operator knowledge.",
+      "status": "observed",
+      "confidence": 0.88,
+      "source_ids": [
+        "source:repo-memory",
+        "source:multi-repo-map"
+      ],
+      "review_state": "cross_checked",
+      "affected_repos": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "open_questions": [
+        "sdp: how does this repo coordinate versioning with the rest of the reposet?",
+        "sdp_dev: how does this repo coordinate versioning with the rest of the reposet?"
+      ],
+      "tags": [
+        "primary",
+        "architecture-analyst"
+      ]
+    },
+    {
+      "claim_id": "finding:contract-boundary:skeptic",
+      "title": "Service-to-protocol coordination is only partially evidenced skeptic review",
+      "statement": "Topology proves dependency direction, but governance and rollout discipline are still inferred rather than observed.",
+      "status": "inferred",
+      "confidence": 0.62,
+      "source_ids": [
+        "source:repo-memory",
+        "source:multi-repo-map"
+      ],
+      "review_state": "challenged",
+      "affected_repos": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "open_questions": [
+        "sdp: how does this repo coordinate versioning with the rest of the reposet?",
+        "sdp_dev: how does this repo coordinate versioning with the rest of the reposet?"
+      ],
+      "tags": [
+        "skeptic",
+        "architecture-analyst"
+      ],
+      "counter_evidence": [
+        "Repo memory captures repository shape, but not full operator intent or historical rollout decisions."
+      ]
+    },
+    {
+      "claim_id": "finding:hotspot-risk:final",
+      "title": "Hotspot concentration still limits autonomous change scope",
+      "statement": "Repo memory still tracks 108 hotspot zones, so broad autonomous changes would overreach.",
+      "status": "observed",
+      "confidence": 0.88,
+      "source_ids": [
+        "source:repo-memory"
+      ],
+      "review_state": "arbitrated",
+      "affected_repos": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "tags": [
+        "final",
+        "test-quality-analyst"
+      ]
+    },
+    {
+      "claim_id": "finding:hotspot-risk:primary",
+      "title": "Hotspot concentration still limits autonomous change scope",
+      "statement": "Repo memory still tracks 108 hotspot zones, so broad autonomous changes would overreach.",
+      "status": "observed",
+      "confidence": 0.88,
+      "source_ids": [
+        "source:repo-memory"
+      ],
+      "review_state": "cross_checked",
+      "affected_repos": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "tags": [
+        "primary",
+        "test-quality-analyst"
+      ]
+    },
+    {
+      "claim_id": "finding:hotspot-risk:skeptic",
+      "title": "Hotspot concentration still limits autonomous change scope skeptic review",
+      "statement": "The evidence is sufficient to keep this finding without further downgrade.",
+      "status": "observed",
+      "confidence": 0.82,
+      "source_ids": [
+        "source:repo-memory"
+      ],
+      "review_state": "cross_checked",
+      "affected_repos": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "tags": [
+        "skeptic",
+        "test-quality-analyst"
+      ]
+    },
+    {
+      "claim_id": "finding:unresolved-questions:final",
+      "title": "Open questions still block confident synthesis",
+      "statement": "Available evidence suggests: Reality memory still carries 2 unresolved question(s), so some claims would overstate certainty.",
+      "status": "inferred",
+      "confidence": 0.67,
+      "source_ids": [
+        "source:repo-memory"
+      ],
+      "review_state": "arbitrated",
+      "affected_repos": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "open_questions": [
+        "sdp: how does this repo coordinate versioning with the rest of the reposet?",
+        "sdp_dev: how does this repo coordinate versioning with the rest of the reposet?"
+      ],
+      "tags": [
+        "final",
+        "documentation-analyst"
+      ],
+      "counter_evidence": [
+        "Repo memory captures repository shape, but not full operator intent or historical rollout decisions."
+      ]
+    },
+    {
+      "claim_id": "finding:unresolved-questions:primary",
+      "title": "Open questions still block confident synthesis",
+      "statement": "Reality memory still carries 2 unresolved question(s), so some claims would overstate certainty.",
+      "status": "observed",
+      "confidence": 0.88,
+      "source_ids": [
+        "source:repo-memory"
+      ],
+      "review_state": "cross_checked",
+      "affected_repos": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "open_questions": [
+        "sdp: how does this repo coordinate versioning with the rest of the reposet?",
+        "sdp_dev: how does this repo coordinate versioning with the rest of the reposet?"
+      ],
+      "tags": [
+        "primary",
+        "documentation-analyst"
+      ]
+    },
+    {
+      "claim_id": "finding:unresolved-questions:skeptic",
+      "title": "Open questions still block confident synthesis skeptic review",
+      "statement": "Open questions clearly exist, but severity should stay moderate until tied to concrete failures.",
+      "status": "inferred",
+      "confidence": 0.62,
+      "source_ids": [
+        "source:repo-memory"
+      ],
+      "review_state": "challenged",
+      "affected_repos": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "open_questions": [
+        "sdp: how does this repo coordinate versioning with the rest of the reposet?",
+        "sdp_dev: how does this repo coordinate versioning with the rest of the reposet?"
+      ],
+      "tags": [
+        "skeptic",
+        "documentation-analyst"
+      ],
+      "counter_evidence": [
+        "Repo memory captures repository shape, but not full operator intent or historical rollout decisions."
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "source:conflicts-report",
+      "kind": "doc",
+      "locator": ".sdp/reality/conflicts-report.json",
+      "revision": "2026-03-12T09:27:13Z",
+      "path": ".sdp/reality/conflicts-report.json"
+    },
+    {
+      "source_id": "source:intent-gap-report",
+      "kind": "doc",
+      "locator": ".sdp/reality/intent-gap-report.json",
+      "revision": "2026-03-12T09:27:13Z",
+      "path": ".sdp/reality/intent-gap-report.json"
+    },
+    {
+      "source_id": "source:multi-repo-map",
+      "kind": "doc",
+      "locator": "docs/reality/multi-repo-map.md",
+      "revision": "2026-03-12T09:27:13Z",
+      "path": "docs/reality/multi-repo-map.md"
+    },
+    {
+      "source_id": "source:repo-memory",
+      "kind": "doc",
+      "locator": ".sdp/reality/repo-memory.json",
+      "revision": "2026-03-12T09:27:13Z",
+      "path": ".sdp/reality/repo-memory.json"
+    }
+  ]
+}

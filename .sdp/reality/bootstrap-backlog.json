@@ -1,63 +1,92 @@
 {
   "spec_version": "v1.0",
   "generated_at": "2026-03-12T10:38:01Z",
-  "gaps": [
+  "workstreams": [
     {
-      "gap_id": "gap:contract-boundary",
+      "backlog_id": "backlog:contract-boundary",
       "title": "Service-to-protocol coordination is only partially evidenced",
-      "expected_state": "Versioning, ownership, and contract rollout between service and protocol repos are explicit.",
-      "observed_state": "Available evidence suggests: The reposet shows a service repo consuming a protocol repo, but coordination still depends on unresolved operator knowledge.",
-      "gap_type": "partial",
-      "severity": "high",
-      "status": "triaged",
-      "supporting_claim_ids": [
+      "goal": "Add contract rollout checks before cross-repo changes land.",
+      "priority": "P1",
+      "status": "sequenced",
+      "scope": [
+        "docs/reality/",
+        "docs/specs/",
+        "docs/workstreams/"
+      ],
+      "repositories": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "evidence_claim_ids": [
         "finding:contract-boundary:final"
       ],
-      "affected_repos": [
-        "repo:sdp",
-        "repo:sdp_dev"
-      ],
-      "recommended_actions": [
-        "Add contract rollout checks before cross-repo changes land.",
-        "Record protocol ownership and versioning rules in the reposet bootstrap plan."
+      "recommended_agent": "architecture-analyst",
+      "rationale": "Available evidence suggests: The reposet shows a service repo consuming a protocol repo, but coordination still depends on unresolved operator knowledge.",
+      "risk_level": "high",
+      "exit_criteria": [
+        "Evidence-backed follow-up reduces or resolves the gap.",
+        "Reviewed artifacts can cite concrete proof instead of operator memory.",
+        "Versioning, ownership, and contract rollout between service and protocol repos are explicit."
       ]
     },
     {
-      "gap_id": "gap:hotspot-risk",
+      "backlog_id": "backlog:hotspot-risk",
       "title": "Hotspot concentration still limits autonomous change scope",
-      "expected_state": "High-risk files are isolated behind tests or reduced into narrow modules.",
-      "observed_state": "Repo memory still tracks 108 hotspot zones, so broad autonomous changes would overreach.",
-      "gap_type": "partial",
-      "severity": "medium",
-      "status": "accepted",
-      "supporting_claim_ids": [
+      "goal": "Fence the largest hotspots with narrow workstreams before orchestration expands scope.",
+      "priority": "P2",
+      "status": "blocked",
+      "scope": [
+        "repo:sdp:sdp-plugin/internal/checkpoint/checkpoint_test.go",
+        "repo:sdp:sdp-plugin/internal/quality/coverage_extra_test.go",
+        "repo:sdp:sdp-plugin/internal/reality/emitter.go",
+        "repo:sdp:src/sdp/agents/contract_validator_test.go"
+      ],
+      "repositories": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "evidence_claim_ids": [
         "finding:hotspot-risk:final"
       ],
-      "affected_repos": [
-        "repo:sdp",
-        "repo:sdp_dev"
+      "dependencies": [
+        "backlog:contract-boundary"
       ],
-      "recommended_actions": [
-        "Fence the largest hotspots with narrow workstreams before orchestration expands scope."
+      "recommended_agent": "test-quality-analyst",
+      "rationale": "Repo memory still tracks 108 hotspot zones, so broad autonomous changes would overreach.",
+      "risk_level": "medium",
+      "exit_criteria": [
+        "Evidence-backed follow-up reduces or resolves the gap.",
+        "High-risk files are isolated behind tests or reduced into narrow modules.",
+        "Reviewed artifacts can cite concrete proof instead of operator memory."
       ]
     },
     {
-      "gap_id": "gap:unresolved-questions",
+      "backlog_id": "backlog:unresolved-questions",
       "title": "Open questions still block confident synthesis",
-      "expected_state": "Important cross-repo questions are answered or explicitly assigned to owners.",
-      "observed_state": "Available evidence suggests: Reality memory still carries 2 unresolved question(s), so some claims would overstate certainty.",
-      "gap_type": "ambiguous",
-      "severity": "medium",
-      "status": "triaged",
-      "supporting_claim_ids": [
-        "finding:unresolved-questions:final"
+      "goal": "Promote unresolved questions into explicit bootstrap backlog items with owners.",
+      "priority": "P2",
+      "status": "proposed",
+      "scope": [
+        ".sdp/reality/bootstrap-backlog.json",
+        "docs/reality/intent-gap.md"
       ],
-      "affected_repos": [
+      "repositories": [
         "repo:sdp",
         "repo:sdp_dev"
       ],
-      "recommended_actions": [
-        "Promote unresolved questions into explicit bootstrap backlog items with owners."
+      "evidence_claim_ids": [
+        "finding:unresolved-questions:final"
+      ],
+      "dependencies": [
+        "backlog:contract-boundary"
+      ],
+      "recommended_agent": "documentation-analyst",
+      "rationale": "Available evidence suggests: Reality memory still carries 2 unresolved question(s), so some claims would overstate certainty.",
+      "risk_level": "medium",
+      "exit_criteria": [
+        "Evidence-backed follow-up reduces or resolves the gap.",
+        "Important cross-repo questions are answered or explicitly assigned to owners.",
+        "Reviewed artifacts can cite concrete proof instead of operator memory."
       ]
     }
   ],
@@ -275,18 +304,32 @@
   ],
   "sources": [
     {
-      "source_id": "source:repo-memory",
+      "source_id": "source:conflicts-report",
       "kind": "doc",
-      "locator": ".sdp/reality/repo-memory.json",
-      "revision": "2026-03-12T10:38:01Z",
-      "path": ".sdp/reality/repo-memory.json"
+      "locator": ".sdp/reality/conflicts-report.json",
+      "revision": "2026-03-12T09:27:13Z",
+      "path": ".sdp/reality/conflicts-report.json"
+    },
+    {
+      "source_id": "source:intent-gap-report",
+      "kind": "doc",
+      "locator": ".sdp/reality/intent-gap-report.json",
+      "revision": "2026-03-12T09:27:13Z",
+      "path": ".sdp/reality/intent-gap-report.json"
     },
     {
       "source_id": "source:multi-repo-map",
       "kind": "doc",
       "locator": "docs/reality/multi-repo-map.md",
-      "revision": "2026-03-12T10:38:01Z",
+      "revision": "2026-03-12T09:27:13Z",
       "path": "docs/reality/multi-repo-map.md"
+    },
+    {
+      "source_id": "source:repo-memory",
+      "kind": "doc",
+      "locator": ".sdp/reality/repo-memory.json",
+      "revision": "2026-03-12T09:27:13Z",
+      "path": ".sdp/reality/repo-memory.json"
     }
   ]
 }

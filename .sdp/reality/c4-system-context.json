@@ -1,64 +1,70 @@
 {
   "spec_version": "v1.0",
   "generated_at": "2026-03-12T10:38:01Z",
-  "gaps": [
+  "scope": {
+    "system_name": "sdp_dev reposet",
+    "repos": [
+      "repo:sdp",
+      "repo:sdp_dev"
+    ]
+  },
+  "people": [
     {
-      "gap_id": "gap:contract-boundary",
-      "title": "Service-to-protocol coordination is only partially evidenced",
-      "expected_state": "Versioning, ownership, and contract rollout between service and protocol repos are explicit.",
-      "observed_state": "Available evidence suggests: The reposet shows a service repo consuming a protocol repo, but coordination still depends on unresolved operator knowledge.",
-      "gap_type": "partial",
-      "severity": "high",
-      "status": "triaged",
-      "supporting_claim_ids": [
-        "finding:contract-boundary:final"
+      "person_id": "person:operator",
+      "name": "Operator",
+      "description": "Human reviewer who resolves intent gaps and arbitrates uncertain claims."
+    }
+  ],
+  "systems": [
+    {
+      "system_id": "system:sdp",
+      "name": "sdp",
+      "boundary": "internal",
+      "description": "protocol repo with 811 source files across 11 top-level modules.",
+      "repo_ids": [
+        "repo:sdp"
       ],
-      "affected_repos": [
-        "repo:sdp",
-        "repo:sdp_dev"
-      ],
-      "recommended_actions": [
-        "Add contract rollout checks before cross-repo changes land.",
-        "Record protocol ownership and versioning rules in the reposet bootstrap plan."
+      "tags": [
+        "protocol"
       ]
     },
     {
-      "gap_id": "gap:hotspot-risk",
-      "title": "Hotspot concentration still limits autonomous change scope",
-      "expected_state": "High-risk files are isolated behind tests or reduced into narrow modules.",
-      "observed_state": "Repo memory still tracks 108 hotspot zones, so broad autonomous changes would overreach.",
-      "gap_type": "partial",
-      "severity": "medium",
-      "status": "accepted",
-      "supporting_claim_ids": [
-        "finding:hotspot-risk:final"
-      ],
-      "affected_repos": [
-        "repo:sdp",
+      "system_id": "system:sdp_dev",
+      "name": "sdp_dev",
+      "boundary": "internal",
+      "description": "service repo with 1229 source files across 8 top-level modules.",
+      "repo_ids": [
         "repo:sdp_dev"
       ],
-      "recommended_actions": [
-        "Fence the largest hotspots with narrow workstreams before orchestration expands scope."
+      "tags": [
+        "service"
       ]
+    }
+  ],
+  "relationships": [
+    {
+      "relationship_id": "system-rel:person:operator:reviews:system:sdp",
+      "from": "person:operator",
+      "to": "system:sdp",
+      "description": "reviews and arbitrates open questions",
+      "technology": "human review",
+      "confidence": 0.66
     },
     {
-      "gap_id": "gap:unresolved-questions",
-      "title": "Open questions still block confident synthesis",
-      "expected_state": "Important cross-repo questions are answered or explicitly assigned to owners.",
-      "observed_state": "Available evidence suggests: Reality memory still carries 2 unresolved question(s), so some claims would overstate certainty.",
-      "gap_type": "ambiguous",
-      "severity": "medium",
-      "status": "triaged",
-      "supporting_claim_ids": [
-        "finding:unresolved-questions:final"
-      ],
-      "affected_repos": [
-        "repo:sdp",
-        "repo:sdp_dev"
-      ],
-      "recommended_actions": [
-        "Promote unresolved questions into explicit bootstrap backlog items with owners."
-      ]
+      "relationship_id": "system-rel:repo:sdp_dev:consumes-contracts-from:repo:sdp",
+      "from": "system:sdp_dev",
+      "to": "system:sdp",
+      "description": "consumes contracts from",
+      "technology": "schemas and prompts",
+      "confidence": 0.84
+    },
+    {
+      "relationship_id": "system-rel:repo:sdp_dev:contains:repo:sdp",
+      "from": "system:sdp_dev",
+      "to": "system:sdp",
+      "description": "contains",
+      "technology": "workspace nesting",
+      "confidence": 0.94
     }
   ],
   "claims": [
@@ -275,18 +281,32 @@
   ],
   "sources": [
     {
-      "source_id": "source:repo-memory",
+      "source_id": "source:conflicts-report",
       "kind": "doc",
-      "locator": ".sdp/reality/repo-memory.json",
-      "revision": "2026-03-12T10:38:01Z",
-      "path": ".sdp/reality/repo-memory.json"
+      "locator": ".sdp/reality/conflicts-report.json",
+      "revision": "2026-03-12T09:27:13Z",
+      "path": ".sdp/reality/conflicts-report.json"
+    },
+    {
+      "source_id": "source:intent-gap-report",
+      "kind": "doc",
+      "locator": ".sdp/reality/intent-gap-report.json",
+      "revision": "2026-03-12T09:27:13Z",
+      "path": ".sdp/reality/intent-gap-report.json"
     },
     {
       "source_id": "source:multi-repo-map",
       "kind": "doc",
       "locator": "docs/reality/multi-repo-map.md",
-      "revision": "2026-03-12T10:38:01Z",
+      "revision": "2026-03-12T09:27:13Z",
       "path": "docs/reality/multi-repo-map.md"
+    },
+    {
+      "source_id": "source:repo-memory",
+      "kind": "doc",
+      "locator": ".sdp/reality/repo-memory.json",
+      "revision": "2026-03-12T09:27:13Z",
+      "path": ".sdp/reality/repo-memory.json"
     }
   ]
 }

@@ -1,6 +1,6 @@
 {
   "spec_version": "v1.0",
-  "generated_at": "2026-03-12T09:27:13Z",
+  "generated_at": "2026-03-12T10:38:01Z",
   "conflicts": [
     {
       "conflict_id": "conflict:contract-boundary",
@@ -251,14 +251,14 @@
       "source_id": "source:repo-memory",
       "kind": "doc",
       "locator": ".sdp/reality/repo-memory.json",
-      "revision": "2026-03-12T09:27:13Z",
+      "revision": "2026-03-12T10:38:01Z",
       "path": ".sdp/reality/repo-memory.json"
     },
     {
       "source_id": "source:multi-repo-map",
       "kind": "doc",
       "locator": "docs/reality/multi-repo-map.md",
-      "revision": "2026-03-12T09:27:13Z",
+      "revision": "2026-03-12T10:38:01Z",
       "path": "docs/reality/multi-repo-map.md"
     }
   ]
