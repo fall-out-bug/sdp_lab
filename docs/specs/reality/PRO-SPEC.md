@@ -100,11 +100,16 @@ No important conclusion should survive on a single-agent pass.
 | Mode | Purpose |
 |---|---|
 | `--repo <path>` | deep analysis of one repository |
-| `--reposet <id|paths>` | coordinated multi-repo analysis |
+| `--reposet <path1,path2,...>` | coordinated multi-repo analysis |
 | `--with-docs` | include external documentation sources |
 | `--reconstruct-intent` | emphasize intent recovery and plan-vs-implementation gaps |
 | `--bootstrap-sdp` | generate bootstrap backlog and readiness plan |
 | `--domain <name>` | bias agent selection for domain-heavy systems |
+
+Current private lab baseline:
+
+- `go run ./cmd/sdp-reality-pro-ingest --repo .`
+- `go run ./cmd/sdp-reality-pro-ingest --reposet .,/abs/path/to/other/repo`
 
 ## Phase Model
 
@@ -132,6 +137,11 @@ Build and maintain persistent repo memory:
 - hotspots and risk zones
 
 This memory must support incremental refresh after later repository changes.
+
+Current private baseline writes:
+
+- `.sdp/reality/repo-memory.json`
+- `docs/reality/multi-repo-map.md`
 
 ### Phase 3: Specialist Selection
 

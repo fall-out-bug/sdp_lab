@@ -3,6 +3,8 @@
 !.sdp/pipeline-hooks.yaml.example
 !.sdp/policies/
 !.sdp/agent-constraints.yaml
+!.sdp/reality/
+!.sdp/reality/*.json
 
 # opencode-mem storage
 .sdp/mem/

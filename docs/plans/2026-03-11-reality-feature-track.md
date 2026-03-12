@@ -53,7 +53,7 @@ Completed:
 
 ### Phase E: F091 reposet + memory substrate
 
-Backlog:
+Completed:
 
 - `00-091-03` persistent memory and reposet ingestion
 
