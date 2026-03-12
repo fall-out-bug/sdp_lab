@@ -24,6 +24,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 	projectRoot := fs.String("project-root", ".", "Workspace root where .sdp/reality and docs/reality outputs will be written")
 	repo := fs.String("repo", "", "Single repository path to ingest (default: project root)")
 	reposet := fs.String("reposet", "", "Comma-separated repository paths for coordinated ingestion")
+	withDocs := fs.Bool("with-docs", false, "Include optional docs, ADRs, and runbooks in repo-memory ingestion")
+	docsRoot := fs.String("docs-root", "", "Comma-separated extra docs roots or files to ingest when --with-docs is enabled")
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -43,6 +45,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 	result, err := realitypro.Ingest(realitypro.Options{
 		ProjectRoot: *projectRoot,
 		Repos:       repos,
+		WithDocs:    *withDocs || strings.TrimSpace(*docsRoot) != "",
+		DocRoots:    splitReposet(*docsRoot),
 	})
 	if err != nil {
 		return err
@@ -51,6 +55,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 	fmt.Fprintf(stdout, "reality-pro-ingest: wrote %s\n", result.RepoMemoryPath)
 	fmt.Fprintf(stdout, "reality-pro-ingest: wrote %s\n", result.MultiRepoMapPath)
 	fmt.Fprintf(stdout, "reality-pro-ingest: indexed %d repo(s)\n", result.RepoCount)
+	fmt.Fprintf(stdout, "reality-pro-ingest: ingested %d evidence source(s)\n", result.SourceCount)
 	return nil
 }
 

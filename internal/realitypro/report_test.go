@@ -17,6 +17,7 @@ func TestEmitReports_WritesAndValidatesProArtifacts(t *testing.T) {
 	seedRealityRepo(t, projectRoot, true)
 	submoduleRoot := filepath.Join(projectRoot, "sdp")
 	seedProtocolRepo(t, submoduleRoot)
+	writeFile(t, filepath.Join(projectRoot, "docs", "shared", "architecture.md"), "# Architecture\nProtocol rollout is staged across repos.\n")
 	for _, schemaName := range []string{
 		"conflicts-report.schema.json",
 		"intent-gap-report.schema.json",
@@ -32,6 +33,7 @@ func TestEmitReports_WritesAndValidatesProArtifacts(t *testing.T) {
 	if _, err := Ingest(Options{
 		ProjectRoot: projectRoot,
 		Repos:       []string{projectRoot, submoduleRoot},
+		WithDocs:    true,
 		Now: func() time.Time {
 			return time.Date(2026, 3, 12, 10, 0, 0, 0, time.UTC)
 		},
@@ -72,6 +74,9 @@ func TestEmitReports_WritesAndValidatesProArtifacts(t *testing.T) {
 	systemContext := readJSONArtifact[C4SystemContext](t, filepath.Join(projectRoot, ".sdp", "reality", "c4-system-context.json"))
 	if len(systemContext.Systems) == 0 || len(systemContext.Relationships) == 0 {
 		t.Fatalf("expected systems and relationships, got %#v", systemContext)
+	}
+	if !containsSourceKind(systemContext.Sources, "doc") {
+		t.Fatalf("expected documentation evidence in system context sources, got %#v", systemContext.Sources)
 	}
 	validateArtifactSchema(t, projectRoot, "c4-system-context.schema.json", systemContext)
 

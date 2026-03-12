@@ -34,6 +34,22 @@ func TestRun_RejectsConflictingInputs(t *testing.T) {
 	}
 }
 
+func TestRun_WithDocsRootReportsEvidenceSources(t *testing.T) {
+	root := t.TempDir()
+	seedRepo(t, root)
+	docsRoot := filepath.Join(root, "shared-docs")
+	writeFile(t, filepath.Join(docsRoot, "adrs", "ADR-0002.md"), "# ADR\nUse staged rollout.\n")
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if err := run([]string{"--project-root", root, "--repo", root, "--with-docs", "--docs-root", docsRoot}, &stdout, &stderr); err != nil {
+		t.Fatalf("run with docs failed: %v\nstderr=%s", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "ingested 1 evidence source(s)") {
+		t.Fatalf("expected evidence source count in stdout, got: %s", stdout.String())
+	}
+}
+
 func seedRepo(t *testing.T, root string) {
 	t.Helper()
 	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/app\n\ngo 1.26\n")

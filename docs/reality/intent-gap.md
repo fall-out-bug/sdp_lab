@@ -1,6 +1,6 @@
 # Reality Intent Gap Report
 
-- Generated At: `2026-03-12T09:27:13Z`
+- Generated At: `2026-03-12T13:21:34Z`
 - Gaps: `3`
 - Conflicts: `2`
 - Current Readiness: `not_ready`

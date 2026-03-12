@@ -217,7 +217,7 @@ func reviewSources(memory RepoMemory, generatedAt string) []ReviewSource {
 			Path:     "docs/reality/multi-repo-map.md",
 		})
 	}
-	return sources
+	return mergeSources(memory.Sources, sources)
 }
 
 func selectSpecialists(memory RepoMemory) []string {
@@ -248,6 +248,8 @@ func primaryFindings(memory RepoMemory) []reviewFinding {
 	findings := make([]reviewFinding, 0)
 
 	if hasRolePair(memory.Repos, "service", "protocol") {
+		sourceIDs := []string{"source:repo-memory", "source:multi-repo-map"}
+		sourceIDs = append(sourceIDs, supportingEvidenceSourceIDs(memory.Sources, repoIDsFromMemory(memory), 4)...)
 		findings = append(findings, reviewFinding{
 			ID:            "finding:contract-boundary",
 			Title:         "Service-to-protocol coordination is only partially evidenced",
@@ -262,7 +264,7 @@ func primaryFindings(memory RepoMemory) []reviewFinding {
 			},
 			AffectedRepos: repoIDsFromMemory(memory),
 			OpenQuestions: filterQuestions(memory.UnresolvedQuestions, "version"),
-			SourceIDs:     []string{"source:repo-memory", "source:multi-repo-map"},
+			SourceIDs:     dedupeStrings(sourceIDs),
 		})
 	}
 
@@ -465,4 +467,28 @@ func filterQuestions(questions []string, pattern string) []string {
 		}
 	}
 	return dedupeStrings(result)
+}
+
+func supportingEvidenceSourceIDs(sources []ReviewSource, affectedRepos []string, limit int) []string {
+	if limit <= 0 {
+		return nil
+	}
+	affected := map[string]bool{}
+	for _, repoID := range affectedRepos {
+		affected[repoID] = true
+	}
+	result := make([]string, 0, limit)
+	for _, source := range sources {
+		if source.Kind != "doc" && source.Kind != "adr" && source.Kind != "runbook" {
+			continue
+		}
+		if source.Repo != "" && len(affected) > 0 && !affected[source.Repo] {
+			continue
+		}
+		result = append(result, source.SourceID)
+		if len(result) == limit {
+			break
+		}
+	}
+	return result
 }

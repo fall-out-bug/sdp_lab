@@ -19,6 +19,8 @@ const (
 type Options struct {
 	ProjectRoot string
 	Repos       []string
+	WithDocs    bool
+	DocRoots    []string
 	Now         func() time.Time
 }
 
@@ -26,6 +28,7 @@ type Result struct {
 	RepoMemoryPath   string
 	MultiRepoMapPath string
 	RepoCount        int
+	SourceCount      int
 }
 
 type RepoMemory struct {
@@ -37,6 +40,7 @@ type RepoMemory struct {
 	PreviousValidatedClaimIDs []string         `json:"previous_validated_claim_ids,omitempty"`
 	UnresolvedQuestions       []string         `json:"unresolved_questions"`
 	Hotspots                  []HotspotRecord  `json:"hotspots,omitempty"`
+	Sources                   []ReviewSource   `json:"sources,omitempty"`
 }
 
 type RepoRecord struct {
@@ -88,12 +92,19 @@ type repoLink struct {
 	Relation string
 }
 
+type evidenceCoverageItem struct {
+	Kind  string
+	Repo  string
+	Count int
+}
+
 // Ingest builds or refreshes reality-pro persistent memory for one repo or an explicit reposet.
 func Ingest(opts Options) (Result, error) {
 	projectRoot, repoRoots, now, err := normalizeOptions(opts)
 	if err != nil {
 		return Result{}, err
 	}
+	withDocs := opts.WithDocs || len(opts.DocRoots) > 0
 
 	existing, err := loadExistingMemory(projectRoot)
 	if err != nil {
@@ -109,8 +120,16 @@ func Ingest(opts Options) (Result, error) {
 		scans = append(scans, scan)
 	}
 
+	sources := make([]ReviewSource, 0)
+	if withDocs {
+		sources, err = scanEvidenceSources(projectRoot, repoRoots, opts.DocRoots)
+		if err != nil {
+			return Result{}, err
+		}
+	}
+
 	generatedAt := now.UTC().Format(time.RFC3339)
-	updated := mergeMemory(existing, scans, generatedAt)
+	updated := mergeMemory(existing, scans, generatedAt, sources, withDocs)
 	if err := writeJSON(filepath.Join(projectRoot, ".sdp", "reality", "repo-memory.json"), updated); err != nil {
 		return Result{}, err
 	}
@@ -134,6 +153,7 @@ func Ingest(opts Options) (Result, error) {
 		RepoMemoryPath:   filepath.Join(projectRoot, ".sdp", "reality", "repo-memory.json"),
 		MultiRepoMapPath: filepath.Join(projectRoot, "docs", "reality", "multi-repo-map.md"),
 		RepoCount:        len(scans),
+		SourceCount:      len(sources),
 	}, nil
 }
 
@@ -339,7 +359,149 @@ func scanRepo(projectRoot, repoRoot string, allRepoRoots []string, now time.Time
 	}, nil
 }
 
-func mergeMemory(existing RepoMemory, scans []repoScan, generatedAt string) RepoMemory {
+func scanEvidenceSources(projectRoot string, repoRoots, extraDocRoots []string) ([]ReviewSource, error) {
+	candidates := make([]string, 0)
+	seenRoots := map[string]bool{}
+	defaultDocDirs := []string{"docs", "adr", "adrs", "runbook", "runbooks", "playbook", "playbooks"}
+
+	addCandidate := func(path string) {
+		if path == "" {
+			return
+		}
+		abs, err := filepath.Abs(path)
+		if err != nil || seenRoots[abs] {
+			return
+		}
+		if _, err := os.Stat(abs); err != nil {
+			return
+		}
+		seenRoots[abs] = true
+		candidates = append(candidates, abs)
+	}
+
+	for _, repoRoot := range repoRoots {
+		for _, rel := range defaultDocDirs {
+			addCandidate(filepath.Join(repoRoot, rel))
+		}
+	}
+	for _, root := range extraDocRoots {
+		for _, item := range splitCSV(root) {
+			addCandidate(item)
+		}
+	}
+
+	sources := make([]ReviewSource, 0)
+	seenFiles := map[string]bool{}
+	for _, candidate := range candidates {
+		info, err := os.Stat(candidate)
+		if err != nil {
+			continue
+		}
+		if !info.IsDir() {
+			source, ok := buildEvidenceSource(projectRoot, repoRoots, candidate)
+			if ok && !seenFiles[candidate] {
+				seenFiles[candidate] = true
+				sources = append(sources, source)
+			}
+			continue
+		}
+
+		err = filepath.WalkDir(candidate, func(path string, d fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if d.IsDir() {
+				if shouldSkipEvidenceDir(path) {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if seenFiles[path] {
+				return nil
+			}
+			source, ok := buildEvidenceSource(projectRoot, repoRoots, path)
+			if !ok {
+				return nil
+			}
+			seenFiles[path] = true
+			sources = append(sources, source)
+			return nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("scan evidence root %s: %w", candidate, err)
+		}
+	}
+
+	sourceMap := make(map[string]ReviewSource, len(sources))
+	for _, source := range sources {
+		sourceMap[source.SourceID] = source
+	}
+	return sortedSources(sourceMap), nil
+}
+
+func buildEvidenceSource(projectRoot string, repoRoots []string, path string) (ReviewSource, bool) {
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".md", ".mdx", ".txt", ".rst", ".adoc":
+	default:
+		return ReviewSource{}, false
+	}
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return ReviewSource{}, false
+	}
+
+	locator := filepath.ToSlash(path)
+	if rel, err := filepath.Rel(projectRoot, path); err == nil && !strings.HasPrefix(rel, "..") {
+		locator = filepath.ToSlash(rel)
+	}
+	repoID, repoRel := evidenceRepoContext(projectRoot, repoRoots, path)
+	return ReviewSource{
+		SourceID: "source:evidence:" + sanitizeID(locator),
+		Kind:     classifyEvidenceKind(path),
+		Locator:  locator,
+		Revision: info.ModTime().UTC().Format(time.RFC3339),
+		Repo:     repoID,
+		Path:     repoRel,
+	}, true
+}
+
+func evidenceRepoContext(projectRoot string, repoRoots []string, path string) (string, string) {
+	for _, repoRoot := range repoRoots {
+		if !isNestedPath(repoRoot, path) && filepath.Clean(repoRoot) != filepath.Clean(path) {
+			continue
+		}
+		rel, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			continue
+		}
+		return repoID(projectRoot, repoRoot), filepath.ToSlash(rel)
+	}
+	return "", ""
+}
+
+func classifyEvidenceKind(path string) string {
+	lowered := strings.ToLower(filepath.ToSlash(path))
+	switch {
+	case strings.Contains(lowered, "/adr/"), strings.Contains(lowered, "/adrs/"), strings.Contains(lowered, "adr-"):
+		return "adr"
+	case strings.Contains(lowered, "runbook"), strings.Contains(lowered, "playbook"), strings.Contains(lowered, "incident"):
+		return "runbook"
+	default:
+		return "doc"
+	}
+}
+
+func shouldSkipEvidenceDir(path string) bool {
+	base := filepath.Base(path)
+	if base == ".git" || base == ".sdp" || base == ".beads" || base == "node_modules" || base == "vendor" {
+		return true
+	}
+	normalized := filepath.ToSlash(path)
+	return strings.Contains(normalized, "/docs/reality")
+}
+
+func mergeMemory(existing RepoMemory, scans []repoScan, generatedAt string, sources []ReviewSource, withDocs bool) RepoMemory {
 	repoMap := make(map[string]RepoRecord, len(existing.Repos))
 	for _, repo := range existing.Repos {
 		repoMap[repo.RepoID] = repo
@@ -356,6 +518,10 @@ func mergeMemory(existing RepoMemory, scans []repoScan, generatedAt string) Repo
 	for _, hotspot := range existing.Hotspots {
 		hotspotMap[hotspot.HotspotID] = hotspot
 	}
+	sourceMap := make(map[string]ReviewSource, len(existing.Sources))
+	for _, source := range existing.Sources {
+		sourceMap[source.SourceID] = source
+	}
 
 	unresolved := append([]string{}, existing.UnresolvedQuestions...)
 	for _, scan := range scans {
@@ -371,6 +537,12 @@ func mergeMemory(existing RepoMemory, scans []repoScan, generatedAt string) Repo
 		}
 		unresolved = append(unresolved, scan.UnresolvedQuestions...)
 	}
+	for _, source := range sources {
+		sourceMap[source.SourceID] = source
+	}
+	if withDocs && len(sources) == 0 {
+		unresolved = append(unresolved, "reality-pro: docs mode was requested but no docs/ADR/runbook evidence was ingested")
+	}
 
 	memory := RepoMemory{
 		SpecVersion:               specVersion,
@@ -381,6 +553,7 @@ func mergeMemory(existing RepoMemory, scans []repoScan, generatedAt string) Repo
 		PreviousValidatedClaimIDs: dedupeStrings(existing.PreviousValidatedClaimIDs),
 		UnresolvedQuestions:       dedupeStrings(unresolved),
 		Hotspots:                  sortedHotspots(hotspotMap),
+		Sources:                   sortedSources(sourceMap),
 	}
 	return memory
 }
@@ -425,6 +598,32 @@ func renderMultiRepoMap(memory RepoMemory, links []repoLink, moduleIndex map[str
 	} else {
 		for _, link := range links {
 			b.WriteString(fmt.Sprintf("- `%s` %s `%s`\n", link.From, link.Relation, link.To))
+		}
+	}
+
+	b.WriteString("\n## Evidence Sources\n\n")
+	if len(memory.Sources) == 0 {
+		b.WriteString("- none\n")
+	} else {
+		b.WriteString(fmt.Sprintf("- Total Sources: `%d`\n\n", len(memory.Sources)))
+		b.WriteString("| Kind | Repo | Count |\n")
+		b.WriteString("|---|---|---|\n")
+		for _, item := range evidenceCoverage(memory.Sources) {
+			b.WriteString(fmt.Sprintf("| `%s` | `%s` | `%d` |\n", item.Kind, item.Repo, item.Count))
+		}
+		b.WriteString("\n### Sample Sources\n\n")
+		b.WriteString("| Kind | Repo | Locator |\n")
+		b.WriteString("|---|---|---|\n")
+		for _, source := range sampleSources(memory.Sources, 20) {
+			repo := source.Repo
+			if repo == "" {
+				repo = "shared"
+			}
+			locator := source.Locator
+			if source.Path != "" {
+				locator = source.Path
+			}
+			b.WriteString(fmt.Sprintf("| `%s` | `%s` | `%s` |\n", source.Kind, repo, locator))
 		}
 	}
 
@@ -630,6 +829,19 @@ func dedupeLinks(values []repoLink) []repoLink {
 	return result
 }
 
+func splitCSV(raw string) []string {
+	parts := strings.Split(raw, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		result = append(result, part)
+	}
+	return result
+}
+
 func sortedRepos(items map[string]RepoRecord) []RepoRecord {
 	result := make([]RepoRecord, 0, len(items))
 	for _, item := range items {
@@ -676,6 +888,52 @@ func sortedHotspots(items map[string]HotspotRecord) []HotspotRecord {
 		return result[i].HotspotID < result[j].HotspotID
 	})
 	return result
+}
+
+func sortedSources(items map[string]ReviewSource) []ReviewSource {
+	result := make([]ReviewSource, 0, len(items))
+	for _, item := range items {
+		result = append(result, item)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].SourceID < result[j].SourceID
+	})
+	return result
+}
+
+func evidenceCoverage(sources []ReviewSource) []evidenceCoverageItem {
+	counts := map[string]int{}
+	for _, source := range sources {
+		repo := source.Repo
+		if repo == "" {
+			repo = "shared"
+		}
+		key := source.Kind + "|" + repo
+		counts[key]++
+	}
+	result := make([]evidenceCoverageItem, 0, len(counts))
+	for key, count := range counts {
+		parts := strings.SplitN(key, "|", 2)
+		result = append(result, evidenceCoverageItem{
+			Kind:  parts[0],
+			Repo:  parts[1],
+			Count: count,
+		})
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Kind == result[j].Kind {
+			return result[i].Repo < result[j].Repo
+		}
+		return result[i].Kind < result[j].Kind
+	})
+	return result
+}
+
+func sampleSources(sources []ReviewSource, limit int) []ReviewSource {
+	if limit <= 0 || len(sources) <= limit {
+		return append([]ReviewSource{}, sources...)
+	}
+	return append([]ReviewSource{}, sources[:limit]...)
 }
 
 func writeJSON(path string, payload any) error {

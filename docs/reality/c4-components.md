@@ -1,6 +1,6 @@
 # Reality C4 Components
 
-- Generated At: `2026-03-12T10:38:01Z`
+- Generated At: `2026-03-12T13:21:35Z`
 - Container Scope: `container:sdp_dev`
 
 ## Components
@@ -33,7 +33,7 @@
 
 - ID: `component:repo:sdp:sdp-plugin`
 - Technology: `Go`
-- Summary: sdp-plugin contains 591 source files.
+- Summary: sdp-plugin contains 593 source files.
 - Responsibilities: Carries protocol runtime and CLI integration logic; Interfaces: cli, handler
 - Paths: `sdp-plugin/cmd/sdp/acceptance.go`, `sdp-plugin/cmd/sdp/acceptance_test.go`, `sdp-plugin/cmd/sdp/apply.go`, `sdp-plugin/cmd/sdp/beads.go`, `sdp-plugin/cmd/sdp/beads_test.go`, `sdp-plugin/cmd/sdp/build.go`
 
@@ -49,7 +49,7 @@
 
 - ID: `component:repo:sdp_dev:cmd`
 - Technology: `Go`
-- Summary: cmd contains 31 source files.
+- Summary: cmd contains 35 source files.
 - Responsibilities: Exposes executable entrypoints
 - Paths: `cmd/sdp-beads-bridge/main.go`, `cmd/sdp-beads-bridge/query.go`, `cmd/sdp-ci-loop/main.go`, `cmd/sdp-ci-loop/main_test.go`, `cmd/sdp-doc-sync/main.go`, `cmd/sdp-eval/main.go`
 
@@ -65,7 +65,7 @@
 
 - ID: `component:repo:sdp_dev:internal`
 - Technology: `Go`
-- Summary: internal contains 164 source files.
+- Summary: internal contains 168 source files.
 - Responsibilities: Implements core runtime behavior; Interfaces: cli
 - Paths: `internal/adapters/sdk/contracts.go`, `internal/adapters/sdk/examples/main.go`, `internal/adapters/sdk/interfaces.go`, `internal/adapters/sdk/validation.go`, `internal/adapters/sdk/validation_test.go`, `internal/authz/tenant_scope.go`
 

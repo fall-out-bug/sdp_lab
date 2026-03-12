@@ -17,12 +17,14 @@ func TestReview_WritesConflictAndIntentGapArtifacts(t *testing.T) {
 	seedRealityRepo(t, projectRoot, true)
 	submoduleRoot := filepath.Join(projectRoot, "sdp")
 	seedProtocolRepo(t, submoduleRoot)
+	writeFile(t, filepath.Join(projectRoot, "adr", "ADR-0001-boundary.md"), "# ADR\nCross-repo rollout uses staged contract promotion.\n")
 	copySchemaFile(t, projectRoot, "conflicts-report.schema.json")
 	copySchemaFile(t, projectRoot, "intent-gap-report.schema.json")
 
 	if _, err := Ingest(Options{
 		ProjectRoot: projectRoot,
 		Repos:       []string{projectRoot, submoduleRoot},
+		WithDocs:    true,
 		Now: func() time.Time {
 			return time.Date(2026, 3, 12, 9, 30, 0, 0, time.UTC)
 		},
@@ -61,6 +63,9 @@ func TestReview_WritesConflictAndIntentGapArtifacts(t *testing.T) {
 	}
 	if !containsGapWithActions(intent) {
 		t.Fatalf("expected recommended actions in intent gaps, got %#v", intent.Gaps)
+	}
+	if !containsSourceKind(intent.Sources, "adr") {
+		t.Fatalf("expected ingested ADR evidence in review sources, got %#v", intent.Sources)
 	}
 	validateReviewSchema(t, projectRoot, "intent-gap-report.schema.json", intent)
 

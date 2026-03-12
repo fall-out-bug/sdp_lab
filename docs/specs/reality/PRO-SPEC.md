@@ -110,6 +110,7 @@ Current private lab baseline:
 
 - `go run ./cmd/sdp-reality-pro-ingest --repo .`
 - `go run ./cmd/sdp-reality-pro-ingest --reposet .,/abs/path/to/other/repo`
+- `go run ./cmd/sdp-reality-pro-ingest --repo . --with-docs --docs-root ./shared-docs,./adr`
 - `go run ./cmd/sdp-reality-pro-review --project-root .`
 - `go run ./cmd/sdp-reality-pro-report --project-root .`
 
@@ -144,6 +145,8 @@ Current private baseline writes:
 
 - `.sdp/reality/repo-memory.json`
 - `docs/reality/multi-repo-map.md`
+
+Current private baseline can also normalize optional docs, ADRs, and runbooks into `repo-memory.json` `sources[]` when `--with-docs` is enabled.
 
 ### Phase 3: Specialist Selection
 

@@ -124,6 +124,58 @@ func TestIngest_IncrementalRefreshPreservesLineage(t *testing.T) {
 	}
 }
 
+func TestIngest_WithDocsStoresEvidenceSourcesAndMapCoverage(t *testing.T) {
+	projectRoot := t.TempDir()
+	seedRealityRepo(t, projectRoot, false)
+	writeFile(t, filepath.Join(projectRoot, "adr", "ADR-0001-contract-rollout.md"), "# ADR\nProtocol rollout is staged.\n")
+	externalDocs := filepath.Join(projectRoot, "shared-docs")
+	writeFile(t, filepath.Join(externalDocs, "runbooks", "oncall.md"), "# Runbook\nEscalate protocol drift before rollout.\n")
+
+	result, err := Ingest(Options{
+		ProjectRoot: projectRoot,
+		Repos:       []string{projectRoot},
+		WithDocs:    true,
+		DocRoots:    []string{externalDocs},
+		Now: func() time.Time {
+			return time.Date(2026, 3, 12, 11, 15, 0, 0, time.UTC)
+		},
+	})
+	if err != nil {
+		t.Fatalf("Ingest with docs failed: %v", err)
+	}
+	if result.SourceCount < 2 {
+		t.Fatalf("expected evidence sources to be ingested, got %d", result.SourceCount)
+	}
+
+	data, err := os.ReadFile(filepath.Join(projectRoot, ".sdp", "reality", "repo-memory.json"))
+	if err != nil {
+		t.Fatalf("read repo-memory: %v", err)
+	}
+	var memory RepoMemory
+	if err := json.Unmarshal(data, &memory); err != nil {
+		t.Fatalf("parse repo-memory: %v", err)
+	}
+	if !containsSourceKind(memory.Sources, "adr") {
+		t.Fatalf("expected ADR source, got %#v", memory.Sources)
+	}
+	if !containsSourceKind(memory.Sources, "runbook") {
+		t.Fatalf("expected runbook source, got %#v", memory.Sources)
+	}
+	validateRepoMemorySchema(t, projectRoot, memory)
+
+	mapData, err := os.ReadFile(filepath.Join(projectRoot, "docs", "reality", "multi-repo-map.md"))
+	if err != nil {
+		t.Fatalf("read multi-repo map: %v", err)
+	}
+	text := string(mapData)
+	if !strings.Contains(text, "## Evidence Sources") {
+		t.Fatalf("expected evidence section in map, got:\n%s", text)
+	}
+	if !strings.Contains(text, "ADR-0001-contract-rollout.md") || !strings.Contains(text, "oncall.md") {
+		t.Fatalf("expected ingested evidence paths in map, got:\n%s", text)
+	}
+}
+
 func validateRepoMemorySchema(t *testing.T, projectRoot string, payload any) {
 	t.Helper()
 	compiler := jsonschema.NewCompiler()
@@ -238,6 +290,15 @@ func containsString(values []string, expected string) bool {
 func containsHotspot(values []HotspotRecord, hotspotID string) bool {
 	for _, value := range values {
 		if value.HotspotID == hotspotID {
+			return true
+		}
+	}
+	return false
+}
+
+func containsSourceKind(values []ReviewSource, expected string) bool {
+	for _, value := range values {
+		if value.Kind == expected {
 			return true
 		}
 	}
