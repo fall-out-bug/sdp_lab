@@ -302,6 +302,7 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 - **F063** — opencode-mem Integration. Persistent memory for session continuity, user preference learning, project-specific context. Phase 5 target. **Recommendation: INTEGRATE** (9/10 synergy score).
 - **F090** — Reality OSS Baseline (00-090-01 … 00-090-04). Open-contract schemas, OSS emitter, validation gate, and runtime/spec parity hardening. Phase 8E. **Status: DONE**.
 - **F091** — Reality-Pro Consulting Surface (00-091-01 … 00-091-05). Staged bootstrap for pro-only schemas, reposet ingestion, persistent memory, dissent review, and pro report emitters. Phase 8E. **Status: DONE**.
+- **F092** — Reality OSS Publication Polish (00-092-01). Public schema publication, OSS validation CLI, and current-doc/help cleanup for PR-ready shipment. Phase 8E. **Status: DONE**.
 
 ### Phase 4: Auto-Attestation
 
@@ -341,6 +342,7 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 
 - **F090** — Reality OSS Baseline (00-090-01 ... 00-090-04). Contract materialization, emitter, validator, and runtime/spec parity hardening. Status: done.
 - **F091** — Reality-Pro Consulting Surface (00-091-01 ... 00-091-05). Staged bootstrap for pro schemas, reposet ingestion, persistent memory, review orchestration, and pro artifact emitters. Status: done.
+- **F092** — Reality OSS Publication Polish (00-092-01). Public schema publication, OSS validation CLI, and current-doc/help cleanup for PR-ready shipment. Status: done.
 
 ### Parking Lot: Long-Horizon Ideas
 

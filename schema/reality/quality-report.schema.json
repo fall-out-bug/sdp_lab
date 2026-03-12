@@ -18,6 +18,12 @@
       "type": "string",
       "format": "date-time"
     },
+    "analysis_mode": {
+      "type": "string"
+    },
+    "analysis_focus": {
+      "type": "string"
+    },
     "findings": {
       "type": "array",
       "items": {

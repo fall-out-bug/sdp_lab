@@ -69,6 +69,12 @@
         "type": "string"
       }
     },
+    "suggested_workstreams": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "claims": {
       "type": "array",
       "items": {

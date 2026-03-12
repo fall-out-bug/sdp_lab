@@ -63,6 +63,26 @@
         "minLength": 1
       }
     },
+    "review_strategy": {
+      "type": "object",
+      "required": [
+        "primary",
+        "secondary",
+        "scope"
+      ],
+      "properties": {
+        "primary": {
+          "type": "string"
+        },
+        "secondary": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
     "artifacts": {
       "type": "array",
       "items": {
