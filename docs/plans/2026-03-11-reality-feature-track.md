@@ -59,9 +59,12 @@ Completed:
 
 ### Phase F: F091 consulting-grade orchestration
 
-Backlog:
+Completed:
 
 - `00-091-04` specialist review orchestration
+
+Remaining:
+
 - `00-091-05` pro report and artifact emitters
 
 ## Open vs Private Boundary

@@ -1,0 +1,265 @@
+{
+  "spec_version": "v1.0",
+  "generated_at": "2026-03-12T09:27:13Z",
+  "conflicts": [
+    {
+      "conflict_id": "conflict:contract-boundary",
+      "summary": "Service-to-protocol coordination is only partially evidenced: primary observation required qualifier after skeptic review.",
+      "competing_claim_ids": [
+        "finding:contract-boundary:primary",
+        "finding:contract-boundary:skeptic"
+      ],
+      "severity": "high",
+      "status": "arbitrated",
+      "arbitrated_claim_id": "finding:contract-boundary:final",
+      "resolution_notes": "Synthesis reviewer kept the finding but downgraded certainty: Topology proves dependency direction, but governance and rollout discipline are still inferred rather than observed.",
+      "source_ids": [
+        "source:repo-memory",
+        "source:multi-repo-map"
+      ]
+    },
+    {
+      "conflict_id": "conflict:unresolved-questions",
+      "summary": "Open questions still block confident synthesis: primary observation required qualifier after skeptic review.",
+      "competing_claim_ids": [
+        "finding:unresolved-questions:primary",
+        "finding:unresolved-questions:skeptic"
+      ],
+      "severity": "medium",
+      "status": "arbitrated",
+      "arbitrated_claim_id": "finding:unresolved-questions:final",
+      "resolution_notes": "Synthesis reviewer kept the finding but downgraded certainty: Open questions clearly exist, but severity should stay moderate until tied to concrete failures.",
+      "source_ids": [
+        "source:repo-memory"
+      ]
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "finding:contract-boundary:final",
+      "title": "Service-to-protocol coordination is only partially evidenced",
+      "statement": "Available evidence suggests: The reposet shows a service repo consuming a protocol repo, but coordination still depends on unresolved operator knowledge.",
+      "status": "inferred",
+      "confidence": 0.67,
+      "source_ids": [
+        "source:repo-memory",
+        "source:multi-repo-map"
+      ],
+      "review_state": "arbitrated",
+      "affected_repos": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "open_questions": [
+        "sdp: how does this repo coordinate versioning with the rest of the reposet?",
+        "sdp_dev: how does this repo coordinate versioning with the rest of the reposet?"
+      ],
+      "tags": [
+        "final",
+        "architecture-analyst"
+      ],
+      "counter_evidence": [
+        "Repo memory captures repository shape, but not full operator intent or historical rollout decisions."
+      ]
+    },
+    {
+      "claim_id": "finding:contract-boundary:primary",
+      "title": "Service-to-protocol coordination is only partially evidenced",
+      "statement": "The reposet shows a service repo consuming a protocol repo, but coordination still depends on unresolved operator knowledge.",
+      "status": "observed",
+      "confidence": 0.88,
+      "source_ids": [
+        "source:repo-memory",
+        "source:multi-repo-map"
+      ],
+      "review_state": "cross_checked",
+      "affected_repos": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "open_questions": [
+        "sdp: how does this repo coordinate versioning with the rest of the reposet?",
+        "sdp_dev: how does this repo coordinate versioning with the rest of the reposet?"
+      ],
+      "tags": [
+        "primary",
+        "architecture-analyst"
+      ]
+    },
+    {
+      "claim_id": "finding:contract-boundary:skeptic",
+      "title": "Service-to-protocol coordination is only partially evidenced skeptic review",
+      "statement": "Topology proves dependency direction, but governance and rollout discipline are still inferred rather than observed.",
+      "status": "inferred",
+      "confidence": 0.62,
+      "source_ids": [
+        "source:repo-memory",
+        "source:multi-repo-map"
+      ],
+      "review_state": "challenged",
+      "affected_repos": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "open_questions": [
+        "sdp: how does this repo coordinate versioning with the rest of the reposet?",
+        "sdp_dev: how does this repo coordinate versioning with the rest of the reposet?"
+      ],
+      "tags": [
+        "skeptic",
+        "architecture-analyst"
+      ],
+      "counter_evidence": [
+        "Repo memory captures repository shape, but not full operator intent or historical rollout decisions."
+      ]
+    },
+    {
+      "claim_id": "finding:hotspot-risk:final",
+      "title": "Hotspot concentration still limits autonomous change scope",
+      "statement": "Repo memory still tracks 108 hotspot zones, so broad autonomous changes would overreach.",
+      "status": "observed",
+      "confidence": 0.88,
+      "source_ids": [
+        "source:repo-memory"
+      ],
+      "review_state": "arbitrated",
+      "affected_repos": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "tags": [
+        "final",
+        "test-quality-analyst"
+      ]
+    },
+    {
+      "claim_id": "finding:hotspot-risk:primary",
+      "title": "Hotspot concentration still limits autonomous change scope",
+      "statement": "Repo memory still tracks 108 hotspot zones, so broad autonomous changes would overreach.",
+      "status": "observed",
+      "confidence": 0.88,
+      "source_ids": [
+        "source:repo-memory"
+      ],
+      "review_state": "cross_checked",
+      "affected_repos": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "tags": [
+        "primary",
+        "test-quality-analyst"
+      ]
+    },
+    {
+      "claim_id": "finding:hotspot-risk:skeptic",
+      "title": "Hotspot concentration still limits autonomous change scope skeptic review",
+      "statement": "The evidence is sufficient to keep this finding without further downgrade.",
+      "status": "observed",
+      "confidence": 0.82,
+      "source_ids": [
+        "source:repo-memory"
+      ],
+      "review_state": "cross_checked",
+      "affected_repos": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "tags": [
+        "skeptic",
+        "test-quality-analyst"
+      ]
+    },
+    {
+      "claim_id": "finding:unresolved-questions:final",
+      "title": "Open questions still block confident synthesis",
+      "statement": "Available evidence suggests: Reality memory still carries 2 unresolved question(s), so some claims would overstate certainty.",
+      "status": "inferred",
+      "confidence": 0.67,
+      "source_ids": [
+        "source:repo-memory"
+      ],
+      "review_state": "arbitrated",
+      "affected_repos": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "open_questions": [
+        "sdp: how does this repo coordinate versioning with the rest of the reposet?",
+        "sdp_dev: how does this repo coordinate versioning with the rest of the reposet?"
+      ],
+      "tags": [
+        "final",
+        "documentation-analyst"
+      ],
+      "counter_evidence": [
+        "Repo memory captures repository shape, but not full operator intent or historical rollout decisions."
+      ]
+    },
+    {
+      "claim_id": "finding:unresolved-questions:primary",
+      "title": "Open questions still block confident synthesis",
+      "statement": "Reality memory still carries 2 unresolved question(s), so some claims would overstate certainty.",
+      "status": "observed",
+      "confidence": 0.88,
+      "source_ids": [
+        "source:repo-memory"
+      ],
+      "review_state": "cross_checked",
+      "affected_repos": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "open_questions": [
+        "sdp: how does this repo coordinate versioning with the rest of the reposet?",
+        "sdp_dev: how does this repo coordinate versioning with the rest of the reposet?"
+      ],
+      "tags": [
+        "primary",
+        "documentation-analyst"
+      ]
+    },
+    {
+      "claim_id": "finding:unresolved-questions:skeptic",
+      "title": "Open questions still block confident synthesis skeptic review",
+      "statement": "Open questions clearly exist, but severity should stay moderate until tied to concrete failures.",
+      "status": "inferred",
+      "confidence": 0.62,
+      "source_ids": [
+        "source:repo-memory"
+      ],
+      "review_state": "challenged",
+      "affected_repos": [
+        "repo:sdp",
+        "repo:sdp_dev"
+      ],
+      "open_questions": [
+        "sdp: how does this repo coordinate versioning with the rest of the reposet?",
+        "sdp_dev: how does this repo coordinate versioning with the rest of the reposet?"
+      ],
+      "tags": [
+        "skeptic",
+        "documentation-analyst"
+      ],
+      "counter_evidence": [
+        "Repo memory captures repository shape, but not full operator intent or historical rollout decisions."
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "source:repo-memory",
+      "kind": "doc",
+      "locator": ".sdp/reality/repo-memory.json",
+      "revision": "2026-03-12T09:27:13Z",
+      "path": ".sdp/reality/repo-memory.json"
+    },
+    {
+      "source_id": "source:multi-repo-map",
+      "kind": "doc",
+      "locator": "docs/reality/multi-repo-map.md",
+      "revision": "2026-03-12T09:27:13Z",
+      "path": "docs/reality/multi-repo-map.md"
+    }
+  ]
+}

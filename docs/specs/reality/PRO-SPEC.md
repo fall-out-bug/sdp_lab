@@ -110,6 +110,7 @@ Current private lab baseline:
 
 - `go run ./cmd/sdp-reality-pro-ingest --repo .`
 - `go run ./cmd/sdp-reality-pro-ingest --reposet .,/abs/path/to/other/repo`
+- `go run ./cmd/sdp-reality-pro-review --project-root .`
 
 ## Phase Model
 
@@ -190,6 +191,13 @@ For important findings, require:
 3. arbitration decision
 
 Unresolved disagreement becomes a first-class output, not hidden synthesis noise.
+
+Current private lab baseline emits:
+
+- `.sdp/reality/conflicts-report.json`
+- `.sdp/reality/intent-gap-report.json`
+
+The current implementation uses deterministic specialist heuristics over `repo-memory.json`. It is not yet the full consulting-grade agent mesh.
 
 ### Phase 6: System Reconstruction
 

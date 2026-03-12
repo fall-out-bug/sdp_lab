@@ -1,6 +1,6 @@
 {
   "spec_version": "v1.0",
-  "generated_at": "2026-03-12T09:14:05Z",
+  "generated_at": "2026-03-12T09:27:13Z",
   "repos": [
     {
       "repo_id": "repo:sdp",
@@ -2266,6 +2266,12 @@
       ],
       "confidence": 0.9
     }
+  ],
+  "previous_validated_claim_ids": [
+    "finding:contract-boundary:final",
+    "finding:hotspot-risk:final",
+    "finding:thin-lineage:final",
+    "finding:unresolved-questions:final"
   ],
   "unresolved_questions": [
     "sdp: how does this repo coordinate versioning with the rest of the reposet?",
