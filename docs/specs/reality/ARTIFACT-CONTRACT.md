@@ -171,6 +171,12 @@ Must support:
 - data stores
 - hotspots
 
+Pro C4 payload expectations:
+
+- `c4-system-context.json`: system scope, internal/external systems, relationships
+- `c4-container.json`: container inventory, responsibilities, inter-container relationships
+- `c4-component.json`: component inventory, code-path mapping, relationships inside a container
+
 ### 4. Integration Family
 
 Purpose: external and internal dependency mapping.
@@ -220,6 +226,11 @@ Must include:
 - plan-vs-implementation mismatches
 - unresolved questions
 
+Pro payload expectations:
+
+- `intent-gap-report.json`: expected state, observed state, gap type, severity, status
+- `conflicts-report.json`: competing claim IDs, conflict severity, arbitration status, resolution notes if any
+
 ### 7. Readiness Family
 
 Purpose: answer whether the system is safe for future agent work.
@@ -243,6 +254,27 @@ Required readiness dimensions:
 - hotspot concentration
 - integration fragility
 - documentation trust level
+
+Pro payload expectations:
+
+- `agent-readiness-plan.json`: current verdict, target verdict, phased readiness plan, allowed scope, blocked zones, exit criteria
+- `bootstrap-backlog.json`: proposed workstreams, evidence-backed rationale, dependencies, exit criteria
+
+### 8. Persistent Memory Family
+
+Purpose: carry normalized memory across later reality-pro refreshes.
+
+Files:
+
+- `repo-memory.json` (Pro)
+
+Must include:
+
+- analyzed repo set
+- module summaries
+- feature-to-code mappings
+- unresolved questions
+- reusable hotspot context
 
 ## OSS vs Pro Contract Rules
 
@@ -294,4 +326,8 @@ Schema files are split by artifact family:
 - `schema/reality/drift-report.schema.json`
 - `schema/reality/readiness-report.schema.json`
 - `schema/reality/repo-memory.schema.json` (Pro)
+- `schema/reality/conflicts-report.schema.json` (Pro)
+- `schema/reality/intent-gap-report.schema.json` (Pro)
+- `schema/reality/bootstrap-backlog.schema.json` (Pro)
+- `schema/reality/agent-readiness-plan.schema.json` (Pro)
 - `schema/reality/c4-*.schema.json` (Pro)

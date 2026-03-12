@@ -301,7 +301,7 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 - **F062** — vibe-kanban Integration. Kanban-style task orchestration for coding agents. Evaluate for SDP swarm orchestration layer. Phase 8-9 target.
 - **F063** — opencode-mem Integration. Persistent memory for session continuity, user preference learning, project-specific context. Phase 5 target. **Recommendation: INTEGRATE** (9/10 synergy score).
 - **F090** — Reality OSS Baseline (00-090-01 … 00-090-04). Open-contract schemas, OSS emitter, validation gate, and runtime/spec parity hardening. Phase 8E. **Status: DONE**.
-- **F091** — Reality-Pro Consulting Surface (00-091-01 … 00-091-05). Staged bootstrap for pro-only schemas, reposet ingestion, persistent memory, dissent review, and pro report emitters. Phase 8E. **Status: BACKLOG**.
+- **F091** — Reality-Pro Consulting Surface (00-091-01 … 00-091-05). Staged bootstrap for pro-only schemas, reposet ingestion, persistent memory, dissent review, and pro report emitters. Phase 8E. **Status: IN PROGRESS**.
 
 ### Phase 4: Auto-Attestation
 
@@ -340,7 +340,7 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 ### Phase 8E: Reality Analysis Surfaces
 
 - **F090** — Reality OSS Baseline (00-090-01 ... 00-090-04). Contract materialization, emitter, validator, and runtime/spec parity hardening. Status: done.
-- **F091** — Reality-Pro Consulting Surface (00-091-01 ... 00-091-05). Staged bootstrap for pro schemas, reposet ingestion, persistent memory, review orchestration, and pro artifact emitters.
+- **F091** — Reality-Pro Consulting Surface (00-091-01 ... 00-091-05). Staged bootstrap for pro schemas, reposet ingestion, persistent memory, review orchestration, and pro artifact emitters. Status: in progress.
 
 ### Parking Lot: Long-Horizon Ideas
 

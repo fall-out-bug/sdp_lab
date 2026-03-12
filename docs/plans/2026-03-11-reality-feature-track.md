@@ -47,7 +47,7 @@ Completed by this planning pass:
 
 ### Phase D: F091 contract materialization
 
-Backlog:
+Completed:
 
 - `00-091-02` pro-only schema surface
 
