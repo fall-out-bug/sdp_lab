@@ -54,6 +54,15 @@ These features targeted the K8s/swarm infrastructure that was archived in Phase 
 | **F029** | Workstream Index Reset | 00-029-01 | Done |
 | **F030** | Branch Protection | 00-030-01 | Backlog |
 
+### Done: Engineering Quality & Workflow (Post-Phase 0)
+
+| Feature | Description | Workstreams | Status |
+|---------|-------------|-------------|--------|
+| **F053** | Engineering Quality & Debt Cleanup | 00-053-01 … 00-053-46 | Done |
+| **F054** | Build & Deploy Workflow | 00-054-01 … 00-054-06 | Done |
+| **F055** | Evidence & Branch Protection | 00-055-01 … 00-055-03 | Done |
+| **F056** | Git Hooks | 00-056-01 … 00-056-03 | Done |
+
 ### Phase 5: Ecosystem Synergies
 
 | Feature | Description | Workstreams | Status |

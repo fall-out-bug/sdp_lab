@@ -252,7 +252,7 @@ in-toto Envelope (DSSE)
 
 ### Feature ID continuity note
 
-Reserved (intentionally unused) feature IDs: `F050`, `F051`, `F055`, `F056`, `F057`, `F058`.
+Reserved (intentionally unused) feature IDs: `F050`, `F051`, `F057`, `F058`.
 
 These IDs are kept for historical continuity and are not active roadmap items.
 
@@ -292,7 +292,10 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 | **opencode-mem** | Persistent memory, Session continuity, User profiles | F063 |
 | **opencode-beads** | Beads plugin for OpenCode | F061 |
 ### Ongoing
-- **F053/F054** — Historical planning tracks; no active workstream files in `INDEX.md` or `backlog/` yet. Keep analysis in [multifaceted analysis](../plans/2026-02-25-agent-protocol-multifaceted-analysis.md) until re-materialized into concrete WS IDs.
+- **F053** — Engineering Quality & Debt Cleanup (00-053-01 … 00-053-46). Verifier abstraction, executor fixes, coverage, naming, root cleanup, hooks. 46 workstreams. **Status: DONE**.
+- **F054** — Build & Deploy Workflow (00-054-01 … 00-054-06). Batch build, bd close, AGENTS.md sync. 6 workstreams. **Status: DONE**.
+- **F055** — Evidence & Branch Protection (00-055-01 … 00-055-03). Evidence + checkpoint commit flow, branch protection, validation. 3 workstreams. **Status: DONE**.
+- **F056** — Git Hooks (00-056-01 … 00-056-03). Pre-commit hook, install script, docs. 3 workstreams. **Status: DONE**.
 - **F059** — OhMyOpenCode Evidence Integration (00-059-01 … 00-059-04). Pre-tool-call guard, session evidence emitter, permission↔guard bridge, stuck detection. Phase 5. **Status: DONE** (sdp-omc-guard, sdp-ready implemented).
 - **F060** — Gas Town Adapter (00-060-01 … 00-060-04). Convoy→WS bridge, hook→guard, witness escalation, Agent CV→provenance. Phase 8-9 target. Source: [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md).
 **F061** — Beads Graph Integration (00-061-01 … 00-061-04). SQL dep query, `sdp ready` bridge, formula templates, wisps. Phase 5 target. **Status: DONE** (sdp-ready, beads client implemented, opencode-beads plugin installed).
