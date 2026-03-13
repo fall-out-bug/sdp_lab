@@ -37,6 +37,8 @@ type RepoMemory struct {
 	Repos                     []RepoRecord     `json:"repos"`
 	ModuleSummaries           []ModuleSummary  `json:"module_summaries"`
 	FeatureMappings           []FeatureMapping `json:"feature_mappings,omitempty"`
+	OwnershipZones            []OwnershipZone  `json:"ownership_zones,omitempty"`
+	Teams                     []TeamMetadata   `json:"teams,omitempty"`
 	PreviousValidatedClaimIDs []string         `json:"previous_validated_claim_ids,omitempty"`
 	UnresolvedQuestions       []string         `json:"unresolved_questions"`
 	Hotspots                  []HotspotRecord  `json:"hotspots,omitempty"`
@@ -77,13 +79,40 @@ type HotspotRecord struct {
 	Severity  string `json:"severity,omitempty"`
 }
 
+type OwnershipZone struct {
+	ZoneID           string   `json:"zone_id"`
+	RepoID           string   `json:"repo_id"`
+	Pattern          string   `json:"pattern"`
+	Owners           []string `json:"owners"`
+	TeamIDs          []string `json:"team_ids,omitempty"`
+	EscalationTarget string   `json:"escalation_target,omitempty"`
+	Responsibility   string   `json:"responsibility,omitempty"`
+	SourceID         string   `json:"source_id,omitempty"`
+}
+
+type TeamMetadata struct {
+	TeamID           string   `json:"team_id"`
+	Name             string   `json:"name"`
+	RepoID           string   `json:"repo_id,omitempty"`
+	SourceID         string   `json:"source_id,omitempty"`
+	Aliases          []string `json:"aliases,omitempty"`
+	Contact          string   `json:"contact,omitempty"`
+	Slack            string   `json:"slack,omitempty"`
+	Email            string   `json:"email,omitempty"`
+	EscalationTarget string   `json:"escalation_target,omitempty"`
+	Owns             []string `json:"owns,omitempty"`
+}
+
 type repoScan struct {
 	Record              RepoRecord
 	Modules             []ModuleSummary
 	FeatureMappings     []FeatureMapping
+	OwnershipZones      []OwnershipZone
+	Teams               []TeamMetadata
 	Hotspots            []HotspotRecord
 	UnresolvedQuestions []string
 	ModuleNames         []string
+	Sources             []ReviewSource
 }
 
 type repoLink struct {
@@ -153,7 +182,7 @@ func Ingest(opts Options) (Result, error) {
 		RepoMemoryPath:   filepath.Join(projectRoot, ".sdp", "reality", "repo-memory.json"),
 		MultiRepoMapPath: filepath.Join(projectRoot, "docs", "reality", "multi-repo-map.md"),
 		RepoCount:        len(scans),
-		SourceCount:      len(sources),
+		SourceCount:      len(updated.Sources),
 	}, nil
 }
 
@@ -349,14 +378,567 @@ func scanRepo(projectRoot, repoRoot string, allRepoRoots []string, now time.Time
 		},
 	}
 
+	ownershipZones, teams, ownershipSources, ownershipQuestions, err := scanOwnershipMetadata(projectRoot, repoRoot, repoID)
+	if err != nil {
+		return repoScan{}, fmt.Errorf("scan ownership metadata for %s: %w", repoRoot, err)
+	}
+	unresolved = append(unresolved, ownershipQuestions...)
+
 	return repoScan{
 		Record:              record,
 		Modules:             moduleSummaries,
 		FeatureMappings:     featureMappings,
+		OwnershipZones:      ownershipZones,
+		Teams:               teams,
 		Hotspots:            hotspots,
 		UnresolvedQuestions: dedupeStrings(unresolved),
 		ModuleNames:         moduleNames,
+		Sources:             ownershipSources,
 	}, nil
+}
+
+func scanOwnershipMetadata(projectRoot, repoRoot, repoID string) ([]OwnershipZone, []TeamMetadata, []ReviewSource, []string, error) {
+	zoneMap := map[string]OwnershipZone{}
+	teamMap := map[string]TeamMetadata{}
+	sourceMap := map[string]ReviewSource{}
+
+	for _, path := range ownershipCandidatePaths(repoRoot) {
+		info, err := os.Stat(path)
+		if err != nil || info.IsDir() {
+			continue
+		}
+
+		source := ownershipSource(projectRoot, repoRoot, path, info.ModTime())
+		sourceMap[source.SourceID] = source
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("read %s: %w", path, err)
+		}
+
+		switch {
+		case strings.EqualFold(filepath.Base(path), "CODEOWNERS"):
+			for _, zone := range parseCODEOWNERS(repoID, source.SourceID, string(data)) {
+				zoneMap[zone.ZoneID] = zone
+			}
+		case strings.HasPrefix(strings.ToUpper(filepath.Base(path)), "OWNERS"):
+			for _, zone := range parseOwnersFile(repoID, source.SourceID, string(data)) {
+				zoneMap[zone.ZoneID] = zone
+			}
+		default:
+			teams, err := parseTeamMetadata(repoID, source.SourceID, path, data)
+			if err != nil {
+				return nil, nil, nil, nil, fmt.Errorf("parse %s: %w", path, err)
+			}
+			for _, team := range teams {
+				teamMap[team.TeamID] = team
+			}
+		}
+	}
+
+	teams := sortedTeams(teamMap)
+	zones := attachTeamMetadataToZones(sortedOwnershipZones(zoneMap), teams)
+	questions := ownershipQuestions(repoID, zones, teams)
+	return zones, teams, sortedSources(sourceMap), questions, nil
+}
+
+func ownershipCandidatePaths(repoRoot string) []string {
+	candidates := []string{
+		filepath.Join(repoRoot, "CODEOWNERS"),
+		filepath.Join(repoRoot, ".github", "CODEOWNERS"),
+		filepath.Join(repoRoot, "OWNERS"),
+		filepath.Join(repoRoot, "OWNERS.md"),
+		filepath.Join(repoRoot, "OWNERS.yaml"),
+		filepath.Join(repoRoot, "OWNERS.yml"),
+		filepath.Join(repoRoot, "OWNERS.json"),
+		filepath.Join(repoRoot, ".github", "OWNERS"),
+		filepath.Join(repoRoot, ".github", "OWNERS.md"),
+		filepath.Join(repoRoot, ".github", "OWNERS.yaml"),
+		filepath.Join(repoRoot, ".github", "OWNERS.yml"),
+		filepath.Join(repoRoot, ".github", "OWNERS.json"),
+		filepath.Join(repoRoot, "team.json"),
+		filepath.Join(repoRoot, "teams.json"),
+		filepath.Join(repoRoot, "team.yaml"),
+		filepath.Join(repoRoot, "team.yml"),
+		filepath.Join(repoRoot, "teams.yaml"),
+		filepath.Join(repoRoot, "teams.yml"),
+		filepath.Join(repoRoot, "team.md"),
+		filepath.Join(repoRoot, "teams.md"),
+		filepath.Join(repoRoot, ".github", "team.json"),
+		filepath.Join(repoRoot, ".github", "teams.json"),
+		filepath.Join(repoRoot, ".github", "team.yaml"),
+		filepath.Join(repoRoot, ".github", "team.yml"),
+		filepath.Join(repoRoot, ".github", "teams.yaml"),
+		filepath.Join(repoRoot, ".github", "teams.yml"),
+		filepath.Join(repoRoot, ".github", "team.md"),
+		filepath.Join(repoRoot, ".github", "teams.md"),
+		filepath.Join(repoRoot, "docs", "team.md"),
+		filepath.Join(repoRoot, "docs", "teams.md"),
+	}
+	seen := map[string]bool{}
+	result := make([]string, 0, len(candidates))
+	for _, candidate := range candidates {
+		if seen[candidate] {
+			continue
+		}
+		seen[candidate] = true
+		result = append(result, candidate)
+	}
+	return result
+}
+
+func ownershipSource(projectRoot, repoRoot, path string, modTime time.Time) ReviewSource {
+	locator := filepath.ToSlash(path)
+	if rel, err := filepath.Rel(projectRoot, path); err == nil && !strings.HasPrefix(rel, "..") {
+		locator = filepath.ToSlash(rel)
+	}
+	repoRel, err := filepath.Rel(repoRoot, path)
+	if err != nil {
+		repoRel = filepath.Base(path)
+	}
+	kind := "config"
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".md", ".txt", ".rst", ".adoc":
+		kind = "doc"
+	}
+	return ReviewSource{
+		SourceID: "source:ownership:" + sanitizeID(locator),
+		Kind:     kind,
+		Locator:  locator,
+		Revision: modTime.UTC().Format(time.RFC3339),
+		Repo:     repoID(projectRoot, repoRoot),
+		Path:     filepath.ToSlash(repoRel),
+	}
+}
+
+func parseCODEOWNERS(repoID, sourceID, body string) []OwnershipZone {
+	zones := make([]OwnershipZone, 0)
+	for _, raw := range strings.Split(body, "\n") {
+		line := trimInlineComment(raw)
+		if line == "" {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		owners := normalizeOwnerTokens(fields[1:])
+		if len(owners) == 0 {
+			continue
+		}
+		zones = append(zones, OwnershipZone{
+			ZoneID:         ownershipZoneID(repoID, fields[0]),
+			RepoID:         repoID,
+			Pattern:        fields[0],
+			Owners:         owners,
+			Responsibility: "Review and approve changes in the matched boundary.",
+			SourceID:       sourceID,
+		})
+	}
+	return zones
+}
+
+func parseOwnersFile(repoID, sourceID, body string) []OwnershipZone {
+	zones := make([]OwnershipZone, 0)
+	repoOwners := make([]string, 0)
+	repoEscalation := ""
+	responsibility := ""
+
+	for _, raw := range strings.Split(body, "\n") {
+		line := trimInlineComment(raw)
+		if line == "" {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && looksLikeOwnershipPattern(fields[0]) {
+			owners := normalizeOwnerTokens(fields[1:])
+			if len(owners) == 0 {
+				continue
+			}
+			zones = append(zones, OwnershipZone{
+				ZoneID:           ownershipZoneID(repoID, fields[0]),
+				RepoID:           repoID,
+				Pattern:          fields[0],
+				Owners:           owners,
+				EscalationTarget: repoEscalation,
+				Responsibility:   firstNonEmpty(responsibility, "Own and review the matched repo boundary."),
+				SourceID:         sourceID,
+			})
+			continue
+		}
+
+		key, value, ok := splitOwnershipKV(line)
+		if !ok {
+			continue
+		}
+		switch key {
+		case "owners", "owner", "reviewers", "approvers", "team", "teams":
+			repoOwners = append(repoOwners, normalizeOwnerTokens(splitOwnershipList(value))...)
+		case "escalation", "escalationtarget", "escalate":
+			repoEscalation = firstToken(splitOwnershipList(value))
+		case "responsibility", "responsibilities", "scope":
+			responsibility = strings.TrimSpace(value)
+		}
+	}
+
+	if len(zones) == 0 && len(repoOwners) > 0 {
+		zones = append(zones, OwnershipZone{
+			ZoneID:           ownershipZoneID(repoID, "/"),
+			RepoID:           repoID,
+			Pattern:          "/",
+			Owners:           dedupeStrings(repoOwners),
+			EscalationTarget: repoEscalation,
+			Responsibility:   firstNonEmpty(responsibility, "Own and review repository-wide changes."),
+			SourceID:         sourceID,
+		})
+	}
+	return zones
+}
+
+func parseTeamMetadata(repoID, sourceID, path string, data []byte) ([]TeamMetadata, error) {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".json":
+		return parseTeamMetadataJSON(repoID, sourceID, data)
+	default:
+		team := parseTeamMetadataText(repoID, sourceID, string(data))
+		if team.TeamID == "" {
+			return nil, nil
+		}
+		return []TeamMetadata{team}, nil
+	}
+}
+
+func parseTeamMetadataJSON(repoID, sourceID string, data []byte) ([]TeamMetadata, error) {
+	var payload any
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return nil, err
+	}
+
+	items := make([]map[string]any, 0)
+	switch typed := payload.(type) {
+	case []any:
+		for _, item := range typed {
+			if object, ok := item.(map[string]any); ok {
+				items = append(items, object)
+			}
+		}
+	case map[string]any:
+		if nested, ok := typed["teams"].([]any); ok {
+			for _, item := range nested {
+				if object, ok := item.(map[string]any); ok {
+					items = append(items, object)
+				}
+			}
+		} else {
+			items = append(items, typed)
+		}
+	}
+
+	result := make([]TeamMetadata, 0, len(items))
+	for _, item := range items {
+		name := firstNonEmpty(stringValue(item["name"]), stringValue(item["team"]), stringValue(item["id"]))
+		if name == "" {
+			continue
+		}
+		owns := append(stringListValue(item["owns"]), stringListValue(item["paths"])...)
+		aliases := append(stringListValue(item["aliases"]), stringListValue(item["owners"])...)
+		team := TeamMetadata{
+			TeamID:           firstNonEmpty(stringValue(item["team_id"]), "team:"+sanitizeID(name)),
+			Name:             name,
+			RepoID:           repoID,
+			SourceID:         sourceID,
+			Aliases:          dedupeStrings(aliases),
+			Contact:          firstNonEmpty(stringValue(item["contact"]), stringValue(item["slack"]), stringValue(item["email"])),
+			Slack:            stringValue(item["slack"]),
+			Email:            stringValue(item["email"]),
+			EscalationTarget: firstNonEmpty(stringValue(item["escalation_target"]), stringValue(item["escalation"])),
+			Owns:             dedupeStrings(owns),
+		}
+		result = append(result, team)
+	}
+	return result, nil
+}
+
+func parseTeamMetadataText(repoID, sourceID, body string) TeamMetadata {
+	team := TeamMetadata{
+		RepoID:   repoID,
+		SourceID: sourceID,
+	}
+	listKey := ""
+	for _, raw := range strings.Split(body, "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" || strings.HasPrefix(line, "#") {
+			listKey = ""
+			continue
+		}
+		if strings.HasPrefix(line, "- ") && listKey != "" {
+			value := strings.TrimSpace(strings.TrimPrefix(line, "- "))
+			switch listKey {
+			case "aliases":
+				team.Aliases = append(team.Aliases, normalizeOwnerTokens([]string{value})...)
+			case "owns":
+				team.Owns = append(team.Owns, normalizePathToken(value))
+			}
+			continue
+		}
+		key, value, ok := splitOwnershipKV(line)
+		if !ok {
+			continue
+		}
+		switch key {
+		case "team", "name", "id":
+			if team.Name == "" {
+				team.Name = strings.TrimSpace(value)
+			}
+		case "teamid":
+			team.TeamID = strings.TrimSpace(value)
+		case "aliases", "owners":
+			listKey = "aliases"
+			team.Aliases = append(team.Aliases, normalizeOwnerTokens(splitOwnershipList(value))...)
+		case "owns", "paths":
+			listKey = "owns"
+			for _, item := range splitOwnershipList(value) {
+				team.Owns = append(team.Owns, normalizePathToken(item))
+			}
+		case "contact":
+			team.Contact = strings.TrimSpace(value)
+		case "slack":
+			team.Slack = strings.TrimSpace(value)
+			if team.Contact == "" {
+				team.Contact = team.Slack
+			}
+		case "email":
+			team.Email = strings.TrimSpace(value)
+			if team.Contact == "" {
+				team.Contact = team.Email
+			}
+		case "escalation", "escalationtarget":
+			team.EscalationTarget = strings.TrimSpace(value)
+		}
+	}
+	if team.Name == "" {
+		return TeamMetadata{}
+	}
+	if team.TeamID == "" {
+		team.TeamID = "team:" + sanitizeID(team.Name)
+	}
+	team.Aliases = dedupeStrings(team.Aliases)
+	team.Owns = dedupeStrings(team.Owns)
+	return team
+}
+
+func attachTeamMetadataToZones(zones []OwnershipZone, teams []TeamMetadata) []OwnershipZone {
+	teamByAlias := map[string]TeamMetadata{}
+	for _, team := range teams {
+		aliases := append([]string{team.TeamID, team.Name}, team.Aliases...)
+		for _, alias := range aliases {
+			key := normalizeOwnerAlias(alias)
+			if key == "" {
+				continue
+			}
+			teamByAlias[key] = team
+		}
+	}
+
+	for i := range zones {
+		teamIDs := append([]string{}, zones[i].TeamIDs...)
+		for _, owner := range zones[i].Owners {
+			if team, ok := teamByAlias[normalizeOwnerAlias(owner)]; ok {
+				teamIDs = append(teamIDs, team.TeamID)
+				if zones[i].EscalationTarget == "" && team.EscalationTarget != "" {
+					zones[i].EscalationTarget = team.EscalationTarget
+				}
+			}
+		}
+		if len(teamIDs) == 0 {
+			for _, team := range teams {
+				if teamOwnsPattern(team.Owns, zones[i].Pattern) {
+					teamIDs = append(teamIDs, team.TeamID)
+					if zones[i].EscalationTarget == "" && team.EscalationTarget != "" {
+						zones[i].EscalationTarget = team.EscalationTarget
+					}
+				}
+			}
+		}
+		zones[i].TeamIDs = dedupeStrings(teamIDs)
+	}
+	return zones
+}
+
+func ownershipQuestions(repoID string, zones []OwnershipZone, teams []TeamMetadata) []string {
+	name := strings.TrimPrefix(repoID, "repo:")
+	questions := make([]string, 0)
+	if len(zones) == 0 {
+		questions = append(questions, fmt.Sprintf("%s: ownership zones are not explicit; add CODEOWNERS or OWNERS metadata", name))
+		return questions
+	}
+	missingEscalation := 0
+	for _, zone := range zones {
+		if strings.TrimSpace(zone.EscalationTarget) == "" {
+			missingEscalation++
+		}
+	}
+	if missingEscalation > 0 {
+		questions = append(questions, fmt.Sprintf("%s: %d ownership zone(s) still lack escalation targets", name, missingEscalation))
+	}
+	if len(teams) == 0 {
+		questions = append(questions, fmt.Sprintf("%s: ownership zones exist, but structured team metadata is still missing", name))
+	}
+	return dedupeStrings(questions)
+}
+
+func ownershipZoneID(repoID, pattern string) string {
+	return fmt.Sprintf("zone:%s:%s", repoID, sanitizeID(pattern))
+}
+
+func trimInlineComment(line string) string {
+	line = strings.TrimSpace(line)
+	if line == "" || strings.HasPrefix(line, "#") {
+		return ""
+	}
+	if idx := strings.Index(line, " #"); idx >= 0 {
+		line = line[:idx]
+	}
+	return strings.TrimSpace(line)
+}
+
+func splitOwnershipKV(line string) (string, string, bool) {
+	sep := ":"
+	if strings.Contains(line, "=") && (!strings.Contains(line, ":") || strings.Index(line, "=") < strings.Index(line, ":")) {
+		sep = "="
+	}
+	parts := strings.SplitN(line, sep, 2)
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	key := strings.ToLower(strings.TrimSpace(parts[0]))
+	key = strings.ReplaceAll(key, "_", "")
+	key = strings.ReplaceAll(key, "-", "")
+	key = strings.ReplaceAll(key, " ", "")
+	value := strings.TrimSpace(parts[1])
+	if key == "" || value == "" {
+		return "", "", false
+	}
+	return key, value, true
+}
+
+func splitOwnershipList(raw string) []string {
+	fields := strings.FieldsFunc(raw, func(r rune) bool {
+		switch r {
+		case ',', ';', '[', ']', '"', '\'':
+			return true
+		default:
+			return false
+		}
+	})
+	result := make([]string, 0, len(fields))
+	for _, field := range fields {
+		field = strings.TrimSpace(field)
+		if field == "" {
+			continue
+		}
+		result = append(result, field)
+	}
+	return result
+}
+
+func normalizeOwnerTokens(values []string) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		value = strings.Trim(value, ",[](){}\"'")
+		if value == "" {
+			continue
+		}
+		result = append(result, value)
+	}
+	return dedupeStrings(result)
+}
+
+func normalizeOwnerAlias(value string) string {
+	value = strings.TrimSpace(value)
+	value = strings.TrimPrefix(value, "@")
+	value = strings.TrimPrefix(value, "team:")
+	value = strings.TrimSpace(value)
+	return strings.ToLower(value)
+}
+
+func normalizePathToken(value string) string {
+	value = strings.TrimSpace(value)
+	value = strings.Trim(value, ",[](){}\"'")
+	if value == "" {
+		return ""
+	}
+	return filepath.ToSlash(value)
+}
+
+func looksLikeOwnershipPattern(value string) bool {
+	return value == "/" || strings.ContainsAny(value, "/*.")
+}
+
+func stringValue(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed)
+	default:
+		return ""
+	}
+}
+
+func stringListValue(value any) []string {
+	switch typed := value.(type) {
+	case []any:
+		result := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if text := stringValue(item); text != "" {
+				result = append(result, text)
+			}
+		}
+		return dedupeStrings(result)
+	case []string:
+		return dedupeStrings(typed)
+	case string:
+		return dedupeStrings(splitOwnershipList(typed))
+	default:
+		return nil
+	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func firstToken(values []string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func teamOwnsPattern(patterns []string, zonePattern string) bool {
+	for _, pattern := range patterns {
+		pattern = normalizePathToken(pattern)
+		if pattern == "" {
+			continue
+		}
+		if pattern == zonePattern || zonePattern == "/" {
+			return true
+		}
+		if strings.HasSuffix(pattern, "**") {
+			prefix := strings.TrimSuffix(pattern, "**")
+			if strings.HasPrefix(zonePattern, prefix) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func scanEvidenceSources(projectRoot string, repoRoots, extraDocRoots []string) ([]ReviewSource, error) {
@@ -518,6 +1100,14 @@ func mergeMemory(existing RepoMemory, scans []repoScan, generatedAt string, sour
 	for _, hotspot := range existing.Hotspots {
 		hotspotMap[hotspot.HotspotID] = hotspot
 	}
+	ownershipMap := make(map[string]OwnershipZone, len(existing.OwnershipZones))
+	for _, zone := range existing.OwnershipZones {
+		ownershipMap[zone.ZoneID] = zone
+	}
+	teamMap := make(map[string]TeamMetadata, len(existing.Teams))
+	for _, team := range existing.Teams {
+		teamMap[team.TeamID] = team
+	}
 	sourceMap := make(map[string]ReviewSource, len(existing.Sources))
 	for _, source := range existing.Sources {
 		sourceMap[source.SourceID] = source
@@ -532,8 +1122,17 @@ func mergeMemory(existing RepoMemory, scans []repoScan, generatedAt string, sour
 		for _, feature := range scan.FeatureMappings {
 			featureMap[feature.FeatureID] = feature
 		}
+		for _, zone := range scan.OwnershipZones {
+			ownershipMap[zone.ZoneID] = zone
+		}
+		for _, team := range scan.Teams {
+			teamMap[team.TeamID] = team
+		}
 		for _, hotspot := range scan.Hotspots {
 			hotspotMap[hotspot.HotspotID] = hotspot
+		}
+		for _, source := range scan.Sources {
+			sourceMap[source.SourceID] = source
 		}
 		unresolved = append(unresolved, scan.UnresolvedQuestions...)
 	}
@@ -550,6 +1149,8 @@ func mergeMemory(existing RepoMemory, scans []repoScan, generatedAt string, sour
 		Repos:                     sortedRepos(repoMap),
 		ModuleSummaries:           sortedModules(moduleMap),
 		FeatureMappings:           sortedFeatures(featureMap),
+		OwnershipZones:            sortedOwnershipZones(ownershipMap),
+		Teams:                     sortedTeams(teamMap),
 		PreviousValidatedClaimIDs: dedupeStrings(existing.PreviousValidatedClaimIDs),
 		UnresolvedQuestions:       dedupeStrings(unresolved),
 		Hotspots:                  sortedHotspots(hotspotMap),
@@ -590,6 +1191,40 @@ func renderMultiRepoMap(memory RepoMemory, links []repoLink, moduleIndex map[str
 		}
 		sort.Strings(moduleNames)
 		b.WriteString(fmt.Sprintf("| `%s` | `%s` | `%s` | `%s` |\n", repo.Name, repo.Role, repo.RootPath, strings.Join(moduleNames, ", ")))
+	}
+
+	b.WriteString("\n## Ownership Zones\n\n")
+	if len(memory.OwnershipZones) == 0 {
+		b.WriteString("- none reconstructed yet\n")
+	} else {
+		b.WriteString("| Repo | Pattern | Owners | Teams | Escalation |\n")
+		b.WriteString("|---|---|---|---|---|\n")
+		for _, zone := range memory.OwnershipZones {
+			escalation := zone.EscalationTarget
+			if escalation == "" {
+				escalation = "unassigned"
+			}
+			b.WriteString(fmt.Sprintf("| `%s` | `%s` | `%s` | `%s` | `%s` |\n", zone.RepoID, zone.Pattern, strings.Join(zone.Owners, ", "), strings.Join(zone.TeamIDs, ", "), escalation))
+		}
+	}
+
+	b.WriteString("\n## Team Metadata\n\n")
+	if len(memory.Teams) == 0 {
+		b.WriteString("- none ingested yet\n")
+	} else {
+		b.WriteString("| Team | Repo | Contact | Escalation | Owns |\n")
+		b.WriteString("|---|---|---|---|---|\n")
+		for _, team := range memory.Teams {
+			contact := firstNonEmpty(team.Contact, team.Slack, team.Email)
+			if contact == "" {
+				contact = "n/a"
+			}
+			escalation := team.EscalationTarget
+			if escalation == "" {
+				escalation = "unassigned"
+			}
+			b.WriteString(fmt.Sprintf("| `%s` | `%s` | `%s` | `%s` | `%s` |\n", team.Name, team.RepoID, contact, escalation, strings.Join(team.Owns, ", ")))
+		}
 	}
 
 	b.WriteString("\n## Boundary Edges\n\n")
@@ -875,6 +1510,32 @@ func sortedFeatures(items map[string]FeatureMapping) []FeatureMapping {
 	}
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].FeatureID < result[j].FeatureID
+	})
+	return result
+}
+
+func sortedOwnershipZones(items map[string]OwnershipZone) []OwnershipZone {
+	result := make([]OwnershipZone, 0, len(items))
+	for _, item := range items {
+		item.Owners = dedupeStrings(item.Owners)
+		item.TeamIDs = dedupeStrings(item.TeamIDs)
+		result = append(result, item)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].ZoneID < result[j].ZoneID
+	})
+	return result
+}
+
+func sortedTeams(items map[string]TeamMetadata) []TeamMetadata {
+	result := make([]TeamMetadata, 0, len(items))
+	for _, item := range items {
+		item.Aliases = dedupeStrings(item.Aliases)
+		item.Owns = dedupeStrings(item.Owns)
+		result = append(result, item)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].TeamID < result[j].TeamID
 	})
 	return result
 }

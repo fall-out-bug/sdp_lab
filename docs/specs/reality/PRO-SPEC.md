@@ -148,6 +148,12 @@ Current private baseline writes:
 
 Current private baseline can also normalize optional docs, ADRs, and runbooks into `repo-memory.json` `sources[]` when `--with-docs` is enabled.
 
+Current private baseline also reconstructs:
+
+- `ownership_zones[]` from `CODEOWNERS` and `OWNERS`
+- `teams[]` from structured team metadata files
+- escalation targets when team metadata or ownership files provide them
+
 ### Phase 3: Specialist Selection
 
 Auto-select specialists from stack and domain signals.
@@ -291,6 +297,8 @@ For multi-repo runs, it must also emit a repo landscape view:
 - dependency direction
 - contract and schema sharing
 - version skew risks
+
+Current private lab baseline now includes ownership zones and team metadata in the repo landscape view when those files exist locally.
 
 ## Readiness Model
 

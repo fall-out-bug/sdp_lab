@@ -1,8 +1,22 @@
 {
   "spec_version": "v1.0",
-  "generated_at": "2026-03-12T13:21:35Z",
-  "system_name": "sdp reposet",
+  "generated_at": "2026-03-13T07:33:34Z",
+  "system_name": "reality-pro-clone reposet",
   "containers": [
+    {
+      "container_id": "container:reality-pro-clone",
+      "name": "reality-pro-clone",
+      "description": "service repo with 249 source files across 6 top-level modules.",
+      "technology": "Go workspace",
+      "boundary": "internal",
+      "repo_id": "repo:reality-pro-clone",
+      "responsibilities": [
+        "Contains core implementation logic",
+        "Documents expected behavior and usage",
+        "Exposes operator-facing commands",
+        "Owns executable runtime and delivery automation"
+      ]
+    },
     {
       "container_id": "container:sdp",
       "name": "sdp",
@@ -34,12 +48,36 @@
   ],
   "relationships": [
     {
+      "relationship_id": "container-rel:repo:reality-pro-clone:consumes-contracts-from:repo:sdp",
+      "from": "container:reality-pro-clone",
+      "to": "container:sdp",
+      "description": "consumes contracts from",
+      "technology": "schemas and prompts",
+      "confidence": 0.84
+    },
+    {
+      "relationship_id": "container-rel:repo:reality-pro-clone:contains:repo:sdp",
+      "from": "container:reality-pro-clone",
+      "to": "container:sdp",
+      "description": "contains",
+      "technology": "workspace nesting",
+      "confidence": 0.94
+    },
+    {
       "relationship_id": "container-rel:repo:sdp_dev:consumes-contracts-from:repo:sdp",
       "from": "container:sdp_dev",
       "to": "container:sdp",
       "description": "consumes contracts from",
       "technology": "schemas and prompts",
       "confidence": 0.84
+    },
+    {
+      "relationship_id": "container-rel:repo:sdp_dev:contains:repo:reality-pro-clone",
+      "from": "container:sdp_dev",
+      "to": "container:reality-pro-clone",
+      "description": "contains",
+      "technology": "workspace nesting",
+      "confidence": 0.94
     },
     {
       "relationship_id": "container-rel:repo:sdp_dev:contains:repo:sdp",

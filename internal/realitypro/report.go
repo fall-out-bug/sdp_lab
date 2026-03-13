@@ -331,7 +331,8 @@ func buildSystemContext(projectRoot, generatedAt string, memory RepoMemory, repo
 		})
 	}
 
-	people := []C4Person{}
+	people, ownershipRelationships := ownershipPeopleAndRelationships(memory)
+	relationships = append(relationships, ownershipRelationships...)
 	if len(relationships) == 0 || len(memory.UnresolvedQuestions) > 0 {
 		people = append(people, C4Person{
 			PersonID:    "person:operator",
@@ -588,6 +589,7 @@ func buildAgentReadinessPlan(generatedAt string, memory RepoMemory, intent Inten
 			VerificationRequirements: []string{"go run ./cmd/sdp-protocol-check", "refresh repo-memory and reviewed findings"},
 			ExitCriteria: []string{
 				"Cross-repo ownership and rollout expectations are documented.",
+				"Ownership zones and escalation paths are explicit for active repos.",
 				"Open intent questions are either answered or assigned to owners.",
 			},
 			JustificationClaimIDs: phaseJustification(finalClaimIndex, "finding:contract-boundary:final", "finding:unresolved-questions:final"),
@@ -1000,6 +1002,8 @@ func backlogScope(gap IntentGapItem, memory RepoMemory) []string {
 	switch {
 	case strings.Contains(gap.GapID, "contract-boundary"):
 		scope = append(scope, "docs/reality/", "docs/specs/", "docs/workstreams/")
+	case strings.Contains(gap.GapID, "ownership"):
+		scope = append(scope, ".github/CODEOWNERS", "CODEOWNERS", "OWNERS", ".github/OWNERS", "docs/reality/multi-repo-map.md")
 	case strings.Contains(gap.GapID, "hotspot"):
 		scope = append(scope, hotspotPathsByRepo(memory.Hotspots, gap.AffectedRepos, 4)...)
 	case strings.Contains(gap.GapID, "unresolved"):
@@ -1025,6 +1029,9 @@ func backlogExitCriteria(gap IntentGapItem) []string {
 		"Evidence-backed follow-up reduces or resolves the gap.",
 		"Reviewed artifacts can cite concrete proof instead of operator memory.",
 	}
+	if strings.Contains(gap.GapID, "ownership") {
+		result = append(result, "Ownership zones and escalation targets are explicit in repo memory.")
+	}
 	if gap.ExpectedState != "" {
 		result = append(result, gap.ExpectedState)
 	}
@@ -1033,6 +1040,8 @@ func backlogExitCriteria(gap IntentGapItem) []string {
 
 func recommendedAgent(gap IntentGapItem) string {
 	switch {
+	case strings.Contains(gap.GapID, "ownership"):
+		return "ownership-analyst"
 	case strings.Contains(gap.GapID, "hotspot"):
 		return "test-quality-analyst"
 	case strings.Contains(gap.GapID, "unresolved"):
@@ -1248,6 +1257,91 @@ func mergeSources(groups ...[]ReviewSource) []ReviewSource {
 		return result[i].SourceID < result[j].SourceID
 	})
 	return result
+}
+
+func ownershipPeopleAndRelationships(memory RepoMemory) ([]C4Person, []C4Relationship) {
+	peopleMap := map[string]C4Person{}
+	relationships := make([]C4Relationship, 0)
+	teamIndex := map[string]TeamMetadata{}
+	for _, team := range memory.Teams {
+		teamIndex[team.TeamID] = team
+	}
+
+	addPerson := func(personID, name, description string) {
+		if personID == "" || name == "" {
+			return
+		}
+		peopleMap[personID] = C4Person{
+			PersonID:    personID,
+			Name:        name,
+			Description: description,
+		}
+	}
+
+	for _, team := range memory.Teams {
+		addPerson(ownerPersonID(team.TeamID), team.Name, ownershipDescription(team.Name, team.Contact, team.EscalationTarget))
+	}
+
+	for _, zone := range memory.OwnershipZones {
+		personIDs := make([]string, 0)
+		for _, teamID := range zone.TeamIDs {
+			if team, ok := teamIndex[teamID]; ok {
+				personID := ownerPersonID(team.TeamID)
+				addPerson(personID, team.Name, ownershipDescription(team.Name, team.Contact, team.EscalationTarget))
+				personIDs = append(personIDs, personID)
+			}
+		}
+		if len(personIDs) == 0 {
+			for _, owner := range zone.Owners {
+				personID := ownerPersonID(owner)
+				addPerson(personID, ownerDisplayName(owner), "Listed as owner for a reconstructed repo boundary.")
+				personIDs = append(personIDs, personID)
+			}
+		}
+
+		for _, personID := range dedupeStrings(personIDs) {
+			description := "owns repo boundary"
+			if zone.Pattern != "" && zone.Pattern != "/" {
+				description = "owns " + zone.Pattern
+			}
+			relationships = append(relationships, C4Relationship{
+				RelationshipID: relationshipID("system-rel", personID, description, systemID(zone.RepoID)),
+				From:           personID,
+				To:             systemID(zone.RepoID),
+				Description:    description,
+				Technology:     "ownership metadata",
+				Confidence:     0.78,
+			})
+		}
+	}
+
+	people := make([]C4Person, 0, len(peopleMap))
+	for _, person := range peopleMap {
+		people = append(people, person)
+	}
+	sort.Slice(people, func(i, j int) bool {
+		return people[i].PersonID < people[j].PersonID
+	})
+	return people, dedupeRelationships(relationships)
+}
+
+func ownerPersonID(value string) string {
+	return "person:" + sanitizeID(strings.TrimPrefix(value, "@"))
+}
+
+func ownerDisplayName(value string) string {
+	return strings.TrimPrefix(strings.TrimSpace(value), "@")
+}
+
+func ownershipDescription(name, contact, escalation string) string {
+	parts := []string{fmt.Sprintf("%s owns a reconstructed repo boundary.", name)}
+	if contact != "" {
+		parts = append(parts, "Contact: "+contact+".")
+	}
+	if escalation != "" {
+		parts = append(parts, "Escalation: "+escalation+".")
+	}
+	return strings.Join(parts, " ")
 }
 
 func systemID(repoID string) string {

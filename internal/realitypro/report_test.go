@@ -18,6 +18,27 @@ func TestEmitReports_WritesAndValidatesProArtifacts(t *testing.T) {
 	submoduleRoot := filepath.Join(projectRoot, "sdp")
 	seedProtocolRepo(t, submoduleRoot)
 	writeFile(t, filepath.Join(projectRoot, "docs", "shared", "architecture.md"), "# Architecture\nProtocol rollout is staged across repos.\n")
+	writeFile(t, filepath.Join(projectRoot, ".github", "CODEOWNERS"), "* @platform\n/internal/billing/ @payments\n")
+	writeFile(t, filepath.Join(projectRoot, ".github", "teams.json"), `{
+  "teams": [
+    {
+      "team_id": "team:platform",
+      "name": "Platform",
+      "aliases": ["platform"],
+      "slack": "#platform",
+      "escalation_target": "@platform-oncall",
+      "owns": ["*"]
+    },
+    {
+      "team_id": "team:payments",
+      "name": "Payments",
+      "aliases": ["payments"],
+      "email": "payments@example.com",
+      "escalation_target": "@payments-oncall",
+      "owns": ["/internal/billing/"]
+    }
+  ]
+}`)
 	for _, schemaName := range []string{
 		"conflicts-report.schema.json",
 		"intent-gap-report.schema.json",
@@ -78,6 +99,9 @@ func TestEmitReports_WritesAndValidatesProArtifacts(t *testing.T) {
 	if !containsSourceKind(systemContext.Sources, "doc") {
 		t.Fatalf("expected documentation evidence in system context sources, got %#v", systemContext.Sources)
 	}
+	if !containsPerson(systemContext.People, "Platform") {
+		t.Fatalf("expected ownership people in system context, got %#v", systemContext.People)
+	}
 	validateArtifactSchema(t, projectRoot, "c4-system-context.schema.json", systemContext)
 
 	containerView := readJSONArtifact[C4ContainerView](t, filepath.Join(projectRoot, ".sdp", "reality", "c4-container.json"))
@@ -127,6 +151,13 @@ func TestEmitReports_WritesAndValidatesProArtifacts(t *testing.T) {
 		if !strings.Contains(string(data), "# Reality") {
 			t.Fatalf("expected reality heading in %s, got:\n%s", rel, data)
 		}
+	}
+	mapData, err := os.ReadFile(filepath.Join(projectRoot, "docs", "reality", "multi-repo-map.md"))
+	if err != nil {
+		t.Fatalf("read multi-repo map: %v", err)
+	}
+	if !strings.Contains(string(mapData), "## Ownership Zones") || !strings.Contains(string(mapData), "Payments") {
+		t.Fatalf("expected ownership rendering in multi-repo map, got:\n%s", mapData)
 	}
 }
 
@@ -206,4 +237,13 @@ func validateArtifactSchema(t *testing.T, projectRoot, schemaName string, payloa
 	if err := schema.Validate(normalizeJSONValue(t, payload)); err != nil {
 		t.Fatalf("validate %s: %v", schemaName, err)
 	}
+}
+
+func containsPerson(values []C4Person, name string) bool {
+	for _, value := range values {
+		if value.Name == name {
+			return true
+		}
+	}
+	return false
 }

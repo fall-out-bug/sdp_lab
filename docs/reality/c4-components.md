@@ -1,9 +1,49 @@
 # Reality C4 Components
 
-- Generated At: `2026-03-12T13:21:35Z`
-- Container Scope: `container:sdp_dev`
+- Generated At: `2026-03-13T07:33:34Z`
+- Container Scope: `container:reality-pro-clone`
 
 ## Components
+
+### `reality-pro-clone/cmd`
+
+- ID: `component:repo:reality-pro-clone:cmd`
+- Technology: `Go`
+- Summary: cmd contains 35 source files.
+- Responsibilities: Exposes executable entrypoints
+- Paths: `cmd/sdp-beads-bridge/main.go`, `cmd/sdp-beads-bridge/query.go`, `cmd/sdp-ci-loop/main.go`, `cmd/sdp-ci-loop/main_test.go`, `cmd/sdp-doc-sync/main.go`, `cmd/sdp-eval/main.go`
+
+### `reality-pro-clone/docs`
+
+- ID: `component:repo:reality-pro-clone:docs`
+- Technology: `Shell`
+- Summary: docs contains 2 source files.
+- Responsibilities: Captures operator-facing intent and guidance
+- Paths: `docs/integrations/audit-log.sh`, `docs/integrations/telegram.sh`
+
+### `reality-pro-clone/internal`
+
+- ID: `component:repo:reality-pro-clone:internal`
+- Technology: `Go`
+- Summary: internal contains 168 source files.
+- Responsibilities: Implements core runtime behavior; Interfaces: cli
+- Paths: `internal/adapters/sdk/contracts.go`, `internal/adapters/sdk/examples/main.go`, `internal/adapters/sdk/interfaces.go`, `internal/adapters/sdk/validation.go`, `internal/adapters/sdk/validation_test.go`, `internal/authz/tenant_scope.go`
+
+### `reality-pro-clone/scripts`
+
+- ID: `component:repo:reality-pro-clone:scripts`
+- Technology: `Shell`
+- Summary: scripts contains 42 source files.
+- Responsibilities: Automates repeatable maintenance and quality tasks
+- Paths: `scripts/apply_control_manifests.sh`, `scripts/apply_observability_manifests.sh`, `scripts/apply_worker_manifests.sh`, `scripts/autonomy_slo_report.sh`, `scripts/beads_export.sh`, `scripts/beads_import_only.sh`
+
+### `reality-pro-clone/tests`
+
+- ID: `component:repo:reality-pro-clone:tests`
+- Technology: `Go workspace`
+- Summary: tests contains 1 source files.
+- Responsibilities: Verifies behavior at repository level
+- Paths: `tests/contracts/compatibility_test.go`
 
 ### `sdp/cmd`
 
@@ -87,12 +127,16 @@
 
 ## Relationships
 
+- `component:repo:reality-pro-clone:cmd` -> `component:repo:reality-pro-clone:internal`: invokes runtime packages
+- `component:repo:reality-pro-clone:docs` -> `component:repo:reality-pro-clone:internal`: documents runtime behavior
+- `component:repo:reality-pro-clone:internal` -> `component:repo:sdp:internal`: consumes protocol contracts and skills
+- `component:repo:reality-pro-clone:scripts` -> `component:repo:reality-pro-clone:cmd`: automates command workflows
+- `component:repo:reality-pro-clone:tests` -> `component:repo:reality-pro-clone:internal`: verifies runtime paths
 - `component:repo:sdp:cmd` -> `component:repo:sdp:internal`: invokes runtime packages
 - `component:repo:sdp:cmd` -> `component:repo:sdp:sdp-plugin`: surfaces plugin runtime
 - `component:repo:sdp:scripts` -> `component:repo:sdp:cmd`: automates command workflows
 - `component:repo:sdp:src` -> `component:repo:sdp:sdp-plugin`: provides assets consumed by plugin runtime
 - `component:repo:sdp_dev:cmd` -> `component:repo:sdp_dev:internal`: invokes runtime packages
 - `component:repo:sdp_dev:docs` -> `component:repo:sdp_dev:internal`: documents runtime behavior
-- `component:repo:sdp_dev:internal` -> `component:repo:sdp:internal`: consumes protocol contracts and skills
 - `component:repo:sdp_dev:scripts` -> `component:repo:sdp_dev:cmd`: automates command workflows
 - `component:repo:sdp_dev:tests` -> `component:repo:sdp_dev:internal`: verifies runtime paths

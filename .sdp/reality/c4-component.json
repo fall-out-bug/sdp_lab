@@ -1,8 +1,130 @@
 {
   "spec_version": "v1.0",
-  "generated_at": "2026-03-12T13:21:35Z",
-  "container_id": "container:sdp_dev",
+  "generated_at": "2026-03-13T07:33:34Z",
+  "container_id": "container:reality-pro-clone",
   "components": [
+    {
+      "component_id": "component:repo:reality-pro-clone:cmd",
+      "name": "reality-pro-clone/cmd",
+      "description": "cmd contains 35 source files.",
+      "technology": "Go",
+      "paths": [
+        "cmd/sdp-beads-bridge/main.go",
+        "cmd/sdp-beads-bridge/query.go",
+        "cmd/sdp-ci-loop/main.go",
+        "cmd/sdp-ci-loop/main_test.go",
+        "cmd/sdp-doc-sync/main.go",
+        "cmd/sdp-eval/main.go",
+        "cmd/sdp-eval/main_test.go",
+        "cmd/sdp-evidence/main.go",
+        "cmd/sdp-evidence/main_test.go",
+        "cmd/sdp-gh-findings-sync/main.go",
+        "cmd/sdp-guard/main.go",
+        "cmd/sdp-guard/main_contract.go",
+        "cmd/sdp-guard/main_test.go",
+        "cmd/sdp-omc-guard/main.go",
+        "cmd/sdp-omc-guard/main_test.go",
+        "cmd/sdp-orchestrate/main.go",
+        "cmd/sdp-orchestrate/main_advance.go",
+        "cmd/sdp-orchestrate/main_hydrate.go",
+        "cmd/sdp-orchestrate/main_nextaction.go",
+        "cmd/sdp-orchestrate/main_status.go"
+      ],
+      "responsibilities": [
+        "Exposes executable entrypoints"
+      ]
+    },
+    {
+      "component_id": "component:repo:reality-pro-clone:docs",
+      "name": "reality-pro-clone/docs",
+      "description": "docs contains 2 source files.",
+      "technology": "Shell",
+      "paths": [
+        "docs/integrations/audit-log.sh",
+        "docs/integrations/telegram.sh"
+      ],
+      "responsibilities": [
+        "Captures operator-facing intent and guidance"
+      ]
+    },
+    {
+      "component_id": "component:repo:reality-pro-clone:internal",
+      "name": "reality-pro-clone/internal",
+      "description": "internal contains 168 source files.",
+      "technology": "Go",
+      "paths": [
+        "internal/adapters/sdk/contracts.go",
+        "internal/adapters/sdk/examples/main.go",
+        "internal/adapters/sdk/interfaces.go",
+        "internal/adapters/sdk/validation.go",
+        "internal/adapters/sdk/validation_test.go",
+        "internal/authz/tenant_scope.go",
+        "internal/authz/tenant_scope_test.go",
+        "internal/beads/client.go",
+        "internal/beads/client_test.go",
+        "internal/beads/dependency.go",
+        "internal/beads/dependency_test.go",
+        "internal/beads/formula_parser.go",
+        "internal/beads/scan_helpers.go",
+        "internal/beads/sql_client.go",
+        "internal/bridge/beads_sink.go",
+        "internal/bridge/dedupe_store.go",
+        "internal/bridge/dedupe_store_test.go",
+        "internal/bridge/github_findings.go",
+        "internal/bridge/status_backsync.go",
+        "internal/bridge/status_backsync_test.go"
+      ],
+      "interfaces": [
+        "cli"
+      ],
+      "responsibilities": [
+        "Implements core runtime behavior",
+        "Interfaces: cli"
+      ]
+    },
+    {
+      "component_id": "component:repo:reality-pro-clone:scripts",
+      "name": "reality-pro-clone/scripts",
+      "description": "scripts contains 42 source files.",
+      "technology": "Shell",
+      "paths": [
+        "scripts/apply_control_manifests.sh",
+        "scripts/apply_observability_manifests.sh",
+        "scripts/apply_worker_manifests.sh",
+        "scripts/autonomy_slo_report.sh",
+        "scripts/beads_export.sh",
+        "scripts/beads_import_only.sh",
+        "scripts/bootstrap_remote_k8s.sh",
+        "scripts/build_push_opencode_agent_image.sh",
+        "scripts/build_push_opencode_agent_image_remote.sh",
+        "scripts/check_remote_k8s.sh",
+        "scripts/check_repo_consistency.py",
+        "scripts/create_test_autonomy_task.sh",
+        "scripts/demo/oss_combine_run.sh",
+        "scripts/deploy_swarm_platform.sh",
+        "scripts/e2e_agentrun_minikube.sh",
+        "scripts/feature_to_pr.sh",
+        "scripts/feature_to_pr_test.sh",
+        "scripts/go_with_project_toolchain.sh",
+        "scripts/handoff_validation_10runs.sh",
+        "scripts/hooks/install-git-hooks.sh"
+      ],
+      "responsibilities": [
+        "Automates repeatable maintenance and quality tasks"
+      ]
+    },
+    {
+      "component_id": "component:repo:reality-pro-clone:tests",
+      "name": "reality-pro-clone/tests",
+      "description": "tests contains 1 source files.",
+      "technology": "Go workspace",
+      "paths": [
+        "tests/contracts/compatibility_test.go"
+      ],
+      "responsibilities": [
+        "Verifies behavior at repository level"
+      ]
+    },
     {
       "component_id": "component:repo:sdp:cmd",
       "name": "sdp/cmd",
@@ -281,6 +403,46 @@
   ],
   "relationships": [
     {
+      "relationship_id": "component-rel:component:repo:reality-pro-clone:cmd:invokes-runtime-packages:component:repo:reality-pro-clone:internal",
+      "from": "component:repo:reality-pro-clone:cmd",
+      "to": "component:repo:reality-pro-clone:internal",
+      "description": "invokes runtime packages",
+      "technology": "Go packages",
+      "confidence": 0.9
+    },
+    {
+      "relationship_id": "component-rel:component:repo:reality-pro-clone:docs:documents-runtime-behavior:component:repo:reality-pro-clone:internal",
+      "from": "component:repo:reality-pro-clone:docs",
+      "to": "component:repo:reality-pro-clone:internal",
+      "description": "documents runtime behavior",
+      "technology": "Markdown",
+      "confidence": 0.74
+    },
+    {
+      "relationship_id": "component-rel:component:repo:reality-pro-clone:internal:consumes-protocol-contracts-and-skills:component:repo:sdp:internal",
+      "from": "component:repo:reality-pro-clone:internal",
+      "to": "component:repo:sdp:internal",
+      "description": "consumes protocol contracts and skills",
+      "technology": "schemas and prompts",
+      "confidence": 0.84
+    },
+    {
+      "relationship_id": "component-rel:component:repo:reality-pro-clone:scripts:automates-command-workflows:component:repo:reality-pro-clone:cmd",
+      "from": "component:repo:reality-pro-clone:scripts",
+      "to": "component:repo:reality-pro-clone:cmd",
+      "description": "automates command workflows",
+      "technology": "shell automation",
+      "confidence": 0.78
+    },
+    {
+      "relationship_id": "component-rel:component:repo:reality-pro-clone:tests:verifies-runtime-paths:component:repo:reality-pro-clone:internal",
+      "from": "component:repo:reality-pro-clone:tests",
+      "to": "component:repo:reality-pro-clone:internal",
+      "description": "verifies runtime paths",
+      "technology": "tests",
+      "confidence": 0.8
+    },
+    {
       "relationship_id": "component-rel:component:repo:sdp:cmd:invokes-runtime-packages:component:repo:sdp:internal",
       "from": "component:repo:sdp:cmd",
       "to": "component:repo:sdp:internal",
@@ -327,14 +489,6 @@
       "description": "documents runtime behavior",
       "technology": "Markdown",
       "confidence": 0.74
-    },
-    {
-      "relationship_id": "component-rel:component:repo:sdp_dev:internal:consumes-protocol-contracts-and-skills:component:repo:sdp:internal",
-      "from": "component:repo:sdp_dev:internal",
-      "to": "component:repo:sdp:internal",
-      "description": "consumes protocol contracts and skills",
-      "technology": "schemas and prompts",
-      "confidence": 0.84
     },
     {
       "relationship_id": "component-rel:component:repo:sdp_dev:scripts:automates-command-workflows:component:repo:sdp_dev:cmd",

@@ -1,6 +1,6 @@
 {
   "spec_version": "v1.0",
-  "generated_at": "2026-03-12T13:21:35Z",
+  "generated_at": "2026-03-13T07:33:34Z",
   "current_verdict": "not_ready",
   "target_verdict": "ready",
   "phases": [
@@ -15,11 +15,11 @@
         "schema/reality/"
       ],
       "blocked_zones": [
+        "repo:reality-pro-clone:internal/realitypro/memory.go",
+        "repo:reality-pro-clone:internal/realitypro/report.go",
         "repo:sdp:sdp-plugin/internal/checkpoint/checkpoint_test.go",
         "repo:sdp:sdp-plugin/internal/quality/coverage_extra_test.go",
-        "repo:sdp:sdp-plugin/internal/reality/emitter.go",
-        "repo:sdp:src/sdp/agents/contract_validator_test.go",
-        "repo:sdp_dev:internal/realitypro/memory.go"
+        "repo:sdp:sdp-plugin/internal/reality/emitter.go"
       ],
       "required_evidence": [
         ".sdp/reality/repo-memory.json",
@@ -32,6 +32,7 @@
       ],
       "exit_criteria": [
         "Cross-repo ownership and rollout expectations are documented.",
+        "Ownership zones and escalation paths are explicit for active repos.",
         "Open intent questions are either answered or assigned to owners."
       ],
       "justification_claim_ids": [
@@ -49,11 +50,11 @@
         "quality gate scripts and evidence outputs"
       ],
       "blocked_zones": [
+        "repo:reality-pro-clone:internal/realitypro/memory.go",
+        "repo:reality-pro-clone:internal/realitypro/report.go",
         "repo:sdp:sdp-plugin/internal/checkpoint/checkpoint_test.go",
         "repo:sdp:sdp-plugin/internal/quality/coverage_extra_test.go",
-        "repo:sdp:sdp-plugin/internal/reality/emitter.go",
-        "repo:sdp:src/sdp/agents/contract_validator_test.go",
-        "repo:sdp_dev:internal/realitypro/memory.go"
+        "repo:sdp:sdp-plugin/internal/reality/emitter.go"
       ],
       "required_evidence": [
         ".sdp/reality/bootstrap-backlog.json",
@@ -83,11 +84,11 @@
         "docs/workstreams/"
       ],
       "blocked_zones": [
+        "repo:reality-pro-clone:internal/realitypro/memory.go",
+        "repo:reality-pro-clone:internal/realitypro/report.go",
         "repo:sdp:sdp-plugin/internal/checkpoint/checkpoint_test.go",
         "repo:sdp:sdp-plugin/internal/quality/coverage_extra_test.go",
-        "repo:sdp:sdp-plugin/internal/reality/emitter.go",
-        "repo:sdp:src/sdp/agents/contract_validator_test.go",
-        "repo:sdp_dev:internal/realitypro/memory.go"
+        "repo:sdp:sdp-plugin/internal/reality/emitter.go"
       ],
       "required_evidence": [
         ".sdp/reality/bootstrap-backlog.json",
@@ -111,9 +112,9 @@
   ],
   "key_risks": [
     "Hotspot concentration still limits autonomous change scope",
+    "Hotspot: repo:reality-pro-clone:internal/realitypro/memory.go",
+    "Hotspot: repo:reality-pro-clone:internal/realitypro/report.go",
     "Hotspot: repo:sdp:sdp-plugin/internal/checkpoint/checkpoint_test.go",
-    "Hotspot: repo:sdp:sdp-plugin/internal/quality/coverage_extra_test.go",
-    "Hotspot: repo:sdp:sdp-plugin/internal/reality/emitter.go",
     "Open questions still block confident synthesis",
     "Open questions still block confident synthesis: primary observation required qualifier after skeptic review.",
     "Service-to-protocol coordination is only partially evidenced",

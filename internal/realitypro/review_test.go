@@ -18,6 +18,7 @@ func TestReview_WritesConflictAndIntentGapArtifacts(t *testing.T) {
 	submoduleRoot := filepath.Join(projectRoot, "sdp")
 	seedProtocolRepo(t, submoduleRoot)
 	writeFile(t, filepath.Join(projectRoot, "adr", "ADR-0001-boundary.md"), "# ADR\nCross-repo rollout uses staged contract promotion.\n")
+	writeFile(t, filepath.Join(projectRoot, ".github", "CODEOWNERS"), "* @platform\n/internal/billing/ @payments\n")
 	copySchemaFile(t, projectRoot, "conflicts-report.schema.json")
 	copySchemaFile(t, projectRoot, "intent-gap-report.schema.json")
 
@@ -47,6 +48,9 @@ func TestReview_WritesConflictAndIntentGapArtifacts(t *testing.T) {
 	if len(result.Specialists) == 0 {
 		t.Fatal("expected selected specialists")
 	}
+	if !containsString(result.Specialists, "ownership-analyst") {
+		t.Fatalf("expected ownership specialist, got %#v", result.Specialists)
+	}
 
 	conflicts := readConflicts(t, filepath.Join(projectRoot, ".sdp", "reality", "conflicts-report.json"))
 	if len(conflicts.Conflicts) == 0 {
@@ -63,6 +67,9 @@ func TestReview_WritesConflictAndIntentGapArtifacts(t *testing.T) {
 	}
 	if !containsGapWithActions(intent) {
 		t.Fatalf("expected recommended actions in intent gaps, got %#v", intent.Gaps)
+	}
+	if !containsGapID(intent, "gap:ownership-") {
+		t.Fatalf("expected ownership-related intent gap, got %#v", intent.Gaps)
 	}
 	if !containsSourceKind(intent.Sources, "adr") {
 		t.Fatalf("expected ingested ADR evidence in review sources, got %#v", intent.Sources)
@@ -165,6 +172,15 @@ func containsConflictNote(report ConflictReport, fragment string) bool {
 func containsGapWithActions(report IntentGapReport) bool {
 	for _, item := range report.Gaps {
 		if len(item.RecommendedActions) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func containsGapID(report IntentGapReport, prefix string) bool {
+	for _, item := range report.Gaps {
+		if strings.HasPrefix(item.GapID, prefix) {
 			return true
 		}
 	}

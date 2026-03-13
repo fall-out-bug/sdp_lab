@@ -225,6 +225,9 @@ func selectSpecialists(memory RepoMemory) []string {
 	if len(memory.Repos) > 1 {
 		specialists = append(specialists, "api-analyst")
 	}
+	if len(memory.Repos) > 1 || len(memory.OwnershipZones) > 0 {
+		specialists = append(specialists, "ownership-analyst")
+	}
 	if len(memory.Hotspots) > 0 {
 		specialists = append(specialists, "test-quality-analyst")
 	}
@@ -250,6 +253,7 @@ func primaryFindings(memory RepoMemory) []reviewFinding {
 	if hasRolePair(memory.Repos, "service", "protocol") {
 		sourceIDs := []string{"source:repo-memory", "source:multi-repo-map"}
 		sourceIDs = append(sourceIDs, supportingEvidenceSourceIDs(memory.Sources, repoIDsFromMemory(memory), 4)...)
+		sourceIDs = append(sourceIDs, ownershipSourceIDs(memory, repoIDsFromMemory(memory), nil, 4)...)
 		findings = append(findings, reviewFinding{
 			ID:            "finding:contract-boundary",
 			Title:         "Service-to-protocol coordination is only partially evidenced",
@@ -265,6 +269,45 @@ func primaryFindings(memory RepoMemory) []reviewFinding {
 			AffectedRepos: repoIDsFromMemory(memory),
 			OpenQuestions: filterQuestions(memory.UnresolvedQuestions, "version"),
 			SourceIDs:     dedupeStrings(sourceIDs),
+		})
+	}
+
+	missingOwnershipRepos := reposMissingOwnership(memory)
+	missingEscalationZones := ownershipZonesMissingEscalation(memory)
+	switch {
+	case len(memory.OwnershipZones) == 0:
+		findings = append(findings, reviewFinding{
+			ID:            "finding:ownership-coverage",
+			Title:         "Ownership zones are still implicit",
+			Specialist:    "ownership-analyst",
+			Severity:      "medium",
+			GapType:       "missing",
+			ExpectedState: "Critical repo boundaries have explicit ownership zones, rollout responsibility, and escalation paths.",
+			ObservedState: "No CODEOWNERS, OWNERS, or structured team metadata was ingested for the active reposet, so ownership still depends on operator memory.",
+			RecommendedActions: []string{
+				"Add CODEOWNERS or OWNERS files for the active repo boundaries.",
+				"Capture team metadata with explicit escalation targets for the first responders.",
+			},
+			AffectedRepos: repoIDsFromMemory(memory),
+			SourceIDs:     []string{"source:repo-memory"},
+		})
+	case len(missingOwnershipRepos) > 0 || len(missingEscalationZones) > 0:
+		affectedRepos := append([]string{}, missingOwnershipRepos...)
+		affectedRepos = append(affectedRepos, ownershipZoneRepoIDs(missingEscalationZones)...)
+		findings = append(findings, reviewFinding{
+			ID:            "finding:ownership-escalation",
+			Title:         "Ownership coverage is partial or lacks escalation paths",
+			Specialist:    "ownership-analyst",
+			Severity:      "medium",
+			GapType:       "partial",
+			ExpectedState: "Ownership zones cover each active repo and every zone has a clear escalation target.",
+			ObservedState: fmt.Sprintf("%d repo(s) still lack ownership zones and %d ownership zone(s) have no escalation target.", len(missingOwnershipRepos), len(missingEscalationZones)),
+			RecommendedActions: []string{
+				"Fill ownership gaps for repos that still lack CODEOWNERS or OWNERS coverage.",
+				"Assign escalation targets for ownership zones before widening rollout scope.",
+			},
+			AffectedRepos: dedupeStrings(affectedRepos),
+			SourceIDs:     dedupeStrings(append([]string{"source:repo-memory"}, ownershipSourceIDs(memory, affectedRepos, missingEscalationZones, 6)...)),
 		})
 	}
 
@@ -483,6 +526,75 @@ func supportingEvidenceSourceIDs(sources []ReviewSource, affectedRepos []string,
 			continue
 		}
 		if source.Repo != "" && len(affected) > 0 && !affected[source.Repo] {
+			continue
+		}
+		result = append(result, source.SourceID)
+		if len(result) == limit {
+			break
+		}
+	}
+	return result
+}
+
+func reposMissingOwnership(memory RepoMemory) []string {
+	covered := map[string]bool{}
+	for _, zone := range memory.OwnershipZones {
+		covered[zone.RepoID] = true
+	}
+	result := make([]string, 0)
+	for _, repo := range memory.Repos {
+		if !covered[repo.RepoID] {
+			result = append(result, repo.RepoID)
+		}
+	}
+	return dedupeStrings(result)
+}
+
+func ownershipZonesMissingEscalation(memory RepoMemory) []OwnershipZone {
+	result := make([]OwnershipZone, 0)
+	for _, zone := range memory.OwnershipZones {
+		if strings.TrimSpace(zone.EscalationTarget) == "" {
+			result = append(result, zone)
+		}
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].ZoneID < result[j].ZoneID
+	})
+	return result
+}
+
+func ownershipZoneRepoIDs(zones []OwnershipZone) []string {
+	result := make([]string, 0, len(zones))
+	for _, zone := range zones {
+		result = append(result, zone.RepoID)
+	}
+	return dedupeStrings(result)
+}
+
+func ownershipSourceIDs(memory RepoMemory, affectedRepos []string, zones []OwnershipZone, limit int) []string {
+	if limit <= 0 {
+		return nil
+	}
+	zoneSourceIDs := map[string]bool{}
+	for _, zone := range zones {
+		if zone.SourceID != "" {
+			zoneSourceIDs[zone.SourceID] = true
+		}
+	}
+	affected := map[string]bool{}
+	for _, repoID := range affectedRepos {
+		affected[repoID] = true
+	}
+
+	result := make([]string, 0, limit)
+	for _, source := range memory.Sources {
+		if !strings.HasPrefix(source.SourceID, "source:ownership:") {
+			continue
+		}
+		if len(zoneSourceIDs) > 0 && !zoneSourceIDs[source.SourceID] {
+			continue
+		}
+		if len(affected) > 0 && source.Repo != "" && !affected[source.Repo] {
 			continue
 		}
 		result = append(result, source.SourceID)

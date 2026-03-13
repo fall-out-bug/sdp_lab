@@ -1,9 +1,10 @@
 {
   "spec_version": "v1.0",
-  "generated_at": "2026-03-12T13:21:35Z",
+  "generated_at": "2026-03-13T07:33:34Z",
   "scope": {
-    "system_name": "sdp_dev reposet",
+    "system_name": "reality-pro-clone reposet",
     "repos": [
+      "repo:reality-pro-clone",
       "repo:sdp",
       "repo:sdp_dev"
     ]
@@ -16,6 +17,18 @@
     }
   ],
   "systems": [
+    {
+      "system_id": "system:reality-pro-clone",
+      "name": "reality-pro-clone",
+      "boundary": "internal",
+      "description": "service repo with 249 source files across 6 top-level modules.",
+      "repo_ids": [
+        "repo:reality-pro-clone"
+      ],
+      "tags": [
+        "service"
+      ]
+    },
     {
       "system_id": "system:sdp",
       "name": "sdp",
@@ -43,12 +56,28 @@
   ],
   "relationships": [
     {
-      "relationship_id": "system-rel:person:operator:reviews:system:sdp",
+      "relationship_id": "system-rel:person:operator:reviews:system:reality-pro-clone",
       "from": "person:operator",
-      "to": "system:sdp",
+      "to": "system:reality-pro-clone",
       "description": "reviews and arbitrates open questions",
       "technology": "human review",
       "confidence": 0.66
+    },
+    {
+      "relationship_id": "system-rel:repo:reality-pro-clone:consumes-contracts-from:repo:sdp",
+      "from": "system:reality-pro-clone",
+      "to": "system:sdp",
+      "description": "consumes contracts from",
+      "technology": "schemas and prompts",
+      "confidence": 0.84
+    },
+    {
+      "relationship_id": "system-rel:repo:reality-pro-clone:contains:repo:sdp",
+      "from": "system:reality-pro-clone",
+      "to": "system:sdp",
+      "description": "contains",
+      "technology": "workspace nesting",
+      "confidence": 0.94
     },
     {
       "relationship_id": "system-rel:repo:sdp_dev:consumes-contracts-from:repo:sdp",
@@ -57,6 +86,14 @@
       "description": "consumes contracts from",
       "technology": "schemas and prompts",
       "confidence": 0.84
+    },
+    {
+      "relationship_id": "system-rel:repo:sdp_dev:contains:repo:reality-pro-clone",
+      "from": "system:sdp_dev",
+      "to": "system:reality-pro-clone",
+      "description": "contains",
+      "technology": "workspace nesting",
+      "confidence": 0.94
     },
     {
       "relationship_id": "system-rel:repo:sdp_dev:contains:repo:sdp",

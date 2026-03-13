@@ -176,6 +176,84 @@ func TestIngest_WithDocsStoresEvidenceSourcesAndMapCoverage(t *testing.T) {
 	}
 }
 
+func TestIngest_OwnershipMetadataPersistsZonesTeamsAndMapSections(t *testing.T) {
+	projectRoot := t.TempDir()
+	seedRealityRepo(t, projectRoot, false)
+	writeFile(t, filepath.Join(projectRoot, ".github", "CODEOWNERS"), "* @platform\n/internal/billing/ @payments\n")
+	writeFile(t, filepath.Join(projectRoot, ".github", "teams.json"), `{
+  "teams": [
+    {
+      "team_id": "team:platform",
+      "name": "Platform",
+      "aliases": ["platform"],
+      "slack": "#platform",
+      "escalation_target": "@platform-oncall",
+      "owns": ["*"]
+    },
+    {
+      "team_id": "team:payments",
+      "name": "Payments",
+      "aliases": ["payments"],
+      "email": "payments@example.com",
+      "escalation_target": "@payments-oncall",
+      "owns": ["/internal/billing/"]
+    }
+  ]
+}`)
+
+	result, err := Ingest(Options{
+		ProjectRoot: projectRoot,
+		Repos:       []string{projectRoot},
+		Now: func() time.Time {
+			return time.Date(2026, 3, 13, 7, 30, 0, 0, time.UTC)
+		},
+	})
+	if err != nil {
+		t.Fatalf("Ingest with ownership metadata failed: %v", err)
+	}
+	if result.SourceCount < 2 {
+		t.Fatalf("expected ownership sources to be counted, got %d", result.SourceCount)
+	}
+
+	var memory RepoMemory
+	data, err := os.ReadFile(filepath.Join(projectRoot, ".sdp", "reality", "repo-memory.json"))
+	if err != nil {
+		t.Fatalf("read repo-memory: %v", err)
+	}
+	if err := json.Unmarshal(data, &memory); err != nil {
+		t.Fatalf("parse repo-memory: %v", err)
+	}
+	if len(memory.OwnershipZones) < 2 {
+		t.Fatalf("expected ownership zones, got %#v", memory.OwnershipZones)
+	}
+	if len(memory.Teams) != 2 {
+		t.Fatalf("expected two teams, got %#v", memory.Teams)
+	}
+	billingZone := findOwnershipZone(memory.OwnershipZones, "/internal/billing/")
+	if billingZone.ZoneID == "" {
+		t.Fatalf("expected billing ownership zone, got %#v", memory.OwnershipZones)
+	}
+	if billingZone.EscalationTarget != "@payments-oncall" {
+		t.Fatalf("expected payments escalation target, got %#v", billingZone)
+	}
+	if !containsString(billingZone.TeamIDs, "team:payments") {
+		t.Fatalf("expected team linkage on ownership zone, got %#v", billingZone)
+	}
+	validateRepoMemorySchema(t, projectRoot, memory)
+
+	mapData, err := os.ReadFile(filepath.Join(projectRoot, "docs", "reality", "multi-repo-map.md"))
+	if err != nil {
+		t.Fatalf("read multi-repo map: %v", err)
+	}
+	text := string(mapData)
+	if !strings.Contains(text, "## Ownership Zones") || !strings.Contains(text, "## Team Metadata") {
+		t.Fatalf("expected ownership sections in multi-repo map, got:\n%s", text)
+	}
+	if !strings.Contains(text, "@payments-oncall") || !strings.Contains(text, "Payments") {
+		t.Fatalf("expected rendered ownership details, got:\n%s", text)
+	}
+}
+
 func validateRepoMemorySchema(t *testing.T, projectRoot string, payload any) {
 	t.Helper()
 	compiler := jsonschema.NewCompiler()
@@ -303,4 +381,13 @@ func containsSourceKind(values []ReviewSource, expected string) bool {
 		}
 	}
 	return false
+}
+
+func findOwnershipZone(values []OwnershipZone, pattern string) OwnershipZone {
+	for _, value := range values {
+		if value.Pattern == pattern {
+			return value
+		}
+	}
+	return OwnershipZone{}
 }

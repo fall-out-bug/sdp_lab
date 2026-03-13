@@ -175,6 +175,110 @@
         "additionalProperties": false
       }
     },
+    "ownership_zones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "zone_id",
+          "repo_id",
+          "pattern",
+          "owners"
+        ],
+        "properties": {
+          "zone_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "repo_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "pattern": {
+            "type": "string",
+            "minLength": 1
+          },
+          "owners": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "team_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "escalation_target": {
+            "type": "string"
+          },
+          "responsibility": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "teams": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "team_id",
+          "name"
+        ],
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "repo_id": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "contact": {
+            "type": "string"
+          },
+          "slack": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "escalation_target": {
+            "type": "string"
+          },
+          "owns": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
     "previous_validated_claim_ids": {
       "type": "array",
       "items": {
