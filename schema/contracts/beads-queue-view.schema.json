@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://sdp.dev/contracts/status-view/v1",
-  "title": "StatusView",
+  "$id": "https://sdp.dev/contracts/beads-queue-view/v1",
+  "title": "BeadsQueueView",
   "type": "object",
   "required": ["spec_version", "timestamp", "ready_count", "blocked_count", "items", "next_action"],
   "properties": {

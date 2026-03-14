@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://sdp.dev/contracts/instruction-payload/v1",
-  "title": "InstructionPayload",
+  "$id": "https://sdp.dev/contracts/beads-instructions/v1",
+  "title": "BeadsInstructions",
   "type": "object",
   "required": ["spec_version", "instructions"],
   "properties": {

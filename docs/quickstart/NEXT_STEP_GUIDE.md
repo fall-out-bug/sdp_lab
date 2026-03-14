@@ -7,11 +7,13 @@ SDP provides deterministic next-step guidance through the `sdp-ready` CLI.
 ```bash
 sdp-ready                        # Current status and next action
 sdp-ready --format json          # JSON output for automation
-sdp-ready --format status-view   # StatusView contract output
+sdp-ready --format status-view   # BeadsQueueView contract output
 sdp-ready --instructions         # Step-by-step instructions
 ```
 
-## StatusView Contract
+## BeadsQueueView Contract
+
+Schema: `schema/contracts/beads-queue-view.schema.json`
 
 ```json
 {
@@ -38,7 +40,9 @@ sdp-ready --instructions         # Step-by-step instructions
 }
 ```
 
-## InstructionPayload Contract
+## BeadsInstructions Contract
+
+Schema: `schema/contracts/beads-instructions.schema.json`
 
 ```json
 {
