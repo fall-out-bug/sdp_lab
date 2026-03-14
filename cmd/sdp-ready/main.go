@@ -1,10 +1,3 @@
-// Package main implements sdp-ready, a CLI that wraps Beads ready queue with SDP workstream mapping.
-//
-// Usage:
-//
-//	sdp ready [--format json|text] [--cache]
-//
-// Output includes Beads issues mapped to SDP workstream IDs.
 package main
 
 import (
@@ -16,6 +9,7 @@ import (
 	"time"
 
 	"sdp_dev/internal/beads"
+	"sdp_dev/internal/cli"
 	"sdp_dev/internal/orchestrate"
 )
 
@@ -38,12 +32,13 @@ type CacheEntry struct {
 }
 
 func main() {
-	format := flag.String("format", "text", "Output format: json or text")
+	format := flag.String("format", "text", "Output format: json, text, or status-view")
 	useCache := flag.Bool("cache", true, "Use cached results (5 min TTL)")
 	cacheTTL := flag.Duration("cache-ttl", 1*time.Minute, "Cache TTL")
 	noCache := flag.Bool("no-cache", false, "Disable cache")
 	phaseFilter := flag.Int("phase", 0, "Filter by roadmap phase (0=all)")
-	flag.Parse()
+	showInstructions := flag.Bool("instructions", false, "Show step-by-step instructions for next action")
+	actionType := flag.String("action", "", "Action type for instructions (continue, start, resolve_blockers, check_status)")
 	flag.Parse()
 
 	if *noCache {
@@ -128,8 +123,73 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error: encode output: %v\n", err)
 			os.Exit(1)
 		}
+	case "status-view":
+		statusView := buildStatusView(output)
+		if *showInstructions {
+			action := *actionType
+			if action == "" {
+				action = extractActionFromRecommendation(statusView.NextAction.Recommended)
+			}
+			instructions := cli.NewInstructionPayloadForAction(action, statusView)
+			instrJSON, err := instructions.RenderJSON()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error: render instructions: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println(instrJSON)
+		} else {
+			statusJSON, err := statusView.RenderJSON()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error: render status: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println(statusJSON)
+		}
 	default:
+		if *showInstructions {
+			statusView := buildStatusView(output)
+			action := *actionType
+			if action == "" {
+				action = extractActionFromRecommendation(statusView.NextAction.Recommended)
+			}
+			instructions := cli.NewInstructionPayloadForAction(action, statusView)
+			fmt.Println(instructions.RenderText())
+			return
+		}
 		printText(output)
+	}
+}
+
+func buildStatusView(output []WSOutput) *cli.StatusView {
+	items := make([]cli.BeadsItem, 0, len(output))
+	for _, ws := range output {
+		status := "ready"
+		if !ws.Ready {
+			status = "blocked"
+		}
+		items = append(items, cli.BeadsItem{
+			ID:        ws.BeadsID,
+			Title:     ws.Title,
+			Status:    status,
+			Priority:  ws.Priority,
+			BlockedBy: ws.BlockedBy,
+			Labels:    ws.Labels,
+		})
+	}
+	return cli.NewStatusViewFromBeads(items)
+}
+
+func extractActionFromRecommendation(rec string) string {
+	rec = strings.ToLower(rec)
+	switch {
+	case strings.Contains(rec, "continue"):
+		return "continue"
+	case strings.Contains(rec, "start"):
+		return "start"
+	case strings.Contains(rec, "resolve") || strings.Contains(rec, "blocker"):
+		return "resolve_blockers"
+	default:
+		return "check_status"
 	}
 }
 
