@@ -146,3 +146,17 @@ fi
 
 check_runtime
 echo "[done] demo flow completed"
+
+echo ""
+echo "=== Failure Recovery Guidance ==="
+echo ""
+echo "If this demo failed, use sdp-ready for recovery instructions:"
+echo ""
+echo "  sdp-ready --instructions"
+echo ""
+echo "For machine-readable guidance:"
+echo ""
+echo "  sdp-ready --format status-view --instructions"
+echo ""
+echo "See examples/oss-combine-demo/FAILURE_RECOVERY.md for common scenarios."
+echo ""

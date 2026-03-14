@@ -170,6 +170,76 @@ If not, initialize one:
 git init
 ```
 
+### Guard Denial
+
+If `sdp-guard` blocks a command:
+
+```
+Error: Command blocked by policy:
+  - git push --force is not allowed in build phase
+```
+
+Use the recovery guidance:
+
+```bash
+sdp-ready --instructions --action resolve_blockers
+```
+
+## Failure Recovery Guidance
+
+SDP provides actionable next steps for all failure modes.
+
+### Get Recovery Instructions
+
+```bash
+sdp-ready --instructions
+```
+
+Output includes:
+- What action to take
+- Why it's recommended
+- Command to execute
+- Expected outcome
+
+### Common Failure Scenarios
+
+| Failure | Recovery Command |
+|---------|------------------|
+| Missing tools | `sdp up --profile oss-combine --dry-run` |
+| Blocked work | `bd blocked` then resolve each blocker |
+| Guard denial | Use safe alternative (e.g., `git push` instead of `--force`) |
+| Invalid config | Edit `.sdp/config.yaml` and re-run `sdp up` |
+| CI findings | `sdp-gh-findings-sync` to create fix tasks |
+
+### Blocked Work Recovery
+
+When all work is blocked:
+
+```bash
+$ sdp-ready
+📋 Ready work (0 ready, 3 blocked):
+  ○ [P2] sdplab-abc: Feature X (blocked_by: sdplab-0)
+  ○ [P2] sdplab-def: Feature Y (blocked_by: sdplab-0)
+  ○ [P2] sdplab-ghi: Feature Z (blocked_by: sdplab-1)
+
+Next action:
+- Recommendation: Resolve blockers
+- Reason: No ready work: 3 issue(s) are blocked
+- Command: bd blocked
+```
+
+Resolve the blocking issues, then work becomes ready automatically.
+
+### JSON Output for Agents
+
+All guidance is machine-readable:
+
+```bash
+sdp-ready --format status-view --instructions
+```
+
+See [NEXT_STEP_GUIDE.md](./NEXT_STEP_GUIDE.md) for contract schemas.
+
 ## Next Steps
 
 1. **Configure Beads prefix** - Edit `.sdp/config.yaml` to match your project
