@@ -246,6 +246,16 @@ APPROVED ✅
 
 ## Review Report Template
 
+Canonical SDP review output is `.sdp/review_verdict.json`.
+
+That artifact must carry:
+
+- `finding_ids`
+- `blocking_ids`
+- reviewer verdicts `PASS`, `FAIL`, or `BLOCKED`
+
+When rerun control sends the feature back to build because blocking findings still exist, reviewer entries may be `BLOCKED` instead of immediately re-running the full review.
+
 ```markdown
 # Review Report: {Feature Title}
 
