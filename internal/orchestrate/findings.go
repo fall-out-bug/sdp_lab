@@ -1,0 +1,300 @@
+package orchestrate
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"sdp_dev/internal/bridge"
+)
+
+func EmitReviewFailureFinding(ctx context.Context, projectRoot string, cp *Checkpoint, reviewOutput string, reviewErr error) (string, error) {
+	sink := bridge.NewBeadsSink("", false, []string{"autonomy"})
+	_ = sink.LoadExistingFindings(ctx)
+	return sink.CreateReviewFinding(ctx, buildReviewFailureFindingInput(cp, reviewOutput, reviewErr))
+}
+
+func EmitQAFailureFinding(ctx context.Context, projectRoot string, cp *Checkpoint, input bridge.QAFindingInput) (string, error) {
+	sink := bridge.NewBeadsSink("", false, []string{"autonomy"})
+	_ = sink.LoadExistingFindings(ctx)
+	if strings.TrimSpace(input.FeatureID) == "" && cp != nil {
+		input.FeatureID = cp.FeatureID
+	}
+	if strings.TrimSpace(input.WSID) == "" && cp != nil {
+		input.WSID = checkpointFindingWSID(cp)
+	}
+	if strings.TrimSpace(input.PRURL) == "" && cp != nil {
+		input.PRURL = cp.PRURL
+	}
+	return sink.CreateQAFinding(ctx, input)
+}
+
+type ReviewVerdict struct {
+	Feature     string                    `json:"feature"`
+	Verdict     string                    `json:"verdict"`
+	Timestamp   string                    `json:"timestamp"`
+	Round       int                       `json:"round"`
+	Reviewers   map[string]ReviewerResult `json:"reviewers"`
+	FindingIDs  []string                  `json:"finding_ids,omitempty"`
+	BlockingIDs []string                  `json:"blocking_ids,omitempty"`
+	Summary     string                    `json:"summary,omitempty"`
+}
+
+type ReviewerResult struct {
+	Verdict  string   `json:"verdict"`
+	Findings []string `json:"findings"`
+	Notes    string   `json:"notes,omitempty"`
+}
+
+type QAVerdict struct {
+	Feature     string   `json:"feature"`
+	Verdict     string   `json:"verdict"`
+	Timestamp   string   `json:"timestamp"`
+	Iteration   int      `json:"iteration"`
+	FindingIDs  []string `json:"finding_ids,omitempty"`
+	BlockingIDs []string `json:"blocking_ids,omitempty"`
+	Summary     string   `json:"summary,omitempty"`
+	EvidenceRef string   `json:"evidence_ref,omitempty"`
+	PRURL       string   `json:"pr_url,omitempty"`
+}
+
+func WriteReviewVerdict(projectRoot string, cp *Checkpoint, verdict ReviewVerdict) (string, error) {
+	path := filepath.Join(projectRoot, ".sdp", "review_verdict.json")
+	if err := writeJSONArtifact(path, verdict); err != nil {
+		return "", err
+	}
+	if cp != nil {
+		if cp.Review == nil {
+			cp.Review = &ReviewStatus{}
+		}
+		cp.Review.VerdictFile = path
+	}
+	return path, nil
+}
+
+func WriteQAVerdict(projectRoot string, cp *Checkpoint, verdict QAVerdict) (string, error) {
+	path := filepath.Join(projectRoot, ".sdp", "qa_verdict.json")
+	if err := writeJSONArtifact(path, verdict); err != nil {
+		return "", err
+	}
+	if cp != nil {
+		if cp.QA == nil {
+			cp.QA = &QAStatus{}
+		}
+		cp.QA.VerdictFile = path
+		cp.QA.EvidenceRef = verdict.EvidenceRef
+	}
+	return path, nil
+}
+
+func buildApprovedReviewVerdict(cp *Checkpoint, summary string) ReviewVerdict {
+	return ReviewVerdict{
+		Feature:   checkpointFeatureID(cp),
+		Verdict:   "APPROVED",
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Round:     checkpointReviewRound(cp),
+		Reviewers: reviewerResults("PASS", nil, summary),
+		Summary:   strings.TrimSpace(summary),
+	}
+}
+
+func buildChangesRequestedReviewVerdict(cp *Checkpoint, summary, findingID string) ReviewVerdict {
+	return buildReviewVerdictWithFindings(cp, "CHANGES_REQUESTED", "FAIL", summary, nonEmptyStrings(findingID))
+}
+
+func buildBlockedReviewVerdict(cp *Checkpoint, summary string, findingIDs []string) ReviewVerdict {
+	return buildReviewVerdictWithFindings(cp, "CHANGES_REQUESTED", "BLOCKED", summary, findingIDs)
+}
+
+func buildReviewVerdictWithFindings(cp *Checkpoint, verdict, reviewerVerdict, summary string, findingIDs []string) ReviewVerdict {
+	ids := nonEmptyStrings(findingIDs...)
+	return ReviewVerdict{
+		Feature:     checkpointFeatureID(cp),
+		Verdict:     verdict,
+		Timestamp:   time.Now().UTC().Format(time.RFC3339),
+		Round:       checkpointReviewRound(cp),
+		Reviewers:   reviewerResults(reviewerVerdict, ids, summary),
+		FindingIDs:  ids,
+		BlockingIDs: ids,
+		Summary:     strings.TrimSpace(summary),
+	}
+}
+
+func buildPassedQAVerdict(cp *Checkpoint, summary, evidenceRef string) QAVerdict {
+	return QAVerdict{
+		Feature:     checkpointFeatureID(cp),
+		Verdict:     "qa:pass",
+		Timestamp:   time.Now().UTC().Format(time.RFC3339),
+		Iteration:   checkpointQAIteration(cp),
+		Summary:     strings.TrimSpace(summary),
+		EvidenceRef: strings.TrimSpace(evidenceRef),
+		PRURL:       checkpointPRURL(cp),
+	}
+}
+
+func buildFailedQAVerdict(cp *Checkpoint, summary, evidenceRef, findingID string) QAVerdict {
+	return buildQAVerdictWithFindings(cp, "qa:fail", summary, evidenceRef, nonEmptyStrings(findingID))
+}
+
+func buildBlockedQAVerdict(cp *Checkpoint, summary, evidenceRef string, findingIDs []string) QAVerdict {
+	return buildQAVerdictWithFindings(cp, "qa:fail", summary, evidenceRef, findingIDs)
+}
+
+func buildQAVerdictWithFindings(cp *Checkpoint, verdict, summary, evidenceRef string, findingIDs []string) QAVerdict {
+	ids := nonEmptyStrings(findingIDs...)
+	return QAVerdict{
+		Feature:     checkpointFeatureID(cp),
+		Verdict:     verdict,
+		Timestamp:   time.Now().UTC().Format(time.RFC3339),
+		Iteration:   checkpointQAIteration(cp),
+		FindingIDs:  ids,
+		BlockingIDs: ids,
+		Summary:     strings.TrimSpace(summary),
+		EvidenceRef: strings.TrimSpace(evidenceRef),
+		PRURL:       checkpointPRURL(cp),
+	}
+}
+
+func reviewerResults(verdict string, findings []string, notes string) map[string]ReviewerResult {
+	roles := []string{"qa", "security", "devops", "sre", "techlead", "docs", "promptops"}
+	results := make(map[string]ReviewerResult, len(roles))
+	for _, role := range roles {
+		results[role] = ReviewerResult{Verdict: verdict, Findings: append([]string(nil), findings...), Notes: strings.TrimSpace(notes)}
+	}
+	return results
+}
+
+func writeJSONArtifact(path string, payload interface{}) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	data, err := jsonMarshal(payload)
+	if err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
+func jsonMarshal(payload interface{}) ([]byte, error) {
+	return json.MarshalIndent(payload, "", "  ")
+}
+
+func buildReviewFailureFindingInput(cp *Checkpoint, reviewOutput string, reviewErr error) bridge.ReviewFindingInput {
+	summary := "review did not produce APPROVED verdict"
+	if reviewErr != nil {
+		summary = fmt.Sprintf("review execution failed: %v", reviewErr)
+	}
+	description := strings.TrimSpace(reviewOutput)
+	if description == "" && reviewErr != nil {
+		description = reviewErr.Error()
+	}
+	return bridge.ReviewFindingInput{
+		FeatureID:   checkpointFeatureID(cp),
+		WSID:        checkpointFindingWSID(cp),
+		Blocking:    true,
+		Role:        "reviewer",
+		Title:       "review not approved",
+		Summary:     summary,
+		Description: description,
+		Severity:    "P1",
+		Priority:    1,
+		PRURL:       checkpointPRURL(cp),
+		DedupKey:    checkpointFeatureID(cp) + ":review-not-approved",
+	}
+}
+
+func buildQAFailureFindingInput(cp *Checkpoint, qaOutput string, qaErr error) bridge.QAFindingInput {
+	summary := "QA/UAT did not produce QA_PASS verdict"
+	if qaErr != nil {
+		summary = fmt.Sprintf("QA/UAT execution failed: %v", qaErr)
+	}
+	description := strings.TrimSpace(qaOutput)
+	if description == "" && qaErr != nil {
+		description = qaErr.Error()
+	}
+	return bridge.QAFindingInput{
+		FeatureID:   checkpointFeatureID(cp),
+		WSID:        checkpointFindingWSID(cp),
+		Blocking:    true,
+		Title:       "qa not passed",
+		Summary:     summary,
+		Description: description,
+		Severity:    "P1",
+		Priority:    1,
+		PRURL:       checkpointPRURL(cp),
+		DedupKey:    checkpointFeatureID(cp) + ":qa-not-passed",
+	}
+}
+
+func checkpointFeatureID(cp *Checkpoint) string {
+	if cp == nil {
+		return ""
+	}
+	return cp.FeatureID
+}
+
+func checkpointPRURL(cp *Checkpoint) string {
+	if cp == nil {
+		return ""
+	}
+	return cp.PRURL
+}
+
+func checkpointFindingWSID(cp *Checkpoint) string {
+	if cp == nil {
+		return ""
+	}
+	for i := len(cp.Workstreams) - 1; i >= 0; i-- {
+		if strings.TrimSpace(cp.Workstreams[i].ID) != "" {
+			return cp.Workstreams[i].ID
+		}
+	}
+	return ""
+}
+
+func checkpointReviewRound(cp *Checkpoint) int {
+	if cp == nil || cp.Review == nil || cp.Review.Iteration <= 0 {
+		return 1
+	}
+	return cp.Review.Iteration
+}
+
+func checkpointQAIteration(cp *Checkpoint) int {
+	if cp == nil || cp.QA == nil || cp.QA.Iteration <= 0 {
+		return 1
+	}
+	return cp.QA.Iteration
+}
+
+func nonEmptyStrings(values ...string) []string {
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value != "" {
+			out = append(out, value)
+		}
+	}
+	return out
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}

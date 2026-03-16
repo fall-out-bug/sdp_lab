@@ -358,3 +358,61 @@ type normalizedDocsPayload struct {
 	LinkTarget      string                 `json:"link_target,omitempty"`
 	LinkText        string                 `json:"link_text,omitempty"`
 }
+
+type normalizedTypedFindingIdentity struct {
+	Source     string `json:"source"`
+	FeatureID  string `json:"feature_id,omitempty"`
+	WSID       string `json:"ws_id,omitempty"`
+	FindingKey string `json:"finding_key"`
+}
+
+type normalizedTypedFindingPayload struct {
+	Identity     normalizedTypedFindingIdentity `json:"identity"`
+	Blocking     bool                           `json:"blocking"`
+	Severity     string                         `json:"severity,omitempty"`
+	Priority     int                            `json:"priority,omitempty"`
+	Title        string                         `json:"title"`
+	Summary      string                         `json:"summary,omitempty"`
+	Description  string                         `json:"description,omitempty"`
+	PRURL        string                         `json:"pr_url,omitempty"`
+	ArtifactRef  string                         `json:"artifact_ref,omitempty"`
+	EvidenceRef  string                         `json:"evidence_ref,omitempty"`
+	TraceRef     string                         `json:"trace_ref,omitempty"`
+	DriftVerdict string                         `json:"drift_verdict,omitempty"`
+}
+
+func TypedFindingHashes(f TypedFinding) (string, string) {
+	findingKey := normalizeValue(f.DedupKey)
+	if findingKey == "" {
+		findingKey = fallbackKey(
+			normalizeValue(string(f.Source)),
+			normalizeValue(f.FeatureID),
+			normalizeValue(f.WSID),
+			normalizeValue(f.Title),
+		)
+	}
+
+	identity := normalizedTypedFindingIdentity{
+		Source:     normalizeValue(string(f.Source)),
+		FeatureID:  normalizeValue(f.FeatureID),
+		WSID:       normalizeValue(f.WSID),
+		FindingKey: findingKey,
+	}
+
+	payload := normalizedTypedFindingPayload{
+		Identity:     identity,
+		Blocking:     f.Blocking,
+		Severity:     normalizeValue(f.Severity),
+		Priority:     f.Priority,
+		Title:        normalizeValue(f.Title),
+		Summary:      normalizeValue(f.Summary),
+		Description:  normalizeValue(f.Description),
+		PRURL:        normalizeValue(f.PRURL),
+		ArtifactRef:  normalizeValue(f.ArtifactRef),
+		EvidenceRef:  normalizeValue(f.EvidenceRef),
+		TraceRef:     normalizeValue(f.TraceRef),
+		DriftVerdict: normalizeValue(f.DriftVerdict),
+	}
+
+	return stableHash(identity), stableHash(payload)
+}

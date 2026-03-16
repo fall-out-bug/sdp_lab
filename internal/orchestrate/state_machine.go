@@ -38,6 +38,8 @@ func ComputeNextAction(cp *Checkpoint, workstreams []string, projectRoot string)
 			pr = *cp.PRNumber
 		}
 		return &NextAction{Action: "ci-loop", Feature: cp.FeatureID, PR: pr}, nil
+	case PhaseQA:
+		return &NextAction{Action: "qa", Feature: cp.FeatureID}, nil
 	case PhaseDone:
 		return &NextAction{Action: "done"}, nil
 	default:
@@ -104,7 +106,17 @@ func Advance(cp *Checkpoint, workstreams []string, result string) error {
 		cp.Phase = PhaseCI
 		return nil
 	case PhaseCI:
+		cp.Phase = PhaseQA
+		if cp.QA == nil {
+			cp.QA = &QAStatus{Iteration: 0, Status: "pending"}
+		}
+		cp.QA.Iteration++
+		return nil
+	case PhaseQA:
 		cp.Phase = PhaseDone
+		if cp.QA != nil {
+			cp.QA.Status = "passed"
+		}
 		return nil
 	case PhaseDone:
 		return nil
@@ -126,6 +138,7 @@ func CreateInitialCheckpoint(featureID, branch string, workstreams []string) *Ch
 		Phase:       PhaseInit,
 		Workstreams: ws,
 		Review:      &ReviewStatus{Iteration: 0, Status: "pending"},
+		QA:          &QAStatus{Iteration: 0, Status: "pending"},
 	}
 }
 

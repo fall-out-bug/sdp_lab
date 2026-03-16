@@ -93,6 +93,13 @@ func TestComputeNextAction(t *testing.T) {
 			wantPR:  0,
 		},
 		{
+			name: "qa returns qa",
+			cp: &orchestrate.Checkpoint{
+				FeatureID: "F004", Phase: orchestrate.PhaseQA,
+			},
+			wantAct: "qa",
+		},
+		{
 			name: "done returns done",
 			cp: &orchestrate.Checkpoint{
 				FeatureID: "F004", Phase: orchestrate.PhaseDone,
@@ -221,9 +228,25 @@ func TestAdvanceFullLifecycle(t *testing.T) {
 		}
 	})
 
-	t.Run("ci to done", func(t *testing.T) {
+	t.Run("ci to qa", func(t *testing.T) {
 		cp := &orchestrate.Checkpoint{
 			FeatureID: "F004", Phase: orchestrate.PhaseCI,
+		}
+		if err := orchestrate.Advance(cp, workstreams, ""); err != nil {
+			t.Fatal(err)
+		}
+		if cp.Phase != orchestrate.PhaseQA {
+			t.Errorf("phase = %q, want qa", cp.Phase)
+		}
+		if cp.QA == nil || cp.QA.Iteration != 1 || cp.QA.Status != "pending" {
+			t.Errorf("unexpected qa state: %+v", cp.QA)
+		}
+	})
+
+	t.Run("qa to done", func(t *testing.T) {
+		cp := &orchestrate.Checkpoint{
+			FeatureID: "F004", Phase: orchestrate.PhaseQA,
+			QA: &orchestrate.QAStatus{Iteration: 1, Status: "passed"},
 		}
 		if err := orchestrate.Advance(cp, workstreams, ""); err != nil {
 			t.Fatal(err)
@@ -265,8 +288,8 @@ func TestAdvanceInitToBuild(t *testing.T) {
 
 func TestAdvanceBuildToReview(t *testing.T) {
 	cp := &orchestrate.Checkpoint{
-		FeatureID:   "F004",
-		Phase:       orchestrate.PhaseBuild,
+		FeatureID: "F004",
+		Phase:     orchestrate.PhaseBuild,
 		Workstreams: []orchestrate.WSStatus{
 			{ID: "00-004-01", Status: "done"},
 			{ID: "00-004-02", Status: "done"},

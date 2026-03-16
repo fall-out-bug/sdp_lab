@@ -117,6 +117,13 @@ func GenerateOrchestratorAttestation(projectRoot string, cp *Checkpoint) (eviden
 			Notes:    fmt.Sprintf("iteration %d", cp.Review.Iteration),
 		}}
 	}
+	if cp.QA != nil && cp.QA.Status == "passed" {
+		predicate.Review.SelfReview = append(predicate.Review.SelfReview, evidence.ReviewItem{
+			Reviewer: "sdp-qa",
+			Verdict:  "QA_PASS",
+			Notes:    fmt.Sprintf("iteration %d", cp.QA.Iteration),
+		})
+	}
 
 	return evidence.NewStatement(subjects, predicate), nil
 }

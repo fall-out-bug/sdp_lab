@@ -55,8 +55,14 @@ func TestValidateTransition_Valid(t *testing.T) {
 		{
 			name: "ci to done",
 			from: orchestrate.PhaseCI,
-			to:   orchestrate.PhaseDone,
+			to:   orchestrate.PhaseQA,
 			cp:   &orchestrate.Checkpoint{Phase: orchestrate.PhaseCI},
+		},
+		{
+			name: "qa to done",
+			from: orchestrate.PhaseQA,
+			to:   orchestrate.PhaseDone,
+			cp:   &orchestrate.Checkpoint{Phase: orchestrate.PhaseQA, QA: &orchestrate.QAStatus{Status: "passed"}},
 		},
 	}
 	for _, tt := range tests {
@@ -93,6 +99,12 @@ func TestValidateTransition_Invalid(t *testing.T) {
 			from: orchestrate.PhaseReview,
 			to:   orchestrate.PhaseDone,
 			cp:   &orchestrate.Checkpoint{Phase: orchestrate.PhaseReview},
+		},
+		{
+			name: "qa to done but qa not passed",
+			from: orchestrate.PhaseQA,
+			to:   orchestrate.PhaseDone,
+			cp:   &orchestrate.Checkpoint{Phase: orchestrate.PhaseQA, QA: &orchestrate.QAStatus{Status: "pending"}},
 		},
 		{
 			name: "build to review but workstreams not done",

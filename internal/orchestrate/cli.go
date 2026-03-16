@@ -16,10 +16,16 @@ import (
 	"sdp_dev/internal/sdputil"
 )
 
+type prInfo struct {
+	Number int    `json:"number"`
+	URL    string `json:"url"`
+}
+
 const (
 	buildPhaseTimeout  = 30 * time.Minute
 	reviewPhaseTimeout = 15 * time.Minute
 	prPhaseTimeout     = 10 * time.Minute
+	qaPhaseTimeout     = 15 * time.Minute
 )
 
 const cliExecTimeout = 30 * time.Second
@@ -40,8 +46,19 @@ func CurrentBranch(ctx context.Context) (string, error) {
 
 // RunPRPhase executes git push and gh pr create with timeout.
 func RunPRPhase(ctx context.Context, projectRoot, featureID string, cp *Checkpoint) error {
+	return EnsureDraftPR(ctx, projectRoot, featureID, cp)
+}
+
+func EnsureDraftPR(ctx context.Context, projectRoot, featureID string, cp *Checkpoint) error {
 	phaseCtx, cancel := context.WithTimeout(ctx, prPhaseTimeout)
 	defer cancel()
+	if prNum, prURL, err := GetPRInfo(phaseCtx); err == nil {
+		cp.PRNumber = &prNum
+		cp.PRURL = prURL
+		return nil
+	} else if !errors.Is(err, ErrNoPR) {
+		return err
+	}
 	push := exec.CommandContext(phaseCtx, "git", "push", "origin", "HEAD")
 	push.Dir = projectRoot
 	push.Stdout = os.Stdout
@@ -53,13 +70,19 @@ func RunPRPhase(ctx context.Context, projectRoot, featureID string, cp *Checkpoi
 	if err != nil {
 		return fmt.Errorf("current branch: %w", err)
 	}
-	title := fmt.Sprintf("feat(%s): oneshot outer loop", strings.TrimPrefix(featureID, "F"))
-	create := exec.CommandContext(phaseCtx, "gh", "pr", "create", "--base", "master", "--head", head, "--title", title, "--body", "Autonomous execution via sdp orchestrate")
+	title := fmt.Sprintf("F%s: oneshot outer loop", strings.TrimPrefix(featureID, "F"))
+	create := exec.CommandContext(phaseCtx, "gh", "pr", "create", "--draft", "--base", "dev", "--head", head, "--title", title, "--body", "Autonomous execution via sdp orchestrate")
 	create.Dir = projectRoot
-	create.Stdout = os.Stdout
-	create.Stderr = os.Stderr
-	if err := create.Run(); err != nil {
+	out, err := create.CombinedOutput()
+	if err != nil {
 		return fmt.Errorf("gh pr create: %w", err)
+	}
+	if prURL := extractPRURL(string(out)); prURL != "" {
+		cp.PRURL = prURL
+	}
+	if prNum, prURL, err := GetPRInfo(phaseCtx); err == nil {
+		cp.PRNumber = &prNum
+		cp.PRURL = prURL
 	}
 	return nil
 }
@@ -85,10 +108,7 @@ func GetPRInfo(ctx context.Context) (int, string, error) {
 	if len(out) == 0 {
 		return 0, "", ErrNoPR
 	}
-	var arr []struct {
-		Number int    `json:"number"`
-		URL    string `json:"url"`
-	}
+	var arr []prInfo
 	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(out), sdputil.MaxJSONDecodeBytes)).Decode(&arr); err != nil {
 		return 0, "", err
 	}
@@ -96,6 +116,15 @@ func GetPRInfo(ctx context.Context) (int, string, error) {
 		return 0, "", ErrNoPR
 	}
 	return arr[0].Number, arr[0].URL, nil
+}
+
+func extractPRURL(output string) string {
+	for _, field := range strings.Fields(output) {
+		if strings.HasPrefix(field, "https://") && strings.Contains(field, "/pull/") {
+			return field
+		}
+	}
+	return ""
 }
 
 // AdvancePRPhase runs PR phase (push, create PR), fetches PR info, updates checkpoint to PhaseCI.
@@ -113,7 +142,7 @@ func AdvancePRPhase(ctx context.Context, projectRoot, featureID, cpPath string, 
 	return SaveCheckpoint(cpPath, cp)
 }
 
-// AdvanceCIPhase runs CI loop if PR exists, then sets checkpoint to PhaseDone.
+// AdvanceCIPhase runs CI loop if PR exists, then sets checkpoint to PhaseQA.
 func AdvanceCIPhase(ctx context.Context, projectRoot, featureID, cpPath, runsPath string, cp *Checkpoint) error {
 	cpFilePath := filepath.Join(cpPath, featureID+".json")
 	env := HookEnv{FeatureID: featureID, Phase: PhaseCI, CheckpointPath: cpFilePath}
@@ -143,7 +172,10 @@ func AdvanceCIPhase(ctx context.Context, projectRoot, featureID, cpPath, runsPat
 	}); err != nil {
 		return err
 	}
-	cp.Phase = PhaseDone
+	cp.Phase = PhaseQA
+	if cp.QA == nil {
+		cp.QA = &QAStatus{Iteration: 0, Status: "pending"}
+	}
 	return SaveCheckpoint(cpPath, cp)
 }
 

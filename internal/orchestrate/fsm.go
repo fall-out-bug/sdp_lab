@@ -17,6 +17,7 @@ type TransitionCondition struct {
 	AllWorkstreamsDone bool
 	// ReviewApproved is true when the transition requires an approved review.
 	ReviewApproved bool
+	QAPassed       bool
 	// Description explains the transition.
 	Description string
 }
@@ -41,8 +42,12 @@ var validTransitions = map[TransitionKey]TransitionCondition{
 	{PhasePR, PhaseCI}: {
 		Description: "pr → ci: PR created, monitor CI",
 	},
-	{PhaseCI, PhaseDone}: {
-		Description: "ci → done: CI passed, feature complete",
+	{PhaseCI, PhaseQA}: {
+		Description: "ci → qa: engineering gates passed, proceed to QA/UAT",
+	},
+	{PhaseQA, PhaseDone}: {
+		QAPassed:    true,
+		Description: "qa → done: QA/UAT passed, feature complete",
 	},
 	{PhaseDone, PhaseDone}: {
 		Description: "done → done: idempotent (already complete)",
@@ -107,6 +112,16 @@ func ValidateTransition(from string, to string, cp *Checkpoint, workstreams []st
 		}
 	}
 
+	if cond.QAPassed {
+		if cp.QA == nil || cp.QA.Status != "passed" {
+			return &FSMViolationError{
+				From: from,
+				To:   to,
+				Why:  "condition not met: QA not passed",
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -134,6 +149,8 @@ func computeNextPhase(cp *Checkpoint, workstreams []string) string {
 	case PhasePR:
 		return PhaseCI
 	case PhaseCI:
+		return PhaseQA
+	case PhaseQA:
 		return PhaseDone
 	default:
 		return cp.Phase

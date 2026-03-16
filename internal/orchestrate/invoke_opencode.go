@@ -156,17 +156,30 @@ func RunBuildPhase(ctx context.Context, projectRoot, featureID, wsID string, inv
 
 // RunReviewPhase invokes the LLM to execute @review for a feature.
 // If invoker is nil, uses DefaultLLMInvoker.
-func RunReviewPhase(ctx context.Context, dir, featureID string, invoker LLMInvoker) (approved bool, err error) {
+func RunReviewPhase(ctx context.Context, dir, featureID string, invoker LLMInvoker) (approved bool, output string, err error) {
 	if invoker == nil {
 		invoker = DefaultLLMInvoker
 	}
 	prompt := buildPromptWithContext(dir, fmt.Sprintf("Execute @review %s. Fix P0/P1 findings. Output APPROVED when done.", featureID))
 	out, code, err := invoker.Invoke(ctx, dir, "reviewer", prompt)
 	if err != nil {
-		return false, err
+		return false, out, err
 	}
 	approved = code == 0 && strings.Contains(strings.ToUpper(out), "APPROVED")
-	return approved, nil
+	return approved, out, nil
+}
+
+func RunQAPhase(ctx context.Context, dir, featureID string, invoker LLMInvoker) (passed bool, output string, err error) {
+	if invoker == nil {
+		invoker = DefaultLLMInvoker
+	}
+	prompt := buildPromptWithContext(dir, fmt.Sprintf("Execute @qa %s. Validate QA/UAT against the feature intent. Output QA_PASS when done.", featureID))
+	out, code, err := invoker.Invoke(ctx, dir, "qa", prompt)
+	if err != nil {
+		return false, out, err
+	}
+	passed = code == 0 && strings.Contains(strings.ToUpper(out), "QA_PASS")
+	return passed, out, nil
 }
 
 func isHex(s string) bool {
