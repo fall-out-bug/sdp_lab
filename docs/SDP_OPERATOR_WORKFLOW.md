@@ -1,11 +1,16 @@
 # SDP Operator Workflow
 
 Status: reference
-Scope: Beads + orchestrate + quality gates + evidence for operator tasks
+Scope: Beads + orchestrate + quality gates + evidence + `QA/UAT` for operator tasks
 
 ## Overview
 
-This document describes the SDP protocol workflow for conducting operator-related work: UP-001 (kubeopencode upstream), O2 AgentRun implementation, and related tasks.
+This document describes the canonical SDP operator loop for conducting work through linked `feature`, `workstream`, `beads issue`, `evidence`, `trace`, `drift`, and `PR` state.
+
+Canonical design references:
+
+- [../AGENTS.md](../AGENTS.md)
+- [plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md](plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md)
 
 ## Workflow Diagram
 
@@ -21,9 +26,12 @@ flowchart TD
 
     subgraph orchestrate [Orchestrate]
         Preflight[git pull + bd sync --import-only]
+        DraftPR[ensure early draft PR]
         Dispatch[orchestrate_k8s_issue.sh --host --issue]
         Worker[opencode-agent runs swarm-worker]
         Reviewer[swarm-reviewer]
+        Findings[review or CI findings become beads issues]
+        QA[QA or UAT verdict]
     end
 
     subgraph quality [Quality Gates]
@@ -35,12 +43,18 @@ flowchart TD
     subgraph evidence [Evidence]
         FSM[cmd/beads-fsm]
         PRGate[cmd/pr-gate]
+        Trace[trace complete]
+        Drift[drift verdict recorded]
     end
 
     Ready --> Show --> Claim
-    Claim --> Preflight --> Dispatch
+    Claim --> Preflight --> DraftPR --> Dispatch
     Dispatch --> Worker --> SDP --> Reviewer
-    Reviewer --> PRGate --> FSM --> Close --> Sync
+    Reviewer --> PRGate --> Trace --> Drift --> Findings
+    Findings -->|blocking findings| Ready
+    Findings -->|clean PR| QA
+    QA -->|qa:fail| Ready
+    QA -->|qa:pass| FSM --> Close --> Sync
 ```
 
 ## NATS Flow (Swarm Platform)
@@ -64,14 +78,36 @@ flowchart LR
 
 ## Sequence
 
-1. **Find work:** `bd ready --label autonomy --label workstream:kubeopencode-upstream` (or `workstream:agentrun-operator`)
-2. **Get context:** `bd show <id>`
-3. **Claim:** `bd update <id> --status in_progress`
-4. **Dispatch:** Locally or via `scripts/orchestrate_k8s_issue.sh --host <user@ip> --issue <id>`
-5. **In pod:** git pull, `bd sync --import-only`, swarm-worker executes task
-6. **Quality:** `sdp quality all`, `go test ./...`
-7. **Evidence:** strict evidence, `cmd/pr-gate`, `cmd/beads-fsm`
-8. **Complete:** `bd close <id> --reason "..."`, `bd sync`
+1. **Shape `feature`:** confirm linked `workstream` and acceptance are clear enough to execute.
+2. **Find ready work:** `bd ready --label autonomy --label workstream:kubeopencode-upstream` (or `workstream:agentrun-operator`)
+3. **Get context:** `bd show <id>`
+4. **Claim:** `bd update <id> --status in_progress`
+5. **Preflight:** git pull, `bd sync --import-only`, confirm branch and linked `PR` state.
+6. **Open early `draft PR`:** create or re-use the feature `PR` at the first blocking `workstream` or first meaningful change.
+7. **Dispatch execution:** locally or via `scripts/orchestrate_k8s_issue.sh --host <user@ip> --issue <id>`
+8. **In pod:** swarm-worker executes the task and records `evidence`, `trace`, and `drift` inputs.
+9. **Quality gates:** `sdp quality all`, `go test ./...`, lint, and any workstream-specific verification.
+10. **Review loop:** reviewer validates output; any review, CI, or `drift` finding becomes a typed `beads issue` with `source`, linked `feature`, linked `workstream`, `blocking`, and `PR` or artifact reference.
+11. **`QA/UAT`:** after engineering gates are clean, run `QA/UAT` against the `feature` intent. `qa:fail` creates new blocking `beads issue`; `qa:pass` records `UAT evidence`.
+12. **Complete:** `cmd/beads-fsm` moves flow to `verified` and `done`, then `bd close <id> --reason "..."`, `bd sync`.
+
+## Findings Loop
+
+All findings must re-enter execution as `beads issue` entries.
+
+Required finding metadata:
+
+- `source = review | ci | drift | qa`
+- linked `feature`
+- linked `workstream`
+- `blocking = true|false`
+- `PR` link or artifact reference
+
+Contract reference:
+
+- [protocol/BEADS_FINDINGS_CONTRACT.md](protocol/BEADS_FINDINGS_CONTRACT.md)
+
+The operator loop is not complete until all blocking findings are resolved and the active `PR` is clean.
 
 ## Workstreams
 
@@ -97,8 +133,11 @@ Preflight: git pull, bd sync --import-only, then exec into opencode-agent pod to
 ## Evidence
 
 - Strict evidence: `specs/strict-evidence-template.json` sections
-- `cmd/pr-gate` — validates trace before PR
+- `cmd/pr-gate` — validates trace before PR progression and before merge-ready state
 - `cmd/beads-fsm` — protocol flow state transitions
+- `trace` must link `feature -> workstream -> beads issue -> branch -> PR -> evidence`
+- `drift` verdict must be recorded before `QA/UAT`
+- `QA/UAT` must produce either `qa:pass` with `UAT evidence` or `qa:fail` with blocking `beads issue`
 
 ## References
 

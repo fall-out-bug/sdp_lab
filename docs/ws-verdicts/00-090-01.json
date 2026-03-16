@@ -1,0 +1,29 @@
+{
+  "ws_id": "00-090-01",
+  "feature_id": "F090",
+  "verdict": "PASS",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {
+      "ac": "Canonical loop is stated consistently across protocol and operator docs",
+      "met": true,
+      "evidence": "AGENTS.md + docs/SDP_OPERATOR_WORKFLOW.md + docs/plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md"
+    },
+    {
+      "ac": "Review, CI, drift, and QA findings re-enter SDP as typed beads issue",
+      "met": true,
+      "evidence": "docs/protocol/BEADS_FINDINGS_CONTRACT.md + docs/PR_GATE_RUNBOOK.md + docs/BEADS_AUTONOMY_SPEC.md"
+    },
+    {
+      "ac": "QA/UAT is a first-class SDP stage before merge-ready state",
+      "met": true,
+      "evidence": "docs/REAL_FEATURE_TO_PR_RUNBOOK.md + docs/SDP_OPERATOR_WORKFLOW.md"
+    }
+  ],
+  "existing_work_summary": "Protocol surfaces existed but drifted across AGENTS, runbooks, agent docs, and runtime expectations before canonical alignment work."
+}

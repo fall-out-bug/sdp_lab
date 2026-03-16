@@ -1,0 +1,34 @@
+{
+  "ws_id": "00-090-02",
+  "feature_id": "F090",
+  "verdict": "PASS",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {
+      "ac": "Typed findings exist in runtime and can represent review, CI, drift, and QA failures",
+      "met": true,
+      "evidence": "internal/bridge/beads_sink.go + internal/bridge/dedupe_store.go"
+    },
+    {
+      "ac": "Early draft PR is created by runtime before the late PR phase",
+      "met": true,
+      "evidence": "internal/orchestrate/cli.go + internal/orchestrate/loop.go"
+    },
+    {
+      "ac": "QA/UAT is a real orchestrator phase after CI and before done",
+      "met": true,
+      "evidence": "internal/orchestrate/checkpoint.go + internal/orchestrate/fsm.go + internal/orchestrate/state_machine.go"
+    },
+    {
+      "ac": "Review and QA failures emit blocking findings into the same Beads loop",
+      "met": true,
+      "evidence": "internal/orchestrate/findings.go + internal/orchestrate/loop.go + go test ./internal/orchestrate ./internal/bridge"
+    }
+  ],
+  "existing_work_summary": "Orchestrator already had build/review/pr/ci phases, but findings and QA/UAT were not first-class runtime state before this slice."
+}

@@ -1,168 +1,196 @@
 # Agent Catalog
 
-Complete catalog of all 19 agents in the SDP multi-agent system.
+Status: canonical reference
 
-## Phase 1A: @vision Agents (7)
+Canonical design reference:
 
-### 1. Product Strategist
-**Role:** Analyzes product vision and market fit
-**When to use:** Starting new product or major pivot
-**Input:** Product idea
-**Output:** Product positioning, market analysis
+- `docs/plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md`
 
-### 2. Market Analyst
-**Role:** Analyzes market size, competition, trends
-**When to use:** Need market intelligence
-**Input:** Product domain
-**Output:** Market size, competitive landscape
+This document defines the default SDP agent workflow.
 
-### 3. Technical Architect
-**Role:** Evaluates technical feasibility
-**When to use:** Technical decisions needed
-**Input:** Product requirements
-**Output:** Architecture recommendations
+## Canonical SDP Loop
 
-### 4. UX Designer
-**Role:** Analyzes user experience needs
-**When to use:** UX-critical features
-**Input:** User scenarios
-**Output:** UX recommendations
+The default loop is:
 
-### 5. Business Analyst
-**Role:** Analyzes business model and ROI
-**When to use:** Need business case
-**Input:** Product concept
-**Output:** Business model, adoption projections
+- `vision`
+- `feature`
+- `workstream`
+- `beads issue`
+- early `draft PR`
+- `execution`
+- findings as `beads issue`
+- `QA/UAT`
+- clean `PR`
 
-### 6. Growth Strategist
-**Role:** Plans user acquisition and growth
-**When to use:** Need growth strategy
-**Input:** Product concept
-**Output:** Growth channels, metrics
+The default agent stack exists only to move work through that loop.
 
-### 7. Risk Analyst
-**Role:** Identifies and mitigates risks
-**When to use:** Risk assessment needed
-**Input:** Product plan
-**Output:** Risk matrix, mitigation strategies
+## Canonical Agents
 
-## Phase 1B: @reality Agents (8)
+### `vision`
 
-### 8. Architecture Reviewer
-**Role:** Reviews codebase architecture
-**When to use:** Architecture audit
-**Input:** Codebase
-**Output:** Architecture assessment
+Owns:
 
-### 9. Quality Analyst
-**Role:** Analyzes code quality and technical debt
-**When to use:** Quality assessment
-**Input:** Codebase
-**Output:** Quality metrics, debt analysis
+- project-level intent
+- project map updates
+- clarification of what kinds of `feature` belong in the project
 
-### 10. Testing Specialist
-**Role:** Reviews test coverage and strategy
-**When to use:** Testing audit
-**Input:** Codebase
-**Output:** Test coverage, gaps
+Used when:
 
-### 11. Security Analyst
-**Role:** Analyzes security posture
-**When to use:** Security assessment
-**Input:** Codebase
-**Output:** Security findings, recommendations
+- project direction is unclear
+- a new initiative changes the project map
+- the user needs to shape or revise `vision`
 
-### 12. Performance Analyst
-**Role:** Analyzes performance characteristics
-**When to use:** Performance audit
-**Input:** Codebase
-**Output:** Performance bottlenecks
+Primary output:
 
-### 13. Documentation Specialist
-**Role:** Reviews documentation quality
-**When to use:** Docs assessment
-**Input:** Codebase + docs
-**Output:** Docs gaps, quality score
+- updated `vision`
 
-### 14. Technical Debt Analyst
-**Role:** Identifies and prioritizes technical debt
-**When to use:** Debt assessment
-**Input:** Codebase
-**Output:** Debt inventory, prioritization
+### `feature`
 
-### 15. Standards Compliance Analyst
-**Role:** Checks coding standards compliance
-**When to use:** Standards audit
-**Input:** Codebase
-**Output:** Compliance violations, recommendations
+Owns:
 
-## Phase 2: Review Agents (2)
+- one `feature`
+- feature acceptance criteria
+- `workstream` decomposition
+- mapping from `workstream` to `beads issue`
+- decision on whether a separate `plan` is needed
 
-### 16. Implementer Agent
-**Role:** Executes workstreams with TDD
-**When to use:** Executing workstream
-**Input:** Workstream specification
-**Output:** Implemented code, test results
+Used when:
 
-### 17. Spec Compliance Reviewer
-**Role:** Verifies implementation matches specification
-**When to use:** After implementation
-**Input:** Spec + code
-**Output:** Compliance report
+- a `feature` is being created or refined
+- a `feature` must be decomposed into executable `workstream`
+- linked `beads issue` entries need to be prepared
 
-## Phase 3: Orchestrator (1)
+Primary output:
 
-### 18. Parallel Orchestrator
-**Role:** Coordinates parallel execution of workstreams
-**When to use:** Multi-workstream features
-**Input:** Dependency graph
-**Output:** Coordinated execution
+- accepted `feature`
+- linked `workstream`
+- linked `beads issue` graph
 
-## Phase 4: Synthesis Agents (3)
+### `orchestrator`
 
-### 19. Agent Synthesizer
-**Role:** Resolves conflicts between agent proposals
-**When to use:** Multiple agents disagree
-**Input:** Agent proposals
-**Output:** Synthesized solution
+Owns:
 
-### 20. Rules Engine
-**Role:** Applies synthesis rules in priority order
-**When to use:** Synthesizing proposals
-**Input:** Proposals
-**Output:** Synthesis result
+- ready `beads issue` graph
+- early `draft PR`
+- dependency-aware execution order
+- keeping the `PR` moving until clean
 
-### 21. Hierarchical Supervisor
-**Role:** Coordinates specialist agents
-**When to use:** Multi-agent coordination
-**Input:** Task
-**Output:** Coordinated decision
+Used when:
 
-## Integration Examples
+- execution starts
+- ready work must be scheduled
+- findings must be routed back into execution
+- merge readiness must be evaluated
 
-### @vision Usage
-```bash
-@vision "AI-powered task manager"
-# Launches 7 expert agents in parallel
-# Generates: PRODUCT_VISION.md, PRD.md, ROADMAP.md
-```
+Primary output:
 
-### @reality Usage
-```bash
-@reality --quick
-# Launches 8 expert agents
-# Generates: Reality report (health, gaps, debt)
-```
+- active branch and early `draft PR`
+- updated execution state
+- clean `PR` ready for human merge
 
-### Synthesis Usage
-```go
-supervisor := synthesis.NewSupervisor(engine, 5)
-supervisor.RegisterAgent(agent1)
-supervisor.RegisterAgent(agent2)
-decision := supervisor.MakeDecision(task)
-```
+### `implementer`
 
----
+Owns:
 
-**Generated:** 2026-02-07  
-**SDP Version:** 4.0.0
+- execution of one `beads issue`
+- TDD where required by the `workstream`
+- production of `evidence`
+- `trace` updates and `drift` inputs
+
+Used when:
+
+- one execution unit is ready
+- a finding issue is ready to fix
+
+Primary output:
+
+- completed change or explicit blocker
+- `evidence`
+- `trace` input
+- `drift` input
+
+### `reviewer`
+
+Owns:
+
+- engineering review
+- verification of quality gates, `trace`, and `evidence`
+- conversion of review, CI, and `drift` findings into `beads issue`
+
+Used when:
+
+- execution output is ready for review
+- engineering gates need verification
+- findings must re-enter the backlog
+
+Primary output:
+
+- pass verdict, or
+- typed `beads issue` findings
+
+### `qa`
+
+Owns:
+
+- `QA/UAT`
+- validation of code behavior against `feature` intent
+- `qa:pass` or `qa:fail`
+
+Used when:
+
+- engineering gates are clean
+- the system needs final intent validation before merge-ready state
+
+Primary output:
+
+- `qa:pass` with `UAT evidence`, or
+- `qa:fail` with blocking `beads issue`
+
+## Canonical Stage Routing
+
+| Stage | Primary agent | Required result |
+|-------|---------------|-----------------|
+| `vision` | `vision` | updated project map |
+| `feature` shaping | `feature` | accepted `feature` |
+| `workstream` + `beads issue` mapping | `feature` | executable graph |
+| early `draft PR` | `orchestrator` | active branch and draft PR |
+| `execution` | `implementer` | change or blocker |
+| review and gates | `reviewer` | pass or typed findings |
+| `QA/UAT` | `qa` | `qa:pass` or `qa:fail` |
+| merge readiness | `orchestrator` | clean `PR` |
+
+## Optional Advisors
+
+These are not part of the default happy path.
+
+- `oracle` - hard architecture, debugging, security, or tradeoff cases
+- `reality` - repo audits and reality checks
+- specialist review modes such as security, sre, devops, or ux when a feature truly needs them
+
+Rule:
+
+- if a role does not own a unique SDP transition, it should not be a top-level default agent
+
+## Reduction Rules
+
+Merge or delete when possible:
+
+- planning personas that duplicate `feature`
+- supervisor or synthesis roles that duplicate `orchestrator`
+- multiple review personas as separate default agents
+- market or growth personas on the default engineering path
+
+Canonical target:
+
+- 6 default agents
+- small optional advisor bench
+
+## Agent Quality Rule
+
+Every top-level agent must answer three questions clearly:
+
+- what SDP stage it owns
+- what SDP entity it updates
+- what artifact or verdict it must emit
+
+If an agent cannot answer those three, it should not stay top-level.

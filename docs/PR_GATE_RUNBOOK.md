@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`cmd/pr-gate` enforces Strict Evidence before PR progression.
+`cmd/pr-gate` enforces Strict Evidence, `trace`, and merge-readiness before PR progression.
 
 ## Modes
 
@@ -12,6 +12,13 @@
 - prepublish mode (`--prepublish`)
   - requires all 7 strict sections
   - allows empty `trace.pr_url` before PR is opened
+- merge-ready mode (policy expectation)
+  - requires publish-mode checks
+  - requires complete `trace`
+  - requires recorded `drift` verdict
+  - requires `QA/UAT` verdict and `UAT evidence`
+
+If `cmd/pr-gate` does not yet expose an explicit merge-ready flag, SDP runbooks should still treat these checks as mandatory before calling a PR ready for merge.
 
 ## Usage
 
@@ -22,6 +29,12 @@ go run ./cmd/pr-gate --issue <issue-id> --prepublish
 # Publish/final check
 go run ./cmd/pr-gate --issue <issue-id>
 ```
+
+Additional merge-ready checks should confirm:
+
+- `trace` links the current `feature`, `workstream`, `beads issue`, branch, PR, and evidence
+- `drift` verdict is recorded
+- `QA/UAT` has returned `qa:pass`
 
 Publish PR and update evidence trace:
 
@@ -37,6 +50,20 @@ go run ./cmd/pr-publish --issue <issue-id> --title "..." --head <branch> --body-
 - `2`: gate failed (evidence incomplete)
 - `1`: operational/runtime error
 
+## Findings policy
+
+Any blocking gate failure must re-enter SDP as a typed `beads issue` with:
+
+- `source = ci | drift | qa | review`
+- linked `feature`
+- linked `workstream`
+- `blocking = true`
+- `PR` or artifact reference
+
+Contract reference:
+
+- [protocol/BEADS_FINDINGS_CONTRACT.md](protocol/BEADS_FINDINGS_CONTRACT.md)
+
 ## Live publish validation
 
 For real validation of `cmd/pr-publish`:
@@ -45,3 +72,9 @@ For real validation of `cmd/pr-publish`:
 2. prepare evidence file for the target issue in `.sdp/evidence/<issue-id>.json`
 3. run `cmd/pr-publish` and confirm it writes `trace.pr_url`, `trace.run_context_link`, and `trace.evidence_context_link`
 4. confirm Beads issue notes include `PR callback dispatch report:`
+
+For merge-ready validation, also confirm:
+
+5. `trace` is complete for the current `feature` and `workstream`
+6. a `drift` verdict is present
+7. `QA/UAT` has either produced `qa:pass` with `UAT evidence` or returned blocking findings as `beads issue`

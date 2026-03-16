@@ -1,7 +1,11 @@
 # Beads Autonomy Spec (Private)
 
 Status: draft
-Scope: L3 autonomous path to PR
+Scope: L3 autonomous path to clean PR with findings loop and `QA/UAT`
+
+Findings contract reference:
+
+- [protocol/BEADS_FINDINGS_CONTRACT.md](protocol/BEADS_FINDINGS_CONTRACT.md)
 
 ## 0. Planning hierarchy
 
@@ -30,6 +34,15 @@ For every executable task used by swarm:
 - spec-id: path to planning artifact
 - acceptance: machine-checkable criteria
 - dependencies: explicit blockers
+- linked `feature`
+- linked `workstream`
+
+For findings created during review, CI, `drift`, or `QA/UAT`:
+
+- `source = review | ci | drift | qa`
+- `blocking = true|false`
+- `pr_url` or artifact reference
+- evidence reference when available
 
 Model constraint:
 
@@ -55,6 +68,7 @@ Allowed side paths:
 
 - `in_progress -> blocked`
 - `review -> blocked`
+- `verified -> blocked` (for blocking `QA/UAT` or merge-readiness findings)
 - `any -> escalated`
 - `blocked -> in_progress` (only when blockers closed)
 - `any -> cancelled`
@@ -66,18 +80,23 @@ Allowed side paths:
   - branch created
   - dependencies checked
   - selected model is policy-allowed (`glm-5` or `glm-4.7`)
+  - linked `feature` and `workstream` confirmed
 
 - `in_progress -> review`
   - local tests/lint/contract checks pass
   - no unresolved TODO markers in changed files
+  - early `draft PR` exists or is created at first meaningful change
 
 - `review -> verified`
   - strict evidence sections complete
   - adversarial review completed
+  - all blocking review, CI, and `drift` findings are either closed or converted into `beads issue`
 
 - `verified -> done`
   - PR exists and is linked in task notes
   - trace chain is complete
+  - `drift` verdict is recorded
+  - `QA/UAT` returned `qa:pass` with `UAT evidence`
 
 ## 5. Strict evidence attachment
 
@@ -94,6 +113,13 @@ Attach a structured bundle with keys:
 - `trace`
 
 Any missing key blocks `verified`.
+
+Before `done`, evidence must additionally support:
+
+- active `PR` linkage
+- complete `trace`
+- recorded `drift` verdict
+- `QA/UAT` verdict and `UAT evidence`
 
 Boundary and provenance are mandatory SDP invariants for autonomous runs:
 

@@ -1,0 +1,34 @@
+{
+  "ws_id": "00-090-04",
+  "feature_id": "F090",
+  "verdict": "PASS",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {
+      "ac": "Canonical public skill surface matches runtime behavior",
+      "met": true,
+      "evidence": "feature/review/oneshot/qa skills rewritten around canonical loop and runtime artifacts"
+    },
+    {
+      "ac": "Default agent routing follows canonical SDP stage ownership",
+      "met": true,
+      "evidence": "orchestrator/reviewer/qa agent prompts recut to canonical stage ownership"
+    },
+    {
+      "ac": "Skill prompts reference verdict artifacts and typed findings instead of legacy outputs",
+      "met": true,
+      "evidence": "review and qa skills now require review_verdict/qa_verdict and typed beads findings"
+    },
+    {
+      "ac": "Operator entry points no longer encourage non-canonical paths",
+      "met": true,
+      "evidence": "oneshot and feature skills now point to the canonical SDP loop and boring public surface"
+    }
+  ],
+  "existing_work_summary": "Prompt and agent surfaces still reflected older discovery-heavy and review-only patterns before this cutover to the canonical runtime workflow."
+}

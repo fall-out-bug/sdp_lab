@@ -341,6 +341,10 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 - **F088** — Autonomous Backlog Synthesis from findings telemetry.
 - **F089** — Adaptive Gate Tuning based on historical signal quality.
 
+### Phase 6B: Canonical SDP Workflow (In Progress)
+
+- **F090** — Canonical SDP Workflow and Orchestrator Alignment. Tighten SDP around one canonical loop (`feature -> workstream -> beads issue -> early draft PR -> review findings -> QA/UAT -> clean PR`) and align orchestrator runtime, verdict artifacts, and operator surfaces to that loop.
+
 
 ### Layer Rollout Matrix (Vision Alignment)
 

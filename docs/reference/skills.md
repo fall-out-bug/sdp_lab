@@ -1,477 +1,219 @@
 # SDP Skills Reference
 
-Complete reference for SDP skill system and available skills.
+Status: canonical reference
 
----
+Canonical design reference:
 
-## Table of Contents
+- `docs/plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md`
 
-- [Skill System](#skill-system)
-- [Feature Skills](#feature-skills)
-- [Utility Skills](#utility-skills)
-- [Internal Skills](#internal-skills)
-- [Skill Development](#skill-development)
+This document defines the public SDP skill surface and the internal or conditional skills that support the canonical workflow.
 
----
+## Canonical Public Surface
 
-## Skill System
+The public happy path is:
 
-### What are Skills?
+- `@vision`
+- `@feature`
+- `@oneshot`
+- `@review`
+- `@qa`
+- `@deploy`
 
-Skills are Claude Code commands that execute specific SDP workflows. They are defined in `.claude/skills/{name}/SKILL.md` files.
+Rule:
 
-### Skill Invocation
+- if a skill is part of the default user path, it must map directly to one SDP stage
 
-```bash
-# Using @ prefix (user-facing)
-@feature "Add authentication"
+## Stage Mapping
 
-# Using / prefix (utilities)
-/debug "Test fails"
-```
+| SDP stage | Primary skill | Result |
+|-----------|---------------|--------|
+| `vision` | `@vision` | updated project map |
+| `feature` shaping | `@feature` | accepted `feature` |
+| `workstream` + `beads issue` mapping | `@feature` | executable graph |
+| early `draft PR` + graph execution | `@oneshot` | active `PR` and progressing execution |
+| engineering review | `@review` | pass or typed findings |
+| `QA/UAT` | `@qa` | `qa:pass` or `qa:fail` |
+| release or deploy path | `@deploy` | post-merge delivery actions |
 
-### Skill Locations
+## Public Skills
 
-**Feature Skills:**
-- `.claude/skills/feature/`
-- `.claude/skills/idea/`
-- `.claude/skills/design/`
-- `.claude/skills/build/`
-- `.claude/skills/review/`
-- `.claude/skills/deploy/`
+### `@vision`
 
-**Utility Skills:**
-- `.claude/skills/oneshot/`
-- `.claude/skills/debug/`
-- `.claude/skills/issue/`
-- `.claude/skills/hotfix/`
-- `.claude/skills/bugfix/`
+Use when:
 
-**Internal Skills:**
-- `.claude/skills/tdd/`
+- the user is shaping or revising project direction
+- the project map is incomplete or outdated
 
----
+Updates:
 
-## Feature Skills
+- `vision`
 
-### @feature
+Must emit:
 
-**Location:** `.claude/skills/feature/SKILL.md`
+- updated project map or explicit unresolved questions
 
-**Purpose:** Unified entry point for feature development
+### `@feature`
 
-**Workflow:**
-1. Calls @idea for requirements
-2. Generates PRODUCT_VISION.md
-3. Creates Beads task
-4. Outputs workstream plan
+Use when:
 
-**Example:**
-```bash
-@feature "Add user authentication"
-```
+- the user wants to define, refine, or decompose one `feature`
 
-**Output:**
-- `docs/drafts/idea-user-auth.md`
-- Beads task F{ID}
+Updates:
 
----
+- `feature`
+- `workstream`
+- linked `beads issue`
 
-### @idea
+Must emit:
 
-**Location:** `.claude/skills/idea/SKILL.md`
+- accepted `feature`
+- executable `workstream`
+- linked `beads issue` graph
 
-**Purpose:** Requirements gathering (internal)
+Notes:
 
-**Process:**
-- Deep questioning via AskUserQuestion
-- Explores technical approaches
-- Identifies tradeoffs
-- Generates comprehensive spec
+- internal feature clarification absorbs what older `@idea` and `@design` paths used to do on the happy path
+- separate `plan` is optional when the `beads issue` graph is already sufficient
 
-**Example:**
-```bash
-@idea "User authentication with OAuth"
-```
+### `@oneshot`
 
-**Called By:** @feature skill
+Use when:
 
----
+- the feature is ready for execution
+- the orchestrator should walk the ready `beads issue` graph
 
-### @design
+Updates:
 
-**Location:** `.claude/skills/design/SKILL.md`
+- branch state
+- early `draft PR`
+- execution state
+- `evidence`, `trace`, and `drift` inputs through the loop
 
-**Purpose:** Plan workstreams from requirements
+Must emit:
 
-**Process:**
-1. Read requirements document
-2. Enter Plan Mode for exploration
-3. Decompose into workstreams
-4. Create dependency graph
-5. Request approval
+- progressing or clean `PR`
+- explicit blockers when the graph cannot advance
 
-**Example:**
-```bash
-@design idea-user-auth
-```
+### `@review`
 
-**Output:**
-- `docs/workstreams/backlog/WS-*.md`
-- Dependency visualization
+Use when:
 
----
+- engineering review and gate validation are needed
 
-### @build
+Updates:
 
-**Location:** `.claude/skills/build/SKILL.md`
+- review state
+- finding issues in `beads`
 
-**Purpose:** Execute workstream with TDD
+Must emit:
 
-**Process:**
-1. Pre-build validation
-2. Red: Write failing test
-3. Green: Write minimal code
-4. Refactor: Improve code
-5. Quality gate checks
-6. Git commit
-7. Beads update
+- pass verdict, or
+- typed `beads issue` findings with source and blocking metadata
 
-**Quality Gates:**
-- Coverage ≥80%
-- mypy --strict
-- ruff clean
-- Files <200 LOC
-- No bare exceptions
+### `@qa`
 
-**Example:**
-```bash
-@build WS-001-01
-```
+Use when:
 
-**Progress Tracking:** Real-time TodoWrite updates
+- engineering gates are clean and the feature needs intent validation
 
----
+Updates:
 
-### @review
+- `QA/UAT` verdict
+- blocking or non-blocking `beads issue` findings when needed
 
-**Location:** `.claude/skills/review/SKILL.md`
+Must emit:
 
-**Purpose:** Quality check for completed feature
+- `qa:pass` with `UAT evidence`, or
+- `qa:fail` with blocking `beads issue`
 
-**Checks:**
-- All workstreams completed
-- Tests passing
-- Coverage ≥80%
-- Type hints complete
-- No TODO markers
-- Clean architecture respected
+### `@deploy`
 
-**Example:**
-```bash
-@review F001
-```
+Use when:
 
-**Output:** Pass/fail verdict with details
+- the work is merge-ready and there is a real release or deploy path to execute
 
----
+Updates:
 
-### @deploy
+- release or deployment state
 
-**Location:** `.claude/skills/deploy/SKILL.md`
+Must emit:
 
-**Purpose:** Deploy feature to production
+- deployment action or explicit human gate requirements
 
-**Process:**
-1. Final quality verification
-2. Create git tag
-3. Merge to main branch
-4. Generate changelog
-5. Trigger deployment
+## Internal or Conditional Skills
 
-**Example:**
-```bash
-@deploy F001
-```
+These are useful, but they are not the public happy path.
 
-**Prerequisites:**
-- All workstreams completed
-- @review passed
-- Documentation updated
+### `@build`
 
----
+Purpose:
 
-## Utility Skills
+- execute one `workstream` or one ready `beads issue`
 
-### @oneshot
+Use when:
 
-**Location:** `.claude/skills/oneshot/SKILL.md`
+- the orchestrator is executing one unit of work
+- a human wants a narrow execution step instead of full `@oneshot`
 
-**Purpose:** Autonomous feature execution
+### `@debug`
 
-**Features:**
-- Spawns orchestrator agent
-- Executes all workstreams
-- Handles dependencies
-- Checkpoint save/restore
-- Background execution
-- Progress notifications
+Purpose:
 
-**Example:**
-```bash
-@oneshot F001
+- systematic failure analysis
 
-# Background mode
-@oneshot F001 --background
+Use when:
 
-# Resume from checkpoint
-@oneshot F001 --resume <agent-id>
-```
+- execution or verification is failing
+- the next step is not obvious from evidence alone
 
-**Output:** Agent ID for resume capability
+### `@issue`
 
----
+Purpose:
 
-### /debug
+- classify bug or failure work and route it into the right path
 
-**Location:** `.claude/skills/debug/SKILL.md`
+Use when:
 
-**Purpose:** Systematic debugging using scientific method
+- incoming work is a bug, incident, or unclear failure report
 
-**Process:**
-1. Observe problem
-2. Form hypothesis
-3. Design experiment
-4. Run experiment
-5. Update hypothesis
+### `@reality` and `@reality-check`
 
-**Example:**
-```bash
-/debug "Test fails when running full suite"
-```
+Purpose:
 
-**Method:** Evidence-based root cause analysis
+- verify repo reality against docs, expectations, or assumptions
 
----
+Use when:
 
-### @issue
+- a feature or workstream may be drifting from code reality
+- an audit is needed before risky changes
 
-**Location:** `.claude/skills/issue/SKILL.md`
+## Skills To Absorb or Demote
 
-**Purpose:** Bug routing and classification
+- `@idea` is internal to `@vision` and `@feature`
+- `@design` is internal to `@feature` unless manual decomposition is explicitly requested
+- explicit `plan` flow is conditional, not a mandatory public step
 
-**Process:**
-1. Analyze bug description
-2. Classify severity (P0/P1/P2/P3)
-3. Route to appropriate fix command
-   - P0 → @hotfix
-   - P1/P2 → @bugfix
-   - P3 → backlog
+Skills that still depend on phantom commands, wrong language assumptions, or duplicated workflow logic should be rewritten or removed.
 
-**Example:**
-```bash
-@issue "Login fails on Firefox with error 500"
-```
+## Skill Quality Rule
 
-**Severity Classification:**
-- **P0** - Critical security, data loss, production down
-- **P1** - Major functionality broken
-- **P2** - Minor issues, workarounds available
-- **P3** - Cosmetic, nice to have
+Every surviving skill must answer clearly:
 
----
+- when it is the right entry point
+- what SDP entity it updates
+- what artifact or verdict it emits
 
-### @hotfix
+If a skill cannot answer those three, it should not stay on the public path.
 
-**Location:** `.claude/skills/hotfix/SKILL.md`
+## Operator Rule
 
-**Purpose:** Emergency fix for P0 issues
+When in doubt, prefer the canonical path:
 
-**Characteristics:**
-- Branch from main
-- Minimal changes only
-- Deploy < 2 hours
-- Skip full process
-- Direct to production
+- `@vision`
+- `@feature`
+- `@oneshot`
+- `@review`
+- `@qa`
+- `@deploy`
 
-**Example:**
-```bash
-@hotfix "Production database connection fails"
-```
-
-**Workflow:**
-1. Create hotfix branch from main
-2. Implement minimal fix
-3. Fast verification
-4. Deploy immediately
-5. Create regular WS for follow-up
-
----
-
-### @bugfix
-
-**Location:** `.claude/skills/bugfix/SKILL.md`
-
-**Purpose:** Quality fix for P1/P2 issues
-
-**Characteristics:**
-- Branch from feature/develop
-- Full TDD cycle
-- Quality gates enforced
-- No production deploy
-
-**Example:**
-```bash
-@bugfix "User profile image not loading"
-```
-
-**Workflow:**
-1. Create bugfix branch
-2. Full @build process
-3. Quality verification
-4. Merge to feature branch
-
----
-
-## Internal Skills
-
-### /tdd
-
-**Location:** `.claude/skills/tdd/SKILL.md`
-
-**Purpose:** TDD cycle enforcement (internal)
-
-**Process:**
-1. **Red** - Write failing test
-2. **Green** - Write minimal code
-3. **Refactor** - Improve code
-
-**Called By:** @build skill (automatic)
-
-**Not for direct user invocation**
-
----
-
-## Skill Development
-
-### Creating a New Skill
-
-**Directory Structure:**
-```
-.claude/skills/{skill_name}/
-├── SKILL.md          # Skill definition
-├── prompt.md         # Optional: Additional prompts
-└── examples/         # Optional: Usage examples
-```
-
-**SKILL.md Format:**
-```markdown
-# @skill-name
-
-One-line description.
-
-## Usage
-\`\`\`bash
-@skill-name "argument"
-\`\`\`
-
-## Process
-1. Step one
-2. Step two
-3. Step three
-
-## Output
-What the skill produces
-
-## Examples
-Common usage examples
-```
-
-### Skill Best Practices
-
-**DO ✅:**
-- Use clear, descriptive names
-- Provide usage examples
-- Document all steps
-- Handle errors gracefully
-- Validate inputs
-
-**DON'T ❌:**
-- Don't create overlapping skills
-- Don't skip error handling
-- Don't omit documentation
-- Don't make skills too complex
-
----
-
-## Skill Invocation Flow
-
-### Standard Feature Flow
-
-```
-@feature
-  ↓ (calls)
-@idea (gathers requirements)
-  ↓ (outputs)
-@design (plans workstreams)
-  ↓ (outputs)
-@build (executes each WS)
-  ↓ (repeats for all WS)
-@review (quality check)
-  ↓ (if passed)
-@deploy (production)
-```
-
-### Autonomous Flow
-
-```
-@feature
-  ↓
-@oneshot (spawns orchestrator)
-  ↓
-Orchestrator agent executes all workstreams
-  ↓
-@review + @deploy
-```
-
-### Bug Fix Flow
-
-```
-@issue
-  ↓ (classifies)
-@hotfix OR @bugfix
-  ↓
-@review (quality check)
-```
-
----
-
-## Quick Reference
-
-| Skill | Purpose | Time | User-Facing |
-|-------|---------|------|-------------|
-| `@feature` | Create feature | 10-15 min | ✅ |
-| `@idea` | Requirements | 5-10 min | ❌ Internal |
-| `@design` | Plan workstreams | 5-10 min | ✅ |
-| `@build` | Execute workstream | 30-90 min | ✅ |
-| `@review` | Quality check | 5-10 min | ✅ |
-| `@deploy` | Deploy feature | 5-10 min | ✅ |
-| `@oneshot` | Autonomous exec | 2-6 hours | ✅ |
-| `/debug` | Debug issue | 15-60 min | ✅ |
-| `@issue` | Report bug | 2-5 min | ✅ |
-| `@hotfix` | Emergency fix | < 2 hours | ✅ |
-| `@bugfix` | Quality fix | 1-4 hours | ✅ |
-| `/tdd` | TDD enforcement | Auto | ❌ Internal |
-
----
-
-## See Also
-
-- [commands.md](commands.md) - Command reference
-- [quality-gates.md](quality-gates.md) - Quality standards
-- [beginner/02-common-tasks.md](../beginner/02-common-tasks.md) - Common workflows
-
----
-
-**Version:** SDP v0.9.0
-**Updated:** 2026-01-29
+Everything else is support, exception handling, or narrow execution.

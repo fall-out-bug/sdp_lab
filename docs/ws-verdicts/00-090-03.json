@@ -1,0 +1,34 @@
+{
+  "ws_id": "00-090-03",
+  "feature_id": "F090",
+  "verdict": "PASS",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {
+      "ac": ".sdp/review_verdict.json is written on review success and review failure",
+      "met": true,
+      "evidence": "internal/orchestrate/findings.go + internal/orchestrate/loop.go"
+    },
+    {
+      "ac": ".sdp/qa_verdict.json is written on qa:pass and qa:fail",
+      "met": true,
+      "evidence": "internal/orchestrate/findings.go + internal/orchestrate/loop.go"
+    },
+    {
+      "ac": "Verdict artifacts carry finding_ids and blocking_ids when findings are created",
+      "met": true,
+      "evidence": "internal/orchestrate/findings.go + internal/orchestrate/findings_test.go"
+    },
+    {
+      "ac": "Blocking findings are used as explicit rerun control, not only surfaced in logs",
+      "met": true,
+      "evidence": "internal/orchestrate/rerun_control.go + internal/orchestrate/rerun_control_test.go + internal/orchestrate/loop.go"
+    }
+  ],
+  "existing_work_summary": "Review and QA verdict artifacts already existed, but blocking findings only surfaced in logs before rerun-control routing was added."
+}

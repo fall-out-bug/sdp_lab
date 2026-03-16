@@ -65,7 +65,21 @@ Scope: SDP integration with Beads for autonomous task tracking and sync
 
 ---
 
-## 6. Preflight sequence in orchestrate
+## 6. Typed findings contract
+
+**Requirement:** Findings from review, CI, `drift`, and `QA/UAT` must re-enter SDP as typed `beads issue` entries.
+
+- **Contract:** `docs/protocol/BEADS_FINDINGS_CONTRACT.md`
+- **Required fields:** `source`, linked `feature`, linked `workstream`, `blocking`, finding title/description, priority, `PR` or artifact reference
+- **Canonical mapping:** issue fields carry summary and priority; labels carry finding source, linked `feature`, linked `workstream`, and blocking semantics; notes are supplemental only
+- **Behavior:** blocking findings must return to the ready queue and block merge-ready state until resolved
+- **Scope:** applies to `@review`, `@qa`, PR gates, and any automated findings import path
+
+**Upstream PR candidate:** Support stable metadata fields or labels for typed findings so SDP does not rely on free-form notes for `source`, linkage, and blocking semantics.
+
+---
+
+## 7. Preflight sequence in orchestrate
 
 **Requirement:** Before dispatching a task, the pod must have the latest Beads state.
 
@@ -77,7 +91,7 @@ Scope: SDP integration with Beads for autonomous task tracking and sync
 
 ---
 
-## 7. Upstream PR candidates summary
+## 8. Upstream PR candidates summary
 
 | Candidate | Description | Priority |
 |-----------|-------------|----------|
@@ -88,8 +102,9 @@ Scope: SDP integration with Beads for autonomous task tracking and sync
 
 ---
 
-## 8. References
+## 9. References
 
 - [BEADS_AUTONOMY_SPEC.md](BEADS_AUTONOMY_SPEC.md) — fields, labels, transitions, evidence
+- [protocol/BEADS_FINDINGS_CONTRACT.md](protocol/BEADS_FINDINGS_CONTRACT.md) — typed findings contract
 - [.beads/config.yaml](../.beads/config.yaml) — repo config
 - [internal/beads/client.go](../internal/beads/client.go) — Go wrapper client

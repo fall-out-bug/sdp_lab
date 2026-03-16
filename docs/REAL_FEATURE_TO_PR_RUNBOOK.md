@@ -1,12 +1,13 @@
 # Real Feature-to-PR Runbook (Private)
 
-This runbook executes the full operator path from task claim to live PR.
+This runbook executes the canonical operator path from ready `beads issue` to clean `PR` with early `draft PR`, typed findings, and `QA/UAT`.
 
 ## Preconditions
 
 - remote origin is configured and has a default branch
 - `gh auth status` is valid
 - target task exists in Beads with `autonomy` and `strict-evidence` labels
+- the task links back to one `feature` and one `workstream`
 
 ## Steps
 
@@ -16,28 +17,31 @@ This runbook executes the full operator path from task claim to live PR.
 go run ./cmd/autonomy-worker
 ```
 
-2. Validate transition to review:
+2. Ensure feature branch exists and open early `draft PR`:
+
+```bash
+git push -u origin <feature-branch>
+gh pr create --draft --base dev --title "FXXX: short-name"
+```
+
+If the `feature` already has an active `draft PR`, reuse it. Do not wait until the end of the feature to open the PR.
+
+3. Validate transition to review:
 
 ```bash
 go run ./cmd/beads-fsm --issue <issue-id> --to review --apply
 ```
 
-3. Prepublish strict-evidence gate:
+4. Prepublish strict-evidence gate:
 
 ```bash
 go run ./cmd/pr-gate --issue <issue-id> --prepublish
 ```
 
-4. Push feature branch:
+5. Publish or update PR evidence and write `trace.pr_url`:
 
 ```bash
-git push -u origin <feature-branch>
-```
-
-5. Publish PR and write `trace.pr_url`:
-
-```bash
-go run ./cmd/pr-publish --issue <issue-id> --title "..." --head <feature-branch> --base master --body-file <body.md>
+go run ./cmd/pr-publish --issue <issue-id> --title "..." --head <feature-branch> --base dev --body-file <body.md>
 ```
 
 `pr-publish` now also writes `trace.run_context_link` + `trace.evidence_context_link` and appends a callback dispatch report note for `pr-callbacks.v1` recipients.
@@ -48,7 +52,28 @@ go run ./cmd/pr-publish --issue <issue-id> --title "..." --head <feature-branch>
 go run ./cmd/pr-gate --issue <issue-id>
 ```
 
-7. Complete flow and close task:
+7. Convert review, CI, or `drift` findings into typed `beads issue` entries.
+
+Each finding must capture:
+
+- `source = review | ci | drift | qa`
+- linked `feature`
+- linked `workstream`
+- `blocking = true|false`
+- `PR` link or artifact reference
+
+Use the canonical contract in [protocol/BEADS_FINDINGS_CONTRACT.md](protocol/BEADS_FINDINGS_CONTRACT.md).
+
+Blocking findings return to the ready queue and must be closed before the `PR` is considered clean.
+
+8. Run `QA/UAT` after engineering gates are clean.
+
+`QA/UAT` returns one of two verdicts:
+
+- `qa:pass` with `UAT evidence`
+- `qa:fail` with new blocking `beads issue`
+
+9. Complete flow and close task:
 
 ```bash
 go run ./cmd/beads-fsm --issue <issue-id> --to verified --apply
@@ -59,6 +84,8 @@ go run ./cmd/beads-fsm --issue <issue-id> --to done --apply
 
 - merge is always manual (human gate)
 - model allowlist remains `glm-5`, `glm-4.7`
+- `PR` is opened early and stays active throughout execution
+- merge-ready state requires clean engineering gates, complete `trace`, recorded `drift` verdict, and `QA/UAT` pass
 
 ## Callback retry semantics and policy controls
 
