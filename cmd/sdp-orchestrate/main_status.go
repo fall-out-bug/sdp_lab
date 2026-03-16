@@ -10,6 +10,10 @@ import (
 	"sdp_dev/internal/orchestrate"
 )
 
+type readyIssue struct {
+	ID string `json:"id"`
+}
+
 func runStatus(projectRoot, featureID string, cp *orchestrate.Checkpoint, workstreams []string) {
 	var pending []string
 	if cp != nil {
@@ -24,18 +28,14 @@ func runStatus(projectRoot, featureID string, cp *orchestrate.Checkpoint, workst
 
 	beadsCount := "N/A"
 	if path, err := exec.LookPath("bd"); err == nil {
-		cmd := exec.Command(path, "ready")
+		cmd := exec.Command(path, "ready", "--json", "-n", "0")
 		cmd.Dir = projectRoot
-		out, err := cmd.CombinedOutput()
+		out, err := cmd.Output()
 		if err == nil {
-			lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-			n := 0
-			for _, line := range lines {
-				if strings.TrimSpace(line) != "" && !strings.HasPrefix(line, "---") {
-					n++
-				}
+			var issues []readyIssue
+			if err := json.Unmarshal(out, &issues); err == nil {
+				beadsCount = fmt.Sprintf("%d", len(issues))
 			}
-			beadsCount = fmt.Sprintf("%d", n)
 		}
 	}
 

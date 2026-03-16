@@ -45,6 +45,17 @@ type ReadyIssue struct {
 	WSID string `json:"ws_id,omitempty"` // SDP workstream ID if mapped
 }
 
+type ListedIssue struct {
+	Issue
+	DependencyCount int `json:"dependency_count,omitempty"`
+	DependentCount  int `json:"dependent_count,omitempty"`
+}
+
+type DependencyIssue struct {
+	Issue
+	DependencyType string `json:"dependency_type,omitempty"`
+}
+
 // Client provides access to Beads data.
 type Client struct {
 	dbPath string
@@ -89,14 +100,21 @@ func findBeadsDB() (string, error) {
 		}
 	}
 
-	// Use bd command to find database
-	cmd := exec.Command("bd", "db", "path")
+	cmd := exec.Command("bd", "where")
 	output, err := cmd.Output()
 	if err == nil {
-		path := strings.TrimSpace(string(output))
-		if path != "" {
-			if _, err := os.Stat(path); err == nil {
-				return path, nil
+		for _, line := range strings.Split(string(output), "\n") {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "database:") {
+				path := strings.TrimSpace(strings.TrimPrefix(line, "database:"))
+				if path != "" {
+					if _, err := os.Stat(path); err == nil {
+						if strings.HasSuffix(path, "/dolt") {
+							return "", fmt.Errorf("beads database is Dolt-backed; direct SQLite access is not supported by internal/beads client")
+						}
+						return path, nil
+					}
+				}
 			}
 		}
 	}
@@ -235,6 +253,56 @@ func ReadyCommand() ([]ReadyIssue, error) {
 		return nil, fmt.Errorf("parse bd ready output: %w", err)
 	}
 
+	return issues, nil
+}
+
+func ListIssuesCommand(all bool) ([]ListedIssue, error) {
+	args := []string{"list", "--json", "-n", "0"}
+	if all {
+		args = append(args, "--all")
+	}
+	cmd := exec.Command("bd", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("bd list: %w", err)
+	}
+	var issues []ListedIssue
+	if err := json.Unmarshal(output, &issues); err != nil {
+		return nil, fmt.Errorf("parse bd list output: %w", err)
+	}
+	return issues, nil
+}
+
+func DependencyListCommand(issueID, direction, depType string) ([]DependencyIssue, error) {
+	args := []string{"dep", "list", issueID, "--json"}
+	if strings.TrimSpace(direction) != "" {
+		args = append(args, "--direction", direction)
+	}
+	if strings.TrimSpace(depType) != "" {
+		args = append(args, "--type", depType)
+	}
+	cmd := exec.Command("bd", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("bd dep list: %w", err)
+	}
+	var issues []DependencyIssue
+	if err := json.Unmarshal(output, &issues); err != nil {
+		return nil, fmt.Errorf("parse bd dep list output: %w", err)
+	}
+	return issues, nil
+}
+
+func DependencyTreeCommand(issueID string) ([]Issue, error) {
+	cmd := exec.Command("bd", "dep", "tree", issueID, "--json")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("bd dep tree: %w", err)
+	}
+	var issues []Issue
+	if err := json.Unmarshal(output, &issues); err != nil {
+		return nil, fmt.Errorf("parse bd dep tree output: %w", err)
+	}
 	return issues, nil
 }
 

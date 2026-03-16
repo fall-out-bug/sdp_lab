@@ -83,20 +83,29 @@ func queryDepsCmd(args []string) {
 		os.Exit(1)
 	}
 
-	// Create Beads client
-	client, err := beads.NewClient("")
+	issues, err := beads.ListIssuesCommand(true)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error connecting to Beads: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error listing issues: %v\n", err)
 		os.Exit(1)
 	}
-	defer client.Close()
 
-	// Query dependencies
-	depQuery := beads.NewDependencyQuery(client)
-	deps, err := depQuery.GetDependencies(beads.DependencyType(*typeFlag))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error querying dependencies: %v\n", err)
-		os.Exit(1)
+	deps := make([]beads.Dependency, 0)
+	for _, issue := range issues {
+		if issue.DependencyCount == 0 && issue.DependentCount == 0 {
+			continue
+		}
+		depItems, err := beads.DependencyListCommand(issue.ID, "down", *typeFlag)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error querying dependencies for %s: %v\n", issue.ID, err)
+			os.Exit(1)
+		}
+		for _, item := range depItems {
+			deps = append(deps, beads.Dependency{
+				FromIssueID:    issue.ID,
+				ToIssueID:      item.ID,
+				DependencyType: beads.DependencyType(item.DependencyType),
+			})
+		}
 	}
 
 	switch *formatFlag {
@@ -117,27 +126,29 @@ func queryStatsCmd(args []string) {
 		os.Exit(1)
 	}
 
-	// Create Beads client
-	client, err := beads.NewClient("")
+	issues, err := beads.ListIssuesCommand(true)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error connecting to Beads: %v\n", err)
-		os.Exit(1)
-	}
-	defer client.Close()
-
-	// Query statistics
-	depQuery := beads.NewDependencyQuery(client)
-	stats, err := depQuery.GetDependencyStats()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error querying dependency stats: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error listing issues: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Get priority breakdown
-	sqlClient := beads.NewSQLClient(client)
-	breakdown, err := sqlClient.GetPriorityBreakdown("open")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not get priority breakdown: %v\n", err)
+	stats := make(map[beads.DependencyType]int)
+	breakdown := make(map[int]int)
+	for _, issue := range issues {
+		if issue.Status == "open" || issue.Status == "in_progress" {
+			breakdown[issue.Priority]++
+		}
+		if issue.DependencyCount == 0 {
+			continue
+		}
+		depItems, err := beads.DependencyListCommand(issue.ID, "down", "")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error querying dependencies for %s: %v\n", issue.ID, err)
+			os.Exit(1)
+		}
+		for _, item := range depItems {
+			stats[beads.DependencyType(item.DependencyType)]++
+		}
 	}
 
 	switch *formatFlag {
@@ -155,43 +166,40 @@ func queryStatsCmd(args []string) {
 
 // queryBlockersCmd queries blocking dependencies for an issue.
 func queryBlockersCmd(args []string) {
+	orderedArgs, issueID := splitBlockerArgs(args)
 	fs := flag.NewFlagSet("blockers", flag.ExitOnError)
 	formatFlag := fs.String("format", "text", "Output format: json or text")
 	transitiveFlag := fs.Bool("transitive", false, "Show transitive blockers")
-	if err := fs.Parse(args); err != nil {
+	if err := fs.Parse(orderedArgs); err != nil {
 		fmt.Fprintf(os.Stderr, "parse flags: %v\n", err)
 		os.Exit(1)
 	}
 
-	if fs.NArg() < 1 {
+	if issueID == "" && fs.NArg() > 0 {
+		issueID = fs.Arg(0)
+	}
+
+	if issueID == "" {
 		fmt.Fprintln(os.Stderr, "Usage: sdp-beads-bridge query blockers <issue-id>")
 		os.Exit(1)
 	}
 
-	issueID := fs.Arg(0)
-
-	// Create Beads client
-	client, err := beads.NewClient("")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error connecting to Beads: %v\n", err)
-		os.Exit(1)
-	}
-	defer client.Close()
-
-	depQuery := beads.NewDependencyQuery(client)
-
+	var err error
 	var blockers []beads.Issue
 	if *transitiveFlag {
-		blockers, err = depQuery.GetTransitiveBlockers(issueID)
+		blockers, err = beads.DependencyTreeCommand(issueID)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error querying transitive blockers: %v\n", err)
 			os.Exit(1)
 		}
 	} else {
-		blockers, err = client.GetBlockingIssues(issueID)
+		depItems, err := beads.DependencyListCommand(issueID, "down", "blocks")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error querying blockers: %v\n", err)
 			os.Exit(1)
+		}
+		for _, item := range depItems {
+			blockers = append(blockers, item.Issue)
 		}
 	}
 
@@ -202,6 +210,28 @@ func queryBlockersCmd(args []string) {
 	default:
 		printBlockersText(issueID, blockers, *transitiveFlag)
 	}
+}
+
+func splitBlockerArgs(args []string) ([]string, string) {
+	ordered := make([]string, 0, len(args))
+	issueID := ""
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if strings.HasPrefix(arg, "-") {
+			ordered = append(ordered, arg)
+			if (arg == "--format" || arg == "-format") && i+1 < len(args) {
+				i++
+				ordered = append(ordered, args[i])
+			}
+			continue
+		}
+		if issueID == "" {
+			issueID = arg
+			continue
+		}
+		ordered = append(ordered, arg)
+	}
+	return ordered, issueID
 }
 
 func printReadyText(issues []beads.ReadyIssue) {
