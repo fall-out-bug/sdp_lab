@@ -1,6 +1,6 @@
 # sdp_dev Makefile
 .PHONY: test test-internal test-scripts coverage lint quality quality-go generate protocol-e2e
-.PHONY: build-sdp-orchestrate build-sdp-guard build-sdp-eval build-sdp-ci-loop build-sdp-evidence
+.PHONY: build-sdp build-sdp-orchestrate build-sdp-guard build-sdp-eval build-sdp-ci-loop build-sdp-evidence
 
 test:
 	go test ./... -count=1
@@ -47,6 +47,9 @@ sync-skills:
 	rsync -a sdp/prompts/skills/ .cursor/skills/ 2>/dev/null || true
 
 # Phase 0 CLI builds (for local dev)
+build-sdp:
+	go build -o bin/sdp ./cmd/sdp
+
 build-sdp-orchestrate:
 	go build -o bin/sdp-orchestrate ./cmd/sdp-orchestrate
 

@@ -12,57 +12,23 @@ import (
 )
 
 func main() {
-	fmt.Fprintln(os.Stderr, "⚠️  DEPRECATED: sdp-control is deprecated. Use 'sdp' instead.")
-	fmt.Fprintln(os.Stderr, "   Example: sdp-control card-create → sdp card create")
-	fmt.Fprintln(os.Stderr, "            sdp-control board-show → sdp board show")
-	fmt.Fprintln(os.Stderr, "            sdp-control doctor control → sdp doctor control")
-	fmt.Fprintln(os.Stderr, "            sdp-control dispatch-card → sdp dispatch card")
-	fmt.Fprintln(os.Stderr, "            sdp-control result-ingest → sdp result ingest")
-	fmt.Fprintln(os.Stderr, "            sdp-control attention → sdp attention")
-	fmt.Fprintln(os.Stderr)
 	if len(os.Args) < 2 {
 		usage()
 		os.Exit(2)
 	}
 	switch os.Args[1] {
-	case "card-create":
-		runCardCreate(os.Args[2:])
-	case "card-clarify":
-		runCardClarify(os.Args[2:])
-	case "card-needs-input":
-		runCardNeedsInput(os.Args[2:])
-	case "card-ready":
-		runCardReady(os.Args[2:])
-	case "card-park":
-		runCardPark(os.Args[2:])
-	case "card-execute":
-		runCardExecute(os.Args[2:])
-	case "card-feedback":
-		runCardFeedback(os.Args[2:])
-	case "card-feedback-export":
-		runCardFeedbackExport(os.Args[2:])
-	case "card-message-export":
-		runCardMessageExport(os.Args[2:])
-	case "card-resume":
-		runCardResume(os.Args[2:])
-	case "card-resume-import":
-		runCardResumeImport(os.Args[2:])
-	case "card-reply-ingest":
-		runCardReplyIngest(os.Args[2:])
-	case "board-build":
-		runBoardBuild(os.Args[2:])
-	case "board-show":
-		runBoardShow(os.Args[2:])
-	case "attention":
-		runAttention(os.Args[2:])
+	case "card":
+		runCard(os.Args[2:])
+	case "board":
+		runBoard(os.Args[2:])
 	case "doctor":
 		runDoctor(os.Args[2:])
-	case "packet-emit":
-		runPacketEmit(os.Args[2:])
-	case "dispatch-card":
-		runDispatchCard(os.Args[2:])
-	case "result-ingest":
-		runResultIngest(os.Args[2:])
+	case "dispatch":
+		runDispatch(os.Args[2:])
+	case "result":
+		runResult(os.Args[2:])
+	case "attention":
+		runAttention(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -70,7 +36,25 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|card-feedback|card-feedback-export|card-message-export|card-resume|card-resume-import|card-reply-ingest|dispatch-card|packet-emit|result-ingest|board-build|board-show|attention|doctor> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: sdp <card|board|doctor|dispatch|result|attention> <subcommand> [flags]")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Card commands:")
+	fmt.Fprintln(os.Stderr, "  sdp card <create|clarify|needs-input|ready|park|execute|feedback|feedback-export|message-export|resume|resume-import|reply-ingest>")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Board commands:")
+	fmt.Fprintln(os.Stderr, "  sdp board <build|show>")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Doctor commands:")
+	fmt.Fprintln(os.Stderr, "  sdp doctor control")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Dispatch commands:")
+	fmt.Fprintln(os.Stderr, "  sdp dispatch card")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Result commands:")
+	fmt.Fprintln(os.Stderr, "  sdp result ingest")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Other:")
+	fmt.Fprintln(os.Stderr, "  sdp attention")
 }
 
 func openStore() *control.Store {
@@ -90,6 +74,65 @@ func openStore() *control.Store {
 		os.Exit(1)
 	}
 	return store
+}
+
+func printJSON(v any) {
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	_ = enc.Encode(v)
+}
+
+func splitList(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ";")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if v := strings.TrimSpace(p); v != "" {
+			out = append(out, v)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func runCard(args []string) {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "usage: sdp card <create|clarify|needs-input|ready|park|execute|feedback|feedback-export|message-export|resume|resume-import|reply-ingest>")
+		os.Exit(2)
+	}
+	switch args[0] {
+	case "create":
+		runCardCreate(args[1:])
+	case "clarify":
+		runCardClarify(args[1:])
+	case "needs-input":
+		runCardNeedsInput(args[1:])
+	case "ready":
+		runCardReady(args[1:])
+	case "park":
+		runCardPark(args[1:])
+	case "execute":
+		runCardExecute(args[1:])
+	case "feedback":
+		runCardFeedback(args[1:])
+	case "feedback-export":
+		runCardFeedbackExport(args[1:])
+	case "message-export":
+		runCardMessageExport(args[1:])
+	case "resume":
+		runCardResume(args[1:])
+	case "resume-import":
+		runCardResumeImport(args[1:])
+	case "reply-ingest":
+		runCardReplyIngest(args[1:])
+	default:
+		fmt.Fprintln(os.Stderr, "usage: sdp card <create|clarify|needs-input|ready|park|execute|feedback|feedback-export|message-export|resume|resume-import|reply-ingest>")
+		os.Exit(2)
+	}
 }
 
 func runCardCreate(args []string) {
@@ -214,6 +257,24 @@ func runCardExecute(args []string) {
 	printJSON(card)
 }
 
+func runCardFeedback(args []string) {
+	fs := flag.NewFlagSet("card-feedback", flag.ExitOnError)
+	project := fs.String("project", "", "project id")
+	id := fs.String("id", "", "card id")
+	_ = fs.Parse(args)
+	if *project == "" || *id == "" {
+		fmt.Fprintln(os.Stderr, "error: --project and --id are required")
+		os.Exit(2)
+	}
+	store := openStore()
+	packet, err := store.GenerateFeedbackPacket(*project, *id)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: generate feedback packet: %v\n", err)
+		os.Exit(1)
+	}
+	printJSON(packet)
+}
+
 func runCardFeedbackExport(args []string) {
 	fs := flag.NewFlagSet("card-feedback-export", flag.ExitOnError)
 	project := fs.String("project", "", "project id")
@@ -233,171 +294,35 @@ func runCardFeedbackExport(args []string) {
 	printJSON(packet)
 }
 
-func runBoardBuild(args []string) {
-	fs := flag.NewFlagSet("board-build", flag.ExitOnError)
-	project := fs.String("project", "", "optional project id")
-	_ = fs.Parse(args)
-	store := openStore()
-	if *project != "" {
-		snap, err := store.BuildProjectSnapshot(*project)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: build project snapshot: %v\n", err)
-			os.Exit(1)
-		}
-		printJSON(snap)
-		return
-	}
-	port, err := store.BuildPortfolioSnapshot()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: build portfolio snapshot: %v\n", err)
-		os.Exit(1)
-	}
-	printJSON(port)
-}
-
-func runBoardShow(args []string) {
-	runBoardBuild(args)
-}
-
-func runAttention(args []string) {
-	store := openStore()
-	snap, err := store.BuildPortfolioSnapshot()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: build portfolio snapshot: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Println("🔍 ATTENTION SURFACE")
-	fmt.Println("=================")
-	fmt.Println()
-
-	fmt.Println("📌 NEXT RECOMMENDED ACTION")
-	fmt.Println("--------------------------")
-	if snap.NextAction != nil {
-		fmt.Printf("Action: %s\n", snap.NextAction["recommended"])
-		if reason, ok := snap.NextAction["reason"]; ok {
-			fmt.Printf("Reason: %s\n", reason)
-		}
-		if targetProj, ok := snap.NextAction["target_project_id"]; ok && targetProj != "" {
-			fmt.Printf("Target Project: %s\n", targetProj)
-		}
-		if targetCard, ok := snap.NextAction["target_card_id"]; ok && targetCard != "" {
-			fmt.Printf("Target Card: %s\n", targetCard)
-		}
-	} else {
-		fmt.Println("No immediate action needed")
-	}
-	fmt.Println()
-
-	fmt.Println("📊 QUEUES")
-	fmt.Println("----------")
-	printQueue("Waiting on Human", snap.Queues["waiting_on_human"])
-	printQueue("Ready to Execute", snap.Queues["ready_to_execute"])
-	printQueue("Blocked", snap.Queues["blocked"])
-	fmt.Println()
-
-	printExecutingCards(snap)
-	fmt.Println()
-
-	fmt.Println("📈 TOTALS")
-	fmt.Println("---------")
-	fmt.Printf("Inbox: %d | Clarifying: %d | Ready: %d | Executing: %d | Blocked: %d | Done: %d\n",
-		snap.Totals["inbox"], snap.Totals["clarifying"], snap.Totals["ready"],
-		snap.Totals["executing"], snap.Totals["blocked"], snap.Totals["done"])
-}
-
-func printQueue(name string, items []control.QueueItem) {
-	fmt.Printf("%s: %d\n", name, len(items))
-	for _, item := range items {
-		fmt.Printf("  [%s/%s] %s\n", item.ProjectID, item.CardID, item.Title)
-		if item.RecommendedNextStep != "" {
-			fmt.Printf("    → %s\n", item.RecommendedNextStep)
-		}
-		if len(item.ActiveAgents) > 0 {
-			fmt.Printf("    👤 Agents: %v\n", item.ActiveAgents)
-		}
-		if len(item.NeedsFeedbackFrom) > 0 {
-			fmt.Printf("    📝 Waiting from: %v\n", item.NeedsFeedbackFrom)
-		}
-		if len(item.AuthorUpdate) > 0 {
-			fmt.Printf("    📎 Updates: %v\n", item.AuthorUpdate)
-		}
-		if len(item.AdminActionRequired) > 0 {
-			fmt.Printf("    ⚙️  Admin actions: %v\n", item.AdminActionRequired)
-		}
-	}
-	fmt.Println()
-}
-
-type cardDisplay struct {
-	ProjectID string
-	control.CardSummary
-}
-
-func printExecutingCards(snap *control.PortfolioBoardSnapshot) {
-	executing := []cardDisplay{}
-
-	for _, proj := range snap.Projects {
-		projID, _ := proj["project_id"].(string)
-		counts, ok := proj["counts"].(map[string]any)
-		if !ok {
-			continue
-		}
-		execCount, _ := counts["executing"].(int)
-		if execCount == 0 {
-			continue
-		}
-
-		projSnap, err := openStore().BuildProjectSnapshot(projID)
-		if err != nil {
-			continue
-		}
-		for _, card := range projSnap.Columns["executing"] {
-			executing = append(executing, cardDisplay{ProjectID: projID, CardSummary: card})
-		}
-	}
-
-	if len(executing) == 0 {
-		fmt.Println("🔄 EXECUTING")
-		fmt.Println("------------")
-		fmt.Println("No cards currently executing")
-		fmt.Println()
-		return
-	}
-
-	fmt.Println("🔄 EXECUTING")
-	fmt.Println("------------")
-	for _, e := range executing {
-		fmt.Printf("  [%s/%s] %s\n", e.ProjectID, e.ID, e.Title)
-		if e.RecommendedNextStep != "" {
-			fmt.Printf("    → %s\n", e.RecommendedNextStep)
-		}
-		if len(e.ActiveAgents) > 0 {
-			fmt.Printf("    👤 Agents: %v\n", e.ActiveAgents)
-		}
-		if len(e.LinkedBeadsIDs) > 0 {
-			fmt.Printf("    🔗 Beads: %v\n", e.LinkedBeadsIDs)
-		}
-	}
-	fmt.Println()
-}
-
-func runCardFeedback(args []string) {
-	fs := flag.NewFlagSet("card-feedback", flag.ExitOnError)
+func runCardMessageExport(args []string) {
+	fs := flag.NewFlagSet("card-message-export", flag.ExitOnError)
 	project := fs.String("project", "", "project id")
 	id := fs.String("id", "", "card id")
+	targetRole := fs.String("target-role", "human", "target role (default: human)")
+	path := fs.String("output", "", "output file path (required)")
 	_ = fs.Parse(args)
-	if *project == "" || *id == "" {
-		fmt.Fprintln(os.Stderr, "error: --project and --id are required")
+	if *project == "" || *id == "" || *path == "" {
+		fmt.Fprintln(os.Stderr, "error: --project, --id, and --output are required")
 		os.Exit(2)
 	}
 	store := openStore()
-	packet, err := store.GenerateFeedbackPacket(*project, *id)
+	envelope, err := store.ExportOutboundMessage(*project, *id, *targetRole)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: generate feedback packet: %v\n", err)
+		fmt.Fprintf(os.Stderr, "error: export outbound message: %v\n", err)
 		os.Exit(1)
 	}
-	printJSON(packet)
+
+	data, err := json.MarshalIndent(envelope, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: marshal envelope: %v\n", err)
+		os.Exit(1)
+	}
+	if err := os.WriteFile(*path, data, 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "error: write envelope to %s: %v\n", *path, err)
+		os.Exit(1)
+	}
+	fmt.Printf("Exported outbound message envelope to %s (correlation_id: %s)\n", *path, envelope.CorrelationID)
+	printJSON(envelope)
 }
 
 func runCardResume(args []string) {
@@ -456,60 +381,6 @@ func runCardResumeImport(args []string) {
 	printJSON(card)
 }
 
-func splitList(raw string) []string {
-	if strings.TrimSpace(raw) == "" {
-		return nil
-	}
-	parts := strings.Split(raw, ";")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if v := strings.TrimSpace(p); v != "" {
-			out = append(out, v)
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func printJSON(v any) {
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	_ = enc.Encode(v)
-}
-
-func runCardMessageExport(args []string) {
-	fs := flag.NewFlagSet("card-message-export", flag.ExitOnError)
-	project := fs.String("project", "", "project id")
-	id := fs.String("id", "", "card id")
-	targetRole := fs.String("target-role", "human", "target role (default: human)")
-	path := fs.String("output", "", "output file path (required)")
-	_ = fs.Parse(args)
-	if *project == "" || *id == "" || *path == "" {
-		fmt.Fprintln(os.Stderr, "error: --project, --id, and --output are required")
-		os.Exit(2)
-	}
-	store := openStore()
-	envelope, err := store.ExportOutboundMessage(*project, *id, *targetRole)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: export outbound message: %v\n", err)
-		os.Exit(1)
-	}
-
-	data, err := json.MarshalIndent(envelope, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: marshal envelope: %v\n", err)
-		os.Exit(1)
-	}
-	if err := os.WriteFile(*path, data, 0644); err != nil {
-		fmt.Fprintf(os.Stderr, "error: write envelope to %s: %v\n", *path, err)
-		os.Exit(1)
-	}
-	fmt.Printf("Exported outbound message envelope to %s (correlation_id: %s)\n", *path, envelope.CorrelationID)
-	printJSON(envelope)
-}
-
 func runCardReplyIngest(args []string) {
 	fs := flag.NewFlagSet("card-reply-ingest", flag.ExitOnError)
 	path := fs.String("input", "", "input file path (required)")
@@ -541,12 +412,53 @@ func runCardReplyIngest(args []string) {
 	printJSON(card)
 }
 
-func runDoctor(args []string) {
-	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "error: subcommand is required (use 'control')")
+func runBoard(args []string) {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "usage: sdp board <build|show>")
 		os.Exit(2)
 	}
+	switch args[0] {
+	case "build":
+		runBoardBuild(args[1:])
+	case "show":
+		runBoardShow(args[1:])
+	default:
+		fmt.Fprintln(os.Stderr, "usage: sdp board <build|show>")
+		os.Exit(2)
+	}
+}
 
+func runBoardBuild(args []string) {
+	fs := flag.NewFlagSet("board-build", flag.ExitOnError)
+	project := fs.String("project", "", "optional project id")
+	_ = fs.Parse(args)
+	store := openStore()
+	if *project != "" {
+		snap, err := store.BuildProjectSnapshot(*project)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: build project snapshot: %v\n", err)
+			os.Exit(1)
+		}
+		printJSON(snap)
+		return
+	}
+	port, err := store.BuildPortfolioSnapshot()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: build portfolio snapshot: %v\n", err)
+		os.Exit(1)
+	}
+	printJSON(port)
+}
+
+func runBoardShow(args []string) {
+	runBoardBuild(args)
+}
+
+func runDoctor(args []string) {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "usage: sdp doctor control")
+		os.Exit(2)
+	}
 	switch args[0] {
 	case "control":
 		runDoctorControl()
@@ -592,6 +504,20 @@ func runDoctorControl() {
 	fmt.Println("✅ ALL CHECKS PASSED")
 }
 
+func runDispatch(args []string) {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "usage: sdp dispatch card")
+		os.Exit(2)
+	}
+	switch args[0] {
+	case "card":
+		runDispatchCard(args[1:])
+	default:
+		fmt.Fprintf(os.Stderr, "error: unknown dispatch subcommand: %s\n", args[0])
+		os.Exit(2)
+	}
+}
+
 func runDispatchCard(args []string) {
 	fs := flag.NewFlagSet("dispatch-card", flag.ExitOnError)
 	project := fs.String("project", "", "project id")
@@ -610,22 +536,18 @@ func runDispatchCard(args []string) {
 	printJSON(card)
 }
 
-func runPacketEmit(args []string) {
-	fs := flag.NewFlagSet("packet-emit", flag.ExitOnError)
-	project := fs.String("project", "", "project id")
-	id := fs.String("id", "", "card id")
-	_ = fs.Parse(args)
-	if *project == "" || *id == "" {
-		fmt.Fprintln(os.Stderr, "error: --project and --id are required")
+func runResult(args []string) {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "usage: sdp result ingest")
 		os.Exit(2)
 	}
-	store := openStore()
-	packet, err := store.BuildExecutionPacket(*project, *id)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: build execution packet: %v\n", err)
-		os.Exit(1)
+	switch args[0] {
+	case "ingest":
+		runResultIngest(args[1:])
+	default:
+		fmt.Fprintf(os.Stderr, "error: unknown result subcommand: %s\n", args[0])
+		os.Exit(2)
 	}
-	printJSON(packet)
 }
 
 func runResultIngest(args []string) {
@@ -657,4 +579,127 @@ func runResultIngest(args []string) {
 	}
 	fmt.Printf("Ingested executor result for card %s\n", packet.ParentFeatureID)
 	printJSON(card)
+}
+
+func runAttention(args []string) {
+	store := openStore()
+	snap, err := store.BuildPortfolioSnapshot()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: build portfolio snapshot: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("🔍 ATTENTION SURFACE")
+	fmt.Println("=================")
+	fmt.Println()
+
+	fmt.Println("📌 NEXT RECOMMENDED ACTION")
+	fmt.Println("--------------------------")
+	if snap.NextAction != nil {
+		fmt.Printf("Action: %s\n", snap.NextAction["recommended"])
+		if reason, ok := snap.NextAction["reason"]; ok {
+			fmt.Printf("Reason: %s\n", reason)
+		}
+		if targetProj, ok := snap.NextAction["target_project_id"]; ok && targetProj != "" {
+			fmt.Printf("Target Project: %s\n", targetProj)
+		}
+		if targetCard, ok := snap.NextAction["target_card_id"]; ok && targetCard != "" {
+			fmt.Printf("Target Card: %s\n", targetCard)
+		}
+	} else {
+		fmt.Println("No immediate action needed")
+	}
+	fmt.Println()
+
+	fmt.Println("📊 QUEUES")
+	fmt.Println("----------")
+	printQueue("Waiting on Human", snap.Queues["waiting_on_human"])
+	printQueue("Ready to Execute", snap.Queues["ready_to_execute"])
+	printQueue("Blocked", snap.Queues["blocked"])
+	fmt.Println()
+
+	printExecutingCards(snap)
+	fmt.Println()
+
+	fmt.Println("📈 TOTALS")
+	fmt.Println("---------")
+	fmt.Printf("Inbox: %d | Clarifying: %d | Ready: %d | Executing: %d | Blocked: %d | Done: %d\n",
+		snap.Totals["inbox"], snap.Totals["clarifying"], snap.Totals["ready"],
+		snap.Totals["executing"], snap.Totals["blocked"], snap.Totals["done"])
+}
+
+type cardDisplay struct {
+	ProjectID string
+	control.CardSummary
+}
+
+func printQueue(name string, items []control.QueueItem) {
+	fmt.Printf("%s: %d\n", name, len(items))
+	for _, item := range items {
+		fmt.Printf("  [%s/%s] %s\n", item.ProjectID, item.CardID, item.Title)
+		if item.RecommendedNextStep != "" {
+			fmt.Printf("    → %s\n", item.RecommendedNextStep)
+		}
+		if len(item.ActiveAgents) > 0 {
+			fmt.Printf("    👤 Agents: %v\n", item.ActiveAgents)
+		}
+		if len(item.NeedsFeedbackFrom) > 0 {
+			fmt.Printf("    📝 Waiting from: %v\n", item.NeedsFeedbackFrom)
+		}
+		if len(item.AuthorUpdate) > 0 {
+			fmt.Printf("    📎 Updates: %v\n", item.AuthorUpdate)
+		}
+		if len(item.AdminActionRequired) > 0 {
+			fmt.Printf("    ⚙️  Admin actions: %v\n", item.AdminActionRequired)
+		}
+	}
+	fmt.Println()
+}
+
+func printExecutingCards(snap *control.PortfolioBoardSnapshot) {
+	executing := []cardDisplay{}
+
+	for _, proj := range snap.Projects {
+		projID, _ := proj["project_id"].(string)
+		counts, ok := proj["counts"].(map[string]any)
+		if !ok {
+			continue
+		}
+		execCount, _ := counts["executing"].(int)
+		if execCount == 0 {
+			continue
+		}
+
+		projSnap, err := openStore().BuildProjectSnapshot(projID)
+		if err != nil {
+			continue
+		}
+		for _, card := range projSnap.Columns["executing"] {
+			executing = append(executing, cardDisplay{ProjectID: projID, CardSummary: card})
+		}
+	}
+
+	if len(executing) == 0 {
+		fmt.Println("🔄 EXECUTING")
+		fmt.Println("------------")
+		fmt.Println("No cards currently executing")
+		fmt.Println()
+		return
+	}
+
+	fmt.Println("🔄 EXECUTING")
+	fmt.Println("------------")
+	for _, e := range executing {
+		fmt.Printf("  [%s/%s] %s\n", e.ProjectID, e.ID, e.Title)
+		if e.RecommendedNextStep != "" {
+			fmt.Printf("    → %s\n", e.RecommendedNextStep)
+		}
+		if len(e.ActiveAgents) > 0 {
+			fmt.Printf("    👤 Agents: %v\n", e.ActiveAgents)
+		}
+		if len(e.LinkedBeadsIDs) > 0 {
+			fmt.Printf("    🔗 Beads: %v\n", e.LinkedBeadsIDs)
+		}
+	}
+	fmt.Println()
 }

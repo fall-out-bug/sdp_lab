@@ -35,20 +35,33 @@ But:
 - docs should point to `sdp ...` as canonical
 - new surface area should not keep expanding under the old temporary binary name
 
-## Current migration target
+## Migration status
 
-Move the existing control-tower command surface from:
-- `sdp-control <...>`
+**COMPLETE**: The control-tower command surface has been migrated to `sdp` canonical root.
 
-to:
-- `sdp card <...>`
-- `sdp board <...>`
-- `sdp doctor control`
-- `sdp dispatch card`
-- `sdp result ingest`
-- `sdp attention`
+Current command mappings:
+- `sdp-control card-create` → `sdp card create`
+- `sdp-control card-clarify` → `sdp card clarify`
+- `sdp-control card-needs-input` → `sdp card needs-input`
+- `sdp-control card-ready` → `sdp card ready`
+- `sdp-control card-park` → `sdp card park`
+- `sdp-control card-execute` → `sdp card execute`
+- `sdp-control card-feedback` → `sdp card feedback`
+- `sdp-control card-feedback-export` → `sdp card feedback-export`
+- `sdp-control card-message-export` → `sdp card message-export`
+- `sdp-control card-resume` → `sdp card resume`
+- `sdp-control card-resume-import` → `sdp card resume-import`
+- `sdp-control card-reply-ingest` → `sdp card reply-ingest`
+- `sdp-control board-build` → `sdp board build`
+- `sdp-control board-show` → `sdp board show`
+- `sdp-control doctor control` → `sdp doctor control`
+- `sdp-control dispatch-card` → `sdp dispatch card`
+- `sdp-control result-ingest` → `sdp result ingest`
+- `sdp-control attention` → `sdp attention`
+
+The `sdp-control` binary remains as a temporary compatibility shim and shows deprecation notice on every invocation.
 
 ## Short formula
 
 - `sdp` = canonical root
-- old one-off binaries = temporary compatibility only
+- `sdp-control` = temporary compatibility shim (deprecated)
