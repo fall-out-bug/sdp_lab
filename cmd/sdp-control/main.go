@@ -29,6 +29,10 @@ func main() {
 		runCardPark(os.Args[2:])
 	case "card-execute":
 		runCardExecute(os.Args[2:])
+	case "card-feedback":
+		runCardFeedback(os.Args[2:])
+	case "card-resume":
+		runCardResume(os.Args[2:])
 	case "board-build":
 		runBoardBuild(os.Args[2:])
 	case "board-show":
@@ -40,7 +44,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|board-build|board-show> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|card-feedback|card-resume|board-build|board-show> [flags]")
 }
 
 func openStore() *control.Store {
@@ -208,6 +212,56 @@ func runBoardBuild(args []string) {
 
 func runBoardShow(args []string) {
 	runBoardBuild(args)
+}
+
+func runCardFeedback(args []string) {
+	fs := flag.NewFlagSet("card-feedback", flag.ExitOnError)
+	project := fs.String("project", "", "project id")
+	id := fs.String("id", "", "card id")
+	_ = fs.Parse(args)
+	if *project == "" || *id == "" {
+		fmt.Fprintln(os.Stderr, "error: --project and --id are required")
+		os.Exit(2)
+	}
+	store := openStore()
+	packet, err := store.GenerateFeedbackPacket(*project, *id)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: generate feedback packet: %v\n", err)
+		os.Exit(1)
+	}
+	printJSON(packet)
+}
+
+func runCardResume(args []string) {
+	fs := flag.NewFlagSet("card-resume", flag.ExitOnError)
+	project := fs.String("project", "", "project id")
+	id := fs.String("id", "", "card id")
+	answers := fs.String("answers", "", "semicolon-separated answers to feedback questions")
+	decisions := fs.String("decisions", "", "semicolon-separated decision answers")
+	updates := fs.String("updates", "", "semicolon-separated author updates")
+	adminActions := fs.String("admin-actions", "", "semicolon-separated admin actions taken")
+	unblock := fs.String("unblock", "", "semicolon-separated blocking reasons resolved")
+	targetStatus := fs.String("target-status", "", "target status (clarifying or ready, default: clarifying)")
+	_ = fs.Parse(args)
+	if *project == "" || *id == "" {
+		fmt.Fprintln(os.Stderr, "error: --project and --id are required")
+		os.Exit(2)
+	}
+	answer := &control.FeedbackAnswer{
+		FeedbackAnswers:    splitList(*answers),
+		DecisionAnswers:    splitList(*decisions),
+		AuthorUpdates:      splitList(*updates),
+		AdminActions:       splitList(*adminActions),
+		UnblockReasons:     splitList(*unblock),
+		ResumeTargetStatus: *targetStatus,
+	}
+	store := openStore()
+	card, err := store.ApplyFeedback(*project, *id, answer)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: apply feedback: %v\n", err)
+		os.Exit(1)
+	}
+	printJSON(card)
 }
 
 func splitList(raw string) []string {

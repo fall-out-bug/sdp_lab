@@ -184,3 +184,196 @@ func TestExecuteCardFailsIfNotReady(t *testing.T) {
 		t.Fatal("expected error for non-ready card")
 	}
 }
+
+func TestGenerateFeedbackPacket(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.Status = "needs_input"
+	card.NeedsFeedbackFrom = []string{"author"}
+	card.FeedbackRequest = []string{"Which channel?"}
+	card.DecisionRequired = []string{"Choose threshold model"}
+	card.AuthorUpdate = []string{"One decision needed"}
+	card.BlockingReasons = []string{"Waiting for user input"}
+	card.RecommendedNext = "Answer the question"
+	card.WaitingOn = []string{"human"}
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	packet, err := store.GenerateFeedbackPacket("openclaw", card.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if packet.CardID != card.ID {
+		t.Fatalf("packet.CardID = %s, want %s", packet.CardID, card.ID)
+	}
+	if packet.CardTitle != card.Title {
+		t.Fatalf("packet.CardTitle = %s, want %s", packet.CardTitle, card.Title)
+	}
+	if packet.ProjectID != card.ProjectID {
+		t.Fatalf("packet.ProjectID = %s, want %s", packet.ProjectID, card.ProjectID)
+	}
+	if packet.Status != card.Status {
+		t.Fatalf("packet.Status = %s, want %s", packet.Status, card.Status)
+	}
+	if len(packet.NeedsFeedbackFrom) != 1 {
+		t.Fatalf("len(NeedsFeedbackFrom) = %d, want 1", len(packet.NeedsFeedbackFrom))
+	}
+	if len(packet.FeedbackRequest) != 1 {
+		t.Fatalf("len(FeedbackRequest) = %d, want 1", len(packet.FeedbackRequest))
+	}
+	if len(packet.DecisionRequired) != 1 {
+		t.Fatalf("len(DecisionRequired) = %d, want 1", len(packet.DecisionRequired))
+	}
+	if len(packet.BlockingReasons) != 1 {
+		t.Fatalf("len(BlockingReasons) = %d, want 1", len(packet.BlockingReasons))
+	}
+}
+
+func TestGenerateFeedbackPacketFailsForInvalidStatus(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := store.GenerateFeedbackPacket("openclaw", card.ID); err == nil {
+		t.Fatal("expected error for non-needs_input/blocked card")
+	}
+}
+
+func TestApplyFeedback(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.Status = "needs_input"
+	card.NeedsFeedbackFrom = []string{"author"}
+	card.FeedbackRequest = []string{"Which channel?"}
+	card.BlockingReasons = []string{"Waiting for channel decision"}
+	card.WaitingOn = []string{"human"}
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	answer := &FeedbackAnswer{
+		FeedbackAnswers: []string{"Use chat only"},
+		UnblockReasons:  []string{"Waiting for channel decision"},
+	}
+
+	resumed, err := store.ApplyFeedback("openclaw", card.ID, answer)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resumed.Status != "clarifying" {
+		t.Fatalf("resumed.Status = %s, want clarifying", resumed.Status)
+	}
+	if len(resumed.NeedsFeedbackFrom) != 0 {
+		t.Fatalf("len(NeedsFeedbackFrom) = %d, want 0", len(resumed.NeedsFeedbackFrom))
+	}
+	if len(resumed.FeedbackRequest) != 0 {
+		t.Fatalf("len(FeedbackRequest) = %d, want 0", len(resumed.FeedbackRequest))
+	}
+	if len(resumed.BlockingReasons) != 0 {
+		t.Fatalf("len(BlockingReasons) = %d, want 0", len(resumed.BlockingReasons))
+	}
+	if len(resumed.WaitingOn) != 0 {
+		t.Fatalf("len(WaitingOn) = %d, want 0", len(resumed.WaitingOn))
+	}
+	if len(resumed.AuthorUpdate) == 0 {
+		t.Fatal("expected author_update to contain answer")
+	}
+}
+
+func TestApplyFeedbackWithReadyTarget(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.NormalizedIntent = "test intent"
+	card.TaskType = "feature"
+	card.TargetRepo = "openclaw"
+	card.RiskLevel = "low"
+	card.RecommendedNext = "execute"
+	card.ScopeIn = []string{"test scope"}
+	card.Status = "needs_input"
+	card.NeedsFeedbackFrom = []string{"author"}
+	card.FeedbackRequest = []string{"Any questions?"}
+	card.WaitingOn = []string{"human"}
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	answer := &FeedbackAnswer{
+		FeedbackAnswers:    []string{"No questions"},
+		ResumeTargetStatus: "ready",
+	}
+
+	resumed, err := store.ApplyFeedback("openclaw", card.ID, answer)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resumed.Status != "ready" {
+		t.Fatalf("resumed.Status = %s, want ready", resumed.Status)
+	}
+}
+
+func TestApplyFeedbackFailsForInvalidTarget(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.NormalizedIntent = "test intent"
+	card.TaskType = "feature"
+	card.TargetRepo = "openclaw"
+	card.RiskLevel = "low"
+	card.RecommendedNext = "execute"
+	card.ScopeIn = []string{"test scope"}
+	card.Status = "needs_input"
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	answer := &FeedbackAnswer{
+		FeedbackAnswers:    []string{"No questions"},
+		ResumeTargetStatus: "ready",
+	}
+
+	card.NormalizedIntent = ""
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := store.ApplyFeedback("openclaw", card.ID, answer); err == nil {
+		t.Fatal("expected error for card not meeting ready gate")
+	}
+}
+
+func TestApplyFeedbackFailsForInvalidStatus(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	answer := &FeedbackAnswer{
+		FeedbackAnswers: []string{"test"},
+	}
+
+	if _, err := store.ApplyFeedback("openclaw", card.ID, answer); err == nil {
+		t.Fatal("expected error for non-needs_input/blocked card")
+	}
+}

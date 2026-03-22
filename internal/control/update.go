@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 func (s *Store) LoadCard(projectID, cardID string) (*FeatureCard, error) {
@@ -330,4 +331,150 @@ func SetCreateBeadsIssueFn(fn func(*FeatureCard) (string, error)) {
 
 func MockCreateBeadsIssue(id string) func(*FeatureCard) (string, error) {
 	return func(*FeatureCard) (string, error) { return id, nil }
+}
+
+type FeedbackPacket struct {
+	CardID              string   `json:"card_id"`
+	CardTitle           string   `json:"card_title"`
+	ProjectID           string   `json:"project_id"`
+	Status              string   `json:"status"`
+	NeedsFeedbackFrom   []string `json:"needs_feedback_from,omitempty"`
+	FeedbackRequest     []string `json:"feedback_request,omitempty"`
+	DecisionRequired    []string `json:"decision_required,omitempty"`
+	AuthorUpdate        []string `json:"author_update,omitempty"`
+	AdminActionRequired []string `json:"admin_action_required,omitempty"`
+	BlockingReasons     []string `json:"blocking_reasons,omitempty"`
+	RecommendedNext     string   `json:"recommended_next_step,omitempty"`
+	WaitingOn           []string `json:"waiting_on,omitempty"`
+}
+
+func (s *Store) GenerateFeedbackPacket(projectID, cardID string) (*FeedbackPacket, error) {
+	card, err := s.LoadCard(projectID, cardID)
+	if err != nil {
+		return nil, err
+	}
+
+	if card.Status != "needs_input" && card.Status != "blocked" {
+		return nil, fmt.Errorf("card must be in needs_input or blocked state to generate feedback packet, current status: %s", card.Status)
+	}
+
+	packet := &FeedbackPacket{
+		CardID:              card.ID,
+		CardTitle:           card.Title,
+		ProjectID:           card.ProjectID,
+		Status:              card.Status,
+		NeedsFeedbackFrom:   card.NeedsFeedbackFrom,
+		FeedbackRequest:     card.FeedbackRequest,
+		DecisionRequired:    card.DecisionRequired,
+		AuthorUpdate:        card.AuthorUpdate,
+		AdminActionRequired: card.AdminActionRequired,
+		BlockingReasons:     card.BlockingReasons,
+		RecommendedNext:     card.RecommendedNext,
+		WaitingOn:           card.WaitingOn,
+	}
+
+	return packet, nil
+}
+
+type FeedbackAnswer struct {
+	FeedbackAnswers    []string `json:"feedback_answers,omitempty"`
+	DecisionAnswers    []string `json:"decision_answers,omitempty"`
+	AuthorUpdates      []string `json:"author_updates,omitempty"`
+	AdminActions       []string `json:"admin_actions,omitempty"`
+	UnblockReasons     []string `json:"unblock_reasons,omitempty"`
+	ResumeTargetStatus string   `json:"resume_target_status,omitempty"`
+}
+
+func (s *Store) ApplyFeedback(projectID, cardID string, answer *FeedbackAnswer) (*FeatureCard, error) {
+	card, err := s.LoadCard(projectID, cardID)
+	if err != nil {
+		return nil, err
+	}
+
+	if card.Status != "needs_input" && card.Status != "blocked" {
+		return nil, fmt.Errorf("card must be in needs_input or blocked state to apply feedback, current status: %s", card.Status)
+	}
+
+	now := time.Now().UTC()
+
+	if len(answer.FeedbackAnswers) > 0 {
+		for _, ans := range answer.FeedbackAnswers {
+			card.AuthorUpdate = cleanList(append(card.AuthorUpdate, fmt.Sprintf("[%s] Answer: %s", now.Format(time.RFC3339), ans)))
+		}
+	}
+
+	if len(answer.DecisionAnswers) > 0 {
+		for _, ans := range answer.DecisionAnswers {
+			card.AuthorUpdate = cleanList(append(card.AuthorUpdate, fmt.Sprintf("[%s] Decision: %s", now.Format(time.RFC3339), ans)))
+		}
+	}
+
+	if len(answer.AuthorUpdates) > 0 {
+		for _, upd := range answer.AuthorUpdates {
+			card.AuthorUpdate = cleanList(append(card.AuthorUpdate, fmt.Sprintf("[%s] Update: %s", now.Format(time.RFC3339), upd)))
+		}
+	}
+
+	if len(answer.AdminActions) > 0 {
+		for _, act := range answer.AdminActions {
+			card.AdminActionRequired = cleanList(append(card.AdminActionRequired, fmt.Sprintf("[%s] Action taken: %s", now.Format(time.RFC3339), act)))
+		}
+	}
+
+	if len(answer.UnblockReasons) > 0 {
+		card.BlockingReasons = removeStrings(card.BlockingReasons, answer.UnblockReasons)
+	}
+
+	card.NeedsFeedbackFrom = nil
+	card.FeedbackRequest = nil
+	card.DecisionRequired = nil
+	card.WaitingOn = nil
+
+	targetStatus := answer.ResumeTargetStatus
+	if targetStatus == "" {
+		targetStatus = "clarifying"
+	}
+
+	if targetStatus != "clarifying" && targetStatus != "ready" {
+		return nil, fmt.Errorf("invalid resume_target_status: %s, must be clarifying or ready", targetStatus)
+	}
+
+	if targetStatus == "ready" {
+		if err := validateReady(card); err != nil {
+			return nil, fmt.Errorf("cannot resume to ready: %w", err)
+		}
+	}
+
+	card.Status = targetStatus
+	card.ActiveAgents = ensureContains(card.ActiveAgents, "orchestrator")
+	card.UpdatedAt = now.Format(time.RFC3339)
+
+	if err := s.SaveCard(card); err != nil {
+		return nil, err
+	}
+
+	return card, nil
+}
+
+func removeStrings(from []string, remove []string) []string {
+	if len(from) == 0 || len(remove) == 0 {
+		return from
+	}
+
+	removeSet := make(map[string]struct{})
+	for _, s := range remove {
+		removeSet[s] = struct{}{}
+	}
+
+	result := make([]string, 0, len(from))
+	for _, s := range from {
+		if _, exists := removeSet[s]; !exists {
+			result = append(result, s)
+		}
+	}
+
+	if len(result) == 0 {
+		return nil
+	}
+	return result
 }
