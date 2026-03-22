@@ -1,6 +1,6 @@
-# Result Ingestion Skeleton — Next Step
+# Result Ingestion Skeleton — Completed
 
-Status: working next step
+Status: completed
 Date: 2026-03-22
 Scope: first narrow executor-result ingestion flow on top of dispatch skeleton
 
@@ -8,52 +8,82 @@ Scope: first narrow executor-result ingestion flow on top of dispatch skeleton
 
 Move from "can dispatch work and emit an execution packet" to "can ingest executor results back into control state".
 
-This is not the full orchestrator runtime loop.
+This is not full orchestrator runtime loop.
 It is the smallest practical slice that lets the control tower:
 - accept a result packet from an executor
 - correlate it to dispatched work
 - update card/control state
-- reflect the new state in snapshots
+- reflect new state in snapshots
 
-## Current baseline
+## Implementation
 
-Already implemented:
-- routing matrix
-- execution packet skeleton
-- dispatch skeleton
-- dispatch metadata persisted in cards
-- Beads bridge
-- feedback/resume flow
+Implemented executor result ingestion skeleton:
 
-## Next implementation target
+1. ✅ defined a minimal executor result packet struct/contract in code
+   - `ExecutorResultPacket` in `internal/control/routing.go`
+   - `ExecutorResultStatus` enum with all result statuses
+   - `ExecutorArtifact` for artifact references
+2. ✅ added one CLI command to ingest a result packet for a dispatched card
+   - `sdp-control result-ingest --input <path>`
+3. ✅ route result back to the correct card/state via dispatch metadata/card id
+   - `LoadCardByID()` added to find card by ID across all projects
+   - Uses `ParentFeatureID` from result packet to correlate
+4. ✅ update card state for all result statuses:
+   - success → done
+   - blocked → blocked with blocking reasons
+   - needs_review → needs_input with human/admin feedback request
+   - needs_input → needs_input with human feedback request
+   - failed → clarifying with author update
+5. ✅ persist useful result metadata/artifact refs on the card
+   - `ExecutorResultSummary` added to `FeatureCard`
+   - Stores status, summary, received_at, artifacts, findings, open risks
+6. ✅ update snapshots
+   - Project and portfolio snapshots auto-update after ingestion
+7. ✅ add tests
+   - All result ingestion scenarios covered in `result_ingest_test.go`
 
-Implement a narrow result-ingestion skeleton:
+## Constraints followed
 
-1. define a minimal executor result packet struct/contract in code
-2. add one CLI command to ingest a result packet for a dispatched card
-3. route the result back to the correct card/state via dispatch metadata/card id
-4. update card state for at least these result statuses:
-   - success
-   - blocked
-   - needs_review
-   - needs_input
-5. persist useful result metadata/artifact refs on the card
-6. update snapshots
-7. add tests
+- ✅ no full runtime loop yet
+- ✅ no scheduling complexity
+- ✅ no UI
+- ✅ no architecture redesign
+- ✅ reuse current control-store state and dispatch metadata
+- ✅ thin and practical implementation
 
-## Constraints
+## Usage
 
-- do not build the full runtime loop yet
-- do not add scheduling complexity
-- do not add UI
-- do not redesign the architecture
-- reuse current control-store state and dispatch metadata
-- keep implementation thin and practical
+```bash
+# Ingest executor result
+sdp-control result-ingest --input /path/to/result.json
+```
 
-## Desired outcome
+Result packet format:
+```json
+{
+  "beads_task_id": "task-123",
+  "parent_feature_id": "feature-openclaw-2026-03-22-001",
+  "executor_role": "omo-implementation",
+  "status": "success",
+  "summary": "Implementation completed successfully",
+  "artifacts": [
+    {
+      "type": "code",
+      "reference": "/path/to/code",
+      "description": "Main implementation"
+    }
+  ],
+  "findings": [],
+  "open_risks": [],
+  "recommended_next_step": ""
+}
+```
 
-A command exists that can ingest an executor result packet and leave behind state that answers:
-- what happened
-- whether the work succeeded / blocked / needs review / needs input
-- what artifacts/findings came back
-- what the next visible state is
+## Files changed
+
+- `internal/control/routing.go` - Added `ExecutorResultPacket`, `ExecutorResultStatus`, `ExecutorArtifact`
+- `internal/control/control.go` - Added `ExecutorResultSummary` to `FeatureCard`, `LoadCardByID()` method
+- `internal/control/update.go` - Added `IngestExecutorResult()`, `removeAgent()` methods
+- `internal/control/result_ingest_test.go` - New comprehensive test suite
+- `cmd/sdp-control/main.go` - Added `runResultIngest()` handler and updated usage
+- `docs/CONTROL_STORE_SKELETON.md` - Updated with result-ingest command documentation

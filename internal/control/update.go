@@ -634,3 +634,135 @@ func (s *Store) IngestReply(envelope *InboundReplyEnvelope) (*FeatureCard, error
 
 	return card, nil
 }
+
+func (s *Store) IngestExecutorResult(result *ExecutorResultPacket) (*FeatureCard, error) {
+	if result == nil {
+		return nil, fmt.Errorf("nil result packet")
+	}
+
+	if result.ParentFeatureID == "" {
+		return nil, fmt.Errorf("parent_feature_id is required in result packet")
+	}
+
+	card, err := s.LoadCardByID(result.ParentFeatureID)
+	if err != nil {
+		return nil, fmt.Errorf("load card %s: %w", result.ParentFeatureID, err)
+	}
+
+	now := time.Now().UTC()
+
+	summary := &ExecutorResultSummary{
+		Status:              string(result.Status),
+		Summary:             result.Summary,
+		ReceivedAt:          now.Format(time.RFC3339),
+		Findings:            result.Findings,
+		OpenRisks:           result.OpenRisks,
+		RecommendedNextStep: result.RecommendedNextStep,
+	}
+
+	if len(result.Artifacts) > 0 {
+		artifactRefs := make([]string, 0, len(result.Artifacts))
+		for _, art := range result.Artifacts {
+			artifactRefs = append(artifactRefs, fmt.Sprintf("%s: %s", art.Type, art.Reference))
+		}
+		summary.Artifacts = artifactRefs
+
+		linkedArtifacts := make([]string, 0, len(card.LinkedArtifacts)+len(result.Artifacts))
+		for _, art := range card.LinkedArtifacts {
+			if art != "" {
+				linkedArtifacts = append(linkedArtifacts, art)
+			}
+		}
+		for _, art := range result.Artifacts {
+			if art.Reference != "" {
+				linkedArtifacts = append(linkedArtifacts, art.Reference)
+			}
+		}
+		card.LinkedArtifacts = linkedArtifacts
+	}
+
+	card.ExecutorResult = summary
+
+	switch result.Status {
+	case ResultStatusSuccess:
+		card.Status = "done"
+		card.ActiveAgents = removeAgent(card.ActiveAgents, "executor")
+		card.WaitingOn = nil
+
+	case ResultStatusBlocked:
+		card.Status = "blocked"
+		if len(result.Findings) > 0 {
+			card.BlockingReasons = cleanList(append(card.BlockingReasons, result.Findings...))
+		}
+		if len(result.OpenRisks) > 0 {
+			card.OpenQuestions = cleanList(append(card.OpenQuestions, result.OpenRisks...))
+		}
+		card.WaitingOn = []string{"orchestrator"}
+
+	case ResultStatusNeedsReview:
+		card.Status = "needs_input"
+		if result.Summary != "" {
+			card.FeedbackRequest = cleanList(append(card.FeedbackRequest, result.Summary))
+		}
+		if len(result.Findings) > 0 {
+			card.DecisionRequired = cleanList(append(card.DecisionRequired, result.Findings...))
+		}
+		card.NeedsFeedbackFrom = []string{"human", "admin"}
+		card.WaitingOn = []string{"human"}
+
+	case ResultStatusNeedsInput:
+		card.Status = "needs_input"
+		if result.Summary != "" {
+			card.FeedbackRequest = cleanList(append(card.FeedbackRequest, result.Summary))
+		}
+		if len(result.Findings) > 0 {
+			card.AuthorUpdate = cleanList(append(card.AuthorUpdate, result.Findings...))
+		}
+		card.NeedsFeedbackFrom = []string{"human"}
+		card.WaitingOn = []string{"human"}
+
+	case ResultStatusFailed:
+		card.Status = "clarifying"
+		if result.Summary != "" {
+			card.AuthorUpdate = cleanList(append(card.AuthorUpdate, fmt.Sprintf("[%s] Failed: %s", now.Format(time.RFC3339), result.Summary)))
+		}
+		if len(result.Findings) > 0 {
+			card.OpenQuestions = cleanList(append(card.OpenQuestions, result.Findings...))
+		}
+		card.ActiveAgents = removeAgent(card.ActiveAgents, "executor")
+		card.WaitingOn = []string{"orchestrator"}
+
+	default:
+		return nil, fmt.Errorf("unknown result status: %s", result.Status)
+	}
+
+	card.ActiveAgents = ensureContains(card.ActiveAgents, "orchestrator")
+	card.UpdatedAt = now.Format(time.RFC3339)
+
+	if err := s.SaveCard(card); err != nil {
+		return nil, fmt.Errorf("save card: %w", err)
+	}
+
+	if _, err := s.BuildProjectSnapshot(card.ProjectID); err != nil {
+		return nil, fmt.Errorf("update project snapshot: %w", err)
+	}
+
+	if _, err := s.BuildPortfolioSnapshot(); err != nil {
+		return nil, fmt.Errorf("update portfolio snapshot: %w", err)
+	}
+
+	return card, nil
+}
+
+func removeAgent(agents []string, toRemove string) []string {
+	result := make([]string, 0, len(agents))
+	for _, agent := range agents {
+		if agent != toRemove {
+			result = append(result, agent)
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}

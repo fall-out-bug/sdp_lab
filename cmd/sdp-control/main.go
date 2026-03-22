@@ -53,6 +53,8 @@ func main() {
 		runPacketEmit(os.Args[2:])
 	case "dispatch-card":
 		runDispatchCard(os.Args[2:])
+	case "result-ingest":
+		runResultIngest(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -60,7 +62,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|card-feedback|card-feedback-export|card-message-export|card-resume|card-resume-import|card-reply-ingest|dispatch-card|packet-emit|board-build|board-show|attention|doctor> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|card-feedback|card-feedback-export|card-message-export|card-resume|card-resume-import|card-reply-ingest|dispatch-card|packet-emit|result-ingest|board-build|board-show|attention|doctor> [flags]")
 }
 
 func openStore() *control.Store {
@@ -616,4 +618,35 @@ func runPacketEmit(args []string) {
 		os.Exit(1)
 	}
 	printJSON(packet)
+}
+
+func runResultIngest(args []string) {
+	fs := flag.NewFlagSet("result-ingest", flag.ExitOnError)
+	path := fs.String("input", "", "input file path (required)")
+	_ = fs.Parse(args)
+	if *path == "" {
+		fmt.Fprintln(os.Stderr, "error: --input is required")
+		os.Exit(2)
+	}
+
+	data, err := os.ReadFile(*path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: read result packet from %s: %v\n", *path, err)
+		os.Exit(1)
+	}
+
+	var packet control.ExecutorResultPacket
+	if err := json.Unmarshal(data, &packet); err != nil {
+		fmt.Fprintf(os.Stderr, "error: parse result packet: %v\n", err)
+		os.Exit(1)
+	}
+
+	store := openStore()
+	card, err := store.IngestExecutorResult(&packet)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: ingest executor result: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Ingested executor result for card %s\n", packet.ParentFeatureID)
+	printJSON(card)
 }

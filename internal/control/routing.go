@@ -203,3 +203,68 @@ func containsAny(items []string, targets ...string) bool {
 	}
 	return false
 }
+
+// ExecutorResultPacket represents a result packet returned by an executor to the orchestrator.
+// This is contract for executor -> orchestrator communication.
+//
+// Based on ORCHESTRATOR_BEADS_OPERATING_MODEL.md section 8
+type ExecutorResultPacket struct {
+	// BeadsTaskID is the ID of the Beads task this result corresponds to
+	BeadsTaskID string `json:"beads_task_id"`
+
+	// ParentFeatureID is the FeatureCard ID this result corresponds to
+	ParentFeatureID string `json:"parent_feature_id"`
+
+	// ExecutorRole is the role that produced this result
+	ExecutorRole string `json:"executor_role"`
+
+	// Status indicates the outcome of the execution
+	Status ExecutorResultStatus `json:"status"`
+
+	// Summary provides a short human-readable summary of the result
+	Summary string `json:"summary"`
+
+	// Artifacts lists artifact references produced by the executor
+	Artifacts []ExecutorArtifact `json:"artifacts,omitempty"`
+
+	// Findings lists follow-up findings or issues discovered during execution
+	Findings []string `json:"findings,omitempty"`
+
+	// OpenRisks lists any risks that remain after execution
+	OpenRisks []string `json:"open_risks,omitempty"`
+
+	// RecommendedNextStep suggests the next action for the orchestrator
+	RecommendedNextStep string `json:"recommended_next_step,omitempty"`
+}
+
+// ExecutorResultStatus represents the status of an executor result
+type ExecutorResultStatus string
+
+const (
+	// ResultStatusSuccess indicates the executor completed successfully
+	ResultStatusSuccess ExecutorResultStatus = "success"
+
+	// ResultStatusBlocked indicates the executor was blocked
+	ResultStatusBlocked ExecutorResultStatus = "blocked"
+
+	// ResultStatusNeedsReview indicates the executor requires human/admin review
+	ResultStatusNeedsReview ExecutorResultStatus = "needs_review"
+
+	// ResultStatusNeedsInput indicates the executor needs additional input
+	ResultStatusNeedsInput ExecutorResultStatus = "needs_input"
+
+	// ResultStatusFailed indicates the executor failed
+	ResultStatusFailed ExecutorResultStatus = "failed"
+)
+
+// ExecutorArtifact represents an artifact produced by an executor
+type ExecutorArtifact struct {
+	// Type is the type of artifact (e.g., "code", "test", "doc", "review")
+	Type string `json:"type"`
+
+	// Reference is a reference to the artifact (path, URL, etc.)
+	Reference string `json:"reference"`
+
+	// Description provides additional context about the artifact
+	Description string `json:"description,omitempty"`
+}

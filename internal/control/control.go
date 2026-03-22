@@ -22,44 +22,56 @@ var (
 )
 
 type FeatureCard struct {
-	ID                   string   `yaml:"id" json:"id"`
-	ProjectID            string   `yaml:"project_id" json:"project_id"`
-	Title                string   `yaml:"title" json:"title"`
-	Status               string   `yaml:"status" json:"status"`
-	RawRequest           string   `yaml:"raw_request" json:"raw_request"`
-	CreatedAt            string   `yaml:"created_at" json:"created_at"`
-	UpdatedAt            string   `yaml:"updated_at" json:"updated_at"`
-	NormalizedIntent     string   `yaml:"normalized_intent,omitempty" json:"normalized_intent,omitempty"`
-	TaskType             string   `yaml:"task_type,omitempty" json:"task_type,omitempty"`
-	ExecutionMode        string   `yaml:"execution_mode,omitempty" json:"execution_mode,omitempty"`
-	TargetRepo           string   `yaml:"target_repo,omitempty" json:"target_repo,omitempty"`
-	TargetArea           string   `yaml:"target_area,omitempty" json:"target_area,omitempty"`
-	ScopeIn              []string `yaml:"scope_in,omitempty" json:"scope_in,omitempty"`
-	ScopeOut             []string `yaml:"scope_out,omitempty" json:"scope_out,omitempty"`
-	NonGoals             []string `yaml:"non_goals,omitempty" json:"non_goals,omitempty"`
-	RiskLevel            string   `yaml:"risk_level,omitempty" json:"risk_level,omitempty"`
-	WhyNow               string   `yaml:"why_now,omitempty" json:"why_now,omitempty"`
-	Links                []string `yaml:"links,omitempty" json:"links,omitempty"`
-	OpenQuestions        []string `yaml:"open_questions,omitempty" json:"open_questions,omitempty"`
-	AcceptanceShape      []string `yaml:"acceptance_shape,omitempty" json:"acceptance_shape,omitempty"`
-	RecommendedNext      string   `yaml:"recommended_next_step,omitempty" json:"recommended_next_step,omitempty"`
-	IntakeArtifact       []string `yaml:"intake_artifact,omitempty" json:"intake_artifact,omitempty"`
-	LinkedBeadsIDs       []string `yaml:"linked_beads_ids,omitempty" json:"linked_beads_ids,omitempty"`
-	LinkedWorkstreams    []string `yaml:"linked_workstreams,omitempty" json:"linked_workstreams,omitempty"`
-	RequiredArtifacts    []string `yaml:"required_artifacts,omitempty" json:"required_artifacts,omitempty"`
-	RequiredChecks       []string `yaml:"required_checks,omitempty" json:"required_checks,omitempty"`
-	LinkedArtifacts      []string `yaml:"linked_artifacts,omitempty" json:"linked_artifacts,omitempty"`
-	ActiveAgents         []string `yaml:"active_agents,omitempty" json:"active_agents,omitempty"`
-	BlockingReasons      []string `yaml:"blocking_reasons,omitempty" json:"blocking_reasons,omitempty"`
-	WaitingOn            []string `yaml:"waiting_on,omitempty" json:"waiting_on,omitempty"`
-	NeedsFeedbackFrom    []string `yaml:"needs_feedback_from,omitempty" json:"needs_feedback_from,omitempty"`
-	FeedbackRequest      []string `yaml:"feedback_request,omitempty" json:"feedback_request,omitempty"`
-	DecisionRequired     []string `yaml:"decision_required,omitempty" json:"decision_required,omitempty"`
-	AuthorUpdate         []string `yaml:"author_update,omitempty" json:"author_update,omitempty"`
-	AdminActionRequired  []string `yaml:"admin_action_required,omitempty" json:"admin_action_required,omitempty"`
-	DispatchedAt         string   `yaml:"dispatched_at,omitempty" json:"dispatched_at,omitempty"`
-	DispatchedTo         string   `yaml:"dispatched_to,omitempty" json:"dispatched_to,omitempty"`
-	DispatchedPacketPath string   `yaml:"dispatched_packet_path,omitempty" json:"dispatched_packet_path,omitempty"`
+	ID                   string                 `yaml:"id" json:"id"`
+	ProjectID            string                 `yaml:"project_id" json:"project_id"`
+	Title                string                 `yaml:"title" json:"title"`
+	Status               string                 `yaml:"status" json:"status"`
+	RawRequest           string                 `yaml:"raw_request" json:"raw_request"`
+	CreatedAt            string                 `yaml:"created_at" json:"created_at"`
+	UpdatedAt            string                 `yaml:"updated_at" json:"updated_at"`
+	NormalizedIntent     string                 `yaml:"normalized_intent,omitempty" json:"normalized_intent,omitempty"`
+	TaskType             string                 `yaml:"task_type,omitempty" json:"task_type,omitempty"`
+	ExecutionMode        string                 `yaml:"execution_mode,omitempty" json:"execution_mode,omitempty"`
+	TargetRepo           string                 `yaml:"target_repo,omitempty" json:"target_repo,omitempty"`
+	TargetArea           string                 `yaml:"target_area,omitempty" json:"target_area,omitempty"`
+	ScopeIn              []string               `yaml:"scope_in,omitempty" json:"scope_in,omitempty"`
+	ScopeOut             []string               `yaml:"scope_out,omitempty" json:"scope_out,omitempty"`
+	NonGoals             []string               `yaml:"non_goals,omitempty" json:"non_goals,omitempty"`
+	RiskLevel            string                 `yaml:"risk_level,omitempty" json:"risk_level,omitempty"`
+	WhyNow               string                 `yaml:"why_now,omitempty" json:"why_now,omitempty"`
+	Links                []string               `yaml:"links,omitempty" json:"links,omitempty"`
+	OpenQuestions        []string               `yaml:"open_questions,omitempty" json:"open_questions,omitempty"`
+	AcceptanceShape      []string               `yaml:"acceptance_shape,omitempty" json:"acceptance_shape,omitempty"`
+	RecommendedNext      string                 `yaml:"recommended_next_step,omitempty" json:"recommended_next_step,omitempty"`
+	IntakeArtifact       []string               `yaml:"intake_artifact,omitempty" json:"intake_artifact,omitempty"`
+	LinkedBeadsIDs       []string               `yaml:"linked_beads_ids,omitempty" json:"linked_beads_ids,omitempty"`
+	LinkedWorkstreams    []string               `yaml:"linked_workstreams,omitempty" json:"linked_workstreams,omitempty"`
+	RequiredArtifacts    []string               `yaml:"required_artifacts,omitempty" json:"required_artifacts,omitempty"`
+	RequiredChecks       []string               `yaml:"required_checks,omitempty" json:"required_checks,omitempty"`
+	LinkedArtifacts      []string               `yaml:"linked_artifacts,omitempty" json:"linked_artifacts,omitempty"`
+	ActiveAgents         []string               `yaml:"active_agents,omitempty" json:"active_agents,omitempty"`
+	BlockingReasons      []string               `yaml:"blocking_reasons,omitempty" json:"blocking_reasons,omitempty"`
+	WaitingOn            []string               `yaml:"waiting_on,omitempty" json:"waiting_on,omitempty"`
+	NeedsFeedbackFrom    []string               `yaml:"needs_feedback_from,omitempty" json:"needs_feedback_from,omitempty"`
+	FeedbackRequest      []string               `yaml:"feedback_request,omitempty" json:"feedback_request,omitempty"`
+	DecisionRequired     []string               `yaml:"decision_required,omitempty" json:"decision_required,omitempty"`
+	AuthorUpdate         []string               `yaml:"author_update,omitempty" json:"author_update,omitempty"`
+	AdminActionRequired  []string               `yaml:"admin_action_required,omitempty" json:"admin_action_required,omitempty"`
+	DispatchedAt         string                 `yaml:"dispatched_at,omitempty" json:"dispatched_at,omitempty"`
+	DispatchedTo         string                 `yaml:"dispatched_to,omitempty" json:"dispatched_to,omitempty"`
+	DispatchedPacketPath string                 `yaml:"dispatched_packet_path,omitempty" json:"dispatched_packet_path,omitempty"`
+	ExecutorResult       *ExecutorResultSummary `yaml:"executor_result,omitempty" json:"executor_result,omitempty"`
+}
+
+// ExecutorResultSummary stores a summary of the last executor result for a card
+type ExecutorResultSummary struct {
+	Status              string   `yaml:"status" json:"status"`
+	Summary             string   `yaml:"summary" json:"summary"`
+	ReceivedAt          string   `yaml:"received_at" json:"received_at"`
+	Artifacts           []string `yaml:"artifacts,omitempty" json:"artifacts,omitempty"`
+	Findings            []string `yaml:"findings,omitempty" json:"findings,omitempty"`
+	OpenRisks           []string `yaml:"open_risks,omitempty" json:"open_risks,omitempty"`
+	RecommendedNextStep string   `yaml:"recommended_next_step,omitempty" json:"recommended_next_step,omitempty"`
 }
 
 type CardSummary struct {
@@ -201,6 +213,22 @@ func (s *Store) LoadCards(projectID string) ([]FeatureCard, error) {
 		cards = append(cards, c)
 	}
 	return cards, nil
+}
+
+func (s *Store) LoadCardByID(cardID string) (*FeatureCard, error) {
+	for _, project := range s.Registry.Projects {
+		cards, err := s.LoadCards(project.ID)
+		if err != nil {
+			continue
+		}
+		for _, c := range cards {
+			if c.ID == cardID {
+				card := c
+				return &card, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("card not found: %s", cardID)
 }
 
 func (s *Store) BuildProjectSnapshot(projectID string) (*ProjectBoardSnapshot, error) {

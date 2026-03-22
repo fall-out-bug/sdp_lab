@@ -22,10 +22,11 @@ A first file-backed control-store skeleton has been added:
   - `card-ready`
   - `card-park`
   - `card-execute`
-  - `card-feedback` - generates feedback packet to stdout
-  - `card-feedback-export` - exports feedback packet to file for external messaging
-  - `card-resume` - applies feedback via CLI flags
-  - `card-resume-import` - imports feedback answer from file
+  - `card-feedback`
+  - `card-feedback-export`
+  - `card-resume`
+  - `card-resume-import`
+  - `result-ingest`
   - `board-build`
   - `board-show`
 
@@ -72,6 +73,14 @@ Applies feedback answers back onto the card and resumes lifecycle:
 Imports a feedback answer from a file and applies it:
 - Reads normalized answer JSON from file
 - Applies same logic as `card-resume`
+
+### `sdp-control result-ingest`
+Ingests an executor result packet for a dispatched card:
+- Reads result packet JSON from file
+- Correlates result to card using parent_feature_id
+- Updates card status based on result status (success, blocked, needs_review, needs_input, failed)
+- Persists result metadata and artifact references
+- Auto-updates project and portfolio snapshots
 - Enables external systems to provide answers via file
 
 ### Feedback I/O integration
