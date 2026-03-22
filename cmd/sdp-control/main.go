@@ -49,6 +49,8 @@ func main() {
 		runAttention(os.Args[2:])
 	case "doctor":
 		runDoctor(os.Args[2:])
+	case "packet-emit":
+		runPacketEmit(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -56,7 +58,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|card-feedback|card-feedback-export|card-message-export|card-resume|card-resume-import|card-reply-ingest|board-build|board-show|attention|doctor> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|card-feedback|card-feedback-export|card-message-export|card-resume|card-resume-import|card-reply-ingest|packet-emit|board-build|board-show|attention|doctor> [flags]")
 }
 
 func openStore() *control.Store {
@@ -576,4 +578,22 @@ func runDoctorControl() {
 	}
 
 	fmt.Println("✅ ALL CHECKS PASSED")
+}
+
+func runPacketEmit(args []string) {
+	fs := flag.NewFlagSet("packet-emit", flag.ExitOnError)
+	project := fs.String("project", "", "project id")
+	id := fs.String("id", "", "card id")
+	_ = fs.Parse(args)
+	if *project == "" || *id == "" {
+		fmt.Fprintln(os.Stderr, "error: --project and --id are required")
+		os.Exit(2)
+	}
+	store := openStore()
+	packet, err := store.BuildExecutionPacket(*project, *id)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: build execution packet: %v\n", err)
+		os.Exit(1)
+	}
+	printJSON(packet)
 }
