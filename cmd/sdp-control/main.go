@@ -27,6 +27,8 @@ func main() {
 		runCardReady(os.Args[2:])
 	case "card-park":
 		runCardPark(os.Args[2:])
+	case "card-execute":
+		runCardExecute(os.Args[2:])
 	case "board-build":
 		runBoardBuild(os.Args[2:])
 	case "board-show":
@@ -38,7 +40,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|board-build|board-show> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|board-build|board-show> [flags]")
 }
 
 func openStore() *control.Store {
@@ -159,6 +161,24 @@ func runCardPark(args []string) {
 	card, err := store.ParkCard(*project, *id, *reason)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: park card: %v\n", err)
+		os.Exit(1)
+	}
+	printJSON(card)
+}
+
+func runCardExecute(args []string) {
+	fs := flag.NewFlagSet("card-execute", flag.ExitOnError)
+	project := fs.String("project", "", "project id")
+	id := fs.String("id", "", "card id")
+	_ = fs.Parse(args)
+	if *project == "" || *id == "" {
+		fmt.Fprintln(os.Stderr, "error: --project and --id are required")
+		os.Exit(2)
+	}
+	store := openStore()
+	card, err := store.ExecuteCard(*project, *id)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: execute card: %v\n", err)
 		os.Exit(1)
 	}
 	printJSON(card)
