@@ -17,6 +17,16 @@ Date: 2026-03-22
 2. `docs/CONTROL_TOWER_IMPLEMENTATION_ROADMAP.md`
 3. `docs/CONTROL_STORE_SKELETON.md`
 
+## Standard launch brief rule
+
+When spawning a new implementation session for control-tower work, the brief should explicitly tell the agent to read the three files above first.
+
+Minimal pattern:
+- read `CONTROL_TOWER_CANON.md`
+- read `docs/CONTROL_TOWER_IMPLEMENTATION_ROADMAP.md`
+- read `docs/CONTROL_STORE_SKELETON.md`
+- only then inspect local code and implement the narrow slice
+
 ## Read as needed for control tower work
 
 - `docs/FEATURE_CARD_CONTRACT_WORKING_MODEL.md`
