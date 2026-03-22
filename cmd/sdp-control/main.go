@@ -45,6 +45,8 @@ func main() {
 		runBoardBuild(os.Args[2:])
 	case "board-show":
 		runBoardShow(os.Args[2:])
+	case "attention":
+		runAttention(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -52,7 +54,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|card-feedback|card-feedback-export|card-message-export|card-resume|card-resume-import|card-reply-ingest|board-build|board-show> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|card-feedback|card-feedback-export|card-message-export|card-resume|card-resume-import|card-reply-ingest|board-build|board-show|attention> [flags]")
 }
 
 func openStore() *control.Store {
@@ -239,6 +241,129 @@ func runBoardBuild(args []string) {
 
 func runBoardShow(args []string) {
 	runBoardBuild(args)
+}
+
+func runAttention(args []string) {
+	store := openStore()
+	snap, err := store.BuildPortfolioSnapshot()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: build portfolio snapshot: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("🔍 ATTENTION SURFACE")
+	fmt.Println("=================")
+	fmt.Println()
+
+	fmt.Println("📌 NEXT RECOMMENDED ACTION")
+	fmt.Println("--------------------------")
+	if snap.NextAction != nil {
+		fmt.Printf("Action: %s\n", snap.NextAction["recommended"])
+		if reason, ok := snap.NextAction["reason"]; ok {
+			fmt.Printf("Reason: %s\n", reason)
+		}
+		if targetProj, ok := snap.NextAction["target_project_id"]; ok && targetProj != "" {
+			fmt.Printf("Target Project: %s\n", targetProj)
+		}
+		if targetCard, ok := snap.NextAction["target_card_id"]; ok && targetCard != "" {
+			fmt.Printf("Target Card: %s\n", targetCard)
+		}
+	} else {
+		fmt.Println("No immediate action needed")
+	}
+	fmt.Println()
+
+	fmt.Println("📊 QUEUES")
+	fmt.Println("----------")
+	printQueue("Waiting on Human", snap.Queues["waiting_on_human"])
+	printQueue("Ready to Execute", snap.Queues["ready_to_execute"])
+	printQueue("Blocked", snap.Queues["blocked"])
+	fmt.Println()
+
+	printExecutingCards(snap)
+	fmt.Println()
+
+	fmt.Println("📈 TOTALS")
+	fmt.Println("---------")
+	fmt.Printf("Inbox: %d | Clarifying: %d | Ready: %d | Executing: %d | Blocked: %d | Done: %d\n",
+		snap.Totals["inbox"], snap.Totals["clarifying"], snap.Totals["ready"],
+		snap.Totals["executing"], snap.Totals["blocked"], snap.Totals["done"])
+}
+
+func printQueue(name string, items []control.QueueItem) {
+	fmt.Printf("%s: %d\n", name, len(items))
+	for _, item := range items {
+		fmt.Printf("  [%s/%s] %s\n", item.ProjectID, item.CardID, item.Title)
+		if item.RecommendedNextStep != "" {
+			fmt.Printf("    → %s\n", item.RecommendedNextStep)
+		}
+		if len(item.ActiveAgents) > 0 {
+			fmt.Printf("    👤 Agents: %v\n", item.ActiveAgents)
+		}
+		if len(item.NeedsFeedbackFrom) > 0 {
+			fmt.Printf("    📝 Waiting from: %v\n", item.NeedsFeedbackFrom)
+		}
+		if len(item.AuthorUpdate) > 0 {
+			fmt.Printf("    📎 Updates: %v\n", item.AuthorUpdate)
+		}
+		if len(item.AdminActionRequired) > 0 {
+			fmt.Printf("    ⚙️  Admin actions: %v\n", item.AdminActionRequired)
+		}
+	}
+	fmt.Println()
+}
+
+type cardDisplay struct {
+	ProjectID string
+	control.CardSummary
+}
+
+func printExecutingCards(snap *control.PortfolioBoardSnapshot) {
+	executing := []cardDisplay{}
+
+	for _, proj := range snap.Projects {
+		projID, _ := proj["project_id"].(string)
+		counts, ok := proj["counts"].(map[string]any)
+		if !ok {
+			continue
+		}
+		execCount, _ := counts["executing"].(int)
+		if execCount == 0 {
+			continue
+		}
+
+		projSnap, err := openStore().BuildProjectSnapshot(projID)
+		if err != nil {
+			continue
+		}
+		for _, card := range projSnap.Columns["executing"] {
+			executing = append(executing, cardDisplay{ProjectID: projID, CardSummary: card})
+		}
+	}
+
+	if len(executing) == 0 {
+		fmt.Println("🔄 EXECUTING")
+		fmt.Println("------------")
+		fmt.Println("No cards currently executing")
+		fmt.Println()
+		return
+	}
+
+	fmt.Println("🔄 EXECUTING")
+	fmt.Println("------------")
+	for _, e := range executing {
+		fmt.Printf("  [%s/%s] %s\n", e.ProjectID, e.ID, e.Title)
+		if e.RecommendedNextStep != "" {
+			fmt.Printf("    → %s\n", e.RecommendedNextStep)
+		}
+		if len(e.ActiveAgents) > 0 {
+			fmt.Printf("    👤 Agents: %v\n", e.ActiveAgents)
+		}
+		if len(e.LinkedBeadsIDs) > 0 {
+			fmt.Printf("    🔗 Beads: %v\n", e.LinkedBeadsIDs)
+		}
+	}
+	fmt.Println()
 }
 
 func runCardFeedback(args []string) {

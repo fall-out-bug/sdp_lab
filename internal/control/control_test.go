@@ -724,3 +724,151 @@ func TestIngestReplyRoundtrip(t *testing.T) {
 		t.Fatal("expected author_update to contain reply")
 	}
 }
+
+func TestAttentionCommandQueues(t *testing.T) {
+	store := setupStore(t)
+
+	card1, err := store.CreateCard("openclaw", "Test feedback", "need input")
+	if err != nil {
+		t.Fatal(err)
+	}
+	card1.Status = "needs_input"
+	card1.NeedsFeedbackFrom = []string{"author"}
+	card1.FeedbackRequest = []string{"Which channel?"}
+	card1.RecommendedNext = "Answer question"
+	if err := store.SaveCard(card1); err != nil {
+		t.Fatal(err)
+	}
+
+	card2, err := store.CreateCard("beads", "Test ready", "ready card")
+	if err != nil {
+		t.Fatal(err)
+	}
+	card2.Status = "ready"
+	card2.RecommendedNext = "Execute"
+	if err := store.SaveCard(card2); err != nil {
+		t.Fatal(err)
+	}
+
+	card3, err := store.CreateCard("openclaw", "Test blocked", "blocked card")
+	if err != nil {
+		t.Fatal(err)
+	}
+	card3.Status = "blocked"
+	card3.BlockingReasons = []string{"Waiting for decision"}
+	card3.AdminActionRequired = []string{"Approve scope"}
+	card3.RecommendedNext = "Resolve blocker"
+	if err := store.SaveCard(card3); err != nil {
+		t.Fatal(err)
+	}
+
+	card4, err := store.CreateCard("beads", "Test executing", "executing card")
+	if err != nil {
+		t.Fatal(err)
+	}
+	card4.Status = "executing"
+	card4.ActiveAgents = []string{"executor"}
+	card4.LinkedBeadsIDs = []string{"bd-123"}
+	card4.RecommendedNext = "Complete work"
+	if err := store.SaveCard(card4); err != nil {
+		t.Fatal(err)
+	}
+
+	snap, err := store.BuildPortfolioSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(snap.Queues["waiting_on_human"]) != 1 {
+		t.Fatalf("waiting_on_human count = %d, want 1", len(snap.Queues["waiting_on_human"]))
+	}
+	if len(snap.Queues["ready_to_execute"]) != 1 {
+		t.Fatalf("ready_to_execute count = %d, want 1", len(snap.Queues["ready_to_execute"]))
+	}
+	if len(snap.Queues["blocked"]) != 1 {
+		t.Fatalf("blocked count = %d, want 1", len(snap.Queues["blocked"]))
+	}
+
+	waiting := snap.Queues["waiting_on_human"][0]
+	if waiting.ProjectID != "openclaw" {
+		t.Fatalf("waiting.ProjectID = %s, want openclaw", waiting.ProjectID)
+	}
+	if waiting.CardID != card1.ID {
+		t.Fatalf("waiting.CardID = %s, want %s", waiting.CardID, card1.ID)
+	}
+	if len(waiting.ActiveAgents) == 0 {
+		t.Fatal("expected ActiveAgents in queue item")
+	}
+
+	ready := snap.Queues["ready_to_execute"][0]
+	if ready.ProjectID != "beads" {
+		t.Fatalf("ready.ProjectID = %s, want beads", ready.ProjectID)
+	}
+
+	blocked := snap.Queues["blocked"][0]
+	if len(blocked.AdminActionRequired) == 0 {
+		t.Fatal("expected AdminActionRequired in blocked item")
+	}
+
+	if snap.NextAction["recommended"] != "surface_feedback_request" {
+		t.Fatalf("NextAction.recommended = %s, want surface_feedback_request", snap.NextAction["recommended"])
+	}
+}
+
+func TestAttentionCommandNextAction(t *testing.T) {
+	store := setupStore(t)
+
+	card, err := store.CreateCard("openclaw", "Test next", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	card.Status = "needs_input"
+	card.NeedsFeedbackFrom = []string{"author"}
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	snap, err := store.BuildPortfolioSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if snap.NextAction["recommended"] != "surface_feedback_request" {
+		t.Fatalf("NextAction.recommended = %s, want surface_feedback_request", snap.NextAction["recommended"])
+	}
+	if snap.NextAction["target_project_id"] != "openclaw" {
+		t.Fatalf("NextAction.target_project_id = %s, want openclaw", snap.NextAction["target_project_id"])
+	}
+}
+
+func TestAttentionCommandExecutingCards(t *testing.T) {
+	store := setupStore(t)
+
+	card, err := store.CreateCard("openclaw", "Test executing", "executing")
+	if err != nil {
+		t.Fatal(err)
+	}
+	card.Status = "executing"
+	card.ActiveAgents = []string{"executor"}
+	card.LinkedBeadsIDs = []string{"bd-456"}
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	projSnap, err := store.BuildProjectSnapshot("openclaw")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(projSnap.Columns["executing"]) != 1 {
+		t.Fatalf("executing count = %d, want 1", len(projSnap.Columns["executing"]))
+	}
+
+	executingCard := projSnap.Columns["executing"][0]
+	if len(executingCard.ActiveAgents) == 0 {
+		t.Fatal("expected ActiveAgents in executing card")
+	}
+	if len(executingCard.LinkedBeadsIDs) == 0 {
+		t.Fatal("expected LinkedBeadsIDs in executing card")
+	}
+}
