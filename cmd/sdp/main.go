@@ -49,6 +49,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Dispatch commands:")
 	fmt.Fprintln(os.Stderr, "  sdp dispatch card")
+	fmt.Fprintln(os.Stderr, "  sdp dispatch next")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Result commands:")
 	fmt.Fprintln(os.Stderr, "  sdp result ingest")
@@ -512,9 +513,11 @@ func runDispatch(args []string) {
 	switch args[0] {
 	case "card":
 		runDispatchCard(args[1:])
+	case "next":
+		runDispatchNext(args[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "error: unknown dispatch subcommand: %s\n", args[0])
-		os.Exit(2)
+		os.Exit(1)
 	}
 }
 
@@ -534,6 +537,38 @@ func runDispatchCard(args []string) {
 		os.Exit(1)
 	}
 	printJSON(card)
+}
+
+func runDispatchNext(args []string) {
+	fs := flag.NewFlagSet("dispatch-next", flag.ExitOnError)
+	_ = fs.Parse(args)
+
+	store := openStore()
+	result, err := store.DispatchNext()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: dispatch next: %v\n", err)
+		os.Exit(1)
+	}
+
+	if result.Success {
+		fmt.Printf("✅ %s\n", result.Message)
+		if result.ProjectID != "" && result.CardID != "" {
+			fmt.Printf("   Project: %s | Card: %s\n", result.ProjectID, result.CardID)
+		}
+		if result.ExecutorRole != "" {
+			fmt.Printf("   Executor: %s\n", result.ExecutorRole)
+		}
+		if result.PacketPath != "" {
+			fmt.Printf("   Packet: %s\n", result.PacketPath)
+		}
+	} else {
+		fmt.Printf("⏸️  %s\n", result.Message)
+		if result.NoDispatchableReason != "" {
+			fmt.Printf("   Reason: %s\n", result.NoDispatchableReason)
+		}
+	}
+
+	printJSON(result)
 }
 
 func runResult(args []string) {

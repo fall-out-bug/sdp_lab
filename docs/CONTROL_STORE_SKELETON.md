@@ -117,6 +117,15 @@ Runs hygiene checks across all control-store cards. Validates:
 
 Returns a concise operator-facing report and exits with non-zero status when checks fail.
 
+### `sdp dispatch next`
+Performs one orchestration step:
+1. Selects one dispatchable card from the portfolio (prefers ready cards over executing)
+2. Dispatches it using existing dispatch logic
+3. Returns a concise operator-facing summary of what happened
+4. Updates project and portfolio snapshots
+
+If nothing is dispatchable (no ready or executing cards), returns a clear no-op result with reason.
+
 ## Next implementation steps
 
 1. attach Beads bridge operations
