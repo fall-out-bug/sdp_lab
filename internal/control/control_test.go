@@ -471,3 +471,256 @@ func TestImportFeedbackAnswerFailsForInvalidFile(t *testing.T) {
 		t.Fatal("expected error for invalid JSON")
 	}
 }
+
+func TestGenerateCorrelationID(t *testing.T) {
+	id1 := GenerateCorrelationID()
+	id2 := GenerateCorrelationID()
+
+	if id1 == "" {
+		t.Fatal("correlation id should not be empty")
+	}
+	if id2 == "" {
+		t.Fatal("correlation id should not be empty")
+	}
+	if id1 == id2 {
+		t.Fatalf("correlation ids should be unique: %s == %s", id1, id2)
+	}
+	if len(id1) < 10 {
+		t.Fatalf("correlation id too short: %s", id1)
+	}
+}
+
+func TestExportOutboundMessage(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.Status = "needs_input"
+	card.NeedsFeedbackFrom = []string{"author"}
+	card.FeedbackRequest = []string{"Which channel?"}
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	envelope, err := store.ExportOutboundMessage("openclaw", card.ID, "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if envelope.CardID != card.ID {
+		t.Fatalf("envelope.CardID = %s, want %s", envelope.CardID, card.ID)
+	}
+	if envelope.ProjectID != card.ProjectID {
+		t.Fatalf("envelope.ProjectID = %s, want %s", envelope.ProjectID, card.ProjectID)
+	}
+	if envelope.CorrelationID == "" {
+		t.Fatal("correlation_id should not be empty")
+	}
+	if envelope.TargetRole != "admin" {
+		t.Fatalf("envelope.TargetRole = %s, want admin", envelope.TargetRole)
+	}
+	if envelope.Payload == nil {
+		t.Fatal("payload should not be nil")
+	}
+	if envelope.Payload.CardID != card.ID {
+		t.Fatalf("payload.CardID = %s, want %s", envelope.Payload.CardID, card.ID)
+	}
+}
+
+func TestExportOutboundMessageFailsForInvalidStatus(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := store.ExportOutboundMessage("openclaw", card.ID, "human"); err == nil {
+		t.Fatal("expected error for non-needs_input/blocked card")
+	}
+}
+
+func TestIngestReplyWithReplyText(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.Status = "needs_input"
+	card.NeedsFeedbackFrom = []string{"author"}
+	card.FeedbackRequest = []string{"Which channel?"}
+	card.BlockingReasons = []string{"Waiting for input"}
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	envelope := &InboundReplyEnvelope{
+		CardID:             card.ID,
+		ProjectID:          "openclaw",
+		CorrelationID:      "corr-123",
+		ReplyText:          "Use chat only",
+		ResumeTargetStatus: "clarifying",
+	}
+
+	resumed, err := store.IngestReply(envelope)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resumed.Status != "clarifying" {
+		t.Fatalf("resumed.Status = %s, want clarifying", resumed.Status)
+	}
+	if len(resumed.NeedsFeedbackFrom) != 0 {
+		t.Fatalf("len(NeedsFeedbackFrom) = %d, want 0", len(resumed.NeedsFeedbackFrom))
+	}
+	if len(resumed.FeedbackRequest) != 0 {
+		t.Fatalf("len(FeedbackRequest) = %d, want 0", len(resumed.FeedbackRequest))
+	}
+	if len(resumed.AuthorUpdate) == 0 {
+		t.Fatal("expected author_update to contain reply")
+	}
+}
+
+func TestIngestReplyWithAnswers(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.Status = "needs_input"
+	card.NeedsFeedbackFrom = []string{"author"}
+	card.FeedbackRequest = []string{"Which channel?"}
+	card.BlockingReasons = []string{"Waiting for input"}
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	envelope := &InboundReplyEnvelope{
+		CardID:             card.ID,
+		ProjectID:          "openclaw",
+		CorrelationID:      "corr-456",
+		Answers:            []string{"Chat only", "High priority"},
+		ResumeTargetStatus: "clarifying",
+	}
+
+	resumed, err := store.IngestReply(envelope)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resumed.Status != "clarifying" {
+		t.Fatalf("resumed.Status = %s, want clarifying", resumed.Status)
+	}
+	if len(resumed.AuthorUpdate) == 0 {
+		t.Fatal("expected author_update to contain answers")
+	}
+}
+
+func TestIngestReplyWithReadyTarget(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.NormalizedIntent = "test intent"
+	card.TaskType = "feature"
+	card.TargetRepo = "openclaw"
+	card.RiskLevel = "low"
+	card.RecommendedNext = "execute"
+	card.ScopeIn = []string{"test scope"}
+	card.Status = "needs_input"
+	card.NeedsFeedbackFrom = []string{"author"}
+	card.FeedbackRequest = []string{"Any questions?"}
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	envelope := &InboundReplyEnvelope{
+		CardID:             card.ID,
+		ProjectID:          "openclaw",
+		CorrelationID:      "corr-789",
+		ReplyText:          "No questions",
+		ResumeTargetStatus: "ready",
+	}
+
+	resumed, err := store.IngestReply(envelope)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resumed.Status != "ready" {
+		t.Fatalf("resumed.Status = %s, want ready", resumed.Status)
+	}
+}
+
+func TestIngestReplyFailsForMissingCardID(t *testing.T) {
+	store := setupStore(t)
+
+	envelope := &InboundReplyEnvelope{
+		ProjectID:     "openclaw",
+		CorrelationID: "corr-123",
+		ReplyText:     "test",
+	}
+
+	if _, err := store.IngestReply(envelope); err == nil {
+		t.Fatal("expected error for missing card_id")
+	}
+}
+
+func TestIngestReplyFailsForMissingProjectID(t *testing.T) {
+	store := setupStore(t)
+
+	envelope := &InboundReplyEnvelope{
+		CardID:        "test-card",
+		CorrelationID: "corr-123",
+		ReplyText:     "test",
+	}
+
+	if _, err := store.IngestReply(envelope); err == nil {
+		t.Fatal("expected error for missing project_id")
+	}
+}
+
+func TestIngestReplyRoundtrip(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.Status = "needs_input"
+	card.NeedsFeedbackFrom = []string{"author"}
+	card.FeedbackRequest = []string{"Which channel?"}
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	outbound, err := store.ExportOutboundMessage("openclaw", card.ID, "human")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	inbound := &InboundReplyEnvelope{
+		CardID:             outbound.CardID,
+		ProjectID:          outbound.ProjectID,
+		CorrelationID:      outbound.CorrelationID,
+		ReplyText:          "Use email",
+		ResumeTargetStatus: "clarifying",
+	}
+
+	resumed, err := store.IngestReply(inbound)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resumed.Status != "clarifying" {
+		t.Fatalf("resumed.Status = %s, want clarifying", resumed.Status)
+	}
+	if len(resumed.AuthorUpdate) == 0 {
+		t.Fatal("expected author_update to contain reply")
+	}
+}

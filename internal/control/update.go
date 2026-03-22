@@ -504,3 +504,70 @@ func removeStrings(from []string, remove []string) []string {
 	}
 	return result
 }
+
+// OutboundMessageEnvelope is a normalized envelope for outbound messages with correlation tracking
+type OutboundMessageEnvelope struct {
+	CardID        string          `json:"card_id"`
+	ProjectID     string          `json:"project_id"`
+	CorrelationID string          `json:"correlation_id"`
+	TargetRole    string          `json:"target_role"`
+	Payload       *FeedbackPacket `json:"payload"`
+}
+
+// InboundReplyEnvelope is a normalized envelope for inbound replies with correlation tracking
+type InboundReplyEnvelope struct {
+	CardID             string   `json:"card_id"`
+	ProjectID          string   `json:"project_id"`
+	CorrelationID      string   `json:"correlation_id"`
+	ReplyText          string   `json:"reply_text,omitempty"`
+	Answers            []string `json:"answers,omitempty"`
+	ResumeTargetStatus string   `json:"resume_target_status,omitempty"`
+}
+
+// GenerateCorrelationID creates a unique correlation ID for message tracking
+func GenerateCorrelationID() string {
+	return fmt.Sprintf("corr-%d", time.Now().UnixNano())
+}
+
+// ExportOutboundMessage creates a correlation-enabled outbound message envelope for a card
+func (s *Store) ExportOutboundMessage(projectID, cardID, targetRole string) (*OutboundMessageEnvelope, error) {
+	packet, err := s.GenerateFeedbackPacket(projectID, cardID)
+	if err != nil {
+		return nil, err
+	}
+
+	envelope := &OutboundMessageEnvelope{
+		CardID:        packet.CardID,
+		ProjectID:     packet.ProjectID,
+		CorrelationID: GenerateCorrelationID(),
+		TargetRole:    targetRole,
+		Payload:       packet,
+	}
+
+	return envelope, nil
+}
+
+// IngestReply processes an inbound reply envelope and routes it to the correct card
+func (s *Store) IngestReply(envelope *InboundReplyEnvelope) (*FeatureCard, error) {
+	if envelope.CardID == "" || envelope.ProjectID == "" {
+		return nil, fmt.Errorf("card_id and project_id are required in reply envelope")
+	}
+
+	answer := &FeedbackAnswer{
+		ResumeTargetStatus: envelope.ResumeTargetStatus,
+	}
+
+	if envelope.ReplyText != "" {
+		answer.FeedbackAnswers = []string{envelope.ReplyText}
+	}
+	if len(envelope.Answers) > 0 {
+		answer.FeedbackAnswers = envelope.Answers
+	}
+
+	card, err := s.ApplyFeedback(envelope.ProjectID, envelope.CardID, answer)
+	if err != nil {
+		return nil, fmt.Errorf("apply feedback for card %s: %w", envelope.CardID, err)
+	}
+
+	return card, nil
+}

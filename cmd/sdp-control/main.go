@@ -33,10 +33,14 @@ func main() {
 		runCardFeedback(os.Args[2:])
 	case "card-feedback-export":
 		runCardFeedbackExport(os.Args[2:])
+	case "card-message-export":
+		runCardMessageExport(os.Args[2:])
 	case "card-resume":
 		runCardResume(os.Args[2:])
 	case "card-resume-import":
 		runCardResumeImport(os.Args[2:])
+	case "card-reply-ingest":
+		runCardReplyIngest(os.Args[2:])
 	case "board-build":
 		runBoardBuild(os.Args[2:])
 	case "board-show":
@@ -48,7 +52,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|card-feedback|card-feedback-export|card-resume|card-resume-import|board-build|board-show> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|card-feedback|card-feedback-export|card-message-export|card-resume|card-resume-import|card-reply-ingest|board-build|board-show> [flags]")
 }
 
 func openStore() *control.Store {
@@ -332,4 +336,66 @@ func printJSON(v any) {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	_ = enc.Encode(v)
+}
+
+func runCardMessageExport(args []string) {
+	fs := flag.NewFlagSet("card-message-export", flag.ExitOnError)
+	project := fs.String("project", "", "project id")
+	id := fs.String("id", "", "card id")
+	targetRole := fs.String("target-role", "human", "target role (default: human)")
+	path := fs.String("output", "", "output file path (required)")
+	_ = fs.Parse(args)
+	if *project == "" || *id == "" || *path == "" {
+		fmt.Fprintln(os.Stderr, "error: --project, --id, and --output are required")
+		os.Exit(2)
+	}
+	store := openStore()
+	envelope, err := store.ExportOutboundMessage(*project, *id, *targetRole)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: export outbound message: %v\n", err)
+		os.Exit(1)
+	}
+
+	data, err := json.MarshalIndent(envelope, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: marshal envelope: %v\n", err)
+		os.Exit(1)
+	}
+	if err := os.WriteFile(*path, data, 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "error: write envelope to %s: %v\n", *path, err)
+		os.Exit(1)
+	}
+	fmt.Printf("Exported outbound message envelope to %s (correlation_id: %s)\n", *path, envelope.CorrelationID)
+	printJSON(envelope)
+}
+
+func runCardReplyIngest(args []string) {
+	fs := flag.NewFlagSet("card-reply-ingest", flag.ExitOnError)
+	path := fs.String("input", "", "input file path (required)")
+	_ = fs.Parse(args)
+	if *path == "" {
+		fmt.Fprintln(os.Stderr, "error: --input is required")
+		os.Exit(2)
+	}
+
+	data, err := os.ReadFile(*path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: read reply envelope from %s: %v\n", *path, err)
+		os.Exit(1)
+	}
+
+	var envelope control.InboundReplyEnvelope
+	if err := json.Unmarshal(data, &envelope); err != nil {
+		fmt.Fprintf(os.Stderr, "error: parse reply envelope: %v\n", err)
+		os.Exit(1)
+	}
+
+	store := openStore()
+	card, err := store.IngestReply(&envelope)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: ingest reply: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Ingested reply for card %s (correlation_id: %s)\n", envelope.CardID, envelope.CorrelationID)
+	printJSON(card)
 }
