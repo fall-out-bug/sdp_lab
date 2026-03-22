@@ -11,6 +11,7 @@ Define a practical control panel model for managing multiple projects where:
 - the orchestrator can clarify and shape them
 - features move toward ready status instead of rotting in raw intake
 - execution state is visible across projects
+- humans/admins can see what is happening, which agent is doing what, and what input is needed from them
 
 This is not a full product spec for the final dashboard.
 It is the current working model for what the control surface should do.
@@ -66,7 +67,7 @@ verifying -> needs-changes
 ## 3. What the control panel is actually showing
 
 The control panel is not a replacement for Beads.
-It is a **view + orchestration layer** on top of Beads state plus SDP state.
+It is a **visualization and orchestration surface** on top of Beads state plus SDP state.
 
 ### Primary entities
 

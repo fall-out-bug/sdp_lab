@@ -111,7 +111,23 @@
         "title": { "type": "string" },
         "status": { "type": "string" },
         "reason": { "type": "string" },
-        "recommended_next_step": { "type": "string" }
+        "recommended_next_step": { "type": "string" },
+        "active_agents": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "needs_feedback_from": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "author_update": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "admin_action_required": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
       },
       "additionalProperties": false
     }

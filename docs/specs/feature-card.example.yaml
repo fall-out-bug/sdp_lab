@@ -37,5 +37,17 @@ linked_workstreams: []
 required_artifacts: []
 required_checks: []
 linked_artifacts: []
+active_agents:
+  - orchestrator
 blocking_reasons: []
-waiting_on: []
+waiting_on:
+  - human
+needs_feedback_from:
+  - author
+feedback_request:
+  - which channels should escalate beyond chat only?
+decision_required:
+  - should personal and project reminders share the same severity thresholds?
+author_update:
+  - request clarified; two product decisions needed before ready
+admin_action_required: []

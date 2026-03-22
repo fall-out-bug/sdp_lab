@@ -143,6 +143,10 @@
       "type": "array",
       "items": { "type": "string" }
     },
+    "active_agents": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
     "blocking_reasons": {
       "type": "array",
       "items": { "type": "string" }
@@ -153,6 +157,29 @@
         "type": "string",
         "enum": ["human", "dependency", "review", "qa", "external"]
       }
+    },
+    "needs_feedback_from": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["author", "admin", "human"]
+      }
+    },
+    "feedback_request": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "decision_required": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "author_update": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "admin_action_required": {
+      "type": "array",
+      "items": { "type": "string" }
     }
   },
   "allOf": [

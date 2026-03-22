@@ -195,13 +195,27 @@ acceptance_shape:
   - reminders have explicit escalation levels
   - escalation behavior is consistent across supported flows
 recommended_next_step: ask two human clarification questions, then mark ready
+intake_artifact:
+  - docs/intake/feature-openclaw-2026-03-22-001.md
 linked_beads_ids: []
 linked_workstreams: []
 required_artifacts: []
 required_checks: []
 linked_artifacts: []
+active_agents:
+  - orchestrator
 blocking_reasons: []
-waiting_on: []
+waiting_on:
+  - human
+needs_feedback_from:
+  - author
+feedback_request:
+  - which channels should escalate beyond chat only?
+decision_required:
+  - should personal and project reminders share the same severity thresholds?
+author_update:
+  - request clarified; two product decisions needed before ready
+admin_action_required: []
 ```
 
 ---
@@ -351,6 +365,12 @@ Why bad:
 
 A `FeatureCard` is:
 - cheap to create
+- structured enough to clarify
+- durable enough to survive the board lifecycle
+- bridgeable into Beads and SDP
+
+That is its job.
+eap to create
 - structured enough to clarify
 - durable enough to survive the board lifecycle
 - bridgeable into Beads and SDP
