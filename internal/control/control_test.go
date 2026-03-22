@@ -872,3 +872,329 @@ func TestAttentionCommandExecutingCards(t *testing.T) {
 		t.Fatal("expected LinkedBeadsIDs in executing card")
 	}
 }
+
+func TestDoctorControlDetectsMissingIntakeArtifact(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.IntakeArtifact = nil
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := store.DoctorControl()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if report.TotalChecks != 1 {
+		t.Fatalf("TotalChecks = %d, want 1", report.TotalChecks)
+	}
+	if report.Failed != 1 {
+		t.Fatalf("Failed = %d, want 1", report.Failed)
+	}
+	if len(report.Checks) != 1 {
+		t.Fatalf("len(Checks) = %d, want 1", len(report.Checks))
+	}
+	if report.Checks[0].CheckID != "missing-intake-artifact" {
+		t.Fatalf("CheckID = %s, want missing-intake-artifact", report.Checks[0].CheckID)
+	}
+}
+
+func TestDoctorControlDetectsIntakeArtifactNotFound(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.IntakeArtifact = []string{"/nonexistent/path.md"}
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := store.DoctorControl()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if report.TotalChecks != 1 {
+		t.Fatalf("TotalChecks = %d, want 1", report.TotalChecks)
+	}
+	if report.Failed != 1 {
+		t.Fatalf("Failed = %d, want 1", report.Failed)
+	}
+	if len(report.Checks) != 1 {
+		t.Fatalf("len(Checks) = %d, want 1", len(report.Checks))
+	}
+	if report.Checks[0].CheckID != "intake-artifact-not-found" {
+		t.Fatalf("CheckID = %s, want intake-artifact-not-found", report.Checks[0].CheckID)
+	}
+}
+
+func TestDoctorControlDetectsReadyGateMissing(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.Status = "ready"
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := store.DoctorControl()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if report.TotalChecks != 1 {
+		t.Fatalf("TotalChecks = %d, want 1", report.TotalChecks)
+	}
+	if report.Failed != 1 {
+		t.Fatalf("Failed = %d, want 1", report.Failed)
+	}
+	if len(report.Checks) != 1 {
+		t.Fatalf("len(Checks) = %d, want 1", len(report.Checks))
+	}
+	if report.Checks[0].CheckID != "ready-gate-missing" {
+		t.Fatalf("CheckID = %s, want ready-gate-missing", report.Checks[0].CheckID)
+	}
+}
+
+func TestDoctorControlDetectsExecutingWithoutBeads(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.Status = "executing"
+	card.LinkedBeadsIDs = nil
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := store.DoctorControl()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if report.TotalChecks != 1 {
+		t.Fatalf("TotalChecks = %d, want 1", report.TotalChecks)
+	}
+	if report.Failed != 1 {
+		t.Fatalf("Failed = %d, want 1", report.Failed)
+	}
+	if len(report.Checks) != 1 {
+		t.Fatalf("len(Checks) = %d, want 1", len(report.Checks))
+	}
+	if report.Checks[0].CheckID != "executing-without-beads" {
+		t.Fatalf("CheckID = %s, want executing-without-beads", report.Checks[0].CheckID)
+	}
+}
+
+func TestDoctorControlDetectsNeedsInputWithoutQuestions(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.Status = "needs_input"
+	card.NeedsFeedbackFrom = []string{"author"}
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := store.DoctorControl()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if report.TotalChecks != 1 {
+		t.Fatalf("TotalChecks = %d, want 1", report.TotalChecks)
+	}
+	if report.Failed != 1 {
+		t.Fatalf("Failed = %d, want 1", report.Failed)
+	}
+	if len(report.Checks) != 1 {
+		t.Fatalf("len(Checks) = %d, want 1", len(report.Checks))
+	}
+	if report.Checks[0].CheckID != "needs-input-without-questions" {
+		t.Fatalf("CheckID = %s, want needs-input-without-questions", report.Checks[0].CheckID)
+	}
+}
+
+func TestDoctorControlPassesHealthyCards(t *testing.T) {
+	store := setupStore(t)
+
+	_, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = store.CreateCard("beads", "Another feature", "another test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := store.DoctorControl()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if report.TotalChecks != 2 {
+		t.Fatalf("TotalChecks = %d, want 2", report.TotalChecks)
+	}
+	if report.Passed != 2 {
+		t.Fatalf("Passed = %d, want 2", report.Passed)
+	}
+	if report.Failed != 0 {
+		t.Fatalf("Failed = %d, want 0", report.Failed)
+	}
+	if len(report.Checks) != 0 {
+		t.Fatalf("len(Checks) = %d, want 0", len(report.Checks))
+	}
+}
+
+func TestDoctorControlMixedResults(t *testing.T) {
+	store := setupStore(t)
+
+	_, err := store.CreateCard("openclaw", "Healthy feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	badIntakeCard, err := store.CreateCard("openclaw", "Missing intake", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	badIntakeCard.IntakeArtifact = nil
+	if err := store.SaveCard(badIntakeCard); err != nil {
+		t.Fatal(err)
+	}
+
+	readyCard, err := store.CreateCard("openclaw", "Bad ready", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	readyCard.Status = "ready"
+	if err := store.SaveCard(readyCard); err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := store.DoctorControl()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if report.TotalChecks != 3 {
+		t.Fatalf("TotalChecks = %d, want 3", report.TotalChecks)
+	}
+	if report.Passed != 1 {
+		t.Fatalf("Passed = %d, want 1", report.Passed)
+	}
+	if report.Failed != 2 {
+		t.Fatalf("Failed = %d, want 2", report.Failed)
+	}
+	if len(report.Checks) != 2 {
+		t.Fatalf("len(Checks) = %d, want 2", len(report.Checks))
+	}
+}
+
+func TestDoctorControlExecutingCardWithBeadsPasses(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.Status = "executing"
+	card.LinkedBeadsIDs = []string{"bd-test-123"}
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := store.DoctorControl()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if report.TotalChecks != 1 {
+		t.Fatalf("TotalChecks = %d, want 1", report.TotalChecks)
+	}
+	if report.Passed != 1 {
+		t.Fatalf("Passed = %d, want 1", report.Passed)
+	}
+	if report.Failed != 0 {
+		t.Fatalf("Failed = %d, want 0", report.Failed)
+	}
+}
+
+func TestDoctorControlNeedsInputWithQuestionsPasses(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.Status = "needs_input"
+	card.NeedsFeedbackFrom = []string{"author"}
+	card.FeedbackRequest = []string{"Which channel?"}
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := store.DoctorControl()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if report.TotalChecks != 1 {
+		t.Fatalf("TotalChecks = %d, want 1", report.TotalChecks)
+	}
+	if report.Passed != 1 {
+		t.Fatalf("Passed = %d, want 1", report.Passed)
+	}
+	if report.Failed != 0 {
+		t.Fatalf("Failed = %d, want 0", report.Failed)
+	}
+}
+
+func TestDoctorControlReadyCardWithAllFieldsPasses(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = store.ClarifyCard("openclaw", card.ID, "test intent", "feature", "openclaw", "low", "execute", []string{"scope in"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = store.MarkReady("openclaw", card.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := store.DoctorControl()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if report.TotalChecks != 1 {
+		t.Fatalf("TotalChecks = %d, want 1", report.TotalChecks)
+	}
+	if report.Passed != 1 {
+		t.Fatalf("Passed = %d, want 1", report.Passed)
+	}
+	if report.Failed != 0 {
+		t.Fatalf("Failed = %d, want 0", report.Failed)
+	}
+}

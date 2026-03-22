@@ -98,6 +98,16 @@ Builds:
 ### `sdp-control board-show`
 Currently rebuilds and prints of relevant snapshot.
 
+### `sdp-control doctor control`
+Runs hygiene checks across all control-store cards. Validates:
+- cards without intake artifacts
+- intake artifact files that don't exist
+- ready cards missing ready-gate fields
+- executing cards without `linked_beads_ids`
+- needs_input cards without `feedback_request` or `decision_required`
+
+Returns a concise operator-facing report and exits with non-zero status when checks fail.
+
 ## Next implementation steps
 
 1. attach Beads bridge operations

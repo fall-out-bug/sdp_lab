@@ -153,7 +153,7 @@ func (s *Store) CreateCard(projectID, title, rawRequest string) (*FeatureCard, e
 		UpdatedAt:    now.Format(time.RFC3339),
 		ActiveAgents: []string{"orchestrator"},
 	}
-	card.IntakeArtifact = []string{filepath.ToSlash(filepath.Join(defaultControlRoot, "projects", projectID, "intake", id+".md"))}
+	card.IntakeArtifact = []string{filepath.ToSlash(filepath.Join(s.ControlRoot, "projects", projectID, "intake", id+".md"))}
 	if err := s.SaveCard(card); err != nil {
 		return nil, err
 	}

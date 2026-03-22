@@ -47,6 +47,8 @@ func main() {
 		runBoardShow(os.Args[2:])
 	case "attention":
 		runAttention(os.Args[2:])
+	case "doctor":
+		runDoctor(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -54,7 +56,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|card-feedback|card-feedback-export|card-message-export|card-resume|card-resume-import|card-reply-ingest|board-build|board-show|attention> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|card-feedback|card-feedback-export|card-message-export|card-resume|card-resume-import|card-reply-ingest|board-build|board-show|attention|doctor> [flags]")
 }
 
 func openStore() *control.Store {
@@ -523,4 +525,55 @@ func runCardReplyIngest(args []string) {
 	}
 	fmt.Printf("Ingested reply for card %s (correlation_id: %s)\n", envelope.CardID, envelope.CorrelationID)
 	printJSON(card)
+}
+
+func runDoctor(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "error: subcommand is required (use 'control')")
+		os.Exit(2)
+	}
+
+	switch args[0] {
+	case "control":
+		runDoctorControl()
+	default:
+		fmt.Fprintf(os.Stderr, "error: unknown doctor subcommand: %s\n", args[0])
+		os.Exit(2)
+	}
+}
+
+func runDoctorControl() {
+	store := openStore()
+	report, err := store.DoctorControl()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: doctor control: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("🩺 DOCTOR CONTROL REPORT")
+	fmt.Println("========================")
+	fmt.Printf("Total checks: %d\n", report.TotalChecks)
+	fmt.Printf("Passed: %d\n", report.Passed)
+	fmt.Printf("Failed: %d\n", report.Failed)
+	fmt.Println()
+
+	if len(report.Checks) > 0 {
+		fmt.Println("❌ ISSUES FOUND")
+		fmt.Println("---------------")
+		for _, check := range report.Checks {
+			fmt.Printf("[%s] %s", check.Severity, check.CheckID)
+			if check.ProjectID != "" {
+				fmt.Printf(" | project: %s", check.ProjectID)
+			}
+			if check.CardID != "" {
+				fmt.Printf(" | card: %s", check.CardID)
+			}
+			fmt.Println()
+			fmt.Printf("  %s\n", check.Message)
+		}
+		fmt.Println()
+		os.Exit(1)
+	}
+
+	fmt.Println("✅ ALL CHECKS PASSED")
 }
