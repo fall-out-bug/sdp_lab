@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -149,6 +150,68 @@ func (s *Store) ExecuteCard(projectID, cardID string) (*FeatureCard, error) {
 	}
 
 	return card, nil
+}
+
+func (s *Store) DispatchCard(projectID, cardID string) (*FeatureCard, error) {
+	card, err := s.LoadCard(projectID, cardID)
+	if err != nil {
+		return nil, err
+	}
+
+	if card.Status != "ready" && card.Status != "executing" {
+		return nil, fmt.Errorf("card must be ready or executing to dispatch, current status: %s", card.Status)
+	}
+
+	packet, err := s.BuildExecutionPacket(projectID, cardID)
+	if err != nil {
+		return nil, fmt.Errorf("build execution packet: %w", err)
+	}
+
+	if err := s.writeDispatchPacket(projectID, cardID, packet); err != nil {
+		return nil, fmt.Errorf("write dispatch packet: %w", err)
+	}
+
+	now := time.Now().UTC()
+	card.Status = "executing"
+	card.DispatchedAt = now.Format(time.RFC3339)
+	card.DispatchedTo = packet.ExecutorRole
+	card.DispatchedPacketPath = s.dispatchPacketPath(projectID, cardID)
+	card.ActiveAgents = ensureContains(card.ActiveAgents, "executor")
+
+	if err := s.SaveCard(card); err != nil {
+		return nil, err
+	}
+
+	if _, err := s.BuildProjectSnapshot(projectID); err != nil {
+		return nil, fmt.Errorf("update project snapshot: %w", err)
+	}
+
+	if _, err := s.BuildPortfolioSnapshot(); err != nil {
+		return nil, fmt.Errorf("update portfolio snapshot: %w", err)
+	}
+
+	return card, nil
+}
+
+func (s *Store) writeDispatchPacket(projectID, cardID string, packet *ExecutionPacket) error {
+	if err := os.MkdirAll(s.dispatchDir(projectID), 0o755); err != nil {
+		return err
+	}
+
+	data, err := json.MarshalIndent(packet, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal packet: %w", err)
+	}
+
+	return os.WriteFile(s.dispatchPacketPath(projectID, cardID), data, 0o644)
+}
+
+func (s *Store) dispatchDir(projectID string) string {
+	return filepath.Join(s.ControlRoot, "projects", projectID, "dispatches")
+}
+
+func (s *Store) dispatchPacketPath(projectID, cardID string) string {
+	return filepath.Join(s.dispatchDir(projectID), cardID+".json")
 }
 
 func validateReady(card *FeatureCard) error {
