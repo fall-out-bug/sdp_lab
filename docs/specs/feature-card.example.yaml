@@ -1,0 +1,39 @@
+id: feature-openclaw-2026-03-22-001
+project_id: openclaw
+title: Unify reminder escalation rules
+status: clarifying
+raw_request: make reminders escalate more intelligently across projects and personal tasks
+created_at: 2026-03-22T09:20:00Z
+updated_at: 2026-03-22T09:27:00Z
+normalized_intent: unify reminder escalation policy across reminder-producing flows
+task_type: feature
+execution_mode: mixed
+target_repo: openclaw
+target_area: reminders and notification policy
+scope_in:
+  - escalation levels
+  - reminder severity mapping
+  - cross-project consistency
+scope_out:
+  - full calendar redesign
+  - unrelated notification channels
+non_goals:
+  - redesign all reminder UX
+risk_level: medium
+why_now: current reminder behavior is inconsistent and easy to ignore
+links:
+  - /docs/reminders/current-behavior.md
+open_questions:
+  - which channels should escalate beyond chat only?
+  - should personal and project reminders share the same severity thresholds?
+acceptance_shape:
+  - reminders have explicit escalation levels
+  - escalation behavior is consistent across supported flows
+recommended_next_step: ask two human clarification questions, then mark ready
+linked_beads_ids: []
+linked_workstreams: []
+required_artifacts: []
+required_checks: []
+linked_artifacts: []
+blocking_reasons: []
+waiting_on: []
