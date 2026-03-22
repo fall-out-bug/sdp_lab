@@ -27,6 +27,31 @@ func TestCreateCardCreatesCardAndIntakeArtifact(t *testing.T) {
 	if _, err := os.Stat(store.cardPath("openclaw", card.ID)); err != nil { t.Fatal(err) }
 }
 
+func TestClarifyNeedsInputReadyAndPark(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Unify reminders", "make reminders smarter")
+	if err != nil { t.Fatal(err) }
+	card, err = store.ClarifyCard("openclaw", card.ID, "unify reminder policy", "feature", "openclaw", "medium", "ask one product question", []string{"escalation levels"}, []string{"calendar redesign"})
+	if err != nil { t.Fatal(err) }
+	if card.Status != "clarifying" || card.NormalizedIntent == "" { t.Fatalf("clarify failed: %+v", card) }
+	card, err = store.MarkNeedsInput("openclaw", card.ID, []string{"author"}, []string{"Which channels?"}, []string{"Choose threshold model"}, []string{"one decision needed"}, nil)
+	if err != nil { t.Fatal(err) }
+	if card.Status != "needs_input" || len(card.NeedsFeedbackFrom) != 1 { t.Fatalf("needs_input failed: %+v", card) }
+	card, err = store.MarkReady("openclaw", card.ID)
+	if err != nil { t.Fatal(err) }
+	if card.Status != "ready" { t.Fatalf("ready failed: %+v", card) }
+	card, err = store.ParkCard("openclaw", card.ID, "deferred by owner")
+	if err != nil { t.Fatal(err) }
+	if card.Status != "parked" { t.Fatalf("park failed: %+v", card) }
+}
+
+func TestMarkReadyRequiresFields(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Unify reminders", "make reminders smarter")
+	if err != nil { t.Fatal(err) }
+	if _, err := store.MarkReady("openclaw", card.ID); err == nil { t.Fatal("expected validation error") }
+}
+
 func TestBuildSnapshots(t *testing.T) {
 	store := setupStore(t)
 	card1, err := store.CreateCard("openclaw", "Unify reminders", "make reminders smarter")

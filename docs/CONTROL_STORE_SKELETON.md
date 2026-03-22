@@ -39,8 +39,9 @@ Currently rebuilds and prints the relevant snapshot.
 
 ## Next implementation steps
 
-1. add card update/clarify actions
-2. add ready-gate helper logic
-3. attach Beads bridge operations
-4. wire orchestrator actions onto the store
-5. add richer status views / UI later
+1. attach Beads bridge operations
+2. wire orchestrator actions onto the store more directly
+3. add richer status views / UI later
+4. add explicit feedback-message emission helpers
+5. add resume/reconciliation flows for long-running orchestration
+/ UI later
