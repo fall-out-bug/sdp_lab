@@ -244,24 +244,30 @@ Those come later.
 
 ## 8. How this maps to Beads and SDP
 
-### Beads remains source of truth for executable tasks
-Once a feature becomes `Ready`, the system can generate or link:
+### SDP starts at intake and remains the trace spine
+From the first card creation, SDP should capture:
+- raw request
+- initial framing
+- clarification history
+- shaping decisions
+- status transitions
+- later artifact expectations and evidence links
+
+### Beads remains source of truth for executable task graph
+As a feature matures, the system can generate or link:
 - feature-level Beads issue
 - child tasks/workstreams
 - dependencies
 - findings loop entries
 
-### SDP governs process expectations
-Once a feature is shaped and moving to execution, SDP determines:
-- required artifact bundle
-- required checks
-- acceptance and verification expectations
+Beads can therefore be introduced or refined progressively rather than being required as the very first intake object.
 
 ### The control panel sits above both
 It answers:
 - what project is this in?
 - what state is this feature in?
-- is this still raw intake, ready, executing, blocked, or done?
+- what has already been traced by SDP?
+- what execution objects exist in Beads, if any?
 
 ---
 
@@ -408,6 +414,14 @@ Shows:
 - collect raw feature cards cheaply
 - let the orchestrator shape them
 - mark when they become execution-ready
+- bridge them into Beads + SDP only after they are mature enough
+
+### Therefore
+The control panel should be:
+- **project board layer** for humans
+- **intake/clarification surface** for orchestrator
+- **bridge into Beads + SDP** for execution
+en they become execution-ready
 - bridge them into Beads + SDP only after they are mature enough
 
 ### Therefore

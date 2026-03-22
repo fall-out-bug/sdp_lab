@@ -259,30 +259,38 @@ A card may move to `ready` only if all of the following are true:
 
 ---
 
-## 9. Bridge to Beads
+## 9. Bridge to SDP
 
-When a `FeatureCard` becomes `ready`, the system may create:
-- a feature-level Beads issue
-- child execution tasks later
-- workstream records later if needed
+The bridge to SDP begins immediately at intake.
 
-### Principle
-A `FeatureCard` should bridge into Beads, not be replaced by Beads.
+At minimum, the card should gain an early SDP artifact such as:
+- intake note
+- intent brief
+- task brief
 
-The control panel still needs the card as the project-board summary object.
-
----
-
-## 10. Bridge to SDP
-
-Once the card is `ready`, the orchestrator or SDP layer can derive:
+As the card matures, the orchestrator or SDP layer can derive:
 - `required_artifacts`
 - `required_checks`
 - minimum artifact bundle using task envelope mapping
 
 ### Principle
 A `FeatureCard` should not require full SDP paperwork at intake time.
-SDP expectations attach when the card is mature enough.
+But it **should** start traceable SDP context at intake time.
+
+---
+
+## 10. Bridge to Beads
+
+When a `FeatureCard` becomes sufficiently mature, the system may create or refine:
+- a feature-level Beads issue
+- child execution tasks later
+- workstream records later if needed
+
+### Principle
+A `FeatureCard` should bridge into Beads, not be replaced by Beads.
+Beads is the evolving execution graph, not necessarily the first raw-intake object.
+
+The control panel still needs the card as the project-board summary object.
 
 ---
 

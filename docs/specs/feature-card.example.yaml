@@ -30,6 +30,8 @@ acceptance_shape:
   - reminders have explicit escalation levels
   - escalation behavior is consistent across supported flows
 recommended_next_step: ask two human clarification questions, then mark ready
+intake_artifact:
+  - docs/intake/feature-openclaw-2026-03-22-001.md
 linked_beads_ids: []
 linked_workstreams: []
 required_artifacts: []
