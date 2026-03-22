@@ -27,6 +27,8 @@ func main() {
 		runDispatch(os.Args[2:])
 	case "result":
 		runResult(os.Args[2:])
+	case "orchestrate":
+		runOrchestrate(os.Args[2:])
 	case "attention":
 		runAttention(os.Args[2:])
 	default:
@@ -36,7 +38,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: sdp <card|board|doctor|dispatch|result|attention> <subcommand> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention> <subcommand> [flags]")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Card commands:")
 	fmt.Fprintln(os.Stderr, "  sdp card <create|clarify|needs-input|ready|park|execute|feedback|feedback-export|message-export|resume|resume-import|reply-ingest>")
@@ -53,6 +55,9 @@ func usage() {
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Result commands:")
 	fmt.Fprintln(os.Stderr, "  sdp result ingest")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Orchestrate commands:")
+	fmt.Fprintln(os.Stderr, "  sdp orchestrate once")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Other:")
 	fmt.Fprintln(os.Stderr, "  sdp attention")
@@ -614,6 +619,57 @@ func runResultIngest(args []string) {
 	}
 	fmt.Printf("Ingested executor result for card %s\n", packet.ParentFeatureID)
 	printJSON(card)
+}
+
+func runOrchestrate(args []string) {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "usage: sdp orchestrate once")
+		os.Exit(2)
+	}
+	switch args[0] {
+	case "once":
+		runOrchestrateOnce(args[1:])
+	default:
+		fmt.Fprintln(os.Stderr, "usage: sdp orchestrate once")
+		os.Exit(2)
+	}
+}
+
+func runOrchestrateOnce(args []string) {
+	fs := flag.NewFlagSet("orchestrate-once", flag.ExitOnError)
+	_ = fs.Parse(args)
+
+	store := openStore()
+	result, err := store.OrchestrateOnce()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: orchestrate once: %v\n", err)
+		os.Exit(1)
+	}
+
+	if result.Action == "ingested" {
+		fmt.Printf("✅ %s\n", result.Message)
+		if result.IngestedCard != nil {
+			fmt.Printf("   Card: %s/%s\n", result.IngestedCard.ProjectID, result.IngestedCard.ID)
+		}
+	} else if result.Action == "dispatched" {
+		fmt.Printf("✅ %s\n", result.Message)
+		if result.DispatchedCard != nil {
+			fmt.Printf("   Project: %s | Card: %s\n", result.DispatchedCard.ProjectID, result.DispatchedCard.ID)
+		}
+		if result.ExecutorRole != "" {
+			fmt.Printf("   Executor: %s\n", result.ExecutorRole)
+		}
+		if result.PacketPath != "" {
+			fmt.Printf("   Packet: %s\n", result.PacketPath)
+		}
+	} else {
+		fmt.Printf("⏸️  %s\n", result.Message)
+		if result.NoActionReason != "" {
+			fmt.Printf("   Reason: %s\n", result.NoActionReason)
+		}
+	}
+
+	printJSON(result)
 }
 
 func runAttention(args []string) {
