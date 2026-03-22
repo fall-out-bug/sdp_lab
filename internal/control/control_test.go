@@ -1,6 +1,7 @@
 package control
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -375,5 +376,98 @@ func TestApplyFeedbackFailsForInvalidStatus(t *testing.T) {
 
 	if _, err := store.ApplyFeedback("openclaw", card.ID, answer); err == nil {
 		t.Fatal("expected error for non-needs_input/blocked card")
+	}
+}
+
+func TestExportFeedbackPacket(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.Status = "needs_input"
+	card.NeedsFeedbackFrom = []string{"author"}
+	card.FeedbackRequest = []string{"Which channel?"}
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	exportPath := filepath.Join(t.TempDir(), "feedback-packet.json")
+	packet, err := store.ExportFeedbackPacket("openclaw", card.ID, exportPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if packet.CardID != card.ID {
+		t.Fatalf("packet.CardID = %s, want %s", packet.CardID, card.ID)
+	}
+
+	if _, err := os.Stat(exportPath); err != nil {
+		t.Fatalf("exported file not found: %v", err)
+	}
+
+	data, err := os.ReadFile(exportPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var importedPacket FeedbackPacket
+	if err := json.Unmarshal(data, &importedPacket); err != nil {
+		t.Fatalf("failed to parse exported packet: %v", err)
+	}
+
+	if importedPacket.CardID != card.ID {
+		t.Fatalf("imported packet.CardID = %s, want %s", importedPacket.CardID, card.ID)
+	}
+}
+
+func TestImportFeedbackAnswer(t *testing.T) {
+	answer := &FeedbackAnswer{
+		FeedbackAnswers:    []string{"Use chat only"},
+		DecisionAnswers:    []string{"Threshold: high"},
+		AuthorUpdates:      []string{"Update notes"},
+		AdminActions:       []string{"Approved"},
+		UnblockReasons:     []string{"Decision made"},
+		ResumeTargetStatus: "ready",
+	}
+
+	answerPath := filepath.Join(t.TempDir(), "feedback-answer.json")
+	data, err := json.MarshalIndent(answer, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(answerPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	imported, err := ImportFeedbackAnswer(answerPath)
+	if err != nil {
+		t.Fatalf("import feedback answer: %v", err)
+	}
+
+	if len(imported.FeedbackAnswers) != 1 || imported.FeedbackAnswers[0] != "Use chat only" {
+		t.Fatalf("FeedbackAnswers = %v, want [Use chat only]", imported.FeedbackAnswers)
+	}
+	if len(imported.DecisionAnswers) != 1 || imported.DecisionAnswers[0] != "Threshold: high" {
+		t.Fatalf("DecisionAnswers = %v, want [Threshold: high]", imported.DecisionAnswers)
+	}
+	if imported.ResumeTargetStatus != "ready" {
+		t.Fatalf("ResumeTargetStatus = %s, want ready", imported.ResumeTargetStatus)
+	}
+}
+
+func TestImportFeedbackAnswerFailsForInvalidFile(t *testing.T) {
+	invalidPath := filepath.Join(t.TempDir(), "nonexistent.json")
+	if _, err := ImportFeedbackAnswer(invalidPath); err == nil {
+		t.Fatal("expected error for nonexistent file")
+	}
+
+	badJSONPath := filepath.Join(t.TempDir(), "bad.json")
+	if err := os.WriteFile(badJSONPath, []byte("{invalid"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ImportFeedbackAnswer(badJSONPath); err == nil {
+		t.Fatal("expected error for invalid JSON")
 	}
 }

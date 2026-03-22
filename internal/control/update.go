@@ -3,6 +3,7 @@ package control
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -383,6 +384,31 @@ type FeedbackAnswer struct {
 	AdminActions       []string `json:"admin_actions,omitempty"`
 	UnblockReasons     []string `json:"unblock_reasons,omitempty"`
 	ResumeTargetStatus string   `json:"resume_target_status,omitempty"`
+}
+
+// ExportFeedbackPacket writes a feedback packet to a file for external messaging
+func (s *Store) ExportFeedbackPacket(projectID, cardID, path string) (*FeedbackPacket, error) {
+	packet, err := s.GenerateFeedbackPacket(projectID, cardID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.writeJSON(path, packet); err != nil {
+		return nil, fmt.Errorf("write feedback packet to %s: %w", path, err)
+	}
+	return packet, nil
+}
+
+// ImportFeedbackAnswer reads a feedback answer from a file
+func ImportFeedbackAnswer(path string) (*FeedbackAnswer, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read feedback answer from %s: %w", path, err)
+	}
+	var answer FeedbackAnswer
+	if err := json.Unmarshal(data, &answer); err != nil {
+		return nil, fmt.Errorf("parse feedback answer: %w", err)
+	}
+	return &answer, nil
 }
 
 func (s *Store) ApplyFeedback(projectID, cardID string, answer *FeedbackAnswer) (*FeatureCard, error) {

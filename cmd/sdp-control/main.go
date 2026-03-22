@@ -31,8 +31,12 @@ func main() {
 		runCardExecute(os.Args[2:])
 	case "card-feedback":
 		runCardFeedback(os.Args[2:])
+	case "card-feedback-export":
+		runCardFeedbackExport(os.Args[2:])
 	case "card-resume":
 		runCardResume(os.Args[2:])
+	case "card-resume-import":
+		runCardResumeImport(os.Args[2:])
 	case "board-build":
 		runBoardBuild(os.Args[2:])
 	case "board-show":
@@ -44,7 +48,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|card-feedback|card-resume|board-build|board-show> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|card-feedback|card-feedback-export|card-resume|card-resume-import|board-build|board-show> [flags]")
 }
 
 func openStore() *control.Store {
@@ -188,6 +192,25 @@ func runCardExecute(args []string) {
 	printJSON(card)
 }
 
+func runCardFeedbackExport(args []string) {
+	fs := flag.NewFlagSet("card-feedback-export", flag.ExitOnError)
+	project := fs.String("project", "", "project id")
+	id := fs.String("id", "", "card id")
+	path := fs.String("output", "", "output file path (required)")
+	_ = fs.Parse(args)
+	if *project == "" || *id == "" || *path == "" {
+		fmt.Fprintln(os.Stderr, "error: --project, --id, and --output are required")
+		os.Exit(2)
+	}
+	store := openStore()
+	packet, err := store.ExportFeedbackPacket(*project, *id, *path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: export feedback packet: %v\n", err)
+		os.Exit(1)
+	}
+	printJSON(packet)
+}
+
 func runBoardBuild(args []string) {
 	fs := flag.NewFlagSet("board-build", flag.ExitOnError)
 	project := fs.String("project", "", "optional project id")
@@ -254,6 +277,30 @@ func runCardResume(args []string) {
 		AdminActions:       splitList(*adminActions),
 		UnblockReasons:     splitList(*unblock),
 		ResumeTargetStatus: *targetStatus,
+	}
+	store := openStore()
+	card, err := store.ApplyFeedback(*project, *id, answer)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: apply feedback: %v\n", err)
+		os.Exit(1)
+	}
+	printJSON(card)
+}
+
+func runCardResumeImport(args []string) {
+	fs := flag.NewFlagSet("card-resume-import", flag.ExitOnError)
+	project := fs.String("project", "", "project id")
+	id := fs.String("id", "", "card id")
+	path := fs.String("input", "", "input file path (required)")
+	_ = fs.Parse(args)
+	if *project == "" || *id == "" || *path == "" {
+		fmt.Fprintln(os.Stderr, "error: --project, --id, and --input are required")
+		os.Exit(2)
+	}
+	answer, err := control.ImportFeedbackAnswer(*path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: import feedback answer: %v\n", err)
+		os.Exit(1)
 	}
 	store := openStore()
 	card, err := store.ApplyFeedback(*project, *id, answer)
