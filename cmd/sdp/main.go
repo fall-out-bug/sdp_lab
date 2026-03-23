@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"sdp_dev/internal/cli"
 	"sdp_dev/internal/control"
 	"sdp_dev/internal/orchestrate"
 )
@@ -457,7 +458,36 @@ func runBoardBuild(args []string) {
 }
 
 func runBoardShow(args []string) {
-	runBoardBuild(args)
+	fs := flag.NewFlagSet("board-show", flag.ExitOnError)
+	project := fs.String("project", "", "optional project id")
+	asJSON := fs.Bool("json", false, "render raw JSON instead of the default human summary")
+	_ = fs.Parse(args)
+
+	store := openStore()
+	if *project != "" {
+		snap, err := store.BuildProjectSnapshot(*project)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: build project snapshot: %v\n", err)
+			os.Exit(1)
+		}
+		if *asJSON {
+			printJSON(snap)
+			return
+		}
+		fmt.Println(cli.RenderProjectBoard(snap))
+		return
+	}
+
+	port, err := store.BuildPortfolioSnapshot()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: build portfolio snapshot: %v\n", err)
+		os.Exit(1)
+	}
+	if *asJSON {
+		printJSON(port)
+		return
+	}
+	fmt.Println(cli.RenderPortfolioBoard(port))
 }
 
 func runDoctor(args []string) {
@@ -482,32 +512,10 @@ func runDoctorControl() {
 		os.Exit(1)
 	}
 
-	fmt.Println("🩺 DOCTOR CONTROL REPORT")
-	fmt.Println("========================")
-	fmt.Printf("Total checks: %d\n", report.TotalChecks)
-	fmt.Printf("Passed: %d\n", report.Passed)
-	fmt.Printf("Failed: %d\n", report.Failed)
-	fmt.Println()
-
+	fmt.Println(cli.RenderDoctorControl(report))
 	if len(report.Checks) > 0 {
-		fmt.Println("❌ ISSUES FOUND")
-		fmt.Println("---------------")
-		for _, check := range report.Checks {
-			fmt.Printf("[%s] %s", check.Severity, check.CheckID)
-			if check.ProjectID != "" {
-				fmt.Printf(" | project: %s", check.ProjectID)
-			}
-			if check.CardID != "" {
-				fmt.Printf(" | card: %s", check.CardID)
-			}
-			fmt.Println()
-			fmt.Printf("  %s\n", check.Message)
-		}
-		fmt.Println()
 		os.Exit(1)
 	}
-
-	fmt.Println("✅ ALL CHECKS PASSED")
 }
 
 func runDispatch(args []string) {
@@ -673,6 +681,10 @@ func runOrchestrateOnce(args []string) {
 }
 
 func runAttention(args []string) {
+	fs := flag.NewFlagSet("attention", flag.ExitOnError)
+	asJSON := fs.Bool("json", false, "render raw JSON instead of the default human summary")
+	_ = fs.Parse(args)
+
 	store := openStore()
 	snap, err := store.BuildPortfolioSnapshot()
 	if err != nil {
@@ -680,117 +692,9 @@ func runAttention(args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Println("🔍 ATTENTION SURFACE")
-	fmt.Println("=================")
-	fmt.Println()
-
-	fmt.Println("📌 NEXT RECOMMENDED ACTION")
-	fmt.Println("--------------------------")
-	if snap.NextAction != nil {
-		fmt.Printf("Action: %s\n", snap.NextAction["recommended"])
-		if reason, ok := snap.NextAction["reason"]; ok {
-			fmt.Printf("Reason: %s\n", reason)
-		}
-		if targetProj, ok := snap.NextAction["target_project_id"]; ok && targetProj != "" {
-			fmt.Printf("Target Project: %s\n", targetProj)
-		}
-		if targetCard, ok := snap.NextAction["target_card_id"]; ok && targetCard != "" {
-			fmt.Printf("Target Card: %s\n", targetCard)
-		}
-	} else {
-		fmt.Println("No immediate action needed")
-	}
-	fmt.Println()
-
-	fmt.Println("📊 QUEUES")
-	fmt.Println("----------")
-	printQueue("Waiting on Human", snap.Queues["waiting_on_human"])
-	printQueue("Ready to Execute", snap.Queues["ready_to_execute"])
-	printQueue("Blocked", snap.Queues["blocked"])
-	fmt.Println()
-
-	printExecutingCards(snap)
-	fmt.Println()
-
-	fmt.Println("📈 TOTALS")
-	fmt.Println("---------")
-	fmt.Printf("Inbox: %d | Clarifying: %d | Ready: %d | Executing: %d | Blocked: %d | Done: %d\n",
-		snap.Totals["inbox"], snap.Totals["clarifying"], snap.Totals["ready"],
-		snap.Totals["executing"], snap.Totals["blocked"], snap.Totals["done"])
-}
-
-type cardDisplay struct {
-	ProjectID string
-	control.CardSummary
-}
-
-func printQueue(name string, items []control.QueueItem) {
-	fmt.Printf("%s: %d\n", name, len(items))
-	for _, item := range items {
-		fmt.Printf("  [%s/%s] %s\n", item.ProjectID, item.CardID, item.Title)
-		if item.RecommendedNextStep != "" {
-			fmt.Printf("    → %s\n", item.RecommendedNextStep)
-		}
-		if len(item.ActiveAgents) > 0 {
-			fmt.Printf("    👤 Agents: %v\n", item.ActiveAgents)
-		}
-		if len(item.NeedsFeedbackFrom) > 0 {
-			fmt.Printf("    📝 Waiting from: %v\n", item.NeedsFeedbackFrom)
-		}
-		if len(item.AuthorUpdate) > 0 {
-			fmt.Printf("    📎 Updates: %v\n", item.AuthorUpdate)
-		}
-		if len(item.AdminActionRequired) > 0 {
-			fmt.Printf("    ⚙️  Admin actions: %v\n", item.AdminActionRequired)
-		}
-	}
-	fmt.Println()
-}
-
-func printExecutingCards(snap *control.PortfolioBoardSnapshot) {
-	executing := []cardDisplay{}
-
-	for _, proj := range snap.Projects {
-		projID, _ := proj["project_id"].(string)
-		counts, ok := proj["counts"].(map[string]any)
-		if !ok {
-			continue
-		}
-		execCount, _ := counts["executing"].(int)
-		if execCount == 0 {
-			continue
-		}
-
-		projSnap, err := openStore().BuildProjectSnapshot(projID)
-		if err != nil {
-			continue
-		}
-		for _, card := range projSnap.Columns["executing"] {
-			executing = append(executing, cardDisplay{ProjectID: projID, CardSummary: card})
-		}
-	}
-
-	if len(executing) == 0 {
-		fmt.Println("🔄 EXECUTING")
-		fmt.Println("------------")
-		fmt.Println("No cards currently executing")
-		fmt.Println()
+	if *asJSON {
+		printJSON(snap)
 		return
 	}
-
-	fmt.Println("🔄 EXECUTING")
-	fmt.Println("------------")
-	for _, e := range executing {
-		fmt.Printf("  [%s/%s] %s\n", e.ProjectID, e.ID, e.Title)
-		if e.RecommendedNextStep != "" {
-			fmt.Printf("    → %s\n", e.RecommendedNextStep)
-		}
-		if len(e.ActiveAgents) > 0 {
-			fmt.Printf("    👤 Agents: %v\n", e.ActiveAgents)
-		}
-		if len(e.LinkedBeadsIDs) > 0 {
-			fmt.Printf("    🔗 Beads: %v\n", e.LinkedBeadsIDs)
-		}
-	}
-	fmt.Println()
+	fmt.Println(cli.RenderAttention(snap))
 }
