@@ -3,6 +3,14 @@ package control
 import (
 	"fmt"
 	"os"
+	"strings"
+	"time"
+)
+
+const (
+	doctorReadyStaleAfter      = 72 * time.Hour
+	doctorNeedsInputStaleAfter = 48 * time.Hour
+	doctorBlockedStaleAfter    = 72 * time.Hour
 )
 
 // DoctorCheck represents a single hygiene check result
@@ -27,6 +35,7 @@ func (s *Store) DoctorControl() (*DoctorReport, error) {
 	report := &DoctorReport{
 		Checks: []DoctorCheck{},
 	}
+	now := time.Now().UTC()
 
 	for _, project := range s.Registry.Projects {
 		cards, err := s.LoadCards(project.ID)
@@ -75,6 +84,17 @@ func (s *Store) DoctorControl() (*DoctorReport, error) {
 					})
 					cardPassed = false
 				}
+				if isCardStale(card, now, doctorReadyStaleAfter) {
+					report.Failed++
+					report.Checks = append(report.Checks, DoctorCheck{
+						CheckID:   "stale-ready-card",
+						Severity:  "warning",
+						Message:   fmt.Sprintf("ready card has been idle for more than %s", doctorReadyStaleAfter),
+						ProjectID: project.ID,
+						CardID:    card.ID,
+					})
+					cardPassed = false
+				}
 			}
 
 			if card.Status == "executing" && len(card.LinkedBeadsIDs) == 0 {
@@ -83,6 +103,18 @@ func (s *Store) DoctorControl() (*DoctorReport, error) {
 					CheckID:   "executing-without-beads",
 					Severity:  "error",
 					Message:   "executing card has no linked beads IDs",
+					ProjectID: project.ID,
+					CardID:    card.ID,
+				})
+				cardPassed = false
+			}
+
+			if card.Status == "executing" && missingDispatchMetadata(card) {
+				report.Failed++
+				report.Checks = append(report.Checks, DoctorCheck{
+					CheckID:   "executing-without-dispatch-metadata",
+					Severity:  "warning",
+					Message:   "executing card is missing dispatched_at, dispatched_to, or dispatched_packet_path",
 					ProjectID: project.ID,
 					CardID:    card.ID,
 				})
@@ -103,6 +135,41 @@ func (s *Store) DoctorControl() (*DoctorReport, error) {
 					})
 					cardPassed = false
 				}
+				if isCardStale(card, now, doctorNeedsInputStaleAfter) {
+					report.Failed++
+					report.Checks = append(report.Checks, DoctorCheck{
+						CheckID:   "stale-needs-input-card",
+						Severity:  "warning",
+						Message:   fmt.Sprintf("needs_input card has been waiting for more than %s", doctorNeedsInputStaleAfter),
+						ProjectID: project.ID,
+						CardID:    card.ID,
+					})
+					cardPassed = false
+				}
+			}
+
+			if card.Status == "blocked" && isCardStale(card, now, doctorBlockedStaleAfter) {
+				report.Failed++
+				report.Checks = append(report.Checks, DoctorCheck{
+					CheckID:   "stale-blocked-card",
+					Severity:  "warning",
+					Message:   fmt.Sprintf("blocked card has been stuck for more than %s", doctorBlockedStaleAfter),
+					ProjectID: project.ID,
+					CardID:    card.ID,
+				})
+				cardPassed = false
+			}
+
+			if card.Status == "done" && card.ExecutorResult == nil {
+				report.Failed++
+				report.Checks = append(report.Checks, DoctorCheck{
+					CheckID:   "done-without-result-summary",
+					Severity:  "warning",
+					Message:   "done card has no executor_result summary",
+					ProjectID: project.ID,
+					CardID:    card.ID,
+				})
+				cardPassed = false
 			}
 
 			if cardPassed {
@@ -112,4 +179,18 @@ func (s *Store) DoctorControl() (*DoctorReport, error) {
 	}
 
 	return report, nil
+}
+
+func isCardStale(card FeatureCard, now time.Time, threshold time.Duration) bool {
+	updatedAt, err := time.Parse(time.RFC3339, strings.TrimSpace(card.UpdatedAt))
+	if err != nil {
+		return false
+	}
+	return now.Sub(updatedAt.UTC()) > threshold
+}
+
+func missingDispatchMetadata(card FeatureCard) bool {
+	return strings.TrimSpace(card.DispatchedAt) == "" ||
+		strings.TrimSpace(card.DispatchedTo) == "" ||
+		strings.TrimSpace(card.DispatchedPacketPath) == ""
 }

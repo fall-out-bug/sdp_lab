@@ -123,7 +123,13 @@ Runs hygiene checks across all control-store cards. Validates:
 - ready cards missing ready-gate fields
 - executing cards without `linked_beads_ids`
 - needs_input cards without `feedback_request` or `decision_required`
+- stale ready cards
+- stale needs_input cards
+- stale blocked cards
+- executing cards missing dispatch metadata
+- done cards missing `executor_result`
 
+This means doctor now surfaces both invariant failures and warning-level process debt.
 Returns a concise operator-facing report and exits with non-zero status when checks fail.
 
 ### `sdp dispatch next`

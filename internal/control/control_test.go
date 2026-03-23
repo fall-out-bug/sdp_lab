@@ -5,6 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 func setupStore(t *testing.T) *Store {
@@ -22,6 +25,17 @@ func setupStore(t *testing.T) *Store {
 		t.Fatal(err)
 	}
 	return store
+}
+
+func overwriteCard(t *testing.T, store *Store, card *FeatureCard) {
+	t.Helper()
+	data, err := yaml.Marshal(card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(store.cardPath(card.ProjectID, card.ID), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestCreateCardCreatesCardAndIntakeArtifact(t *testing.T) {
@@ -987,14 +1001,18 @@ func TestDoctorControlDetectsExecutingWithoutBeads(t *testing.T) {
 	if report.TotalChecks != 1 {
 		t.Fatalf("TotalChecks = %d, want 1", report.TotalChecks)
 	}
-	if report.Failed != 1 {
-		t.Fatalf("Failed = %d, want 1", report.Failed)
+	if report.Failed < 1 {
+		t.Fatalf("Failed = %d, want at least 1", report.Failed)
 	}
-	if len(report.Checks) != 1 {
-		t.Fatalf("len(Checks) = %d, want 1", len(report.Checks))
+	found := false
+	for _, check := range report.Checks {
+		if check.CheckID == "executing-without-beads" {
+			found = true
+			break
+		}
 	}
-	if report.Checks[0].CheckID != "executing-without-beads" {
-		t.Fatalf("CheckID = %s, want executing-without-beads", report.Checks[0].CheckID)
+	if !found {
+		t.Fatalf("expected executing-without-beads in checks: %+v", report.Checks)
 	}
 }
 
@@ -1027,6 +1045,141 @@ func TestDoctorControlDetectsNeedsInputWithoutQuestions(t *testing.T) {
 	}
 	if report.Checks[0].CheckID != "needs-input-without-questions" {
 		t.Fatalf("CheckID = %s, want needs-input-without-questions", report.Checks[0].CheckID)
+	}
+}
+
+func TestDoctorControlDetectsStaleReadyCard(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = store.ClarifyCard("openclaw", card.ID, "test intent", "feature", "openclaw", "low", "execute", []string{"scope in"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	card, err = store.MarkReady("openclaw", card.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	card.UpdatedAt = time.Now().Add(-73 * time.Hour).UTC().Format(time.RFC3339)
+	overwriteCard(t, store, card)
+
+	report, err := store.DoctorControl()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if report.Failed != 1 || len(report.Checks) != 1 {
+		t.Fatalf("unexpected report: %+v", report)
+	}
+	if report.Checks[0].CheckID != "stale-ready-card" {
+		t.Fatalf("CheckID = %s, want stale-ready-card", report.Checks[0].CheckID)
+	}
+	if report.Checks[0].Severity != "warning" {
+		t.Fatalf("Severity = %s, want warning", report.Checks[0].Severity)
+	}
+}
+
+func TestDoctorControlDetectsStaleNeedsInputCard(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.Status = "needs_input"
+	card.NeedsFeedbackFrom = []string{"author"}
+	card.FeedbackRequest = []string{"Which channel?"}
+	card.UpdatedAt = time.Now().Add(-49 * time.Hour).UTC().Format(time.RFC3339)
+	overwriteCard(t, store, card)
+
+	report, err := store.DoctorControl()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if report.Failed != 1 || len(report.Checks) != 1 {
+		t.Fatalf("unexpected report: %+v", report)
+	}
+	if report.Checks[0].CheckID != "stale-needs-input-card" {
+		t.Fatalf("CheckID = %s, want stale-needs-input-card", report.Checks[0].CheckID)
+	}
+}
+
+func TestDoctorControlDetectsStaleBlockedCard(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.Status = "blocked"
+	card.BlockingReasons = []string{"waiting for decision"}
+	card.UpdatedAt = time.Now().Add(-73 * time.Hour).UTC().Format(time.RFC3339)
+	overwriteCard(t, store, card)
+
+	report, err := store.DoctorControl()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if report.Failed != 1 || len(report.Checks) != 1 {
+		t.Fatalf("unexpected report: %+v", report)
+	}
+	if report.Checks[0].CheckID != "stale-blocked-card" {
+		t.Fatalf("CheckID = %s, want stale-blocked-card", report.Checks[0].CheckID)
+	}
+}
+
+func TestDoctorControlDetectsExecutingWithoutDispatchMetadata(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.Status = "executing"
+	card.LinkedBeadsIDs = []string{"bd-test-123"}
+	overwriteCard(t, store, card)
+
+	report, err := store.DoctorControl()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if report.Failed != 1 || len(report.Checks) != 1 {
+		t.Fatalf("unexpected report: %+v", report)
+	}
+	if report.Checks[0].CheckID != "executing-without-dispatch-metadata" {
+		t.Fatalf("CheckID = %s, want executing-without-dispatch-metadata", report.Checks[0].CheckID)
+	}
+	if report.Checks[0].Severity != "warning" {
+		t.Fatalf("Severity = %s, want warning", report.Checks[0].Severity)
+	}
+}
+
+func TestDoctorControlDetectsDoneWithoutResultSummary(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Test feature", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card.Status = "done"
+	overwriteCard(t, store, card)
+
+	report, err := store.DoctorControl()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if report.Failed != 1 || len(report.Checks) != 1 {
+		t.Fatalf("unexpected report: %+v", report)
+	}
+	if report.Checks[0].CheckID != "done-without-result-summary" {
+		t.Fatalf("CheckID = %s, want done-without-result-summary", report.Checks[0].CheckID)
 	}
 }
 
@@ -1116,9 +1269,10 @@ func TestDoctorControlExecutingCardWithBeadsPasses(t *testing.T) {
 
 	card.Status = "executing"
 	card.LinkedBeadsIDs = []string{"bd-test-123"}
-	if err := store.SaveCard(card); err != nil {
-		t.Fatal(err)
-	}
+	card.DispatchedAt = time.Now().UTC().Format(time.RFC3339)
+	card.DispatchedTo = "beads"
+	card.DispatchedPacketPath = "/tmp/dispatch.json"
+	overwriteCard(t, store, card)
 
 	report, err := store.DoctorControl()
 	if err != nil {
