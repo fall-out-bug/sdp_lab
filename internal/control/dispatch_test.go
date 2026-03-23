@@ -22,6 +22,9 @@ func TestDispatchCardForReadyCard(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	defer SetCreateBeadsIssueFn(createBeadsIssue)
+	SetCreateBeadsIssueFn(MockCreateBeadsIssue("bd-test-123"))
+
 	result, err := store.DispatchCard("openclaw", card.ID)
 	if err != nil {
 		t.Fatalf("DispatchCard error: %v", err)
@@ -47,6 +50,12 @@ func TestDispatchCardForReadyCard(t *testing.T) {
 	}
 	if len(result.ActiveAgents) == 0 {
 		t.Fatal("ActiveAgents should contain executor")
+	}
+	if len(result.LinkedBeadsIDs) != 1 {
+		t.Fatalf("linked_beads_ids count = %d, want 1", len(result.LinkedBeadsIDs))
+	}
+	if result.LinkedBeadsIDs[0] != "bd-test-123" {
+		t.Fatalf("beads id = %s, want bd-test-123", result.LinkedBeadsIDs[0])
 	}
 
 	packetPath := filepath.Join(store.ControlRoot, "projects", "openclaw", "dispatches", card.ID+".json")

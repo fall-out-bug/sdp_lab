@@ -242,6 +242,13 @@ func (s *Store) DispatchCard(projectID, cardID string) (*FeatureCard, error) {
 		return nil, fmt.Errorf("card must be ready or executing to dispatch, current status: %s", card.Status)
 	}
 
+	if card.Status == "ready" {
+		card, err = s.ExecuteCard(projectID, cardID)
+		if err != nil {
+			return nil, fmt.Errorf("link execution before dispatch: %w", err)
+		}
+	}
+
 	packet, err := s.BuildExecutionPacket(projectID, cardID)
 	if err != nil {
 		return nil, fmt.Errorf("build execution packet: %w", err)
