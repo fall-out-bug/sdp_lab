@@ -100,12 +100,18 @@ type CardSummary struct {
 	BlockedCycles          int      `json:"blocked_cycles,omitempty"`
 	ExecutionAttemptCount  int      `json:"execution_attempt_count,omitempty"`
 	ReviewFailCount        int      `json:"review_fail_count,omitempty"`
+	RollbackCount          int      `json:"rollback_count,omitempty"`
 	ActiveAgents           []string `json:"active_agents,omitempty"`
 	WaitingOn              []string `json:"waiting_on,omitempty"`
 	NeedsFeedbackFrom      []string `json:"needs_feedback_from,omitempty"`
 	AuthorUpdate           []string `json:"author_update,omitempty"`
 	AdminActionRequired    []string `json:"admin_action_required,omitempty"`
 	LinkedBeadsIDs         []string `json:"linked_beads_ids,omitempty"`
+	DispatchedTo           string   `json:"dispatched_to,omitempty"`
+	DispatchedAt           string   `json:"dispatched_at,omitempty"`
+	ExecutorResultStatus   string   `json:"executor_result_status,omitempty"`
+	ExecutorResultSummary  string   `json:"executor_result_summary,omitempty"`
+	ExecutorNextHint       string   `json:"executor_next_hint,omitempty"`
 }
 
 type ProjectBoardSnapshot struct {
@@ -137,14 +143,21 @@ type QueueItem struct {
 	RecommendedNextAction  string   `json:"recommended_next_action,omitempty"`
 	RecommendedNextReason  string   `json:"recommended_next_reason,omitempty"`
 	LastOrchestratorAction string   `json:"last_orchestrator_action,omitempty"`
+	LastOrchestratorReason string   `json:"last_orchestrator_reason,omitempty"`
 	ClarificationCycles    int      `json:"clarification_cycles,omitempty"`
 	BlockedCycles          int      `json:"blocked_cycles,omitempty"`
 	ExecutionAttemptCount  int      `json:"execution_attempt_count,omitempty"`
 	ReviewFailCount        int      `json:"review_fail_count,omitempty"`
+	RollbackCount          int      `json:"rollback_count,omitempty"`
 	ActiveAgents           []string `json:"active_agents,omitempty"`
 	NeedsFeedbackFrom      []string `json:"needs_feedback_from,omitempty"`
 	AuthorUpdate           []string `json:"author_update,omitempty"`
 	AdminActionRequired    []string `json:"admin_action_required,omitempty"`
+	LinkedBeadsIDs         []string `json:"linked_beads_ids,omitempty"`
+	DispatchedTo           string   `json:"dispatched_to,omitempty"`
+	ExecutorResultStatus   string   `json:"executor_result_status,omitempty"`
+	ExecutorResultSummary  string   `json:"executor_result_summary,omitempty"`
+	ExecutorNextHint       string   `json:"executor_next_hint,omitempty"`
 }
 
 type ProjectRegistry struct {
@@ -316,13 +329,13 @@ func (s *Store) BuildPortfolioSnapshot() (*PortfolioBoardSnapshot, error) {
 			totals[k] += v
 		}
 		for _, c := range snap.Columns["needs_input"] {
-			queues["waiting_on_human"] = append(queues["waiting_on_human"], QueueItem{ProjectID: p.ID, CardID: c.ID, Title: c.Title, Status: c.Status, RecommendedNextStep: c.RecommendedNextStep, RecommendedNextAction: c.RecommendedNextAction, RecommendedNextReason: c.RecommendedNextReason, LastOrchestratorAction: c.LastOrchestratorAction, ClarificationCycles: c.ClarificationCycles, BlockedCycles: c.BlockedCycles, ExecutionAttemptCount: c.ExecutionAttemptCount, ReviewFailCount: c.ReviewFailCount, ActiveAgents: c.ActiveAgents, NeedsFeedbackFrom: c.NeedsFeedbackFrom, AuthorUpdate: c.AuthorUpdate, AdminActionRequired: c.AdminActionRequired})
+			queues["waiting_on_human"] = append(queues["waiting_on_human"], QueueItem{ProjectID: p.ID, CardID: c.ID, Title: c.Title, Status: c.Status, RecommendedNextStep: c.RecommendedNextStep, RecommendedNextAction: c.RecommendedNextAction, RecommendedNextReason: c.RecommendedNextReason, LastOrchestratorAction: c.LastOrchestratorAction, LastOrchestratorReason: c.LastOrchestratorReason, ClarificationCycles: c.ClarificationCycles, BlockedCycles: c.BlockedCycles, ExecutionAttemptCount: c.ExecutionAttemptCount, ReviewFailCount: c.ReviewFailCount, RollbackCount: c.RollbackCount, ActiveAgents: c.ActiveAgents, NeedsFeedbackFrom: c.NeedsFeedbackFrom, AuthorUpdate: c.AuthorUpdate, AdminActionRequired: c.AdminActionRequired, LinkedBeadsIDs: c.LinkedBeadsIDs, DispatchedTo: c.DispatchedTo, ExecutorResultStatus: c.ExecutorResultStatus, ExecutorResultSummary: c.ExecutorResultSummary, ExecutorNextHint: c.ExecutorNextHint})
 		}
 		for _, c := range snap.Columns["ready"] {
-			queues["ready_to_execute"] = append(queues["ready_to_execute"], QueueItem{ProjectID: p.ID, CardID: c.ID, Title: c.Title, Status: c.Status, RecommendedNextStep: c.RecommendedNextStep, RecommendedNextAction: c.RecommendedNextAction, RecommendedNextReason: c.RecommendedNextReason, LastOrchestratorAction: c.LastOrchestratorAction, ClarificationCycles: c.ClarificationCycles, BlockedCycles: c.BlockedCycles, ExecutionAttemptCount: c.ExecutionAttemptCount, ReviewFailCount: c.ReviewFailCount, ActiveAgents: c.ActiveAgents})
+			queues["ready_to_execute"] = append(queues["ready_to_execute"], QueueItem{ProjectID: p.ID, CardID: c.ID, Title: c.Title, Status: c.Status, RecommendedNextStep: c.RecommendedNextStep, RecommendedNextAction: c.RecommendedNextAction, RecommendedNextReason: c.RecommendedNextReason, LastOrchestratorAction: c.LastOrchestratorAction, LastOrchestratorReason: c.LastOrchestratorReason, ClarificationCycles: c.ClarificationCycles, BlockedCycles: c.BlockedCycles, ExecutionAttemptCount: c.ExecutionAttemptCount, ReviewFailCount: c.ReviewFailCount, RollbackCount: c.RollbackCount, ActiveAgents: c.ActiveAgents, LinkedBeadsIDs: c.LinkedBeadsIDs, DispatchedTo: c.DispatchedTo, ExecutorResultStatus: c.ExecutorResultStatus, ExecutorResultSummary: c.ExecutorResultSummary, ExecutorNextHint: c.ExecutorNextHint})
 		}
 		for _, c := range snap.Columns["blocked"] {
-			queues["blocked"] = append(queues["blocked"], QueueItem{ProjectID: p.ID, CardID: c.ID, Title: c.Title, Status: c.Status, RecommendedNextStep: c.RecommendedNextStep, RecommendedNextAction: c.RecommendedNextAction, RecommendedNextReason: c.RecommendedNextReason, LastOrchestratorAction: c.LastOrchestratorAction, ClarificationCycles: c.ClarificationCycles, BlockedCycles: c.BlockedCycles, ExecutionAttemptCount: c.ExecutionAttemptCount, ReviewFailCount: c.ReviewFailCount, ActiveAgents: c.ActiveAgents, NeedsFeedbackFrom: c.NeedsFeedbackFrom, AuthorUpdate: c.AuthorUpdate, AdminActionRequired: c.AdminActionRequired})
+			queues["blocked"] = append(queues["blocked"], QueueItem{ProjectID: p.ID, CardID: c.ID, Title: c.Title, Status: c.Status, RecommendedNextStep: c.RecommendedNextStep, RecommendedNextAction: c.RecommendedNextAction, RecommendedNextReason: c.RecommendedNextReason, LastOrchestratorAction: c.LastOrchestratorAction, LastOrchestratorReason: c.LastOrchestratorReason, ClarificationCycles: c.ClarificationCycles, BlockedCycles: c.BlockedCycles, ExecutionAttemptCount: c.ExecutionAttemptCount, ReviewFailCount: c.ReviewFailCount, RollbackCount: c.RollbackCount, ActiveAgents: c.ActiveAgents, NeedsFeedbackFrom: c.NeedsFeedbackFrom, AuthorUpdate: c.AuthorUpdate, AdminActionRequired: c.AdminActionRequired, LinkedBeadsIDs: c.LinkedBeadsIDs, DispatchedTo: c.DispatchedTo, ExecutorResultStatus: c.ExecutorResultStatus, ExecutorResultSummary: c.ExecutorResultSummary, ExecutorNextHint: c.ExecutorNextHint})
 		}
 	}
 	portfolio := &PortfolioBoardSnapshot{SpecVersion: specVersion, Timestamp: time.Now().UTC().Format(time.RFC3339), Projects: projects, Totals: totals, Queues: queues, NextAction: derivePortfolioAction(queues)}
@@ -345,13 +358,40 @@ func summarize(c FeatureCard) CardSummary {
 		BlockedCycles:          c.BlockedCycles,
 		ExecutionAttemptCount:  c.ExecutionAttemptCount,
 		ReviewFailCount:        c.ReviewFailCount,
+		RollbackCount:          c.RollbackCount,
 		ActiveAgents:           c.ActiveAgents,
 		WaitingOn:              c.WaitingOn,
 		NeedsFeedbackFrom:      c.NeedsFeedbackFrom,
 		AuthorUpdate:           c.AuthorUpdate,
 		AdminActionRequired:    c.AdminActionRequired,
 		LinkedBeadsIDs:         c.LinkedBeadsIDs,
+		DispatchedTo:           c.DispatchedTo,
+		DispatchedAt:           c.DispatchedAt,
+		ExecutorResultStatus:   executorResultStatus(c.ExecutorResult),
+		ExecutorResultSummary:  executorResultSummary(c.ExecutorResult),
+		ExecutorNextHint:       executorResultNextHint(c.ExecutorResult),
 	}
+}
+
+func executorResultStatus(result *ExecutorResultSummary) string {
+	if result == nil {
+		return ""
+	}
+	return result.Status
+}
+
+func executorResultSummary(result *ExecutorResultSummary) string {
+	if result == nil {
+		return ""
+	}
+	return result.Summary
+}
+
+func executorResultNextHint(result *ExecutorResultSummary) string {
+	if result == nil {
+		return ""
+	}
+	return result.RecommendedNextStep
 }
 
 func deriveNextAction(cards []FeatureCard) map[string]string {

@@ -156,6 +156,53 @@ func RenderAttention(snap *control.PortfolioBoardSnapshot) string {
 	return strings.TrimSpace(b.String())
 }
 
+func RenderCardDetail(card *control.FeatureCard) string {
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("CARD — %s\n", card.Title))
+	b.WriteString(fmt.Sprintf("ID: %s/%s | Status: %s", card.ProjectID, card.ID, card.Status))
+	if risk := strings.TrimSpace(card.RiskLevel); risk != "" {
+		b.WriteString(" | Risk: " + risk)
+	}
+	b.WriteString("\n")
+
+	if raw := strings.TrimSpace(card.RawRequest); raw != "" {
+		b.WriteString("Request\n")
+		b.WriteString("- " + raw + "\n\n")
+	}
+
+	if len(card.SourceRefs) > 0 || card.NormalizedIntent != "" || len(card.ScopeIn) > 0 || len(card.ScopeOut) > 0 {
+		b.WriteString("Shape\n")
+		for _, line := range cardShapeLines(card) {
+			b.WriteString(line + "\n")
+		}
+		b.WriteString("\n")
+	}
+
+	b.WriteString("Control\n")
+	for _, line := range cardControlLines(card) {
+		b.WriteString(line + "\n")
+	}
+	b.WriteString("\n")
+
+	if lines := cardExecutionLines(card); len(lines) > 0 {
+		b.WriteString("Execution\n")
+		for _, line := range lines {
+			b.WriteString(line + "\n")
+		}
+		b.WriteString("\n")
+	}
+
+	if lines := cardFrictionLines(card); len(lines) > 0 {
+		b.WriteString("Friction\n")
+		for _, line := range lines {
+			b.WriteString(line + "\n")
+		}
+		b.WriteString("\n")
+	}
+
+	return strings.TrimSpace(b.String())
+}
+
 type renderedSection struct {
 	title string
 	lines []string
@@ -215,6 +262,12 @@ func queueDetail(item control.QueueItem) string {
 	if item.RecommendedNextStep != "" {
 		parts = append(parts, "next: "+item.RecommendedNextStep)
 	}
+	if item.RecommendedNextReason != "" {
+		parts = append(parts, "why: "+item.RecommendedNextReason)
+	}
+	if item.LastOrchestratorAction != "" {
+		parts = append(parts, "last: "+humanizeAction(item.LastOrchestratorAction))
+	}
 	if len(item.NeedsFeedbackFrom) > 0 {
 		parts = append(parts, "waiting on: "+strings.Join(item.NeedsFeedbackFrom, ", "))
 	}
@@ -224,6 +277,12 @@ func queueDetail(item control.QueueItem) string {
 	if len(item.AuthorUpdate) > 0 {
 		parts = append(parts, "update: "+strings.Join(item.AuthorUpdate, ", "))
 	}
+	if friction := frictionMarkers(item.ClarificationCycles, item.BlockedCycles, item.ExecutionAttemptCount, item.ReviewFailCount, item.RollbackCount); friction != "" {
+		parts = append(parts, friction)
+	}
+	if hint := executionHint(item.LinkedBeadsIDs, item.DispatchedTo, item.ExecutorResultStatus, item.ExecutorResultSummary, item.ExecutorNextHint); hint != "" {
+		parts = append(parts, hint)
+	}
 	return strings.Join(parts, " | ")
 }
 
@@ -232,13 +291,188 @@ func cardSummaryDetail(item control.CardSummary) string {
 	if item.RecommendedNextStep != "" {
 		parts = append(parts, "next: "+item.RecommendedNextStep)
 	}
+	if item.RecommendedNextReason != "" {
+		parts = append(parts, "why: "+item.RecommendedNextReason)
+	}
+	if item.LastOrchestratorAction != "" {
+		parts = append(parts, "last: "+humanizeAction(item.LastOrchestratorAction))
+	}
 	if len(item.NeedsFeedbackFrom) > 0 {
 		parts = append(parts, "waiting on: "+strings.Join(item.NeedsFeedbackFrom, ", "))
 	}
-	if len(item.LinkedBeadsIDs) > 0 {
-		parts = append(parts, "beads: "+strings.Join(item.LinkedBeadsIDs, ", "))
+	if friction := frictionMarkers(item.ClarificationCycles, item.BlockedCycles, item.ExecutionAttemptCount, item.ReviewFailCount, item.RollbackCount); friction != "" {
+		parts = append(parts, friction)
+	}
+	if hint := executionHint(item.LinkedBeadsIDs, item.DispatchedTo, item.ExecutorResultStatus, item.ExecutorResultSummary, item.ExecutorNextHint); hint != "" {
+		parts = append(parts, hint)
 	}
 	return strings.Join(parts, " | ")
+}
+
+func cardShapeLines(card *control.FeatureCard) []string {
+	lines := []string{}
+	if len(card.SourceRefs) > 0 {
+		lines = append(lines, "- Source: "+strings.Join(card.SourceRefs, ", "))
+	}
+	if intent := strings.TrimSpace(card.NormalizedIntent); intent != "" {
+		lines = append(lines, "- Intent: "+intent)
+	}
+	if scope := compactList("Scope in", card.ScopeIn); scope != "" {
+		lines = append(lines, "- "+scope)
+	}
+	if scope := compactList("Scope out", card.ScopeOut); scope != "" {
+		lines = append(lines, "- "+scope)
+	}
+	return lines
+}
+
+func cardControlLines(card *control.FeatureCard) []string {
+	lines := []string{}
+	if card.LastOrchestratorAction != "" {
+		line := "- Last orchestrator: " + humanizeAction(card.LastOrchestratorAction)
+		if reason := strings.TrimSpace(card.LastOrchestratorReason); reason != "" {
+			line += " — " + reason
+		}
+		if at := strings.TrimSpace(card.LastOrchestratorAt); at != "" {
+			line += " (" + at + ")"
+		}
+		lines = append(lines, line)
+	}
+	if card.RecommendedNextAction != "" {
+		line := "- Next: " + humanizeAction(card.RecommendedNextAction)
+		if reason := strings.TrimSpace(card.RecommendedNextReason); reason != "" {
+			line += " — " + reason
+		}
+		lines = append(lines, line)
+	}
+	if len(card.WaitingOn) > 0 {
+		lines = append(lines, "- Waiting on: "+strings.Join(card.WaitingOn, ", "))
+	}
+	if len(card.BlockingReasons) > 0 {
+		lines = append(lines, "- Blockers: "+strings.Join(card.BlockingReasons, "; "))
+	}
+	if len(card.NeedsFeedbackFrom) > 0 {
+		lines = append(lines, "- Feedback from: "+strings.Join(card.NeedsFeedbackFrom, ", "))
+	}
+	if len(lines) == 0 {
+		return []string{"- No control metadata yet."}
+	}
+	return lines
+}
+
+func cardExecutionLines(card *control.FeatureCard) []string {
+	lines := []string{}
+	if len(card.LinkedBeadsIDs) > 0 {
+		lines = append(lines, "- Beads: "+strings.Join(card.LinkedBeadsIDs, ", "))
+	}
+	if card.DispatchedTo != "" || card.DispatchedAt != "" {
+		line := "- Dispatch"
+		if card.DispatchedTo != "" {
+			line += ": " + card.DispatchedTo
+		}
+		if card.DispatchedAt != "" {
+			line += " @ " + card.DispatchedAt
+		}
+		lines = append(lines, line)
+	}
+	if card.DispatchedPacketPath != "" {
+		lines = append(lines, "- Packet: "+card.DispatchedPacketPath)
+	}
+	if result := card.ExecutorResult; result != nil {
+		line := "- Result: " + result.Status
+		if result.Summary != "" {
+			line += " — " + result.Summary
+		}
+		lines = append(lines, line)
+		if result.RecommendedNextStep != "" {
+			lines = append(lines, "- Result next: "+result.RecommendedNextStep)
+		}
+		if len(result.Findings) > 0 {
+			lines = append(lines, "- Findings: "+strings.Join(result.Findings, "; "))
+		}
+		if len(result.OpenRisks) > 0 {
+			lines = append(lines, "- Open risks: "+strings.Join(result.OpenRisks, "; "))
+		}
+	}
+	return lines
+}
+
+func cardFrictionLines(card *control.FeatureCard) []string {
+	lines := []string{}
+	if card.ClarificationCycles > 0 {
+		lines = append(lines, fmt.Sprintf("- clarification_cycles: %d", card.ClarificationCycles))
+	}
+	if card.BlockedCycles > 0 {
+		lines = append(lines, fmt.Sprintf("- blocked_cycles: %d", card.BlockedCycles))
+	}
+	if card.ExecutionAttemptCount > 0 {
+		lines = append(lines, fmt.Sprintf("- execution_attempt_count: %d", card.ExecutionAttemptCount))
+	}
+	if card.ReviewFailCount > 0 {
+		lines = append(lines, fmt.Sprintf("- review_fail_count: %d", card.ReviewFailCount))
+	}
+	if card.RollbackCount > 0 {
+		lines = append(lines, fmt.Sprintf("- rollback_count: %d", card.RollbackCount))
+	}
+	return lines
+}
+
+func frictionMarkers(clarify, blocked, execCount, review, rollback int) string {
+	parts := []string{}
+	if clarify > 0 {
+		parts = append(parts, fmt.Sprintf("clarify:%d", clarify))
+	}
+	if blocked > 0 {
+		parts = append(parts, fmt.Sprintf("blocked:%d", blocked))
+	}
+	if execCount > 0 {
+		parts = append(parts, fmt.Sprintf("exec:%d", execCount))
+	}
+	if review > 0 {
+		parts = append(parts, fmt.Sprintf("review:%d", review))
+	}
+	if rollback > 0 {
+		parts = append(parts, fmt.Sprintf("rollback:%d", rollback))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "friction: " + strings.Join(parts, ", ")
+}
+
+func executionHint(beads []string, dispatchedTo, resultStatus, resultSummary, resultNext string) string {
+	parts := []string{}
+	if len(beads) > 0 {
+		parts = append(parts, "beads: "+strings.Join(beads, ", "))
+	}
+	if dispatchedTo != "" {
+		parts = append(parts, "dispatch: "+dispatchedTo)
+	}
+	if resultStatus != "" {
+		hint := "result: " + resultStatus
+		if resultSummary != "" {
+			hint += " — " + resultSummary
+		}
+		parts = append(parts, hint)
+	}
+	if resultNext != "" {
+		parts = append(parts, "result-next: "+resultNext)
+	}
+	return strings.Join(parts, " | ")
+}
+
+func compactList(label string, items []string) string {
+	if len(items) == 0 {
+		return ""
+	}
+	return label + ": " + strings.Join(items, "; ")
+}
+
+func humanizeAction(action string) string {
+	if action == "" {
+		return ""
+	}
+	return strings.ReplaceAll(action, "_", " ")
 }
 
 func summarizeProjects(snap *control.PortfolioBoardSnapshot) []string {

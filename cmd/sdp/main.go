@@ -42,7 +42,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention> <subcommand> [flags]")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Card commands:")
-	fmt.Fprintln(os.Stderr, "  sdp card <create|clarify|needs-input|ready|park|execute|feedback|feedback-export|message-export|resume|resume-import|reply-ingest>")
+	fmt.Fprintln(os.Stderr, "  sdp card <create|show|clarify|needs-input|ready|park|execute|feedback|feedback-export|message-export|resume|resume-import|reply-ingest>")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Board commands:")
 	fmt.Fprintln(os.Stderr, "  sdp board <build|show>")
@@ -108,12 +108,14 @@ func splitList(raw string) []string {
 
 func runCard(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: sdp card <create|clarify|needs-input|ready|park|execute|feedback|feedback-export|message-export|resume|resume-import|reply-ingest>")
+		fmt.Fprintln(os.Stderr, "usage: sdp card <create|show|clarify|needs-input|ready|park|execute|feedback|feedback-export|message-export|resume|resume-import|reply-ingest>")
 		os.Exit(2)
 	}
 	switch args[0] {
 	case "create":
 		runCardCreate(args[1:])
+	case "show":
+		runCardShow(args[1:])
 	case "clarify":
 		runCardClarify(args[1:])
 	case "needs-input":
@@ -137,7 +139,7 @@ func runCard(args []string) {
 	case "reply-ingest":
 		runCardReplyIngest(args[1:])
 	default:
-		fmt.Fprintln(os.Stderr, "usage: sdp card <create|clarify|needs-input|ready|park|execute|feedback|feedback-export|message-export|resume|resume-import|reply-ingest>")
+		fmt.Fprintln(os.Stderr, "usage: sdp card <create|show|clarify|needs-input|ready|park|execute|feedback|feedback-export|message-export|resume|resume-import|reply-ingest>")
 		os.Exit(2)
 	}
 }
@@ -159,6 +161,29 @@ func runCardCreate(args []string) {
 		os.Exit(1)
 	}
 	printJSON(card)
+}
+
+func runCardShow(args []string) {
+	fs := flag.NewFlagSet("card-show", flag.ExitOnError)
+	project := fs.String("project", "", "project id")
+	id := fs.String("id", "", "card id")
+	asJSON := fs.Bool("json", false, "render raw JSON instead of the default human summary")
+	_ = fs.Parse(args)
+	if *project == "" || *id == "" {
+		fmt.Fprintln(os.Stderr, "error: --project and --id are required")
+		os.Exit(2)
+	}
+	store := openStore()
+	card, err := store.LoadCard(*project, *id)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: load card: %v\n", err)
+		os.Exit(1)
+	}
+	if *asJSON {
+		printJSON(card)
+		return
+	}
+	fmt.Println(cli.RenderCardDetail(card))
 }
 
 func runCardClarify(args []string) {
