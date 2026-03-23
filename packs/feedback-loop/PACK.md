@@ -168,3 +168,11 @@ Good:
 - `../shaping/PACK.md`
 - `../execution-bridge/PACK.md`
 - `../README.md`
+
+## Useful templates
+
+- `docs/templates/handoff-note.template.md` when the loop needs a clean continuation record after feedback is applied
+- `docs/templates/review-note.template.md` when the returned answer changes the review/risk posture
+- `docs/templates/control-tower-launch-brief.template.md` when resumed work is being handed to a fresh implementation session
+
+The feedback packet itself is still a transport/output surface, not a canonical template in `docs/templates/`.

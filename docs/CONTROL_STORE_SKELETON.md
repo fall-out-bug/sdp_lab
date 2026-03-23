@@ -145,11 +145,12 @@ The control-store command surface now has lightweight stage-pack guidance under 
 
 These packs do not replace contracts or schemas.
 They package the practical stage-level operating guidance around the command surface described in this file.
+When they mention templates, they should point only to real canonical files under `docs/templates/`, not to implied pack-local systems.
 
 ## Next implementation steps
 
 1. keep stage packs wired into canonical session-start docs and launch briefs
-2. strengthen template/generator discipline around the new packs
+2. strengthen template/generator discipline around the new packs (inventory + real-template references first, no framework jump)
 3. add richer status views / UI later
 4. integrate with external messaging providers (Slack, email, etc.) on top of file-based I/O
 5. add process hygiene telemetry for stale / blocked / waiting-on-human debt

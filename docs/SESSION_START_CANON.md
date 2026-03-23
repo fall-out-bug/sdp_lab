@@ -20,12 +20,24 @@ Date: 2026-03-22
 ## Standard launch brief rule
 
 When spawning a new implementation session for control-tower work, the brief should explicitly tell the agent to read the three files above first.
+Use `docs/templates/control-tower-launch-brief.template.md` as the canonical launch-brief source when you want a reusable brief structure.
 
 Minimal pattern:
 - read `CONTROL_TOWER_CANON.md`
 - read `docs/CONTROL_TOWER_IMPLEMENTATION_ROADMAP.md`
 - read `docs/CONTROL_STORE_SKELETON.md`
+- if a written launch brief is needed, structure it from `docs/templates/control-tower-launch-brief.template.md`
 - only then inspect local code and implement the narrow slice
+
+### Template discipline rule
+
+For the current thin Phase 3 slice:
+- `docs/templates/` = canonical source templates
+- generated run output does **not** belong in `docs/templates/`
+- CLI/packet/board renderings are delivery surfaces, not canonical templates
+- packs must reference real template files only
+
+Reference: `docs/TEMPLATE_INVENTORY_AND_CLASSIFICATION.md`
 
 ## Read as needed for control tower work
 

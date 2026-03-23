@@ -45,7 +45,6 @@ Examples already present:
 - `internal/workstream/template.go`
 - `internal/profile/config_templates.go`
 - `sdp/templates/`
-- `sdp-plugin/templates/`
 
 ### C. Doctor / validation lineage already exists
 Signals already present:
@@ -267,7 +266,7 @@ Current outputs:
 - `packs/execution-bridge/PACK.md`
 - `packs/feedback-loop/PACK.md`
 
-Next polish for this phase should focus on doc wiring, template discipline, and keeping the packs discoverable from session-start docs.
+Next polish for this phase should focus on doc wiring, template discipline, keeping the packs discoverable from session-start docs, and keeping template references honest against the actual repo.
 
 ### Phase 3 — strengthen generator discipline
 Move toward:

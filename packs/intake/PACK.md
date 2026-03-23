@@ -143,3 +143,11 @@ Good:
 - `docs/CONTROL_STORE_SKELETON.md`
 - `docs/ARTIFACT_PROVENANCE_INTAKE.md`
 - `../README.md`
+
+## Useful templates
+
+- `docs/templates/task-brief.template.md` for turning raw intake into a lightweight structured task brief during or after shaping
+- `docs/templates/control-tower-launch-brief.template.md` when opening a dedicated implementation session from a control-tower card
+
+These are references to real canonical templates.
+They do not imply a separate intake-only template system.

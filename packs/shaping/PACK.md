@@ -188,3 +188,12 @@ Good:
 - `docs/CONTROL_STORE_SKELETON.md`
 - `../feedback-loop/PACK.md`
 - `../README.md`
+
+## Useful templates
+
+- `docs/templates/task-brief.template.md` for shaping the ask into a stable execution-facing brief
+- `docs/templates/implementation-plan.template.md` when the card needs a thin explicit execution plan before dispatch
+- `docs/templates/control-tower-launch-brief.template.md` for a clean implementation-session kickoff once the card is mature enough
+
+Use these as canonical source templates only when they genuinely help.
+Do not pad shaping with paperwork just because a template exists.

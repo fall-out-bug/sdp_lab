@@ -95,13 +95,26 @@ Expected contents:
 - entry/exit boundaries
 - canonical commands already supported today
 - minimal rules and anti-patterns
-- references to the deeper docs instead of duplicating them
+- references to deeper docs and real canonical templates instead of duplicating them
 
 Avoid in packs:
 - speculative future framework
 - fake command flags
 - pack-local template systems unless they actually exist
+- references to nonexistent template paths
 - long restatements of contracts already defined elsewhere
+
+## Template discipline for packs
+
+Packs sit on top of the Phase 3 template/generator discipline:
+- canonical source templates live in `docs/templates/`
+- generated outputs belong in runtime/project output paths, not in `docs/templates/`
+- CLI renderings, snapshots, and transport packets are delivery surfaces, not canonical templates
+
+Use packs to point at real templates when that helps the stage.
+Do not imply that every stage has its own hidden template system.
+
+Reference: `docs/TEMPLATE_INVENTORY_AND_CLASSIFICATION.md`
 
 ---
 

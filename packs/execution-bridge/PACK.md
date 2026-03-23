@@ -173,3 +173,12 @@ Good:
 - `docs/FEATURE_CARD_CONTRACT_WORKING_MODEL.md`
 - `../feedback-loop/PACK.md`
 - `../README.md`
+
+## Useful templates
+
+- `docs/templates/implementation-plan.template.md` for a thin pre-execution plan when the dispatch needs explicit boundaries
+- `docs/templates/verification-note.template.md` for recording what was actually verified after execution or result ingest
+- `docs/templates/review-note.template.md` when execution lands in a review-oriented state
+- `docs/templates/handoff-note.template.md` when execution needs a clean continuation/handoff
+
+These are canonical artifact templates, not pack-local generated outputs.
