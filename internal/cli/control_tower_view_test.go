@@ -105,6 +105,9 @@ func TestRenderAttention(t *testing.T) {
 		"Friction hotspots (2)",
 		"Next best action",
 		"Target: alpha/feature-alpha-001",
+		"Command: `sdp card feedback --project alpha --id feature-alpha-001`",
+		"Top commands",
+		"- alpha/feature-alpha-001 — primary: `sdp card feedback --project alpha --id feature-alpha-001` | why: This card is waiting on explicit human/admin input.",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("expected output to contain %q\nfull output:\n%s", want, out)
@@ -117,10 +120,10 @@ func TestRenderProjectBoard(t *testing.T) {
 		Project: map[string]string{"project_id": "alpha", "name": "alpha"},
 		Counts:  map[string]int{"needs_input": 1, "clarifying": 1, "inbox": 1, "blocked": 1, "ready": 1, "executing": 1, "done": 2},
 		Columns: map[string][]control.CardSummary{
-			"needs_input": {{ID: "feature-alpha-001", Title: "Await answer", RecommendedNextStep: "ask owner", RecommendedNextReason: "Missing answer", LastOrchestratorAction: "requested_input", NeedsFeedbackFrom: []string{"admin"}, ClarificationCycles: 1, ReviewState: "needs_attention"}},
-			"blocked":     {{ID: "feature-alpha-002", Title: "Blocked item", RecommendedNextStep: "resolve dependency", LastOrchestratorAction: "ingested_executor_result", BlockedCycles: 2, DeliveryState: "failed", DeliveryTarget: "staging", HasRollback: true}},
-			"ready":       {{ID: "feature-alpha-003", Title: "Ready item", RecommendedNextStep: "dispatch", LastOrchestratorAction: "marked_ready"}},
-			"executing":   {{ID: "feature-alpha-004", Title: "Executing item", RecommendedNextStep: "wait for result", LastOrchestratorAction: "dispatched_execution", LinkedBeadsIDs: []string{"bd-123"}, DispatchedTo: "omo-implementation", ExecutionAttemptCount: 1, ExecutorResultStatus: "blocked", ExecutorResultSummary: "CI is red"}},
+			"needs_input": {{ID: "feature-alpha-001", Title: "Await answer", Status: "needs_input", RecommendedNextStep: "ask owner", RecommendedNextReason: "Missing answer", LastOrchestratorAction: "requested_input", NeedsFeedbackFrom: []string{"admin"}, ClarificationCycles: 1, ReviewState: "needs_attention"}},
+			"blocked":     {{ID: "feature-alpha-002", Title: "Blocked item", Status: "blocked", RecommendedNextStep: "resolve dependency", LastOrchestratorAction: "ingested_executor_result", BlockedCycles: 2, DeliveryState: "failed", DeliveryTarget: "staging", HasRollback: true}},
+			"ready":       {{ID: "feature-alpha-003", Title: "Ready item", Status: "ready", RecommendedNextStep: "dispatch", LastOrchestratorAction: "marked_ready"}},
+			"executing":   {{ID: "feature-alpha-004", Title: "Executing item", Status: "executing", RecommendedNextStep: "wait for result", LastOrchestratorAction: "dispatched_execution", LinkedBeadsIDs: []string{"bd-123"}, DispatchedTo: "omo-implementation", ExecutionAttemptCount: 1, ExecutorResultStatus: "blocked", ExecutorResultSummary: "CI is red"}},
 		},
 		NextAction: map[string]string{"recommended": "spawn_execution", "reason": "A ready card can move into execution", "target_card_id": "feature-alpha-003"},
 	}
@@ -134,6 +137,9 @@ func TestRenderProjectBoard(t *testing.T) {
 		"Executing now (1)",
 		"- alpha/feature-alpha-004 — Executing item | next: wait for result | last: dispatched execution | friction: exec:1 | beads: bd-123 | dispatch: omo-implementation | result: blocked — CI is red",
 		"Target: alpha/feature-alpha-003",
+		"Command: `sdp dispatch card --project alpha --id feature-alpha-003`",
+		"Action surface",
+		"- alpha/feature-alpha-001 — primary: `sdp card feedback --project alpha --id feature-alpha-001` | why: This card is waiting on explicit human/admin input.",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("expected output to contain %q\nfull output:\n%s", want, out)
@@ -206,6 +212,10 @@ func TestRenderCardDetail(t *testing.T) {
 		"- Follow-up refs: followup:hotfix-99",
 		"- blocked_cycles: 1",
 		"- review_fail_count: 1",
+		"Action surface",
+		"- Primary: `sdp card show --project alpha --id feature-alpha-007` — Inspect blockers, result summary, and trace before changing state.",
+		"- Fallback 1: `sdp card feedback --project alpha --id feature-alpha-007` — If the blocker needs a human/admin answer, generate the explicit feedback packet.",
+		"- Fallback 2: `sdp card deliver --project alpha --id feature-alpha-007 --state rolled_back` — Record the rollback/delivery outcome explicitly when delivery goes sideways.",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("expected output to contain %q\nfull output:\n%s", want, out)

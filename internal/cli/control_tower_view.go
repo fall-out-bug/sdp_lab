@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"sdp_dev/internal/control"
@@ -93,6 +94,15 @@ func RenderProjectBoard(snap *control.ProjectBoardSnapshot) string {
 	if target := strings.TrimSpace(snap.NextAction["target_card_id"]); target != "" {
 		b.WriteString("  Target: " + projectID + "/" + target + "\n")
 	}
+	for _, line := range renderProjectNextActionCommands(projectID, snap.NextAction) {
+		b.WriteString(line + "\n")
+	}
+	if lines := renderProjectActionSurface(snap); len(lines) > 0 {
+		b.WriteString("\nAction surface\n")
+		for _, line := range lines {
+			b.WriteString(line + "\n")
+		}
+	}
 
 	return strings.TrimSpace(b.String())
 }
@@ -129,6 +139,9 @@ func RenderPortfolioBoard(snap *control.PortfolioBoardSnapshot) string {
 			target += "/" + cardID
 		}
 		b.WriteString("  Target: " + target + "\n")
+	}
+	for _, line := range renderPortfolioNextActionCommands(snap.NextAction) {
+		b.WriteString(line + "\n")
 	}
 
 	return strings.TrimSpace(b.String())
@@ -175,6 +188,15 @@ func RenderAttention(snap *control.PortfolioBoardSnapshot) string {
 			target += "/" + cardID
 		}
 		b.WriteString("  Target: " + target + "\n")
+	}
+	for _, line := range renderPortfolioNextActionCommands(snap.NextAction) {
+		b.WriteString(line + "\n")
+	}
+	if lines := renderExecutiveActionSurface(snap); len(lines) > 0 {
+		b.WriteString("\nTop commands\n")
+		for _, line := range lines {
+			b.WriteString(line + "\n")
+		}
 	}
 	return strings.TrimSpace(b.String())
 }
@@ -247,12 +269,264 @@ func RenderCardDetail(card *control.FeatureCard) string {
 		b.WriteString("\n")
 	}
 
+	if lines := cardActionLines(card); len(lines) > 0 {
+		b.WriteString("Action surface\n")
+		for _, line := range lines {
+			b.WriteString(line + "\n")
+		}
+		b.WriteString("\n")
+	}
+
 	return strings.TrimSpace(b.String())
 }
 
 type renderedSection struct {
 	title string
 	lines []string
+}
+
+type actionRecommendation struct {
+	command string
+	reason  string
+}
+
+func renderPortfolioNextActionCommands(next map[string]string) []string {
+	projectID := strings.TrimSpace(next["target_project_id"])
+	cardID := strings.TrimSpace(next["target_card_id"])
+	if projectID == "" || cardID == "" {
+		return nil
+	}
+	rec := recommendationForAction(projectID, cardID, next["recommended"])
+	if rec.command == "" {
+		return nil
+	}
+	lines := []string{"  Command: `" + rec.command + "`"}
+	if rec.reason != "" {
+		lines = append(lines, "  Why this command: "+rec.reason)
+	}
+	return lines
+}
+
+func renderProjectNextActionCommands(projectID string, next map[string]string) []string {
+	cardID := strings.TrimSpace(next["target_card_id"])
+	if projectID == "" || cardID == "" {
+		return nil
+	}
+	rec := recommendationForAction(projectID, cardID, next["recommended"])
+	if rec.command == "" {
+		return nil
+	}
+	lines := []string{"  Command: `" + rec.command + "`"}
+	if rec.reason != "" {
+		lines = append(lines, "  Why this command: "+rec.reason)
+	}
+	return lines
+}
+
+func renderExecutiveActionSurface(snap *control.PortfolioBoardSnapshot) []string {
+	groups := [][]control.QueueItem{
+		snap.Executive.AttentionNow,
+		snap.Executive.ReadyToMove,
+		snap.Executive.DeliveryTrouble,
+		snap.Executive.Movement,
+	}
+	seen := map[string]bool{}
+	lines := []string{}
+	for _, group := range groups {
+		for _, item := range group {
+			key := item.ProjectID + "/" + item.CardID
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			for _, line := range renderItemActionLines(item, 1) {
+				lines = append(lines, line)
+			}
+			if len(lines) >= 3 {
+				return lines[:3]
+			}
+		}
+	}
+	return lines
+}
+
+func renderProjectActionSurface(snap *control.ProjectBoardSnapshot) []string {
+	groups := [][]control.CardSummary{snap.Columns["needs_input"], snap.Columns["blocked"], snap.Columns["ready"], snap.Columns["executing"]}
+	lines := []string{}
+	for _, group := range groups {
+		for _, item := range group {
+			for _, line := range renderCardSummaryActionLines(snap.Project["project_id"], item, 1) {
+				lines = append(lines, line)
+			}
+			if len(lines) >= 4 {
+				return lines[:4]
+			}
+		}
+	}
+	return lines
+}
+
+func renderItemActionLines(item control.QueueItem, max int) []string {
+	recs := recommendCommandsForQueueItem(item)
+	if len(recs) == 0 {
+		return nil
+	}
+	if max > 0 && len(recs) > max {
+		recs = recs[:max]
+	}
+	lines := make([]string, 0, len(recs))
+	for i, rec := range recs {
+		prefix := fmt.Sprintf("- %s/%s", item.ProjectID, item.CardID)
+		if i == 0 {
+			prefix += " — primary: `" + rec.command + "`"
+		} else {
+			prefix += " — fallback: `" + rec.command + "`"
+		}
+		if rec.reason != "" {
+			prefix += " | why: " + rec.reason
+		}
+		lines = append(lines, prefix)
+	}
+	return lines
+}
+
+func renderCardSummaryActionLines(projectID string, item control.CardSummary, max int) []string {
+	recs := recommendCommandsForCardSummary(projectID, item)
+	if len(recs) == 0 {
+		return nil
+	}
+	if max > 0 && len(recs) > max {
+		recs = recs[:max]
+	}
+	lines := make([]string, 0, len(recs))
+	for i, rec := range recs {
+		prefix := fmt.Sprintf("- %s/%s", projectID, item.ID)
+		if i == 0 {
+			prefix += " — primary: `" + rec.command + "`"
+		} else {
+			prefix += " — fallback: `" + rec.command + "`"
+		}
+		if rec.reason != "" {
+			prefix += " | why: " + rec.reason
+		}
+		lines = append(lines, prefix)
+	}
+	return lines
+}
+
+func cardActionLines(card *control.FeatureCard) []string {
+	recs := recommendCommandsForCard(card)
+	if len(recs) == 0 {
+		return nil
+	}
+	lines := make([]string, 0, len(recs)+1)
+	for i, rec := range recs {
+		label := "- Primary"
+		if i > 0 {
+			label = "- Fallback " + strconv.Itoa(i)
+		}
+		line := label + ": `" + rec.command + "`"
+		if rec.reason != "" {
+			line += " — " + rec.reason
+		}
+		lines = append(lines, line)
+	}
+	return lines
+}
+
+func recommendCommandsForQueueItem(item control.QueueItem) []actionRecommendation {
+	return recommendationsForState(item.ProjectID, item.CardID, item.Status, item.RecommendedNextAction, item.ReviewState, item.DeliveryState, item.HasRollback, len(item.AdminActionRequired) > 0, item.ExecutorResultStatus)
+}
+
+func recommendCommandsForCardSummary(projectID string, item control.CardSummary) []actionRecommendation {
+	return recommendationsForState(projectID, item.ID, item.Status, item.RecommendedNextAction, item.ReviewState, item.DeliveryState, item.HasRollback, len(item.AdminActionRequired) > 0, item.ExecutorResultStatus)
+}
+
+func recommendCommandsForCard(card *control.FeatureCard) []actionRecommendation {
+	executorStatus := ""
+	if card.ExecutorResult != nil {
+		executorStatus = card.ExecutorResult.Status
+	}
+	return recommendationsForState(card.ProjectID, card.ID, card.Status, card.RecommendedNextAction, card.ReviewState, card.DeliveryState, card.RollbackRef != "", len(card.AdminActionRequired) > 0, executorStatus)
+}
+
+func recommendationsForState(projectID, cardID, status, recommendedAction, reviewState, deliveryState string, hasRollback, hasAdminAction bool, executorResultStatus string) []actionRecommendation {
+	appendUnique := func(items []actionRecommendation, rec actionRecommendation) []actionRecommendation {
+		if rec.command == "" {
+			return items
+		}
+		for _, existing := range items {
+			if existing.command == rec.command {
+				return items
+			}
+		}
+		return append(items, rec)
+	}
+	recs := []actionRecommendation{}
+	switch status {
+	case "needs_input":
+		recs = appendUnique(recs, actionRecommendation{command: feedbackCommand(projectID, cardID), reason: "This card is waiting on explicit human/admin input."})
+		recs = appendUnique(recs, actionRecommendation{command: showCommand(projectID, cardID), reason: "Open the full card before sending or importing the reply."})
+	case "ready":
+		recs = appendUnique(recs, actionRecommendation{command: dispatchCardCommand(projectID, cardID), reason: "This card already passed the ready gate."})
+		recs = appendUnique(recs, actionRecommendation{command: dispatchNextCommand(), reason: "Use the portfolio dispatcher if you want SDP to pick the next ready card."})
+	case "blocked":
+		recs = appendUnique(recs, actionRecommendation{command: showCommand(projectID, cardID), reason: "Inspect blockers, result summary, and trace before changing state."})
+		if hasAdminAction || recommendedAction == "resolve_blocker" {
+			recs = appendUnique(recs, actionRecommendation{command: feedbackCommand(projectID, cardID), reason: "If the blocker needs a human/admin answer, generate the explicit feedback packet."})
+		}
+	case "clarifying", "inbox":
+		recs = appendUnique(recs, actionRecommendation{command: showCommand(projectID, cardID), reason: "Open the full card while you shape the missing intent/scope fields."})
+		recs = appendUnique(recs, actionRecommendation{command: readyCommand(projectID, cardID), reason: "Use this once the ready-gate fields are complete."})
+	case "executing":
+		recs = appendUnique(recs, actionRecommendation{command: showCommand(projectID, cardID), reason: "Check the live execution trace, packet path, and latest result hints."})
+		if executorResultStatus != "" {
+			recs = appendUnique(recs, actionRecommendation{command: orchestrateOnceCommand(), reason: "Let the orchestrator ingest or react to the latest execution result."})
+		}
+	case "reviewing":
+		recs = appendUnique(recs, actionRecommendation{command: showCommand(projectID, cardID), reason: "Review state is visible on the card detail surface."})
+	}
+	if reviewState == "needs_attention" || reviewState == "failed" {
+		recs = appendUnique(recs, actionRecommendation{command: showCommand(projectID, cardID), reason: "Review feedback is the first thing to inspect before resuming work."})
+	}
+	if deliveryState == "failed" || deliveryState == "rolled_back" || hasRollback {
+		recs = appendUnique(recs, actionRecommendation{command: deliverCommand(projectID, cardID, "rolled_back"), reason: "Record the rollback/delivery outcome explicitly when delivery goes sideways."})
+	}
+	if len(recs) == 0 {
+		recs = appendUnique(recs, actionRecommendation{command: showCommand(projectID, cardID), reason: "Open the detailed control object for the next move."})
+	}
+	return recs
+}
+
+func recommendationForAction(projectID, cardID, action string) actionRecommendation {
+	switch action {
+	case "surface_feedback_request", "request_human_input":
+		return actionRecommendation{command: feedbackCommand(projectID, cardID), reason: "Generate the feedback/resume path for the top waiting card."}
+	case "start_execution", "spawn_execution":
+		return actionRecommendation{command: dispatchCardCommand(projectID, cardID), reason: "Dispatch the highest-priority ready card directly."}
+	case "continue_clarification":
+		return actionRecommendation{command: showCommand(projectID, cardID), reason: "Open the top unfinished card and continue shaping it."}
+	default:
+		return actionRecommendation{}
+	}
+}
+
+func showCommand(projectID, cardID string) string {
+	return fmt.Sprintf("sdp card show --project %s --id %s", projectID, cardID)
+}
+func feedbackCommand(projectID, cardID string) string {
+	return fmt.Sprintf("sdp card feedback --project %s --id %s", projectID, cardID)
+}
+func readyCommand(projectID, cardID string) string {
+	return fmt.Sprintf("sdp card ready --project %s --id %s", projectID, cardID)
+}
+func dispatchCardCommand(projectID, cardID string) string {
+	return fmt.Sprintf("sdp dispatch card --project %s --id %s", projectID, cardID)
+}
+func dispatchNextCommand() string    { return "sdp dispatch next" }
+func orchestrateOnceCommand() string { return "sdp orchestrate once" }
+func deliverCommand(projectID, cardID, state string) string {
+	return fmt.Sprintf("sdp card deliver --project %s --id %s --state %s", projectID, cardID, state)
 }
 
 func portfolioSections(snap *control.PortfolioBoardSnapshot) []renderedSection {
