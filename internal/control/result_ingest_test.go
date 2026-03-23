@@ -50,6 +50,12 @@ func TestIngestExecutorResultSuccess(t *testing.T) {
 	if ingestedCard.ExecutorResult.Status != "success" {
 		t.Fatalf("executor_result.status = %s, want success", ingestedCard.ExecutorResult.Status)
 	}
+	if ingestedCard.ExecutorRuntimeState != ExecutorRuntimeCompleted {
+		t.Fatalf("executor_runtime_state = %s, want %s", ingestedCard.ExecutorRuntimeState, ExecutorRuntimeCompleted)
+	}
+	if ingestedCard.LastExecutorHeartbeatAt == "" {
+		t.Fatal("last_executor_heartbeat_at should be set on result ingest")
+	}
 	if len(ingestedCard.LinkedArtifacts) == 0 {
 		t.Fatal("LinkedArtifacts should contain result artifacts")
 	}

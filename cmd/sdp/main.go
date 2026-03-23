@@ -42,7 +42,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention> <subcommand> [flags]")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Card commands:")
-	fmt.Fprintln(os.Stderr, "  sdp card <create|show|clarify|needs-input|ready|park|execute|feedback|feedback-export|message-export|resume|resume-import|reply-ingest|deliver>")
+	fmt.Fprintln(os.Stderr, "  sdp card <create|show|clarify|needs-input|ready|park|execute|heartbeat|feedback|feedback-export|message-export|resume|resume-import|reply-ingest|deliver>")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Board commands:")
 	fmt.Fprintln(os.Stderr, "  sdp board <build|show>")
@@ -108,7 +108,7 @@ func splitList(raw string) []string {
 
 func runCard(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: sdp card <create|show|clarify|needs-input|ready|park|execute|feedback|feedback-export|message-export|resume|resume-import|reply-ingest|deliver>")
+		fmt.Fprintln(os.Stderr, "usage: sdp card <create|show|clarify|needs-input|ready|park|execute|heartbeat|feedback|feedback-export|message-export|resume|resume-import|reply-ingest|deliver>")
 		os.Exit(2)
 	}
 	switch args[0] {
@@ -126,6 +126,8 @@ func runCard(args []string) {
 		runCardPark(args[1:])
 	case "execute":
 		runCardExecute(args[1:])
+	case "heartbeat":
+		runCardHeartbeat(args[1:])
 	case "feedback":
 		runCardFeedback(args[1:])
 	case "feedback-export":
@@ -141,7 +143,7 @@ func runCard(args []string) {
 	case "deliver":
 		runCardDeliver(args[1:])
 	default:
-		fmt.Fprintln(os.Stderr, "usage: sdp card <create|show|clarify|needs-input|ready|park|execute|feedback|feedback-export|message-export|resume|resume-import|reply-ingest|deliver>")
+		fmt.Fprintln(os.Stderr, "usage: sdp card <create|show|clarify|needs-input|ready|park|execute|heartbeat|feedback|feedback-export|message-export|resume|resume-import|reply-ingest|deliver>")
 		os.Exit(2)
 	}
 }
@@ -170,6 +172,7 @@ func runCardShow(args []string) {
 	project := fs.String("project", "", "project id")
 	id := fs.String("id", "", "card id")
 	asJSON := fs.Bool("json", false, "render raw JSON instead of the default human summary")
+	asHTML := fs.Bool("html", false, "render HTML instead of the default human summary")
 	_ = fs.Parse(args)
 	if *project == "" || *id == "" {
 		fmt.Fprintln(os.Stderr, "error: --project and --id are required")
@@ -183,6 +186,10 @@ func runCardShow(args []string) {
 	}
 	if *asJSON {
 		printJSON(card)
+		return
+	}
+	if *asHTML {
+		fmt.Println(cli.RenderCardDetailHTML(card))
 		return
 	}
 	fmt.Println(cli.RenderCardDetail(card))
@@ -443,6 +450,27 @@ func runCardReplyIngest(args []string) {
 		os.Exit(1)
 	}
 	fmt.Printf("Ingested reply for card %s (correlation_id: %s)\n", envelope.CardID, envelope.CorrelationID)
+	printJSON(card)
+}
+
+func runCardHeartbeat(args []string) {
+	fs := flag.NewFlagSet("card-heartbeat", flag.ExitOnError)
+	project := fs.String("project", "", "project id")
+	id := fs.String("id", "", "card id")
+	session := fs.String("session", "", "executor session id")
+	state := fs.String("state", "running", "runtime state (pending|running|stale|lost|completed)")
+	progress := fs.String("progress", "", "runtime progress summary")
+	_ = fs.Parse(args)
+	if *project == "" || *id == "" || *session == "" {
+		fmt.Fprintln(os.Stderr, "error: --project, --id, and --session are required")
+		os.Exit(2)
+	}
+	store := openStore()
+	card, err := store.RecordExecutorHeartbeat(*project, *id, *session, *state, *progress)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: record heartbeat: %v\n", err)
+		os.Exit(1)
+	}
 	printJSON(card)
 }
 

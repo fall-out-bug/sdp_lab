@@ -51,6 +51,9 @@ func TestCardUsage(t *testing.T) {
 	if !strings.Contains(output, "usage: sdp card") {
 		t.Fatalf("expected card usage in output, got: %s", output)
 	}
+	if !strings.Contains(output, "heartbeat") {
+		t.Fatalf("expected heartbeat subcommand in card usage, got: %s", output)
+	}
 }
 
 func TestBoardUsage(t *testing.T) {

@@ -24,36 +24,41 @@ type ExecutiveSummary struct {
 
 func newQueueItem(projectID string, c CardSummary) QueueItem {
 	return QueueItem{
-		ProjectID:              projectID,
-		CardID:                 c.ID,
-		Title:                  c.Title,
-		Status:                 c.Status,
-		RecommendedNextStep:    c.RecommendedNextStep,
-		RecommendedNextAction:  c.RecommendedNextAction,
-		RecommendedNextReason:  c.RecommendedNextReason,
-		LastOrchestratorAction: c.LastOrchestratorAction,
-		LastOrchestratorReason: c.LastOrchestratorReason,
-		ClarificationCycles:    c.ClarificationCycles,
-		BlockedCycles:          c.BlockedCycles,
-		ExecutionAttemptCount:  c.ExecutionAttemptCount,
-		ReviewFailCount:        c.ReviewFailCount,
-		RollbackCount:          c.RollbackCount,
-		ActiveAgents:           c.ActiveAgents,
-		NeedsFeedbackFrom:      c.NeedsFeedbackFrom,
-		AuthorUpdate:           c.AuthorUpdate,
-		AdminActionRequired:    c.AdminActionRequired,
-		LinkedBeadsIDs:         c.LinkedBeadsIDs,
-		DispatchedTo:           c.DispatchedTo,
-		ExecutorResultStatus:   c.ExecutorResultStatus,
-		ExecutorResultSummary:  c.ExecutorResultSummary,
-		ExecutorNextHint:       c.ExecutorNextHint,
-		ReviewState:            c.ReviewState,
-		DeliveryState:          c.DeliveryState,
-		DeliveryTarget:         c.DeliveryTarget,
-		RollbackRef:            c.RollbackRef,
-		FollowupRefs:           c.FollowupRefs,
-		HasRollback:            c.HasRollback,
-		HasFollowup:            c.HasFollowup,
+		ProjectID:               projectID,
+		CardID:                  c.ID,
+		Title:                   c.Title,
+		Status:                  c.Status,
+		RecommendedNextStep:     c.RecommendedNextStep,
+		RecommendedNextAction:   c.RecommendedNextAction,
+		RecommendedNextReason:   c.RecommendedNextReason,
+		LastOrchestratorAction:  c.LastOrchestratorAction,
+		LastOrchestratorReason:  c.LastOrchestratorReason,
+		ClarificationCycles:     c.ClarificationCycles,
+		BlockedCycles:           c.BlockedCycles,
+		ExecutionAttemptCount:   c.ExecutionAttemptCount,
+		ReviewFailCount:         c.ReviewFailCount,
+		RollbackCount:           c.RollbackCount,
+		ActiveAgents:            c.ActiveAgents,
+		NeedsFeedbackFrom:       c.NeedsFeedbackFrom,
+		AuthorUpdate:            c.AuthorUpdate,
+		AdminActionRequired:     c.AdminActionRequired,
+		LinkedBeadsIDs:          c.LinkedBeadsIDs,
+		DispatchedTo:            c.DispatchedTo,
+		ExecutorSessionID:       c.ExecutorSessionID,
+		ExecutorStartedAt:       c.ExecutorStartedAt,
+		LastExecutorHeartbeatAt: c.LastExecutorHeartbeatAt,
+		ExecutorRuntimeState:    c.ExecutorRuntimeState,
+		ExecutorProgressSummary: c.ExecutorProgressSummary,
+		ExecutorResultStatus:    c.ExecutorResultStatus,
+		ExecutorResultSummary:   c.ExecutorResultSummary,
+		ExecutorNextHint:        c.ExecutorNextHint,
+		ReviewState:             c.ReviewState,
+		DeliveryState:           c.DeliveryState,
+		DeliveryTarget:          c.DeliveryTarget,
+		RollbackRef:             c.RollbackRef,
+		FollowupRefs:            c.FollowupRefs,
+		HasRollback:             c.HasRollback,
+		HasFollowup:             c.HasFollowup,
 	}
 }
 
@@ -105,6 +110,12 @@ func queuePriority(item QueueItem) int {
 	if item.Status == "reviewing" || strings.Contains(item.ReviewState, "fail") || strings.Contains(item.ReviewState, "attention") {
 		score += 250
 	}
+	if item.ExecutorRuntimeState == ExecutorRuntimeStale {
+		score += 350
+	}
+	if item.ExecutorRuntimeState == ExecutorRuntimeLost {
+		score += 800
+	}
 	return score
 }
 
@@ -152,5 +163,5 @@ func inMovement(item QueueItem) bool {
 }
 
 func needsAttentionNow(item QueueItem) bool {
-	return needsHumanAttention(item) || item.Status == "blocked" || isDeliveryTrouble(item) || item.Status == "reviewing" || strings.Contains(item.ReviewState, "fail") || strings.Contains(item.ReviewState, "attention")
+	return needsHumanAttention(item) || item.Status == "blocked" || isDeliveryTrouble(item) || item.Status == "reviewing" || strings.Contains(item.ReviewState, "fail") || strings.Contains(item.ReviewState, "attention") || item.ExecutorRuntimeState == ExecutorRuntimeStale || item.ExecutorRuntimeState == ExecutorRuntimeLost
 }

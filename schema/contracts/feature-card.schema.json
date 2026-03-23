@@ -232,6 +232,30 @@
         "type": "string"
       }
     },
+    "executor_session_id": {
+      "type": "string"
+    },
+    "executor_started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_executor_heartbeat_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "executor_runtime_state": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "running",
+        "stale",
+        "lost",
+        "completed"
+      ]
+    },
+    "executor_progress_summary": {
+      "type": "string"
+    },
     "source_refs": {
       "type": "array",
       "items": {

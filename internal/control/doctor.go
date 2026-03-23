@@ -8,9 +8,12 @@ import (
 )
 
 const (
-	doctorReadyStaleAfter      = 72 * time.Hour
-	doctorNeedsInputStaleAfter = 48 * time.Hour
-	doctorBlockedStaleAfter    = 72 * time.Hour
+	doctorReadyStaleAfter              = 72 * time.Hour
+	doctorNeedsInputStaleAfter         = 48 * time.Hour
+	doctorBlockedStaleAfter            = 72 * time.Hour
+	doctorMissingInitialHeartbeatAfter = 10 * time.Minute
+	doctorExecutorHeartbeatStaleAfter  = 20 * time.Minute
+	doctorExecutorHeartbeatLostAfter   = 60 * time.Minute
 )
 
 // DoctorCheck represents a single hygiene check result
@@ -109,6 +112,54 @@ func (s *Store) DoctorControl() (*DoctorReport, error) {
 				cardPassed = false
 			}
 
+			if card.Status == "executing" && strings.TrimSpace(card.ExecutorSessionID) == "" {
+				report.Failed++
+				report.Checks = append(report.Checks, DoctorCheck{
+					CheckID:   "executing-without-session",
+					Severity:  "warning",
+					Message:   "executing card has no executor_session_id yet",
+					ProjectID: project.ID,
+					CardID:    card.ID,
+				})
+				cardPassed = false
+			}
+
+			if card.Status == "executing" {
+				if missing, age := missingInitialHeartbeat(card, now); missing {
+					report.Failed++
+					report.Checks = append(report.Checks, DoctorCheck{
+						CheckID:   "executing-without-heartbeat",
+						Severity:  "warning",
+						Message:   fmt.Sprintf("executing card has no executor heartbeat %s after dispatch", age),
+						ProjectID: project.ID,
+						CardID:    card.ID,
+					})
+					cardPassed = false
+				}
+				if stale, severity, age := staleHeartbeat(card, now); stale {
+					report.Failed++
+					report.Checks = append(report.Checks, DoctorCheck{
+						CheckID:   "stale-executor-heartbeat",
+						Severity:  severity,
+						Message:   fmt.Sprintf("executor heartbeat is stale (%s old)", age),
+						ProjectID: project.ID,
+						CardID:    card.ID,
+					})
+					cardPassed = false
+				}
+				if strings.TrimSpace(card.ExecutorRuntimeState) == ExecutorRuntimeLost {
+					report.Failed++
+					report.Checks = append(report.Checks, DoctorCheck{
+						CheckID:   "executing-runtime-lost",
+						Severity:  "error",
+						Message:   "executing card runtime is marked lost",
+						ProjectID: project.ID,
+						CardID:    card.ID,
+					})
+					cardPassed = false
+				}
+			}
+
 			if card.Status == "executing" && missingDispatchMetadata(card) {
 				report.Failed++
 				report.Checks = append(report.Checks, DoctorCheck{
@@ -193,4 +244,35 @@ func missingDispatchMetadata(card FeatureCard) bool {
 	return strings.TrimSpace(card.DispatchedAt) == "" ||
 		strings.TrimSpace(card.DispatchedTo) == "" ||
 		strings.TrimSpace(card.DispatchedPacketPath) == ""
+}
+
+func missingInitialHeartbeat(card FeatureCard, now time.Time) (bool, string) {
+	if strings.TrimSpace(card.LastExecutorHeartbeatAt) != "" {
+		return false, ""
+	}
+	dispatchedAt, err := time.Parse(time.RFC3339, strings.TrimSpace(card.DispatchedAt))
+	if err != nil {
+		return false, ""
+	}
+	age := now.Sub(dispatchedAt.UTC())
+	if age <= doctorMissingInitialHeartbeatAfter {
+		return false, ""
+	}
+	return true, age.Round(time.Minute).String()
+}
+
+func staleHeartbeat(card FeatureCard, now time.Time) (bool, string, string) {
+	heartbeatAt, err := time.Parse(time.RFC3339, strings.TrimSpace(card.LastExecutorHeartbeatAt))
+	if err != nil {
+		return false, "", ""
+	}
+	age := now.Sub(heartbeatAt.UTC())
+	if age <= doctorExecutorHeartbeatStaleAfter {
+		return false, "", ""
+	}
+	severity := "warning"
+	if age > doctorExecutorHeartbeatLostAfter || strings.TrimSpace(card.ExecutorRuntimeState) == ExecutorRuntimeLost {
+		severity = "error"
+	}
+	return true, severity, age.Round(time.Minute).String()
 }

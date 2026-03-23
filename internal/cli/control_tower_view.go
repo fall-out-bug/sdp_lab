@@ -2,12 +2,19 @@ package cli
 
 import (
 	"fmt"
+	"html/template"
 	"sort"
 	"strconv"
 	"strings"
 
 	"sdp_dev/internal/control"
 )
+
+type canonicalOwner struct {
+	Flow   string
+	Owner  string
+	Detail string
+}
 
 func RenderDoctorControl(report *control.DoctorReport) string {
 	var b strings.Builder
@@ -201,6 +208,55 @@ func RenderAttention(snap *control.PortfolioBoardSnapshot) string {
 	return strings.TrimSpace(b.String())
 }
 
+func canonicalOwners(card *control.FeatureCard) []canonicalOwner {
+	owners := []canonicalOwner{{Flow: "Project", Owner: card.ProjectID, Detail: "Feature card and project board are the canonical project surface."}}
+	sessionOwner := strings.TrimSpace(card.DispatchedPacketPath)
+	if sessionOwner == "" {
+		sessionOwner = strings.TrimSpace(card.DispatchedTo)
+	}
+	sessionDetail := "Dispatch packet is not recorded yet."
+	if sessionOwner != "" {
+		sessionDetail = "Dispatch/runtime handoff is anchored here."
+	}
+	owners = append(owners, canonicalOwner{Flow: "Session", Owner: valueOrFallback(sessionOwner, "unassigned"), Detail: sessionDetail})
+	markdownOwner := ""
+	if len(card.IntakeArtifact) > 0 {
+		markdownOwner = card.IntakeArtifact[0]
+	} else if len(card.SourceRefs) > 0 {
+		markdownOwner = strings.Join(card.SourceRefs, ", ")
+	}
+	owners = append(owners, canonicalOwner{Flow: "Markdown", Owner: valueOrFallback(markdownOwner, "missing intake artifact"), Detail: "Intake markdown is the canonical authored request surface."})
+	agentOwner := strings.TrimSpace(card.DispatchedTo)
+	if agentOwner == "" && len(card.ActiveAgents) > 0 {
+		agentOwner = strings.Join(card.ActiveAgents, ", ")
+	}
+	owners = append(owners, canonicalOwner{Flow: "Agents", Owner: valueOrFallback(agentOwner, "not dispatched"), Detail: "Dispatch target / active agents own execution."})
+	artifactRefs := []string{}
+	artifactRefs = append(artifactRefs, card.LinkedArtifacts...)
+	if card.ReviewRef != "" {
+		artifactRefs = append(artifactRefs, card.ReviewRef)
+	}
+	if card.DeliveryRef != "" {
+		artifactRefs = append(artifactRefs, card.DeliveryRef)
+	}
+	if card.RollbackRef != "" {
+		artifactRefs = append(artifactRefs, card.RollbackRef)
+	}
+	artifactOwner := ""
+	if len(artifactRefs) > 0 {
+		artifactOwner = strings.Join(artifactRefs, ", ")
+	}
+	owners = append(owners, canonicalOwner{Flow: "Artifacts / materials", Owner: valueOrFallback(artifactOwner, "none linked"), Detail: "Linked artifacts and delivery/review refs are the canonical proof surface."})
+	return owners
+}
+
+func valueOrFallback(v, fallback string) string {
+	if strings.TrimSpace(v) == "" {
+		return fallback
+	}
+	return v
+}
+
 func RenderCardDetail(card *control.FeatureCard) string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("CARD — %s\n", card.Title))
@@ -222,6 +278,12 @@ func RenderCardDetail(card *control.FeatureCard) string {
 		}
 		b.WriteString("\n")
 	}
+
+	b.WriteString("Canonical owners\n")
+	for _, owner := range canonicalOwners(card) {
+		b.WriteString(fmt.Sprintf("- %s: %s — %s\n", owner.Flow, owner.Owner, owner.Detail))
+	}
+	b.WriteString("\n")
 
 	b.WriteString("Control\n")
 	for _, line := range cardControlLines(card) {
@@ -435,11 +497,11 @@ func cardActionLines(card *control.FeatureCard) []string {
 }
 
 func recommendCommandsForQueueItem(item control.QueueItem) []actionRecommendation {
-	return recommendationsForState(item.ProjectID, item.CardID, item.Status, item.RecommendedNextAction, item.ReviewState, item.DeliveryState, item.HasRollback, len(item.AdminActionRequired) > 0, item.ExecutorResultStatus)
+	return recommendationsForState(item.ProjectID, item.CardID, item.Status, item.RecommendedNextAction, item.ReviewState, item.DeliveryState, item.HasRollback, len(item.AdminActionRequired) > 0, item.ExecutorResultStatus, item.ExecutorRuntimeState)
 }
 
 func recommendCommandsForCardSummary(projectID string, item control.CardSummary) []actionRecommendation {
-	return recommendationsForState(projectID, item.ID, item.Status, item.RecommendedNextAction, item.ReviewState, item.DeliveryState, item.HasRollback, len(item.AdminActionRequired) > 0, item.ExecutorResultStatus)
+	return recommendationsForState(projectID, item.ID, item.Status, item.RecommendedNextAction, item.ReviewState, item.DeliveryState, item.HasRollback, len(item.AdminActionRequired) > 0, item.ExecutorResultStatus, item.ExecutorRuntimeState)
 }
 
 func recommendCommandsForCard(card *control.FeatureCard) []actionRecommendation {
@@ -447,10 +509,10 @@ func recommendCommandsForCard(card *control.FeatureCard) []actionRecommendation 
 	if card.ExecutorResult != nil {
 		executorStatus = card.ExecutorResult.Status
 	}
-	return recommendationsForState(card.ProjectID, card.ID, card.Status, card.RecommendedNextAction, card.ReviewState, card.DeliveryState, card.RollbackRef != "", len(card.AdminActionRequired) > 0, executorStatus)
+	return recommendationsForState(card.ProjectID, card.ID, card.Status, card.RecommendedNextAction, card.ReviewState, card.DeliveryState, card.RollbackRef != "", len(card.AdminActionRequired) > 0, executorStatus, card.ExecutorRuntimeState)
 }
 
-func recommendationsForState(projectID, cardID, status, recommendedAction, reviewState, deliveryState string, hasRollback, hasAdminAction bool, executorResultStatus string) []actionRecommendation {
+func recommendationsForState(projectID, cardID, status, recommendedAction, reviewState, deliveryState string, hasRollback, hasAdminAction bool, executorResultStatus, runtimeState string) []actionRecommendation {
 	appendUnique := func(items []actionRecommendation, rec actionRecommendation) []actionRecommendation {
 		if rec.command == "" {
 			return items
@@ -480,6 +542,9 @@ func recommendationsForState(projectID, cardID, status, recommendedAction, revie
 		recs = appendUnique(recs, actionRecommendation{command: readyCommand(projectID, cardID), reason: "Use this once the ready-gate fields are complete."})
 	case "executing":
 		recs = appendUnique(recs, actionRecommendation{command: showCommand(projectID, cardID), reason: "Check the live execution trace, packet path, and latest result hints."})
+		if runtimeState == control.ExecutorRuntimePending || runtimeState == control.ExecutorRuntimeStale || runtimeState == control.ExecutorRuntimeLost {
+			recs = appendUnique(recs, actionRecommendation{command: heartbeatCommand(projectID, cardID), reason: "Record or reconcile executor runtime heartbeat so the execution state stays honest."})
+		}
 		if executorResultStatus != "" {
 			recs = appendUnique(recs, actionRecommendation{command: orchestrateOnceCommand(), reason: "Let the orchestrator ingest or react to the latest execution result."})
 		}
@@ -522,6 +587,9 @@ func readyCommand(projectID, cardID string) string {
 }
 func dispatchCardCommand(projectID, cardID string) string {
 	return fmt.Sprintf("sdp dispatch card --project %s --id %s", projectID, cardID)
+}
+func heartbeatCommand(projectID, cardID string) string {
+	return fmt.Sprintf("sdp card heartbeat --project %s --id %s --session <session-id> --state running --progress \"...\"", projectID, cardID)
 }
 func dispatchNextCommand() string    { return "sdp dispatch next" }
 func orchestrateOnceCommand() string { return "sdp orchestrate once" }
@@ -607,7 +675,7 @@ func queueDetail(item control.QueueItem) string {
 	if friction := frictionMarkers(item.ClarificationCycles, item.BlockedCycles, item.ExecutionAttemptCount, item.ReviewFailCount, item.RollbackCount); friction != "" {
 		parts = append(parts, friction)
 	}
-	if hint := executionHint(item.LinkedBeadsIDs, item.DispatchedTo, item.ExecutorResultStatus, item.ExecutorResultSummary, item.ExecutorNextHint); hint != "" {
+	if hint := executionHint(item.LinkedBeadsIDs, item.DispatchedTo, item.ExecutorSessionID, item.LastExecutorHeartbeatAt, item.ExecutorRuntimeState, item.ExecutorProgressSummary, item.ExecutorResultStatus, item.ExecutorResultSummary, item.ExecutorNextHint); hint != "" {
 		parts = append(parts, hint)
 	}
 	return strings.Join(parts, " | ")
@@ -636,7 +704,7 @@ func cardSummaryDetail(item control.CardSummary) string {
 	if friction := frictionMarkers(item.ClarificationCycles, item.BlockedCycles, item.ExecutionAttemptCount, item.ReviewFailCount, item.RollbackCount); friction != "" {
 		parts = append(parts, friction)
 	}
-	if hint := executionHint(item.LinkedBeadsIDs, item.DispatchedTo, item.ExecutorResultStatus, item.ExecutorResultSummary, item.ExecutorNextHint); hint != "" {
+	if hint := executionHint(item.LinkedBeadsIDs, item.DispatchedTo, item.ExecutorSessionID, item.LastExecutorHeartbeatAt, item.ExecutorRuntimeState, item.ExecutorProgressSummary, item.ExecutorResultStatus, item.ExecutorResultSummary, item.ExecutorNextHint); hint != "" {
 		parts = append(parts, hint)
 	}
 	return strings.Join(parts, " | ")
@@ -710,6 +778,23 @@ func cardExecutionLines(card *control.FeatureCard) []string {
 	}
 	if card.DispatchedPacketPath != "" {
 		lines = append(lines, "- Packet: "+card.DispatchedPacketPath)
+	}
+	if card.ExecutorRuntimeState != "" || card.ExecutorSessionID != "" || card.ExecutorStartedAt != "" || card.LastExecutorHeartbeatAt != "" || card.ExecutorProgressSummary != "" {
+		if card.ExecutorRuntimeState != "" {
+			lines = append(lines, "- Runtime: "+card.ExecutorRuntimeState)
+		}
+		if card.ExecutorSessionID != "" {
+			lines = append(lines, "- Session: "+card.ExecutorSessionID)
+		}
+		if card.ExecutorStartedAt != "" {
+			lines = append(lines, "- Started: "+card.ExecutorStartedAt)
+		}
+		if card.LastExecutorHeartbeatAt != "" {
+			lines = append(lines, "- Last heartbeat: "+card.LastExecutorHeartbeatAt)
+		}
+		if card.ExecutorProgressSummary != "" {
+			lines = append(lines, "- Progress: "+card.ExecutorProgressSummary)
+		}
 	}
 	if result := card.ExecutorResult; result != nil {
 		line := "- Result: " + result.Status
@@ -818,13 +903,25 @@ func frictionMarkers(clarify, blocked, execCount, review, rollback int) string {
 	return "friction: " + strings.Join(parts, ", ")
 }
 
-func executionHint(beads []string, dispatchedTo, resultStatus, resultSummary, resultNext string) string {
+func executionHint(beads []string, dispatchedTo, sessionID, heartbeatAt, runtimeState, progress, resultStatus, resultSummary, resultNext string) string {
 	parts := []string{}
 	if len(beads) > 0 {
 		parts = append(parts, "beads: "+strings.Join(beads, ", "))
 	}
 	if dispatchedTo != "" {
 		parts = append(parts, "dispatch: "+dispatchedTo)
+	}
+	if runtimeState != "" {
+		parts = append(parts, "runtime: "+runtimeState)
+	}
+	if sessionID != "" {
+		parts = append(parts, "session: "+sessionID)
+	}
+	if heartbeatAt != "" {
+		parts = append(parts, "hb: "+heartbeatAt)
+	}
+	if progress != "" {
+		parts = append(parts, "progress: "+progress)
 	}
 	if resultStatus != "" {
 		hint := "result: " + resultStatus
@@ -970,6 +1067,14 @@ func recommendedDoctorAction(check control.DoctorCheck) string {
 		return "re-dispatch or repair Beads linkage before trusting this execution state."
 	case "executing-without-dispatch-metadata":
 		return "write dispatched_at / dispatched_to / dispatched_packet_path so operators can trace execution."
+	case "executing-without-session":
+		return "record the executor session id once a real runtime exists, or reconcile why execution is still only pending."
+	case "executing-without-heartbeat":
+		return "record the first executor heartbeat or relaunch/reconcile the runtime if nothing actually started."
+	case "stale-executor-heartbeat":
+		return "refresh the executor heartbeat or mark the runtime lost if the session is gone."
+	case "executing-runtime-lost":
+		return "either relaunch the executor and heartbeat it, or move the card out of executing so the board stops lying."
 	case "needs-input-without-questions":
 		return "add explicit feedback questions or decisions so the human knows what to answer."
 	case "stale-ready-card":
@@ -1049,4 +1154,9 @@ func cardRollbackLines(card *control.FeatureCard) []string {
 		lines = append(lines, "- Follow-ups: "+strings.Join(card.FollowupRefs, ", "))
 	}
 	return lines
+}
+
+func RenderCardDetailHTML(card *control.FeatureCard) string {
+	text := RenderCardDetail(card)
+	return `<!doctype html><html><head><meta charset="utf-8"><title>` + template.HTMLEscapeString(card.ID) + `</title><style>body{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#0b1020;color:#e5e7eb;margin:0;padding:24px}main{max-width:1100px;margin:0 auto}pre{white-space:pre-wrap;line-height:1.45;background:#111827;border:1px solid #374151;border-radius:12px;padding:20px}.muted{color:#9ca3af;margin-bottom:12px}</style></head><body><main><div class="muted">SDP control tower card detail</div><pre>` + template.HTMLEscapeString(text) + `</pre></main></body></html>`
 }

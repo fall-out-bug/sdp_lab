@@ -37,6 +37,8 @@ func main() {
 		runCardPark(os.Args[2:])
 	case "card-execute":
 		runCardExecute(os.Args[2:])
+	case "card-heartbeat":
+		runCardHeartbeat(os.Args[2:])
 	case "card-deliver":
 		runCardDeliver(os.Args[2:])
 	case "card-feedback":
@@ -72,7 +74,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|card-deliver|card-feedback|card-feedback-export|card-message-export|card-resume|card-resume-import|card-reply-ingest|dispatch-card|packet-emit|result-ingest|board-build|board-show|attention|doctor> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|card-heartbeat|card-deliver|card-feedback|card-feedback-export|card-message-export|card-resume|card-resume-import|card-reply-ingest|dispatch-card|packet-emit|result-ingest|board-build|board-show|attention|doctor> [flags]")
 }
 
 func openStore() *control.Store {
@@ -211,6 +213,27 @@ func runCardExecute(args []string) {
 	card, err := store.ExecuteCard(*project, *id)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: execute card: %v\n", err)
+		os.Exit(1)
+	}
+	printJSON(card)
+}
+
+func runCardHeartbeat(args []string) {
+	fs := flag.NewFlagSet("card-heartbeat", flag.ExitOnError)
+	project := fs.String("project", "", "project id")
+	id := fs.String("id", "", "card id")
+	session := fs.String("session", "", "executor session id")
+	state := fs.String("state", "running", "runtime state (pending|running|stale|lost|completed)")
+	progress := fs.String("progress", "", "runtime progress summary")
+	_ = fs.Parse(args)
+	if *project == "" || *id == "" || *session == "" {
+		fmt.Fprintln(os.Stderr, "error: --project, --id, and --session are required")
+		os.Exit(2)
+	}
+	store := openStore()
+	card, err := store.RecordExecutorHeartbeat(*project, *id, *session, *state, *progress)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: record heartbeat: %v\n", err)
 		os.Exit(1)
 	}
 	printJSON(card)

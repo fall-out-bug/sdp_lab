@@ -81,7 +81,7 @@ func TestRenderAttention(t *testing.T) {
 			WaitingOnHuman: []control.QueueItem{{ProjectID: "alpha", CardID: "feature-alpha-001", Title: "Need decision", Status: "needs_input", RecommendedNextStep: "ask owner", NeedsFeedbackFrom: []string{"author"}}},
 			Blocked:        []control.QueueItem{{ProjectID: "gamma", CardID: "feature-gamma-003", Title: "Blocked task", Status: "blocked", RecommendedNextStep: "resolve blocker", BlockedCycles: 2}},
 			Movement: []control.QueueItem{
-				{ProjectID: "delta", CardID: "feature-delta-004", Title: "Execute now", Status: "executing", LinkedBeadsIDs: []string{"bd-123"}, DispatchedTo: "omo-implementation", ExecutionAttemptCount: 1},
+				{ProjectID: "delta", CardID: "feature-delta-004", Title: "Execute now", Status: "executing", LinkedBeadsIDs: []string{"bd-123"}, DispatchedTo: "omo-implementation", ExecutionAttemptCount: 1, ExecutorRuntimeState: "running", ExecutorSessionID: "sess-42", LastExecutorHeartbeatAt: "2026-03-23T09:00:00Z", ExecutorProgressSummary: "Implementing"},
 				{ProjectID: "epsilon", CardID: "feature-epsilon-005", Title: "Shipping", Status: "done", DeliveryState: "deployed", DeliveryTarget: "staging"},
 			},
 			DeliveryTrouble:  []control.QueueItem{{ProjectID: "beta", CardID: "feature-beta-002", Title: "Rollback issue", Status: "done", DeliveryState: "rolled_back", DeliveryTarget: "prod", HasRollback: true, HasFollowup: true, RollbackCount: 1}},
@@ -97,7 +97,7 @@ func TestRenderAttention(t *testing.T) {
 		"Attention now (4)",
 		"- alpha/feature-alpha-001 — Need decision | next: ask owner | why: Need product input | last: requested input | waiting on: author",
 		"Movement (2)",
-		"- delta/feature-delta-004 — Execute now | friction: exec:1 | beads: bd-123 | dispatch: omo-implementation",
+		"- delta/feature-delta-004 — Execute now | friction: exec:1 | beads: bd-123 | dispatch: omo-implementation | runtime: running | session: sess-42 | hb: 2026-03-23T09:00:00Z | progress: Implementing",
 		"- epsilon/feature-epsilon-005 — Shipping | delivery: deployed -> staging",
 		"Delivery trouble (1)",
 		"- beta/feature-beta-002 — Rollback issue | delivery: rolled_back -> prod | rollback recorded | follow-up linked | friction: rollback:1",
@@ -123,7 +123,7 @@ func TestRenderProjectBoard(t *testing.T) {
 			"needs_input": {{ID: "feature-alpha-001", Title: "Await answer", Status: "needs_input", RecommendedNextStep: "ask owner", RecommendedNextReason: "Missing answer", LastOrchestratorAction: "requested_input", NeedsFeedbackFrom: []string{"admin"}, ClarificationCycles: 1, ReviewState: "needs_attention"}},
 			"blocked":     {{ID: "feature-alpha-002", Title: "Blocked item", Status: "blocked", RecommendedNextStep: "resolve dependency", LastOrchestratorAction: "ingested_executor_result", BlockedCycles: 2, DeliveryState: "failed", DeliveryTarget: "staging", HasRollback: true}},
 			"ready":       {{ID: "feature-alpha-003", Title: "Ready item", Status: "ready", RecommendedNextStep: "dispatch", LastOrchestratorAction: "marked_ready"}},
-			"executing":   {{ID: "feature-alpha-004", Title: "Executing item", Status: "executing", RecommendedNextStep: "wait for result", LastOrchestratorAction: "dispatched_execution", LinkedBeadsIDs: []string{"bd-123"}, DispatchedTo: "omo-implementation", ExecutionAttemptCount: 1, ExecutorResultStatus: "blocked", ExecutorResultSummary: "CI is red"}},
+			"executing":   {{ID: "feature-alpha-004", Title: "Executing item", Status: "executing", RecommendedNextStep: "wait for result", LastOrchestratorAction: "dispatched_execution", LinkedBeadsIDs: []string{"bd-123"}, DispatchedTo: "omo-implementation", ExecutionAttemptCount: 1, ExecutorRuntimeState: "pending", ExecutorProgressSummary: "Dispatch packet created; awaiting first executor heartbeat", ExecutorResultStatus: "blocked", ExecutorResultSummary: "CI is red"}},
 		},
 		NextAction: map[string]string{"recommended": "spawn_execution", "reason": "A ready card can move into execution", "target_card_id": "feature-alpha-003"},
 	}
@@ -135,7 +135,7 @@ func TestRenderProjectBoard(t *testing.T) {
 		"- alpha/feature-alpha-001 — Await answer | next: ask owner | why: Missing answer | last: requested input | waiting on: admin | review: needs_attention | friction: clarify:1",
 		"- alpha/feature-alpha-002 — Blocked item | next: resolve dependency | last: ingested executor result | delivery: failed -> staging | rollback recorded | friction: blocked:2",
 		"Executing now (1)",
-		"- alpha/feature-alpha-004 — Executing item | next: wait for result | last: dispatched execution | friction: exec:1 | beads: bd-123 | dispatch: omo-implementation | result: blocked — CI is red",
+		"- alpha/feature-alpha-004 — Executing item | next: wait for result | last: dispatched execution | friction: exec:1 | beads: bd-123 | dispatch: omo-implementation | runtime: pending | progress: Dispatch packet created; awaiting first executor heartbeat | result: blocked — CI is red",
 		"Target: alpha/feature-alpha-003",
 		"Command: `sdp dispatch card --project alpha --id feature-alpha-003`",
 		"Action surface",
@@ -149,28 +149,36 @@ func TestRenderProjectBoard(t *testing.T) {
 
 func TestRenderCardDetail(t *testing.T) {
 	card := &control.FeatureCard{
-		ID:                     "feature-alpha-007",
-		ProjectID:              "alpha",
-		Title:                  "Tighten board visibility",
-		Status:                 "blocked",
-		RiskLevel:              "medium",
-		RawRequest:             "Make the card more observable without going full web UI.",
-		SourceRefs:             []string{"ticket:ALPHA-7", "chat:thread-42"},
-		NormalizedIntent:       "Improve control tower card visibility",
-		ScopeIn:                []string{"card show command", "board hints"},
-		ScopeOut:               []string{"web UI"},
-		LastOrchestratorAction: "ingested_executor_result",
-		LastOrchestratorReason: "Execution surfaced a real blocker that needs orchestration",
-		LastOrchestratorAt:     "2026-03-23T08:00:00Z",
-		RecommendedNextAction:  "resolve_blocker",
-		RecommendedNextReason:  "Review the blocker details and unblock or replan",
-		WaitingOn:              []string{"orchestrator"},
-		BlockingReasons:        []string{"CI secret missing"},
-		NeedsFeedbackFrom:      []string{"admin"},
-		LinkedBeadsIDs:         []string{"bd-314"},
-		DispatchedTo:           "omo-implementation",
-		DispatchedAt:           "2026-03-23T07:40:00Z",
-		DispatchedPacketPath:   ".sdp/control/projects/alpha/dispatches/feature-alpha-007.json",
+		ID:                      "feature-alpha-007",
+		ProjectID:               "alpha",
+		Title:                   "Tighten board visibility",
+		Status:                  "blocked",
+		RiskLevel:               "medium",
+		RawRequest:              "Make the card more observable without going full web UI.",
+		SourceRefs:              []string{"ticket:ALPHA-7", "chat:thread-42"},
+		IntakeArtifact:          []string{".sdp/control/projects/alpha/intake/feature-alpha-007.md"},
+		LinkedArtifacts:         []string{"artifacts/build-log.txt"},
+		ActiveAgents:            []string{"executor"},
+		NormalizedIntent:        "Improve control tower card visibility",
+		ScopeIn:                 []string{"card show command", "board hints"},
+		ScopeOut:                []string{"web UI"},
+		LastOrchestratorAction:  "ingested_executor_result",
+		LastOrchestratorReason:  "Execution surfaced a real blocker that needs orchestration",
+		LastOrchestratorAt:      "2026-03-23T08:00:00Z",
+		RecommendedNextAction:   "resolve_blocker",
+		RecommendedNextReason:   "Review the blocker details and unblock or replan",
+		WaitingOn:               []string{"orchestrator"},
+		BlockingReasons:         []string{"CI secret missing"},
+		NeedsFeedbackFrom:       []string{"admin"},
+		LinkedBeadsIDs:          []string{"bd-314"},
+		DispatchedTo:            "omo-implementation",
+		DispatchedAt:            "2026-03-23T07:40:00Z",
+		DispatchedPacketPath:    ".sdp/control/projects/alpha/dispatches/feature-alpha-007.json",
+		ExecutorSessionID:       "sess-007",
+		ExecutorStartedAt:       "2026-03-23T07:41:00Z",
+		LastExecutorHeartbeatAt: "2026-03-23T07:55:00Z",
+		ExecutorRuntimeState:    "stale",
+		ExecutorProgressSummary: "Waiting on CI rerun",
 		ExecutorResult: &control.ExecutorResultSummary{
 			Status:              "blocked",
 			Summary:             "CI secret missing in staging",
@@ -199,9 +207,19 @@ func TestRenderCardDetail(t *testing.T) {
 		"CARD — Tighten board visibility",
 		"ID: alpha/feature-alpha-007 | Status: blocked | Risk: medium",
 		"- Source: ticket:ALPHA-7, chat:thread-42",
+		"- Project: alpha — Feature card and project board are the canonical project surface.",
+		"- Session: .sdp/control/projects/alpha/dispatches/feature-alpha-007.json — Dispatch/runtime handoff is anchored here.",
+		"- Markdown: .sdp/control/projects/alpha/intake/feature-alpha-007.md — Intake markdown is the canonical authored request surface.",
+		"- Agents: omo-implementation — Dispatch target / active agents own execution.",
+		"- Artifacts / materials: artifacts/build-log.txt, artifacts/review-note.md, deploy:staging-42, rollback:staging-42 — Linked artifacts and delivery/review refs are the canonical proof surface.",
 		"- Last orchestrator: ingested executor result — Execution surfaced a real blocker that needs orchestration (2026-03-23T08:00:00Z)",
 		"- Next: resolve blocker — Review the blocker details and unblock or replan",
 		"- Beads: bd-314",
+		"- Runtime: stale",
+		"- Session: sess-007",
+		"- Started: 2026-03-23T07:41:00Z",
+		"- Last heartbeat: 2026-03-23T07:55:00Z",
+		"- Progress: Waiting on CI rerun",
 		"- Result: blocked — CI secret missing in staging",
 		"- Result next: restore secret and retry",
 		"- Review: failed — Security review found a release blocker",
@@ -219,6 +237,16 @@ func TestRenderCardDetail(t *testing.T) {
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("expected output to contain %q\nfull output:\n%s", want, out)
+		}
+	}
+}
+
+func TestRenderCardDetailHTML(t *testing.T) {
+	card := &control.FeatureCard{ID: "feature-alpha-007", ProjectID: "alpha", Title: "Tighten board visibility"}
+	out := RenderCardDetailHTML(card)
+	for _, want := range []string{"<!doctype html>", "SDP control tower card detail", "CARD — Tighten board visibility"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("expected HTML output to contain %q\nfull output:\n%s", want, out)
 		}
 	}
 }

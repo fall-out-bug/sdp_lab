@@ -1294,6 +1294,7 @@ func TestDoctorControlDetectsExecutingWithoutDispatchMetadata(t *testing.T) {
 
 	card.Status = "executing"
 	card.LinkedBeadsIDs = []string{"bd-test-123"}
+	card.ExecutorSessionID = "sess-test-123"
 	overwriteCard(t, store, card)
 
 	report, err := store.DoctorControl()
@@ -1424,6 +1425,7 @@ func TestDoctorControlExecutingCardWithBeadsPasses(t *testing.T) {
 	card.DispatchedAt = time.Now().UTC().Format(time.RFC3339)
 	card.DispatchedTo = "beads"
 	card.DispatchedPacketPath = "/tmp/dispatch.json"
+	card.ExecutorSessionID = "sess-test-123"
 	overwriteCard(t, store, card)
 
 	report, err := store.DoctorControl()

@@ -22,67 +22,72 @@ var (
 )
 
 type FeatureCard struct {
-	ID                     string                 `yaml:"id" json:"id"`
-	ProjectID              string                 `yaml:"project_id" json:"project_id"`
-	Title                  string                 `yaml:"title" json:"title"`
-	Status                 string                 `yaml:"status" json:"status"`
-	RawRequest             string                 `yaml:"raw_request" json:"raw_request"`
-	CreatedAt              string                 `yaml:"created_at" json:"created_at"`
-	UpdatedAt              string                 `yaml:"updated_at" json:"updated_at"`
-	SourceRefs             []string               `yaml:"source_refs,omitempty" json:"source_refs,omitempty"`
-	LastOrchestratorAction string                 `yaml:"last_orchestrator_action,omitempty" json:"last_orchestrator_action,omitempty"`
-	LastOrchestratorReason string                 `yaml:"last_orchestrator_reason,omitempty" json:"last_orchestrator_reason,omitempty"`
-	LastOrchestratorAt     string                 `yaml:"last_orchestrator_at,omitempty" json:"last_orchestrator_at,omitempty"`
-	RecommendedNextAction  string                 `yaml:"recommended_next_action,omitempty" json:"recommended_next_action,omitempty"`
-	RecommendedNextReason  string                 `yaml:"recommended_next_reason,omitempty" json:"recommended_next_reason,omitempty"`
-	ClarificationCycles    int                    `yaml:"clarification_cycles,omitempty" json:"clarification_cycles,omitempty"`
-	BlockedCycles          int                    `yaml:"blocked_cycles,omitempty" json:"blocked_cycles,omitempty"`
-	ExecutionAttemptCount  int                    `yaml:"execution_attempt_count,omitempty" json:"execution_attempt_count,omitempty"`
-	ReviewFailCount        int                    `yaml:"review_fail_count,omitempty" json:"review_fail_count,omitempty"`
-	RollbackCount          int                    `yaml:"rollback_count,omitempty" json:"rollback_count,omitempty"`
-	ReviewState            string                 `yaml:"review_state,omitempty" json:"review_state,omitempty"`
-	ReviewSummary          string                 `yaml:"review_summary,omitempty" json:"review_summary,omitempty"`
-	ReviewRef              string                 `yaml:"review_ref,omitempty" json:"review_ref,omitempty"`
-	DeliveryState          string                 `yaml:"delivery_state,omitempty" json:"delivery_state,omitempty"`
-	DeliveryTarget         string                 `yaml:"delivery_target,omitempty" json:"delivery_target,omitempty"`
-	DeliverySummary        string                 `yaml:"delivery_summary,omitempty" json:"delivery_summary,omitempty"`
-	DeliveryRef            string                 `yaml:"delivery_ref,omitempty" json:"delivery_ref,omitempty"`
-	DeliveredAt            string                 `yaml:"delivered_at,omitempty" json:"delivered_at,omitempty"`
-	RollbackRef            string                 `yaml:"rollback_ref,omitempty" json:"rollback_ref,omitempty"`
-	RollbackSummary        string                 `yaml:"rollback_summary,omitempty" json:"rollback_summary,omitempty"`
-	FollowupRefs           []string               `yaml:"followup_refs,omitempty" json:"followup_refs,omitempty"`
-	NormalizedIntent       string                 `yaml:"normalized_intent,omitempty" json:"normalized_intent,omitempty"`
-	TaskType               string                 `yaml:"task_type,omitempty" json:"task_type,omitempty"`
-	ExecutionMode          string                 `yaml:"execution_mode,omitempty" json:"execution_mode,omitempty"`
-	TargetRepo             string                 `yaml:"target_repo,omitempty" json:"target_repo,omitempty"`
-	TargetArea             string                 `yaml:"target_area,omitempty" json:"target_area,omitempty"`
-	ScopeIn                []string               `yaml:"scope_in,omitempty" json:"scope_in,omitempty"`
-	ScopeOut               []string               `yaml:"scope_out,omitempty" json:"scope_out,omitempty"`
-	NonGoals               []string               `yaml:"non_goals,omitempty" json:"non_goals,omitempty"`
-	RiskLevel              string                 `yaml:"risk_level,omitempty" json:"risk_level,omitempty"`
-	WhyNow                 string                 `yaml:"why_now,omitempty" json:"why_now,omitempty"`
-	Links                  []string               `yaml:"links,omitempty" json:"links,omitempty"`
-	OpenQuestions          []string               `yaml:"open_questions,omitempty" json:"open_questions,omitempty"`
-	AcceptanceShape        []string               `yaml:"acceptance_shape,omitempty" json:"acceptance_shape,omitempty"`
-	RecommendedNext        string                 `yaml:"recommended_next_step,omitempty" json:"recommended_next_step,omitempty"`
-	IntakeArtifact         []string               `yaml:"intake_artifact,omitempty" json:"intake_artifact,omitempty"`
-	LinkedBeadsIDs         []string               `yaml:"linked_beads_ids,omitempty" json:"linked_beads_ids,omitempty"`
-	LinkedWorkstreams      []string               `yaml:"linked_workstreams,omitempty" json:"linked_workstreams,omitempty"`
-	RequiredArtifacts      []string               `yaml:"required_artifacts,omitempty" json:"required_artifacts,omitempty"`
-	RequiredChecks         []string               `yaml:"required_checks,omitempty" json:"required_checks,omitempty"`
-	LinkedArtifacts        []string               `yaml:"linked_artifacts,omitempty" json:"linked_artifacts,omitempty"`
-	ActiveAgents           []string               `yaml:"active_agents,omitempty" json:"active_agents,omitempty"`
-	BlockingReasons        []string               `yaml:"blocking_reasons,omitempty" json:"blocking_reasons,omitempty"`
-	WaitingOn              []string               `yaml:"waiting_on,omitempty" json:"waiting_on,omitempty"`
-	NeedsFeedbackFrom      []string               `yaml:"needs_feedback_from,omitempty" json:"needs_feedback_from,omitempty"`
-	FeedbackRequest        []string               `yaml:"feedback_request,omitempty" json:"feedback_request,omitempty"`
-	DecisionRequired       []string               `yaml:"decision_required,omitempty" json:"decision_required,omitempty"`
-	AuthorUpdate           []string               `yaml:"author_update,omitempty" json:"author_update,omitempty"`
-	AdminActionRequired    []string               `yaml:"admin_action_required,omitempty" json:"admin_action_required,omitempty"`
-	DispatchedAt           string                 `yaml:"dispatched_at,omitempty" json:"dispatched_at,omitempty"`
-	DispatchedTo           string                 `yaml:"dispatched_to,omitempty" json:"dispatched_to,omitempty"`
-	DispatchedPacketPath   string                 `yaml:"dispatched_packet_path,omitempty" json:"dispatched_packet_path,omitempty"`
-	ExecutorResult         *ExecutorResultSummary `yaml:"executor_result,omitempty" json:"executor_result,omitempty"`
+	ID                      string                 `yaml:"id" json:"id"`
+	ProjectID               string                 `yaml:"project_id" json:"project_id"`
+	Title                   string                 `yaml:"title" json:"title"`
+	Status                  string                 `yaml:"status" json:"status"`
+	RawRequest              string                 `yaml:"raw_request" json:"raw_request"`
+	CreatedAt               string                 `yaml:"created_at" json:"created_at"`
+	UpdatedAt               string                 `yaml:"updated_at" json:"updated_at"`
+	SourceRefs              []string               `yaml:"source_refs,omitempty" json:"source_refs,omitempty"`
+	LastOrchestratorAction  string                 `yaml:"last_orchestrator_action,omitempty" json:"last_orchestrator_action,omitempty"`
+	LastOrchestratorReason  string                 `yaml:"last_orchestrator_reason,omitempty" json:"last_orchestrator_reason,omitempty"`
+	LastOrchestratorAt      string                 `yaml:"last_orchestrator_at,omitempty" json:"last_orchestrator_at,omitempty"`
+	RecommendedNextAction   string                 `yaml:"recommended_next_action,omitempty" json:"recommended_next_action,omitempty"`
+	RecommendedNextReason   string                 `yaml:"recommended_next_reason,omitempty" json:"recommended_next_reason,omitempty"`
+	ClarificationCycles     int                    `yaml:"clarification_cycles,omitempty" json:"clarification_cycles,omitempty"`
+	BlockedCycles           int                    `yaml:"blocked_cycles,omitempty" json:"blocked_cycles,omitempty"`
+	ExecutionAttemptCount   int                    `yaml:"execution_attempt_count,omitempty" json:"execution_attempt_count,omitempty"`
+	ReviewFailCount         int                    `yaml:"review_fail_count,omitempty" json:"review_fail_count,omitempty"`
+	RollbackCount           int                    `yaml:"rollback_count,omitempty" json:"rollback_count,omitempty"`
+	ReviewState             string                 `yaml:"review_state,omitempty" json:"review_state,omitempty"`
+	ReviewSummary           string                 `yaml:"review_summary,omitempty" json:"review_summary,omitempty"`
+	ReviewRef               string                 `yaml:"review_ref,omitempty" json:"review_ref,omitempty"`
+	DeliveryState           string                 `yaml:"delivery_state,omitempty" json:"delivery_state,omitempty"`
+	DeliveryTarget          string                 `yaml:"delivery_target,omitempty" json:"delivery_target,omitempty"`
+	DeliverySummary         string                 `yaml:"delivery_summary,omitempty" json:"delivery_summary,omitempty"`
+	DeliveryRef             string                 `yaml:"delivery_ref,omitempty" json:"delivery_ref,omitempty"`
+	DeliveredAt             string                 `yaml:"delivered_at,omitempty" json:"delivered_at,omitempty"`
+	RollbackRef             string                 `yaml:"rollback_ref,omitempty" json:"rollback_ref,omitempty"`
+	RollbackSummary         string                 `yaml:"rollback_summary,omitempty" json:"rollback_summary,omitempty"`
+	FollowupRefs            []string               `yaml:"followup_refs,omitempty" json:"followup_refs,omitempty"`
+	NormalizedIntent        string                 `yaml:"normalized_intent,omitempty" json:"normalized_intent,omitempty"`
+	TaskType                string                 `yaml:"task_type,omitempty" json:"task_type,omitempty"`
+	ExecutionMode           string                 `yaml:"execution_mode,omitempty" json:"execution_mode,omitempty"`
+	TargetRepo              string                 `yaml:"target_repo,omitempty" json:"target_repo,omitempty"`
+	TargetArea              string                 `yaml:"target_area,omitempty" json:"target_area,omitempty"`
+	ScopeIn                 []string               `yaml:"scope_in,omitempty" json:"scope_in,omitempty"`
+	ScopeOut                []string               `yaml:"scope_out,omitempty" json:"scope_out,omitempty"`
+	NonGoals                []string               `yaml:"non_goals,omitempty" json:"non_goals,omitempty"`
+	RiskLevel               string                 `yaml:"risk_level,omitempty" json:"risk_level,omitempty"`
+	WhyNow                  string                 `yaml:"why_now,omitempty" json:"why_now,omitempty"`
+	Links                   []string               `yaml:"links,omitempty" json:"links,omitempty"`
+	OpenQuestions           []string               `yaml:"open_questions,omitempty" json:"open_questions,omitempty"`
+	AcceptanceShape         []string               `yaml:"acceptance_shape,omitempty" json:"acceptance_shape,omitempty"`
+	RecommendedNext         string                 `yaml:"recommended_next_step,omitempty" json:"recommended_next_step,omitempty"`
+	IntakeArtifact          []string               `yaml:"intake_artifact,omitempty" json:"intake_artifact,omitempty"`
+	LinkedBeadsIDs          []string               `yaml:"linked_beads_ids,omitempty" json:"linked_beads_ids,omitempty"`
+	LinkedWorkstreams       []string               `yaml:"linked_workstreams,omitempty" json:"linked_workstreams,omitempty"`
+	RequiredArtifacts       []string               `yaml:"required_artifacts,omitempty" json:"required_artifacts,omitempty"`
+	RequiredChecks          []string               `yaml:"required_checks,omitempty" json:"required_checks,omitempty"`
+	LinkedArtifacts         []string               `yaml:"linked_artifacts,omitempty" json:"linked_artifacts,omitempty"`
+	ActiveAgents            []string               `yaml:"active_agents,omitempty" json:"active_agents,omitempty"`
+	BlockingReasons         []string               `yaml:"blocking_reasons,omitempty" json:"blocking_reasons,omitempty"`
+	WaitingOn               []string               `yaml:"waiting_on,omitempty" json:"waiting_on,omitempty"`
+	NeedsFeedbackFrom       []string               `yaml:"needs_feedback_from,omitempty" json:"needs_feedback_from,omitempty"`
+	FeedbackRequest         []string               `yaml:"feedback_request,omitempty" json:"feedback_request,omitempty"`
+	DecisionRequired        []string               `yaml:"decision_required,omitempty" json:"decision_required,omitempty"`
+	AuthorUpdate            []string               `yaml:"author_update,omitempty" json:"author_update,omitempty"`
+	AdminActionRequired     []string               `yaml:"admin_action_required,omitempty" json:"admin_action_required,omitempty"`
+	DispatchedAt            string                 `yaml:"dispatched_at,omitempty" json:"dispatched_at,omitempty"`
+	DispatchedTo            string                 `yaml:"dispatched_to,omitempty" json:"dispatched_to,omitempty"`
+	DispatchedPacketPath    string                 `yaml:"dispatched_packet_path,omitempty" json:"dispatched_packet_path,omitempty"`
+	ExecutorSessionID       string                 `yaml:"executor_session_id,omitempty" json:"executor_session_id,omitempty"`
+	ExecutorStartedAt       string                 `yaml:"executor_started_at,omitempty" json:"executor_started_at,omitempty"`
+	LastExecutorHeartbeatAt string                 `yaml:"last_executor_heartbeat_at,omitempty" json:"last_executor_heartbeat_at,omitempty"`
+	ExecutorRuntimeState    string                 `yaml:"executor_runtime_state,omitempty" json:"executor_runtime_state,omitempty"`
+	ExecutorProgressSummary string                 `yaml:"executor_progress_summary,omitempty" json:"executor_progress_summary,omitempty"`
+	ExecutorResult          *ExecutorResultSummary `yaml:"executor_result,omitempty" json:"executor_result,omitempty"`
 }
 
 // ExecutorResultSummary stores a summary of the last executor result for a card
@@ -97,32 +102,37 @@ type ExecutorResultSummary struct {
 }
 
 type CardSummary struct {
-	ID                     string   `json:"id"`
-	Title                  string   `json:"title"`
-	Status                 string   `json:"status"`
-	RiskLevel              string   `json:"risk_level,omitempty"`
-	RecommendedNextStep    string   `json:"recommended_next_step,omitempty"`
-	RecommendedNextAction  string   `json:"recommended_next_action,omitempty"`
-	RecommendedNextReason  string   `json:"recommended_next_reason,omitempty"`
-	LastOrchestratorAction string   `json:"last_orchestrator_action,omitempty"`
-	LastOrchestratorReason string   `json:"last_orchestrator_reason,omitempty"`
-	LastOrchestratorAt     string   `json:"last_orchestrator_at,omitempty"`
-	ClarificationCycles    int      `json:"clarification_cycles,omitempty"`
-	BlockedCycles          int      `json:"blocked_cycles,omitempty"`
-	ExecutionAttemptCount  int      `json:"execution_attempt_count,omitempty"`
-	ReviewFailCount        int      `json:"review_fail_count,omitempty"`
-	RollbackCount          int      `json:"rollback_count,omitempty"`
-	ActiveAgents           []string `json:"active_agents,omitempty"`
-	WaitingOn              []string `json:"waiting_on,omitempty"`
-	NeedsFeedbackFrom      []string `json:"needs_feedback_from,omitempty"`
-	AuthorUpdate           []string `json:"author_update,omitempty"`
-	AdminActionRequired    []string `json:"admin_action_required,omitempty"`
-	LinkedBeadsIDs         []string `json:"linked_beads_ids,omitempty"`
-	DispatchedTo           string   `json:"dispatched_to,omitempty"`
-	DispatchedAt           string   `json:"dispatched_at,omitempty"`
-	ExecutorResultStatus   string   `json:"executor_result_status,omitempty"`
-	ExecutorResultSummary  string   `json:"executor_result_summary,omitempty"`
-	ExecutorNextHint       string   `json:"executor_next_hint,omitempty"`
+	ID                      string   `json:"id"`
+	Title                   string   `json:"title"`
+	Status                  string   `json:"status"`
+	RiskLevel               string   `json:"risk_level,omitempty"`
+	RecommendedNextStep     string   `json:"recommended_next_step,omitempty"`
+	RecommendedNextAction   string   `json:"recommended_next_action,omitempty"`
+	RecommendedNextReason   string   `json:"recommended_next_reason,omitempty"`
+	LastOrchestratorAction  string   `json:"last_orchestrator_action,omitempty"`
+	LastOrchestratorReason  string   `json:"last_orchestrator_reason,omitempty"`
+	LastOrchestratorAt      string   `json:"last_orchestrator_at,omitempty"`
+	ClarificationCycles     int      `json:"clarification_cycles,omitempty"`
+	BlockedCycles           int      `json:"blocked_cycles,omitempty"`
+	ExecutionAttemptCount   int      `json:"execution_attempt_count,omitempty"`
+	ReviewFailCount         int      `json:"review_fail_count,omitempty"`
+	RollbackCount           int      `json:"rollback_count,omitempty"`
+	ActiveAgents            []string `json:"active_agents,omitempty"`
+	WaitingOn               []string `json:"waiting_on,omitempty"`
+	NeedsFeedbackFrom       []string `json:"needs_feedback_from,omitempty"`
+	AuthorUpdate            []string `json:"author_update,omitempty"`
+	AdminActionRequired     []string `json:"admin_action_required,omitempty"`
+	LinkedBeadsIDs          []string `json:"linked_beads_ids,omitempty"`
+	DispatchedTo            string   `json:"dispatched_to,omitempty"`
+	DispatchedAt            string   `json:"dispatched_at,omitempty"`
+	ExecutorSessionID       string   `json:"executor_session_id,omitempty"`
+	ExecutorStartedAt       string   `json:"executor_started_at,omitempty"`
+	LastExecutorHeartbeatAt string   `json:"last_executor_heartbeat_at,omitempty"`
+	ExecutorRuntimeState    string   `json:"executor_runtime_state,omitempty"`
+	ExecutorProgressSummary string   `json:"executor_progress_summary,omitempty"`
+	ExecutorResultStatus    string   `json:"executor_result_status,omitempty"`
+	ExecutorResultSummary   string   `json:"executor_result_summary,omitempty"`
+	ExecutorNextHint        string   `json:"executor_next_hint,omitempty"`
 	// Review/delivery trace visibility
 	ReviewState    string   `json:"review_state,omitempty"`
 	DeliveryState  string   `json:"delivery_state,omitempty"`
@@ -154,30 +164,35 @@ type PortfolioBoardSnapshot struct {
 }
 
 type QueueItem struct {
-	ProjectID              string   `json:"project_id"`
-	CardID                 string   `json:"card_id"`
-	Title                  string   `json:"title"`
-	Status                 string   `json:"status"`
-	Reason                 string   `json:"reason,omitempty"`
-	RecommendedNextStep    string   `json:"recommended_next_step,omitempty"`
-	RecommendedNextAction  string   `json:"recommended_next_action,omitempty"`
-	RecommendedNextReason  string   `json:"recommended_next_reason,omitempty"`
-	LastOrchestratorAction string   `json:"last_orchestrator_action,omitempty"`
-	LastOrchestratorReason string   `json:"last_orchestrator_reason,omitempty"`
-	ClarificationCycles    int      `json:"clarification_cycles,omitempty"`
-	BlockedCycles          int      `json:"blocked_cycles,omitempty"`
-	ExecutionAttemptCount  int      `json:"execution_attempt_count,omitempty"`
-	ReviewFailCount        int      `json:"review_fail_count,omitempty"`
-	RollbackCount          int      `json:"rollback_count,omitempty"`
-	ActiveAgents           []string `json:"active_agents,omitempty"`
-	NeedsFeedbackFrom      []string `json:"needs_feedback_from,omitempty"`
-	AuthorUpdate           []string `json:"author_update,omitempty"`
-	AdminActionRequired    []string `json:"admin_action_required,omitempty"`
-	LinkedBeadsIDs         []string `json:"linked_beads_ids,omitempty"`
-	DispatchedTo           string   `json:"dispatched_to,omitempty"`
-	ExecutorResultStatus   string   `json:"executor_result_status,omitempty"`
-	ExecutorResultSummary  string   `json:"executor_result_summary,omitempty"`
-	ExecutorNextHint       string   `json:"executor_next_hint,omitempty"`
+	ProjectID               string   `json:"project_id"`
+	CardID                  string   `json:"card_id"`
+	Title                   string   `json:"title"`
+	Status                  string   `json:"status"`
+	Reason                  string   `json:"reason,omitempty"`
+	RecommendedNextStep     string   `json:"recommended_next_step,omitempty"`
+	RecommendedNextAction   string   `json:"recommended_next_action,omitempty"`
+	RecommendedNextReason   string   `json:"recommended_next_reason,omitempty"`
+	LastOrchestratorAction  string   `json:"last_orchestrator_action,omitempty"`
+	LastOrchestratorReason  string   `json:"last_orchestrator_reason,omitempty"`
+	ClarificationCycles     int      `json:"clarification_cycles,omitempty"`
+	BlockedCycles           int      `json:"blocked_cycles,omitempty"`
+	ExecutionAttemptCount   int      `json:"execution_attempt_count,omitempty"`
+	ReviewFailCount         int      `json:"review_fail_count,omitempty"`
+	RollbackCount           int      `json:"rollback_count,omitempty"`
+	ActiveAgents            []string `json:"active_agents,omitempty"`
+	NeedsFeedbackFrom       []string `json:"needs_feedback_from,omitempty"`
+	AuthorUpdate            []string `json:"author_update,omitempty"`
+	AdminActionRequired     []string `json:"admin_action_required,omitempty"`
+	LinkedBeadsIDs          []string `json:"linked_beads_ids,omitempty"`
+	DispatchedTo            string   `json:"dispatched_to,omitempty"`
+	ExecutorSessionID       string   `json:"executor_session_id,omitempty"`
+	ExecutorStartedAt       string   `json:"executor_started_at,omitempty"`
+	LastExecutorHeartbeatAt string   `json:"last_executor_heartbeat_at,omitempty"`
+	ExecutorRuntimeState    string   `json:"executor_runtime_state,omitempty"`
+	ExecutorProgressSummary string   `json:"executor_progress_summary,omitempty"`
+	ExecutorResultStatus    string   `json:"executor_result_status,omitempty"`
+	ExecutorResultSummary   string   `json:"executor_result_summary,omitempty"`
+	ExecutorNextHint        string   `json:"executor_next_hint,omitempty"`
 	// Review/delivery trace visibility
 	ReviewState    string   `json:"review_state,omitempty"`
 	DeliveryState  string   `json:"delivery_state,omitempty"`
@@ -418,39 +433,44 @@ func (s *Store) BuildPortfolioSnapshot() (*PortfolioBoardSnapshot, error) {
 
 func summarize(c FeatureCard) CardSummary {
 	return CardSummary{
-		ID:                     c.ID,
-		Title:                  c.Title,
-		Status:                 c.Status,
-		RiskLevel:              c.RiskLevel,
-		RecommendedNextStep:    c.RecommendedNext,
-		RecommendedNextAction:  c.RecommendedNextAction,
-		RecommendedNextReason:  c.RecommendedNextReason,
-		LastOrchestratorAction: c.LastOrchestratorAction,
-		LastOrchestratorReason: c.LastOrchestratorReason,
-		LastOrchestratorAt:     c.LastOrchestratorAt,
-		ClarificationCycles:    c.ClarificationCycles,
-		BlockedCycles:          c.BlockedCycles,
-		ExecutionAttemptCount:  c.ExecutionAttemptCount,
-		ReviewFailCount:        c.ReviewFailCount,
-		RollbackCount:          c.RollbackCount,
-		ActiveAgents:           c.ActiveAgents,
-		WaitingOn:              c.WaitingOn,
-		NeedsFeedbackFrom:      c.NeedsFeedbackFrom,
-		AuthorUpdate:           c.AuthorUpdate,
-		AdminActionRequired:    c.AdminActionRequired,
-		LinkedBeadsIDs:         c.LinkedBeadsIDs,
-		DispatchedTo:           c.DispatchedTo,
-		DispatchedAt:           c.DispatchedAt,
-		ExecutorResultStatus:   executorResultStatus(c.ExecutorResult),
-		ExecutorResultSummary:  executorResultSummary(c.ExecutorResult),
-		ExecutorNextHint:       executorResultNextHint(c.ExecutorResult),
-		ReviewState:            c.ReviewState,
-		DeliveryState:          c.DeliveryState,
-		DeliveryTarget:         c.DeliveryTarget,
-		RollbackRef:            c.RollbackRef,
-		FollowupRefs:           c.FollowupRefs,
-		HasRollback:            c.RollbackRef != "",
-		HasFollowup:            len(c.FollowupRefs) > 0,
+		ID:                      c.ID,
+		Title:                   c.Title,
+		Status:                  c.Status,
+		RiskLevel:               c.RiskLevel,
+		RecommendedNextStep:     c.RecommendedNext,
+		RecommendedNextAction:   c.RecommendedNextAction,
+		RecommendedNextReason:   c.RecommendedNextReason,
+		LastOrchestratorAction:  c.LastOrchestratorAction,
+		LastOrchestratorReason:  c.LastOrchestratorReason,
+		LastOrchestratorAt:      c.LastOrchestratorAt,
+		ClarificationCycles:     c.ClarificationCycles,
+		BlockedCycles:           c.BlockedCycles,
+		ExecutionAttemptCount:   c.ExecutionAttemptCount,
+		ReviewFailCount:         c.ReviewFailCount,
+		RollbackCount:           c.RollbackCount,
+		ActiveAgents:            c.ActiveAgents,
+		WaitingOn:               c.WaitingOn,
+		NeedsFeedbackFrom:       c.NeedsFeedbackFrom,
+		AuthorUpdate:            c.AuthorUpdate,
+		AdminActionRequired:     c.AdminActionRequired,
+		LinkedBeadsIDs:          c.LinkedBeadsIDs,
+		DispatchedTo:            c.DispatchedTo,
+		DispatchedAt:            c.DispatchedAt,
+		ExecutorSessionID:       c.ExecutorSessionID,
+		ExecutorStartedAt:       c.ExecutorStartedAt,
+		LastExecutorHeartbeatAt: c.LastExecutorHeartbeatAt,
+		ExecutorRuntimeState:    c.ExecutorRuntimeState,
+		ExecutorProgressSummary: c.ExecutorProgressSummary,
+		ExecutorResultStatus:    executorResultStatus(c.ExecutorResult),
+		ExecutorResultSummary:   executorResultSummary(c.ExecutorResult),
+		ExecutorNextHint:        executorResultNextHint(c.ExecutorResult),
+		ReviewState:             c.ReviewState,
+		DeliveryState:           c.DeliveryState,
+		DeliveryTarget:          c.DeliveryTarget,
+		RollbackRef:             c.RollbackRef,
+		FollowupRefs:            c.FollowupRefs,
+		HasRollback:             c.RollbackRef != "",
+		HasFollowup:             len(c.FollowupRefs) > 0,
 	}
 }
 
