@@ -101,7 +101,16 @@ Examples of checks:
 ### B. Stage packs
 Need to package process guidance by stage rather than leaving it scattered across docs.
 
-Recommended packs:
+Current v1 packs now present under `packs/`:
+- `packs/intake/PACK.md`
+- `packs/shaping/PACK.md`
+- `packs/execution-bridge/PACK.md`
+- `packs/feedback-loop/PACK.md`
+
+Those packs should be treated as the official thin stage-oriented guide for the currently implemented control-store slice.
+They make the lifecycle discoverable without redefining the architecture.
+
+Recommended pack set over time:
 - intake pack
 - shaping pack
 - execution bridge pack
@@ -109,6 +118,8 @@ Recommended packs:
 - verification/review pack
 - release pack
 - retro pack
+
+The current slice should stay thin: practical operator/agent guidance first, richer templates and automation later.
 
 ### C. Template/generator discipline
 Need stronger separation between:
@@ -241,11 +252,22 @@ Build first:
 - snapshot consistency checks
 
 ### Phase 2 — formalize stage packs
+Status: first lightweight slice implemented.
+
 Start with lightweight packs for:
 - intake
 - shaping
 - feedback loop
 - execution bridge
+
+Current outputs:
+- `packs/README.md`
+- `packs/intake/PACK.md`
+- `packs/shaping/PACK.md`
+- `packs/execution-bridge/PACK.md`
+- `packs/feedback-loop/PACK.md`
+
+Next polish for this phase should focus on doc wiring, template discipline, and keeping the packs discoverable from session-start docs.
 
 ### Phase 3 — strengthen generator discipline
 Move toward:

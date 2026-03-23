@@ -33,6 +33,20 @@ Minimal pattern:
 - `docs/PROJECT_CONTROL_PANEL_WORKING_MODEL.md`
 - `docs/ORCHESTRATOR_ACTIONS_AND_FEEDBACK_CONTRACT.md`
 - `docs/BEADS_GASTOWN_SDP_CONTROL_TOWER_INTEGRATION_PLAN.md`
+- `packs/README.md`
+
+### Stage-pack rule
+
+When the work is clearly about a specific control-tower stage, read `packs/README.md` and then the relevant stage pack before implementing:
+
+- intake work → `packs/intake/PACK.md`
+- shaping / ready-gate work → `packs/shaping/PACK.md`
+- execution bridge / dispatch / result-ingest work → `packs/execution-bridge/PACK.md`
+- feedback / resume / external reply loops → `packs/feedback-loop/PACK.md`
+
+The stage pack does not replace the canon or contracts.
+It packages the practical process guidance for that stage so implementation sessions do not have to reconstruct it from scattered docs.
+Use packs as the thin stage-oriented guide layered on top of the canon, not as a separate framework.
 
 ---
 

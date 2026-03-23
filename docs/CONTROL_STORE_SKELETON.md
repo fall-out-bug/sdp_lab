@@ -35,6 +35,15 @@ A first file-backed control-store skeleton has been added:
 This is intentionally small.
 It proves the storage/projection model before deeper orchestration and before any dashboard implementation.
 
+The stage-level operator guidance for this implemented slice now lives under `packs/`:
+- `packs/intake/PACK.md`
+- `packs/shaping/PACK.md`
+- `packs/execution-bridge/PACK.md`
+- `packs/feedback-loop/PACK.md`
+
+Those packs do not add a second architecture.
+They make the currently implemented control-store lifecycle easier to enter and use.
+
 ## Current behavior
 
 ### `sdp-control card-create`
@@ -126,10 +135,21 @@ Performs one orchestration step:
 
 If nothing is dispatchable (no ready or executing cards), returns a clear no-op result with reason.
 
+## Stage-pack references
+
+The control-store command surface now has lightweight stage-pack guidance under `packs/`:
+- `packs/intake/PACK.md`
+- `packs/shaping/PACK.md`
+- `packs/execution-bridge/PACK.md`
+- `packs/feedback-loop/PACK.md`
+
+These packs do not replace contracts or schemas.
+They package the practical stage-level operating guidance around the command surface described in this file.
+
 ## Next implementation steps
 
-1. attach Beads bridge operations
-2. wire orchestrator actions onto store more directly
+1. keep stage packs wired into canonical session-start docs and launch briefs
+2. strengthen template/generator discipline around the new packs
 3. add richer status views / UI later
 4. integrate with external messaging providers (Slack, email, etc.) on top of file-based I/O
-5. add resume/reconciliation flows for long-running orchestration
+5. add process hygiene telemetry for stale / blocked / waiting-on-human debt
