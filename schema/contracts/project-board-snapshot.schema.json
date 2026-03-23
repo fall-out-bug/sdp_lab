@@ -22,12 +22,23 @@
     },
     "project": {
       "type": "object",
-      "required": ["project_id", "name"],
+      "required": [
+        "project_id",
+        "name"
+      ],
       "properties": {
-        "project_id": { "type": "string" },
-        "name": { "type": "string" },
-        "beads_prefix": { "type": "string" },
-        "repo_url": { "type": "string" }
+        "project_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "beads_prefix": {
+          "type": "string"
+        },
+        "repo_url": {
+          "type": "string"
+        }
       },
       "additionalProperties": false
     },
@@ -43,15 +54,42 @@
         "done"
       ],
       "properties": {
-        "inbox": { "type": "integer", "minimum": 0 },
-        "clarifying": { "type": "integer", "minimum": 0 },
-        "ready": { "type": "integer", "minimum": 0 },
-        "executing": { "type": "integer", "minimum": 0 },
-        "reviewing": { "type": "integer", "minimum": 0 },
-        "blocked": { "type": "integer", "minimum": 0 },
-        "done": { "type": "integer", "minimum": 0 },
-        "parked": { "type": "integer", "minimum": 0 },
-        "needs_input": { "type": "integer", "minimum": 0 }
+        "inbox": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "clarifying": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ready": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "executing": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reviewing": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "parked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "needs_input": {
+          "type": "integer",
+          "minimum": 0
+        }
       },
       "additionalProperties": false
     },
@@ -67,30 +105,63 @@
         "done"
       ],
       "properties": {
-        "inbox": { "$ref": "#/$defs/cardArray" },
-        "clarifying": { "$ref": "#/$defs/cardArray" },
-        "ready": { "$ref": "#/$defs/cardArray" },
-        "executing": { "$ref": "#/$defs/cardArray" },
-        "reviewing": { "$ref": "#/$defs/cardArray" },
-        "blocked": { "$ref": "#/$defs/cardArray" },
-        "done": { "$ref": "#/$defs/cardArray" },
-        "parked": { "$ref": "#/$defs/cardArray" },
-        "needs_input": { "$ref": "#/$defs/cardArray" }
+        "inbox": {
+          "$ref": "#/$defs/cardArray"
+        },
+        "clarifying": {
+          "$ref": "#/$defs/cardArray"
+        },
+        "ready": {
+          "$ref": "#/$defs/cardArray"
+        },
+        "executing": {
+          "$ref": "#/$defs/cardArray"
+        },
+        "reviewing": {
+          "$ref": "#/$defs/cardArray"
+        },
+        "blocked": {
+          "$ref": "#/$defs/cardArray"
+        },
+        "done": {
+          "$ref": "#/$defs/cardArray"
+        },
+        "parked": {
+          "$ref": "#/$defs/cardArray"
+        },
+        "needs_input": {
+          "$ref": "#/$defs/cardArray"
+        }
       },
       "additionalProperties": false
     },
     "execution_summary": {
       "type": "object",
       "properties": {
-        "ready_count": { "type": "integer", "minimum": 0 },
-        "blocked_count": { "type": "integer", "minimum": 0 },
-        "in_progress_count": { "type": "integer", "minimum": 0 },
+        "ready_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "in_progress_count": {
+          "type": "integer",
+          "minimum": 0
+        },
         "next_action": {
           "type": "object",
           "properties": {
-            "recommended": { "type": "string" },
-            "reason": { "type": "string" },
-            "command": { "type": "string" }
+            "recommended": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "command": {
+              "type": "string"
+            }
           },
           "additionalProperties": false
         }
@@ -99,12 +170,23 @@
     },
     "next_action": {
       "type": "object",
-      "required": ["recommended", "reason"],
+      "required": [
+        "recommended",
+        "reason"
+      ],
       "properties": {
-        "recommended": { "type": "string" },
-        "reason": { "type": "string" },
-        "target_card_id": { "type": "string" },
-        "command": { "type": "string" }
+        "recommended": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "target_card_id": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        }
       },
       "additionalProperties": false
     }
@@ -112,43 +194,103 @@
   "$defs": {
     "cardSummary": {
       "type": "object",
-      "required": ["id", "title", "status"],
+      "required": [
+        "id",
+        "title",
+        "status"
+      ],
       "properties": {
-        "id": { "type": "string" },
-        "title": { "type": "string" },
-        "status": { "type": "string" },
-        "risk_level": { "type": "string" },
-        "recommended_next_step": { "type": "string" },
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "risk_level": {
+          "type": "string"
+        },
+        "recommended_next_step": {
+          "type": "string"
+        },
         "active_agents": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "waiting_on": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "needs_feedback_from": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "author_update": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "admin_action_required": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "linked_beads_ids": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
+        },
+        "recommended_next_action": {
+          "type": "string"
+        },
+        "recommended_next_reason": {
+          "type": "string"
+        },
+        "last_orchestrator_action": {
+          "type": "string"
+        },
+        "last_orchestrator_reason": {
+          "type": "string"
+        },
+        "last_orchestrator_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "clarification_cycles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked_cycles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "execution_attempt_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "review_fail_count": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "additionalProperties": false
     },
     "cardArray": {
       "type": "array",
-      "items": { "$ref": "#/$defs/cardSummary" }
+      "items": {
+        "$ref": "#/$defs/cardSummary"
+      }
     }
   },
   "additionalProperties": false

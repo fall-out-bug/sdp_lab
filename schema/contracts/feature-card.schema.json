@@ -87,108 +87,205 @@
     },
     "scope_in": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "scope_out": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "non_goals": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "risk_level": {
       "type": "string",
-      "enum": ["low", "medium", "high", "unknown"]
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "unknown"
+      ]
     },
     "why_now": {
       "type": "string"
     },
     "links": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "open_questions": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "acceptance_shape": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "recommended_next_step": {
       "type": "string"
     },
     "intake_artifact": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "linked_beads_ids": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "linked_workstreams": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "required_artifacts": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "required_checks": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "linked_artifacts": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "active_agents": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "blocking_reasons": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "waiting_on": {
       "type": "array",
       "items": {
         "type": "string",
-        "enum": ["human", "dependency", "review", "qa", "external"]
+        "enum": [
+          "human",
+          "dependency",
+          "review",
+          "qa",
+          "external"
+        ]
       }
     },
     "needs_feedback_from": {
       "type": "array",
       "items": {
         "type": "string",
-        "enum": ["author", "admin", "human"]
+        "enum": [
+          "author",
+          "admin",
+          "human"
+        ]
       }
     },
     "feedback_request": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "decision_required": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "author_update": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "admin_action_required": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "last_orchestrator_action": {
+      "type": "string"
+    },
+    "last_orchestrator_reason": {
+      "type": "string"
+    },
+    "last_orchestrator_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "recommended_next_action": {
+      "type": "string"
+    },
+    "recommended_next_reason": {
+      "type": "string"
+    },
+    "clarification_cycles": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "blocked_cycles": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "execution_attempt_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "review_fail_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rollback_count": {
+      "type": "integer",
+      "minimum": 0
     }
   },
   "allOf": [
     {
       "if": {
         "properties": {
-          "status": { "const": "ready" }
+          "status": {
+            "const": "ready"
+          }
         },
-        "required": ["status"]
+        "required": [
+          "status"
+        ]
       },
       "then": {
         "required": [

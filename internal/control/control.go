@@ -22,45 +22,56 @@ var (
 )
 
 type FeatureCard struct {
-	ID                   string                 `yaml:"id" json:"id"`
-	ProjectID            string                 `yaml:"project_id" json:"project_id"`
-	Title                string                 `yaml:"title" json:"title"`
-	Status               string                 `yaml:"status" json:"status"`
-	RawRequest           string                 `yaml:"raw_request" json:"raw_request"`
-	CreatedAt            string                 `yaml:"created_at" json:"created_at"`
-	UpdatedAt            string                 `yaml:"updated_at" json:"updated_at"`
-	NormalizedIntent     string                 `yaml:"normalized_intent,omitempty" json:"normalized_intent,omitempty"`
-	TaskType             string                 `yaml:"task_type,omitempty" json:"task_type,omitempty"`
-	ExecutionMode        string                 `yaml:"execution_mode,omitempty" json:"execution_mode,omitempty"`
-	TargetRepo           string                 `yaml:"target_repo,omitempty" json:"target_repo,omitempty"`
-	TargetArea           string                 `yaml:"target_area,omitempty" json:"target_area,omitempty"`
-	ScopeIn              []string               `yaml:"scope_in,omitempty" json:"scope_in,omitempty"`
-	ScopeOut             []string               `yaml:"scope_out,omitempty" json:"scope_out,omitempty"`
-	NonGoals             []string               `yaml:"non_goals,omitempty" json:"non_goals,omitempty"`
-	RiskLevel            string                 `yaml:"risk_level,omitempty" json:"risk_level,omitempty"`
-	WhyNow               string                 `yaml:"why_now,omitempty" json:"why_now,omitempty"`
-	Links                []string               `yaml:"links,omitempty" json:"links,omitempty"`
-	OpenQuestions        []string               `yaml:"open_questions,omitempty" json:"open_questions,omitempty"`
-	AcceptanceShape      []string               `yaml:"acceptance_shape,omitempty" json:"acceptance_shape,omitempty"`
-	RecommendedNext      string                 `yaml:"recommended_next_step,omitempty" json:"recommended_next_step,omitempty"`
-	IntakeArtifact       []string               `yaml:"intake_artifact,omitempty" json:"intake_artifact,omitempty"`
-	LinkedBeadsIDs       []string               `yaml:"linked_beads_ids,omitempty" json:"linked_beads_ids,omitempty"`
-	LinkedWorkstreams    []string               `yaml:"linked_workstreams,omitempty" json:"linked_workstreams,omitempty"`
-	RequiredArtifacts    []string               `yaml:"required_artifacts,omitempty" json:"required_artifacts,omitempty"`
-	RequiredChecks       []string               `yaml:"required_checks,omitempty" json:"required_checks,omitempty"`
-	LinkedArtifacts      []string               `yaml:"linked_artifacts,omitempty" json:"linked_artifacts,omitempty"`
-	ActiveAgents         []string               `yaml:"active_agents,omitempty" json:"active_agents,omitempty"`
-	BlockingReasons      []string               `yaml:"blocking_reasons,omitempty" json:"blocking_reasons,omitempty"`
-	WaitingOn            []string               `yaml:"waiting_on,omitempty" json:"waiting_on,omitempty"`
-	NeedsFeedbackFrom    []string               `yaml:"needs_feedback_from,omitempty" json:"needs_feedback_from,omitempty"`
-	FeedbackRequest      []string               `yaml:"feedback_request,omitempty" json:"feedback_request,omitempty"`
-	DecisionRequired     []string               `yaml:"decision_required,omitempty" json:"decision_required,omitempty"`
-	AuthorUpdate         []string               `yaml:"author_update,omitempty" json:"author_update,omitempty"`
-	AdminActionRequired  []string               `yaml:"admin_action_required,omitempty" json:"admin_action_required,omitempty"`
-	DispatchedAt         string                 `yaml:"dispatched_at,omitempty" json:"dispatched_at,omitempty"`
-	DispatchedTo         string                 `yaml:"dispatched_to,omitempty" json:"dispatched_to,omitempty"`
-	DispatchedPacketPath string                 `yaml:"dispatched_packet_path,omitempty" json:"dispatched_packet_path,omitempty"`
-	ExecutorResult       *ExecutorResultSummary `yaml:"executor_result,omitempty" json:"executor_result,omitempty"`
+	ID                     string                 `yaml:"id" json:"id"`
+	ProjectID              string                 `yaml:"project_id" json:"project_id"`
+	Title                  string                 `yaml:"title" json:"title"`
+	Status                 string                 `yaml:"status" json:"status"`
+	RawRequest             string                 `yaml:"raw_request" json:"raw_request"`
+	CreatedAt              string                 `yaml:"created_at" json:"created_at"`
+	UpdatedAt              string                 `yaml:"updated_at" json:"updated_at"`
+	SourceRefs             []string               `yaml:"source_refs,omitempty" json:"source_refs,omitempty"`
+	LastOrchestratorAction string                 `yaml:"last_orchestrator_action,omitempty" json:"last_orchestrator_action,omitempty"`
+	LastOrchestratorReason string                 `yaml:"last_orchestrator_reason,omitempty" json:"last_orchestrator_reason,omitempty"`
+	LastOrchestratorAt     string                 `yaml:"last_orchestrator_at,omitempty" json:"last_orchestrator_at,omitempty"`
+	RecommendedNextAction  string                 `yaml:"recommended_next_action,omitempty" json:"recommended_next_action,omitempty"`
+	RecommendedNextReason  string                 `yaml:"recommended_next_reason,omitempty" json:"recommended_next_reason,omitempty"`
+	ClarificationCycles    int                    `yaml:"clarification_cycles,omitempty" json:"clarification_cycles,omitempty"`
+	BlockedCycles          int                    `yaml:"blocked_cycles,omitempty" json:"blocked_cycles,omitempty"`
+	ExecutionAttemptCount  int                    `yaml:"execution_attempt_count,omitempty" json:"execution_attempt_count,omitempty"`
+	ReviewFailCount        int                    `yaml:"review_fail_count,omitempty" json:"review_fail_count,omitempty"`
+	RollbackCount          int                    `yaml:"rollback_count,omitempty" json:"rollback_count,omitempty"`
+	NormalizedIntent       string                 `yaml:"normalized_intent,omitempty" json:"normalized_intent,omitempty"`
+	TaskType               string                 `yaml:"task_type,omitempty" json:"task_type,omitempty"`
+	ExecutionMode          string                 `yaml:"execution_mode,omitempty" json:"execution_mode,omitempty"`
+	TargetRepo             string                 `yaml:"target_repo,omitempty" json:"target_repo,omitempty"`
+	TargetArea             string                 `yaml:"target_area,omitempty" json:"target_area,omitempty"`
+	ScopeIn                []string               `yaml:"scope_in,omitempty" json:"scope_in,omitempty"`
+	ScopeOut               []string               `yaml:"scope_out,omitempty" json:"scope_out,omitempty"`
+	NonGoals               []string               `yaml:"non_goals,omitempty" json:"non_goals,omitempty"`
+	RiskLevel              string                 `yaml:"risk_level,omitempty" json:"risk_level,omitempty"`
+	WhyNow                 string                 `yaml:"why_now,omitempty" json:"why_now,omitempty"`
+	Links                  []string               `yaml:"links,omitempty" json:"links,omitempty"`
+	OpenQuestions          []string               `yaml:"open_questions,omitempty" json:"open_questions,omitempty"`
+	AcceptanceShape        []string               `yaml:"acceptance_shape,omitempty" json:"acceptance_shape,omitempty"`
+	RecommendedNext        string                 `yaml:"recommended_next_step,omitempty" json:"recommended_next_step,omitempty"`
+	IntakeArtifact         []string               `yaml:"intake_artifact,omitempty" json:"intake_artifact,omitempty"`
+	LinkedBeadsIDs         []string               `yaml:"linked_beads_ids,omitempty" json:"linked_beads_ids,omitempty"`
+	LinkedWorkstreams      []string               `yaml:"linked_workstreams,omitempty" json:"linked_workstreams,omitempty"`
+	RequiredArtifacts      []string               `yaml:"required_artifacts,omitempty" json:"required_artifacts,omitempty"`
+	RequiredChecks         []string               `yaml:"required_checks,omitempty" json:"required_checks,omitempty"`
+	LinkedArtifacts        []string               `yaml:"linked_artifacts,omitempty" json:"linked_artifacts,omitempty"`
+	ActiveAgents           []string               `yaml:"active_agents,omitempty" json:"active_agents,omitempty"`
+	BlockingReasons        []string               `yaml:"blocking_reasons,omitempty" json:"blocking_reasons,omitempty"`
+	WaitingOn              []string               `yaml:"waiting_on,omitempty" json:"waiting_on,omitempty"`
+	NeedsFeedbackFrom      []string               `yaml:"needs_feedback_from,omitempty" json:"needs_feedback_from,omitempty"`
+	FeedbackRequest        []string               `yaml:"feedback_request,omitempty" json:"feedback_request,omitempty"`
+	DecisionRequired       []string               `yaml:"decision_required,omitempty" json:"decision_required,omitempty"`
+	AuthorUpdate           []string               `yaml:"author_update,omitempty" json:"author_update,omitempty"`
+	AdminActionRequired    []string               `yaml:"admin_action_required,omitempty" json:"admin_action_required,omitempty"`
+	DispatchedAt           string                 `yaml:"dispatched_at,omitempty" json:"dispatched_at,omitempty"`
+	DispatchedTo           string                 `yaml:"dispatched_to,omitempty" json:"dispatched_to,omitempty"`
+	DispatchedPacketPath   string                 `yaml:"dispatched_packet_path,omitempty" json:"dispatched_packet_path,omitempty"`
+	ExecutorResult         *ExecutorResultSummary `yaml:"executor_result,omitempty" json:"executor_result,omitempty"`
 }
 
 // ExecutorResultSummary stores a summary of the last executor result for a card
@@ -75,17 +86,26 @@ type ExecutorResultSummary struct {
 }
 
 type CardSummary struct {
-	ID                  string   `json:"id"`
-	Title               string   `json:"title"`
-	Status              string   `json:"status"`
-	RiskLevel           string   `json:"risk_level,omitempty"`
-	RecommendedNextStep string   `json:"recommended_next_step,omitempty"`
-	ActiveAgents        []string `json:"active_agents,omitempty"`
-	WaitingOn           []string `json:"waiting_on,omitempty"`
-	NeedsFeedbackFrom   []string `json:"needs_feedback_from,omitempty"`
-	AuthorUpdate        []string `json:"author_update,omitempty"`
-	AdminActionRequired []string `json:"admin_action_required,omitempty"`
-	LinkedBeadsIDs      []string `json:"linked_beads_ids,omitempty"`
+	ID                     string   `json:"id"`
+	Title                  string   `json:"title"`
+	Status                 string   `json:"status"`
+	RiskLevel              string   `json:"risk_level,omitempty"`
+	RecommendedNextStep    string   `json:"recommended_next_step,omitempty"`
+	RecommendedNextAction  string   `json:"recommended_next_action,omitempty"`
+	RecommendedNextReason  string   `json:"recommended_next_reason,omitempty"`
+	LastOrchestratorAction string   `json:"last_orchestrator_action,omitempty"`
+	LastOrchestratorReason string   `json:"last_orchestrator_reason,omitempty"`
+	LastOrchestratorAt     string   `json:"last_orchestrator_at,omitempty"`
+	ClarificationCycles    int      `json:"clarification_cycles,omitempty"`
+	BlockedCycles          int      `json:"blocked_cycles,omitempty"`
+	ExecutionAttemptCount  int      `json:"execution_attempt_count,omitempty"`
+	ReviewFailCount        int      `json:"review_fail_count,omitempty"`
+	ActiveAgents           []string `json:"active_agents,omitempty"`
+	WaitingOn              []string `json:"waiting_on,omitempty"`
+	NeedsFeedbackFrom      []string `json:"needs_feedback_from,omitempty"`
+	AuthorUpdate           []string `json:"author_update,omitempty"`
+	AdminActionRequired    []string `json:"admin_action_required,omitempty"`
+	LinkedBeadsIDs         []string `json:"linked_beads_ids,omitempty"`
 }
 
 type ProjectBoardSnapshot struct {
@@ -108,16 +128,23 @@ type PortfolioBoardSnapshot struct {
 }
 
 type QueueItem struct {
-	ProjectID           string   `json:"project_id"`
-	CardID              string   `json:"card_id"`
-	Title               string   `json:"title"`
-	Status              string   `json:"status"`
-	Reason              string   `json:"reason,omitempty"`
-	RecommendedNextStep string   `json:"recommended_next_step,omitempty"`
-	ActiveAgents        []string `json:"active_agents,omitempty"`
-	NeedsFeedbackFrom   []string `json:"needs_feedback_from,omitempty"`
-	AuthorUpdate        []string `json:"author_update,omitempty"`
-	AdminActionRequired []string `json:"admin_action_required,omitempty"`
+	ProjectID              string   `json:"project_id"`
+	CardID                 string   `json:"card_id"`
+	Title                  string   `json:"title"`
+	Status                 string   `json:"status"`
+	Reason                 string   `json:"reason,omitempty"`
+	RecommendedNextStep    string   `json:"recommended_next_step,omitempty"`
+	RecommendedNextAction  string   `json:"recommended_next_action,omitempty"`
+	RecommendedNextReason  string   `json:"recommended_next_reason,omitempty"`
+	LastOrchestratorAction string   `json:"last_orchestrator_action,omitempty"`
+	ClarificationCycles    int      `json:"clarification_cycles,omitempty"`
+	BlockedCycles          int      `json:"blocked_cycles,omitempty"`
+	ExecutionAttemptCount  int      `json:"execution_attempt_count,omitempty"`
+	ReviewFailCount        int      `json:"review_fail_count,omitempty"`
+	ActiveAgents           []string `json:"active_agents,omitempty"`
+	NeedsFeedbackFrom      []string `json:"needs_feedback_from,omitempty"`
+	AuthorUpdate           []string `json:"author_update,omitempty"`
+	AdminActionRequired    []string `json:"admin_action_required,omitempty"`
 }
 
 type ProjectRegistry struct {
@@ -159,14 +186,19 @@ func (s *Store) CreateCard(projectID, title, rawRequest string) (*FeatureCard, e
 		return nil, err
 	}
 	card := &FeatureCard{
-		ID:           id,
-		ProjectID:    projectID,
-		Title:        title,
-		Status:       "inbox",
-		RawRequest:   rawRequest,
-		CreatedAt:    now.Format(time.RFC3339),
-		UpdatedAt:    now.Format(time.RFC3339),
-		ActiveAgents: []string{"orchestrator"},
+		ID:                     id,
+		ProjectID:              projectID,
+		Title:                  title,
+		Status:                 "inbox",
+		RawRequest:             rawRequest,
+		CreatedAt:              now.Format(time.RFC3339),
+		UpdatedAt:              now.Format(time.RFC3339),
+		ActiveAgents:           []string{"orchestrator"},
+		LastOrchestratorAction: "created_card",
+		LastOrchestratorReason: "Captured a new request into the control store",
+		LastOrchestratorAt:     now.Format(time.RFC3339),
+		RecommendedNextAction:  "clarify_card",
+		RecommendedNextReason:  "The card is still in inbox and needs shaping",
 	}
 	card.IntakeArtifact = []string{filepath.ToSlash(filepath.Join(s.ControlRoot, "projects", projectID, "intake", id+".md"))}
 	if err := s.SaveCard(card); err != nil {
@@ -284,13 +316,13 @@ func (s *Store) BuildPortfolioSnapshot() (*PortfolioBoardSnapshot, error) {
 			totals[k] += v
 		}
 		for _, c := range snap.Columns["needs_input"] {
-			queues["waiting_on_human"] = append(queues["waiting_on_human"], QueueItem{ProjectID: p.ID, CardID: c.ID, Title: c.Title, Status: c.Status, RecommendedNextStep: c.RecommendedNextStep, ActiveAgents: c.ActiveAgents, NeedsFeedbackFrom: c.NeedsFeedbackFrom, AuthorUpdate: c.AuthorUpdate, AdminActionRequired: c.AdminActionRequired})
+			queues["waiting_on_human"] = append(queues["waiting_on_human"], QueueItem{ProjectID: p.ID, CardID: c.ID, Title: c.Title, Status: c.Status, RecommendedNextStep: c.RecommendedNextStep, RecommendedNextAction: c.RecommendedNextAction, RecommendedNextReason: c.RecommendedNextReason, LastOrchestratorAction: c.LastOrchestratorAction, ClarificationCycles: c.ClarificationCycles, BlockedCycles: c.BlockedCycles, ExecutionAttemptCount: c.ExecutionAttemptCount, ReviewFailCount: c.ReviewFailCount, ActiveAgents: c.ActiveAgents, NeedsFeedbackFrom: c.NeedsFeedbackFrom, AuthorUpdate: c.AuthorUpdate, AdminActionRequired: c.AdminActionRequired})
 		}
 		for _, c := range snap.Columns["ready"] {
-			queues["ready_to_execute"] = append(queues["ready_to_execute"], QueueItem{ProjectID: p.ID, CardID: c.ID, Title: c.Title, Status: c.Status, RecommendedNextStep: c.RecommendedNextStep, ActiveAgents: c.ActiveAgents})
+			queues["ready_to_execute"] = append(queues["ready_to_execute"], QueueItem{ProjectID: p.ID, CardID: c.ID, Title: c.Title, Status: c.Status, RecommendedNextStep: c.RecommendedNextStep, RecommendedNextAction: c.RecommendedNextAction, RecommendedNextReason: c.RecommendedNextReason, LastOrchestratorAction: c.LastOrchestratorAction, ClarificationCycles: c.ClarificationCycles, BlockedCycles: c.BlockedCycles, ExecutionAttemptCount: c.ExecutionAttemptCount, ReviewFailCount: c.ReviewFailCount, ActiveAgents: c.ActiveAgents})
 		}
 		for _, c := range snap.Columns["blocked"] {
-			queues["blocked"] = append(queues["blocked"], QueueItem{ProjectID: p.ID, CardID: c.ID, Title: c.Title, Status: c.Status, RecommendedNextStep: c.RecommendedNextStep, ActiveAgents: c.ActiveAgents, NeedsFeedbackFrom: c.NeedsFeedbackFrom, AuthorUpdate: c.AuthorUpdate, AdminActionRequired: c.AdminActionRequired})
+			queues["blocked"] = append(queues["blocked"], QueueItem{ProjectID: p.ID, CardID: c.ID, Title: c.Title, Status: c.Status, RecommendedNextStep: c.RecommendedNextStep, RecommendedNextAction: c.RecommendedNextAction, RecommendedNextReason: c.RecommendedNextReason, LastOrchestratorAction: c.LastOrchestratorAction, ClarificationCycles: c.ClarificationCycles, BlockedCycles: c.BlockedCycles, ExecutionAttemptCount: c.ExecutionAttemptCount, ReviewFailCount: c.ReviewFailCount, ActiveAgents: c.ActiveAgents, NeedsFeedbackFrom: c.NeedsFeedbackFrom, AuthorUpdate: c.AuthorUpdate, AdminActionRequired: c.AdminActionRequired})
 		}
 	}
 	portfolio := &PortfolioBoardSnapshot{SpecVersion: specVersion, Timestamp: time.Now().UTC().Format(time.RFC3339), Projects: projects, Totals: totals, Queues: queues, NextAction: derivePortfolioAction(queues)}
@@ -298,7 +330,28 @@ func (s *Store) BuildPortfolioSnapshot() (*PortfolioBoardSnapshot, error) {
 }
 
 func summarize(c FeatureCard) CardSummary {
-	return CardSummary{ID: c.ID, Title: c.Title, Status: c.Status, RiskLevel: c.RiskLevel, RecommendedNextStep: c.RecommendedNext, ActiveAgents: c.ActiveAgents, WaitingOn: c.WaitingOn, NeedsFeedbackFrom: c.NeedsFeedbackFrom, AuthorUpdate: c.AuthorUpdate, AdminActionRequired: c.AdminActionRequired, LinkedBeadsIDs: c.LinkedBeadsIDs}
+	return CardSummary{
+		ID:                     c.ID,
+		Title:                  c.Title,
+		Status:                 c.Status,
+		RiskLevel:              c.RiskLevel,
+		RecommendedNextStep:    c.RecommendedNext,
+		RecommendedNextAction:  c.RecommendedNextAction,
+		RecommendedNextReason:  c.RecommendedNextReason,
+		LastOrchestratorAction: c.LastOrchestratorAction,
+		LastOrchestratorReason: c.LastOrchestratorReason,
+		LastOrchestratorAt:     c.LastOrchestratorAt,
+		ClarificationCycles:    c.ClarificationCycles,
+		BlockedCycles:          c.BlockedCycles,
+		ExecutionAttemptCount:  c.ExecutionAttemptCount,
+		ReviewFailCount:        c.ReviewFailCount,
+		ActiveAgents:           c.ActiveAgents,
+		WaitingOn:              c.WaitingOn,
+		NeedsFeedbackFrom:      c.NeedsFeedbackFrom,
+		AuthorUpdate:           c.AuthorUpdate,
+		AdminActionRequired:    c.AdminActionRequired,
+		LinkedBeadsIDs:         c.LinkedBeadsIDs,
+	}
 }
 
 func deriveNextAction(cards []FeatureCard) map[string]string {

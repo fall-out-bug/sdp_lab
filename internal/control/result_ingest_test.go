@@ -99,6 +99,9 @@ func TestIngestExecutorResultBlocked(t *testing.T) {
 	if ingestedCard.ExecutorResult == nil {
 		t.Fatal("ExecutorResult should be set")
 	}
+	if ingestedCard.BlockedCycles != 1 {
+		t.Fatalf("blocked_cycles = %d, want 1", ingestedCard.BlockedCycles)
+	}
 	if len(ingestedCard.BlockingReasons) < 2 {
 		t.Fatalf("BlockingReasons should contain findings, got %v", ingestedCard.BlockingReasons)
 	}
@@ -125,7 +128,7 @@ func TestIngestExecutorResultNeedsReview(t *testing.T) {
 	result := &ExecutorResultPacket{
 		BeadsTaskID:     "test-task-123",
 		ParentFeatureID: card.ID,
-		ExecutorRole:    "reviewer",
+		ExecutorRole:    "review",
 		Status:          ResultStatusNeedsReview,
 		Summary:         "Code review required for security concerns",
 		Findings:        []string{"Potential XSS vulnerability in component X", "Missing input validation"},
@@ -150,6 +153,12 @@ func TestIngestExecutorResultNeedsReview(t *testing.T) {
 	}
 	if len(ingestedCard.NeedsFeedbackFrom) < 2 {
 		t.Fatalf("NeedsFeedbackFrom should contain human and admin, got %v", ingestedCard.NeedsFeedbackFrom)
+	}
+	if ingestedCard.ReviewFailCount != 1 {
+		t.Fatalf("review_fail_count = %d, want 1", ingestedCard.ReviewFailCount)
+	}
+	if ingestedCard.LastOrchestratorAction != "ingested_executor_result" {
+		t.Fatalf("last_orchestrator_action = %s", ingestedCard.LastOrchestratorAction)
 	}
 }
 

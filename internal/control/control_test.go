@@ -50,6 +50,12 @@ func TestCreateCardCreatesCardAndIntakeArtifact(t *testing.T) {
 	if len(card.IntakeArtifact) != 1 {
 		t.Fatalf("expected intake artifact")
 	}
+	if card.LastOrchestratorAction != "created_card" {
+		t.Fatalf("last_orchestrator_action = %s", card.LastOrchestratorAction)
+	}
+	if card.RecommendedNextAction != "clarify_card" {
+		t.Fatalf("recommended_next_action = %s", card.RecommendedNextAction)
+	}
 	if _, err := os.Stat(filepath.Join(store.intakeDir("openclaw"), card.ID+".md")); err != nil {
 		t.Fatal(err)
 	}
@@ -197,6 +203,99 @@ func TestExecuteCardFailsIfNotReady(t *testing.T) {
 	_, err = store.ExecuteCard("openclaw", card.ID)
 	if err == nil {
 		t.Fatal("expected error for non-ready card")
+	}
+}
+
+func TestObservableFieldsAndCountersAcrossLifecycle(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Observable feature", "trace me")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	card, err = store.ClarifyCard("openclaw", card.ID, "observable intent", "feature", "openclaw", "medium", "keep shaping", []string{"scope"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if card.ClarificationCycles != 1 {
+		t.Fatalf("clarification_cycles = %d, want 1", card.ClarificationCycles)
+	}
+	if card.LastOrchestratorAction != "clarified_card" {
+		t.Fatalf("last_orchestrator_action = %s", card.LastOrchestratorAction)
+	}
+
+	card, err = store.MarkNeedsInput("openclaw", card.ID, []string{"human"}, []string{"Need answer"}, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if card.RecommendedNextAction != "await_human_input" {
+		t.Fatalf("recommended_next_action = %s", card.RecommendedNextAction)
+	}
+
+	card, err = store.ApplyFeedback("openclaw", card.ID, &FeedbackAnswer{FeedbackAnswers: []string{"resolved"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if card.Status != "clarifying" {
+		t.Fatalf("status = %s, want clarifying", card.Status)
+	}
+	if card.ClarificationCycles != 2 {
+		t.Fatalf("clarification_cycles = %d, want 2", card.ClarificationCycles)
+	}
+
+	card, err = store.ClarifyCard("openclaw", card.ID, "observable intent", "feature", "openclaw", "medium", "dispatch it", []string{"scope"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	card, err = store.MarkReady("openclaw", card.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if card.RecommendedNextAction != "dispatch_execution" {
+		t.Fatalf("recommended_next_action = %s", card.RecommendedNextAction)
+	}
+}
+
+func TestProjectAndPortfolioSnapshotsExposeObservableFields(t *testing.T) {
+	store := setupStore(t)
+	card, err := store.CreateCard("openclaw", "Snapshot feature", "trace me")
+	if err != nil {
+		t.Fatal(err)
+	}
+	card.Status = "blocked"
+	card.BlockedCycles = 2
+	card.ExecutionAttemptCount = 1
+	card.ReviewFailCount = 1
+	card.LastOrchestratorAction = "ingested_executor_result"
+	card.LastOrchestratorReason = "Execution reported a blocker"
+	card.RecommendedNextAction = "resolve_blocker"
+	card.RecommendedNextReason = "Review blocker details"
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	proj, err := store.BuildProjectSnapshot("openclaw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	blocked := proj.Columns["blocked"][0]
+	if blocked.LastOrchestratorAction != "ingested_executor_result" {
+		t.Fatalf("project snapshot last_orchestrator_action = %s", blocked.LastOrchestratorAction)
+	}
+	if blocked.BlockedCycles != 2 {
+		t.Fatalf("project snapshot blocked_cycles = %d", blocked.BlockedCycles)
+	}
+
+	portfolio, err := store.BuildPortfolioSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	queueItem := portfolio.Queues["blocked"][0]
+	if queueItem.RecommendedNextAction != "resolve_blocker" {
+		t.Fatalf("queue recommended_next_action = %s", queueItem.RecommendedNextAction)
+	}
+	if queueItem.ReviewFailCount != 1 {
+		t.Fatalf("queue review_fail_count = %d", queueItem.ReviewFailCount)
 	}
 }
 

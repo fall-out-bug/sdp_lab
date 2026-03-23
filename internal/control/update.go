@@ -10,6 +10,40 @@ import (
 	"time"
 )
 
+func setOrchestratorTrace(card *FeatureCard, action, reason, recommendedAction, recommendedReason string, at time.Time) {
+	if card == nil {
+		return
+	}
+	card.LastOrchestratorAction = action
+	card.LastOrchestratorReason = reason
+	card.LastOrchestratorAt = at.Format(time.RFC3339)
+	card.RecommendedNextAction = recommendedAction
+	card.RecommendedNextReason = recommendedReason
+}
+
+func incrementCycleOnStatusEntry(card *FeatureCard, fromStatus, toStatus string) {
+	if card == nil || fromStatus == toStatus {
+		return
+	}
+	switch toStatus {
+	case "clarifying":
+		card.ClarificationCycles++
+	case "blocked":
+		card.BlockedCycles++
+	case "executing":
+		card.ExecutionAttemptCount++
+	}
+}
+
+func maybeIncrementReviewFailCount(card *FeatureCard, result *ExecutorResultPacket) {
+	if card == nil || result == nil {
+		return
+	}
+	if result.ExecutorRole == string(ExecutorRoleReview) && (result.Status == ResultStatusNeedsReview || result.Status == ResultStatusFailed) {
+		card.ReviewFailCount++
+	}
+}
+
 func (s *Store) LoadCard(projectID, cardID string) (*FeatureCard, error) {
 	cards, err := s.LoadCards(projectID)
 	if err != nil {
@@ -29,6 +63,7 @@ func (s *Store) ClarifyCard(projectID, cardID, normalizedIntent, taskType, targe
 	if err != nil {
 		return nil, err
 	}
+	prevStatus := card.Status
 	card.Status = "clarifying"
 	if normalizedIntent != "" {
 		card.NormalizedIntent = normalizedIntent
@@ -52,6 +87,9 @@ func (s *Store) ClarifyCard(projectID, cardID, normalizedIntent, taskType, targe
 		card.ScopeOut = cleanList(scopeOut)
 	}
 	card.ActiveAgents = ensureContains(card.ActiveAgents, "orchestrator")
+	now := time.Now().UTC()
+	incrementCycleOnStatusEntry(card, prevStatus, card.Status)
+	setOrchestratorTrace(card, "clarified_card", "Orchestrator captured the current shape of the request", "continue_clarification", "Keep shaping until the card can be marked ready or needs explicit input", now)
 	if err := s.SaveCard(card); err != nil {
 		return nil, err
 	}
@@ -63,6 +101,7 @@ func (s *Store) MarkNeedsInput(projectID, cardID string, needsFeedbackFrom, feed
 	if err != nil {
 		return nil, err
 	}
+	prevStatus := card.Status
 	card.Status = "needs_input"
 	card.NeedsFeedbackFrom = cleanList(needsFeedbackFrom)
 	card.FeedbackRequest = cleanList(feedbackRequest)
@@ -71,6 +110,9 @@ func (s *Store) MarkNeedsInput(projectID, cardID string, needsFeedbackFrom, feed
 	card.AdminActionRequired = cleanList(adminActionRequired)
 	card.WaitingOn = ensureContains(card.WaitingOn, "human")
 	card.ActiveAgents = ensureContains(card.ActiveAgents, "orchestrator")
+	now := time.Now().UTC()
+	incrementCycleOnStatusEntry(card, prevStatus, card.Status)
+	setOrchestratorTrace(card, "requested_input", "The orchestrator needs external clarification or approval before advancing", "await_human_input", "A human or admin reply is required to resume the card", now)
 	if err := s.SaveCard(card); err != nil {
 		return nil, err
 	}
@@ -85,6 +127,7 @@ func (s *Store) MarkReady(projectID, cardID string) (*FeatureCard, error) {
 	if err := validateReady(card); err != nil {
 		return nil, err
 	}
+	prevStatus := card.Status
 	card.Status = "ready"
 	card.WaitingOn = nil
 	card.NeedsFeedbackFrom = nil
@@ -92,6 +135,9 @@ func (s *Store) MarkReady(projectID, cardID string) (*FeatureCard, error) {
 	card.DecisionRequired = nil
 	card.AdminActionRequired = nil
 	card.ActiveAgents = ensureContains(card.ActiveAgents, "orchestrator")
+	now := time.Now().UTC()
+	incrementCycleOnStatusEntry(card, prevStatus, card.Status)
+	setOrchestratorTrace(card, "marked_ready", "The card satisfies the current ready gate", "dispatch_execution", "The card is shaped enough to hand to an executor", now)
 	if err := s.SaveCard(card); err != nil {
 		return nil, err
 	}
@@ -133,10 +179,14 @@ func (s *Store) ExecuteCard(projectID, cardID string) (*FeatureCard, error) {
 		return nil, fmt.Errorf("empty Beads ID returned")
 	}
 
+	prevStatus := card.Status
 	card.LinkedBeadsIDs = cleanList(append(card.LinkedBeadsIDs, beadsID))
 	card.Status = "executing"
 	card.WaitingOn = nil
 	card.ActiveAgents = ensureContains(card.ActiveAgents, "executor")
+	now := time.Now().UTC()
+	incrementCycleOnStatusEntry(card, prevStatus, card.Status)
+	setOrchestratorTrace(card, "linked_execution", "The card was linked to Beads execution work", "dispatch_execution", "Write and send the execution packet to the selected executor", now)
 	if err := s.SaveCard(card); err != nil {
 		return nil, err
 	}
@@ -171,12 +221,15 @@ func (s *Store) DispatchCard(projectID, cardID string) (*FeatureCard, error) {
 		return nil, fmt.Errorf("write dispatch packet: %w", err)
 	}
 
+	prevStatus := card.Status
 	now := time.Now().UTC()
 	card.Status = "executing"
 	card.DispatchedAt = now.Format(time.RFC3339)
 	card.DispatchedTo = packet.ExecutorRole
 	card.DispatchedPacketPath = s.dispatchPacketPath(projectID, cardID)
 	card.ActiveAgents = ensureContains(card.ActiveAgents, "executor")
+	incrementCycleOnStatusEntry(card, prevStatus, card.Status)
+	setOrchestratorTrace(card, "dispatched_execution", "The orchestrator produced an execution packet and routed the card to an executor", "await_executor_result", "Wait for executor output or a follow-up result packet", now)
 
 	if err := s.SaveCard(card); err != nil {
 		return nil, err
@@ -519,6 +572,7 @@ func (s *Store) ApplyFeedback(projectID, cardID string, answer *FeedbackAnswer) 
 	card.DecisionRequired = nil
 	card.WaitingOn = nil
 
+	prevStatus := card.Status
 	targetStatus := answer.ResumeTargetStatus
 	if targetStatus == "" {
 		targetStatus = "clarifying"
@@ -536,6 +590,12 @@ func (s *Store) ApplyFeedback(projectID, cardID string, answer *FeedbackAnswer) 
 
 	card.Status = targetStatus
 	card.ActiveAgents = ensureContains(card.ActiveAgents, "orchestrator")
+	incrementCycleOnStatusEntry(card, prevStatus, card.Status)
+	if targetStatus == "ready" {
+		setOrchestratorTrace(card, "resumed_after_feedback", "Feedback resolved the outstanding questions and the card can proceed", "dispatch_execution", "The card can return to execution", now)
+	} else {
+		setOrchestratorTrace(card, "resumed_after_feedback", "Feedback resolved the current blocker and the card returned to clarification", "continue_clarification", "Incorporate the new answers into shaping", now)
+	}
 	card.UpdatedAt = now.Format(time.RFC3339)
 
 	if err := s.SaveCard(card); err != nil {
@@ -649,6 +709,7 @@ func (s *Store) IngestExecutorResult(result *ExecutorResultPacket) (*FeatureCard
 		return nil, fmt.Errorf("load card %s: %w", result.ParentFeatureID, err)
 	}
 
+	prevStatus := card.Status
 	now := time.Now().UTC()
 
 	summary := &ExecutorResultSummary{
@@ -682,6 +743,7 @@ func (s *Store) IngestExecutorResult(result *ExecutorResultPacket) (*FeatureCard
 	}
 
 	card.ExecutorResult = summary
+	maybeIncrementReviewFailCount(card, result)
 
 	switch result.Status {
 	case ResultStatusSuccess:
@@ -737,6 +799,19 @@ func (s *Store) IngestExecutorResult(result *ExecutorResultPacket) (*FeatureCard
 	}
 
 	card.ActiveAgents = ensureContains(card.ActiveAgents, "orchestrator")
+	incrementCycleOnStatusEntry(card, prevStatus, card.Status)
+	switch result.Status {
+	case ResultStatusSuccess:
+		setOrchestratorTrace(card, "ingested_executor_result", "Execution completed successfully and the card can be closed", "none", "No immediate follow-up is required", now)
+	case ResultStatusBlocked:
+		setOrchestratorTrace(card, "ingested_executor_result", "Execution reported a real blocker that requires orchestration", "resolve_blocker", "Review the blocker details and decide how to unblock the card", now)
+	case ResultStatusNeedsReview:
+		setOrchestratorTrace(card, "ingested_executor_result", "Execution surfaced a review or approval loop", "request_review_input", "A human or admin decision is needed before continuing", now)
+	case ResultStatusNeedsInput:
+		setOrchestratorTrace(card, "ingested_executor_result", "Execution needs more clarification before it can continue", "request_human_input", "Collect the missing answers and resume the card", now)
+	case ResultStatusFailed:
+		setOrchestratorTrace(card, "ingested_executor_result", "Execution failed and the card returned to clarification", "replan_execution", "Incorporate the failure findings before another attempt", now)
+	}
 	card.UpdatedAt = now.Format(time.RFC3339)
 
 	if err := s.SaveCard(card); err != nil {

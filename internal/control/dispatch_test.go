@@ -30,6 +30,12 @@ func TestDispatchCardForReadyCard(t *testing.T) {
 	if result.Status != "executing" {
 		t.Fatalf("status = %s, want executing", result.Status)
 	}
+	if result.ExecutionAttemptCount != 1 {
+		t.Fatalf("execution_attempt_count = %d, want 1", result.ExecutionAttemptCount)
+	}
+	if result.LastOrchestratorAction != "dispatched_execution" {
+		t.Fatalf("last_orchestrator_action = %s", result.LastOrchestratorAction)
+	}
 	if result.DispatchedAt == "" {
 		t.Fatal("DispatchedAt should be set")
 	}
