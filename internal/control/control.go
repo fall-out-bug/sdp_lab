@@ -150,6 +150,7 @@ type PortfolioBoardSnapshot struct {
 	Totals      map[string]int         `json:"totals"`
 	Queues      map[string][]QueueItem `json:"queues"`
 	NextAction  map[string]string      `json:"next_action"`
+	Executive   ExecutiveSummary       `json:"executive"`
 }
 
 type QueueItem struct {
@@ -342,7 +343,15 @@ func (s *Store) BuildProjectSnapshot(projectID string) (*ProjectBoardSnapshot, e
 func (s *Store) BuildPortfolioSnapshot() (*PortfolioBoardSnapshot, error) {
 	projects := make([]map[string]any, 0, len(s.Registry.Projects))
 	totals := map[string]int{"inbox": 0, "clarifying": 0, "ready": 0, "executing": 0, "reviewing": 0, "blocked": 0, "done": 0, "parked": 0, "needs_input": 0}
-	queues := map[string][]QueueItem{"waiting_on_human": {}, "ready_to_execute": {}, "blocked": {}}
+	queues := map[string][]QueueItem{
+		"waiting_on_human":  {},
+		"ready_to_execute":  {},
+		"blocked":           {},
+		"movement":          {},
+		"delivery_trouble":  {},
+		"attention_now":     {},
+		"friction_hotspots": {},
+	}
 	for _, p := range s.Registry.Projects {
 		snap, err := s.BuildProjectSnapshot(p.ID)
 		if err != nil && !errors.Is(err, ErrUnknownProject) {
@@ -355,17 +364,55 @@ func (s *Store) BuildPortfolioSnapshot() (*PortfolioBoardSnapshot, error) {
 		for k, v := range snap.Counts {
 			totals[k] += v
 		}
+
 		for _, c := range snap.Columns["needs_input"] {
-			queues["waiting_on_human"] = append(queues["waiting_on_human"], QueueItem{ProjectID: p.ID, CardID: c.ID, Title: c.Title, Status: c.Status, RecommendedNextStep: c.RecommendedNextStep, RecommendedNextAction: c.RecommendedNextAction, RecommendedNextReason: c.RecommendedNextReason, LastOrchestratorAction: c.LastOrchestratorAction, LastOrchestratorReason: c.LastOrchestratorReason, ClarificationCycles: c.ClarificationCycles, BlockedCycles: c.BlockedCycles, ExecutionAttemptCount: c.ExecutionAttemptCount, ReviewFailCount: c.ReviewFailCount, RollbackCount: c.RollbackCount, ActiveAgents: c.ActiveAgents, NeedsFeedbackFrom: c.NeedsFeedbackFrom, AuthorUpdate: c.AuthorUpdate, AdminActionRequired: c.AdminActionRequired, LinkedBeadsIDs: c.LinkedBeadsIDs, DispatchedTo: c.DispatchedTo, ExecutorResultStatus: c.ExecutorResultStatus, ExecutorResultSummary: c.ExecutorResultSummary, ExecutorNextHint: c.ExecutorNextHint})
+			item := newQueueItem(p.ID, c)
+			queues["waiting_on_human"] = append(queues["waiting_on_human"], item)
+			queues["attention_now"] = append(queues["attention_now"], item)
+			if frictionScore(item) > 0 {
+				queues["friction_hotspots"] = append(queues["friction_hotspots"], item)
+			}
 		}
 		for _, c := range snap.Columns["ready"] {
-			queues["ready_to_execute"] = append(queues["ready_to_execute"], QueueItem{ProjectID: p.ID, CardID: c.ID, Title: c.Title, Status: c.Status, RecommendedNextStep: c.RecommendedNextStep, RecommendedNextAction: c.RecommendedNextAction, RecommendedNextReason: c.RecommendedNextReason, LastOrchestratorAction: c.LastOrchestratorAction, LastOrchestratorReason: c.LastOrchestratorReason, ClarificationCycles: c.ClarificationCycles, BlockedCycles: c.BlockedCycles, ExecutionAttemptCount: c.ExecutionAttemptCount, ReviewFailCount: c.ReviewFailCount, RollbackCount: c.RollbackCount, ActiveAgents: c.ActiveAgents, LinkedBeadsIDs: c.LinkedBeadsIDs, DispatchedTo: c.DispatchedTo, ExecutorResultStatus: c.ExecutorResultStatus, ExecutorResultSummary: c.ExecutorResultSummary, ExecutorNextHint: c.ExecutorNextHint})
+			item := newQueueItem(p.ID, c)
+			queues["ready_to_execute"] = append(queues["ready_to_execute"], item)
+			if frictionScore(item) > 0 {
+				queues["friction_hotspots"] = append(queues["friction_hotspots"], item)
+			}
 		}
 		for _, c := range snap.Columns["blocked"] {
-			queues["blocked"] = append(queues["blocked"], QueueItem{ProjectID: p.ID, CardID: c.ID, Title: c.Title, Status: c.Status, RecommendedNextStep: c.RecommendedNextStep, RecommendedNextAction: c.RecommendedNextAction, RecommendedNextReason: c.RecommendedNextReason, LastOrchestratorAction: c.LastOrchestratorAction, LastOrchestratorReason: c.LastOrchestratorReason, ClarificationCycles: c.ClarificationCycles, BlockedCycles: c.BlockedCycles, ExecutionAttemptCount: c.ExecutionAttemptCount, ReviewFailCount: c.ReviewFailCount, RollbackCount: c.RollbackCount, ActiveAgents: c.ActiveAgents, NeedsFeedbackFrom: c.NeedsFeedbackFrom, AuthorUpdate: c.AuthorUpdate, AdminActionRequired: c.AdminActionRequired, LinkedBeadsIDs: c.LinkedBeadsIDs, DispatchedTo: c.DispatchedTo, ExecutorResultStatus: c.ExecutorResultStatus, ExecutorResultSummary: c.ExecutorResultSummary, ExecutorNextHint: c.ExecutorNextHint})
+			item := newQueueItem(p.ID, c)
+			queues["blocked"] = append(queues["blocked"], item)
+			queues["attention_now"] = append(queues["attention_now"], item)
+			if isDeliveryTrouble(item) {
+				queues["delivery_trouble"] = append(queues["delivery_trouble"], item)
+			}
+			if frictionScore(item) > 0 {
+				queues["friction_hotspots"] = append(queues["friction_hotspots"], item)
+			}
+		}
+		for _, status := range []string{"executing", "reviewing", "done"} {
+			for _, c := range snap.Columns[status] {
+				item := newQueueItem(p.ID, c)
+				if inMovement(item) {
+					queues["movement"] = append(queues["movement"], item)
+				}
+				if needsAttentionNow(item) {
+					queues["attention_now"] = append(queues["attention_now"], item)
+				}
+				if isDeliveryTrouble(item) {
+					queues["delivery_trouble"] = append(queues["delivery_trouble"], item)
+				}
+				if frictionScore(item) > 0 {
+					queues["friction_hotspots"] = append(queues["friction_hotspots"], item)
+				}
+			}
 		}
 	}
-	portfolio := &PortfolioBoardSnapshot{SpecVersion: specVersion, Timestamp: time.Now().UTC().Format(time.RFC3339), Projects: projects, Totals: totals, Queues: queues, NextAction: derivePortfolioAction(queues)}
+	sortExecutiveQueues(queues)
+	nextAction := derivePortfolioAction(queues)
+	portfolio := &PortfolioBoardSnapshot{SpecVersion: specVersion, Timestamp: time.Now().UTC().Format(time.RFC3339), Projects: projects, Totals: totals, Queues: queues, NextAction: nextAction}
+	portfolio.Executive = deriveExecutiveSummary(queues, nextAction)
 	return portfolio, s.writeJSON(filepath.Join(s.ControlRoot, "portfolio", "snapshot.json"), portfolio)
 }
 

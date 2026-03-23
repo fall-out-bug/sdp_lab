@@ -136,11 +136,27 @@ func RenderPortfolioBoard(snap *control.PortfolioBoardSnapshot) string {
 
 func RenderAttention(snap *control.PortfolioBoardSnapshot) string {
 	var b strings.Builder
-	b.WriteString("ATTENTION\n")
-	b.WriteString(fmt.Sprintf("Now: %d needs input/blocker items | %d ready | %d executing\n", len(snap.Queues["waiting_on_human"])+len(snap.Queues["blocked"]), len(snap.Queues["ready_to_execute"]), snap.Totals["executing"]))
+	b.WriteString("EXECUTIVE ATTENTION\n")
+	b.WriteString(fmt.Sprintf("Attention now: %d | Waiting on human: %d | Blocked: %d | Movement: %d | Delivery trouble: %d | Ready to move: %d\n",
+		snap.Executive.AttentionNowCount,
+		snap.Executive.WaitingOnHumanCount,
+		snap.Executive.BlockedCount,
+		snap.Executive.MovementCount,
+		snap.Executive.DeliveryTroubleCount,
+		snap.Executive.ReadyToMoveCount,
+	))
 	b.WriteString("\n")
 
-	for _, section := range portfolioSections(snap) {
+	sections := []renderedSection{
+		{title: fmt.Sprintf("Attention now (%d)", snap.Executive.AttentionNowCount), lines: renderQueueItems(snap.Executive.AttentionNow, "Nothing needs immediate operator attention.")},
+		{title: fmt.Sprintf("Waiting on human (%d)", snap.Executive.WaitingOnHumanCount), lines: renderQueueItems(snap.Executive.WaitingOnHuman, "Nothing is waiting on a human right now.")},
+		{title: fmt.Sprintf("Blocked (%d)", snap.Executive.BlockedCount), lines: renderQueueItems(snap.Executive.Blocked, "No blocked cards right now.")},
+		{title: fmt.Sprintf("Movement (%d)", snap.Executive.MovementCount), lines: renderQueueItems(snap.Executive.Movement, "Nothing is actively moving right now.")},
+		{title: fmt.Sprintf("Delivery trouble (%d)", snap.Executive.DeliveryTroubleCount), lines: renderQueueItems(snap.Executive.DeliveryTrouble, "No delivery trouble right now.")},
+		{title: fmt.Sprintf("Ready to move (%d)", snap.Executive.ReadyToMoveCount), lines: renderQueueItems(snap.Executive.ReadyToMove, "No ready cards right now.")},
+		{title: fmt.Sprintf("Friction hotspots (%d)", len(snap.Executive.FrictionHotspots)), lines: renderQueueItems(snap.Executive.FrictionHotspots, "No friction hotspots right now.")},
+	}
+	for _, section := range sections {
 		b.WriteString(section.title + "\n")
 		for _, line := range section.lines {
 			b.WriteString(line + "\n")
@@ -148,10 +164,17 @@ func RenderAttention(snap *control.PortfolioBoardSnapshot) string {
 		b.WriteString("\n")
 	}
 
-	b.WriteString("Next action\n")
+	b.WriteString("Next best action\n")
 	b.WriteString(fmt.Sprintf("- %s\n", humanizeRecommendation(snap.NextAction["recommended"])))
 	if reason := strings.TrimSpace(snap.NextAction["reason"]); reason != "" {
 		b.WriteString("  " + reason + "\n")
+	}
+	if projectID := strings.TrimSpace(snap.NextAction["target_project_id"]); projectID != "" {
+		target := projectID
+		if cardID := strings.TrimSpace(snap.NextAction["target_card_id"]); cardID != "" {
+			target += "/" + cardID
+		}
+		b.WriteString("  Target: " + target + "\n")
 	}
 	return strings.TrimSpace(b.String())
 }

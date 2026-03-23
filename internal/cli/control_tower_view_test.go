@@ -64,6 +64,54 @@ func TestRenderPortfolioBoard(t *testing.T) {
 	}
 }
 
+func TestRenderAttention(t *testing.T) {
+	snap := &control.PortfolioBoardSnapshot{
+		NextAction: map[string]string{"recommended": "surface_feedback_request", "reason": "At least one card needs human/admin input", "target_project_id": "alpha", "target_card_id": "feature-alpha-001"},
+		Executive: control.ExecutiveSummary{
+			AttentionNowCount:    4,
+			WaitingOnHumanCount:  1,
+			BlockedCount:         1,
+			MovementCount:        2,
+			DeliveryTroubleCount: 1,
+			ReadyToMoveCount:     1,
+			AttentionNow: []control.QueueItem{
+				{ProjectID: "alpha", CardID: "feature-alpha-001", Title: "Need decision", Status: "needs_input", RecommendedNextStep: "ask owner", RecommendedNextReason: "Need product input", LastOrchestratorAction: "requested_input", NeedsFeedbackFrom: []string{"author"}},
+				{ProjectID: "beta", CardID: "feature-beta-002", Title: "Rollback issue", Status: "done", DeliveryState: "rolled_back", DeliveryTarget: "prod", HasRollback: true, HasFollowup: true, RollbackCount: 1},
+			},
+			WaitingOnHuman: []control.QueueItem{{ProjectID: "alpha", CardID: "feature-alpha-001", Title: "Need decision", Status: "needs_input", RecommendedNextStep: "ask owner", NeedsFeedbackFrom: []string{"author"}}},
+			Blocked:        []control.QueueItem{{ProjectID: "gamma", CardID: "feature-gamma-003", Title: "Blocked task", Status: "blocked", RecommendedNextStep: "resolve blocker", BlockedCycles: 2}},
+			Movement: []control.QueueItem{
+				{ProjectID: "delta", CardID: "feature-delta-004", Title: "Execute now", Status: "executing", LinkedBeadsIDs: []string{"bd-123"}, DispatchedTo: "omo-implementation", ExecutionAttemptCount: 1},
+				{ProjectID: "epsilon", CardID: "feature-epsilon-005", Title: "Shipping", Status: "done", DeliveryState: "deployed", DeliveryTarget: "staging"},
+			},
+			DeliveryTrouble:  []control.QueueItem{{ProjectID: "beta", CardID: "feature-beta-002", Title: "Rollback issue", Status: "done", DeliveryState: "rolled_back", DeliveryTarget: "prod", HasRollback: true, HasFollowup: true, RollbackCount: 1}},
+			ReadyToMove:      []control.QueueItem{{ProjectID: "zeta", CardID: "feature-zeta-006", Title: "Ready task", Status: "ready", RecommendedNextStep: "dispatch"}},
+			FrictionHotspots: []control.QueueItem{{ProjectID: "gamma", CardID: "feature-gamma-003", Title: "Blocked task", Status: "blocked", BlockedCycles: 2}, {ProjectID: "beta", CardID: "feature-beta-002", Title: "Rollback issue", Status: "done", RollbackCount: 1, DeliveryState: "rolled_back", HasRollback: true}},
+		},
+	}
+
+	out := RenderAttention(snap)
+	for _, want := range []string{
+		"EXECUTIVE ATTENTION",
+		"Attention now: 4 | Waiting on human: 1 | Blocked: 1 | Movement: 2 | Delivery trouble: 1 | Ready to move: 1",
+		"Attention now (4)",
+		"- alpha/feature-alpha-001 — Need decision | next: ask owner | why: Need product input | last: requested input | waiting on: author",
+		"Movement (2)",
+		"- delta/feature-delta-004 — Execute now | friction: exec:1 | beads: bd-123 | dispatch: omo-implementation",
+		"- epsilon/feature-epsilon-005 — Shipping | delivery: deployed -> staging",
+		"Delivery trouble (1)",
+		"- beta/feature-beta-002 — Rollback issue | delivery: rolled_back -> prod | rollback recorded | follow-up linked | friction: rollback:1",
+		"Ready to move (1)",
+		"Friction hotspots (2)",
+		"Next best action",
+		"Target: alpha/feature-alpha-001",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("expected output to contain %q\nfull output:\n%s", want, out)
+		}
+	}
+}
+
 func TestRenderProjectBoard(t *testing.T) {
 	snap := &control.ProjectBoardSnapshot{
 		Project: map[string]string{"project_id": "alpha", "name": "alpha"},

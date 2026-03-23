@@ -882,8 +882,35 @@ func TestAttentionCommandQueues(t *testing.T) {
 	card4.Status = "executing"
 	card4.ActiveAgents = []string{"executor"}
 	card4.LinkedBeadsIDs = []string{"bd-123"}
+	card4.ExecutionAttemptCount = 1
 	card4.RecommendedNext = "Complete work"
 	if err := store.SaveCard(card4); err != nil {
+		t.Fatal(err)
+	}
+
+	card5, err := store.CreateCard("beads", "Review moving", "in review")
+	if err != nil {
+		t.Fatal(err)
+	}
+	card5.Status = "reviewing"
+	card5.ReviewState = "pending"
+	card5.RecommendedNext = "Wait for review"
+	if err := store.SaveCard(card5); err != nil {
+		t.Fatal(err)
+	}
+
+	card6, err := store.CreateCard("openclaw", "Rollback trouble", "delivery broke")
+	if err != nil {
+		t.Fatal(err)
+	}
+	card6.Status = "done"
+	card6.DeliveryState = "rolled_back"
+	card6.DeliveryTarget = "prod"
+	card6.RollbackRef = "rollback:prod-1"
+	card6.RollbackCount = 1
+	card6.FollowupRefs = []string{"followup:hotfix-1"}
+	card6.RecommendedNext = "Investigate rollback"
+	if err := store.SaveCard(card6); err != nil {
 		t.Fatal(err)
 	}
 
@@ -900,6 +927,24 @@ func TestAttentionCommandQueues(t *testing.T) {
 	}
 	if len(snap.Queues["blocked"]) != 1 {
 		t.Fatalf("blocked count = %d, want 1", len(snap.Queues["blocked"]))
+	}
+	if len(snap.Queues["movement"]) != 2 {
+		t.Fatalf("movement count = %d, want 2", len(snap.Queues["movement"]))
+	}
+	if len(snap.Queues["delivery_trouble"]) != 1 {
+		t.Fatalf("delivery_trouble count = %d, want 1", len(snap.Queues["delivery_trouble"]))
+	}
+	if len(snap.Queues["attention_now"]) != 4 {
+		t.Fatalf("attention_now count = %d, want 4", len(snap.Queues["attention_now"]))
+	}
+	if len(snap.Queues["friction_hotspots"]) < 2 {
+		t.Fatalf("friction_hotspots count = %d, want at least 2", len(snap.Queues["friction_hotspots"]))
+	}
+	if snap.Executive.AttentionNowCount != 4 {
+		t.Fatalf("Executive.AttentionNowCount = %d, want 4", snap.Executive.AttentionNowCount)
+	}
+	if snap.Executive.DeliveryTroubleCount != 1 {
+		t.Fatalf("Executive.DeliveryTroubleCount = %d, want 1", snap.Executive.DeliveryTroubleCount)
 	}
 
 	waiting := snap.Queues["waiting_on_human"][0]
@@ -921,6 +966,14 @@ func TestAttentionCommandQueues(t *testing.T) {
 	blocked := snap.Queues["blocked"][0]
 	if len(blocked.AdminActionRequired) == 0 {
 		t.Fatal("expected AdminActionRequired in blocked item")
+	}
+
+	deliveryTrouble := snap.Queues["delivery_trouble"][0]
+	if deliveryTrouble.CardID != card6.ID {
+		t.Fatalf("deliveryTrouble.CardID = %s, want %s", deliveryTrouble.CardID, card6.ID)
+	}
+	if !deliveryTrouble.HasRollback || !deliveryTrouble.HasFollowup {
+		t.Fatal("expected rollback/followup markers in delivery trouble item")
 	}
 
 	if snap.NextAction["recommended"] != "surface_feedback_request" {
