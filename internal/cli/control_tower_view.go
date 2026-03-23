@@ -192,6 +192,30 @@ func RenderCardDetail(card *control.FeatureCard) string {
 		b.WriteString("\n")
 	}
 
+	if lines := cardReviewLines(card); len(lines) > 0 {
+		b.WriteString("Review\n")
+		for _, line := range lines {
+			b.WriteString(line + "\n")
+		}
+		b.WriteString("\n")
+	}
+
+	if lines := cardDeliveryLines(card); len(lines) > 0 {
+		b.WriteString("Delivery\n")
+		for _, line := range lines {
+			b.WriteString(line + "\n")
+		}
+		b.WriteString("\n")
+	}
+
+	if lines := cardRollbackLines(card); len(lines) > 0 {
+		b.WriteString("Rollback\n")
+		for _, line := range lines {
+			b.WriteString(line + "\n")
+		}
+		b.WriteString("\n")
+	}
+
 	if lines := cardFrictionLines(card); len(lines) > 0 {
 		b.WriteString("Friction\n")
 		for _, line := range lines {
@@ -277,6 +301,12 @@ func queueDetail(item control.QueueItem) string {
 	if len(item.AuthorUpdate) > 0 {
 		parts = append(parts, "update: "+strings.Join(item.AuthorUpdate, ", "))
 	}
+	if review := reviewHint(item.ReviewState); review != "" {
+		parts = append(parts, review)
+	}
+	if delivery := deliveryHint(item.DeliveryState, item.DeliveryTarget, item.HasRollback, item.HasFollowup); delivery != "" {
+		parts = append(parts, delivery)
+	}
 	if friction := frictionMarkers(item.ClarificationCycles, item.BlockedCycles, item.ExecutionAttemptCount, item.ReviewFailCount, item.RollbackCount); friction != "" {
 		parts = append(parts, friction)
 	}
@@ -299,6 +329,12 @@ func cardSummaryDetail(item control.CardSummary) string {
 	}
 	if len(item.NeedsFeedbackFrom) > 0 {
 		parts = append(parts, "waiting on: "+strings.Join(item.NeedsFeedbackFrom, ", "))
+	}
+	if review := reviewHint(item.ReviewState); review != "" {
+		parts = append(parts, review)
+	}
+	if delivery := deliveryHint(item.DeliveryState, item.DeliveryTarget, item.HasRollback, item.HasFollowup); delivery != "" {
+		parts = append(parts, delivery)
 	}
 	if friction := frictionMarkers(item.ClarificationCycles, item.BlockedCycles, item.ExecutionAttemptCount, item.ReviewFailCount, item.RollbackCount); friction != "" {
 		parts = append(parts, friction)
@@ -394,6 +430,51 @@ func cardExecutionLines(card *control.FeatureCard) []string {
 			lines = append(lines, "- Open risks: "+strings.Join(result.OpenRisks, "; "))
 		}
 	}
+	if card.ReviewState != "" || card.ReviewSummary != "" || card.ReviewRef != "" {
+		line := "- Review"
+		if card.ReviewState != "" {
+			line += ": " + card.ReviewState
+		}
+		if card.ReviewSummary != "" {
+			line += " — " + card.ReviewSummary
+		}
+		lines = append(lines, line)
+		if card.ReviewRef != "" {
+			lines = append(lines, "- Review ref: "+card.ReviewRef)
+		}
+	}
+	if card.DeliveryState != "" || card.DeliveryTarget != "" || card.DeliverySummary != "" || card.DeliveryRef != "" {
+		line := "- Delivery"
+		if card.DeliveryState != "" {
+			line += ": " + card.DeliveryState
+		}
+		if card.DeliveryTarget != "" {
+			line += " -> " + card.DeliveryTarget
+		}
+		if card.DeliverySummary != "" {
+			line += " — " + card.DeliverySummary
+		}
+		lines = append(lines, line)
+		if card.DeliveryRef != "" {
+			lines = append(lines, "- Delivery ref: "+card.DeliveryRef)
+		}
+		if card.DeliveredAt != "" {
+			lines = append(lines, "- Delivered at: "+card.DeliveredAt)
+		}
+	}
+	if card.RollbackRef != "" || card.RollbackSummary != "" || len(card.FollowupRefs) > 0 {
+		line := "- Rollback"
+		if card.RollbackSummary != "" {
+			line += ": " + card.RollbackSummary
+		}
+		lines = append(lines, line)
+		if card.RollbackRef != "" {
+			lines = append(lines, "- Rollback ref: "+card.RollbackRef)
+		}
+		if len(card.FollowupRefs) > 0 {
+			lines = append(lines, "- Follow-up refs: "+strings.Join(card.FollowupRefs, ", "))
+		}
+	}
 	return lines
 }
 
@@ -466,6 +547,31 @@ func compactList(label string, items []string) string {
 		return ""
 	}
 	return label + ": " + strings.Join(items, "; ")
+}
+
+func reviewHint(state string) string {
+	if strings.TrimSpace(state) == "" {
+		return ""
+	}
+	return "review: " + state
+}
+
+func deliveryHint(state, target string, hasRollback, hasFollowup bool) string {
+	parts := []string{}
+	if strings.TrimSpace(state) != "" {
+		hint := "delivery: " + state
+		if strings.TrimSpace(target) != "" {
+			hint += " -> " + target
+		}
+		parts = append(parts, hint)
+	}
+	if hasRollback {
+		parts = append(parts, "rollback recorded")
+	}
+	if hasFollowup {
+		parts = append(parts, "follow-up linked")
+	}
+	return strings.Join(parts, " | ")
 }
 
 func humanizeAction(action string) string {
@@ -598,4 +704,52 @@ func humanizeRecommendation(action string) string {
 	default:
 		return strings.ReplaceAll(action, "_", " ")
 	}
+}
+
+func cardReviewLines(card *control.FeatureCard) []string {
+	lines := []string{}
+	if card.ReviewState != "" {
+		lines = append(lines, "- State: "+card.ReviewState)
+	}
+	if card.ReviewSummary != "" {
+		lines = append(lines, "- Summary: "+card.ReviewSummary)
+	}
+	if card.ReviewRef != "" {
+		lines = append(lines, "- Ref: "+card.ReviewRef)
+	}
+	return lines
+}
+
+func cardDeliveryLines(card *control.FeatureCard) []string {
+	lines := []string{}
+	if card.DeliveryState != "" {
+		lines = append(lines, "- State: "+card.DeliveryState)
+	}
+	if card.DeliveryTarget != "" {
+		lines = append(lines, "- Target: "+card.DeliveryTarget)
+	}
+	if card.DeliverySummary != "" {
+		lines = append(lines, "- Summary: "+card.DeliverySummary)
+	}
+	if card.DeliveryRef != "" {
+		lines = append(lines, "- Ref: "+card.DeliveryRef)
+	}
+	if card.DeliveredAt != "" {
+		lines = append(lines, "- Delivered at: "+card.DeliveredAt)
+	}
+	return lines
+}
+
+func cardRollbackLines(card *control.FeatureCard) []string {
+	lines := []string{}
+	if card.RollbackRef != "" {
+		lines = append(lines, "- Rollback ref: "+card.RollbackRef)
+	}
+	if card.RollbackSummary != "" {
+		lines = append(lines, "- Rollback summary: "+card.RollbackSummary)
+	}
+	if len(card.FollowupRefs) > 0 {
+		lines = append(lines, "- Follow-ups: "+strings.Join(card.FollowupRefs, ", "))
+	}
+	return lines
 }

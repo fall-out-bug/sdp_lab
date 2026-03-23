@@ -37,6 +37,8 @@ func main() {
 		runCardPark(os.Args[2:])
 	case "card-execute":
 		runCardExecute(os.Args[2:])
+	case "card-deliver":
+		runCardDeliver(os.Args[2:])
 	case "card-feedback":
 		runCardFeedback(os.Args[2:])
 	case "card-feedback-export":
@@ -70,7 +72,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|card-feedback|card-feedback-export|card-message-export|card-resume|card-resume-import|card-reply-ingest|dispatch-card|packet-emit|result-ingest|board-build|board-show|attention|doctor> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: sdp-control <card-create|card-clarify|card-needs-input|card-ready|card-park|card-execute|card-deliver|card-feedback|card-feedback-export|card-message-export|card-resume|card-resume-import|card-reply-ingest|dispatch-card|packet-emit|result-ingest|board-build|board-show|attention|doctor> [flags]")
 }
 
 func openStore() *control.Store {
@@ -209,6 +211,29 @@ func runCardExecute(args []string) {
 	card, err := store.ExecuteCard(*project, *id)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: execute card: %v\n", err)
+		os.Exit(1)
+	}
+	printJSON(card)
+}
+
+func runCardDeliver(args []string) {
+	fs := flag.NewFlagSet("card-deliver", flag.ExitOnError)
+	project := fs.String("project", "", "project id")
+	id := fs.String("id", "", "card id")
+	state := fs.String("state", "", "delivery state: pending|deployed|failed|rolled_back")
+	target := fs.String("target", "", "delivery target or environment")
+	summary := fs.String("summary", "", "delivery summary")
+	ref := fs.String("ref", "", "delivery or rollback reference")
+	followups := fs.String("followups", "", "semicolon-separated follow-up refs")
+	_ = fs.Parse(args)
+	if *project == "" || *id == "" || *state == "" {
+		fmt.Fprintln(os.Stderr, "error: --project, --id, and --state are required")
+		os.Exit(2)
+	}
+	store := openStore()
+	card, err := store.RecordDelivery(*project, *id, *state, *target, *summary, *ref, splitList(*followups))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: record delivery: %v\n", err)
 		os.Exit(1)
 	}
 	printJSON(card)

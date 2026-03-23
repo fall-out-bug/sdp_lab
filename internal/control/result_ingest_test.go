@@ -157,6 +157,12 @@ func TestIngestExecutorResultNeedsReview(t *testing.T) {
 	if ingestedCard.ReviewFailCount != 1 {
 		t.Fatalf("review_fail_count = %d, want 1", ingestedCard.ReviewFailCount)
 	}
+	if ingestedCard.ReviewState != "needs_attention" {
+		t.Fatalf("review_state = %s, want needs_attention", ingestedCard.ReviewState)
+	}
+	if ingestedCard.ReviewSummary != "Code review required for security concerns" {
+		t.Fatalf("review_summary = %q", ingestedCard.ReviewSummary)
+	}
 	if ingestedCard.LastOrchestratorAction != "ingested_executor_result" {
 		t.Fatalf("last_orchestrator_action = %s", ingestedCard.LastOrchestratorAction)
 	}

@@ -42,7 +42,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention> <subcommand> [flags]")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Card commands:")
-	fmt.Fprintln(os.Stderr, "  sdp card <create|show|clarify|needs-input|ready|park|execute|feedback|feedback-export|message-export|resume|resume-import|reply-ingest>")
+	fmt.Fprintln(os.Stderr, "  sdp card <create|show|clarify|needs-input|ready|park|execute|feedback|feedback-export|message-export|resume|resume-import|reply-ingest|deliver>")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Board commands:")
 	fmt.Fprintln(os.Stderr, "  sdp board <build|show>")
@@ -108,7 +108,7 @@ func splitList(raw string) []string {
 
 func runCard(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: sdp card <create|show|clarify|needs-input|ready|park|execute|feedback|feedback-export|message-export|resume|resume-import|reply-ingest>")
+		fmt.Fprintln(os.Stderr, "usage: sdp card <create|show|clarify|needs-input|ready|park|execute|feedback|feedback-export|message-export|resume|resume-import|reply-ingest|deliver>")
 		os.Exit(2)
 	}
 	switch args[0] {
@@ -138,8 +138,10 @@ func runCard(args []string) {
 		runCardResumeImport(args[1:])
 	case "reply-ingest":
 		runCardReplyIngest(args[1:])
+	case "deliver":
+		runCardDeliver(args[1:])
 	default:
-		fmt.Fprintln(os.Stderr, "usage: sdp card <create|show|clarify|needs-input|ready|park|execute|feedback|feedback-export|message-export|resume|resume-import|reply-ingest>")
+		fmt.Fprintln(os.Stderr, "usage: sdp card <create|show|clarify|needs-input|ready|park|execute|feedback|feedback-export|message-export|resume|resume-import|reply-ingest|deliver>")
 		os.Exit(2)
 	}
 }
@@ -441,6 +443,30 @@ func runCardReplyIngest(args []string) {
 		os.Exit(1)
 	}
 	fmt.Printf("Ingested reply for card %s (correlation_id: %s)\n", envelope.CardID, envelope.CorrelationID)
+	printJSON(card)
+}
+
+func runCardDeliver(args []string) {
+	fs := flag.NewFlagSet("card-deliver", flag.ExitOnError)
+	project := fs.String("project", "", "project id")
+	id := fs.String("id", "", "card id")
+	state := fs.String("state", "", "delivery state (pending|deployed|failed|rolled_back)")
+	target := fs.String("target", "", "delivery target/environment")
+	summary := fs.String("summary", "", "delivery summary")
+	ref := fs.String("ref", "", "delivery reference (e.g., PR URL, commit SHA)")
+	followup := fs.String("followup", "", "semicolon-separated follow-up refs (e.g., hotfix issue IDs)")
+	_ = fs.Parse(args)
+	if *project == "" || *id == "" || *state == "" {
+		fmt.Fprintln(os.Stderr, "error: --project, --id, and --state are required")
+		os.Exit(2)
+	}
+	store := openStore()
+	card, err := store.RecordDelivery(*project, *id, *state, *target, *summary, *ref, splitList(*followup))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: record delivery: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Recorded delivery for card %s: %s\n", *id, *state)
 	printJSON(card)
 }
 

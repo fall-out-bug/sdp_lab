@@ -273,6 +273,43 @@
     "rollback_count": {
       "type": "integer",
       "minimum": 0
+    },
+    "review_state": {
+      "type": "string"
+    },
+    "review_summary": {
+      "type": "string"
+    },
+    "review_ref": {
+      "type": "string"
+    },
+    "delivery_state": {
+      "type": "string"
+    },
+    "delivery_target": {
+      "type": "string"
+    },
+    "delivery_summary": {
+      "type": "string"
+    },
+    "delivery_ref": {
+      "type": "string"
+    },
+    "delivered_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "rollback_summary": {
+      "type": "string"
+    },
+    "rollback_ref": {
+      "type": "string"
+    },
+    "followup_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     }
   },
   "allOf": [

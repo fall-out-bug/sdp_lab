@@ -262,6 +262,34 @@
         "review_fail_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "rollback_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "review_state": {
+          "type": "string"
+        },
+        "delivery_state": {
+          "type": "string"
+        },
+        "delivery_target": {
+          "type": "string"
+        },
+        "rollback_ref": {
+          "type": "string"
+        },
+        "followup_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "has_rollback": {
+          "type": "boolean"
+        },
+        "has_followup": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false

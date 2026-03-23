@@ -37,8 +37,8 @@ func TestRenderPortfolioBoard(t *testing.T) {
 	snap := &control.PortfolioBoardSnapshot{
 		Totals: map[string]int{"needs_input": 1, "blocked": 1, "ready": 2, "executing": 1, "done": 3},
 		Queues: map[string][]control.QueueItem{
-			"waiting_on_human": {{ProjectID: "alpha", CardID: "feature-alpha-001", Title: "Need decision", RecommendedNextStep: "ask owner", RecommendedNextReason: "Need product input", LastOrchestratorAction: "requested_input", NeedsFeedbackFrom: []string{"author"}, ClarificationCycles: 2, ExecutorResultStatus: "needs_input", ExecutorResultSummary: "Contract still ambiguous"}},
-			"blocked":          {{ProjectID: "beta", CardID: "feature-beta-002", Title: "Blocked task", RecommendedNextStep: "resolve blocker", LastOrchestratorAction: "ingested_executor_result", BlockedCycles: 1, LinkedBeadsIDs: []string{"bd-77"}}},
+			"waiting_on_human": {{ProjectID: "alpha", CardID: "feature-alpha-001", Title: "Need decision", RecommendedNextStep: "ask owner", RecommendedNextReason: "Need product input", LastOrchestratorAction: "requested_input", NeedsFeedbackFrom: []string{"author"}, ClarificationCycles: 2, ExecutorResultStatus: "needs_input", ExecutorResultSummary: "Contract still ambiguous", ReviewState: "needs_attention"}},
+			"blocked":          {{ProjectID: "beta", CardID: "feature-beta-002", Title: "Blocked task", RecommendedNextStep: "resolve blocker", LastOrchestratorAction: "ingested_executor_result", BlockedCycles: 1, LinkedBeadsIDs: []string{"bd-77"}, DeliveryState: "failed", DeliveryTarget: "staging", HasRollback: true, HasFollowup: true}},
 			"ready_to_execute": {{ProjectID: "alpha", CardID: "feature-alpha-003", Title: "Ready task", RecommendedNextStep: "dispatch", LastOrchestratorAction: "marked_ready", ExecutionAttemptCount: 1}},
 		},
 		Projects: []map[string]any{
@@ -52,8 +52,8 @@ func TestRenderPortfolioBoard(t *testing.T) {
 	for _, want := range []string{
 		"CONTROL TOWER",
 		"Needs human input (1)",
-		"- alpha/feature-alpha-001 — Need decision | next: ask owner | why: Need product input | last: requested input | waiting on: author | friction: clarify:2 | result: needs_input — Contract still ambiguous",
-		"- beta/feature-beta-002 — Blocked task | next: resolve blocker | last: ingested executor result | friction: blocked:1 | beads: bd-77",
+		"- alpha/feature-alpha-001 — Need decision | next: ask owner | why: Need product input | last: requested input | waiting on: author | review: needs_attention | friction: clarify:2 | result: needs_input — Contract still ambiguous",
+		"- beta/feature-beta-002 — Blocked task | next: resolve blocker | last: ingested executor result | delivery: failed -> staging | rollback recorded | follow-up linked | friction: blocked:1 | beads: bd-77",
 		"Projects",
 		"- alpha — attention 1 | blocked 0 | ready 2 | executing 1",
 		"Target: alpha/feature-alpha-001",
@@ -69,8 +69,8 @@ func TestRenderProjectBoard(t *testing.T) {
 		Project: map[string]string{"project_id": "alpha", "name": "alpha"},
 		Counts:  map[string]int{"needs_input": 1, "clarifying": 1, "inbox": 1, "blocked": 1, "ready": 1, "executing": 1, "done": 2},
 		Columns: map[string][]control.CardSummary{
-			"needs_input": {{ID: "feature-alpha-001", Title: "Await answer", RecommendedNextStep: "ask owner", RecommendedNextReason: "Missing answer", LastOrchestratorAction: "requested_input", NeedsFeedbackFrom: []string{"admin"}, ClarificationCycles: 1}},
-			"blocked":     {{ID: "feature-alpha-002", Title: "Blocked item", RecommendedNextStep: "resolve dependency", LastOrchestratorAction: "ingested_executor_result", BlockedCycles: 2}},
+			"needs_input": {{ID: "feature-alpha-001", Title: "Await answer", RecommendedNextStep: "ask owner", RecommendedNextReason: "Missing answer", LastOrchestratorAction: "requested_input", NeedsFeedbackFrom: []string{"admin"}, ClarificationCycles: 1, ReviewState: "needs_attention"}},
+			"blocked":     {{ID: "feature-alpha-002", Title: "Blocked item", RecommendedNextStep: "resolve dependency", LastOrchestratorAction: "ingested_executor_result", BlockedCycles: 2, DeliveryState: "failed", DeliveryTarget: "staging", HasRollback: true}},
 			"ready":       {{ID: "feature-alpha-003", Title: "Ready item", RecommendedNextStep: "dispatch", LastOrchestratorAction: "marked_ready"}},
 			"executing":   {{ID: "feature-alpha-004", Title: "Executing item", RecommendedNextStep: "wait for result", LastOrchestratorAction: "dispatched_execution", LinkedBeadsIDs: []string{"bd-123"}, DispatchedTo: "omo-implementation", ExecutionAttemptCount: 1, ExecutorResultStatus: "blocked", ExecutorResultSummary: "CI is red"}},
 		},
@@ -81,7 +81,8 @@ func TestRenderProjectBoard(t *testing.T) {
 	for _, want := range []string{
 		"PROJECT BOARD — alpha",
 		"Needs human input (1)",
-		"- alpha/feature-alpha-001 — Await answer | next: ask owner | why: Missing answer | last: requested input | waiting on: admin | friction: clarify:1",
+		"- alpha/feature-alpha-001 — Await answer | next: ask owner | why: Missing answer | last: requested input | waiting on: admin | review: needs_attention | friction: clarify:1",
+		"- alpha/feature-alpha-002 — Blocked item | next: resolve dependency | last: ingested executor result | delivery: failed -> staging | rollback recorded | friction: blocked:2",
 		"Executing now (1)",
 		"- alpha/feature-alpha-004 — Executing item | next: wait for result | last: dispatched execution | friction: exec:1 | beads: bd-123 | dispatch: omo-implementation | result: blocked — CI is red",
 		"Target: alpha/feature-alpha-003",
@@ -127,6 +128,16 @@ func TestRenderCardDetail(t *testing.T) {
 		BlockedCycles:         1,
 		ExecutionAttemptCount: 1,
 		ReviewFailCount:       1,
+		ReviewState:           "failed",
+		ReviewSummary:         "Security review found a release blocker",
+		ReviewRef:             "artifacts/review-note.md",
+		DeliveryState:         "failed",
+		DeliveryTarget:        "staging",
+		DeliverySummary:       "Smoke tests failed after rollout",
+		DeliveryRef:           "deploy:staging-42",
+		RollbackSummary:       "Rolled back staging deployment",
+		RollbackRef:           "rollback:staging-42",
+		FollowupRefs:          []string{"followup:hotfix-99"},
 	}
 
 	out := RenderCardDetail(card)
@@ -139,6 +150,12 @@ func TestRenderCardDetail(t *testing.T) {
 		"- Beads: bd-314",
 		"- Result: blocked — CI secret missing in staging",
 		"- Result next: restore secret and retry",
+		"- Review: failed — Security review found a release blocker",
+		"- Review ref: artifacts/review-note.md",
+		"- Delivery: failed -> staging — Smoke tests failed after rollout",
+		"- Delivery ref: deploy:staging-42",
+		"- Rollback: Rolled back staging deployment",
+		"- Follow-up refs: followup:hotfix-99",
 		"- blocked_cycles: 1",
 		"- review_fail_count: 1",
 	} {

@@ -40,6 +40,17 @@ type FeatureCard struct {
 	ExecutionAttemptCount  int                    `yaml:"execution_attempt_count,omitempty" json:"execution_attempt_count,omitempty"`
 	ReviewFailCount        int                    `yaml:"review_fail_count,omitempty" json:"review_fail_count,omitempty"`
 	RollbackCount          int                    `yaml:"rollback_count,omitempty" json:"rollback_count,omitempty"`
+	ReviewState            string                 `yaml:"review_state,omitempty" json:"review_state,omitempty"`
+	ReviewSummary          string                 `yaml:"review_summary,omitempty" json:"review_summary,omitempty"`
+	ReviewRef              string                 `yaml:"review_ref,omitempty" json:"review_ref,omitempty"`
+	DeliveryState          string                 `yaml:"delivery_state,omitempty" json:"delivery_state,omitempty"`
+	DeliveryTarget         string                 `yaml:"delivery_target,omitempty" json:"delivery_target,omitempty"`
+	DeliverySummary        string                 `yaml:"delivery_summary,omitempty" json:"delivery_summary,omitempty"`
+	DeliveryRef            string                 `yaml:"delivery_ref,omitempty" json:"delivery_ref,omitempty"`
+	DeliveredAt            string                 `yaml:"delivered_at,omitempty" json:"delivered_at,omitempty"`
+	RollbackRef            string                 `yaml:"rollback_ref,omitempty" json:"rollback_ref,omitempty"`
+	RollbackSummary        string                 `yaml:"rollback_summary,omitempty" json:"rollback_summary,omitempty"`
+	FollowupRefs           []string               `yaml:"followup_refs,omitempty" json:"followup_refs,omitempty"`
 	NormalizedIntent       string                 `yaml:"normalized_intent,omitempty" json:"normalized_intent,omitempty"`
 	TaskType               string                 `yaml:"task_type,omitempty" json:"task_type,omitempty"`
 	ExecutionMode          string                 `yaml:"execution_mode,omitempty" json:"execution_mode,omitempty"`
@@ -112,6 +123,14 @@ type CardSummary struct {
 	ExecutorResultStatus   string   `json:"executor_result_status,omitempty"`
 	ExecutorResultSummary  string   `json:"executor_result_summary,omitempty"`
 	ExecutorNextHint       string   `json:"executor_next_hint,omitempty"`
+	// Review/delivery trace visibility
+	ReviewState    string   `json:"review_state,omitempty"`
+	DeliveryState  string   `json:"delivery_state,omitempty"`
+	DeliveryTarget string   `json:"delivery_target,omitempty"`
+	RollbackRef    string   `json:"rollback_ref,omitempty"`
+	FollowupRefs   []string `json:"followup_refs,omitempty"`
+	HasRollback    bool     `json:"has_rollback,omitempty"`
+	HasFollowup    bool     `json:"has_followup,omitempty"`
 }
 
 type ProjectBoardSnapshot struct {
@@ -158,6 +177,14 @@ type QueueItem struct {
 	ExecutorResultStatus   string   `json:"executor_result_status,omitempty"`
 	ExecutorResultSummary  string   `json:"executor_result_summary,omitempty"`
 	ExecutorNextHint       string   `json:"executor_next_hint,omitempty"`
+	// Review/delivery trace visibility
+	ReviewState    string   `json:"review_state,omitempty"`
+	DeliveryState  string   `json:"delivery_state,omitempty"`
+	DeliveryTarget string   `json:"delivery_target,omitempty"`
+	RollbackRef    string   `json:"rollback_ref,omitempty"`
+	FollowupRefs   []string `json:"followup_refs,omitempty"`
+	HasRollback    bool     `json:"has_rollback,omitempty"`
+	HasFollowup    bool     `json:"has_followup,omitempty"`
 }
 
 type ProjectRegistry struct {
@@ -370,6 +397,13 @@ func summarize(c FeatureCard) CardSummary {
 		ExecutorResultStatus:   executorResultStatus(c.ExecutorResult),
 		ExecutorResultSummary:  executorResultSummary(c.ExecutorResult),
 		ExecutorNextHint:       executorResultNextHint(c.ExecutorResult),
+		ReviewState:            c.ReviewState,
+		DeliveryState:          c.DeliveryState,
+		DeliveryTarget:         c.DeliveryTarget,
+		RollbackRef:            c.RollbackRef,
+		FollowupRefs:           c.FollowupRefs,
+		HasRollback:            c.RollbackRef != "",
+		HasFollowup:            len(c.FollowupRefs) > 0,
 	}
 }
 

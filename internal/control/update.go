@@ -44,6 +44,36 @@ func maybeIncrementReviewFailCount(card *FeatureCard, result *ExecutorResultPack
 	}
 }
 
+// updateReviewTrace sets explicit review trace fields when result comes from review role
+func updateReviewTrace(card *FeatureCard, result *ExecutorResultPacket) {
+	if card == nil || result == nil {
+		return
+	}
+	if result.ExecutorRole != string(ExecutorRoleReview) {
+		return
+	}
+	// Map result status to review state
+	switch result.Status {
+	case ResultStatusSuccess:
+		card.ReviewState = "passed"
+	case ResultStatusNeedsReview:
+		card.ReviewState = "needs_attention"
+	case ResultStatusFailed:
+		card.ReviewState = "failed"
+	case ResultStatusBlocked:
+		card.ReviewState = "blocked"
+	case ResultStatusNeedsInput:
+		card.ReviewState = "needs_input"
+	}
+	if result.Summary != "" {
+		card.ReviewSummary = result.Summary
+	}
+	// Store first artifact reference as review ref if available
+	if len(result.Artifacts) > 0 && result.Artifacts[0].Reference != "" {
+		card.ReviewRef = result.Artifacts[0].Reference
+	}
+}
+
 func (s *Store) LoadCard(projectID, cardID string) (*FeatureCard, error) {
 	cards, err := s.LoadCards(projectID)
 	if err != nil {
@@ -744,6 +774,8 @@ func (s *Store) IngestExecutorResult(result *ExecutorResultPacket) (*FeatureCard
 
 	card.ExecutorResult = summary
 	maybeIncrementReviewFailCount(card, result)
+	// Update review trace fields when result comes from review role
+	updateReviewTrace(card, result)
 
 	switch result.Status {
 	case ResultStatusSuccess:
@@ -840,6 +872,78 @@ func removeAgent(agents []string, toRemove string) []string {
 		return nil
 	}
 	return result
+}
+
+// DeliveryState values for recording delivery outcomes
+const (
+	DeliveryStatePending    = "pending"
+	DeliveryStateDeployed   = "deployed"
+	DeliveryStateFailed     = "failed"
+	DeliveryStateRolledBack = "rolled_back"
+)
+
+// RecordDelivery records a delivery outcome for a card.
+// This is a thin honest method - it only writes what is explicitly provided.
+func (s *Store) RecordDelivery(projectID, cardID, state, target, summary, ref string, followupRefs []string) (*FeatureCard, error) {
+	card, err := s.LoadCard(projectID, cardID)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now().UTC()
+
+	// Update delivery fields
+	if state != "" {
+		card.DeliveryState = state
+	}
+	if target != "" {
+		card.DeliveryTarget = target
+	}
+	if summary != "" {
+		card.DeliverySummary = summary
+	}
+	if ref != "" {
+		card.DeliveryRef = ref
+	}
+
+	// If delivery state is deployed, set delivered_at
+	if state == DeliveryStateDeployed && card.DeliveredAt == "" {
+		card.DeliveredAt = now.Format(time.RFC3339)
+	}
+
+	// If delivery state is rolled_back, update rollback fields
+	if state == DeliveryStateRolledBack {
+		card.RollbackCount++
+		if summary != "" {
+			card.RollbackSummary = summary
+		}
+		if ref != "" {
+			card.RollbackRef = ref
+		}
+	}
+
+	// Add follow-up refs if provided
+	if len(followupRefs) > 0 {
+		card.FollowupRefs = cleanList(append(card.FollowupRefs, followupRefs...))
+	}
+
+	card.ActiveAgents = ensureContains(card.ActiveAgents, "orchestrator")
+	setOrchestratorTrace(card, "recorded_delivery", fmt.Sprintf("Recorded delivery outcome: %s", state), "continue", "Delivery outcome recorded", now)
+	card.UpdatedAt = now.Format(time.RFC3339)
+
+	if err := s.SaveCard(card); err != nil {
+		return nil, err
+	}
+
+	if _, err := s.BuildProjectSnapshot(projectID); err != nil {
+		return nil, fmt.Errorf("update project snapshot: %w", err)
+	}
+
+	if _, err := s.BuildPortfolioSnapshot(); err != nil {
+		return nil, fmt.Errorf("update portfolio snapshot: %w", err)
+	}
+
+	return card, nil
 }
 
 // DispatchResult is a summary of a single dispatch operation
