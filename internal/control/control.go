@@ -213,14 +213,35 @@ type RegistryProject struct {
 	BeadsPrefix string `yaml:"beads_prefix"`
 }
 
+type RepositoryMode string
+
+const (
+	// RepoModeFile uses FileCardRepository only (legacy).
+	RepoModeFile RepositoryMode = "file"
+	// RepoModeBeads uses BeadsCardRepository only (target state after R5).
+	RepoModeBeads RepositoryMode = "beads"
+	// RepoModeDual uses DualWriteRepository (file primary, beads shadow).
+	RepoModeDual RepositoryMode = "dual"
+)
+
 type Store struct {
-	ProjectRoot string
-	ControlRoot string
-	Registry    ProjectRegistry
-	repo        CardRepository
+	ProjectRoot    string
+	ControlRoot    string
+	Registry       ProjectRegistry
+	RepoMode       RepositoryMode
+	BeadsDBPath    string // optional override for --db flag
+	beadsRepo      *BeadsCardRepository
+	repo           CardRepository
 }
 
 func Open(projectRoot string) (*Store, error) {
+	return OpenWithMode(projectRoot, RepoModeFile, "")
+}
+
+// OpenWithMode opens a store with the specified repository mode.
+// mode: "file" (legacy), "beads" (beads-first), "dual" (migration).
+// beadsDBPath: optional override for --db flag (empty = auto-discover).
+func OpenWithMode(projectRoot string, mode RepositoryMode, beadsDBPath string) (*Store, error) {
 	regPath := filepath.Join(projectRoot, "docs/specs/project-registry.yaml")
 	data, err := os.ReadFile(regPath)
 	if err != nil {
@@ -230,8 +251,27 @@ func Open(projectRoot string) (*Store, error) {
 	if err := yaml.Unmarshal(data, &reg); err != nil {
 		return nil, fmt.Errorf("parse registry: %w", err)
 	}
-	store := &Store{ProjectRoot: projectRoot, ControlRoot: filepath.Join(projectRoot, defaultControlRoot), Registry: reg}
-	store.repo = NewFileCardRepository(store.ProjectRoot, store.ControlRoot, store.Registry)
+
+	store := &Store{
+		ProjectRoot: projectRoot,
+		ControlRoot: filepath.Join(projectRoot, defaultControlRoot),
+		Registry:    reg,
+		RepoMode:    mode,
+		BeadsDBPath: beadsDBPath,
+	}
+
+	switch mode {
+	case RepoModeBeads:
+		store.beadsRepo = NewBeadsCardRepository(beadsDBPath, nil)
+		store.repo = store.beadsRepo
+	case RepoModeDual:
+		fileRepo := NewFileCardRepository(store.ProjectRoot, store.ControlRoot, store.Registry)
+		store.beadsRepo = NewBeadsCardRepository(beadsDBPath, nil)
+		store.repo = NewDualWriteRepository(fileRepo, store.beadsRepo, nil)
+	default: // RepoModeFile
+		store.repo = NewFileCardRepository(store.ProjectRoot, store.ControlRoot, store.Registry)
+	}
+
 	return store, nil
 }
 
@@ -240,6 +280,19 @@ func (s *Store) cardRepo() CardRepository {
 		s.repo = NewFileCardRepository(s.ProjectRoot, s.ControlRoot, s.Registry)
 	}
 	return s.repo
+}
+
+// BeadsRepo returns the underlying BeadsCardRepository (nil if mode != beads/dual).
+func (s *Store) BeadsRepo() *BeadsCardRepository {
+	return s.beadsRepo
+}
+
+// DualRepo returns the underlying DualWriteRepository (nil if mode != dual).
+func (s *Store) DualRepo() *DualWriteRepository {
+	if dr, ok := s.repo.(*DualWriteRepository); ok {
+		return dr
+	}
+	return nil
 }
 
 func (s *Store) CreateCard(projectID, title, rawRequest string) (*FeatureCard, error) {
