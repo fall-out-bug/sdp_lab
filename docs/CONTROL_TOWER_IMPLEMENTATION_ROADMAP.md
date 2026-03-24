@@ -226,6 +226,16 @@ Priorities based on critical gap analysis in `SDP_SPEC_DRIVEN_PIPELINE_CANON.md`
 
 ## Immediate Next Step
 
-**Implement Phase 5 (P0): Dispatch Bridge.**
+**Architectural pivot before more glue code: adopt Beads-first control tower roadmap.**
 
-See `DISPATCH_BRIDGE_SPEC.md` for full specification. This is the single most impactful piece of work — it closes the gap between planning and execution, making the control tower a real execution engine.
+See:
+- `BEADS_FIRST_CONTROL_TOWER_ROADMAP.md`
+- `DISPATCH_BRIDGE_SPEC.md`
+
+Dispatch bridge work is important, but the next correct move is to stop treating control-state files as a parallel truth system and instead formalize:
+1. Beads as operational source of truth
+2. FeatureCard as semantic artifact / projection
+3. repository boundary inside `internal/control`
+4. exact mapping for contracts, evidence, provenance, and gates
+
+Only after that should the remaining bridge and cutover work continue.

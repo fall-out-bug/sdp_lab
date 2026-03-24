@@ -134,17 +134,7 @@ func updateReviewTrace(card *FeatureCard, result *ExecutorResultPacket) {
 }
 
 func (s *Store) LoadCard(projectID, cardID string) (*FeatureCard, error) {
-	cards, err := s.LoadCards(projectID)
-	if err != nil {
-		return nil, err
-	}
-	for _, c := range cards {
-		if c.ID == cardID {
-			card := c
-			return &card, nil
-		}
-	}
-	return nil, fmt.Errorf("card not found: %s", cardID)
+	return s.cardRepo().LoadCard(projectID, cardID)
 }
 
 func (s *Store) ClarifyCard(projectID, cardID, normalizedIntent, taskType, targetRepo, riskLevel, nextStep string, scopeIn, scopeOut []string) (*FeatureCard, error) {

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -218,6 +217,7 @@ type Store struct {
 	ProjectRoot string
 	ControlRoot string
 	Registry    ProjectRegistry
+	repo        CardRepository
 }
 
 func Open(projectRoot string) (*Store, error) {
@@ -230,7 +230,16 @@ func Open(projectRoot string) (*Store, error) {
 	if err := yaml.Unmarshal(data, &reg); err != nil {
 		return nil, fmt.Errorf("parse registry: %w", err)
 	}
-	return &Store{ProjectRoot: projectRoot, ControlRoot: filepath.Join(projectRoot, defaultControlRoot), Registry: reg}, nil
+	store := &Store{ProjectRoot: projectRoot, ControlRoot: filepath.Join(projectRoot, defaultControlRoot), Registry: reg}
+	store.repo = NewFileCardRepository(store.ProjectRoot, store.ControlRoot, store.Registry)
+	return store, nil
+}
+
+func (s *Store) cardRepo() CardRepository {
+	if s.repo == nil {
+		s.repo = NewFileCardRepository(s.ProjectRoot, s.ControlRoot, s.Registry)
+	}
+	return s.repo
 }
 
 func (s *Store) CreateCard(projectID, title, rawRequest string) (*FeatureCard, error) {
@@ -258,7 +267,7 @@ func (s *Store) CreateCard(projectID, title, rawRequest string) (*FeatureCard, e
 		RecommendedNextReason:  "The card is still in inbox and needs shaping",
 	}
 	card.IntakeArtifact = []string{filepath.ToSlash(filepath.Join(s.ControlRoot, "projects", projectID, "intake", id+".md"))}
-	if err := s.SaveCard(card); err != nil {
+	if err := s.cardRepo().CreateCard(projectID, card); err != nil {
 		return nil, err
 	}
 	if err := s.ensureIntakeArtifact(card); err != nil {
@@ -278,56 +287,15 @@ func (s *Store) CreateCard(projectID, title, rawRequest string) (*FeatureCard, e
 }
 
 func (s *Store) SaveCard(card *FeatureCard) error {
-	if card == nil {
-		return fmt.Errorf("nil card")
-	}
-	if err := os.MkdirAll(s.cardsDir(card.ProjectID), 0o755); err != nil {
-		return err
-	}
-	card.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	data, err := yaml.Marshal(card)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(s.cardPath(card.ProjectID, card.ID), data, 0o644)
+	return s.cardRepo().SaveCard(card)
 }
 
 func (s *Store) LoadCards(projectID string) ([]FeatureCard, error) {
-	pattern := filepath.Join(s.cardsDir(projectID), "*.yaml")
-	files, err := filepath.Glob(pattern)
-	if err != nil {
-		return nil, err
-	}
-	sort.Strings(files)
-	cards := make([]FeatureCard, 0, len(files))
-	for _, file := range files {
-		data, err := os.ReadFile(file)
-		if err != nil {
-			return nil, err
-		}
-		var c FeatureCard
-		if err := yaml.Unmarshal(data, &c); err != nil {
-			return nil, fmt.Errorf("parse %s: %w", file, err)
-		}
-		cards = append(cards, c)
-	}
-	return cards, nil
+	return s.cardRepo().LoadCards(projectID)
 }
 
 func (s *Store) LoadCardByID(cardID string) (*FeatureCard, error) {
-	for _, project := range s.Registry.Projects {
-		cards, err := s.LoadCards(project.ID)
-		if err != nil {
-			continue
-		}
-		for _, c := range cards {
-			if c.ID == cardID {
-				card := c
-				return &card, nil
-			}
-		}
-	}
-	return nil, fmt.Errorf("card not found: %s", cardID)
+	return s.cardRepo().LoadCardByID(cardID)
 }
 
 func (s *Store) BuildProjectSnapshot(projectID string) (*ProjectBoardSnapshot, error) {
