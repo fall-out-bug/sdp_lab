@@ -1,6 +1,6 @@
 # sdp_dev Roadmap — Standards-Based Trust Layer + Ecosystem Integration
 
-> **Updated:** 2026-03-01
+> **Updated:** 2026-03-24
 > **Direction:** Standards-based enforcement (in-toto, OPA, Sigstore) + ecosystem integration (OhMyOpenCode, Gas Town, Beads)
 > **Pivot:** [ADR-002 Standards Pivot](../decisions/ADR-002-standards-pivot.md) — why we moved from custom to standards
 > **Research:** [Enforcement Hypotheses](../plans/2026-02-24-enforcement-hypotheses.md) — SLSA, in-toto, MI9, AgentSpec
@@ -310,7 +310,7 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 ### Phase 6-8: Dual-Surface Productization (Planned)
 
 - **F068** — Unified Integration Contracts (00-068-01 ... 00-068-05). Standard contracts for orchestration/runtime/policy/evidence plus status/instructions/import payload surfaces across adapters.
-- **F069** — OSS Combine Bootstrap (00-069-01 ... 00-069-05). One-command setup for OhMyOpenCode + Beads + Gas Town + SDP demo flow, plus guided next-step and recovery UX.
+- **F069** — Control Tower Pack + Spec-Driven Pipeline (00-069-01 ... 00-069-15). ~~One-command setup for OhMyOpenCode + Beads + Gas Town + SDP demo flow~~ **Extended to full spec-driven pipeline**: Control Store MVP, Beads Bridge, Orchestrator Loop, Human/Admin Surface, Dispatch Bridge (OmO transport), Auto-Contract Generation, Provenance Unification, A2A HTTP Interface, Constitution Layer, Advanced Execution (daemon + findings routing). See `docs/SDP_SPEC_DRIVEN_PIPELINE_CANON.md`.
 - **F070** — OSS Observability and Explainability (00-070-01 ... 00-070-03). Live event stream, allow/deny explanations, minimal audit export.
 - **F071** — Ralph Decommission and Orchestrator V2 (00-071-01 ... 00-071-03). Remove primitive Ralph loop from enterprise profile and migrate to typed FSM orchestration.
 - **F072** — Advanced Agent Architecture for AI SDLC (00-072-01 ... 00-072-06). Hierarchical planning, parallel branches, verifier quorum, uncertainty escalation, and OpenSpec import into the planning graph.
