@@ -304,3 +304,104 @@ func (r *BeadsCardRepository) SetState(issueID, dimension, value, reason string)
 	_, err := r.runBDWrite(args...)
 	return err
 }
+
+// UpdateMetadata merges SDP metadata into a Beads issue.
+// Reads current metadata first, deep-merges, then writes back.
+func (r *BeadsCardRepository) UpdateMetadata(issueID string, sdpMeta map[string]any) error {
+	// Read current metadata from issue
+	current := r.readMetadata(issueID)
+
+	// Deep merge: new values override existing
+	merged := deepMergeMetadata(current, sdpMeta)
+
+	metaJSON, err := json.Marshal(map[string]any{"sdp": merged})
+	if err != nil {
+		return fmt.Errorf("marshal metadata: %w", err)
+	}
+
+	_, err = r.runBDWrite("update", issueID, "--metadata", string(metaJSON))
+	return err
+}
+
+// readMetadata reads current SDP metadata from a Beads issue.
+func (r *BeadsCardRepository) readMetadata(issueID string) map[string]any {
+	data, err := r.runBD("show", "--long", issueID)
+	if err != nil {
+		return nil
+	}
+	var issues []struct {
+		Metadata string `json:"metadata"`
+	}
+	if err := json.Unmarshal(data, &issues); err != nil || len(issues) == 0 {
+		return nil
+	}
+	if issues[0].Metadata == "" {
+		return nil
+	}
+	var wrapped map[string]map[string]any
+	if err := json.Unmarshal([]byte(issues[0].Metadata), &wrapped); err != nil {
+		return nil
+	}
+	return wrapped["sdp"]
+}
+
+// deepMergeMetadata recursively merges src into dst.
+func deepMergeMetadata(dst, src map[string]any) map[string]any {
+	if dst == nil {
+		dst = make(map[string]any)
+	}
+	for k, v := range src {
+		if srcMap, ok := v.(map[string]any); ok {
+			if dstMap, ok := dst[k].(map[string]any); ok {
+				dst[k] = deepMergeMetadata(dstMap, srcMap)
+				continue
+			}
+		}
+		dst[k] = v
+	}
+	return dst
+}
+
+// LinkContract associates a contract reference with an issue.
+func (r *BeadsCardRepository) LinkContract(issueID, contractID, contractHash string) error {
+	meta := map[string]any{
+		"contract": map[string]string{
+			"id":   contractID,
+			"hash": contractHash,
+		},
+	}
+	return r.UpdateMetadata(issueID, meta)
+}
+
+// LinkEvidence associates evidence artifact references with an issue.
+func (r *BeadsCardRepository) LinkEvidence(issueID, phase string, artifactPaths []string) error {
+	meta := map[string]any{
+		fmt.Sprintf("evidence_%s", phase): map[string]any{
+			"artifacts": artifactPaths,
+		},
+	}
+	return r.UpdateMetadata(issueID, meta)
+}
+
+// SetProvenance records provenance hashes for an issue.
+func (r *BeadsCardRepository) SetProvenance(issueID, packetHash, promptHash string) error {
+	meta := map[string]any{
+		"provenance": map[string]string{
+			"packet_hash": packetHash,
+			"prompt_hash": promptHash,
+		},
+	}
+	return r.UpdateMetadata(issueID, meta)
+}
+
+// SetExecutorState records executor runtime state in metadata.
+func (r *BeadsCardRepository) SetExecutorState(issueID, role, sessionID, state string) error {
+	meta := map[string]any{
+		"executor": map[string]string{
+			"role":       role,
+			"session_id": sessionID,
+			"state":      state,
+		},
+	}
+	return r.UpdateMetadata(issueID, meta)
+}
