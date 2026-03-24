@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 
 	"sdp_dev/internal/cli"
 	"sdp_dev/internal/control"
+	"sdp_dev/internal/executor"
 	"sdp_dev/internal/orchestrate"
 )
 
@@ -633,6 +635,7 @@ func runDispatchCard(args []string) {
 
 func runDispatchNext(args []string) {
 	fs := flag.NewFlagSet("dispatch-next", flag.ExitOnError)
+	execute := fs.Bool("execute", false, "Dispatch, execute through the bridge, then auto-ingest the result")
 	_ = fs.Parse(args)
 
 	store := openStore()
@@ -652,6 +655,19 @@ func runDispatchNext(args []string) {
 		}
 		if result.PacketPath != "" {
 			fmt.Printf("   Packet: %s\n", result.PacketPath)
+		}
+		if *execute {
+			bridge := &executor.ExecutorBridge{Store: store, Invoker: orchestrate.DefaultLLMInvoker, ProjectRoot: store.ProjectRoot}
+			execResult, err := bridge.DispatchAndRun(context.Background(), result.ProjectID, result.CardID)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error: execute dispatched card: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Printf("   Execution result: %s\n", execResult.Status)
+			if _, err := store.OrchestrateOnce(); err != nil {
+				fmt.Fprintf(os.Stderr, "error: auto-ingest executor result: %v\n", err)
+				os.Exit(1)
+			}
 		}
 	} else {
 		fmt.Printf("⏸️  %s\n", result.Message)

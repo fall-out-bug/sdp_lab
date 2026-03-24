@@ -3,6 +3,7 @@ package control
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +17,7 @@ const (
 	ExecutorRuntimeStale     = "stale"
 	ExecutorRuntimeLost      = "lost"
 	ExecutorRuntimeCompleted = "completed"
+	ExecutorRuntimeFailed    = "failed"
 )
 
 func validExecutorRuntimeState(state string) bool {
@@ -227,6 +229,14 @@ func (s *Store) MarkReady(projectID, cardID string) (*FeatureCard, error) {
 	setOrchestratorTrace(card, "marked_ready", "The card satisfies the current ready gate", "dispatch_execution", "The card is shaped enough to hand to an executor", now)
 	if err := s.SaveCard(card); err != nil {
 		return nil, err
+	}
+	if contractPath, err := s.writeGeneratedContract(card); err != nil {
+		log.Printf("warning: failed to auto-generate task contract for %s: %v", card.ID, err)
+	} else {
+		card.RequiredArtifacts = cleanList(append(card.RequiredArtifacts, contractPath))
+		if err := s.SaveCard(card); err != nil {
+			log.Printf("warning: failed to persist generated contract path for %s: %v", card.ID, err)
+		}
 	}
 	return card, nil
 }

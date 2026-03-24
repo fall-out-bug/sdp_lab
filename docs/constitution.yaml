@@ -1,0 +1,17 @@
+vision: "SDP provides a spec-driven pipeline from intent to deploy with provenance, evidence, and trace."
+principles:
+  - "Code is derivable. Contracts are not."
+  - "Every agent is opaque — communicates via declared contracts only."
+  - "No agent holds shadow state of another agent."
+  - "Every dispatch produces traceable provenance."
+  - "Evidence is mandatory, not optional."
+non_negotiables:
+  - "Security policy must be set for high-risk tasks"
+  - "Contract gates cannot be bypassed"
+allowed_task_types:
+  - "feature"
+  - "bugfix"
+  - "refactor"
+  - "infra"
+  - "docs"
+max_risk_default: "medium"

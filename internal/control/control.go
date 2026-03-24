@@ -88,6 +88,7 @@ type FeatureCard struct {
 	ExecutorRuntimeState    string                 `yaml:"executor_runtime_state,omitempty" json:"executor_runtime_state,omitempty"`
 	ExecutorProgressSummary string                 `yaml:"executor_progress_summary,omitempty" json:"executor_progress_summary,omitempty"`
 	ExecutorResult          *ExecutorResultSummary `yaml:"executor_result,omitempty" json:"executor_result,omitempty"`
+	ConstitutionWarnings    []string               `yaml:"constitution_warnings,omitempty" json:"constitution_warnings,omitempty"`
 }
 
 // ExecutorResultSummary stores a summary of the last executor result for a card
@@ -262,6 +263,16 @@ func (s *Store) CreateCard(projectID, title, rawRequest string) (*FeatureCard, e
 	}
 	if err := s.ensureIntakeArtifact(card); err != nil {
 		return nil, err
+	}
+	constitution, err := LoadConstitution(filepath.Join(s.ProjectRoot, "docs"))
+	if err != nil {
+		return nil, err
+	}
+	card.ConstitutionWarnings = constitution.ValidateCard(card)
+	if len(card.ConstitutionWarnings) > 0 {
+		if err := s.SaveCard(card); err != nil {
+			return nil, err
+		}
 	}
 	return card, nil
 }

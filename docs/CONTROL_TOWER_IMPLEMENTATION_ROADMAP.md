@@ -1,37 +1,40 @@
 # Control Tower Implementation Roadmap
 
 Status: working roadmap
-Date: 2026-03-22
+Date: 2026-03-23 (updated)
 Owner: Клавдий (orchestration) + OmO (implementation)
+Canon: `SDP_SPEC_DRIVEN_PIPELINE_CANON.md`
 
 ## Goal
 
-Перейти от архитектурных документов и минимального skeleton к рабочему control tower для AI PDLC/SDLC:
-- intake starts trace immediately via SDP
-- orchestrator matures requests into ready state
-- Beads becomes execution graph
-- board remains a human/admin visualization and feedback surface
+Полный spec-driven pipeline от intent до deploy:
+- Constitution constrains everything
+- Intent → Specify → Contract → Dispatch → Execute → Verify → Result
+- Provenance + Evidence + Trace на каждом шаге
+- Beads = execution graph, Board = visualization surface
 
 ---
 
 ## Current baseline
 
-Already done:
-- OmO / SDP / orchestrator / project-local boundary model
-- SDP artifact taxonomy, templates, mapping
-- control panel working model
-- FeatureCard working model + schema
-- project/portfolio board snapshot schemas
-- storage/layout proposal
-- orchestrator actions + feedback contract
-- file-backed control store skeleton
-- card lifecycle actions (`create`, `clarify`, `needs-input`, `ready`, `park`)
+**Completed phases:**
+- ✅ Phase 0: Constitution foundation (project-registry, ADR, persona registry)
+- ✅ Phase 1: Control Store MVP (FeatureCard lifecycle, snapshots, doctor, attention)
+- ✅ Phase 2: Beads Bridge (card-execute, Beads linkage, dispatch packet)
+- ✅ Phase 3: Orchestrator Loop Integration (orchestrate once, dispatch next, result ingest, feedback/resume)
+- ✅ Phase 4: Human/Admin Surface (board views, executive summary, CLI board/attention/doctor)
+- ✅ Contract layer (TaskContract, ClarificationGate, EnforceContractGate, drift detection)
+- ✅ Provenance layer (prompt hash, context sources, artifact hash chain)
+- ✅ Old orchestrate loop (Hydrate, InvokeOpenCode, ContractGate, Review, CI, QA, PR)
 
-This means the next steps should be implementation-heavy, not more architecture-only churn.
+**Critical gap identified (2026-03-23):**
+Control tower and orchestrate loop are disconnected. See `DISPATCH_BRIDGE_SPEC.md`.
 
 ---
 
-## Phase 1 — Control Store MVP (finish the core write/read model)
+## Completed Phases (Archive)
+
+### Phase 1 — Control Store MVP ✅
 
 ### Goal
 Turn the current skeleton into a usable local control-state engine.
@@ -56,7 +59,7 @@ A reliable local control-state layer that can:
 
 ---
 
-## Phase 2 — Beads Bridge (first real execution integration)
+### Phase 2 — Beads Bridge ✅
 
 ### Goal
 Bridge `ready` FeatureCards into Beads execution objects.
@@ -79,7 +82,7 @@ First working path:
 
 ---
 
-## Phase 3 — Orchestrator Loop Integration
+### Phase 3 — Orchestrator Loop Integration ✅
 
 ### Goal
 Make orchestration actions operate on the control store as a first-class system.
@@ -101,7 +104,7 @@ The orchestrator can autonomously move cards and surface only meaningful excepti
 
 ---
 
-## Phase 4 — Human/Admin Surface
+### Phase 4 — Human/Admin Surface ✅
 
 ### Goal
 Expose control state as a useful board/dashboard without making it the system of record.
@@ -123,65 +126,106 @@ A usable visualization surface for humans/admins.
 
 ---
 
-## Phase 5 — Advanced execution shaping
+## Next Phases (Prioritized)
 
-### Goal
-Mature the bridge between planning, execution, and evidence.
+Priorities based on critical gap analysis in `SDP_SPEC_DRIVEN_PIPELINE_CANON.md`.
 
-### Scope
-1. richer Beads decomposition from FeatureCard
-2. automatic artifact expectation attachment
-3. findings loop integration back into cards
-4. release/review gating integration
-5. improved cross-project prioritization
+### Phase 5 (P0) — Dispatch Bridge
 
-### Deliverable
-A more complete AI PDLC/SDLC loop with less manual glue.
+**Goal**: Connect control tower to OmO executor. Close the single critical gap.
 
----
+**Spec**: `DISPATCH_BRIDGE_SPEC.md`
 
-## Immediate implementation recommendation
+**Scope**:
+1. `internal/executor/bridge.go` — ExecutorBridge with DispatchAndRun
+2. Read ExecutionPacket → build ContextPacket → prompt → InvokeOpenCode
+3. Write executor session metadata to FeatureCard (runtime state)
+4. Translate opencode output → ExecutorResultPacket → executor-results/
+5. `sdp dispatch next --execute` CLI command
+6. Auto-ingest via existing OrchestrateOnce flow
+7. Prompt provenance on every dispatch
 
-Do not split effort across all phases at once.
-
-### Recommended next implementation chunk for OmO
-Focus now on:
-- **Phase 2: Beads Bridge**
-- with just enough supporting polish from Phase 1 to make it solid
-
-### Why
-Because the architecture is already strong enough, and the biggest missing capability is the first real bridge:
-
-`FeatureCard -> Beads execution graph`
-
-Without that, the control store remains a good planning shell but not yet a true execution control tower.
+**Exit criteria**:
+- `sdp dispatch next --execute` runs end-to-end
+- FeatureCard updated with session metadata
+- Result auto-ingested
+- Prompt provenance written
+- Tests pass, no regression
 
 ---
 
-## OmO implementation brief
+### Phase 6 (P1) — Auto-Generate TaskContract from FeatureCard
 
-### Assignment
-Implement the next major slice in `sdp_lab`:
+**Goal**: TaskContract derived automatically from FeatureCard on ready gate.
 
-1. add a control action for bridging a ready FeatureCard into a Beads feature issue
-2. persist the returned Beads ID(s) back into the card
-3. ensure board snapshots reflect execution linkage
-4. keep the implementation thin and aligned with the current file-backed control-store architecture
-5. do not redesign the architecture or replace Beads
+**Scope**:
+1. On `MarkReady`: generate TaskContract from card fields
+2. normalized_intent → objective
+3. acceptance_shape → acceptance_criteria (structured)
+4. scope_out → required_evidence
+5. risk_level → constraints
+6. Write to `.sdp/contracts/<card-id>.json`
 
-### Constraints
-- preserve existing contracts and schemas unless a small compatibility fix is clearly needed
-- prefer incremental implementation over framework-building
-- do not add database-first infrastructure
-- keep board as visualization, not source of truth
-- keep orchestrator-centric philosophy intact
+**Exit criteria**:
+- Every ready card has an auto-generated TaskContract
+- Contract gates work on auto-generated contracts
 
-### Suggested command surface
-Possible CLI shape:
-- `sdp-control card-execute --project <id> --id <card-id>`
+---
 
-### Expected output of the OmO pass
-- code changes
-- tests
-- updated docs if the CLI surface changes
-- concise summary of what was implemented and what remains
+### Phase 7 (P2) — Unify Provenance
+
+**Goal**: Full provenance chain from intent to artifact in the unified pipeline.
+
+**Scope**:
+1. Extend prompt provenance to dispatch bridge path
+2. Chain: contract hash → packet hash → prompt hash → artifact hash
+3. Provenance query CLI (`sdp provenance show --card <id>`)
+
+**Exit criteria**:
+- Every dispatched card has complete provenance chain
+- Provenance queryable
+
+---
+
+### Phase 8 (P3) — A2A Interface
+
+**Goal**: Expose SDP as A2A-compliant agent for external orchestration (OpenClaw, others).
+
+**Scope**:
+1. A2A HTTP server wrapping DispatchBridge
+2. Agent Card at `/.well-known/agent.json`
+3. Operations: tasks/send, tasks/get, tasks/list, tasks/cancel
+4. Streaming support for long-running tasks
+
+**Reference**: A2A Protocol v1.0.0 (https://a2a-protocol.org)
+
+---
+
+### Phase 9 (P4) — Constitution as Explicit Layer
+
+**Goal**: Formalize project-registry + ADR into explicit Constitution document.
+
+**Scope**:
+1. Constitution template: vision, principles, non-negotiable constraints
+2. Per-project Constitution derived from project-registry
+3. Architecture fit check as part of ClarificationGate
+
+---
+
+### Phase 10 (P5) — Advanced Execution
+
+**Goal**: Mature the unified pipeline.
+
+**Scope**:
+1. Richer Beads decomposition from TaskContract
+2. Findings loop back to cards
+3. Release/review gating
+4. Multi-repo parallel execution
+
+---
+
+## Immediate Next Step
+
+**Implement Phase 5 (P0): Dispatch Bridge.**
+
+See `DISPATCH_BRIDGE_SPEC.md` for full specification. This is the single most impactful piece of work — it closes the gap between planning and execution, making the control tower a real execution engine.
