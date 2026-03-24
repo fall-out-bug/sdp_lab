@@ -37,7 +37,7 @@ func (c *OmOServeClient) CreateSession(req CreateSessionRequest) (*SessionInfo, 
 	}
 
 	resp, err := c.client.Post(
-		c.baseURL+"/api/sessions",
+		c.baseURL+"/session",
 		"application/json",
 		bytes.NewReader(body),
 	)
@@ -46,7 +46,7 @@ func (c *OmOServeClient) CreateSession(req CreateSessionRequest) (*SessionInfo, 
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusCreated {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		respBody, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("create session failed: status %d, body: %s", resp.StatusCode, string(respBody))
 	}
@@ -61,7 +61,7 @@ func (c *OmOServeClient) CreateSession(req CreateSessionRequest) (*SessionInfo, 
 
 // GetSession retrieves session information by ID
 func (c *OmOServeClient) GetSession(id string) (*SessionInfo, error) {
-	url := fmt.Sprintf("%s/api/sessions/%s", c.baseURL, url.PathEscape(id))
+	url := fmt.Sprintf("%s/session/%s", c.baseURL, url.PathEscape(id))
 
 	resp, err := c.client.Get(url)
 	if err != nil {
@@ -84,7 +84,7 @@ func (c *OmOServeClient) GetSession(id string) (*SessionInfo, error) {
 
 // ListSessions returns all active sessions
 func (c *OmOServeClient) ListSessions() ([]SessionInfo, error) {
-	resp, err := c.client.Get(c.baseURL + "/api/sessions")
+	resp, err := c.client.Get(c.baseURL + "/session")
 	if err != nil {
 		return nil, fmt.Errorf("list sessions request: %w", err)
 	}
@@ -105,7 +105,7 @@ func (c *OmOServeClient) ListSessions() ([]SessionInfo, error) {
 
 // DeleteSession deletes a session by ID
 func (c *OmOServeClient) DeleteSession(id string) error {
-	url := fmt.Sprintf("%s/api/sessions/%s", c.baseURL, url.PathEscape(id))
+	url := fmt.Sprintf("%s/session/%s", c.baseURL, url.PathEscape(id))
 
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
@@ -134,7 +134,7 @@ func (c *OmOServeClient) SendMessageStream(content string) (*http.Response, erro
 		return nil, fmt.Errorf("marshal send message request: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/api/sessions/default/messages", c.baseURL)
+	url := fmt.Sprintf("%s/session/default/messages", c.baseURL)
 	resp, err := c.client.Post(
 		url,
 		"application/json",
