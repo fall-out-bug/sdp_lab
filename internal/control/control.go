@@ -287,6 +287,32 @@ func (s *Store) BeadsRepo() *BeadsCardRepository {
 	return s.beadsRepo
 }
 
+// EnvRepoMode is the environment variable for repository mode.
+const EnvRepoMode = "SDP_REPO_MODE"
+
+// EnvBeadsDB is the environment variable for beads DB path override.
+const EnvBeadsDB = "SDP_BEADS_DB"
+
+// OpenFromEnv opens a store using environment variables for configuration.
+// SDP_REPO_MODE: "file" (default), "beads", "dual"
+// SDP_BEADS_DB: optional beads database path override
+func OpenFromEnv(projectRoot string) (*Store, error) {
+	mode := parseRepoMode(os.Getenv(EnvRepoMode))
+	dbPath := os.Getenv(EnvBeadsDB)
+	return OpenWithMode(projectRoot, mode, dbPath)
+}
+
+func parseRepoMode(s string) RepositoryMode {
+	switch s {
+	case string(RepoModeBeads):
+		return RepoModeBeads
+	case string(RepoModeDual):
+		return RepoModeDual
+	default:
+		return RepoModeFile
+	}
+}
+
 // DualRepo returns the underlying DualWriteRepository (nil if mode != dual).
 func (s *Store) DualRepo() *DualWriteRepository {
 	if dr, ok := s.repo.(*DualWriteRepository); ok {

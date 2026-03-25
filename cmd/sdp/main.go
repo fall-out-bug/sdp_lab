@@ -77,7 +77,7 @@ func openStore() *control.Store {
 		fmt.Fprintf(os.Stderr, "error: find project root: %v\n", err)
 		os.Exit(1)
 	}
-	store, err := control.Open(root)
+	store, err := control.OpenFromEnv(root)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: open control store: %v\n", err)
 		os.Exit(1)
