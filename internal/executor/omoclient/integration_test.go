@@ -28,6 +28,7 @@ func skipIfNoServer(t *testing.T) string {
 }
 
 func TestIntegration_CreateAndListSession(t *testing.T) {
+t.Skip("Integration test requires REST API not available on opencode serve")
 	baseURL := skipIfNoServer(t)
 	logger := log.New(io.Discard, "", 0)
 	client := NewClient(baseURL, logger)
