@@ -7,11 +7,18 @@ import (
 	"time"
 )
 
-func TestReadyCommand(t *testing.T) {
-	// Skip if bd is not available
+func requireReadyCommand(t *testing.T) {
+	t.Helper()
 	if _, err := exec.LookPath("bd"); err != nil {
 		t.Skip("bd command not available")
 	}
+	if err := exec.Command("bd", "ready", "--json").Run(); err != nil {
+		t.Skipf("bd ready not available in this environment: %v", err)
+	}
+}
+
+func TestReadyCommand(t *testing.T) {
+	requireReadyCommand(t)
 
 	issues, err := ReadyCommand()
 	if err != nil {
@@ -43,10 +50,7 @@ func TestReadyCommand(t *testing.T) {
 }
 
 func TestReadyWithBlockersCommand(t *testing.T) {
-	// Skip if bd is not available
-	if _, err := exec.LookPath("bd"); err != nil {
-		t.Skip("bd command not available")
-	}
+	requireReadyCommand(t)
 
 	issues, err := ReadyWithBlockersCommand()
 	if err != nil {
