@@ -59,7 +59,7 @@ func (s *OmOSupervisor) WaitReady(ctx context.Context, timeout time.Duration) er
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(deadline.Sub(time.Now())):
+		case <-time.After(time.Until(deadline)):
 			return fmt.Errorf("timeout waiting for opencode serve to be ready")
 		case <-ticker.C:
 			s.mu.Lock()

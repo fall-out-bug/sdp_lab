@@ -107,7 +107,7 @@ func ClassifyError(err error) *Failure {
 	// Check for network/transport errors
 	var netErr net.Error
 	if errors.As(err, &netErr) {
-		retryable := netErr.Timeout() || netErr.Temporary()
+		retryable := netErr.Timeout()
 		return &Failure{
 			Kind:      FailureTransport,
 			Code:      "net_error",
