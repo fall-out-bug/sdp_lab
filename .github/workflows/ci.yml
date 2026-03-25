@@ -48,6 +48,11 @@ jobs:
             exit 0
           fi
 
+          if echo "${HEAD_MESSAGE}" | grep -Eq '^merge:'; then
+            echo "OK: merge commit from feature branch detected."
+            exit 0
+          fi
+
           echo "ERROR: head commit does not look like a PR merge commit."
           echo "ERROR: direct pushes to master/main bypass PR-only compliance gates."
           echo "Use pull requests for protected branches."

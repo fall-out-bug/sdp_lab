@@ -38,7 +38,7 @@ func (s *ServeInvoker) Invoke(ctx context.Context, dir, agent, prompt string) (s
 		Session: sessionID,
 	})
 	if err != nil {
-		return "", 1, fmt.Errorf("create session: %w (serve API unavailable, use exec mode)")
+		return "", 1, fmt.Errorf("create session: %v (serve API unavailable, use exec mode)", err)
 	}
 	defer func() {
 		_ = s.client.DeleteSession(sessionID)
@@ -46,7 +46,7 @@ func (s *ServeInvoker) Invoke(ctx context.Context, dir, agent, prompt string) (s
 
 	resp, err := s.client.SendMessageStream(prompt)
 	if err != nil {
-		return "", 1, fmt.Errorf("send message stream: %w")
+		return "", 1, fmt.Errorf("send message stream: %v", err)
 	}
 	defer resp.Body.Close()
 
