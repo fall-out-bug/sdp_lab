@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"encoding/json"
+	"context"
 	"testing"
 	"time"
 )
@@ -91,7 +92,7 @@ func TestContainerInfo(t *testing.T) {
 }
 
 func TestNilConfig(t *testing.T) {
-	_, err := Staging(nil, nil, "hash")
+	_, err := Staging(context.TODO(), nil, "hash")
 	if err == nil {
 		t.Error("expected error for nil config")
 	}

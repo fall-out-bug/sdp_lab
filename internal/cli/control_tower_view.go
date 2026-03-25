@@ -401,7 +401,7 @@ func renderExecutiveActionSurface(snap *control.PortfolioBoardSnapshot) []string
 				continue
 			}
 			seen[key] = true
-			for _, line := range renderItemActionLines(item, 1) {
+			for _, line := range renderItemActionLines(item, 1) { //nolint:gosimple
 				lines = append(lines, line)
 			}
 			if len(lines) >= 3 {
@@ -417,7 +417,7 @@ func renderProjectActionSurface(snap *control.ProjectBoardSnapshot) []string {
 	lines := []string{}
 	for _, group := range groups {
 		for _, item := range group {
-			for _, line := range renderCardSummaryActionLines(snap.Project["project_id"], item, 1) {
+			for _, line := range renderCardSummaryActionLines(snap.Project["project_id"], item, 1) { //nolint:gosimple
 				lines = append(lines, line)
 			}
 			if len(lines) >= 4 {
