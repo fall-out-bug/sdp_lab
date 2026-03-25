@@ -25,6 +25,7 @@ type ServeBridge struct {
 	MaxConcurrent int    // max concurrent dispatches (default 3)
 	Governance    *omoclient.GovernanceConfig
 	Evaluator     EvaluatorConfig
+	Clarifier     ClarifierConfig
 }
 
 // NewServeBridge creates a new serve-mode bridge.
@@ -36,6 +37,7 @@ func NewServeBridge(store *control.Store, projectRoot string) *ServeBridge {
 		MaxConcurrent: 3,
 		Governance:    omoclient.DefaultGovernanceConfig(),
 		Evaluator:     DefaultEvaluatorConfig(),
+		Clarifier:     DefaultClarifierConfig(),
 	}
 }
 
