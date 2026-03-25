@@ -31,7 +31,7 @@ func TestCreateSession(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(session)
+		_, _ = json.NewEncoder(w).Encode(session)
 	}))
 	defer server.Close()
 
@@ -64,7 +64,7 @@ func TestGetSession(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(session)
+		_, _ = json.NewEncoder(w).Encode(session)
 	}))
 	defer server.Close()
 
@@ -91,7 +91,7 @@ t.Skip("ListSessions requires REST API not available on opencode serve")
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(sessions)
+		_, _ = json.NewEncoder(w).Encode(sessions)
 	}))
 	defer server.Close()
 

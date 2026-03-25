@@ -18,7 +18,7 @@ func setupProjectDir(t *testing.T) string {
 		_ = os.MkdirAll(filepath.Join(dir, d), 0o755)
 	}
 	// Create project registry
-	os.WriteFile(filepath.Join(dir, "docs/specs/project-registry.yaml"), []byte("projects: []"), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "docs/specs/project-registry.yaml"), []byte("projects: []"), 0o644)
 	return dir
 }
 
