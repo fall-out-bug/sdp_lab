@@ -10,6 +10,7 @@ import (
 
 	"sdp_dev/internal/cli"
 	"sdp_dev/internal/control"
+	"sdp_dev/internal/deploy"
 	"sdp_dev/internal/executor"
 	"sdp_dev/internal/orchestrate"
 )
@@ -44,6 +45,8 @@ func main() {
 		runApprove(os.Args[2:])
 	case "trace":
 		runTrace(os.Args[2:])
+	case "deploy":
+		runDeploy(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -78,6 +81,11 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  sdp missing [project-id]    Show items lacking evidence")
 	fmt.Fprintln(os.Stderr, "  sdp approve <card-id>       Resolve a human gate")
 	fmt.Fprintln(os.Stderr, "  sdp trace <card-id>         Show full feature trace")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Deploy commands:")
+	fmt.Fprintln(os.Stderr, "  sdp deploy staging [project-root]")
+	fmt.Fprintln(os.Stderr, "  sdp deploy prod <staging-image-tag> [project-root]")
+	fmt.Fprintln(os.Stderr, "  sdp deploy rollback <previous-tag> [project-root]")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Other:")
 	fmt.Fprintln(os.Stderr, "  sdp attention")
@@ -912,6 +920,78 @@ func runTrace(args []string) {
 	for _, child := range trace.Children {
 		fmt.Printf("   ├─ %s: %s [%s]\n", child.ID, child.Title, child.Status)
 	}
+}
+
+
+func runDeploy(args []string) {
+	if len(args) < 2 {
+		fmt.Fprintln(os.Stderr, "usage: sdp deploy <staging|prod|rollback> [args...]")
+		os.Exit(2)
+	}
+
+	ctx := context.Background()
+	target := args[0]
+	projectRoot := "."
+	if len(args) > 2 {
+		projectRoot = args[2]
+	}
+
+	cfg := deploy.DefaultConfig(projectRoot)
+
+	var result *deploy.Result
+	var err error
+
+	switch target {
+	case "staging":
+		commitHash := "latest"
+		if len(args) > 1 {
+			commitHash = args[1]
+		}
+		fmt.Printf("🚀 Deploying to staging (commit: %s)...\n", commitHash)
+		result, err = deploy.Staging(ctx, cfg, commitHash)
+	case "prod":
+		imageTag := args[1]
+		fmt.Printf("🔥 Deploying to production (image: %s)...\n", imageTag)
+		result, err = deploy.Production(ctx, cfg, imageTag)
+	case "rollback":
+		previousTag := args[1]
+		fmt.Printf("⏪ Rolling back to %s...\n", previousTag)
+		result, err = deploy.Rollback(ctx, cfg, previousTag)
+	default:
+		fmt.Fprintf(os.Stderr, "unknown deploy target: %s (use staging|prod|rollback)\n", target)
+		os.Exit(2)
+	}
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "❌ Deploy failed: %v\n", err)
+		if result != nil && result.Error != "" {
+			fmt.Fprintf(os.Stderr, "   %s\n", result.Error)
+		}
+		os.Exit(1)
+	}
+
+	fmt.Printf("✅ Deploy %s complete\n", target)
+	fmt.Printf("   Image: %s\n", result.ImageTag)
+	fmt.Printf("   Duration: %s\n", result.Duration)
+	if result.SmokeTest != nil {
+		emoji := "✅"
+		if !result.SmokeTest.Passed {
+			emoji = "❌"
+		}
+		fmt.Printf("   Smoke test: %s (exit %d)\n", emoji, result.SmokeTest.ExitCode)
+	}
+	if result.Health != nil {
+		emoji := "✅"
+		if !result.Health.Passed {
+			emoji = "❌"
+		}
+		fmt.Printf("   Health: %s (%.1f min)\n", emoji, result.Health.Minutes)
+	}
+	for _, c := range result.Containers {
+		fmt.Printf("   📦 %s [%s] %s\n", c.Name, c.ID[:12], c.Status)
+	}
+
+	printJSON(result)
 }
 
 func flagSetFrom(args []string, flag string) *bool {
