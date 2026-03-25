@@ -20,7 +20,7 @@ func main() {
 	execute := flag.Bool("execute", false, "wire the executor bridge and run dispatched work")
 	flag.Parse()
 
-	store, err := control.Open(*projectRoot)
+	store, err := control.OpenFromEnv(*projectRoot)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: open control store: %v\n", err)
 		os.Exit(1)

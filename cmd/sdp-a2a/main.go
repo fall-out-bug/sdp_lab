@@ -16,7 +16,7 @@ func main() {
 	apiKey := flag.String("api-key", "", "optional bearer token for API access")
 	flag.Parse()
 
-	store, err := control.Open(*projectRoot)
+	store, err := control.OpenFromEnv(*projectRoot)
 	if err != nil {
 		log.Fatalf("open control store: %v", err)
 	}
