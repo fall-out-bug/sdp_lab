@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"text/tabwriter"
 
 	"sdp_dev/internal/cli"
 	"sdp_dev/internal/control"
@@ -58,13 +57,10 @@ func main() {
 		runEval(os.Args[2:])
 	case "clarify":
 		runClarify(os.Args[2:])
-<<<<<<< HEAD
-	case "roles":
-		runRoles(os.Args[2:])
-=======
-	case "summary":
-		runSummary(os.Args[2:])
->>>>>>> feature/sdp-summarizer
+	case "plan":
+		runPlan(os.Args[2:])
+	case "approve-plan":
+		runApprovePlan(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -72,7 +68,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention|roles> <subcommand> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention> <subcommand> [flags]")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Card commands:")
 	fmt.Fprintln(os.Stderr, "  sdp card <create|show|clarify|needs-input|ready|park|execute|heartbeat|feedback|feedback-export|message-export|resume|resume-import|reply-ingest|deliver>")
@@ -111,26 +107,11 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  sdp stuck                  Show stuck/long-running cards")
 	fmt.Fprintln(os.Stderr, "  sdp eval <card-id>         Run build evaluation manually")
 	fmt.Fprintln(os.Stderr, "  sdp clarify <card-id>      Run clarification manually")
-	fmt.Fprintln(os.Stderr, "  sdp summary <card-id>      Print human-readable evidence summary")
+	fmt.Fprintln(os.Stderr, "  sdp plan <card-id>         Show plan for a card")
+	fmt.Fprintln(os.Stderr, "  sdp approve-plan <card-id> Approve a pending plan")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Other:")
 	fmt.Fprintln(os.Stderr, "  sdp attention")
-	fmt.Fprintln(os.Stderr, "  sdp roles")
-}
-
-func runRoles(args []string) {
-	fs := flag.NewFlagSet("roles", flag.ExitOnError)
-	_ = fs.Parse(args)
-
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "PHASE\tAGENT\tDESCRIPTION")
-	for _, role := range executor.PhaseRoleMap {
-		fmt.Fprintf(w, "%s\t%s\t%s\n", role.Phase, role.Agent, role.Description)
-	}
-	if override := strings.TrimSpace(os.Getenv("SDP_DEFAULT_AGENT")); override != "" {
-		fmt.Fprintf(w, "*\t%s\tSDP_DEFAULT_AGENT override\n", override)
-	}
-	_ = w.Flush()
 }
 
 func openStore() *control.Store {
@@ -1147,17 +1128,55 @@ func runStatus(args []string) {
 	printJSON(card)
 }
 
-func runSummary(args []string) {
+func runPlan(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: sdp summary <card-id>")
+		fmt.Fprintln(os.Stderr, "usage: sdp plan <card-id>")
 		os.Exit(2)
 	}
 	store := openStore()
-	bridge := executor.NewServeBridge(store, store.ProjectRoot)
-	result, err := bridge.Summarize(context.Background(), args[0])
+	plan, err := executor.LoadPlan(store.ProjectRoot, args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: summarize card: %v\n", err)
+		fmt.Fprintf(os.Stderr, "error: load plan: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Println(result.Text)
+	fmt.Printf("📋 Plan for card %s\n", args[0])
+	fmt.Printf("   Status: %s\n", plan.Status)
+	if plan.Approach != "" {
+		fmt.Printf("   Approach: %s\n", plan.Approach)
+	}
+	if len(plan.FilesToChange) > 0 {
+		fmt.Println("   Files to change:")
+		for _, f := range plan.FilesToChange {
+			fmt.Printf("     - %s\n", f)
+		}
+	}
+	if len(plan.TestsToWrite) > 0 {
+		fmt.Println("   Tests to write:")
+		for _, t := range plan.TestsToWrite {
+			fmt.Printf("     - %s\n", t)
+		}
+	}
+	if plan.RiskAssessment != "" {
+		fmt.Printf("   Risk: %s\n", plan.RiskAssessment)
+	}
+	if plan.EstimatedSteps > 0 {
+		fmt.Printf("   Estimated steps: %d\n", plan.EstimatedSteps)
+	}
+	if plan.ApprovalPending {
+		fmt.Println("   ⏳ Awaiting approval")
+	}
+	printJSON(plan)
+}
+
+func runApprovePlan(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: sdp approve-plan <card-id>")
+		os.Exit(2)
+	}
+	store := openStore()
+	if err := executor.ApprovePlan(store, store.ProjectRoot, args[0]); err != nil {
+		fmt.Fprintf(os.Stderr, "error: approve plan: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("✅ Plan approved for card %s\n", args[0])
 }
