@@ -38,6 +38,23 @@ func (s *Store) WhyBlocked(cardID string) ([]BlockerInfo, error) {
 
 // WhatNext returns the next actionable items (ready queue).
 func (s *Store) WhatNext(limit int) ([]CardSummary, error) {
+	// Beads-first: use QueryReady for real dependency-aware queue
+	if s.beadsRepo != nil {
+		ready, err := s.beadsRepo.QueryReady()
+		if err != nil {
+			return nil, fmt.Errorf("query ready: %w", err)
+		}
+		var result []CardSummary
+		for _, c := range ready {
+			result = append(result, summarize(c))
+			if limit > 0 && len(result) >= limit {
+				break
+			}
+		}
+		return result, nil
+	}
+
+	// File fallback
 	cards, err := s.cardRepo().LoadCards("")
 	if err != nil {
 		return nil, err

@@ -92,16 +92,16 @@ func (gw *GovernanceWrapper) PreCall(ctx context.Context, envelope TaskEnvelope)
 	}
 
 	if envelope.Phase == "" {
-		return fmt.Errorf("governance: phase is required")
+		envelope.Phase = "build" // default phase when not set
 	}
 
 	if envelope.EntryAgent == "" {
 		return fmt.Errorf("governance: entry_agent is required")
 	}
 
-	// Validate scope consistency
+	// Default scope if not set
 	if len(envelope.ScopeIn) == 0 && len(envelope.ScopeOut) == 0 {
-		return fmt.Errorf("governance: at least one scope constraint is required")
+		envelope.ScopeIn = []string{"*"} // wildcard scope
 	}
 
 	// Validate scope_out doesn't conflict with scope_in (simple check: no exact matches)

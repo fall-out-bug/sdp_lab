@@ -191,9 +191,13 @@ func (b *ServeBridge) buildPacket(card *control.FeatureCard) (*control.Execution
 
 // cardToEnvelope converts a FeatureCard to a TaskEnvelope for governance.
 func (b *ServeBridge) cardToEnvelope(card *control.FeatureCard) omoclient.TaskEnvelope {
+	phase := card.TaskType
+	if phase == "" {
+		phase = "build"
+	}
 	return omoclient.TaskEnvelope{
 		TaskID:      card.ID,
-		Phase:       card.TaskType,
+		Phase:       phase,
 		EntryAgent:  "sisyphus",
 		Objective:   card.NormalizedIntent,
 		ScopeIn:     card.ScopeIn,
