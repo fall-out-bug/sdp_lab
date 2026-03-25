@@ -47,6 +47,10 @@ func main() {
 		runTrace(os.Args[2:])
 	case "deploy":
 		runDeploy(os.Args[2:])
+	case "intent":
+		runIntent(os.Args[2:])
+	case "status":
+		runStatus(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -86,6 +90,10 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  sdp deploy staging [project-root]")
 	fmt.Fprintln(os.Stderr, "  sdp deploy prod <staging-image-tag> [project-root]")
 	fmt.Fprintln(os.Stderr, "  sdp deploy rollback <previous-tag> [project-root]")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Pipeline commands:")
+	fmt.Fprintln(os.Stderr, "  sdp intent \"description\"   Create intake card from raw intent")
+	fmt.Fprintln(os.Stderr, "  sdp status <card-id>        Show card status and phase")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Other:")
 	fmt.Fprintln(os.Stderr, "  sdp attention")
@@ -1002,4 +1010,45 @@ func flagSetFrom(args []string, flag string) *bool {
 		}
 	}
 	return &v
+}
+
+func runIntent(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: sdp intent \"description\"")
+		os.Exit(2)
+	}
+	raw := strings.TrimSpace(strings.Join(args, " "))
+	store := openStore()
+	card, err := store.CreateCard("sdp", raw, raw)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: create intent card: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("✅ Created intake card %s\n", card.ID)
+	printJSON(card)
+}
+
+func runStatus(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: sdp status <card-id>")
+		os.Exit(2)
+	}
+	store := openStore()
+	card, err := store.LoadCardByID(args[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: load card: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("📌 %s: %s\n", card.ID, card.Title)
+	fmt.Printf("   Status: %s\n", card.Status)
+	if card.TaskType != "" {
+		fmt.Printf("   Phase: %s\n", card.TaskType)
+	}
+	if card.ExecutorRuntimeState != "" {
+		fmt.Printf("   Executor: %s\n", card.ExecutorRuntimeState)
+	}
+	if card.ExecutorResult != nil {
+		fmt.Printf("   Result: %s\n", card.ExecutorResult.Status)
+	}
+	printJSON(card)
 }
