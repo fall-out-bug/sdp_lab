@@ -124,7 +124,7 @@ func TestIntegration_SendMessageSSE(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
-	defer client.DeleteSession(session.ID)
+	defer func() { _ = client.DeleteSession(session.ID) }()
 	t.Logf("Session: %s", session.ID)
 
 	resp, err := client.SendMessageStream("Reply with exactly: HELLO_BRIDGE_TEST")

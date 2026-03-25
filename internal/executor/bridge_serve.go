@@ -223,12 +223,6 @@ func (b *ServeBridge) cardToEnvelope(card *control.FeatureCard) omoclient.TaskEn
 	}
 }
 
-// mapExecutorRoleToSisyphus resolves the OmO agent for the requested SDP role/phase.
-func mapExecutorRoleToSisyphus(role string) string {
-	return ResolveAgent(role)
-}
-
-// DeployProjectRoot is the project root for deploy operations.
 // Set via OMO_DEPLOY_ROOT env var, defaults to ServeBridge.ProjectRoot.
 func (b *ServeBridge) deployProjectRoot() string {
 	if root := os.Getenv("OMO_DEPLOY_ROOT"); root != "" {

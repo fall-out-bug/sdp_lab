@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"os"
-	"os/exec"
 	"strings"
 
 	"sdp_dev/internal/executor/omoclient"
@@ -29,14 +28,3 @@ func InvokeWithFallback(ctx context.Context, projectRoot, agent, prompt string) 
 }
 
 // execFallback invokes opencode directly via exec (no serve mode).
-func execFallback(ctx context.Context, dir, agent, prompt string) (string, int, error) {
-	bin := os.Getenv("OPENCODE_BIN")
-	if bin == "" {
-		bin = "opencode"
-	}
-	cmd := exec.CommandContext(ctx, bin, "--agent", agent, "run", prompt)
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "OPENCODE_HEADLESS=1")
-	out, err := cmd.CombinedOutput()
-	return string(out), cmd.ProcessState.ExitCode(), err
-}
