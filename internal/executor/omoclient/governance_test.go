@@ -346,9 +346,9 @@ func TestGovernanceWrapper_PreCall_MissingFields(t *testing.T) {
 			expectErr: true,
 		},
 		{
-			name:      "missing phase",
+			name:      "missing phase defaults to build",
 			envelope:  TaskEnvelope{TaskID: "1", EntryAgent: "agent", ScopeIn: []string{"*"}},
-			expectErr: true,
+			expectErr: false,
 		},
 		{
 			name:      "missing entry_agent",
@@ -356,9 +356,9 @@ func TestGovernanceWrapper_PreCall_MissingFields(t *testing.T) {
 			expectErr: true,
 		},
 		{
-			name:      "missing scope constraints",
+			name:      "missing scope defaults to wildcard",
 			envelope:  TaskEnvelope{TaskID: "1", Phase: "test", EntryAgent: "agent"},
-			expectErr: true,
+			expectErr: false,
 		},
 		{
 			name: "valid envelope",
