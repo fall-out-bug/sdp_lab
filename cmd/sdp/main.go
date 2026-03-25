@@ -51,6 +51,8 @@ func main() {
 		runIntent(os.Args[2:])
 	case "status":
 		runStatus(os.Args[2:])
+	case "stuck":
+		runStuck(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -94,6 +96,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "Pipeline commands:")
 	fmt.Fprintln(os.Stderr, "  sdp intent \"description\"   Create intake card from raw intent")
 	fmt.Fprintln(os.Stderr, "  sdp status <card-id>        Show card status and phase")
+	fmt.Fprintln(os.Stderr, "  sdp stuck                  Show stuck/long-running cards")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Other:")
 	fmt.Fprintln(os.Stderr, "  sdp attention")
@@ -1000,6 +1003,23 @@ func runDeploy(args []string) {
 	}
 
 	printJSON(result)
+}
+
+func runStuck(args []string) {
+	store := openStore()
+	detector := executor.NewStuckDetector(store, executor.DefaultRankingPolicy())
+	stuck, err := detector.DetectStuck()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	if len(stuck) == 0 {
+		fmt.Println("✅  No stuck cards detected.")
+		return
+	}
+	for _, s := range stuck {
+		fmt.Printf("  ⚠️  %s: %s [%s] — %s\n", s.ID, s.Title, s.Status, s.Reason)
+	}
 }
 
 func flagSetFrom(args []string, flag string) *bool {

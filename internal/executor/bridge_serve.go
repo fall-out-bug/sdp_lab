@@ -61,9 +61,12 @@ func (b *ServeBridge) DispatchBeads(ctx context.Context) (string, error) {
 		return "", nil // nothing to dispatch
 	}
 
-	// Pick first ready item (TODO: policy ranking)
-	card := ready[0]
-	return card.ID, nil
+	// Pick best ready item using ranking policy
+	cardID := RankAndPick(ready, DefaultRankingPolicy(), nil)
+	if cardID == "" {
+		return "", nil // all candidates exhausted
+	}
+	return cardID, nil
 }
 
 // DispatchAndRun executes a card through OmO serve with full governance.
