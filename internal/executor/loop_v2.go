@@ -75,6 +75,35 @@ func RunOrchestrateLoopV2(ctx context.Context, store *control.Store, projectRoot
 				}
 			}
 
+			// Plan step - generate implementation plan before dispatch
+			card, loadErr = bridge.Store.LoadCard("", cardID)
+			if loadErr != nil {
+				logger.Error("load card before planning failed", "card_id", cardID, "error", loadErr)
+				continue
+			}
+			planResult, planErr := bridge.GeneratePlan(ctx, card)
+			if planErr != nil {
+				logger.Error("plan generation failed", "card_id", cardID, "error", planErr)
+				continue
+			}
+			switch planResult.Status {
+			case "pending_approval":
+				logger.Info("plan needs human approval", "card_id", cardID)
+				if err := bridge.RecordPlan(cardID, planResult); err != nil {
+					logger.Error("failed to record plan", "card_id", cardID, "error", err)
+				}
+				continue
+			case "error":
+				logger.Error("planner error", "card_id", cardID)
+				continue
+			case "approved":
+				logger.Info("plan already approved", "card_id", cardID)
+			case "generated":
+				if err := bridge.RecordPlan(cardID, planResult); err != nil {
+					logger.Error("failed to record generated plan", "card_id", cardID, "error", err)
+				}
+			}
+
 			logger.Info("dispatching beads card", "cycle", cycles, "card_id", cardID)
 			result, execErr := bridge.DispatchAndRun(ctx, "", cardID)
 			if execErr != nil {

@@ -26,6 +26,7 @@ type ServeBridge struct {
 	Governance    *omoclient.GovernanceConfig
 	Evaluator     EvaluatorConfig
 	Clarifier     ClarifierConfig
+	Planner       PlannerConfig
 }
 
 // NewServeBridge creates a new serve-mode bridge.
@@ -38,6 +39,7 @@ func NewServeBridge(store *control.Store, projectRoot string) *ServeBridge {
 		Governance:    omoclient.DefaultGovernanceConfig(),
 		Evaluator:     DefaultEvaluatorConfig(),
 		Clarifier:     DefaultClarifierConfig(),
+		Planner:       DefaultPlannerConfig(),
 	}
 }
 

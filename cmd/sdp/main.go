@@ -57,6 +57,10 @@ func main() {
 		runEval(os.Args[2:])
 	case "clarify":
 		runClarify(os.Args[2:])
+	case "plan":
+		runPlan(os.Args[2:])
+	case "approve-plan":
+		runApprovePlan(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -103,6 +107,8 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  sdp stuck                  Show stuck/long-running cards")
 	fmt.Fprintln(os.Stderr, "  sdp eval <card-id>         Run build evaluation manually")
 	fmt.Fprintln(os.Stderr, "  sdp clarify <card-id>      Run clarification manually")
+	fmt.Fprintln(os.Stderr, "  sdp plan <card-id>         Show plan for a card")
+	fmt.Fprintln(os.Stderr, "  sdp approve-plan <card-id> Approve a pending plan")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Other:")
 	fmt.Fprintln(os.Stderr, "  sdp attention")
@@ -1120,4 +1126,57 @@ func runStatus(args []string) {
 		fmt.Printf("   Result: %s\n", card.ExecutorResult.Status)
 	}
 	printJSON(card)
+}
+
+func runPlan(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: sdp plan <card-id>")
+		os.Exit(2)
+	}
+	store := openStore()
+	plan, err := executor.LoadPlan(store.ProjectRoot, args[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: load plan: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("📋 Plan for card %s\n", args[0])
+	fmt.Printf("   Status: %s\n", plan.Status)
+	if plan.Approach != "" {
+		fmt.Printf("   Approach: %s\n", plan.Approach)
+	}
+	if len(plan.FilesToChange) > 0 {
+		fmt.Println("   Files to change:")
+		for _, f := range plan.FilesToChange {
+			fmt.Printf("     - %s\n", f)
+		}
+	}
+	if len(plan.TestsToWrite) > 0 {
+		fmt.Println("   Tests to write:")
+		for _, t := range plan.TestsToWrite {
+			fmt.Printf("     - %s\n", t)
+		}
+	}
+	if plan.RiskAssessment != "" {
+		fmt.Printf("   Risk: %s\n", plan.RiskAssessment)
+	}
+	if plan.EstimatedSteps > 0 {
+		fmt.Printf("   Estimated steps: %d\n", plan.EstimatedSteps)
+	}
+	if plan.ApprovalPending {
+		fmt.Println("   ⏳ Awaiting approval")
+	}
+	printJSON(plan)
+}
+
+func runApprovePlan(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: sdp approve-plan <card-id>")
+		os.Exit(2)
+	}
+	store := openStore()
+	if err := executor.ApprovePlan(store, store.ProjectRoot, args[0]); err != nil {
+		fmt.Fprintf(os.Stderr, "error: approve plan: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("✅ Plan approved for card %s\n", args[0])
 }
