@@ -52,10 +52,33 @@ func RunOrchestrateLoopV2(ctx context.Context, store *control.Store, projectRoot
 			} else {
 				logger.Info("serve bridge completed", "card_id", cardID, "status", result.Status)
 
-				// Auto-initiate deploy phase on successful build
 				if result.Status == control.ResultStatusSuccess {
-					if deployErr := bridge.TryDeployPhase(ctx, cardID, projectRoot); deployErr != nil {
-						logger.Warn("deploy phase skipped", "card_id", cardID, "error", deployErr)
+					evalResult, evalErr := bridge.Evaluate(ctx, cardID)
+					if evalErr != nil {
+						logger.Error("evaluation error — pipeline blocked", "card_id", cardID, "error", evalErr)
+						continue
+					}
+
+					if evalResult.Verdict == evalVerdictFail || evalResult.Verdict == evalVerdictBlocked {
+						logger.Info("evaluation blocked/failed", "card_id", cardID, "verdict", evalResult.Verdict, "score", evalResult.Score)
+						if err := bridge.RecordEvalFindings(cardID, evalResult); err != nil {
+							logger.Warn("failed to record evaluation findings", "card_id", cardID, "error", err)
+						}
+						continue
+					}
+
+					if evalResult.Verdict == evalVerdictNeedsReview {
+						logger.Info("evaluation needs review — awaiting human", "card_id", cardID, "score", evalResult.Score)
+						if err := bridge.RecordEvalFindings(cardID, evalResult); err != nil {
+							logger.Warn("failed to record evaluation findings", "card_id", cardID, "error", err)
+						}
+						continue
+					}
+
+					if evalResult.Verdict == evalVerdictPass {
+						if deployErr := bridge.TryDeployPhase(ctx, cardID, projectRoot); deployErr != nil {
+							logger.Warn("deploy phase skipped", "card_id", cardID, "error", deployErr)
+						}
 					}
 				}
 			}

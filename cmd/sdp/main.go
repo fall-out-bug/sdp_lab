@@ -53,6 +53,8 @@ func main() {
 		runStatus(os.Args[2:])
 	case "stuck":
 		runStuck(os.Args[2:])
+	case "eval":
+		runEval(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -97,6 +99,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  sdp intent \"description\"   Create intake card from raw intent")
 	fmt.Fprintln(os.Stderr, "  sdp status <card-id>        Show card status and phase")
 	fmt.Fprintln(os.Stderr, "  sdp stuck                  Show stuck/long-running cards")
+	fmt.Fprintln(os.Stderr, "  sdp eval <card-id>         Run build evaluation manually")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Other:")
 	fmt.Fprintln(os.Stderr, "  sdp attention")
@@ -933,7 +936,6 @@ func runTrace(args []string) {
 	}
 }
 
-
 func runDeploy(args []string) {
 	if len(args) < 2 {
 		fmt.Fprintln(os.Stderr, "usage: sdp deploy <staging|prod|rollback> [args...]")
@@ -1046,6 +1048,21 @@ func runIntent(args []string) {
 	}
 	fmt.Printf("✅ Created intake card %s\n", card.ID)
 	printJSON(card)
+}
+
+func runEval(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: sdp eval <card-id>")
+		os.Exit(2)
+	}
+	store := openStore()
+	bridge := executor.NewServeBridge(store, store.ProjectRoot)
+	result, err := bridge.Evaluate(context.Background(), args[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: evaluate card: %v\n", err)
+		os.Exit(1)
+	}
+	printJSON(result)
 }
 
 func runStatus(args []string) {

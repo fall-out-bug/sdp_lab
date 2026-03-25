@@ -1,0 +1,3 @@
+0000000000000000000000000000000000000000 ff38125054e8d64e10185d55b582b18177c37e0a Andrey Zhukov <a_v_zhukov@outlook.com> 1774451202 +0300
+ff38125054e8d64e10185d55b582b18177c37e0a ff38125054e8d64e10185d55b582b18177c37e0a Andrey Zhukov <a_v_zhukov@outlook.com> 1774451203 +0300	reset: moving to HEAD
+ff38125054e8d64e10185d55b582b18177c37e0a cb67221ff4decc1e2b17d306ad33a26cf0a69204 Andrey Zhukov <a_v_zhukov@outlook.com> 1774451706 +0300	commit: feat: add evaluator step to SDP pipeline
