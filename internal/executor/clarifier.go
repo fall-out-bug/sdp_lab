@@ -145,8 +145,7 @@ func ClarifyIntentWithConfig(ctx context.Context, projectRoot, rawIntent string,
 		result := ClarifyResult{Card: existingCard, Status: "error", Questions: []string{"OmO serve unavailable — clarification blocked"}}
 		return result, nil
 	}
-	invoker := omoclient.NewServeInvoker(baseURL, logger)
-	raw, exitCode, invokeErr := invoker.Invoke(ctx, projectRoot, "sisyphus", prompt)
+	raw, exitCode, invokeErr := InvokeWithFallback(ctx, projectRoot, "sisyphus", prompt)
 	if invokeErr != nil || exitCode != 0 {
 		result := ClarifyResult{Card: existingCard, Status: "error", RawFeedback: raw, Questions: []string{fmt.Sprintf("OmO serve clarification failed: %v", invokeErr)}}
 		return result, nil
@@ -182,7 +181,14 @@ func (b *ServeBridge) Clarify(ctx context.Context, card *control.FeatureCard) (C
 	if card == nil {
 		return ClarifyResult{Status: "error"}, fmt.Errorf("nil card")
 	}
-	return ClarifyIntentWithConfig(ctx, b.ProjectRoot, card.RawRequest, card, DefaultClarifierConfig())
+	intent := card.RawRequest
+	if strings.TrimSpace(intent) == "" {
+		intent = card.NormalizedIntent
+	}
+	if strings.TrimSpace(intent) == "" {
+		intent = card.Title
+	}
+	return ClarifyIntentWithConfig(ctx, b.ProjectRoot, intent, card, DefaultClarifierConfig())
 }
 
 func (b *ServeBridge) RecordClarification(cardID string, result ClarifyResult) error {

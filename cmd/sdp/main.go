@@ -778,6 +778,8 @@ func runOrchestrate(args []string) {
 		os.Exit(2)
 	}
 	switch args[0] {
+	case "loop":
+		runOrchestrateLoop(args[1:])
 	case "once":
 		runOrchestrateOnce(args[1:])
 	default:
@@ -1179,4 +1181,21 @@ func runApprovePlan(args []string) {
 		os.Exit(1)
 	}
 	fmt.Printf("✅ Plan approved for card %s\n", args[0])
+}
+
+func runOrchestrateLoop(args []string) {
+	fs := flag.NewFlagSet("orchestrate-loop", flag.ExitOnError)
+	cycles := fs.Int("cycles", 1, "number of cycles to run")
+	interval := fs.Duration("interval", 0, "interval between cycles")
+	_ = fs.Parse(args)
+
+	store := openStore()
+	projectRoot := store.ProjectRoot
+	ctx := context.Background()
+
+	err := executor.RunOrchestrateLoopV2(ctx, store, projectRoot, *interval, *cycles)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: orchestrate loop: %v\n", err)
+		os.Exit(1)
+	}
 }

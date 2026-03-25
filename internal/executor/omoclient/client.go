@@ -82,7 +82,9 @@ func (c *OmOServeClient) GetSession(id string) (*SessionInfo, error) {
 	return &session, nil
 }
 
-// ListSessions returns all active sessions
+// ListSessions returns all active sessions.
+// Note: opencode serve is a WebSocket/SSE server, not REST. This is used
+// only as a health check (can we connect?) — it always returns empty.
 func (c *OmOServeClient) ListSessions() ([]SessionInfo, error) {
 	resp, err := c.client.Get(c.baseURL + "/session")
 	if err != nil {
@@ -90,17 +92,14 @@ func (c *OmOServeClient) ListSessions() ([]SessionInfo, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("list sessions failed: status %d, body: %s", resp.StatusCode, string(respBody))
+	// Any response (even HTML fallback) means the server is reachable.
+	// Don't try to parse as JSON — opencode serve doesn't have a REST /session endpoint.
+	if resp.StatusCode == http.StatusOK {
+		return nil, nil
 	}
 
-	var sessions []SessionInfo
-	if err := json.NewDecoder(resp.Body).Decode(&sessions); err != nil {
-		return nil, fmt.Errorf("decode list sessions response: %w", err)
-	}
-
-	return sessions, nil
+	respBody, _ := io.ReadAll(resp.Body)
+	return nil, fmt.Errorf("list sessions failed: status %d, body: %s", resp.StatusCode, string(respBody))
 }
 
 // DeleteSession deletes a session by ID

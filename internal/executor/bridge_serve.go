@@ -13,8 +13,7 @@ import (
 	"sdp_dev/internal/control"
 	"sdp_dev/internal/deploy"
 	"sdp_dev/internal/executor/omoclient"
-	"sdp_dev/internal/orchestrate"
-)
+	)
 
 // ServeBridge connects SDP dispatch to OmO via opencode serve (REST+SSE).
 // This replaces ExecutorBridge which used exec.CommandContext.
@@ -127,28 +126,13 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 		_ = beadsRepo.SetExecutorState(cardID, "omo-implementation", sessionID, "running")
 	}
 
-	// Select invoker: try ServeInvoker first, fallback to exec
-	var invoker orchestrate.LLMInvoker
-	_ = false
-	if b.serveURL() != "" {
-		logger := log.New(log.Writer(), "[serve-bridge] ", log.LstdFlags)
-		serveInv := omoclient.NewServeInvoker(b.serveURL(), logger)
-		// Quick health check — if serve is running, use it
-		if running, _ := serveInv.Status(); running {
-			invoker = serveInv
-
-		}
-	}
-	if invoker == nil {
-		invoker = orchestrate.DefaultLLMInvoker
-	}
 	phase := card.TaskType
 	if strings.TrimSpace(phase) == "" {
 		phase = "build"
 	}
 	agent := ResolveAgent(phase)
 
-	output, exitCode, invokeErr := invoker.Invoke(ctx, b.ProjectRoot, agent, governedPrompt)
+	output, exitCode, invokeErr := InvokeWithFallback(ctx, b.ProjectRoot, agent, governedPrompt)
 
 	// Build result
 	result := translateResult(packet, output, exitCode)

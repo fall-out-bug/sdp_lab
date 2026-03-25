@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,7 +12,6 @@ import (
 	"time"
 
 	"sdp_dev/internal/control"
-	"sdp_dev/internal/executor/omoclient"
 )
 
 const (
@@ -267,12 +265,12 @@ func parseEvalResult(raw string, cfg EvaluatorConfig, localPassed map[string]boo
 		}
 	}
 	result.Findings = dedupeStrings(append(localFindings, result.Findings...))
-	score, hardFailure := scoreCriteria(cfg.Criteria, result.Passed)
+	score, _ := scoreCriteria(cfg.Criteria, result.Passed)
 	if result.Score <= 0 || result.Score > 1 {
 		result.Score = score
 	}
 	if result.Verdict == "" || (result.Verdict != evalVerdictPass && result.Verdict != evalVerdictFail && result.Verdict != evalVerdictNeedsReview) {
-		result.Verdict = verdictForScore(result.Score, hardFailure)
+		result.Verdict = verdictForScore(result.Score, false)
 	}
 	return result
 }
@@ -344,20 +342,10 @@ func EvaluateBuild(ctx context.Context, projectRoot string, card *control.Featur
 	}
 
 	prompt := BuildEvaluationPrompt(cfg.Model, card, evidence, changed, gitDiff(projectRoot))
-	logger := log.New(log.Writer(), "[evaluator] ", log.LstdFlags)
-	invoker := omoclient.NewServeInvoker(strings.TrimSpace(os.Getenv("OMO_SERVE_URL")), logger)
-	running, ready := invoker.Status()
-	if !running || !ready {
-		score, hardFailure := scoreCriteria(cfg.Criteria, passed)
-		result := EvalResult{Verdict: evalVerdictBlocked, Score: score, Findings: dedupeStrings(append(findings, "OmO serve unavailable — cannot verify code quality, pipeline blocked"))}
-		_ = hardFailure
-		return result, nil
-	}
-
-	raw, exitCode, invokeErr := invoker.Invoke(ctx, projectRoot, "sisyphus", prompt)
+	raw, exitCode, invokeErr := InvokeWithFallback(ctx, projectRoot, "sisyphus", prompt)
 	if invokeErr != nil || exitCode != 0 {
 		score, _ := scoreCriteria(cfg.Criteria, passed)
-		return EvalResult{Verdict: evalVerdictBlocked, Score: score, Findings: dedupeStrings(append(findings, fmt.Sprintf("OmO serve evaluation failed: %v — pipeline blocked", invokeErr))), Passed: passed, RawFeedback: raw}, nil
+		return EvalResult{Verdict: evalVerdictBlocked, Score: score, Findings: dedupeStrings(append(findings, fmt.Sprintf("evaluation failed: %v", invokeErr)))}, nil
 	}
 
 	result := parseEvalResult(raw, cfg, passed, findings)
