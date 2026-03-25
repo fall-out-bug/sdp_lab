@@ -288,6 +288,20 @@ func (b *ServeBridge) RecordEvalFindings(cardID string, result EvalResult) error
 	return nil
 }
 
+func (b *ServeBridge) Summarize(ctx context.Context, cardID string) (SummaryResult, error) {
+	if b == nil {
+		return SummaryResult{}, fmt.Errorf("nil serve bridge")
+	}
+	summary, err := SummarizeCard(ctx, b.ProjectRoot, cardID)
+	if err != nil {
+		return SummaryResult{}, err
+	}
+	if err := saveSummary(b.ProjectRoot, cardID, summary); err != nil {
+		return SummaryResult{}, err
+	}
+	return summary, nil
+}
+
 func extractArtifactReferences(artifacts []control.ExecutorArtifact) []string {
 	refs := make([]string, 0, len(artifacts))
 	for _, artifact := range artifacts {
