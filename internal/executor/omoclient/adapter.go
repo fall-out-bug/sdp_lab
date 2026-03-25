@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"strings"
 	"time"
 )
@@ -37,7 +38,7 @@ func (s *ServeInvoker) Invoke(ctx context.Context, dir, agent, prompt string) (s
 		Session: sessionID,
 	})
 	if err != nil {
-		return "", 1, fmt.Errorf("create session: %w", err)
+		return "", 1, fmt.Errorf("create session: %w (serve API unavailable, use exec mode)")
 	}
 	defer func() {
 		_ = s.client.DeleteSession(sessionID)
@@ -45,7 +46,14 @@ func (s *ServeInvoker) Invoke(ctx context.Context, dir, agent, prompt string) (s
 
 	resp, err := s.client.SendMessageStream(prompt)
 	if err != nil {
-		return "", 1, fmt.Errorf("send message stream: %w", err)
+		return "", 1, fmt.Errorf("send message stream: %w")
+	}
+	defer resp.Body.Close()
+
+	// Check if response is HTML (SPA fallback) — means API not available
+	ct := resp.Header.Get("Content-Type")
+	if strings.Contains(ct, "text/html") {
+		return "", 1, fmt.Errorf("serve returned HTML instead of SSE — API not available, use exec mode")
 	}
 	defer resp.Body.Close()
 
@@ -112,6 +120,29 @@ func (s *ServeInvoker) StopSupervisor(gracePeriod time.Duration) error {
 }
 
 // Status returns the supervisor status
+// Status checks if opencode serve is reachable.
+// First checks internal supervisor state, then falls back to TCP probe.
 func (s *ServeInvoker) Status() (running bool, ready bool) {
-	return s.supervisor.Status()
+	r, re := s.supervisor.Status()
+	if r {
+		return r, re
+	}
+	// Fallback: TCP probe to check if serve is running externally
+	return s.httpProbe()
+}
+
+// httpProbe checks if the serve URL is reachable via TCP connection.
+func (s *ServeInvoker) httpProbe() (running bool, ready bool) {
+	baseURL := strings.TrimPrefix(s.client.baseURL, "http://")
+	baseURL = strings.TrimPrefix(baseURL, "https://")
+	// Strip path, keep host:port
+	if idx := strings.Index(baseURL, "/"); idx >= 0 {
+		baseURL = baseURL[:idx]
+	}
+	conn, err := net.DialTimeout("tcp", baseURL, 3*time.Second)
+	if err != nil {
+		return false, false
+	}
+	conn.Close()
+	return true, true
 }

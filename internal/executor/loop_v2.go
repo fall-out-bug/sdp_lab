@@ -45,6 +45,69 @@ func RunOrchestrateLoopV2(ctx context.Context, store *control.Store, projectRoot
 				logger.Info("v1 dispatch", "cycle", cycles, "action", result.Action)
 			}
 		} else if cardID != "" {
+			card, loadErr := bridge.Store.LoadCard("", cardID)
+			if loadErr != nil {
+				logger.Error("load card before clarification failed", "card_id", cardID, "error", loadErr)
+				continue
+			}
+
+			clarifyResult, clarifyErr := bridge.Clarify(ctx, card)
+			if clarifyErr != nil {
+				logger.Error("clarification failed", "card_id", cardID, "error", clarifyErr)
+				continue
+			}
+			switch clarifyResult.Status {
+			case "needs_clarification":
+				logger.Info("card needs human clarification", "card_id", cardID, "questions", clarifyResult.Questions)
+				if err := bridge.RecordClarification(cardID, clarifyResult); err != nil {
+					logger.Error("failed to record clarification", "card_id", cardID, "error", err)
+				} else if summary, sumErr := bridge.Summarize(ctx, cardID); sumErr != nil {
+					logger.Warn("failed to summarize clarification", "card_id", cardID, "error", sumErr)
+				} else {
+					logger.Info("clarification summary", "card_id", cardID, "summary", summary.Text)
+				}
+				continue
+			case "error":
+				logger.Error("clarifier error", "card_id", cardID, "questions", clarifyResult.Questions)
+				continue
+			case "ready":
+				if clarifyResult.Card != nil && !isAlreadyClarified(card) {
+					if err := bridge.Store.SaveCard(clarifyResult.Card); err != nil {
+						logger.Error("failed to persist clarified card", "card_id", cardID, "error", err)
+						continue
+					}
+				}
+			}
+
+			// Plan step - generate implementation plan before dispatch
+			card, loadErr = bridge.Store.LoadCard("", cardID)
+			if loadErr != nil {
+				logger.Error("load card before planning failed", "card_id", cardID, "error", loadErr)
+				continue
+			}
+			planResult, planErr := bridge.GeneratePlan(ctx, card)
+			if planErr != nil {
+				logger.Error("plan generation failed", "card_id", cardID, "error", planErr)
+				continue
+			}
+			switch planResult.Status {
+			case "pending_approval":
+				logger.Info("plan needs human approval", "card_id", cardID)
+				if err := bridge.RecordPlan(cardID, planResult); err != nil {
+					logger.Error("failed to record plan", "card_id", cardID, "error", err)
+				}
+				continue
+			case "error":
+				logger.Error("planner error", "card_id", cardID)
+				continue
+			case "approved":
+				logger.Info("plan already approved", "card_id", cardID)
+			case "generated":
+				if err := bridge.RecordPlan(cardID, planResult); err != nil {
+					logger.Error("failed to record generated plan", "card_id", cardID, "error", err)
+				}
+			}
+
 			logger.Info("dispatching beads card", "cycle", cycles, "card_id", cardID)
 			result, execErr := bridge.DispatchAndRun(ctx, "", cardID)
 			if execErr != nil {
@@ -52,10 +115,40 @@ func RunOrchestrateLoopV2(ctx context.Context, store *control.Store, projectRoot
 			} else {
 				logger.Info("serve bridge completed", "card_id", cardID, "status", result.Status)
 
-				// Auto-initiate deploy phase on successful build
 				if result.Status == control.ResultStatusSuccess {
-					if deployErr := bridge.TryDeployPhase(ctx, cardID, projectRoot); deployErr != nil {
-						logger.Warn("deploy phase skipped", "card_id", cardID, "error", deployErr)
+					evalResult, evalErr := bridge.Evaluate(ctx, cardID)
+					if evalErr != nil {
+						logger.Error("evaluation error — pipeline blocked", "card_id", cardID, "error", evalErr)
+						continue
+					}
+
+					summary, sumErr := bridge.Summarize(ctx, cardID)
+					if sumErr != nil {
+						logger.Warn("failed to summarize evaluation", "card_id", cardID, "error", sumErr)
+					} else {
+						logger.Info("evaluation summary", "card_id", cardID, "summary", summary.Text)
+					}
+
+					if evalResult.Verdict == evalVerdictFail || evalResult.Verdict == evalVerdictBlocked {
+						logger.Info("evaluation blocked/failed", "card_id", cardID, "verdict", evalResult.Verdict, "score", evalResult.Score)
+						if err := bridge.RecordEvalFindings(cardID, evalResult); err != nil {
+							logger.Warn("failed to record evaluation findings", "card_id", cardID, "error", err)
+						}
+						continue
+					}
+
+					if evalResult.Verdict == evalVerdictNeedsReview {
+						logger.Info("evaluation needs review — awaiting human", "card_id", cardID, "score", evalResult.Score)
+						if err := bridge.RecordEvalFindings(cardID, evalResult); err != nil {
+							logger.Warn("failed to record evaluation findings", "card_id", cardID, "error", err)
+						}
+						continue
+					}
+
+					if evalResult.Verdict == evalVerdictPass {
+						if deployErr := bridge.TryDeployPhase(ctx, cardID, projectRoot); deployErr != nil {
+							logger.Warn("deploy phase skipped", "card_id", cardID, "error", deployErr)
+						}
 					}
 				}
 			}

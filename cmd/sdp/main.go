@@ -53,6 +53,14 @@ func main() {
 		runStatus(os.Args[2:])
 	case "stuck":
 		runStuck(os.Args[2:])
+	case "eval":
+		runEval(os.Args[2:])
+	case "clarify":
+		runClarify(os.Args[2:])
+	case "plan":
+		runPlan(os.Args[2:])
+	case "approve-plan":
+		runApprovePlan(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -97,6 +105,10 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  sdp intent \"description\"   Create intake card from raw intent")
 	fmt.Fprintln(os.Stderr, "  sdp status <card-id>        Show card status and phase")
 	fmt.Fprintln(os.Stderr, "  sdp stuck                  Show stuck/long-running cards")
+	fmt.Fprintln(os.Stderr, "  sdp eval <card-id>         Run build evaluation manually")
+	fmt.Fprintln(os.Stderr, "  sdp clarify <card-id>      Run clarification manually")
+	fmt.Fprintln(os.Stderr, "  sdp plan <card-id>         Show plan for a card")
+	fmt.Fprintln(os.Stderr, "  sdp approve-plan <card-id> Approve a pending plan")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Other:")
 	fmt.Fprintln(os.Stderr, "  sdp attention")
@@ -766,6 +778,8 @@ func runOrchestrate(args []string) {
 		os.Exit(2)
 	}
 	switch args[0] {
+	case "loop":
+		runOrchestrateLoop(args[1:])
 	case "once":
 		runOrchestrateOnce(args[1:])
 	default:
@@ -933,7 +947,6 @@ func runTrace(args []string) {
 	}
 }
 
-
 func runDeploy(args []string) {
 	if len(args) < 2 {
 		fmt.Fprintln(os.Stderr, "usage: sdp deploy <staging|prod|rollback> [args...]")
@@ -1048,6 +1061,50 @@ func runIntent(args []string) {
 	printJSON(card)
 }
 
+func runEval(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: sdp eval <card-id>")
+		os.Exit(2)
+	}
+	store := openStore()
+	bridge := executor.NewServeBridge(store, store.ProjectRoot)
+	result, err := bridge.Evaluate(context.Background(), args[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: evaluate card: %v\n", err)
+		os.Exit(1)
+	}
+	printJSON(result)
+}
+
+func runClarify(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: sdp clarify <card-id>")
+		os.Exit(2)
+	}
+	store := openStore()
+	card, err := store.LoadCardByID(args[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: load card: %v\n", err)
+		os.Exit(1)
+	}
+	bridge := executor.NewServeBridge(store, store.ProjectRoot)
+	result, err := bridge.Clarify(context.Background(), card)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: clarify card: %v\n", err)
+		os.Exit(1)
+	}
+	if result.Status == "needs_clarification" {
+		fmt.Printf("❓ Card %s needs clarification\n", card.ID)
+		for _, q := range result.Questions {
+			fmt.Printf(" - %s\n", q)
+		}
+	} else if result.Card != nil {
+		printJSON(result.Card)
+		return
+	}
+	printJSON(result)
+}
+
 func runStatus(args []string) {
 	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, "usage: sdp status <card-id>")
@@ -1071,4 +1128,74 @@ func runStatus(args []string) {
 		fmt.Printf("   Result: %s\n", card.ExecutorResult.Status)
 	}
 	printJSON(card)
+}
+
+func runPlan(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: sdp plan <card-id>")
+		os.Exit(2)
+	}
+	store := openStore()
+	plan, err := executor.LoadPlan(store.ProjectRoot, args[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: load plan: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("📋 Plan for card %s\n", args[0])
+	fmt.Printf("   Status: %s\n", plan.Status)
+	if plan.Approach != "" {
+		fmt.Printf("   Approach: %s\n", plan.Approach)
+	}
+	if len(plan.FilesToChange) > 0 {
+		fmt.Println("   Files to change:")
+		for _, f := range plan.FilesToChange {
+			fmt.Printf("     - %s\n", f)
+		}
+	}
+	if len(plan.TestsToWrite) > 0 {
+		fmt.Println("   Tests to write:")
+		for _, t := range plan.TestsToWrite {
+			fmt.Printf("     - %s\n", t)
+		}
+	}
+	if plan.RiskAssessment != "" {
+		fmt.Printf("   Risk: %s\n", plan.RiskAssessment)
+	}
+	if plan.EstimatedSteps > 0 {
+		fmt.Printf("   Estimated steps: %d\n", plan.EstimatedSteps)
+	}
+	if plan.ApprovalPending {
+		fmt.Println("   ⏳ Awaiting approval")
+	}
+	printJSON(plan)
+}
+
+func runApprovePlan(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: sdp approve-plan <card-id>")
+		os.Exit(2)
+	}
+	store := openStore()
+	if err := executor.ApprovePlan(store, store.ProjectRoot, args[0]); err != nil {
+		fmt.Fprintf(os.Stderr, "error: approve plan: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("✅ Plan approved for card %s\n", args[0])
+}
+
+func runOrchestrateLoop(args []string) {
+	fs := flag.NewFlagSet("orchestrate-loop", flag.ExitOnError)
+	cycles := fs.Int("cycles", 1, "number of cycles to run")
+	interval := fs.Duration("interval", 0, "interval between cycles")
+	_ = fs.Parse(args)
+
+	store := openStore()
+	projectRoot := store.ProjectRoot
+	ctx := context.Background()
+
+	err := executor.RunOrchestrateLoopV2(ctx, store, projectRoot, *interval, *cycles)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: orchestrate loop: %v\n", err)
+		os.Exit(1)
+	}
 }

@@ -7,32 +7,38 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"sdp_dev/internal/control"
 	"sdp_dev/internal/deploy"
 	"sdp_dev/internal/executor/omoclient"
-	"sdp_dev/internal/orchestrate"
-)
+	)
 
 // ServeBridge connects SDP dispatch to OmO via opencode serve (REST+SSE).
 // This replaces ExecutorBridge which used exec.CommandContext.
 type ServeBridge struct {
-	Store           *control.Store
-	ProjectRoot     string
-	OmOServeURL     string           // base URL for opencode serve (default "http://127.0.0.1:4096")
-	MaxConcurrent   int              // max concurrent dispatches (default 3)
-	Governance      *omoclient.GovernanceConfig
+	Store         *control.Store
+	ProjectRoot   string
+	OmOServeURL   string // base URL for opencode serve (default "http://127.0.0.1:4096")
+	MaxConcurrent int    // max concurrent dispatches (default 3)
+	Governance    *omoclient.GovernanceConfig
+	Evaluator     EvaluatorConfig
+	Clarifier     ClarifierConfig
+	Planner       PlannerConfig
 }
 
 // NewServeBridge creates a new serve-mode bridge.
 func NewServeBridge(store *control.Store, projectRoot string) *ServeBridge {
 	return &ServeBridge{
-		Store:       store,
-		ProjectRoot: projectRoot,
-		OmOServeURL: os.Getenv("OMO_SERVE_URL"),
+		Store:         store,
+		ProjectRoot:   projectRoot,
+		OmOServeURL:   os.Getenv("OMO_SERVE_URL"),
 		MaxConcurrent: 3,
-		Governance:   omoclient.DefaultGovernanceConfig(),
+		Governance:    omoclient.DefaultGovernanceConfig(),
+		Evaluator:     DefaultEvaluatorConfig(),
+		Clarifier:     DefaultClarifierConfig(),
+		Planner:       DefaultPlannerConfig(),
 	}
 }
 
@@ -120,24 +126,13 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 		_ = beadsRepo.SetExecutorState(cardID, "omo-implementation", sessionID, "running")
 	}
 
-	// Select invoker: try ServeInvoker first, fallback to exec
-	var invoker orchestrate.LLMInvoker
-	_ = false
-	if b.serveURL() != "" {
-		logger := log.New(log.Writer(), "[serve-bridge] ", log.LstdFlags)
-		serveInv := omoclient.NewServeInvoker(b.serveURL(), logger)
-		// Quick health check — if serve is running, use it
-		if running, _ := serveInv.Status(); running {
-			invoker = serveInv
-			
-		}
+	phase := card.TaskType
+	if strings.TrimSpace(phase) == "" {
+		phase = "build"
 	}
-	if invoker == nil {
-		invoker = orchestrate.DefaultLLMInvoker
-	}
-	agent := mapExecutorRoleToSisyphus(packet.ExecutorRole)
+	agent := ResolveAgent(phase)
 
-	output, exitCode, invokeErr := invoker.Invoke(ctx, b.ProjectRoot, agent, governedPrompt)
+	output, exitCode, invokeErr := InvokeWithFallback(ctx, b.ProjectRoot, agent, governedPrompt)
 
 	// Build result
 	result := translateResult(packet, output, exitCode)
@@ -153,7 +148,9 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 			"exit_code":     exitCode,
 			"status":        result.Status,
 			"summary":       result.Summary,
-			"files_changed": result.Artifacts,
+			"files_changed": extractArtifactReferences(result.Artifacts),
+			"artifacts":     result.Artifacts,
+			"findings":      result.Findings,
 		}, "", "  ")
 		_ = os.MkdirAll(filepath.Dir(evidencePath), 0o755)
 		_ = os.WriteFile(evidencePath, evidenceJSON, 0o644)
@@ -216,7 +213,7 @@ func (b *ServeBridge) cardToEnvelope(card *control.FeatureCard) omoclient.TaskEn
 	return omoclient.TaskEnvelope{
 		TaskID:      card.ID,
 		Phase:       phase,
-		EntryAgent:  "sisyphus",
+		EntryAgent:  ResolveAgent(phase),
 		Objective:   card.NormalizedIntent,
 		ScopeIn:     card.ScopeIn,
 		ScopeOut:    card.ScopeOut,
@@ -226,10 +223,9 @@ func (b *ServeBridge) cardToEnvelope(card *control.FeatureCard) omoclient.TaskEn
 	}
 }
 
-// mapExecutorRoleToSisyphus always routes through sisyphus (orchestrator).
+// mapExecutorRoleToSisyphus resolves the OmO agent for the requested SDP role/phase.
 func mapExecutorRoleToSisyphus(role string) string {
-	// OmO decision: always sisyphus, never SDP-local agents
-	return "sisyphus"
+	return ResolveAgent(role)
 }
 
 // DeployProjectRoot is the project root for deploy operations.
@@ -243,6 +239,68 @@ func (b *ServeBridge) deployProjectRoot() string {
 
 // TryDeployPhase checks if a card is ready for deploy and initiates staging.
 // Deploy is a lifecycle phase, not a separate command.
+func (b *ServeBridge) Evaluate(ctx context.Context, cardID string) (EvalResult, error) {
+	card, err := b.Store.LoadCardByID(cardID)
+	if err != nil {
+		return EvalResult{}, fmt.Errorf("load card for evaluation: %w", err)
+	}
+	result, err := EvaluateBuild(ctx, b.ProjectRoot, card, b.Evaluator)
+	if err != nil {
+		return EvalResult{}, err
+	}
+	if result.Verdict == evalVerdictBlocked {
+		return result, nil
+	}
+	if path, saveErr := saveEvaluationEvidence(b.ProjectRoot, cardID, result); saveErr == nil {
+		if beadsRepo := b.Store.BeadsRepo(); beadsRepo != nil {
+			_ = beadsRepo.LinkEvidence(cardID, "evaluation", []string{path})
+		}
+	}
+	return result, nil
+}
+
+func (b *ServeBridge) RecordEvalFindings(cardID string, result EvalResult) error {
+	card, err := b.Store.LoadCardByID(cardID)
+	if err != nil {
+		return fmt.Errorf("load card for evaluation findings: %w", err)
+	}
+	if len(result.Findings) > 0 {
+		card.AdminActionRequired = appendUnique(card.AdminActionRequired, result.Findings...)
+		card.BlockingReasons = appendUnique(card.BlockingReasons, result.Findings...)
+	}
+	card.RecommendedNextAction = "retry_dispatch"
+	card.RecommendedNextReason = fmt.Sprintf("evaluation verdict=%s score=%.2f", result.Verdict, result.Score)
+	card.ExecutorProgressSummary = card.RecommendedNextReason
+	if err := b.Store.SaveCard(card); err != nil {
+		return fmt.Errorf("save evaluation findings: %w", err)
+	}
+	return nil
+}
+
+func (b *ServeBridge) Summarize(ctx context.Context, cardID string) (SummaryResult, error) {
+	if b == nil {
+		return SummaryResult{}, fmt.Errorf("nil serve bridge")
+	}
+	summary, err := SummarizeCard(ctx, b.ProjectRoot, cardID)
+	if err != nil {
+		return SummaryResult{}, err
+	}
+	if err := saveSummary(b.ProjectRoot, cardID, summary); err != nil {
+		return SummaryResult{}, err
+	}
+	return summary, nil
+}
+
+func extractArtifactReferences(artifacts []control.ExecutorArtifact) []string {
+	refs := make([]string, 0, len(artifacts))
+	for _, artifact := range artifacts {
+		if strings.TrimSpace(artifact.Reference) != "" {
+			refs = append(refs, strings.TrimSpace(artifact.Reference))
+		}
+	}
+	return refs
+}
+
 func (b *ServeBridge) TryDeployPhase(ctx context.Context, cardID, projectRoot string) error {
 	beadsRepo := b.Store.BeadsRepo()
 	if beadsRepo == nil {
@@ -281,12 +339,12 @@ func (b *ServeBridge) TryDeployPhase(ctx context.Context, cardID, projectRoot st
 
 	// Record deploy evidence
 	_ = b.Store.RecordDeployEvidence(cardID, control.DeployPhaseStaging, map[string]any{
-		"image_tag":    deployResult.ImageTag,
-		"duration":     deployResult.Duration,
-		"smoke_test":   deployResult.SmokeTest,
-		"containers":   deployResult.Containers,
-		"ci_gate":      ciGate,
-		"human_gate":   humanGate,
+		"image_tag":  deployResult.ImageTag,
+		"duration":   deployResult.Duration,
+		"smoke_test": deployResult.SmokeTest,
+		"containers": deployResult.Containers,
+		"ci_gate":    ciGate,
+		"human_gate": humanGate,
 	})
 
 	_ = beadsRepo.SetExecutorState(cardID, "deploy-staging", "", "staging-complete")

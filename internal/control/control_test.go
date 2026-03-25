@@ -20,6 +20,12 @@ func setupStore(t *testing.T) *Store {
 	if err := os.WriteFile(filepath.Join(root, "docs", "specs", "project-registry.yaml"), registry, 0o644); err != nil {
 		t.Fatal(err)
 	}
+
+	SetCreateBeadsIssueFn(MockCreateBeadsIssue("bd-test-123"))
+	t.Cleanup(func() {
+		SetCreateBeadsIssueFn(createBeadsIssue)
+	})
+
 	store, err := Open(root)
 	if err != nil {
 		t.Fatal(err)
