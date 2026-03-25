@@ -45,6 +45,36 @@ func RunOrchestrateLoopV2(ctx context.Context, store *control.Store, projectRoot
 				logger.Info("v1 dispatch", "cycle", cycles, "action", result.Action)
 			}
 		} else if cardID != "" {
+			card, loadErr := bridge.Store.LoadCard("", cardID)
+			if loadErr != nil {
+				logger.Error("load card before clarification failed", "card_id", cardID, "error", loadErr)
+				continue
+			}
+
+			clarifyResult, clarifyErr := bridge.Clarify(ctx, card)
+			if clarifyErr != nil {
+				logger.Error("clarification failed", "card_id", cardID, "error", clarifyErr)
+				continue
+			}
+			switch clarifyResult.Status {
+			case "needs_clarification":
+				logger.Info("card needs human clarification", "card_id", cardID, "questions", clarifyResult.Questions)
+				if err := bridge.RecordClarification(cardID, clarifyResult); err != nil {
+					logger.Error("failed to record clarification", "card_id", cardID, "error", err)
+				}
+				continue
+			case "error":
+				logger.Error("clarifier error", "card_id", cardID, "questions", clarifyResult.Questions)
+				continue
+			case "ready":
+				if clarifyResult.Card != nil && !isAlreadyClarified(card) {
+					if err := bridge.Store.SaveCard(clarifyResult.Card); err != nil {
+						logger.Error("failed to persist clarified card", "card_id", cardID, "error", err)
+						continue
+					}
+				}
+			}
+
 			logger.Info("dispatching beads card", "cycle", cycles, "card_id", cardID)
 			result, execErr := bridge.DispatchAndRun(ctx, "", cardID)
 			if execErr != nil {
