@@ -20,7 +20,7 @@ const (
 	evalVerdictPass        = "pass"
 	evalVerdictFail        = "fail"
 	evalVerdictNeedsReview = "needs_review"
-	evalVerdictSkip        = "skip"
+	evalVerdictBlocked     = "blocked" // OmO unavailable or no evidence — hard fail
 )
 
 type EvaluatorConfig struct {
@@ -317,7 +317,7 @@ func EvaluateBuild(ctx context.Context, projectRoot string, card *control.Featur
 		return EvalResult{}, fmt.Errorf("nil card")
 	}
 	if !cfg.Enabled {
-		return EvalResult{Verdict: evalVerdictSkip}, nil
+		return EvalResult{Verdict: evalVerdictFail, Findings: []string{"evaluator is disabled; treating as hard fail"}}, nil
 	}
 
 	evidence, _, err := loadBuildEvidence(projectRoot, card.ID)
@@ -325,7 +325,7 @@ func EvaluateBuild(ctx context.Context, projectRoot string, card *control.Featur
 		return EvalResult{}, err
 	}
 	if evidence == nil {
-		return EvalResult{Verdict: evalVerdictSkip, Findings: []string{"build evidence not found"}}, nil
+		return EvalResult{Verdict: evalVerdictBlocked, Findings: []string{"build evidence not found — cannot evaluate"}}, nil
 	}
 
 	passed := map[string]bool{}
@@ -349,8 +349,7 @@ func EvaluateBuild(ctx context.Context, projectRoot string, card *control.Featur
 	running, ready := invoker.Status()
 	if !running || !ready {
 		score, hardFailure := scoreCriteria(cfg.Criteria, passed)
-		result := EvalResult{Verdict: evalVerdictSkip, Score: score, Findings: dedupeStrings(append(findings, "OmO serve unavailable; evaluation skipped")), Passed: passed}
-		result.Verdict = evalVerdictSkip
+		result := EvalResult{Verdict: evalVerdictBlocked, Score: score, Findings: dedupeStrings(append(findings, "OmO serve unavailable — cannot verify code quality, pipeline blocked"))}
 		_ = hardFailure
 		return result, nil
 	}
@@ -358,7 +357,7 @@ func EvaluateBuild(ctx context.Context, projectRoot string, card *control.Featur
 	raw, exitCode, invokeErr := invoker.Invoke(ctx, projectRoot, "sisyphus", prompt)
 	if invokeErr != nil || exitCode != 0 {
 		score, _ := scoreCriteria(cfg.Criteria, passed)
-		return EvalResult{Verdict: evalVerdictSkip, Score: score, Findings: dedupeStrings(append(findings, "OmO serve evaluation failed; skipped")), Passed: passed, RawFeedback: raw}, nil
+		return EvalResult{Verdict: evalVerdictBlocked, Score: score, Findings: dedupeStrings(append(findings, fmt.Sprintf("OmO serve evaluation failed: %v — pipeline blocked", invokeErr))), Passed: passed, RawFeedback: raw}, nil
 	}
 
 	result := parseEvalResult(raw, cfg, passed, findings)

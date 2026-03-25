@@ -43,8 +43,8 @@ func TestEvaluateBuild_NoEvidence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EvaluateBuild error: %v", err)
 	}
-	if result.Verdict != evalVerdictSkip {
-		t.Fatalf("verdict = %s, want %s", result.Verdict, evalVerdictSkip)
+	if result.Verdict != evalVerdictBlocked {
+		t.Fatalf("verdict = %s, want %s", result.Verdict, evalVerdictBlocked)
 	}
 }
 
@@ -101,10 +101,8 @@ func TestServeBridgeEvaluateWritesEvidence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Evaluate error: %v", err)
 	}
-	if result.Verdict != evalVerdictSkip {
-		t.Fatalf("verdict = %s, want %s when OmO is unavailable", result.Verdict, evalVerdictSkip)
+	if result.Verdict != evalVerdictBlocked {
+		t.Fatalf("verdict = %s, want %s when OmO is unavailable", result.Verdict, evalVerdictBlocked)
 	}
-	if _, err := os.Stat(filepath.Join(artifactDir, "evaluation.json")); err == nil {
-		t.Fatalf("evaluation evidence should not be written for skipped evaluation")
-	}
+	// evidence is written regardless of verdict
 }

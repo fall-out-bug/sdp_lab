@@ -257,7 +257,7 @@ func (b *ServeBridge) Evaluate(ctx context.Context, cardID string) (EvalResult, 
 	if err != nil {
 		return EvalResult{}, err
 	}
-	if result.Verdict == evalVerdictSkip {
+	if result.Verdict == evalVerdictBlocked {
 		return result, nil
 	}
 	if path, saveErr := saveEvaluationEvidence(b.ProjectRoot, cardID, result); saveErr == nil {
