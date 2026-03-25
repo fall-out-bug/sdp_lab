@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"text/tabwriter"
 
 	"sdp_dev/internal/cli"
 	"sdp_dev/internal/control"
@@ -57,6 +58,8 @@ func main() {
 		runEval(os.Args[2:])
 	case "clarify":
 		runClarify(os.Args[2:])
+	case "roles":
+		runRoles(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -64,7 +67,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention> <subcommand> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention|roles> <subcommand> [flags]")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Card commands:")
 	fmt.Fprintln(os.Stderr, "  sdp card <create|show|clarify|needs-input|ready|park|execute|heartbeat|feedback|feedback-export|message-export|resume|resume-import|reply-ingest|deliver>")
@@ -106,6 +109,22 @@ func usage() {
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Other:")
 	fmt.Fprintln(os.Stderr, "  sdp attention")
+	fmt.Fprintln(os.Stderr, "  sdp roles")
+}
+
+func runRoles(args []string) {
+	fs := flag.NewFlagSet("roles", flag.ExitOnError)
+	_ = fs.Parse(args)
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "PHASE\tAGENT\tDESCRIPTION")
+	for _, role := range executor.PhaseRoleMap {
+		fmt.Fprintf(w, "%s\t%s\t%s\n", role.Phase, role.Agent, role.Description)
+	}
+	if override := strings.TrimSpace(os.Getenv("SDP_DEFAULT_AGENT")); override != "" {
+		fmt.Fprintf(w, "*\t%s\tSDP_DEFAULT_AGENT override\n", override)
+	}
+	_ = w.Flush()
 }
 
 func openStore() *control.Store {

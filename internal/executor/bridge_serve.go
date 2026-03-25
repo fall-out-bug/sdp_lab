@@ -140,7 +140,11 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 	if invoker == nil {
 		invoker = orchestrate.DefaultLLMInvoker
 	}
-	agent := mapExecutorRoleToSisyphus(packet.ExecutorRole)
+	phase := card.TaskType
+	if strings.TrimSpace(phase) == "" {
+		phase = "build"
+	}
+	agent := ResolveAgent(phase)
 
 	output, exitCode, invokeErr := invoker.Invoke(ctx, b.ProjectRoot, agent, governedPrompt)
 
@@ -223,7 +227,7 @@ func (b *ServeBridge) cardToEnvelope(card *control.FeatureCard) omoclient.TaskEn
 	return omoclient.TaskEnvelope{
 		TaskID:      card.ID,
 		Phase:       phase,
-		EntryAgent:  "sisyphus",
+		EntryAgent:  ResolveAgent(phase),
 		Objective:   card.NormalizedIntent,
 		ScopeIn:     card.ScopeIn,
 		ScopeOut:    card.ScopeOut,
@@ -233,10 +237,9 @@ func (b *ServeBridge) cardToEnvelope(card *control.FeatureCard) omoclient.TaskEn
 	}
 }
 
-// mapExecutorRoleToSisyphus always routes through sisyphus (orchestrator).
+// mapExecutorRoleToSisyphus resolves the OmO agent for the requested SDP role/phase.
 func mapExecutorRoleToSisyphus(role string) string {
-	// OmO decision: always sisyphus, never SDP-local agents
-	return "sisyphus"
+	return ResolveAgent(role)
 }
 
 // DeployProjectRoot is the project root for deploy operations.
