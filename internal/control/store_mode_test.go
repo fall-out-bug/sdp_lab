@@ -15,7 +15,7 @@ func setupProjectDir(t *testing.T) string {
 		".sdp/control/projects",
 	}
 	for _, d := range dirs {
-		os.MkdirAll(filepath.Join(dir, d), 0o755)
+		_ = os.MkdirAll(filepath.Join(dir, d), 0o755)
 	}
 	// Create project registry
 	os.WriteFile(filepath.Join(dir, "docs/specs/project-registry.yaml"), []byte("projects: []"), 0o644)
@@ -42,7 +42,7 @@ func TestOpenWithMode_FileMode(t *testing.T) {
 func TestOpenWithMode_BeadsMode(t *testing.T) {
 	dir := setupProjectDir(t)
 	bdDir := filepath.Join(dir, ".beads-worktrees", "main")
-	os.MkdirAll(bdDir, 0o755)
+	_ = os.MkdirAll(bdDir, 0o755)
 
 	store, err := OpenWithMode(dir, RepoModeBeads, "")
 	if err != nil {
@@ -59,7 +59,7 @@ func TestOpenWithMode_BeadsMode(t *testing.T) {
 func TestOpenWithMode_DualMode(t *testing.T) {
 	dir := setupProjectDir(t)
 	bdDir := filepath.Join(dir, ".beads-worktrees", "main")
-	os.MkdirAll(bdDir, 0o755)
+	_ = os.MkdirAll(bdDir, 0o755)
 
 	store, err := OpenWithMode(dir, RepoModeDual, "")
 	if err != nil {
