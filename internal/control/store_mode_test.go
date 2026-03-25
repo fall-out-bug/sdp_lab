@@ -1,12 +1,30 @@
 package control
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
+func setupProjectDir(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	// Create minimal project structure required by OpenWithMode
+	dirs := []string{
+		"docs/specs",
+		".sdp/control/projects",
+	}
+	for _, d := range dirs {
+		os.MkdirAll(filepath.Join(dir, d), 0o755)
+	}
+	// Create project registry
+	os.WriteFile(filepath.Join(dir, "docs/specs/project-registry.yaml"), []byte("projects: []"), 0o644)
+	return dir
+}
+
 func TestOpenWithMode_FileMode(t *testing.T) {
-	// Use the actual sdp_lab project root
-	store, err := OpenWithMode("/home/fall_out_bug/projects/vibe_coding/sdp_lab", RepoModeFile, "")
+	dir := setupProjectDir(t)
+	store, err := OpenWithMode(dir, RepoModeFile, "")
 	if err != nil {
 		t.Fatalf("OpenWithMode file: %v", err)
 	}
@@ -22,7 +40,11 @@ func TestOpenWithMode_FileMode(t *testing.T) {
 }
 
 func TestOpenWithMode_BeadsMode(t *testing.T) {
-	store, err := OpenWithMode("/home/fall_out_bug/projects/vibe_coding/sdp_lab", RepoModeBeads, "")
+	dir := setupProjectDir(t)
+	bdDir := filepath.Join(dir, ".beads-worktrees", "main")
+	os.MkdirAll(bdDir, 0o755)
+
+	store, err := OpenWithMode(dir, RepoModeBeads, "")
 	if err != nil {
 		t.Fatalf("OpenWithMode beads: %v", err)
 	}
@@ -35,7 +57,11 @@ func TestOpenWithMode_BeadsMode(t *testing.T) {
 }
 
 func TestOpenWithMode_DualMode(t *testing.T) {
-	store, err := OpenWithMode("/home/fall_out_bug/projects/vibe_coding/sdp_lab", RepoModeDual, "")
+	dir := setupProjectDir(t)
+	bdDir := filepath.Join(dir, ".beads-worktrees", "main")
+	os.MkdirAll(bdDir, 0o755)
+
+	store, err := OpenWithMode(dir, RepoModeDual, "")
 	if err != nil {
 		t.Fatalf("OpenWithMode dual: %v", err)
 	}
@@ -51,7 +77,8 @@ func TestOpenWithMode_DualMode(t *testing.T) {
 }
 
 func TestOpen_BackwardsCompatible(t *testing.T) {
-	store, err := Open("/home/fall_out_bug/projects/vibe_coding/sdp_lab")
+	dir := setupProjectDir(t)
+	store, err := Open(dir)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
