@@ -51,6 +51,13 @@ func RunOrchestrateLoopV2(ctx context.Context, store *control.Store, projectRoot
 				logger.Error("serve bridge execution failed", "card_id", cardID, "error", execErr)
 			} else {
 				logger.Info("serve bridge completed", "card_id", cardID, "status", result.Status)
+
+				// Auto-initiate deploy phase on successful build
+				if result.Status == control.ResultStatusSuccess {
+					if deployErr := bridge.TryDeployPhase(ctx, cardID, projectRoot); deployErr != nil {
+						logger.Warn("deploy phase skipped", "card_id", cardID, "error", deployErr)
+					}
+				}
 			}
 		} else {
 			logger.Debug("no ready items", "cycle", cycles)
