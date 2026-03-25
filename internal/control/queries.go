@@ -1,6 +1,7 @@
 package control
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 )
@@ -127,9 +128,25 @@ func (s *Store) TraceFeature(featureID string) (*FeatureTrace, error) {
 		return nil, fmt.Errorf("show children: %w", err)
 	}
 
-	issues, err := parseBdList(data)
-	if err != nil {
-		return nil, err
+	// bd show --children returns {"id": [...issues...]}
+	var childrenMap map[string][]bdIssue
+	if err := json.Unmarshal(data, &childrenMap); err != nil {
+		// Fallback: try parsing as plain array
+		issues, parseErr := parseBdList(data)
+		if parseErr != nil {
+			return nil, fmt.Errorf("parse children: %w", err)
+		}
+		trace := &FeatureTrace{Root: featureID, Children: make([]CardSummary, 0, len(issues))}
+		for _, issue := range issues {
+			trace.Children = append(trace.Children, summarize(*bdToCard(issue)))
+		}
+		return trace, nil
+	}
+
+	var issues []bdIssue
+	for _, list := range childrenMap {
+		issues = list
+		break
 	}
 
 	trace := &FeatureTrace{
