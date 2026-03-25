@@ -61,6 +61,10 @@ func RunOrchestrateLoopV2(ctx context.Context, store *control.Store, projectRoot
 				logger.Info("card needs human clarification", "card_id", cardID, "questions", clarifyResult.Questions)
 				if err := bridge.RecordClarification(cardID, clarifyResult); err != nil {
 					logger.Error("failed to record clarification", "card_id", cardID, "error", err)
+				} else if summary, sumErr := bridge.Summarize(ctx, cardID); sumErr != nil {
+					logger.Warn("failed to summarize clarification", "card_id", cardID, "error", sumErr)
+				} else {
+					logger.Info("clarification summary", "card_id", cardID, "summary", summary.Text)
 				}
 				continue
 			case "error":
@@ -87,6 +91,13 @@ func RunOrchestrateLoopV2(ctx context.Context, store *control.Store, projectRoot
 					if evalErr != nil {
 						logger.Error("evaluation error — pipeline blocked", "card_id", cardID, "error", evalErr)
 						continue
+					}
+
+					summary, sumErr := bridge.Summarize(ctx, cardID)
+					if sumErr != nil {
+						logger.Warn("failed to summarize evaluation", "card_id", cardID, "error", sumErr)
+					} else {
+						logger.Info("evaluation summary", "card_id", cardID, "summary", summary.Text)
 					}
 
 					if evalResult.Verdict == evalVerdictFail || evalResult.Verdict == evalVerdictBlocked {

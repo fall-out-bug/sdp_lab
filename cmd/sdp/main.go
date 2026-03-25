@@ -58,8 +58,13 @@ func main() {
 		runEval(os.Args[2:])
 	case "clarify":
 		runClarify(os.Args[2:])
+<<<<<<< HEAD
 	case "roles":
 		runRoles(os.Args[2:])
+=======
+	case "summary":
+		runSummary(os.Args[2:])
+>>>>>>> feature/sdp-summarizer
 	default:
 		usage()
 		os.Exit(2)
@@ -106,6 +111,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  sdp stuck                  Show stuck/long-running cards")
 	fmt.Fprintln(os.Stderr, "  sdp eval <card-id>         Run build evaluation manually")
 	fmt.Fprintln(os.Stderr, "  sdp clarify <card-id>      Run clarification manually")
+	fmt.Fprintln(os.Stderr, "  sdp summary <card-id>      Print human-readable evidence summary")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Other:")
 	fmt.Fprintln(os.Stderr, "  sdp attention")
@@ -1139,4 +1145,19 @@ func runStatus(args []string) {
 		fmt.Printf("   Result: %s\n", card.ExecutorResult.Status)
 	}
 	printJSON(card)
+}
+
+func runSummary(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr, "usage: sdp summary <card-id>")
+		os.Exit(2)
+	}
+	store := openStore()
+	bridge := executor.NewServeBridge(store, store.ProjectRoot)
+	result, err := bridge.Summarize(context.Background(), args[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: summarize card: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println(result.Text)
 }
