@@ -96,11 +96,11 @@ func TestNilConfig(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for nil config")
 	}
-	_, err = Production(nil, nil, "tag")
+	_, err = Production(context.TODO(), nil, "tag")
 	if err == nil {
 		t.Error("expected error for nil config")
 	}
-	_, err = Rollback(nil, nil, "tag")
+	_, err = Rollback(context.TODO(), nil, "tag")
 	if err == nil {
 		t.Error("expected error for nil config")
 	}
