@@ -108,7 +108,13 @@ func InvokeOpenCode(ctx context.Context, dir, agent, prompt string) (string, int
 	if agent == "" {
 		agent = "orchestrator"
 	}
-	cmd := exec.CommandContext(ctx, "opencode", "run", "--agent", agent)
+
+	bin := os.Getenv("OPENCODE_BIN")
+	if bin == "" {
+		bin = "opencode" // fallback to PATH
+	}
+
+	cmd := exec.CommandContext(ctx, bin, "run", "--agent", agent)
 	cmd.Dir = dir
 	cmd.Stdin = strings.NewReader(prompt)
 	out, err := cmd.CombinedOutput()

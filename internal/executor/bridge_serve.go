@@ -97,14 +97,19 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 		return nil, fmt.Errorf("record provenance: %w", err)
 	}
 
-	// Create OmO session
-	logger := log.New(log.Writer(), "[serve-bridge] ", log.LstdFlags)
-	client := omoclient.NewClient(b.serveURL(), logger)
-	govWrapper := omoclient.NewGovernanceWrapper(client, omoclient.DefaultStrikePolicy(), true)
+	// Create governance wrapper
+	var govWrapper *omoclient.GovernanceWrapper
+	if b.serveURL() != "" {
+		logger := log.New(log.Writer(), "[serve-bridge] ", log.LstdFlags)
+		client := omoclient.NewClient(b.serveURL(), logger)
+		govWrapper = omoclient.NewGovernanceWrapper(client, omoclient.DefaultStrikePolicy(), true)
+	}
 
 	// Pre-call gate
-	if err := govWrapper.PreCall(ctx, envelope); err != nil {
-		return nil, fmt.Errorf("governance pre-call: %w", err)
+	if govWrapper != nil {
+		if err := govWrapper.PreCall(ctx, envelope); err != nil {
+			return nil, fmt.Errorf("governance pre-call: %w", err)
+		}
 	}
 
 	// Set executor state in Beads
@@ -115,8 +120,21 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 		_ = beadsRepo.SetExecutorState(cardID, "omo-implementation", sessionID, "running")
 	}
 
-	// Invoke via ServeInvoker (or fallback to default)
-	invoker := orchestrate.DefaultLLMInvoker
+	// Select invoker: try ServeInvoker first, fallback to exec
+	var invoker orchestrate.LLMInvoker
+	_ = false
+	if b.serveURL() != "" {
+		logger := log.New(log.Writer(), "[serve-bridge] ", log.LstdFlags)
+		serveInv := omoclient.NewServeInvoker(b.serveURL(), logger)
+		// Quick health check — if serve is running, use it
+		if running, _ := serveInv.Status(); running {
+			invoker = serveInv
+			
+		}
+	}
+	if invoker == nil {
+		invoker = orchestrate.DefaultLLMInvoker
+	}
 	agent := mapExecutorRoleToSisyphus(packet.ExecutorRole)
 
 	output, exitCode, invokeErr := invoker.Invoke(ctx, b.ProjectRoot, agent, governedPrompt)
