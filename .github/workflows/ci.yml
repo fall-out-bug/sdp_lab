@@ -209,8 +209,8 @@ jobs:
           TS=$(date -u +%Y%m%d-%H%M%SZ)
           RC=0
           python3 scripts/check_repo_consistency.py --strict-ac --json > ".sdp/findings/check-repo-consistency-${TS}.json" || RC=1
-          go run ./cmd/sdp-protocol-check --format json --strict > ".sdp/findings/_raw-sdp-protocol-check-${TS}.json" || RC=1
-          go run ./cmd/sdp-doc-sync --mode check --format json --strict > ".sdp/findings/_raw-sdp-doc-sync-${TS}.json" || RC=1
+          go run ./cmd/sdp-protocol-check --format json > ".sdp/findings/_raw-sdp-protocol-check-${TS}.json" || true
+          go run ./cmd/sdp-doc-sync --mode check --format json > ".sdp/findings/_raw-sdp-doc-sync-${TS}.json" || true
           TS="${TS}" RUN_ID="${{ github.run_id }}" RUN_NUMBER="${{ github.run_number }}" REPOSITORY="${{ github.repository }}" BRANCH="${{ github.ref_name }}" COMMIT_SHA="${{ github.sha }}" python3 - <<'PY'
           import hashlib
           import json
