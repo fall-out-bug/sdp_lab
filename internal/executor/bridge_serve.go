@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"sdp_dev/internal/control"
+	"sdp_dev/internal/deploy"
 	"sdp_dev/internal/executor/omoclient"
 	"sdp_dev/internal/orchestrate"
 )
@@ -204,4 +205,70 @@ func (b *ServeBridge) cardToEnvelope(card *control.FeatureCard) omoclient.TaskEn
 func mapExecutorRoleToSisyphus(role string) string {
 	// OmO decision: always sisyphus, never SDP-local agents
 	return "sisyphus"
+}
+
+// DeployProjectRoot is the project root for deploy operations.
+// Set via OMO_DEPLOY_ROOT env var, defaults to ServeBridge.ProjectRoot.
+func (b *ServeBridge) deployProjectRoot() string {
+	if root := os.Getenv("OMO_DEPLOY_ROOT"); root != "" {
+		return root
+	}
+	return b.ProjectRoot
+}
+
+// TryDeployPhase checks if a card is ready for deploy and initiates staging.
+// Deploy is a lifecycle phase, not a separate command.
+func (b *ServeBridge) TryDeployPhase(ctx context.Context, cardID, projectRoot string) error {
+	beadsRepo := b.Store.BeadsRepo()
+	if beadsRepo == nil {
+		return fmt.Errorf("deploy requires beads mode")
+	}
+
+	// Check if card has deploy-staging label (set by review/QA phase)
+	card, err := b.Store.LoadCard("", cardID)
+	if err != nil {
+		return fmt.Errorf("load card for deploy check: %w", err)
+	}
+
+	// Only auto-deploy cards with deploy-ready state
+	if card.ExecutorRuntimeState != "deploy-ready" {
+		return nil // not ready for deploy, skip silently
+	}
+
+	// Check deploy gates
+	ciGate, humanGate, err := b.Store.DeployGate(cardID, control.DeployPhaseStaging)
+	if err != nil {
+		return fmt.Errorf("create deploy gates: %w", err)
+	}
+
+	// Execute staging deploy
+	deployCfg := deploy.DefaultConfig(b.deployProjectRoot())
+	deployResult, err := deploy.Staging(ctx, deployCfg, "latest")
+	if err != nil {
+		// Mark deploy failed, don't block the loop
+		_ = beadsRepo.SetExecutorState(cardID, "deploy-staging", "", "failed")
+		_ = b.Store.RecordDeployEvidence(cardID, control.DeployPhaseStaging, map[string]any{
+			"error": err.Error(),
+			"phase": "staging",
+		})
+		return fmt.Errorf("staging deploy: %w", err)
+	}
+
+	// Record deploy evidence
+	_ = b.Store.RecordDeployEvidence(cardID, control.DeployPhaseStaging, map[string]any{
+		"image_tag":    deployResult.ImageTag,
+		"duration":     deployResult.Duration,
+		"smoke_test":   deployResult.SmokeTest,
+		"containers":   deployResult.Containers,
+		"ci_gate":      ciGate,
+		"human_gate":   humanGate,
+	})
+
+	_ = beadsRepo.SetExecutorState(cardID, "deploy-staging", "", "staging-complete")
+	_ = beadsRepo.LinkEvidence(cardID, "deploy-staging", []string{
+		fmt.Sprintf("ci_gate=%s", ciGate),
+		fmt.Sprintf("human_gate=%s", humanGate),
+	})
+
+	return nil
 }
