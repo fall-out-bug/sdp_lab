@@ -15,6 +15,7 @@ import (
 	"sdp_dev/internal/deploy"
 	"sdp_dev/internal/executor"
 	"sdp_dev/internal/orchestrate"
+	"sdp_dev/internal/tower"
 )
 
 func main() {
@@ -45,6 +46,8 @@ func main() {
 		runMissing(os.Args[2:])
 	case "approve":
 		runApprove(os.Args[2:])
+	case "tower":
+		runTower(os.Args[2:])
 	case "trace":
 		runTrace(os.Args[2:])
 	case "deploy":
@@ -926,6 +929,26 @@ func runApprove(args []string) {
 		os.Exit(1)
 	}
 	fmt.Printf("✅  Gate %s resolved.\n", args[0])
+}
+
+
+func runTower(args []string) {
+	port := "8090"
+	for i, a := range args {
+		if a == "--port" && i+1 < len(args) {
+			port = args[i+1]
+		}
+	}
+
+	projectRoot := "."
+	if d := os.Getenv("SDP_PROJECT_ROOT"); d != "" {
+		projectRoot = d
+	}
+
+	if err := tower.Serve(projectRoot, port); err != nil {
+		fmt.Fprintf(os.Stderr, "tower: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func runTrace(args []string) {

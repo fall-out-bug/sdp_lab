@@ -1,0 +1,108 @@
+{{define "content"}}
+<a href="/" class="text-sm text-gray-400 hover:text-gray-200 mb-4 inline-block">← Back to board</a>
+
+<div class="max-w-4xl">
+  <!-- Header -->
+  <div class="mb-6">
+    <div class="flex items-center gap-3 mb-2">
+      <span class="text-lg font-mono text-gray-400">{{.ID}}</span>
+      {{priorityBadge .Priority}}
+      {{if .Phase}}{{phaseTag .Phase}}{{end}}
+      <span class="px-2 py-0.5 {{if eq .Status "open"}}bg-green-900 text-green-200{{else}}bg-gray-700 text-gray-400{{end}} rounded text-xs">{{.Status}}</span>
+    </div>
+    <h1 class="text-2xl font-bold mb-2">{{.Title}}</h1>
+    {{if .Description}}<p class="text-gray-400 text-sm whitespace-pre-wrap mb-3">{{.Description}}</p>{{end}}
+    <div class="flex gap-1 flex-wrap">
+      {{range .Labels}}<span class="mt-1">{{labelTag .}}</span>{{end}}
+    </div>
+  </div>
+
+  <!-- Evidence Timeline -->
+  <div class="bg-gray-800 rounded-lg p-4 mb-6">
+    <h2 class="text-lg font-semibold mb-4">📋 Evidence Timeline</h2>
+    <div class="space-y-4">
+
+      <!-- Clarification -->
+      <div class="border-l-2 border-blue-700 pl-4">
+        <h3 class="text-sm font-semibold text-blue-300 mb-1">🔍 Clarification</h3>
+        {{if .Clarification}}
+          <span class="text-xs {{if eq .Clarification.Status "clarified"}}text-green-400{{else}}text-yellow-400{{end}}">{{.Clarification.Status}}</span>
+          {{if .Clarification.Questions}}
+          <ul class="mt-2 space-y-1">
+            {{range .Clarification.Questions}}<li class="text-sm text-gray-400">❓ {{.}}</li>{{end}}
+          </ul>
+          {{end}}
+        {{else}}
+          <span class="text-xs text-gray-600">No clarification recorded</span>
+        {{end}}
+      </div>
+
+      <!-- Build -->
+      <div class="border-l-2 border-yellow-700 pl-4">
+        <h3 class="text-sm font-semibold text-yellow-300 mb-1">🔨 Build</h3>
+        {{if .Build}}
+          <div class="flex items-center gap-2">
+            {{if eq .Build.ExitCode 0}}
+              <span class="text-green-400 text-xs">✅ exit={{.Build.ExitCode}}</span>
+            {{else}}
+              <span class="text-red-400 text-xs">❌ exit={{.Build.ExitCode}}</span>
+            {{end}}
+            <span class="text-xs text-gray-500">agent={{.Build.Executor}}</span>
+            {{if .Build.Commit}}<span class="text-xs text-gray-500 font-mono">{{.Build.Commit}}</span>{{end}}
+          </div>
+        {{else}}
+          <span class="text-xs text-gray-600">No build recorded</span>
+        {{end}}
+      </div>
+
+      <!-- Evaluation -->
+      <div class="border-l-2 border-purple-700 pl-4">
+        <h3 class="text-sm font-semibold text-purple-300 mb-1">📋 Evaluation</h3>
+        {{if .Evaluation}}
+          <div class="flex items-center gap-2 mb-1">
+            {{if eq .Evaluation.Verdict "pass"}}
+              <span class="text-green-400 text-xs">✅ PASS</span>
+            {{else if eq .Evaluation.Verdict "fail"}}
+              <span class="text-red-400 text-xs">❌ FAIL</span>
+            {{else}}
+              <span class="text-yellow-400 text-xs">⚠️ {{.Evaluation.Verdict}}</span>
+            {{end}}
+            <span class="text-xs text-gray-500">score={{scorePct .Evaluation.Score}}</span>
+          </div>
+          {{if .Evaluation.Passed}}
+          <div class="grid grid-cols-2 gap-1 mt-2">
+            {{range $k, $v := .Evaluation.Passed}}
+            <span class="text-xs">{{if $v}}✅{{else}}❌{{end}} {{$k}}</span>
+            {{end}}
+          </div>
+          {{end}}
+          {{if .Evaluation.Findings}}
+          <ul class="mt-2 space-y-1">
+            {{range .Evaluation.Findings}}<li class="text-sm text-yellow-400">⚠️ {{.}}</li>{{end}}
+          </ul>
+          {{end}}
+        {{else}}
+          <span class="text-xs text-gray-600">No evaluation recorded</span>
+        {{end}}
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="flex gap-3">
+    <form method="POST" action="/card/{{.ID}}/clarify">
+      <button class="px-4 py-2 bg-blue-800 hover:bg-blue-700 rounded text-sm font-medium" type="submit">🔍 Clarify</button>
+    </form>
+    <form method="POST" action="/card/{{.ID}}/approve">
+      <button class="px-4 py-2 bg-indigo-800 hover:bg-indigo-700 rounded text-sm font-medium" type="submit">✅ Approve Plan</button>
+    </form>
+    <form method="POST" action="/card/{{.ID}}/close">
+      <button class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm font-medium" type="submit">📦 Close</button>
+    </form>
+    <form method="POST" action="/card/{{.ID}}/reopen">
+      <button class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm font-medium" type="submit">🔄 Reopen</button>
+    </form>
+  </div>
+</div>
+{{end}}
