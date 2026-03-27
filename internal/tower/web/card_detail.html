@@ -1,0 +1,227 @@
+{{define "card-detail-content"}}
+
+{{/* ═══ CLARIFICATION ═══ */}}
+<div class="bg-surface-2 rounded-xl border border-gray-800 mb-3 overflow-hidden">
+  <div class="px-5 py-3 border-b border-gray-800 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <span>🔍</span>
+      <h2 class="text-sm font-semibold text-gray-200">Clarification</h2>
+    </div>
+    {{if .Clarification}}
+      <span class="text-xs font-medium px-2 py-0.5 rounded {{if eq .Clarification.Status "clarified"}}bg-green-500/15 text-green-400{{else if eq .Clarification.Status "needs_clarification"}}bg-yellow-500/15 text-yellow-400{{else}}bg-gray-700/50 text-gray-500{{end}}">
+        {{if eq .Clarification.Status "clarified"}}✓ Clarified{{else if eq .Clarification.Status "needs_clarification"}}⚠️ Needs Clarification{{else}}{{.Clarification.Status}}{{end}}
+      </span>
+    {{else}}
+      <span class="text-xs text-gray-600">No data</span>
+    {{end}}
+  </div>
+  {{if .Clarification}}
+  <div class="p-5 space-y-3">
+    {{if .Clarification.NormalizedIntent}}
+    <div>
+      <span class="text-xs text-gray-500 uppercase tracking-wide">Normalized Intent</span>
+      <p class="text-sm text-gray-300 mt-1 leading-relaxed bg-surface-3/50 rounded-lg p-3 border border-gray-800/50">{{.Clarification.NormalizedIntent}}</p>
+    </div>
+    {{end}}
+    {{if .Clarification.Questions}}
+    <div>
+      <span class="text-xs text-gray-500 uppercase tracking-wide">Questions ({{len .Clarification.Questions}})</span>
+      <ul class="mt-2 space-y-1.5">
+        {{range $i, $q := .Clarification.Questions}}
+        <li class="text-sm text-gray-400 flex gap-2">
+          <span class="text-yellow-500/60 flex-shrink-0">{{add $i 1}}.</span>
+          <span>{{$q}}</span>
+        </li>
+        {{end}}
+      </ul>
+    </div>
+    {{end}}
+    {{if .Clarification.RawFeedback}}
+    <details class="group">
+      <summary class="text-xs text-gray-600 hover:text-gray-400 cursor-pointer transition">Raw LLM feedback</summary>
+      <pre class="mt-2 text-xs text-gray-500 bg-surface-3/30 rounded-lg p-3 overflow-auto max-h-40 whitespace-pre-wrap border border-gray-800/30">{{.Clarification.RawFeedback}}</pre>
+    </details>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="p-5 text-sm text-gray-600">No clarification has been run yet.</div>
+  {{end}}
+</div>
+
+{{/* ═══ BUILD ═══ */}}
+<div class="bg-surface-2 rounded-xl border border-gray-800 mb-3 overflow-hidden">
+  <div class="px-5 py-3 border-b border-gray-800 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <span>🔨</span>
+      <h2 class="text-sm font-semibold text-gray-200">Build</h2>
+    </div>
+    {{if .Build}}
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-medium px-2 py-0.5 rounded {{if eq .Build.Status "success"}}bg-green-500/15 text-green-400{{else}}bg-red-500/15 text-red-400{{end}}">
+          {{if eq .Build.Status "success"}}✅ Success{{else}}❌ Failed{{end}}
+        </span>
+        {{if .Build.Timestamp}}<span class="text-xs text-gray-600">{{shortTime .Build.Timestamp}}</span>{{end}}
+      </div>
+    {{else}}
+      <span class="text-xs text-gray-600">No data</span>
+    {{end}}
+  </div>
+  {{if .Build}}
+  <div class="p-5 space-y-3">
+    <!-- Build Meta -->
+    <div class="grid grid-cols-3 gap-4">
+      <div>
+        <span class="text-xs text-gray-500 uppercase tracking-wide">Exit Code</span>
+        <p class="text-lg font-mono font-bold mt-1 {{if eq .Build.ExitCode 0}}text-green-400{{else}}text-red-400{{end}}">{{.Build.ExitCode}}</p>
+      </div>
+      <div>
+        <span class="text-xs text-gray-500 uppercase tracking-wide">Agent</span>
+        <p class="text-sm font-medium text-gray-300 mt-1">{{if .Build.Executor}}{{.Build.Executor}}{{else}}—{{end}}</p>
+      </div>
+      <div>
+        <span class="text-xs text-gray-500 uppercase tracking-wide">Commit</span>
+        {{if .Build.Artifacts}}
+          {{range .Build.Artifacts}}
+            {{if eq .Type "commit"}}
+            <a href="#" class="text-sm font-mono text-blue-400 hover:text-blue-300 mt-1 block">{{shortCommit .Reference}} <span class="text-gray-600 text-xs">{{.Description}}</span></a>
+            {{end}}
+          {{end}}
+        {{else}}
+        <p class="text-sm text-gray-600 mt-1">—</p>
+        {{end}}
+      </div>
+    </div>
+    {{if .Build.Summary}}
+    <div>
+      <span class="text-xs text-gray-500 uppercase tracking-wide">Summary</span>
+      <p class="text-sm text-gray-400 mt-1">{{.Build.Summary}}</p>
+    </div>
+    {{end}}
+    {{if .Build.Findings}}
+    <details class="group">
+      <summary class="text-xs text-gray-600 hover:text-gray-400 cursor-pointer transition">Build findings</summary>
+      <pre class="mt-2 text-xs text-gray-500 bg-surface-3/30 rounded-lg p-3 overflow-auto max-h-40 border border-gray-800/30">{{jsonIndent .Build.Findings}}</pre>
+    </details>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="p-5 text-sm text-gray-600">No build has been executed yet.</div>
+  {{end}}
+</div>
+
+{{/* ═══ EVALUATION ═══ */}}
+<div class="bg-surface-2 rounded-xl border border-gray-800 mb-3 overflow-hidden">
+  <div class="px-5 py-3 border-b border-gray-800 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <span>📋</span>
+      <h2 class="text-sm font-semibold text-gray-200">Evaluation</h2>
+    </div>
+    {{if .Evaluation}}
+      <div class="flex items-center gap-3">
+        <span class="text-xs font-bold {{verdictColor .Evaluation.Verdict}}">
+          {{verdictIcon .Evaluation.Verdict}} {{.Evaluation.Verdict}}
+        </span>
+        <span class="text-sm font-mono font-bold {{verdictColor .Evaluation.Verdict}}">{{scorePct .Evaluation.Score}}</span>
+        {{if .Evaluation.Timestamp}}<span class="text-xs text-gray-600">{{shortTime .Evaluation.Timestamp}}</span>{{end}}
+      </div>
+    {{else}}
+      <span class="text-xs text-gray-600">No data</span>
+    {{end}}
+  </div>
+  {{if .Evaluation}}
+  <div class="p-5 space-y-4">
+    <!-- Score Bar -->
+    <div>
+      <div class="flex justify-between text-xs text-gray-500 mb-1">
+        <span>Score</span>
+        <span>{{scorePct .Evaluation.Score}}</span>
+      </div>
+      <div class="h-2 bg-surface-4 rounded-full overflow-hidden">
+        <div class="h-full rounded-full transition-all {{if eq .Evaluation.Verdict "pass"}}bg-green-500{{else if eq .Evaluation.Verdict "fail"}}bg-red-500{{else}}bg-yellow-500{{end}}" style="width: {{scorePct .Evaluation.Score}}"></div>
+      </div>
+    </div>
+    <!-- Criteria Grid -->
+    {{if .Evaluation.Passed}}
+    <div>
+      <span class="text-xs text-gray-500 uppercase tracking-wide">Criteria</span>
+      <div class="mt-2 grid grid-cols-2 gap-2">
+        {{range $k, $v := .Evaluation.Passed}}
+        <div class="flex items-center gap-2 bg-surface-3/50 rounded-lg px-3 py-2 border border-gray-800/30">
+          <span class="text-sm">{{if $v}}✅{{else}}❌{{end}}</span>
+          <span class="text-sm text-gray-300 capitalize">{{$k}}</span>
+        </div>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
+    <!-- Findings -->
+    {{if .Evaluation.Findings}}
+    <div>
+      <span class="text-xs text-gray-500 uppercase tracking-wide">Findings ({{len .Evaluation.Findings}})</span>
+      <ul class="mt-2 space-y-1">
+        {{range .Evaluation.Findings}}
+        <li class="text-sm text-yellow-400/80 flex gap-2">
+          <span class="text-yellow-500/60">⚠️</span>
+          <span>{{.}}</span>
+        </li>
+        {{end}}
+      </ul>
+    </div>
+    {{end}}
+    <!-- Raw Feedback -->
+    {{if .Evaluation.RawFeedback}}
+    <details class="group">
+      <summary class="text-xs text-gray-600 hover:text-gray-400 cursor-pointer transition">Raw LLM feedback</summary>
+      <pre class="mt-2 text-xs text-gray-500 bg-surface-3/30 rounded-lg p-3 overflow-auto max-h-48 whitespace-pre-wrap border border-gray-800/30">{{.Evaluation.RawFeedback}}</pre>
+    </details>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="p-5 text-sm text-gray-600">No evaluation has been run yet.</div>
+  {{end}}
+</div>
+
+{{/* ═══ PROVENANCE / TRACE ═══ */}}
+{{if .Provenance}}
+<div class="bg-surface-2 rounded-xl border border-gray-800 mb-3 overflow-hidden">
+  <div class="px-5 py-3 border-b border-gray-800 flex items-center gap-2">
+    <span>🔗</span>
+    <h2 class="text-sm font-semibold text-gray-200">Provenance</h2>
+    {{if .Provenance.Timestamp}}<span class="text-xs text-gray-600 ml-auto">{{shortTime .Provenance.Timestamp}}</span>{{end}}
+  </div>
+  <div class="p-5 space-y-2">
+    <div class="grid grid-cols-1 gap-2">
+      <div class="flex items-center gap-3 bg-surface-3/50 rounded-lg px-3 py-2 border border-gray-800/30">
+        <span class="text-xs text-gray-500 w-20 flex-shrink-0">Packet</span>
+        <code class="text-xs font-mono text-blue-400/70 truncate">{{.Provenance.PacketHash}}</code>
+      </div>
+      <div class="flex items-center gap-3 bg-surface-3/50 rounded-lg px-3 py-2 border border-gray-800/30">
+        <span class="text-xs text-gray-500 w-20 flex-shrink-0">Prompt</span>
+        <code class="text-xs font-mono text-purple-400/70 truncate">{{.Provenance.PromptHash}}</code>
+      </div>
+      {{if .Provenance.ContractHash}}
+      <div class="flex items-center gap-3 bg-surface-3/50 rounded-lg px-3 py-2 border border-gray-800/30">
+        <span class="text-xs text-gray-500 w-20 flex-shrink-0">Contract</span>
+        <code class="text-xs font-mono text-green-400/70 truncate">{{.Provenance.ContractHash}}</code>
+      </div>
+      {{end}}
+    </div>
+    {{if .Provenance.ContextSources}}
+    <div class="mt-2">
+      <span class="text-xs text-gray-500 uppercase tracking-wide">Context Sources</span>
+      <div class="mt-1.5 space-y-1">
+        {{range .Provenance.ContextSources}}
+        <div class="flex items-center gap-3 text-xs">
+          <span class="px-1.5 py-0.5 rounded bg-surface-4 text-gray-500">{{.Type}}</span>
+          <code class="font-mono text-gray-500 truncate">{{.Path}}</code>
+          {{if .Hash}}<code class="font-mono text-gray-700 ml-auto flex-shrink-0">{{shortCommit .Hash}}</code>{{end}}
+        </div>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
+
+{{end}}

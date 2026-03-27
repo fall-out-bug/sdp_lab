@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 //go:embed all:web
@@ -22,101 +23,96 @@ func Serve(projectRoot, port string) error {
 	}
 
 	mux := http.NewServeMux()
-	t := towerHandler{projectRoot: projectRoot}
+	t := &handler{projectRoot: projectRoot}
 
-	// Static assets
-	mux.Handle("GET /static/", http.FileServer(http.FS(webFS)))
-
-	// Pages
 	mux.HandleFunc("GET /{$}", t.handleBoard)
 	mux.HandleFunc("GET /card/{id}", t.handleCard)
+	mux.HandleFunc("GET /card/{id}/detail", t.handleCardPartial) // HTMX partial
 	mux.HandleFunc("POST /card/{id}/clarify", t.handleAction("clarify"))
 	mux.HandleFunc("POST /card/{id}/approve", t.handleAction("approve"))
 	mux.HandleFunc("POST /card/{id}/close", t.handleAction("close"))
 	mux.HandleFunc("POST /card/{id}/reopen", t.handleAction("reopen"))
 
 	addr := ":" + port
-	log.Printf("⚙️ Control Tower: http://localhost%s", addr)
+	log.Printf("⚙️  Control Tower: http://localhost%s", addr)
 	return http.ListenAndServe(addr, mux)
 }
 
-type towerHandler struct {
+type handler struct {
 	projectRoot string
 }
 
-func (t *towerHandler) handleBoard(w http.ResponseWriter, r *http.Request) {
-	data, err := t.bdList(true)
+func (h *handler) handleBoard(w http.ResponseWriter, r *http.Request) {
+	data, err := h.bdList(true)
 	if err != nil {
 		http.Error(w, "bd list: "+err.Error(), 500)
 		return
 	}
 
-	board, err := LoadBoard(data)
+	filter := BoardFilter{
+		Project: r.URL.Query().Get("project"),
+		Phase:   r.URL.Query().Get("phase"),
+		Query:   r.URL.Query().Get("q"),
+	}
+
+	board, err := LoadBoard(data, filter)
 	if err != nil {
 		http.Error(w, "parse: "+err.Error(), 500)
 		return
 	}
 
-	render(w, "board", board)
+	// Load evidence previews for visible cards
+	for i := range board.Columns {
+		for j := range board.Columns[i].Cards {
+			cv := &board.Columns[i].Cards[j]
+			cv.Evidence = LoadEvidencePreview(cv.ID, h.projectRoot)
+		}
+	}
+
+	// Pass filter state for form
+	type boardView struct {
+		*BoardData
+		QueryParam   string
+		FilterProject string
+		FilterPhase   string
+	}
+	render(w, "board", boardView{
+		BoardData:    board,
+		QueryParam:   filter.Query,
+		FilterProject: filter.Project,
+		FilterPhase:   filter.Phase,
+	})
 }
 
-func (t *towerHandler) handleCard(w http.ResponseWriter, r *http.Request) {
-	cardID := r.PathValue("id")
-
-	data, err := t.bdShow(cardID)
+func (h *handler) handleCard(w http.ResponseWriter, r *http.Request) {
+	detail, err := h.loadDetail(r.PathValue("id"))
 	if err != nil {
-		http.Error(w, "bd show: "+err.Error(), 500)
+		http.Error(w, err.Error(), 404)
 		return
 	}
-
-	var issues []map[string]any
-	if err := json.Unmarshal(data, &issues); err != nil {
-		http.Error(w, "parse: "+err.Error(), 500)
-		return
-	}
-
-	if len(issues) == 0 {
-		http.Error(w, "card not found", 404)
-		return
-	}
-
-	issue := issues[0]
-	detail, _ := LoadCardDetail(cardID, t.projectRoot)
-
-	// Merge issue data into detail
-	detail.ID = cardID
-	detail.Title = strVal(issue, "title")
-	detail.Description = strVal(issue, "description")
-	detail.Status = strVal(issue, "status")
-	detail.Priority = intVal(issue, "priority")
-	if labels, ok := issue["labels"].([]any); ok {
-		for _, l := range labels {
-			detail.Labels = append(detail.Labels, fmt.Sprint(l))
-		}
-	}
-	for _, l := range detail.Labels {
-		if strings.HasPrefix(l, "sdp:phase-") {
-			detail.Phase = strings.TrimPrefix(l, "sdp:phase-")
-		}
-		if strings.HasPrefix(l, "sdp:project-") {
-			detail.Project = strings.TrimPrefix(l, "sdp:project-")
-		}
-	}
-
 	render(w, "card", detail)
 }
 
-func (t *towerHandler) handleAction(action string) http.HandlerFunc {
+func (h *handler) handleCardPartial(w http.ResponseWriter, r *http.Request) {
+	// HTMX partial — returns just the card detail fragment
+	detail, err := h.loadDetail(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, err.Error(), 404)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	tmpl := template.Must(template.New("partial").Funcs(funcMap()).ParseFS(webFS, "web/card_detail.html"))
+	tmpl.Execute(w, detail)
+}
+
+func (h *handler) handleAction(action string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cardID := r.PathValue("id")
 		var cmd *exec.Cmd
+		bin := os.Getenv("OPENCODE_BIN")
 
 		switch action {
 		case "clarify":
-			bin := os.Getenv("OPENCODE_BIN")
-			if bin == "" {
-				bin = "opencode"
-			}
 			cmd = exec.Command("sdp", "clarify", cardID)
 			cmd.Env = append(os.Environ(), "OPENCODE_BIN="+bin)
 		case "approve":
@@ -126,105 +122,178 @@ func (t *towerHandler) handleAction(action string) http.HandlerFunc {
 		case "reopen":
 			cmd = exec.Command("bd", "reopen", cardID)
 		}
-
 		if cmd == nil {
 			http.Error(w, "unknown action", 400)
 			return
 		}
-		cmd.Dir = t.projectRoot
+		cmd.Dir = h.projectRoot
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			log.Printf("action %s on %s: %v\n%s", action, cardID, err, out)
+		} else {
+			log.Printf("action %s on %s: OK", action, cardID)
 		}
 
+		// HTMX: if requested as partial, return the updated card
+		if r.Header.Get("HX-Request") == "true" {
+			w.Header().Set("HX-Redirect", "/card/"+cardID)
+			return
+		}
 		http.Redirect(w, r, "/card/"+cardID, http.StatusSeeOther)
 	}
 }
 
-func (t *towerHandler) bdList(all bool) ([]byte, error) {
+func (h *handler) loadDetail(cardID string) (*CardDetail, error) {
+	data, err := h.bdShow(cardID)
+	if err != nil {
+		return nil, fmt.Errorf("bd show: %w", err)
+	}
+	detail, err := LoadCardDetail(data, cardID, h.projectRoot)
+	if err != nil {
+		return nil, err
+	}
+	return detail, nil
+}
+
+func (h *handler) bdList(all bool) ([]byte, error) {
 	args := []string{"list", "--json", "-n", "0"}
 	if all {
 		args = append(args, "--all")
 	}
 	cmd := exec.Command("bd", args...)
-	cmd.Dir = t.projectRoot
+	cmd.Dir = h.projectRoot
 	return cmd.Output()
 }
 
-func (t *towerHandler) bdShow(id string) ([]byte, error) {
+func (h *handler) bdShow(id string) ([]byte, error) {
 	cmd := exec.Command("bd", "show", id, "--json")
-	cmd.Dir = t.projectRoot
+	cmd.Dir = h.projectRoot
 	return cmd.Output()
 }
 
 func render(w http.ResponseWriter, name string, data any) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	tmpl := template.Must(template.New("layout").Funcs(template.FuncMap{
-		"phaseTag": phaseTag,
-		"scorePct": func(s float64) string { return fmt.Sprintf("%.0f%%", s*100) },
-		"priorityBadge": priorityBadge,
-		"labelTag": labelTag,
-	}).ParseFS(webFS, "web/layout.html", "web/"+name+".html"))
+	tmpl := template.Must(template.New("layout").Funcs(funcMap()).ParseFS(webFS, "web/layout.html", "web/"+name+".html", "web/card_detail.html"))
 	if err := tmpl.ExecuteTemplate(w, "layout", data); err != nil {
 		log.Printf("render error: %v", err)
 	}
 }
 
-func phaseTag(phase string) template.HTML {
-	if phase == "" {
-		return `<span class="px-2 py-0.5 bg-gray-700 rounded text-xs">—</span>`
-	}
-	classes := map[string]string{
-		"clarify": "bg-blue-900 text-blue-200",
-		"plan":    "bg-indigo-900 text-indigo-200",
-		"build":   "bg-yellow-900 text-yellow-200",
-		"evaluate":"bg-purple-900 text-purple-200",
-	}
-	c := classes[phase]
-	if c == "" {
-		c = "bg-gray-700"
-	}
-	return template.HTML(fmt.Sprintf(`<span class="px-2 py-0.5 %s rounded text-xs">%s</span>`, c, phase))
-}
-
-func priorityBadge(p int) template.HTML {
-	if p <= 1 {
-		return `<span class="px-2 py-0.5 bg-red-900 text-red-200 rounded text-xs font-bold">P0-P1</span>`
-	}
-	if p <= 2 {
-		return `<span class="px-2 py-0.5 bg-orange-900 text-orange-200 rounded text-xs">P2</span>`
-	}
-	return template.HTML(fmt.Sprintf(`<span class="px-2 py-0.5 bg-gray-700 rounded text-xs">P%d</span>`, p))
-}
-
-func labelTag(label string) template.HTML {
-	if strings.HasPrefix(label, "sdp:") {
-		return template.HTML(fmt.Sprintf(`<span class="px-2 py-0.5 bg-slate-700 rounded text-xs">⚙️ %s</span>`, label))
-	}
-	return template.HTML(fmt.Sprintf(`<span class="px-2 py-0.5 bg-gray-700 rounded text-xs">%s</span>`, label))
-}
-
-func strVal(m map[string]any, key string) string {
-	v, ok := m[key]
-	if !ok {
-		return ""
-	}
-	switch val := v.(type) {
-	case string:
-		return val
-	case float64:
-		return fmt.Sprint(int(val))
-	default:
-		return fmt.Sprint(val)
-	}
-}
-
-func intVal(m map[string]any, key string) int {
-	v, _ := m[key]
-	switch val := v.(type) {
-	case float64:
-		return int(val)
-	default:
-		return 0
+func funcMap() template.FuncMap {
+	return template.FuncMap{
+		"scorePct": func(s float64) string { return fmt.Sprintf("%.0f%%", s*100) },
+		"shortCommit": func(s string) string {
+			if len(s) > 7 {
+				return s[:7]
+			}
+			return s
+		},
+		"shortTime": func(s string) string {
+			t, err := time.Parse(time.RFC3339, s)
+			if err != nil {
+				return ""
+			}
+			return t.Format("15:04 Jan 02")
+		},
+		"hasPrefix": strings.HasPrefix,
+		"contains": strings.Contains,
+		"priorityLabel": func(p int) string {
+			if p <= 1 {
+				return "P0-P1"
+			}
+			return fmt.Sprintf("P%d", p)
+		},
+		"priorityColor": func(p int) string {
+			if p <= 1 {
+				return "bg-red-500/20 text-red-400 border-red-500/30"
+			}
+			if p == 2 {
+				return "bg-orange-500/20 text-orange-400 border-orange-500/30"
+			}
+			return "bg-gray-700/50 text-gray-400 border-gray-600/30"
+		},
+		"phaseColor": func(phase string) string {
+			m := map[string]string{
+				"clarify":  "bg-blue-500/20 text-blue-400",
+				"plan":     "bg-indigo-500/20 text-indigo-400",
+				"build":    "bg-amber-500/20 text-amber-400",
+				"evaluate": "bg-purple-500/20 text-purple-400",
+			}
+			if c, ok := m[phase]; ok {
+				return c
+			}
+			return "bg-gray-700/50 text-gray-500"
+		},
+		"verdictColor": func(v string) string {
+			switch v {
+			case "pass":
+				return "text-green-400"
+			case "fail":
+				return "text-red-400"
+			case "blocked":
+				return "text-red-300"
+			case "needs_review":
+				return "text-yellow-400"
+			default:
+				return "text-gray-500"
+			}
+		},
+		"verdictIcon": func(v string) string {
+			switch v {
+			case "pass":
+				return "✅"
+			case "fail":
+				return "❌"
+			case "blocked":
+				return "🚫"
+			case "needs_review":
+				return "⚠️"
+			default:
+				return "—"
+			}
+		},
+		"strSlice": func(s []string) template.HTML {
+			if len(s) == 0 {
+				return ""
+			}
+			var b strings.Builder
+			for _, v := range s {
+				b.WriteString(fmt.Sprintf(`<span class="inline-block px-1.5 py-0.5 bg-gray-800 rounded text-xs mr-1 mb-1">%s</span>`, v))
+			}
+			return template.HTML(b.String())
+		},
+		"criteriaGrid": func(m map[string]bool) template.HTML {
+			if m == nil {
+				return `<span class="text-xs text-gray-600">—</span>`
+			}
+			var b strings.Builder
+			for k, v := range m {
+				icon := "✅"
+				color := "text-green-500"
+				if !v {
+					icon = "❌"
+					color = "text-red-400"
+				}
+				b.WriteString(fmt.Sprintf(`<span class="inline-flex items-center gap-1 text-xs %s mr-3">%s %s</span>`, color, icon, k))
+			}
+			return template.HTML(b.String())
+		},
+		"labelStyle": func(label string) string {
+			if strings.HasPrefix(label, "sdp:project-") {
+				return "bg-cyan-500/15 text-cyan-400 border-cyan-500/25"
+			}
+			if strings.HasPrefix(label, "sdp:gate:") {
+				return "bg-rose-500/15 text-rose-400 border-rose-500/25"
+			}
+			if strings.HasPrefix(label, "sdp:phase-") {
+				return "bg-violet-500/15 text-violet-400 border-violet-500/25"
+			}
+			return "bg-gray-700/40 text-gray-400 border-gray-600/30"
+		},
+		"jsonIndent": func(v any) string {
+			b, _ := json.MarshalIndent(v, "", "  ")
+			return string(b)
+		},
+		"add": func(a, b int) int { return a + b },
 	}
 }

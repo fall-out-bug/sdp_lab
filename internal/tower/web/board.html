@@ -1,30 +1,93 @@
 {{define "content"}}
-<div class="flex gap-4 overflow-x-auto pb-4" style="min-height: calc(100vh - 120px);">
-  {{range .Columns}}
-  <div class="flex-shrink-0 w-72 bg-gray-800 rounded-lg p-3">
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="font-semibold text-sm text-gray-300 uppercase tracking-wide">{{.Name}}</h2>
-      <span class="text-xs bg-gray-700 px-2 py-0.5 rounded-full">{{len .Cards}}</span>
+<!-- Filters -->
+<div class="flex items-center gap-3 mb-4 flex-wrap">
+  <form method="GET" action="/" class="flex items-center gap-2 flex-1 min-w-[300px]">
+    <div class="relative flex-1">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      <input type="text" name="q" value="{{.QueryParam}}" placeholder="Search cards..." class="w-full bg-surface-3 border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-sm text-gray-200 placeholder-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 outline-none transition"/>
     </div>
-    <div class="space-y-2">
-      {{range .Cards}}
-      <a href="/card/{{.ID}}" class="card block bg-gray-750 border border-gray-700 rounded-lg p-3 hover:border-gray-500 no-underline text-gray-100">
-        <div class="flex items-start justify-between gap-2 mb-2">
-          <h3 class="text-sm font-medium leading-tight">{{.ID}}</h3>
-          {{priorityBadge .Priority}}
+    <select name="project" class="bg-surface-3 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 focus:border-blue-500 outline-none">
+      <option value="">All Projects</option>
+      {{range .Projects}}<option value="{{.}}" {{if eq $.FilterProject .}}selected{{end}}>{{.}}</option>{{end}}
+    </select>
+    <select name="phase" class="bg-surface-3 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300 focus:border-blue-500 outline-none">
+      <option value="">All Phases</option>
+      <option value="open" {{if eq $.FilterPhase "open"}}selected{{end}}>Open Only</option>
+      <option value="clarify" {{if eq $.FilterPhase "clarify"}}selected{{end}}>Clarify</option>
+      <option value="plan" {{if eq $.FilterPhase "plan"}}selected{{end}}>Plan</option>
+      <option value="build" {{if eq $.FilterPhase "build"}}selected{{end}}>Build</option>
+      <option value="evaluate" {{if eq $.FilterPhase "evaluate"}}selected{{end}}>Evaluate</option>
+    </select>
+    <button type="submit" class="bg-surface-4 hover:bg-gray-600 border border-gray-700 rounded-lg px-4 py-2 text-sm text-gray-300 transition">Filter</button>
+  </form>
+  <div class="text-xs text-gray-500">
+    {{.TotalCards}} cards
+  </div>
+</div>
+
+<!-- Board -->
+<div class="flex gap-3 overflow-x-auto pb-4" style="min-height: calc(100vh - 160px);">
+  {{range $i, $col := .Columns}}
+  <div class="flex-shrink-0 w-[280px] flex flex-col">
+    <!-- Column Header -->
+    <div class="flex items-center gap-2 mb-3 px-1">
+      <span class="text-base">{{$col.Icon}}</span>
+      <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wider">{{$col.Name}}</h2>
+      <span class="text-xs bg-surface-4 text-gray-400 px-1.5 py-0.5 rounded-full font-medium">{{len $col.Cards}}</span>
+    </div>
+    <!-- Column Body -->
+    <div class="flex-1 bg-surface-2/50 rounded-xl border border-gray-800/50 p-2 col-scroll overflow-y-auto space-y-1.5" style="max-height: calc(100vh - 220px);">
+      {{range $col.Cards}}
+      <!-- Card -->
+      <a href="/card/{{.ID}}" class="card-item block rounded-lg border border-gray-800/60 p-2.5 no-underline group">
+        <!-- Card Header -->
+        <div class="flex items-center justify-between gap-2 mb-1.5">
+          <span class="text-xs font-mono text-gray-500 group-hover:text-gray-400 transition">{{.ID}}</span>
+          <span class="text-[10px] font-medium px-1.5 py-0.5 rounded border {{priorityColor .Priority}}">{{priorityLabel .Priority}}</span>
         </div>
-        <p class="text-sm mb-2 leading-snug">{{.Title}}</p>
-        <div class="flex gap-1 flex-wrap">
-          {{if .Phase}}<span class="mt-1">{{phaseTag .Phase}}</span>{{end}}
-          {{if .Project}}<span class="mt-1">{{labelTag (printf "sdp:project-%s" .Project)}}</span>{{end}}
+        <!-- Title -->
+        <p class="text-[13px] font-medium text-gray-200 leading-snug mb-2 line-clamp-2">{{.Title}}</p>
+        <!-- Evidence Badges -->
+        {{if .Evidence}}
+        <div class="flex items-center gap-1.5 flex-wrap">
+          {{if .Evidence.NeedsClarify}}
+            <span class="text-[10px] bg-yellow-500/15 text-yellow-400 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+              ❓ {{.Evidence.Questions}}q
+            </span>
+          {{else if .Evidence.Clarified}}
+            <span class="text-[10px] bg-green-500/15 text-green-400 px-1.5 py-0.5 rounded">✓ clarified</span>
+          {{end}}
+          {{if .Evidence.BuildStatus}}
+            <span class="text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5 {{if eq .Evidence.BuildStatus "success"}}bg-green-500/15 text-green-400{{else}}bg-red-500/15 text-red-400{{end}}">
+              {{if eq .Evidence.BuildStatus "success"}}🔨✓{{else}}🔨✗{{end}}
+              {{if .Evidence.BuildCommit}}<span class="font-mono">{{shortCommit .Evidence.BuildCommit}}</span>{{end}}
+            </span>
+          {{end}}
+          {{if .Evidence.EvalVerdict}}
+            <span class="text-[10px] px-1.5 py-0.5 rounded {{verdictColor .Evidence.EvalVerdict}}">
+              {{verdictIcon .Evidence.EvalVerdict}} {{scorePct .Evidence.EvalScore}}
+            </span>
+          {{end}}
         </div>
+        {{end}}
+        <!-- Labels -->
+        {{if .Project}}
+        <div class="mt-1.5 flex gap-1">
+          <span class="text-[10px] px-1.5 py-0.5 rounded border bg-cyan-500/10 text-cyan-500 border-cyan-500/20">{{.Project}}</span>
+          {{if .Phase}}<span class="text-[10px] px-1.5 py-0.5 rounded {{phaseColor .Phase}}">{{.Phase}}</span>{{end}}
+        </div>
+        {{end}}
       </a>
       {{end}}
-      {{if eq (len .Cards) 0}}
-      <p class="text-xs text-gray-600 text-center py-8">No cards</p>
+      {{if eq (len $col.Cards) 0}}
+      <p class="text-xs text-gray-700 text-center py-8">Empty</p>
       {{end}}
     </div>
   </div>
   {{end}}
 </div>
+
+<script>
+document.getElementById('header-stats').textContent = '{{.TotalCards}} cards · {{.Columns}} columns';
+</script>
 {{end}}
