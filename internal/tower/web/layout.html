@@ -1,0 +1,27 @@
+{{define "layout"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SDP Control Tower</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <style>
+    .card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    .card { transition: all 0.15s ease; }
+    ::-webkit-scrollbar { height: 8px; }
+    ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+  <header class="border-b border-gray-700 px-6 py-4 flex items-center justify-between">
+    <h1 class="text-xl font-bold">⚙️ SDP Control Tower</h1>
+    <span class="text-sm text-gray-500">sdp_lab</span>
+  </header>
+  <main class="p-6">
+    {{template "content" .}}
+  </main>
+</body>
+</html>
+{{end}}
