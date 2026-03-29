@@ -30,11 +30,24 @@ type Checkpoint struct {
 
 // WSStatus tracks a single workstream's execution.
 type WSStatus struct {
-	ID          string `json:"id"`
-	Status      string `json:"status"` // pending, in_progress, done
-	VerdictFile string `json:"verdict_file,omitempty"`
-	Commit      string `json:"commit,omitempty"`
-	Attempts    int    `json:"attempts,omitempty"`
+	ID          string          `json:"id"`
+	Status      string          `json:"status"` // pending, in_progress, done
+	VerdictFile string          `json:"verdict_file,omitempty"`
+	Commit      string          `json:"commit,omitempty"`
+	Attempts    int             `json:"attempts,omitempty"`
+	Dispatch    *WSDispatchInfo `json:"dispatch,omitempty"`
+}
+
+// WSDispatchInfo is a lightweight record of which harness/model was dispatched
+// for a workstream. Defined locally to avoid importing the dispatch package.
+type WSDispatchInfo struct {
+	Harness   string  `json:"harness"`
+	Provider  string  `json:"provider"`
+	Model     string  `json:"model"`
+	Score     float64 `json:"score"`
+	Reason    string  `json:"reason,omitempty"`
+	Timestamp string  `json:"timestamp,omitempty"`
+	ColdStart bool    `json:"cold_start,omitempty"`
 }
 
 // ReviewStatus tracks review phase state.

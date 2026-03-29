@@ -110,6 +110,25 @@ func GenerateOrchestratorAttestation(projectRoot string, cp *Checkpoint) (eviden
 		},
 	}
 
+	// Add dispatch evidence from first workstream with dispatch info
+	for _, ws := range cp.Workstreams {
+		if ws.Dispatch != nil {
+			predicate.Dispatch = &evidence.DispatchEvidence{
+				Harness:   ws.Dispatch.Harness,
+				Provider:  ws.Dispatch.Provider,
+				Model:     ws.Dispatch.Model,
+				Score:     ws.Dispatch.Score,
+				Reason:    ws.Dispatch.Reason,
+				ColdStart: ws.Dispatch.ColdStart,
+			}
+			// Set provenance model from dispatch if not already set
+			if predicate.Provenance.Model == "" {
+				predicate.Provenance.Model = ws.Dispatch.Model
+			}
+			break
+		}
+	}
+
 	if cp.Review != nil && cp.Review.Status == "approved" {
 		predicate.Review.SelfReview = []evidence.ReviewItem{{
 			Reviewer: "sdp-orchestrate",

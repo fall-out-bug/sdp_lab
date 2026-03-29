@@ -43,8 +43,13 @@
     ],
     "Stop": [
       {
-        "type": "command",
-        "command": "bash scripts/oneshot-stop-gate.sh"
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/oneshot-stop-gate.sh"
+          }
+        ]
       }
     ]
   }

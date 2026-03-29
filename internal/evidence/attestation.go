@@ -22,15 +22,31 @@ type CodingWorkflowStatement struct {
 }
 
 type CodingWorkflowPredicate struct {
-	Intent       Intent       `json:"intent"`
-	Plan         Plan         `json:"plan"`
-	Execution    Execution    `json:"execution"`
-	Verification Verification `json:"verification"`
-	Review       Review       `json:"review"`
-	RiskNotes    RiskNotes    `json:"risk_notes"`
-	Boundary     Boundary     `json:"boundary"`
-	Provenance   Provenance   `json:"provenance"`
-	Trace        Trace        `json:"trace"`
+	Intent       Intent            `json:"intent"`
+	Plan         Plan              `json:"plan"`
+	Execution    Execution         `json:"execution"`
+	Verification Verification      `json:"verification"`
+	Review       Review            `json:"review"`
+	RiskNotes    RiskNotes         `json:"risk_notes"`
+	Boundary     Boundary          `json:"boundary"`
+	Provenance   Provenance        `json:"provenance"`
+	Trace        Trace             `json:"trace"`
+	Dispatch     *DispatchEvidence `json:"dispatch,omitempty"`
+}
+
+// DispatchEvidence records the dispatch decision that selected a harness/model
+// for executing a workstream. Attached to the attestation for auditability.
+type DispatchEvidence struct {
+	Harness      string  `json:"harness"`
+	Provider     string  `json:"provider"`
+	Model        string  `json:"model"`
+	Score        float64 `json:"score"`
+	Reason       string  `json:"reason,omitempty"`
+	ColdStart    bool    `json:"cold_start,omitempty"`
+	Alternatives []struct {
+		Harness string  `json:"harness"`
+		Score   float64 `json:"score"`
+	} `json:"alternatives,omitempty"`
 }
 
 type Intent struct {

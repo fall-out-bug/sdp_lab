@@ -91,10 +91,10 @@ func TestServeBridgeEvaluateWritesEvidence(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(artifactDir, "build.json"), data, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Setenv("OMO_SERVE_URL", ""); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Unsetenv("OMO_SERVE_URL")
+	// Ensure no LLM invoker is reachable: clear serve URL and
+	// point PATH to an empty dir so DefaultLLMInvoker (exec) also fails fast.
+	t.Setenv("OMO_SERVE_URL", "")
+	t.Setenv("PATH", t.TempDir())
 
 	bridge := NewServeBridge(store, store.ProjectRoot)
 	result, err := bridge.Evaluate(context.Background(), card.ID)

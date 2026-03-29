@@ -1,0 +1,137 @@
+package orchestrate
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"os"
+
+	"sdp_dev/internal/dispatch"
+	"sdp_dev/internal/dispatch/harness"
+)
+
+// NewDispatchingInvoker creates a DispatchingInvoker if profiles exist.
+// Returns nil if no profiles found (caller should use DefaultLLMInvoker).
+func NewDispatchingInvoker(projectRoot string) *dispatch.DispatchingInvoker {
+	store := dispatch.NewProfileStore(projectRoot)
+	profiles, err := store.LoadAll()
+	if err != nil || len(profiles) == 0 {
+		slog.Info("dispatch: no profiles, using default invoker")
+		return nil
+	}
+
+	// Build harness registry
+	reg := harness.NewRegistry()
+	reg.Register(harness.NewClaudeHarness())
+	reg.Register(harness.NewCodexHarness())
+	reg.Register(harness.NewCursorHarness())
+	reg.Register(harness.NewOpenCodeHarness())
+
+	// Build invoker map — adapt harness spawning to LLMInvoker interface
+	// For each available harness, create a function-based invoker
+	// that spawns the harness CLI
+	invokerMap := map[string]dispatch.LLMInvoker{}
+	for _, h := range reg.Available() {
+		name := h.Name()
+		switch name {
+		case "opencode":
+			// Reuse existing opencode invocation (it's the current default)
+			invokerMap[name] = DefaultLLMInvoker
+		default:
+			// For other harnesses, create spawn-based invokers
+			// that launch their CLI and capture output
+			hRef := h // capture loop variable
+			invokerMap[name] = &harnessInvoker{harness: hRef}
+		}
+	}
+
+	return &dispatch.DispatchingInvoker{
+		Router:   &dispatch.Router{Profiles: profiles},
+		Fallback: DefaultLLMInvoker,
+		InvokerFor: func(name string) dispatch.LLMInvoker {
+			return invokerMap[name]
+		},
+		PacketLoader: func(root string) (dispatch.ContextPacketSummary, error) {
+			return loadPacketSummary(root)
+		},
+	}
+}
+
+// toWSDispatchInfo converts a dispatch.DispatchDecision to the local WSDispatchInfo struct.
+func toWSDispatchInfo(dec *dispatch.DispatchDecision) *WSDispatchInfo {
+	if dec == nil {
+		return nil
+	}
+	return &WSDispatchInfo{
+		Harness:   dec.Harness,
+		Provider:  dec.Provider,
+		Model:     dec.Model,
+		Score:     dec.Score,
+		Reason:    dec.Reason,
+		Timestamp: dec.Timestamp,
+	}
+}
+
+// RecordDispatch finds the WSStatus with the given wsID in the checkpoint
+// and sets its Dispatch field from the given DispatchDecision.
+// Returns true if the workstream was found and updated, false otherwise.
+func RecordDispatch(cp *Checkpoint, wsID string, dec *dispatch.DispatchDecision) bool {
+	for i := range cp.Workstreams {
+		if cp.Workstreams[i].ID == wsID {
+			cp.Workstreams[i].Dispatch = toWSDispatchInfo(dec)
+			return true
+		}
+	}
+	return false
+}
+
+// harnessInvoker adapts a Harness to the LLMInvoker interface.
+type harnessInvoker struct {
+	harness harness.Harness
+}
+
+func (h *harnessInvoker) Invoke(ctx context.Context, dir, agent, prompt string) (string, int, error) {
+	proc, err := h.harness.Spawn(ctx, harness.SpawnOpts{
+		Worktree: dir,
+		Prompt:   prompt,
+		Agent:    agent,
+	})
+	if err != nil {
+		return "", -1, fmt.Errorf("spawn %s: %w", h.harness.Name(), err)
+	}
+
+	result := <-proc.Done
+	return result.Output, result.ExitCode, nil
+}
+
+// loadPacketSummary reads .sdp/context-packet.json and extracts fields needed for classification.
+func loadPacketSummary(projectRoot string) (dispatch.ContextPacketSummary, error) {
+	path := projectRoot + "/.sdp/context-packet.json"
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return dispatch.ContextPacketSummary{}, fmt.Errorf("read context packet: %w", err)
+	}
+
+	var raw struct {
+		Workstream string   `json:"workstream"`
+		ScopeFiles []string `json:"scope_files"`
+		Checkpoint *struct {
+			Phase string `json:"phase"`
+		} `json:"checkpoint"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return dispatch.ContextPacketSummary{}, fmt.Errorf("parse context packet: %w", err)
+	}
+
+	phase := "build"
+	if raw.Checkpoint != nil && raw.Checkpoint.Phase != "" {
+		phase = raw.Checkpoint.Phase
+	}
+
+	return dispatch.ContextPacketSummary{
+		Phase:      phase,
+		Workstream: raw.Workstream,
+		ScopeFiles: raw.ScopeFiles,
+	}, nil
+}
