@@ -1,6 +1,7 @@
 package control
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -432,7 +433,7 @@ func createBeadsIssue(card *FeatureCard) (string, error) {
 		"--json",
 	}
 
-	cmd := exec.Command("bd", args...)
+	cmd := exec.CommandContext(context.Background(), "bd", args...)
 	output, err := cmd.CombinedOutput()
 	outputStr := string(output)
 

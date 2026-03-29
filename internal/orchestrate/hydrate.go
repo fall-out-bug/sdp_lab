@@ -1,10 +1,7 @@
 package orchestrate
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +9,7 @@ import (
 	"sdp_dev/internal/prompt"
 	"sdp_dev/internal/sdputil"
 	"sdp_dev/internal/session"
+
 )
 
 const contextPacketPath = ".sdp/context-packet.json"
@@ -126,19 +124,7 @@ func (p *ContextPacket) Validate() error {
 
 // WriteContextPacket writes the packet to disk (atomic).
 func WriteContextPacket(path string, pkt *ContextPacket) error {
-	data, err := json.MarshalIndent(pkt, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal context packet: %w", err)
-	}
-	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
-		return fmt.Errorf("write context packet: %w", err)
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("rename context packet: %w", err)
-	}
-	return nil
+	return sdputil.AtomicWriteJSON(path, pkt)
 }
 
 // LoadContextPacket reads the packet from disk. Returns nil if file does not exist.
@@ -152,7 +138,7 @@ func LoadContextPacket(projectRoot string) (*ContextPacket, error) {
 		return nil, err
 	}
 	var pkt ContextPacket
-	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(data), sdputil.MaxJSONDecodeBytes)).Decode(&pkt); err != nil {
+	if err := sdputil.UnmarshalJSON(data, &pkt); err != nil {
 		return nil, fmt.Errorf("parse context packet: %w", err)
 	}
 	return &pkt, nil

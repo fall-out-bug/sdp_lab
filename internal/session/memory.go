@@ -1,6 +1,7 @@
 package session
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -344,7 +345,7 @@ func queryShardMemories(shardPath, gitRepoURL string, limit int) ([]memoryRow, e
 }
 
 func getGitRemoteURL(projectRoot string) (string, error) {
-	cmd := exec.Command("git", "-C", projectRoot, "config", "--get", "remote.origin.url")
+	cmd := exec.CommandContext(context.Background(), "git", "-C", projectRoot, "config", "--get", "remote.origin.url")
 	out, err := cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok && len(exitErr.Stderr) > 0 {

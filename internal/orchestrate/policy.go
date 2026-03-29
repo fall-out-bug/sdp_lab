@@ -1,6 +1,7 @@
 package orchestrate
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -83,7 +84,7 @@ func EvaluatePolicies(projectRoot string, input PolicyInput) (PolicyResult, erro
 }
 
 func queryOPAString(opaPath, policiesDir, inputFile, query string) string {
-	cmd := exec.Command(opaPath, "eval",
+	cmd := exec.CommandContext(context.Background(), opaPath, "eval",
 		"--data", policiesDir,
 		"--input", inputFile,
 		"--format", "raw",
@@ -97,7 +98,7 @@ func queryOPAString(opaPath, policiesDir, inputFile, query string) string {
 }
 
 func queryOPAStringSet(opaPath, policiesDir, inputFile, query string) []string {
-	cmd := exec.Command(opaPath, "eval",
+	cmd := exec.CommandContext(context.Background(), opaPath, "eval",
 		"--data", policiesDir,
 		"--input", inputFile,
 		"--format", "raw",

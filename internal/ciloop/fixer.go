@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"sdp_dev/internal/sdputil"
 )
 
 // LogFetcher retrieves the CI failure log for a PR.
@@ -119,15 +121,7 @@ func (f *AutoFixer) writeDiagnostics(checks []CheckResult, fixDescs []string, lo
 		strings.Join(sanitizeFixDescs(fixDescs), "\n"),
 	)
 	fullPath := filepath.Join(dir, filename)
-	tmpPath := fullPath + ".tmp"
-	if err := os.WriteFile(tmpPath, []byte(content), 0o644); err != nil {
-		return err
-	}
-	if err := os.Rename(tmpPath, fullPath); err != nil {
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	return nil
+	return sdputil.AtomicWriteFile(fullPath, []byte(content), 0o644)
 }
 
 // applyFix parses the CI log and attempts to apply a fix for the given check.

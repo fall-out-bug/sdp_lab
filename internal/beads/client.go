@@ -2,6 +2,7 @@
 package beads
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -100,7 +101,7 @@ func findBeadsDB() (string, error) {
 		}
 	}
 
-	cmd := exec.Command("bd", "where")
+	cmd := exec.CommandContext(context.Background(), "bd", "where")
 	output, err := cmd.Output()
 	if err == nil {
 		for _, line := range strings.Split(string(output), "\n") {
@@ -242,7 +243,7 @@ func EmptyMapping() *MappingFile {
 
 // ReadyCommand wraps the `bd ready` command and parses output.
 func ReadyCommand() ([]ReadyIssue, error) {
-	cmd := exec.Command("bd", "ready", "--json")
+	cmd := exec.CommandContext(context.Background(), "bd", "ready", "--json")
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("bd ready: %w", err)
@@ -261,7 +262,7 @@ func ListIssuesCommand(all bool) ([]ListedIssue, error) {
 	if all {
 		args = append(args, "--all")
 	}
-	cmd := exec.Command("bd", args...)
+	cmd := exec.CommandContext(context.Background(), "bd", args...)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("bd list: %w", err)
@@ -281,7 +282,7 @@ func DependencyListCommand(issueID, direction, depType string) ([]DependencyIssu
 	if strings.TrimSpace(depType) != "" {
 		args = append(args, "--type", depType)
 	}
-	cmd := exec.Command("bd", args...)
+	cmd := exec.CommandContext(context.Background(), "bd", args...)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("bd dep list: %w", err)
@@ -294,7 +295,7 @@ func DependencyListCommand(issueID, direction, depType string) ([]DependencyIssu
 }
 
 func DependencyTreeCommand(issueID string) ([]Issue, error) {
-	cmd := exec.Command("bd", "dep", "tree", issueID, "--json")
+	cmd := exec.CommandContext(context.Background(), "bd", "dep", "tree", issueID, "--json")
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("bd dep tree: %w", err)
@@ -331,7 +332,7 @@ func ReadyWithBlockersCommand() ([]ReadyIssue, error) {
 
 // getBlockersForIssue fetches blocker information for a single issue.
 func getBlockersForIssue(issueID string) ([]string, error) {
-	cmd := exec.Command("bd", "show", issueID, "--json")
+	cmd := exec.CommandContext(context.Background(), "bd", "show", issueID, "--json")
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("bd show: %w", err)

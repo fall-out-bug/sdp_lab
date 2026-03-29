@@ -233,7 +233,7 @@ func parseTime(s string) time.Time {
 
 func listContainers(cfg *Config, env string) ([]ContainerInfo, error) {
 	projectName := cfg.ProjectName + "-" + env
-	cmd := exec.Command("docker", "compose", "-p", projectName, "ps", "--format", "{{.Name}}\t{{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}")
+	cmd := exec.CommandContext(context.Background(), "docker", "compose", "-p", projectName, "ps", "--format", "{{.Name}}\t{{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}")
 	cmd.Dir = cfg.ProjectRoot
 	output, err := cmd.CombinedOutput()
 	if err != nil {

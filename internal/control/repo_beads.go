@@ -1,6 +1,7 @@
 package control
 
 import (
+	"context"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -56,7 +57,7 @@ func (r *BeadsCardRepository) runBDWrite(args ...string) ([]byte, error) {
 	allArgs = append(allArgs, args...)
 	r.logger.Printf("exec: bd %s", strings.Join(args, " "))
 
-	cmd := exec.Command(r.bdPath, allArgs...)
+	cmd := exec.CommandContext(context.Background(), r.bdPath, allArgs...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -77,7 +78,7 @@ func (r *BeadsCardRepository) runBD(args ...string) ([]byte, error) {
 	allArgs = append(allArgs, args...)
 	r.logger.Printf("exec: bd %s", strings.Join(args, " "))
 
-	cmd := exec.Command(r.bdPath, allArgs...)
+	cmd := exec.CommandContext(context.Background(), r.bdPath, allArgs...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

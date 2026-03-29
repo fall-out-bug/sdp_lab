@@ -12,6 +12,7 @@ import (
 
 	"sdp_dev/internal/control"
 	"sdp_dev/internal/orchestrate"
+	"sdp_dev/internal/sdputil"
 )
 
 // DispatchProvenance records the provenance for a dispatch bridge execution.
@@ -74,25 +75,12 @@ func RecordDispatchProvenance(projectRoot string, card *control.FeatureCard, pac
 		ContextSources: sources,
 	}
 
-	data, err := json.MarshalIndent(body, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal dispatch provenance: %w", err)
-	}
-
 	sdpDir := filepath.Join(projectRoot, ".sdp")
 	if err := os.MkdirAll(sdpDir, 0o755); err != nil {
 		return fmt.Errorf("mkdir .sdp: %w", err)
 	}
 	path := filepath.Join(sdpDir, fmt.Sprintf("dispatch-provenance-%s.json", card.ID))
-	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
-		return fmt.Errorf("write dispatch provenance: %w", err)
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("rename dispatch provenance: %w", err)
-	}
-	return nil
+	return sdputil.AtomicWriteJSON(path, body)
 }
 
 func hashFileIfExists(path string) (string, error) {

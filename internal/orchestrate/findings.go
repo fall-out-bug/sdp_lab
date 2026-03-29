@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"sdp_dev/internal/bridge"
+	"sdp_dev/internal/sdputil"
 )
 
 func EmitReviewFailureFinding(ctx context.Context, projectRoot string, cp *Checkpoint, reviewOutput string, reviewErr error) (string, error) {
@@ -169,22 +169,7 @@ func reviewerResults(verdict string, findings []string, notes string) map[string
 }
 
 func writeJSONArtifact(path string, payload interface{}) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	data, err := jsonMarshal(payload)
-	if err != nil {
-		return err
-	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return err
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	return nil
+	return sdputil.AtomicWriteJSON(path, payload)
 }
 
 func jsonMarshal(payload interface{}) ([]byte, error) {

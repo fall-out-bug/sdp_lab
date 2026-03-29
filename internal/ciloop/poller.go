@@ -1,16 +1,14 @@
 package ciloop
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"time"
 
 	"sdp_dev/internal/sdputil"
+
 )
 
 // CheckState represents the state of a CI check.
@@ -81,7 +79,7 @@ func (p *Poller) GetChecks(ctx context.Context, prNumber int) ([]CheckResult, er
 		}
 	}
 	var raw []map[string]string
-	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(out), sdputil.MaxJSONDecodeBytes)).Decode(&raw); err != nil {
+	if err := sdputil.UnmarshalJSON(out, &raw); err != nil {
 		return nil, fmt.Errorf("parse checks JSON: %w", err)
 	}
 	results := make([]CheckResult, 0, len(raw))

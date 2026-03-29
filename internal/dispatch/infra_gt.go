@@ -1,6 +1,7 @@
 package dispatch
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -17,7 +18,7 @@ func (g *GastownInfra) Name() string { return "gastown" }
 func (g *GastownInfra) CreateConvoy(name string, issues []string) (string, error) {
 	args := append([]string{"convoy", "create", name}, issues...)
 	args = append(args, "--json")
-	out, err := exec.Command("gt", args...).Output()
+	out, err := exec.CommandContext(context.Background(), "gt", args...).Output()
 	if err != nil {
 		return "", fmt.Errorf("gt convoy create: %w", err)
 	}
@@ -33,7 +34,7 @@ func (g *GastownInfra) CreateConvoy(name string, issues []string) (string, error
 // ConvoyStatus runs: gt convoy show {id} --json
 // It expects the JSON response to contain a top-level "status" string field.
 func (g *GastownInfra) ConvoyStatus(id string) (string, error) {
-	out, err := exec.Command("gt", "convoy", "show", id, "--json").Output()
+	out, err := exec.CommandContext(context.Background(), "gt", "convoy", "show", id, "--json").Output()
 	if err != nil {
 		return "", fmt.Errorf("gt convoy show: %w", err)
 	}
@@ -48,7 +49,7 @@ func (g *GastownInfra) ConvoyStatus(id string) (string, error) {
 
 // Sling runs: gt sling {issue} {rig} --agent {agent}
 func (g *GastownInfra) Sling(issue, rig, agent string) error {
-	cmd := exec.Command("gt", "sling", issue, rig, "--agent", agent)
+	cmd := exec.CommandContext(context.Background(), "gt", "sling", issue, rig, "--agent", agent)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("gt sling: %w: %s", err, out)
 	}

@@ -1,6 +1,7 @@
 package profile
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -159,7 +160,7 @@ func (p *OSSCombineProfile) Validate() error {
 }
 
 func (p *OSSCombineProfile) checkTool(tool Tool) bool {
-	cmd := exec.Command(tool.CheckCmd[0], tool.CheckCmd[1:]...)
+	cmd := exec.CommandContext(context.Background(), tool.CheckCmd[0], tool.CheckCmd[1:]...)
 	return cmd.Run() == nil
 }
 

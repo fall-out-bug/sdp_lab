@@ -1,6 +1,7 @@
 package tower
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -120,14 +121,14 @@ func (h *handler) handleAction(action string) http.HandlerFunc {
 
 		switch action {
 		case "clarify":
-			cmd = exec.Command("sdp", "clarify", cardID)
+			cmd = exec.CommandContext(context.Background(), "sdp", "clarify", cardID)
 			cmd.Env = append(os.Environ(), "OPENCODE_BIN="+bin)
 		case "approve":
-			cmd = exec.Command("sdp", "approve-plan", cardID)
+			cmd = exec.CommandContext(context.Background(), "sdp", "approve-plan", cardID)
 		case "close":
-			cmd = exec.Command("bd", "close", cardID)
+			cmd = exec.CommandContext(context.Background(), "bd", "close", cardID)
 		case "reopen":
-			cmd = exec.Command("bd", "reopen", cardID)
+			cmd = exec.CommandContext(context.Background(), "bd", "reopen", cardID)
 		}
 		if cmd == nil {
 			http.Error(w, "unknown action", 400)
@@ -167,13 +168,13 @@ func (h *handler) bdList(all bool) ([]byte, error) {
 	if all {
 		args = append(args, "--all")
 	}
-	cmd := exec.Command("bd", args...)
+	cmd := exec.CommandContext(context.Background(), "bd", args...)
 	cmd.Dir = h.projectRoot
 	return cmd.Output()
 }
 
 func (h *handler) bdShow(id string) ([]byte, error) {
-	cmd := exec.Command("bd", "show", id, "--json")
+	cmd := exec.CommandContext(context.Background(), "bd", "show", id, "--json")
 	cmd.Dir = h.projectRoot
 	return cmd.Output()
 }

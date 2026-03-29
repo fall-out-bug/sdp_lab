@@ -136,7 +136,7 @@ func detectChangedFiles(projectRoot string, evidence *buildEvidence) []string {
 	if evidence != nil && len(evidence.FilesChanged) > 0 {
 		return dedupeStrings(evidence.FilesChanged)
 	}
-	cmd := exec.Command("git", "diff", "--name-only", "HEAD~1", "HEAD")
+	cmd := exec.CommandContext(context.Background(), "git", "diff", "--name-only", "HEAD~1", "HEAD")
 	cmd.Dir = projectRoot
 	out, err := cmd.Output()
 	if err != nil {
@@ -146,7 +146,7 @@ func detectChangedFiles(projectRoot string, evidence *buildEvidence) []string {
 }
 
 func gitDiff(projectRoot string) string {
-	cmd := exec.Command("git", "diff", "HEAD~1")
+	cmd := exec.CommandContext(context.Background(), "git", "diff", "HEAD~1")
 	cmd.Dir = projectRoot
 	out, err := cmd.Output()
 	if err != nil {

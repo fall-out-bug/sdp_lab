@@ -1,15 +1,13 @@
 package orchestrate
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"time"
 
 	"sdp_dev/internal/sdputil"
+
 )
 
 // Checkpoint is the .sdp/checkpoints/F{NNN}.json schema for the orchestrate state machine.
@@ -86,7 +84,7 @@ func LoadCheckpoint(dir, featureID string) (*Checkpoint, error) {
 		return nil, fmt.Errorf("read checkpoint %s: %w", path, err)
 	}
 	var cp Checkpoint
-	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(data), sdputil.MaxJSONDecodeBytes)).Decode(&cp); err != nil {
+	if err := sdputil.UnmarshalJSON(data, &cp); err != nil {
 		return nil, fmt.Errorf("parse checkpoint %s: %w", path, err)
 	}
 	return &cp, nil
@@ -98,18 +96,6 @@ func SaveCheckpoint(dir string, cp *Checkpoint) error {
 		return err
 	}
 	cp.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	data, err := json.MarshalIndent(cp, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal checkpoint: %w", err)
-	}
-	tmpPath := filepath.Join(dir, cp.FeatureID+".json.tmp")
-	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
-		return fmt.Errorf("write checkpoint: %w", err)
-	}
 	path := filepath.Join(dir, cp.FeatureID+".json")
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("rename checkpoint: %w", err)
-	}
-	return nil
+	return sdputil.AtomicWriteJSON(path, cp)
 }

@@ -1,7 +1,6 @@
 package orchestrate
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -60,20 +59,5 @@ func saveContractGateReport(path string, report *harness.ComplianceReport) error
 	if report == nil {
 		return fmt.Errorf("report is required")
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("create contracts dir: %w", err)
-	}
-	data, err := json.MarshalIndent(report, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal report: %w", err)
-	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return fmt.Errorf("write report: %w", err)
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
-		return fmt.Errorf("rename report: %w", err)
-	}
-	return nil
+	return sdputil.AtomicWriteJSON(path, report)
 }

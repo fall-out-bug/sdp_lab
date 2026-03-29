@@ -1,6 +1,7 @@
 package evidence
 
 import (
+	"context"
 	"bufio"
 	"encoding/json"
 	"fmt"
@@ -210,7 +211,7 @@ func extractWorkstreamsFromBranch(branch string) []string {
 
 // collectTestResults runs go test with -count=1 -cover and parses JSON output.
 func collectTestResults(repoRoot string) ([]GateResult, float64) {
-	cmd := exec.Command("go", "test", "./...", "-count=1", "-cover", "-json")
+	cmd := exec.CommandContext(context.Background(), "go", "test", "./...", "-count=1", "-cover", "-json")
 	cmd.Dir = repoRoot
 	out, err := cmd.Output()
 	if err != nil {
@@ -290,7 +291,7 @@ func collectLintResults(repoRoot string) []GateResult {
 	var results []GateResult
 
 	// Always run go vet
-	cmd := exec.Command("go", "vet", "./...")
+	cmd := exec.CommandContext(context.Background(), "go", "vet", "./...")
 	cmd.Dir = repoRoot
 	vetOut, vetErr := cmd.CombinedOutput()
 	vetStatus := "pass"
@@ -302,7 +303,7 @@ func collectLintResults(repoRoot string) []GateResult {
 	// Run golangci-lint if available
 	lintPath, err := exec.LookPath("golangci-lint")
 	if err == nil {
-		lintCmd := exec.Command(lintPath, "run", "--out-format=line-number", "--timeout=120s", "./...")
+		lintCmd := exec.CommandContext(context.Background(), lintPath, "run", "--out-format=line-number", "--timeout=120s", "./...")
 		lintCmd.Dir = repoRoot
 		lintOut, lintErr := lintCmd.CombinedOutput()
 		lintStatus := "pass"
@@ -433,7 +434,7 @@ func countNonEmptyLines(s string) int {
 }
 
 func runGit(dir string, args ...string) (string, error) {
-	cmd := exec.Command("git", args...)
+	cmd := exec.CommandContext(context.Background(), "git", args...)
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	if err != nil {

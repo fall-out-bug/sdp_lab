@@ -1,7 +1,6 @@
 package orchestrate
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -48,17 +47,5 @@ func EnsureRunFile(dir, featureID, branch string) error {
 		LastPhase:    "init",
 		LastState:    "ok",
 	}
-	body, err := json.MarshalIndent(rf, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal run file: %w", err)
-	}
-	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, body, 0o644); err != nil {
-		return fmt.Errorf("write run file: %w", err)
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("rename run file: %w", err)
-	}
-	return nil
+	return sdputil.AtomicWriteJSON(path, rf)
 }

@@ -1,15 +1,14 @@
 package ciloop
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"time"
 
 	"sdp_dev/internal/sdputil"
+
 )
 
 // Checkpoint mirrors the .sdp/checkpoints/F{NNN}.json schema.
@@ -35,7 +34,7 @@ func LoadCheckpoint(dir, featureID string) (*Checkpoint, error) {
 		return nil, fmt.Errorf("read checkpoint %s: %w", path, err)
 	}
 	var cp Checkpoint
-	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(data), sdputil.MaxJSONDecodeBytes)).Decode(&cp); err != nil {
+	if err := sdputil.UnmarshalJSON(data, &cp); err != nil {
 		return nil, fmt.Errorf("parse checkpoint %s: %w", path, err)
 	}
 	return &cp, nil
@@ -52,8 +51,7 @@ func SaveCheckpoint(dir string, cp *Checkpoint) error {
 
 	var raw map[string]any
 	if data, err := os.ReadFile(path); err == nil {
-		dec := json.NewDecoder(io.LimitReader(bytes.NewReader(data), sdputil.MaxJSONDecodeBytes))
-		if err := dec.Decode(&raw); err == nil {
+		if err := sdputil.UnmarshalJSON(data, &raw); err == nil {
 			// Merge: overlay cp's fields, preserve others (workstreams, review, created_at)
 			mergeCheckpointInto(raw, cp)
 			data, err := json.MarshalIndent(raw, "", "  ")
@@ -86,13 +84,5 @@ func mergeCheckpointInto(raw map[string]any, cp *Checkpoint) {
 }
 
 func writeCheckpointAtomically(path string, data []byte) error {
-	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
-		return fmt.Errorf("write checkpoint: %w", err)
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("rename checkpoint: %w", err)
-	}
-	return nil
+	return sdputil.AtomicWriteFile(path, data, 0o644)
 }

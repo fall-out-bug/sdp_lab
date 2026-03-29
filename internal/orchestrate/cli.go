@@ -1,12 +1,9 @@
 package orchestrate
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,6 +11,7 @@ import (
 	"time"
 
 	"sdp_dev/internal/sdputil"
+
 )
 
 type prInfo struct {
@@ -109,7 +107,7 @@ func GetPRInfo(ctx context.Context) (int, string, error) {
 		return 0, "", ErrNoPR
 	}
 	var arr []prInfo
-	if err := json.NewDecoder(io.LimitReader(bytes.NewReader(out), sdputil.MaxJSONDecodeBytes)).Decode(&arr); err != nil {
+	if err := sdputil.UnmarshalJSON(out, &arr); err != nil {
 		return 0, "", err
 	}
 	if len(arr) == 0 {

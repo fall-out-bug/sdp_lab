@@ -1,6 +1,7 @@
 package docsync
 
 import (
+	"context"
 	"bufio"
 	"bytes"
 	"cmp"
@@ -184,7 +185,7 @@ func checkMarkdownLinks(projectRoot string, strict bool) ([]Issue, error) {
 }
 
 func gitOutput(projectRoot string, args ...string) (string, error) {
-	cmd := exec.Command("git", args...)
+	cmd := exec.CommandContext(context.Background(), "git", args...)
 	cmd.Dir = projectRoot
 	out, err := cmd.Output()
 	if err != nil {

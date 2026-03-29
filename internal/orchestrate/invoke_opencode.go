@@ -4,12 +4,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"sdp_dev/internal/sdputil"
 )
 
 // buildPromptWithContext injects the pre-hydrated context packet into the prompt.
@@ -86,20 +87,8 @@ func WritePromptProvenance(projectRoot string, promptHash string, sources []Cont
 		return err
 	}
 	path := filepath.Join(sdpDir, "prompt-provenance.json")
-	tmpPath := path + ".tmp"
 	body := map[string]any{"prompt_hash": promptHash, "context_sources": sources}
-	data, err := json.MarshalIndent(body, "", "  ")
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
-		return err
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	return nil
+	return sdputil.AtomicWriteJSON(path, body)
 }
 
 // InvokeOpenCode runs `opencode run --agent orchestrator` with the given prompt.
