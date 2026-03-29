@@ -10,37 +10,37 @@ import (
 
 func TestNewStuckDetector(t *testing.T) {
 	tmpDir := t.TempDir()
-	
-	cfg := StuckDetectorConfig{
+
+	cfg := stuckDetectorConfig{
 		SessionPath:   tmpDir,
 		Timeout:       time.Minute,
 		CheckInterval: time.Second * 10,
 	}
-	
-	sd, err := NewStuckDetector(cfg)
+
+	sd, err := newStuckDetector(cfg)
 	if err != nil {
-		t.Fatalf("NewStuckDetector failed: %v", err)
+		t.Fatalf("newStuckDetector failed: %v", err)
 	}
-	
+
 	if sd.sessionPath != tmpDir {
 		t.Errorf("sessionPath = %q, want %q", sd.sessionPath, tmpDir)
 	}
-	
+
 	if sd.timeout != time.Minute {
 		t.Errorf("timeout = %v, want %v", sd.timeout, time.Minute)
 	}
 }
 
 func TestStuckDetectorDefaults(t *testing.T) {
-	sd, err := NewStuckDetector(StuckDetectorConfig{})
+	sd, err := newStuckDetector(stuckDetectorConfig{})
 	if err != nil {
-		t.Fatalf("NewStuckDetector failed: %v", err)
+		t.Fatalf("newStuckDetector failed: %v", err)
 	}
-	
-	if sd.timeout != DefaultStuckTimeout {
-		t.Errorf("timeout = %v, want %v", sd.timeout, DefaultStuckTimeout)
+
+	if sd.timeout != defaultStuckTimeout {
+		t.Errorf("timeout = %v, want %v", sd.timeout, defaultStuckTimeout)
 	}
-	
+
 	if sd.checkTicker == nil {
 		t.Error("checkTicker not initialized")
 	}
@@ -53,7 +53,7 @@ func TestStuckDetection(t *testing.T) {
 	var stuckSessionID string
 	var stuckLastEvent time.Time
 	
-	cfg := StuckDetectorConfig{
+	cfg := stuckDetectorConfig{
 		SessionPath:   tmpDir,
 		Timeout:       time.Second * 2,
 		CheckInterval: time.Millisecond * 100,
@@ -66,10 +66,10 @@ func TestStuckDetection(t *testing.T) {
 			// Session recovered
 		},
 	}
-	
-	sd, err := NewStuckDetector(cfg)
+
+	sd, err := newStuckDetector(cfg)
 	if err != nil {
-		t.Fatalf("NewStuckDetector failed: %v", err)
+		t.Fatalf("newStuckDetector failed: %v", err)
 	}
 	
 	// Create a session file with old timestamp
@@ -90,7 +90,7 @@ func TestStuckDetection(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	
-	sd.Start(ctx)
+	sd.start(ctx)
 	
 	// Wait for detection
 	time.Sleep(time.Millisecond * 500)
@@ -108,45 +108,45 @@ func TestStuckDetection(t *testing.T) {
 	}
 	
 	// Verify session is marked as stuck
-	if !sd.IsStuck("test123") {
+	if !sd.isStuck("test123") {
 		t.Error("session should be marked as stuck")
 	}
 	
-	stats := sd.Stats()
-	if stats.StuckCount != 1 {
-		t.Errorf("StuckCount = %d, want 1", stats.StuckCount)
+	st := sd.stats()
+	if st.StuckCount != 1 {
+		t.Errorf("StuckCount = %d, want 1", st.StuckCount)
 	}
 }
 
 func TestStuckDetectorStats(t *testing.T) {
 	tmpDir := t.TempDir()
-	
-	cfg := StuckDetectorConfig{
+
+	cfg := stuckDetectorConfig{
 		SessionPath: tmpDir,
 		Timeout:     time.Minute,
 	}
-	
-	sd, err := NewStuckDetector(cfg)
+
+	sd, err := newStuckDetector(cfg)
 	if err != nil {
-		t.Fatalf("NewStuckDetector failed: %v", err)
+		t.Fatalf("newStuckDetector failed: %v", err)
 	}
-	
-	stats := sd.Stats()
-	if stats.StuckCount != 0 {
-		t.Errorf("initial StuckCount = %d, want 0", stats.StuckCount)
+
+	st := sd.stats()
+	if st.StuckCount != 0 {
+		t.Errorf("initial StuckCount = %d, want 0", st.StuckCount)
 	}
-	
-	if stats.Timeout != time.Minute {
-		t.Errorf("Timeout = %v, want %v", stats.Timeout, time.Minute)
+
+	if st.Timeout != time.Minute {
+		t.Errorf("Timeout = %v, want %v", st.Timeout, time.Minute)
 	}
 }
 
 func TestGetLastEventTime(t *testing.T) {
 	tmpDir := t.TempDir()
 	
-	sd, err := NewStuckDetector(StuckDetectorConfig{SessionPath: tmpDir})
+	sd, err := newStuckDetector(stuckDetectorConfig{SessionPath: tmpDir})
 	if err != nil {
-		t.Fatalf("NewStuckDetector failed: %v", err)
+		t.Fatalf("newStuckDetector failed: %v", err)
 	}
 	
 	// Create a session file

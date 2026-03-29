@@ -11,8 +11,8 @@ import (
 	"time"
 )
 
-// StuckDetector monitors session evidence for stuck agents.
-type StuckDetector struct {
+// stuckDetector monitors session evidence for stuck agents.
+type stuckDetector struct {
 	mu            sync.Mutex
 	sessionPath   string
 	timeout       time.Duration
@@ -24,8 +24,8 @@ type StuckDetector struct {
 	stuckSessions map[string]time.Time
 }
 
-// StuckDetectorConfig configures the stuck detector.
-type StuckDetectorConfig struct {
+// stuckDetectorConfig configures the stuck detector.
+type stuckDetectorConfig struct {
 	// SessionPath is the path to the session evidence directory.
 	// If empty, uses XDG_DATA_HOME/sdp/log
 	SessionPath string
@@ -46,13 +46,13 @@ type StuckDetectorConfig struct {
 }
 
 // DefaultStuckTimeout is the default timeout for stuck detection.
-const DefaultStuckTimeout = 5 * time.Minute
+const defaultStuckTimeout = 5 * time.Minute
 
 // DefaultCheckInterval is the default interval for checking stuck agents.
-const DefaultCheckInterval = 30 * time.Second
+const defaultCheckInterval = 30 * time.Second
 
-// NewStuckDetector creates a new stuck detector.
-func NewStuckDetector(cfg StuckDetectorConfig) (*StuckDetector, error) {
+// newStuckDetector creates a new stuck detector.
+func newStuckDetector(cfg stuckDetectorConfig) (*stuckDetector, error) {
 	sessionPath := cfg.SessionPath
 	if sessionPath == "" {
 		// Try XDG_DATA_HOME first, then fallback to .sdp/log
@@ -71,15 +71,15 @@ func NewStuckDetector(cfg StuckDetectorConfig) (*StuckDetector, error) {
 
 	timeout := cfg.Timeout
 	if timeout == 0 {
-		timeout = DefaultStuckTimeout
+		timeout = defaultStuckTimeout
 	}
 
 	checkInterval := cfg.CheckInterval
 	if checkInterval == 0 {
-		checkInterval = DefaultCheckInterval
+		checkInterval = defaultCheckInterval
 	}
 
-	sd := &StuckDetector{
+	sd := &stuckDetector{
 		sessionPath:   sessionPath,
 		timeout:       timeout,
 		stopCh:        make(chan struct{}),
@@ -92,13 +92,13 @@ func NewStuckDetector(cfg StuckDetectorConfig) (*StuckDetector, error) {
 	return sd, nil
 }
 
-// Start begins monitoring for stuck agents.
-func (sd *StuckDetector) Start(ctx context.Context) {
+// start begins monitoring for stuck agents.
+func (sd *stuckDetector) start(ctx context.Context) {
 	go sd.run(ctx)
 }
 
-// Stop stops the monitoring. Safe to call multiple times.
-func (sd *StuckDetector) Stop() {
+// stop stops the monitoring. Safe to call multiple times.
+func (sd *stuckDetector) stop() {
 	sd.stopOnce.Do(func() {
 		close(sd.stopCh)
 	})
@@ -107,7 +107,7 @@ func (sd *StuckDetector) Stop() {
 	}
 }
 
-func (sd *StuckDetector) run(ctx context.Context) {
+func (sd *stuckDetector) run(ctx context.Context) {
 	defer func() {
 		if sd.checkTicker != nil {
 			sd.checkTicker.Stop()
@@ -127,7 +127,7 @@ func (sd *StuckDetector) run(ctx context.Context) {
 }
 
 // check looks for stuck sessions.
-func (sd *StuckDetector) check(ctx context.Context) {
+func (sd *stuckDetector) check(ctx context.Context) {
 	sd.mu.Lock()
 	defer sd.mu.Unlock()
 
@@ -178,7 +178,7 @@ func (sd *StuckDetector) check(ctx context.Context) {
 }
 
 // getLastEventTime reads the last event timestamp from a session file.
-func (sd *StuckDetector) getLastEventTime(file string) (sessionID string, lastEvent time.Time, err error) {
+func (sd *stuckDetector) getLastEventTime(file string) (sessionID string, lastEvent time.Time, err error) {
 	// Extract session ID from filename
 	sessionID = filepath.Base(file)
 	sessionID = sessionID[len("session-"):]
@@ -250,8 +250,8 @@ func (sd *StuckDetector) getLastEventTime(file string) (sessionID string, lastEv
 	return sessionID, lastEvent, nil
 }
 
-// StuckSessions returns the currently stuck sessions.
-func (sd *StuckDetector) StuckSessions() map[string]time.Time {
+// getStuckSessions returns the currently stuck sessions.
+func (sd *stuckDetector) getStuckSessions() map[string]time.Time {
 	sd.mu.Lock()
 	defer sd.mu.Unlock()
 
@@ -262,8 +262,8 @@ func (sd *StuckDetector) StuckSessions() map[string]time.Time {
 	return result
 }
 
-// IsStuck checks if a specific session is stuck.
-func (sd *StuckDetector) IsStuck(sessionID string) bool {
+// isStuck checks if a specific session is stuck.
+func (sd *stuckDetector) isStuck(sessionID string) bool {
 	sd.mu.Lock()
 	defer sd.mu.Unlock()
 
@@ -271,8 +271,8 @@ func (sd *StuckDetector) IsStuck(sessionID string) bool {
 	return stuck
 }
 
-// Stats returns monitoring statistics.
-func (sd *StuckDetector) Stats() Stats {
+// stats returns monitoring statistics.
+func (sd *stuckDetector) stats() stats {
 	sd.mu.Lock()
 	defer sd.mu.Unlock()
 
@@ -282,21 +282,21 @@ func (sd *StuckDetector) Stats() Stats {
 		stuckCopy[k] = v
 	}
 
-	return Stats{
+	return stats{
 		StuckCount:    len(sd.stuckSessions),
 		StuckSessions: stuckCopy,
 		Timeout:       sd.timeout,
 	}
 }
 
-// Stats contains monitoring statistics.
-type Stats struct {
+// stats contains monitoring statistics.
+type stats struct {
 	StuckCount    int                  `json:"stuck_count"`
 	StuckSessions map[string]time.Time `json:"stuck_sessions"`
 	Timeout       time.Duration        `json:"timeout"`
 }
 
 // String returns a human-readable representation of stats.
-func (s Stats) String() string {
+func (s stats) String() string {
 	return fmt.Sprintf("StuckAgents: %d, Timeout: %v", s.StuckCount, s.Timeout)
 }

@@ -29,7 +29,7 @@ type runFileEventJSON struct {
 // EnsureRunFile creates the initial run file for a feature (atomic write).
 func EnsureRunFile(dir, featureID, branch string) error {
 	if err := sdputil.ValidateFeatureID(featureID); err != nil {
-		return err
+		return fmt.Errorf("validate feature id: %w", err)
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
 	runID := fmt.Sprintf("oneshot-%s-%s", featureID, time.Now().UTC().Format("20060102T150405Z"))

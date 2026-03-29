@@ -2,6 +2,7 @@ package evidence
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -133,11 +134,11 @@ func LoadTraceEventsFromRunFile(workDir, runID string) []TraceEvent {
 func AddTraceValidationToEvidence(path string, res TraceValidationResult) error {
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("read evidence file %s: %w", path, err)
 	}
 	var payload map[string]any
 	if err := json.Unmarshal(b, &payload); err != nil {
-		return err
+		return fmt.Errorf("parse evidence file %s: %w", path, err)
 	}
 	tv := map[string]any{
 		"ok":       res.OK,
@@ -148,7 +149,7 @@ func AddTraceValidationToEvidence(path string, res TraceValidationResult) error 
 	payload["trace_validation"] = tv
 	out, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal evidence with trace validation: %w", err)
 	}
 	return os.WriteFile(path, append(out, '\n'), 0o644)
 }

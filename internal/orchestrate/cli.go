@@ -55,7 +55,7 @@ func EnsureDraftPR(ctx context.Context, projectRoot, featureID string, cp *Check
 		cp.PRURL = prURL
 		return nil
 	} else if !errors.Is(err, ErrNoPR) {
-		return err
+		return fmt.Errorf("show current branch: %w", err)
 	}
 	push := exec.CommandContext(phaseCtx, "git", "push", "origin", "HEAD")
 	push.Dir = projectRoot
@@ -128,11 +128,11 @@ func extractPRURL(output string) string {
 // AdvancePRPhase runs PR phase (push, create PR), fetches PR info, updates checkpoint to PhaseCI.
 func AdvancePRPhase(ctx context.Context, projectRoot, featureID, cpPath string, cp *Checkpoint) error {
 	if err := RunPRPhase(ctx, projectRoot, featureID, cp); err != nil {
-		return err
+		return fmt.Errorf("run PR phase: %w", err)
 	}
 	prNum, prURL, err := GetPRInfo(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("get PR info after phase: %w", err)
 	}
 	cp.PRNumber = &prNum
 	cp.PRURL = prURL
@@ -147,7 +147,7 @@ func AdvanceCIPhase(ctx context.Context, projectRoot, featureID, cpPath, runsPat
 	if err := RunHooks(ctx, projectRoot, "ci", "pre", env, func(msg string) {
 		fmt.Fprintln(os.Stderr, msg)
 	}); err != nil {
-		return err
+		return fmt.Errorf("advance PR phase: %w", err)
 	}
 	pr := 0
 	if cp.PRNumber != nil {
@@ -156,19 +156,19 @@ func AdvanceCIPhase(ctx context.Context, projectRoot, featureID, cpPath, runsPat
 	if pr == 0 {
 		prNum, _, err := GetPRInfo(ctx)
 		if err != nil {
-			return err
+			return fmt.Errorf("get PR info for CI: %w", err)
 		}
 		pr = prNum
 	}
 	if pr > 0 {
 		if err := RunCILoop(ctx, pr, featureID, cpPath, runsPath); err != nil {
-			return err
+			return fmt.Errorf("run CI loop for PR %d: %w", pr, err)
 		}
 	}
 	if err := RunHooks(ctx, projectRoot, "ci", "post", env, func(msg string) {
 		fmt.Fprintln(os.Stderr, msg)
 	}); err != nil {
-		return err
+		return fmt.Errorf("post-CI hooks: %w", err)
 	}
 	cp.Phase = PhaseQA
 	if cp.QA == nil {

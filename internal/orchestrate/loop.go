@@ -41,14 +41,14 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 			}
 			if _, err := Hydrate(projectRoot, featureID, action.WSID, cp); err != nil {
 				slog.Error("hydration failed", "error", err, "ws", action.WSID)
-				return err
+				return fmt.Errorf("hydrate for build: %w", err)
 			}
 			phaseCtx, cancel := context.WithTimeout(ctx, buildPhaseTimeout)
 			commit, err := RunBuildPhase(phaseCtx, projectRoot, action.Feature, action.WSID, nil)
 			cancel()
 			if err != nil {
 				slog.Error("opencode build failed", "error", err, "ws", action.WSID)
-				return err
+				return fmt.Errorf("build phase: %w", err)
 			}
 			pending := 0
 			for _, ws := range cp.Workstreams {
@@ -100,7 +100,7 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 			}
 			if _, err := HydrateForReview(projectRoot, action.Feature, cp, workstreams); err != nil {
 				slog.Error("hydration failed", "error", err, "feature", action.Feature)
-				return err
+				return fmt.Errorf("hydrate for review: %w", err)
 			}
 			phaseCtx, cancel := context.WithTimeout(ctx, reviewPhaseTimeout)
 			approved, reviewOutput, err := RunReviewPhase(phaseCtx, projectRoot, action.Feature, nil)
@@ -116,7 +116,7 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				_ = SaveCheckpoint(cpPath, cp)
 				slog.Error("opencode review failed", "error", err, "approved", approved, "feature", action.Feature)
 				if err != nil {
-					return err
+					return fmt.Errorf("review phase: %w", err)
 				}
 				return fmt.Errorf("opencode review not approved")
 			}
@@ -175,7 +175,7 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 			}
 			if _, err := HydrateForReview(projectRoot, action.Feature, cp, workstreams); err != nil {
 				slog.Error("hydration failed", "error", err, "feature", action.Feature)
-				return err
+				return fmt.Errorf("hydrate for QA: %w", err)
 			}
 			phaseCtx, cancel := context.WithTimeout(ctx, qaPhaseTimeout)
 			passed, qaOutput, err := RunQAPhase(phaseCtx, projectRoot, action.Feature, nil)
@@ -192,7 +192,7 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				_ = SaveCheckpoint(cpPath, cp)
 				slog.Error("opencode qa failed", "error", err, "passed", passed, "feature", action.Feature)
 				if err != nil {
-					return err
+					return fmt.Errorf("QA phase: %w", err)
 				}
 				return fmt.Errorf("opencode qa not passed")
 			}

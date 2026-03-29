@@ -113,15 +113,15 @@ func TestParseNotifyCommand(t *testing.T) {
 }
 
 func TestNewEscalationHandler(t *testing.T) {
-	cfg := EscalationConfig{
+	cfg := escalationConfig{
 		CreateWisp:    false,
 		NotifyCommand: "notify test@example.com",
 	}
 
-	eh := NewEscalationHandler(cfg)
+	eh := newEscalationHandler(cfg)
 
 	if eh == nil {
-		t.Fatal("NewEscalationHandler returned nil")
+		t.Fatal("newEscalationHandler returned nil")
 	}
 
 	if eh.createWisp != false {
@@ -136,7 +136,7 @@ func TestNewEscalationHandler(t *testing.T) {
 func TestEscalationHandler_Escalate(t *testing.T) {
 	t.Run("calls onEscalate when set", func(t *testing.T) {
 		onEscalateCalled := false
-		cfg := EscalationConfig{
+		cfg := escalationConfig{
 			CreateWisp:    false,
 			NotifyCommand: "notify test@example.com",
 			OnEscalate: func(sessionID string, lastEvent time.Time) {
@@ -144,8 +144,8 @@ func TestEscalationHandler_Escalate(t *testing.T) {
 			},
 		}
 
-		eh := NewEscalationHandler(cfg)
-		_ = eh.Escalate(context.Background(), "session-123", time.Now())
+		eh := newEscalationHandler(cfg)
+		_ = eh.escalate(context.Background(), "session-123", time.Now())
 
 		if !onEscalateCalled {
 			t.Error("onEscalate was not called")
@@ -155,16 +155,16 @@ func TestEscalationHandler_Escalate(t *testing.T) {
 
 func TestEscalationHandler_SafeCommands(t *testing.T) {
 	t.Run("rejects invalid commands", func(t *testing.T) {
-		cfg := EscalationConfig{
+		cfg := escalationConfig{
 			CreateWisp:    false,
 			NotifyCommand: "rm -rf /tmp", // Invalid command
 			OnEscalate:    func(sessionID string, lastEvent time.Time) {},
 		}
 
-		eh := NewEscalationHandler(cfg)
+		eh := newEscalationHandler(cfg)
 
 		// This should fail because "rm" is not in whitelist
-		err := eh.Escalate(context.Background(), "session-123", time.Now())
+		err := eh.escalate(context.Background(), "session-123", time.Now())
 
 		if err == nil {
 			t.Error("expected error for invalid notify command, got nil")

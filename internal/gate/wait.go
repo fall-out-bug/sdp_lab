@@ -6,10 +6,10 @@ import (
 	"time"
 )
 
-// WaitForGate polls a gate until it is resolved or the timeout elapses.
+// waitForGate polls a gate until it is resolved or the timeout elapses.
 // Returns the resolved gate or an error on timeout or context cancellation.
 // If the gate is already resolved, it returns immediately.
-func WaitForGate(ctx context.Context, mgr *BeadsGateManager, gateID string, pollInterval, timeout time.Duration) (*Gate, error) {
+func waitForGate(ctx context.Context, mgr *beadsGateManager, gateID string, pollInterval, timeout time.Duration) (*Gate, error) {
 	deadline := time.Now().Add(timeout)
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()

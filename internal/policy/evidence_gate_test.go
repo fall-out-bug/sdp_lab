@@ -9,8 +9,8 @@ import (
 )
 
 func TestEvaluateEvidenceGate_RequiresSignature(t *testing.T) {
-	config := DefaultEvidenceGateConfig()
-	result := EvaluateEvidenceGate(config, []byte(`{"payload":"e30=","signatures":[]}`), evidence.DiscrepancyReport{}, func(_ []byte) error {
+	config := defaultEvidenceGateConfig()
+	result := evaluateEvidenceGate(config, []byte(`{"payload":"e30=","signatures":[]}`), evidence.DiscrepancyReport{}, func(_ []byte) error {
 		return nil
 	})
 
@@ -23,13 +23,13 @@ func TestEvaluateEvidenceGate_RequiresSignature(t *testing.T) {
 }
 
 func TestEvaluateEvidenceGate_FailsOnThresholdBreach(t *testing.T) {
-	config := DefaultEvidenceGateConfig()
+	config := defaultEvidenceGateConfig()
 	config.Thresholds.High = 0
 	report := evidence.DiscrepancyReport{
 		Discrepancies: []evidence.Discrepancy{{Severity: "high"}},
 	}
 
-	result := EvaluateEvidenceGate(config, []byte(`{"signatures":[{"sig":"abc"}]}`), report, func(_ []byte) error {
+	result := evaluateEvidenceGate(config, []byte(`{"signatures":[{"sig":"abc"}]}`), report, func(_ []byte) error {
 		return nil
 	})
 
@@ -42,8 +42,8 @@ func TestEvaluateEvidenceGate_FailsOnThresholdBreach(t *testing.T) {
 }
 
 func TestEvaluateEvidenceGate_FailsOnVerificationError(t *testing.T) {
-	config := DefaultEvidenceGateConfig()
-	result := EvaluateEvidenceGate(config, []byte(`{"signatures":[{"sig":"abc"}]}`), evidence.DiscrepancyReport{}, func(_ []byte) error {
+	config := defaultEvidenceGateConfig()
+	result := evaluateEvidenceGate(config, []byte(`{"signatures":[{"sig":"abc"}]}`), evidence.DiscrepancyReport{}, func(_ []byte) error {
 		return errors.New("verify failed")
 	})
 
@@ -56,11 +56,11 @@ func TestEvaluateEvidenceGate_FailsOnVerificationError(t *testing.T) {
 }
 
 func TestEvidenceGateResult_AuditFields(t *testing.T) {
-	result := EvidenceGateResult{
+	result := evidenceGateResult{
 		Allowed:       true,
 		Reasons:       []string{},
 		SeverityCount: map[string]int{"critical": 0, "high": 0, "medium": 1, "low": 0},
-		Config:        DefaultEvidenceGateConfig(),
+		Config:        defaultEvidenceGateConfig(),
 	}
 
 	fields := result.AuditFields()

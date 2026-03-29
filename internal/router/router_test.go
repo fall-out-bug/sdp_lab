@@ -152,9 +152,9 @@ func TestInferEntryPhase(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := InferEntryPhase(tt.taskType, tt.hasRequirements, tt.hasDesign)
+			got := inferEntryPhase(tt.taskType, tt.hasRequirements, tt.hasDesign)
 			if got != tt.want {
-				t.Errorf("InferEntryPhase(%q, %v, %v) = %q, want %q",
+				t.Errorf("inferEntryPhase(%q, %v, %v) = %q, want %q",
 					tt.taskType, tt.hasRequirements, tt.hasDesign, got, tt.want)
 			}
 		})
@@ -179,9 +179,9 @@ func TestSelectRig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := SelectRig(tt.taskType, tt.projectDefault)
+			got := selectRig(tt.taskType, tt.projectDefault)
 			if got != tt.want {
-				t.Errorf("SelectRig(%q, %q) = %q, want %q",
+				t.Errorf("selectRig(%q, %q) = %q, want %q",
 					tt.taskType, tt.projectDefault, got, tt.want)
 			}
 		})

@@ -471,7 +471,7 @@ func minLen(a, b int) int {
 
 // WriteAutoAttestationReport writes a human-readable summary JSON alongside the attestation.
 func WriteAutoAttestationReport(outputPath string, stmt CodingWorkflowStatement) error {
-	allTestsPass := AllTestsPass(stmt)
+	AllTestsPass := AllTestsPass(stmt)
 	allLintPass := true
 	for _, l := range stmt.Predicate.Verification.Lint {
 		if strings.HasPrefix(l.Status, "fail") {
@@ -488,7 +488,7 @@ func WriteAutoAttestationReport(outputPath string, stmt CodingWorkflowStatement)
 		"beads_ids":        stmt.Predicate.Trace.BeadsIDs,
 		"changed_files":    len(stmt.Predicate.Execution.ChangedFiles),
 		"test_results":     stmt.Predicate.Verification.Tests,
-		"all_tests_pass":   allTestsPass,
+		"all_tests_pass":   AllTestsPass,
 		"lint_results":     stmt.Predicate.Verification.Lint,
 		"all_lint_pass":    allLintPass,
 		"scope_compliance": stmt.Predicate.Boundary.Compliance,
@@ -502,7 +502,7 @@ func WriteAutoAttestationReport(outputPath string, stmt CodingWorkflowStatement)
 
 	b, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal auto-attestation report: %w", err)
 	}
 	b = append(b, '\n')
 	return os.WriteFile(outputPath, b, 0o644)

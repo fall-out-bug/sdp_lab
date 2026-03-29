@@ -214,7 +214,7 @@ func (s *BeadsSink) syncProtocolFinding(ctx context.Context, f *ProtocolFinding,
 	}
 
 	if _, err := s.applyDecision(ctx, decision, title, desc, priority, labels); err != nil {
-		return err
+		return fmt.Errorf("sync protocol finding: %w", err)
 	}
 	return nil
 }
@@ -251,7 +251,7 @@ func (s *BeadsSink) syncDocsFinding(ctx context.Context, f *DocsFinding, source 
 	}
 
 	if _, err := s.applyDecision(ctx, decision, title, desc, priority, labels); err != nil {
-		return err
+		return fmt.Errorf("sync docs finding: %w", err)
 	}
 	return nil
 }
@@ -806,12 +806,12 @@ const DefaultIssueTemplate = `**Category:** {{.Category}}
 func RenderIssueTemplate(tmpl string, data *IssueTemplateData) (string, error) {
 	t, err := template.New("issue").Parse(tmpl)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("parse issue template: %w", err)
 	}
 
 	var buf bytes.Buffer
 	if err := t.Execute(&buf, data); err != nil {
-		return "", err
+		return "", fmt.Errorf("execute issue template: %w", err)
 	}
 
 	return buf.String(), nil

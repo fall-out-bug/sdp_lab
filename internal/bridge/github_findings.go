@@ -157,7 +157,7 @@ func (c *GitHubClient) FetchArtifacts(ctx context.Context, runID int64, destDir 
 	var files []string
 	walkErr := filepath.Walk(destDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			return fmt.Errorf("walk artifacts dir: %w", err)
 		}
 		if !info.IsDir() && strings.HasSuffix(path, ".json") {
 			files = append(files, path)

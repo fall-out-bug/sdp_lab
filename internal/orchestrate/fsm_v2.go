@@ -153,13 +153,13 @@ func (f *FSMV2) Transition(ctx context.Context, to State) error {
 
 	from, transition, err := f.validateTransitionRequest(to)
 	if err != nil {
-		return err
+		return fmt.Errorf("validate transition to %s: %w", to, err)
 	}
 	if err := f.runBeforeTransitionHooks(ctx, from, to); err != nil {
-		return err
+		return fmt.Errorf("before transition hooks: %w", err)
 	}
 	if err := f.enforcePolicyForTransition(ctx, from, to, transition); err != nil {
-		return err
+		return fmt.Errorf("enforce policy for %s->%s: %w", from, to, err)
 	}
 
 	if transitionErr := f.executeTransitionWork(ctx, from, to, transition); transitionErr != nil {

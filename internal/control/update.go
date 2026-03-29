@@ -345,7 +345,7 @@ func (s *Store) DispatchCard(projectID, cardID string) (*FeatureCard, error) {
 
 func (s *Store) writeDispatchPacket(projectID, cardID string, packet *ExecutionPacket) error {
 	if err := os.MkdirAll(s.dispatchDir(projectID), 0o755); err != nil {
-		return err
+		return fmt.Errorf("create dispatch dir: %w", err)
 	}
 
 	data, err := json.MarshalIndent(packet, "", "  ")

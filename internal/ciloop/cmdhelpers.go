@@ -57,7 +57,7 @@ func (g *AllFilesCommitter) Commit(ctx context.Context, msg string) error {
 	add.Stdout = os.Stdout
 	add.Stderr = os.Stderr
 	if err := add.Run(); err != nil {
-		return err
+		return fmt.Errorf("git add -u: %w", err)
 	}
 	cmd := exec.CommandContext(runCtx, "git", "commit", "-m", msg)
 	cmd.Stdout = os.Stdout
@@ -89,7 +89,7 @@ func (g *GitCommitter) Commit(ctx context.Context, msg string) error {
 	add.Stdout = os.Stdout
 	add.Stderr = os.Stderr
 	if err := add.Run(); err != nil {
-		return err
+		return fmt.Errorf("git add ci-fixes: %w", err)
 	}
 	cmd := exec.CommandContext(runCtx, "git", "commit", "-m", msg)
 	cmd.Stdout = os.Stdout

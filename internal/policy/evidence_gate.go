@@ -8,31 +8,31 @@ import (
 	"sdp_dev/internal/evidence"
 )
 
-type VerifyAttestationFunc func(payload []byte) error
+type verifyAttestationFunc func(payload []byte) error
 
-type DiscrepancyThresholds struct {
+type discrepancyThresholds struct {
 	Critical int
 	High     int
 	Medium   int
 	Low      int
 }
 
-type EvidenceGateConfig struct {
+type evidenceGateConfig struct {
 	RequireSignedAttestation bool
-	Thresholds               DiscrepancyThresholds
+	Thresholds               discrepancyThresholds
 }
 
-type EvidenceGateResult struct {
+type evidenceGateResult struct {
 	Allowed       bool               `json:"allowed"`
 	Reasons       []string           `json:"reasons,omitempty"`
 	SeverityCount map[string]int     `json:"severity_count"`
-	Config        EvidenceGateConfig `json:"config"`
+	Config        evidenceGateConfig `json:"config"`
 }
 
-func DefaultEvidenceGateConfig() EvidenceGateConfig {
-	return EvidenceGateConfig{
+func defaultEvidenceGateConfig() evidenceGateConfig {
+	return evidenceGateConfig{
 		RequireSignedAttestation: true,
-		Thresholds: DiscrepancyThresholds{
+		Thresholds: discrepancyThresholds{
 			Critical: 0,
 			High:     0,
 			Medium:   5,
@@ -41,12 +41,12 @@ func DefaultEvidenceGateConfig() EvidenceGateConfig {
 	}
 }
 
-func EvaluateEvidenceGate(config EvidenceGateConfig, signedAttestation []byte, report evidence.DiscrepancyReport, verify VerifyAttestationFunc) EvidenceGateResult {
+func evaluateEvidenceGate(config evidenceGateConfig, signedAttestation []byte, report evidence.DiscrepancyReport, verify verifyAttestationFunc) evidenceGateResult {
 	if verify == nil {
 		verify = defaultVerifyAttestation
 	}
 
-	result := EvidenceGateResult{
+	result := evidenceGateResult{
 		Allowed:       true,
 		Reasons:       []string{},
 		SeverityCount: countDiscrepanciesBySeverity(report),
@@ -70,7 +70,7 @@ func EvaluateEvidenceGate(config EvidenceGateConfig, signedAttestation []byte, r
 	return result
 }
 
-func (r EvidenceGateResult) AuditFields() map[string]interface{} {
+func (r evidenceGateResult) AuditFields() map[string]interface{} {
 	fields := map[string]interface{}{
 		"allowed":        r.Allowed,
 		"reasons":        r.Reasons,
@@ -87,7 +87,7 @@ func (r EvidenceGateResult) AuditFields() map[string]interface{} {
 
 func defaultVerifyAttestation(payload []byte) error {
 	_, err := evidence.NewSigner().VerifyAttestation(payload)
-	return err
+	return fmt.Errorf("verify attestation: %w", err)
 }
 
 func countDiscrepanciesBySeverity(report evidence.DiscrepancyReport) map[string]int {
@@ -101,7 +101,7 @@ func countDiscrepanciesBySeverity(report evidence.DiscrepancyReport) map[string]
 	return counts
 }
 
-func applyDiscrepancyThresholds(result *EvidenceGateResult) {
+func applyDiscrepancyThresholds(result *evidenceGateResult) {
 	limits := map[string]int{
 		"critical": result.Config.Thresholds.Critical,
 		"high":     result.Config.Thresholds.High,

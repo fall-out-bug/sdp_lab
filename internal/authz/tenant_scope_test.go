@@ -6,14 +6,14 @@ import (
 )
 
 func TestNewTenantAuthorizer(t *testing.T) {
-	a := NewTenantAuthorizer()
+	a := newTenantAuthorizer()
 	if a == nil {
 		t.Fatal("expected non-nil authorizer")
 	}
 }
 
 func TestRegisterTenant(t *testing.T) {
-	a := NewTenantAuthorizer()
+	a := newTenantAuthorizer()
 
 	scope := &TenantScope{
 		TenantID: "tenant-1",
@@ -36,7 +36,7 @@ func TestRegisterTenant(t *testing.T) {
 }
 
 func TestRegisterTenantEmptyID(t *testing.T) {
-	a := NewTenantAuthorizer()
+	a := newTenantAuthorizer()
 
 	scope := &TenantScope{
 		TenantID: "",
@@ -50,7 +50,7 @@ func TestRegisterTenantEmptyID(t *testing.T) {
 }
 
 func TestAuthorizeSameTenant(t *testing.T) {
-	a := NewTenantAuthorizer()
+	a := newTenantAuthorizer()
 
 	req := AccessRequest{
 		Subject: Subject{
@@ -70,8 +70,8 @@ func TestAuthorizeSameTenant(t *testing.T) {
 }
 
 func TestAuthorizeCrossTenantDenied(t *testing.T) {
-	logger := NewInMemoryCrossTenantLogger()
-	a := NewTenantAuthorizer(WithCrossTenantLogger(logger))
+	logger := newInMemoryCrossTenantLogger()
+	a := newTenantAuthorizer(withCrossTenantLogger(logger))
 
 	req := AccessRequest{
 		Subject: Subject{
@@ -99,7 +99,7 @@ func TestAuthorizeCrossTenantDenied(t *testing.T) {
 }
 
 func TestAuthorizePermissionDenied(t *testing.T) {
-	a := NewTenantAuthorizer()
+	a := newTenantAuthorizer()
 
 	req := AccessRequest{
 		Subject: Subject{
@@ -139,7 +139,7 @@ func TestRolePermissions(t *testing.T) {
 		{RoleAdmin, PermissionDeleteWorkstream, true},
 	}
 
-	a := NewTenantAuthorizer()
+	a := newTenantAuthorizer()
 
 	for _, tt := range tests {
 		req := AccessRequest{
@@ -161,7 +161,7 @@ func TestRolePermissions(t *testing.T) {
 }
 
 func TestMultipleRoles(t *testing.T) {
-	a := NewTenantAuthorizer()
+	a := newTenantAuthorizer()
 
 	req := AccessRequest{
 		Subject: Subject{
@@ -180,7 +180,7 @@ func TestMultipleRoles(t *testing.T) {
 }
 
 func TestCheckNamespaceAccess(t *testing.T) {
-	a := NewTenantAuthorizer()
+	a := newTenantAuthorizer()
 
 	tests := []struct {
 		subject   Subject
@@ -218,7 +218,7 @@ func TestCheckNamespaceAccess(t *testing.T) {
 }
 
 func TestListTenants(t *testing.T) {
-	a := NewTenantAuthorizer()
+	a := newTenantAuthorizer()
 
 	_ = a.RegisterTenant(&TenantScope{TenantID: "tenant-1"})
 	_ = a.RegisterTenant(&TenantScope{TenantID: "tenant-2"})
@@ -230,7 +230,7 @@ func TestListTenants(t *testing.T) {
 }
 
 func TestInMemoryCrossTenantLogger(t *testing.T) {
-	logger := NewInMemoryCrossTenantLogger()
+	logger := newInMemoryCrossTenantLogger()
 
 	entry := CrossTenantAccessLog{
 		ID:            "log-1",
@@ -254,8 +254,8 @@ func TestInMemoryCrossTenantLogger(t *testing.T) {
 }
 
 func TestTenantMiddleware(t *testing.T) {
-	a := NewTenantAuthorizer()
-	m := NewTenantMiddleware(a)
+	a := newTenantAuthorizer()
+	m := newTenantMiddleware(a)
 
 	subject := Subject{
 		ID:       "user-1",
@@ -274,8 +274,8 @@ func TestTenantMiddleware(t *testing.T) {
 }
 
 func TestTenantMiddlewareRequirePermission(t *testing.T) {
-	a := NewTenantAuthorizer()
-	m := NewTenantMiddleware(a)
+	a := newTenantAuthorizer()
+	m := newTenantMiddleware(a)
 
 	operator := Subject{Roles: []Role{RoleOperator}}
 	auditor := Subject{Roles: []Role{RoleAuditor}}
@@ -292,19 +292,19 @@ func TestTenantMiddlewareRequirePermission(t *testing.T) {
 }
 
 func TestGetRolePermissions(t *testing.T) {
-	perms := GetRolePermissions(RoleOperator)
+	perms := getRolePermissions(RoleOperator)
 	if len(perms) == 0 {
 		t.Error("expected permissions for operator role")
 	}
 
-	perms = GetRolePermissions(Role("nonexistent"))
+	perms = getRolePermissions(Role("nonexistent"))
 	if perms != nil {
 		t.Error("expected nil for nonexistent role")
 	}
 }
 
 func TestAccessDecisionTimestamp(t *testing.T) {
-	a := NewTenantAuthorizer()
+	a := newTenantAuthorizer()
 
 	req := AccessRequest{
 		Subject: Subject{
@@ -322,7 +322,7 @@ func TestAccessDecisionTimestamp(t *testing.T) {
 }
 
 func TestTenantScopeMetadata(t *testing.T) {
-	a := NewTenantAuthorizer()
+	a := newTenantAuthorizer()
 
 	scope := &TenantScope{
 		TenantID: "tenant-1",

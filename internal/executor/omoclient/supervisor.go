@@ -107,7 +107,7 @@ func (s *OmOSupervisor) Stop(gracePeriod time.Duration) error {
 	select {
 	case err := <-done:
 		s.running = false
-		return err
+		return fmt.Errorf("wait for process exit: %w", err)
 	case <-time.After(gracePeriod):
 		if err := s.cmd.Process.Kill(); err != nil {
 			return fmt.Errorf("kill opencode serve: %w", err)

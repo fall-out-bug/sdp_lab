@@ -124,7 +124,7 @@ func (cm *CredentialManager) GetCredential(ctx context.Context, tenantID string,
 	cred, err := cm.store.Get(ctx, tenantID, providerID)
 	if err != nil {
 		cm.auditLog(ctx, tenantID, providerID, "get", "system", false, err.Error())
-		return nil, err
+		return nil, fmt.Errorf("get credential for tenant %s provider %s: %w", tenantID, providerID, err)
 	}
 
 	if cred.Status == CredentialStatusExpired {
@@ -167,7 +167,7 @@ func (cm *CredentialManager) CreateCredential(ctx context.Context, tenantID stri
 
 	if cm.store != nil {
 		if err := cm.store.Set(ctx, cred); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("store new credential: %w", err)
 		}
 	}
 
@@ -255,7 +255,7 @@ func (cm *CredentialManager) RevokeCredential(ctx context.Context, tenantID stri
 
 	cred, err := cm.store.Get(ctx, tenantID, providerID)
 	if err != nil {
-		return err
+		return fmt.Errorf("get credential for revocation: %w", err)
 	}
 
 	cred.Status = CredentialStatusRevoked
@@ -263,7 +263,7 @@ func (cm *CredentialManager) RevokeCredential(ctx context.Context, tenantID stri
 	cred.UpdatedAt = time.Now()
 
 	if err := cm.store.Set(ctx, cred); err != nil {
-		return err
+		return fmt.Errorf("revoke credential: %w", err)
 	}
 
 	cm.auditLog(ctx, tenantID, providerID, "revoke", "system", true, "")
@@ -280,7 +280,7 @@ func (cm *CredentialManager) CheckExpiry(ctx context.Context, tenantID string) (
 
 	creds, err := cm.store.List(ctx, tenantID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list credentials for expiry check: %w", err)
 	}
 
 	var expiring []*Credential

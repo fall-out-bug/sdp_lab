@@ -78,7 +78,7 @@ type HookEnv struct {
 func RunHooks(ctx context.Context, projectRoot string, phase, when string, env HookEnv, log func(msg string)) error {
 	cfg, err := LoadHookConfig(projectRoot)
 	if err != nil {
-		return err
+		return fmt.Errorf("load pipeline hooks: %w", err)
 	}
 	if cfg == nil {
 		return nil
@@ -88,7 +88,7 @@ func RunHooks(ctx context.Context, projectRoot string, phase, when string, env H
 			continue
 		}
 		if err := runHook(ctx, projectRoot, h, env, log); err != nil {
-			return err
+			return fmt.Errorf("hook %s-%s: %w", h.Phase, h.When, err)
 		}
 	}
 	return nil

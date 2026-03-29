@@ -51,14 +51,14 @@ func truncateField(s string, max int) string {
 // Uses flock for inter-process safety (concurrent access from multiple processes).
 func AppendRunEvent(dir, featureID, phase, state, notes string) error {
 	if err := sdputil.ValidateFeatureID(featureID); err != nil {
-		return err
+		return fmt.Errorf("validate feature id: %w", err)
 	}
 	phase = truncateField(phase, maxRunEventFieldBytes)
 	state = truncateField(state, maxRunEventFieldBytes)
 	notes = truncateField(notes, maxRunEventFieldBytes)
 	path, err := findRunFile(dir, featureID)
 	if err != nil {
-		return err
+		return fmt.Errorf("find run file: %w", err)
 	}
 	f, err := os.OpenFile(path, os.O_RDWR, 0o644)
 	if err != nil {

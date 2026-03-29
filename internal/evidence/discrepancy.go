@@ -52,14 +52,14 @@ type DiscrepancyReport struct {
 	Summary       string        `json:"summary"`
 }
 
-// CompareOptions configures the comparison behavior.
-type CompareOptions struct {
+// compareOptions configures the comparison behavior.
+type compareOptions struct {
 	CoverageThreshold float64 // Minimum coverage difference to flag (default: 5.0)
 	EvidenceDir       string  // Directory containing evidence files (default: .sdp/evidence)
 }
 
-// CompareAttestations compares agent and CI attestations for a given run.
-func CompareAttestations(runID string, opts CompareOptions) (DiscrepancyReport, error) {
+// compareAttestations compares agent and CI attestations for a given run.
+func compareAttestations(runID string, opts compareOptions) (DiscrepancyReport, error) {
 	if err := validateRunID(runID); err != nil {
 		return DiscrepancyReport{}, fmt.Errorf("invalid run id: %w", err)
 	}
@@ -448,8 +448,8 @@ func generateSummary(report DiscrepancyReport) string {
 	return fmt.Sprintf("Discrepancies found: %s", strings.Join(parts, ", "))
 }
 
-// WriteDiscrepancyReport writes a discrepancy report to a file.
-func WriteDiscrepancyReport(path string, report DiscrepancyReport) error {
+// writeDiscrepancyReport writes a discrepancy report to a file.
+func writeDiscrepancyReport(path string, report DiscrepancyReport) error {
 	b, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal report: %w", err)
@@ -458,8 +458,8 @@ func WriteDiscrepancyReport(path string, report DiscrepancyReport) error {
 	return os.WriteFile(path, b, 0o644)
 }
 
-// ReadDiscrepancyReport reads a discrepancy report from a file.
-func ReadDiscrepancyReport(path string) (DiscrepancyReport, error) {
+// readDiscrepancyReport reads a discrepancy report from a file.
+func readDiscrepancyReport(path string) (DiscrepancyReport, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return DiscrepancyReport{}, err

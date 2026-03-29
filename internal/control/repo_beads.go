@@ -184,10 +184,10 @@ func (r *BeadsCardRepository) SaveCard(card *FeatureCard) error {
 	switch card.Status {
 	case "closed":
 		_, err := r.runBDWrite("close", card.ID)
-		return err
+		return fmt.Errorf("close card %s: %w", card.ID, err)
 	case "open":
 		_, err := r.runBDWrite("reopen", card.ID)
-		return err
+		return fmt.Errorf("reopen card %s: %w", card.ID, err)
 	default:
 		a := []string{"update", card.ID}
 		if card.Title != "" {
@@ -200,7 +200,7 @@ func (r *BeadsCardRepository) SaveCard(card *FeatureCard) error {
 			a = append(a, "--priority", card.ExecutionMode)
 		}
 		_, err := r.runBDWrite(a...)
-		return err
+		return fmt.Errorf("update card %s: %w", card.ID, err)
 	}
 }
 
@@ -219,7 +219,7 @@ func (r *BeadsCardRepository) LoadCardByID(cardID string) (*FeatureCard, error) 
 
 	issues, err := parseBdList(data)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parse card list for %s: %w", cardID, err)
 	}
 	if len(issues) == 0 {
 		return nil, fmt.Errorf("card %s not found", cardID)
@@ -239,7 +239,7 @@ func (r *BeadsCardRepository) LoadCards(projectID string) ([]FeatureCard, error)
 
 	issues, err := parseBdList(data)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parse card list for project %s: %w", projectID, err)
 	}
 
 	cards := make([]FeatureCard, 0, len(issues))
@@ -258,7 +258,7 @@ func (r *BeadsCardRepository) QueryReady() ([]FeatureCard, error) {
 
 	issues, err := parseBdList(data)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parse ready card list: %w", err)
 	}
 
 	cards := make([]FeatureCard, 0, len(issues))
@@ -289,7 +289,7 @@ func (r *BeadsCardRepository) CreateGate(parentID, gateType string) (string, err
 // ResolveGate closes a gate issue.
 func (r *BeadsCardRepository) ResolveGate(gateID string) error {
 	_, err := r.runBDWrite("close", gateID)
-	return err
+	return fmt.Errorf("resolve gate %s: %w", gateID, err)
 }
 
 // SetState sets an operational state dimension on an issue.
@@ -303,7 +303,7 @@ func (r *BeadsCardRepository) SetState(issueID, dimension, value, reason string)
 	}
 
 	_, err := r.runBDWrite(args...)
-	return err
+	return fmt.Errorf("set state %s=%s on %s: %w", dimension, value, issueID, err)
 }
 
 // UpdateMetadata merges SDP metadata into a Beads issue.
@@ -321,7 +321,7 @@ func (r *BeadsCardRepository) UpdateMetadata(issueID string, sdpMeta map[string]
 	}
 
 	_, err = r.runBDWrite("update", issueID, "--metadata", string(metaJSON))
-	return err
+	return fmt.Errorf("write metadata for %s: %w", issueID, err)
 }
 
 // readMetadata reads current SDP metadata from a Beads issue.

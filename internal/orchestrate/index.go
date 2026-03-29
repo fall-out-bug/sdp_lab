@@ -158,7 +158,7 @@ func UpdateIndexFile(projectRoot, featureID string, cp *Checkpoint) error {
 
 	rows, err := GenerateIndexTable(projectRoot, featureID, cp)
 	if err != nil {
-		return err
+		return fmt.Errorf("generate index table: %w", err)
 	}
 	newTable := FormatIndexTable(rows)
 	if newTable == "" {

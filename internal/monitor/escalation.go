@@ -101,15 +101,15 @@ func parseNotifyCommand(cmd string) ([]string, error) {
 	return parts, nil
 }
 
-// EscalationHandler handles escalation of stuck agents.
-type EscalationHandler struct {
+// escalationHandler handles escalation of stuck agents.
+type escalationHandler struct {
 	createWisp bool
 	notifyCmd  string
 	onEscalate func(sessionID string, lastEvent time.Time)
 }
 
-// EscalationConfig configures escalation handler.
-type EscalationConfig struct {
+// escalationConfig configures escalation handler.
+type escalationConfig struct {
 	// CreateWisp determines if a Beads wisp should be created.
 	CreateWisp bool
 
@@ -121,17 +121,17 @@ type EscalationConfig struct {
 	OnEscalate func(sessionID string, lastEvent time.Time)
 }
 
-// NewEscalationHandler creates a new escalation handler.
-func NewEscalationHandler(cfg EscalationConfig) *EscalationHandler {
-	return &EscalationHandler{
+// newEscalationHandler creates a new escalation handler.
+func newEscalationHandler(cfg escalationConfig) *escalationHandler {
+	return &escalationHandler{
 		createWisp: cfg.CreateWisp,
 		notifyCmd:  cfg.NotifyCommand,
 		onEscalate: cfg.OnEscalate,
 	}
 }
 
-// Escalate handles an escalation event.
-func (eh *EscalationHandler) Escalate(ctx context.Context, sessionID string, lastEvent time.Time) error {
+// escalate handles an escalation event.
+func (eh *escalationHandler) escalate(ctx context.Context, sessionID string, lastEvent time.Time) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -152,7 +152,7 @@ func (eh *EscalationHandler) Escalate(ctx context.Context, sessionID string, las
 	// Run notification command if configured
 	if eh.notifyCmd != "" {
 		if err := eh.runNotifyCommand(ctx, sessionID, lastEvent); err != nil {
-			return err
+			return fmt.Errorf("run notify command: %w", err)
 		}
 	}
 
@@ -160,7 +160,7 @@ func (eh *EscalationHandler) Escalate(ctx context.Context, sessionID string, las
 }
 
 // createBeadsWisp creates an ephemeral Beads issue for stuck agent.
-func (eh *EscalationHandler) createBeadsWisp(ctx context.Context, sessionID string, lastEvent time.Time) error {
+func (eh *escalationHandler) createBeadsWisp(ctx context.Context, sessionID string, lastEvent time.Time) error {
 	title := fmt.Sprintf("STUCK: Agent session %s", sessionID)
 	_ = title // Use in bd create when available
 
@@ -185,7 +185,7 @@ func (eh *EscalationHandler) createBeadsWisp(ctx context.Context, sessionID stri
 }
 
 // runNotifyCommand runs a notification command.
-func (eh *EscalationHandler) runNotifyCommand(ctx context.Context, sessionID string, lastEvent time.Time) error {
+func (eh *escalationHandler) runNotifyCommand(ctx context.Context, sessionID string, lastEvent time.Time) error {
 	// Validate notify command to prevent shell injection
 	if !isValidNotifyCommand(eh.notifyCmd) {
 		return fmt.Errorf("invalid notify command: %s", eh.notifyCmd)

@@ -53,12 +53,12 @@ func (r *Router) Route(intent Intent) (*RoutingDecision, error) {
 		return nil, err
 	}
 
-	rig := SelectRig(intent.TaskType, project.DefaultRig)
+	rig := selectRig(intent.TaskType, project.DefaultRig)
 
 	// Determine available signals from metadata.
 	hasRequirements := intent.Metadata["has_requirements"] == "true"
 	hasDesign := intent.Metadata["has_design"] == "true"
-	entryPhase := InferEntryPhase(intent.TaskType, hasRequirements, hasDesign)
+	entryPhase := inferEntryPhase(intent.TaskType, hasRequirements, hasDesign)
 
 	return &RoutingDecision{
 		ProjectRoot: project.Root,

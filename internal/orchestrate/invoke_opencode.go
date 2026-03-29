@@ -84,7 +84,7 @@ func BuildContextSources(projectRoot, featureID, wsID string, scopeFiles []strin
 func WritePromptProvenance(projectRoot string, promptHash string, sources []ContextSource) error {
 	sdpDir := filepath.Join(projectRoot, ".sdp")
 	if err := os.MkdirAll(sdpDir, 0o755); err != nil {
-		return err
+		return fmt.Errorf("create .sdp dir: %w", err)
 	}
 	path := filepath.Join(sdpDir, "prompt-provenance.json")
 	body := map[string]any{"prompt_hash": promptHash, "context_sources": sources}

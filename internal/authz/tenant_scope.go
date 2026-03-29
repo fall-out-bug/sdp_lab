@@ -108,7 +108,7 @@ var rolePermissions = map[Role][]Permission{
 	},
 }
 
-type TenantAuthorizer struct {
+type tenantAuthorizer struct {
 	mu                sync.RWMutex
 	scopes            map[TenantID]*TenantScope
 	crossTenantLogger CrossTenantLogger
@@ -118,16 +118,16 @@ type CrossTenantLogger interface {
 	Log(entry CrossTenantAccessLog) error
 }
 
-type TenantAuthorizerOption func(*TenantAuthorizer)
+type tenantAuthorizerOption func(*tenantAuthorizer)
 
-func WithCrossTenantLogger(logger CrossTenantLogger) TenantAuthorizerOption {
-	return func(a *TenantAuthorizer) {
+func withCrossTenantLogger(logger CrossTenantLogger) tenantAuthorizerOption {
+	return func(a *tenantAuthorizer) {
 		a.crossTenantLogger = logger
 	}
 }
 
-func NewTenantAuthorizer(opts ...TenantAuthorizerOption) *TenantAuthorizer {
-	a := &TenantAuthorizer{
+func newTenantAuthorizer(opts ...tenantAuthorizerOption) *tenantAuthorizer {
+	a := &tenantAuthorizer{
 		scopes: make(map[TenantID]*TenantScope),
 	}
 	for _, opt := range opts {
@@ -136,7 +136,7 @@ func NewTenantAuthorizer(opts ...TenantAuthorizerOption) *TenantAuthorizer {
 	return a
 }
 
-func (a *TenantAuthorizer) RegisterTenant(scope *TenantScope) error {
+func (a *tenantAuthorizer) RegisterTenant(scope *TenantScope) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -149,14 +149,14 @@ func (a *TenantAuthorizer) RegisterTenant(scope *TenantScope) error {
 	return nil
 }
 
-func (a *TenantAuthorizer) GetTenant(id TenantID) (*TenantScope, bool) {
+func (a *tenantAuthorizer) GetTenant(id TenantID) (*TenantScope, bool) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	scope, ok := a.scopes[id]
 	return scope, ok
 }
 
-func (a *TenantAuthorizer) Authorize(ctx context.Context, req AccessRequest) AccessDecision {
+func (a *tenantAuthorizer) Authorize(ctx context.Context, req AccessRequest) AccessDecision {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
@@ -189,7 +189,7 @@ func (a *TenantAuthorizer) Authorize(ctx context.Context, req AccessRequest) Acc
 	}
 }
 
-func (a *TenantAuthorizer) getPermissions(roles []Role) []Permission {
+func (a *tenantAuthorizer) getPermissions(roles []Role) []Permission {
 	var perms []Permission
 	seen := make(map[Permission]bool)
 
@@ -206,7 +206,7 @@ func (a *TenantAuthorizer) getPermissions(roles []Role) []Permission {
 	return perms
 }
 
-func (a *TenantAuthorizer) logCrossTenantAccess(req AccessRequest, denied bool) {
+func (a *tenantAuthorizer) logCrossTenantAccess(req AccessRequest, denied bool) {
 	if a.crossTenantLogger == nil {
 		return
 	}
@@ -224,7 +224,7 @@ func (a *TenantAuthorizer) logCrossTenantAccess(req AccessRequest, denied bool) 
 	_ = a.crossTenantLogger.Log(entry)
 }
 
-func (a *TenantAuthorizer) CheckNamespaceAccess(subject Subject, namespace string) bool {
+func (a *tenantAuthorizer) CheckNamespaceAccess(subject Subject, namespace string) bool {
 	if len(subject.Namespaces) == 0 {
 		return true
 	}
@@ -237,7 +237,7 @@ func (a *TenantAuthorizer) CheckNamespaceAccess(subject Subject, namespace strin
 	return false
 }
 
-func (a *TenantAuthorizer) ListTenants() []TenantID {
+func (a *tenantAuthorizer) ListTenants() []TenantID {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
@@ -257,25 +257,25 @@ func hasPermission(perms []Permission, target Permission) bool {
 	return false
 }
 
-type InMemoryCrossTenantLogger struct {
+type inMemoryCrossTenantLogger struct {
 	mu      sync.RWMutex
 	entries []CrossTenantAccessLog
 }
 
-func NewInMemoryCrossTenantLogger() *InMemoryCrossTenantLogger {
-	return &InMemoryCrossTenantLogger{
+func newInMemoryCrossTenantLogger() *inMemoryCrossTenantLogger {
+	return &inMemoryCrossTenantLogger{
 		entries: make([]CrossTenantAccessLog, 0),
 	}
 }
 
-func (l *InMemoryCrossTenantLogger) Log(entry CrossTenantAccessLog) error {
+func (l *inMemoryCrossTenantLogger) Log(entry CrossTenantAccessLog) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.entries = append(l.entries, entry)
 	return nil
 }
 
-func (l *InMemoryCrossTenantLogger) GetEntries() []CrossTenantAccessLog {
+func (l *inMemoryCrossTenantLogger) GetEntries() []CrossTenantAccessLog {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 
@@ -284,22 +284,22 @@ func (l *InMemoryCrossTenantLogger) GetEntries() []CrossTenantAccessLog {
 	return entries
 }
 
-type TenantMiddleware struct {
-	authorizer *TenantAuthorizer
+type tenantMiddleware struct {
+	authorizer *tenantAuthorizer
 }
 
-func NewTenantMiddleware(authorizer *TenantAuthorizer) *TenantMiddleware {
-	return &TenantMiddleware{authorizer: authorizer}
+func newTenantMiddleware(authorizer *tenantAuthorizer) *tenantMiddleware {
+	return &tenantMiddleware{authorizer: authorizer}
 }
 
-func (m *TenantMiddleware) ValidateTenantAccess(ctx context.Context, subject Subject, resourceTenant TenantID) error {
+func (m *tenantMiddleware) ValidateTenantAccess(ctx context.Context, subject Subject, resourceTenant TenantID) error {
 	if subject.TenantID != resourceTenant {
 		return fmt.Errorf("tenant boundary violation: subject %s cannot access tenant %s", subject.TenantID, resourceTenant)
 	}
 	return nil
 }
 
-func (m *TenantMiddleware) RequirePermission(ctx context.Context, subject Subject, perm Permission) error {
+func (m *tenantMiddleware) RequirePermission(ctx context.Context, subject Subject, perm Permission) error {
 	permissions := m.authorizer.getPermissions(subject.Roles)
 	if !hasPermission(permissions, perm) {
 		return fmt.Errorf("permission denied: %s required", perm)
@@ -307,7 +307,7 @@ func (m *TenantMiddleware) RequirePermission(ctx context.Context, subject Subjec
 	return nil
 }
 
-func GetRolePermissions(role Role) []Permission {
+func getRolePermissions(role Role) []Permission {
 	if perms, ok := rolePermissions[role]; ok {
 		return perms
 	}

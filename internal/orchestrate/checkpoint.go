@@ -93,7 +93,7 @@ func LoadCheckpoint(dir, featureID string) (*Checkpoint, error) {
 // SaveCheckpoint writes the checkpoint to disk atomically.
 func SaveCheckpoint(dir string, cp *Checkpoint) error {
 	if err := sdputil.ValidateFeatureID(cp.FeatureID); err != nil {
-		return err
+		return fmt.Errorf("validate feature id: %w", err)
 	}
 	cp.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	path := filepath.Join(dir, cp.FeatureID+".json")

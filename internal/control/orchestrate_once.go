@@ -147,7 +147,7 @@ func (s *Store) ingestExecutorResultFile(path string) (*FeatureCard, error) {
 	card, err := s.IngestExecutorResult(packet)
 	if err != nil {
 		_ = os.Remove(path)
-		return nil, err
+		return nil, fmt.Errorf("ingest executor result: %w", err)
 	}
 
 	_ = os.Remove(path)
@@ -157,12 +157,12 @@ func (s *Store) ingestExecutorResultFile(path string) (*FeatureCard, error) {
 func (s *Store) markResultIngested(resultPath string) error {
 	resultsFile := s.ingestedResultsFile()
 	if err := os.MkdirAll(filepath.Dir(resultsFile), 0o755); err != nil {
-		return err
+		return fmt.Errorf("create ingested results dir: %w", err)
 	}
 
 	data, err := os.ReadFile(resultsFile)
 	if err != nil && !os.IsNotExist(err) {
-		return err
+		return fmt.Errorf("read ingested results file: %w", err)
 	}
 
 	var lines []string
@@ -204,13 +204,13 @@ func splitLines(data string) []string {
 func writeLines(path string, lines []string) error {
 	f, err := os.Create(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("create file %s: %w", path, err)
 	}
 	defer f.Close()
 
 	for _, line := range lines {
 		if _, err := f.WriteString(line + "\n"); err != nil {
-			return err
+			return fmt.Errorf("write line to %s: %w", path, err)
 		}
 	}
 	return nil

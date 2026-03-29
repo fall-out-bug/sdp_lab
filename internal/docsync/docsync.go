@@ -121,7 +121,7 @@ func UpdateChangelog(projectRoot, sinceRange string) (string, error) {
 	}
 
 	if err := os.WriteFile(changelogPath, []byte(newContent), 0o644); err != nil {
-		return "", err
+		return "", fmt.Errorf("write changelog: %w", err)
 	}
 	return changelogPath, nil
 }
@@ -133,7 +133,7 @@ func checkMarkdownLinks(projectRoot string, strict bool) ([]Issue, error) {
 	var files []string
 	err := filepath.WalkDir(docsRoot, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return fmt.Errorf("walk docs dir: %w", err)
 		}
 		if d.IsDir() {
 			return nil

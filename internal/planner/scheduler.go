@@ -163,7 +163,7 @@ func (s *Scheduler) startTask(ctx context.Context, plan *Plan, task *Task) error
 func (s *Scheduler) CancelPlan(ctx context.Context, planID string) error {
 	plan, err := s.GetPlan(planID)
 	if err != nil {
-		return err
+		return fmt.Errorf("cancel plan %s: %w", planID, err)
 	}
 
 	plan.mu.Lock()

@@ -44,7 +44,7 @@ func LoadCheckpoint(dir, featureID string) (*Checkpoint, error) {
 // Merges cp's fields into existing file to preserve Workstreams, Review, CreatedAt (orchestrate fields).
 func SaveCheckpoint(dir string, cp *Checkpoint) error {
 	if err := sdputil.ValidateFeatureID(cp.FeatureID); err != nil {
-		return err
+		return fmt.Errorf("validate feature id: %w", err)
 	}
 	path := filepath.Join(dir, cp.FeatureID+".json")
 	cp.UpdatedAt = time.Now().UTC().Format(time.RFC3339)

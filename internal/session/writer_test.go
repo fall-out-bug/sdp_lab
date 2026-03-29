@@ -75,7 +75,7 @@ func TestWriter_LogFileExists(t *testing.T) {
 	writer.Close()
 
 	// Verify file exists
-	logPath := filepath.Join(tmpDir, DefaultLogDir, "session-"+sessionID+".jsonl")
+	logPath := filepath.Join(tmpDir, defaultLogDir, "session-"+sessionID+".jsonl")
 	if _, err := os.Stat(logPath); err != nil {
 		t.Fatalf("log file should exist: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestWriter_ValidJSONL(t *testing.T) {
 	}
 
 	// Read and parse each line
-	logPath := filepath.Join(tmpDir, DefaultLogDir, "session-"+sessionID+".jsonl")
+	logPath := filepath.Join(tmpDir, defaultLogDir, "session-"+sessionID+".jsonl")
 	content, err := os.ReadFile(logPath)
 	if err != nil {
 		t.Fatalf("read log: %v", err)
@@ -196,7 +196,7 @@ func TestWriter_Concurrency(t *testing.T) {
 	}
 
 	// Verify no interleaving corruption
-	logPath := filepath.Join(tmpDir, DefaultLogDir, "session-"+sessionID+".jsonl")
+	logPath := filepath.Join(tmpDir, defaultLogDir, "session-"+sessionID+".jsonl")
 	content, err := os.ReadFile(logPath)
 	if err != nil {
 		t.Fatalf("read log: %v", err)

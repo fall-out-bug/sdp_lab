@@ -30,11 +30,11 @@ func (r *FileCardRepository) CreateCard(projectID string, card *FeatureCard) err
 		return fmt.Errorf("nil card")
 	}
 	if err := os.MkdirAll(r.cardsDir(projectID), 0o755); err != nil {
-		return err
+		return fmt.Errorf("create cards dir for %s: %w", projectID, err)
 	}
 	data, err := yaml.Marshal(card)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal card for %s: %w", projectID, err)
 	}
 	return os.WriteFile(r.cardPath(projectID, card.ID), data, 0o644)
 }
@@ -44,12 +44,12 @@ func (r *FileCardRepository) SaveCard(card *FeatureCard) error {
 		return fmt.Errorf("nil card")
 	}
 	if err := os.MkdirAll(r.cardsDir(card.ProjectID), 0o755); err != nil {
-		return err
+		return fmt.Errorf("create cards dir for %s: %w", card.ProjectID, err)
 	}
 	card.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	data, err := yaml.Marshal(card)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal card: %w", err)
 	}
 	return os.WriteFile(r.cardPath(card.ProjectID, card.ID), data, 0o644)
 }
@@ -57,7 +57,7 @@ func (r *FileCardRepository) SaveCard(card *FeatureCard) error {
 func (r *FileCardRepository) LoadCard(projectID, cardID string) (*FeatureCard, error) {
 	cards, err := r.LoadCards(projectID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("load cards for %s: %w", projectID, err)
 	}
 	for _, c := range cards {
 		if c.ID == cardID {
@@ -72,14 +72,14 @@ func (r *FileCardRepository) LoadCards(projectID string) ([]FeatureCard, error) 
 	pattern := filepath.Join(r.cardsDir(projectID), "*.yaml")
 	files, err := filepath.Glob(pattern)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("glob cards for %s: %w", projectID, err)
 	}
 	sort.Strings(files)
 	cards := make([]FeatureCard, 0, len(files))
 	for _, file := range files {
 		data, err := os.ReadFile(file)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read card file %s: %w", file, err)
 		}
 		var c FeatureCard
 		if err := yaml.Unmarshal(data, &c); err != nil {

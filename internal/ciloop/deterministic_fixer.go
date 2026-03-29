@@ -34,7 +34,7 @@ func (d *DeterministicFirstFixer) Fix(checks []CheckResult) error {
 	}
 	changed, err := RunDeterministicFixers(ctx, d.ProjectRoot, log, d.Registry, d.Committer, d.DecisionLog, d.RunFileLogger)
 	if err != nil {
-		return err
+		return fmt.Errorf("run deterministic fixers: %w", err)
 	}
 	if changed {
 		return nil

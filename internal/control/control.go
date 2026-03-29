@@ -624,7 +624,7 @@ func (s *Store) nextCardID(projectID string, now time.Time) (string, error) {
 
 func (s *Store) ensureIntakeArtifact(card *FeatureCard) error {
 	if err := os.MkdirAll(s.intakeDir(card.ProjectID), 0o755); err != nil {
-		return err
+		return fmt.Errorf("create intake dir: %w", err)
 	}
 	path := filepath.Join(s.intakeDir(card.ProjectID), card.ID+".md")
 	if _, err := os.Stat(path); err == nil {
@@ -636,11 +636,11 @@ func (s *Store) ensureIntakeArtifact(card *FeatureCard) error {
 
 func (s *Store) writeJSON(path string, v any) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
+		return fmt.Errorf("create parent dir for %s: %w", path, err)
 	}
 	data, err := jsonMarshal(v)
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal json for %s: %w", path, err)
 	}
 	return os.WriteFile(path, data, 0o644)
 }

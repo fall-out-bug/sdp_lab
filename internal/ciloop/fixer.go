@@ -106,7 +106,7 @@ func (f *AutoFixer) writeDiagnostics(checks []CheckResult, fixDescs []string, lo
 		dir = ".sdp/ci-fixes"
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
+		return fmt.Errorf("create diagnostics dir: %w", err)
 	}
 	names := make([]string, len(checks))
 	for i, c := range checks {

@@ -218,7 +218,7 @@ func (s *SessionStore) getWispUnlocked(id string) (*Wisp, error) {
 func (s *SessionStore) UpdateWispStatus(id, status string) error {
 	w, err := s.GetWisp(id)
 	if err != nil {
-		return err
+		return fmt.Errorf("get wisp for status update: %w", err)
 	}
 
 	s.mu.Lock()
@@ -330,7 +330,7 @@ func (s *SessionStore) ClearSession() error {
 func (s *SessionStore) Stats() (*SessionStats, error) {
 	wisps, err := s.ListWisps()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list wisps for stats: %w", err)
 	}
 
 	stats := &SessionStats{

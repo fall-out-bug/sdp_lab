@@ -187,7 +187,7 @@ func (s *MigrationShim) Orchestrate(ctx context.Context, fsmCtx *FSMContext) err
 			Success:      false,
 			ErrorMessage: err.Error(),
 		})
-		return err
+		return fmt.Errorf("select backend: %w", err)
 	}
 
 	var orchestrateErr error
@@ -247,16 +247,16 @@ func (s *MigrationShim) runV2(ctx context.Context, fsmCtx *FSMContext) error {
 	}
 
 	if err := s.v2.Validate(ctx); err != nil {
-		return err
+		return fmt.Errorf("validate v2 state: %w", err)
 	}
 	if err := s.v2.Assign(ctx); err != nil {
-		return err
+		return fmt.Errorf("assign v2 state: %w", err)
 	}
 	if err := s.v2.Execute(ctx); err != nil {
-		return err
+		return fmt.Errorf("execute v2 state: %w", err)
 	}
 	if err := s.v2.Review(ctx); err != nil {
-		return err
+		return fmt.Errorf("review v2 state: %w", err)
 	}
 	return s.v2.Complete(ctx)
 }
@@ -396,7 +396,7 @@ func (s *MigrationShim) Migrate(ctx context.Context, fsmCtx *FSMContext, from, t
 			MigratedTo:   to,
 			ErrorMessage: err.Error(),
 		})
-		return err
+		return fmt.Errorf("migration to %s failed: %w", to, err)
 	}
 
 	s.recordEvent(ctx, &MigrationEvent{
@@ -441,7 +441,7 @@ func (s *MigrationShim) Rollback(ctx context.Context, fsmCtx *FSMContext, to Orc
 			Success:      false,
 			ErrorMessage: err.Error(),
 		})
-		return err
+		return fmt.Errorf("rollback to %s failed: %w", to, err)
 	}
 
 	s.recordEvent(ctx, &MigrationEvent{

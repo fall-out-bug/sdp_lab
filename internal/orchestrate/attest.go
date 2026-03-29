@@ -221,7 +221,7 @@ func collectWorkstreamScopePrefixes(projectRoot string, wsIDs []string) []string
 		if err := func() error {
 			f, err := os.Open(wsPath)
 			if err != nil {
-				return err
+				return fmt.Errorf("open workstream file: %w", err)
 			}
 			defer func() { _ = f.Close() }()
 

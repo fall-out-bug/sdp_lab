@@ -8,8 +8,8 @@ import (
 	"sync"
 )
 
-// DefaultLogDir is the default directory for session logs relative to project root.
-const DefaultLogDir = ".sdp/log"
+// defaultLogDir is the default directory for session logs relative to project root.
+const defaultLogDir = ".sdp/log"
 
 // Writer writes hash-chained events to a session log file.
 type Writer struct {
@@ -24,11 +24,11 @@ type Writer struct {
 // NewWriter creates a new session log writer.
 // The log file is created at .sdp/log/session-{sessionID}.jsonl.
 func NewWriter(projectRoot, sessionID string) (*Writer, error) {
-	if err := ValidateSessionID(sessionID); err != nil {
+	if err := validateSessionID(sessionID); err != nil {
 		return nil, fmt.Errorf("invalid session ID: %w", err)
 	}
 
-	logDir := filepath.Join(projectRoot, DefaultLogDir)
+	logDir := filepath.Join(projectRoot, defaultLogDir)
 	if err := os.MkdirAll(logDir, 0o755); err != nil {
 		return nil, fmt.Errorf("create log dir: %w", err)
 	}

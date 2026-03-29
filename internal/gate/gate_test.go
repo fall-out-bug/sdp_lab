@@ -98,7 +98,7 @@ func TestGate_IsBlocking(t *testing.T) {
 
 func TestBeadsGateManager_CreateAndResolve(t *testing.T) {
 	tmp := t.TempDir()
-	mgr := &BeadsGateManager{ProjectRoot: tmp}
+	mgr := &beadsGateManager{ProjectRoot: tmp}
 
 	g, err := mgr.CreateGate("Deploy to prod?", "version 2.3", []string{"approve", "reject"})
 	if err != nil {
@@ -142,7 +142,7 @@ func TestBeadsGateManager_CreateAndResolve(t *testing.T) {
 
 func TestBeadsGateManager_ListPending(t *testing.T) {
 	tmp := t.TempDir()
-	mgr := &BeadsGateManager{ProjectRoot: tmp}
+	mgr := &beadsGateManager{ProjectRoot: tmp}
 
 	// Create 3 gates
 	g1, err := mgr.CreateGate("Q1?", "", nil)
@@ -174,7 +174,7 @@ func TestBeadsGateManager_ListPending(t *testing.T) {
 
 func TestWaitForGate_AlreadyResolved(t *testing.T) {
 	tmp := t.TempDir()
-	mgr := &BeadsGateManager{ProjectRoot: tmp}
+	mgr := &beadsGateManager{ProjectRoot: tmp}
 
 	g, err := mgr.CreateGate("Q?", "", nil)
 	if err != nil {
@@ -185,17 +185,17 @@ func TestWaitForGate_AlreadyResolved(t *testing.T) {
 	}
 
 	start := time.Now()
-	result, err := WaitForGate(context.Background(), mgr, g.ID, 100*time.Millisecond, 2*time.Second)
+	result, err := waitForGate(context.Background(), mgr, g.ID, 100*time.Millisecond, 2*time.Second)
 	elapsed := time.Since(start)
 
 	if err != nil {
-		t.Fatalf("WaitForGate: %v", err)
+		t.Fatalf("waitForGate: %v", err)
 	}
 	if result.Answer != "yes" {
 		t.Errorf("Answer = %q, want yes", result.Answer)
 	}
 	// Should return nearly instantly
 	if elapsed > 500*time.Millisecond {
-		t.Errorf("WaitForGate took %v, expected near-instant for already resolved gate", elapsed)
+		t.Errorf("waitForGate took %v, expected near-instant for already resolved gate", elapsed)
 	}
 }

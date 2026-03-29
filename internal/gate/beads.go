@@ -12,19 +12,19 @@ import (
 	"time"
 )
 
-// BeadsGateManager creates and monitors gates using filesystem-backed storage.
+// beadsGateManager creates and monitors gates using filesystem-backed storage.
 // Gate state is persisted to .sdp/gates/<id>.json under the project root.
-type BeadsGateManager struct {
+type beadsGateManager struct {
 	ProjectRoot string
 }
 
-func (m *BeadsGateManager) gatesDir() string {
+func (m *beadsGateManager) gatesDir() string {
 	return filepath.Join(m.ProjectRoot, ".sdp", "gates")
 }
 
 var validGateID = regexp.MustCompile(`^[a-f0-9]+$`)
 
-func (m *BeadsGateManager) gatePath(id string) (string, error) {
+func (m *beadsGateManager) gatePath(id string) (string, error) {
 	if !validGateID.MatchString(id) {
 		return "", fmt.Errorf("invalid gate ID: %q", id)
 	}
@@ -42,7 +42,7 @@ func generateID() (string, error) {
 
 // CreateGate creates a new gate and persists it to disk.
 // Returns the gate with a generated ID.
-func (m *BeadsGateManager) CreateGate(question, context string, options []string) (*Gate, error) {
+func (m *beadsGateManager) CreateGate(question, context string, options []string) (*Gate, error) {
 	id, err := generateID()
 	if err != nil {
 		return nil, err
@@ -63,15 +63,15 @@ func (m *BeadsGateManager) CreateGate(question, context string, options []string
 }
 
 // CheckGate reads the gate status from disk.
-func (m *BeadsGateManager) CheckGate(gateID string) (*Gate, error) {
+func (m *beadsGateManager) CheckGate(gateID string) (*Gate, error) {
 	return m.loadGate(gateID)
 }
 
 // ResolveGate marks a gate as resolved with the given answer.
-func (m *BeadsGateManager) ResolveGate(gateID, answer, answerer string) error {
+func (m *beadsGateManager) ResolveGate(gateID, answer, answerer string) error {
 	g, err := m.loadGate(gateID)
 	if err != nil {
-		return err
+		return fmt.Errorf("load gate for resolve: %w", err)
 	}
 
 	now := time.Now()
@@ -83,7 +83,7 @@ func (m *BeadsGateManager) ResolveGate(gateID, answer, answerer string) error {
 }
 
 // ListPending returns all unresolved gates.
-func (m *BeadsGateManager) ListPending() ([]*Gate, error) {
+func (m *beadsGateManager) ListPending() ([]*Gate, error) {
 	dir := m.gatesDir()
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -110,7 +110,7 @@ func (m *BeadsGateManager) ListPending() ([]*Gate, error) {
 	return pending, nil
 }
 
-func (m *BeadsGateManager) saveGate(g *Gate) error {
+func (m *beadsGateManager) saveGate(g *Gate) error {
 	dir := m.gatesDir()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("create gates dir: %w", err)
@@ -145,7 +145,7 @@ func (m *BeadsGateManager) saveGate(g *Gate) error {
 	return nil
 }
 
-func (m *BeadsGateManager) loadGate(id string) (*Gate, error) {
+func (m *beadsGateManager) loadGate(id string) (*Gate, error) {
 	path, err := m.gatePath(id)
 	if err != nil {
 		return nil, err

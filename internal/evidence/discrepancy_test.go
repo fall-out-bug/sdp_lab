@@ -18,9 +18,9 @@ func TestCompareAttestations_MissingAgent(t *testing.T) {
 		t.Fatalf("write ci attestation: %v", err)
 	}
 
-	report, err := CompareAttestations("test", CompareOptions{EvidenceDir: dir})
+	report, err := compareAttestations("test", compareOptions{EvidenceDir: dir})
 	if err != nil {
-		t.Fatalf("CompareAttestations error: %v", err)
+		t.Fatalf("compareAttestations error: %v", err)
 	}
 
 	if report.OK {
@@ -42,14 +42,14 @@ func TestCompareAttestations_MissingAgent(t *testing.T) {
 }
 
 func TestCompareAttestations_InvalidRunID(t *testing.T) {
-	_, err := CompareAttestations("../bad", CompareOptions{EvidenceDir: t.TempDir()})
+	_, err := compareAttestations("../bad", compareOptions{EvidenceDir: t.TempDir()})
 	if err == nil {
 		t.Fatal("expected invalid run id error")
 	}
 }
 
 func TestCompareAttestations_InvalidEvidenceDir(t *testing.T) {
-	_, err := CompareAttestations("run-1", CompareOptions{EvidenceDir: "../escape"})
+	_, err := compareAttestations("run-1", compareOptions{EvidenceDir: "../escape"})
 	if err == nil {
 		t.Fatal("expected invalid evidence dir error")
 	}
@@ -66,9 +66,9 @@ func TestCompareAttestations_MissingCI(t *testing.T) {
 		t.Fatalf("write agent attestation: %v", err)
 	}
 
-	report, err := CompareAttestations("test", CompareOptions{EvidenceDir: dir})
+	report, err := compareAttestations("test", compareOptions{EvidenceDir: dir})
 	if err != nil {
-		t.Fatalf("CompareAttestations error: %v", err)
+		t.Fatalf("compareAttestations error: %v", err)
 	}
 
 	// Missing CI is medium severity, not critical
@@ -303,13 +303,13 @@ func TestWriteReadDiscrepancyReport(t *testing.T) {
 		},
 	}
 
-	if err := WriteDiscrepancyReport(path, report); err != nil {
-		t.Fatalf("WriteDiscrepancyReport error: %v", err)
+	if err := writeDiscrepancyReport(path, report); err != nil {
+		t.Fatalf("writeDiscrepancyReport error: %v", err)
 	}
 
-	read, err := ReadDiscrepancyReport(path)
+	read, err := readDiscrepancyReport(path)
 	if err != nil {
-		t.Fatalf("ReadDiscrepancyReport error: %v", err)
+		t.Fatalf("readDiscrepancyReport error: %v", err)
 	}
 
 	if read.OK != report.OK {

@@ -110,7 +110,7 @@ func topologicalSort(infos []WorkstreamInfo) ([]string, error) {
 		for _, dep := range info.DependsOn {
 			if _, ok := idToInfo[dep]; ok {
 				if err := visit(dep); err != nil {
-					return err
+					return fmt.Errorf("topological sort workstreams: %w", err)
 				}
 			}
 		}

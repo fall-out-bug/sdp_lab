@@ -168,7 +168,7 @@ func (p *OSSCombineProfile) Provision() error {
 	fmt.Printf("Provisioning OSS Combine profile in: %s\n\n", p.projectRoot)
 
 	if err := p.Validate(); err != nil {
-		return err
+		return fmt.Errorf("validate OSS profile: %w", err)
 	}
 
 	fmt.Println("✓ All required tools available")
