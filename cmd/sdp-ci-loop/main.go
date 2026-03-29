@@ -137,7 +137,9 @@ func main() {
 		if loadErr != nil {
 			return
 		}
-		_ = ciloop.SaveCheckpoint(*checkpointDir, cp)
+		if saveErr := ciloop.SaveCheckpoint(*checkpointDir, cp); saveErr != nil {
+			slog.Error("failed to save checkpoint", "err", saveErr)
+		}
 		slog.Debug("saved checkpoint on poll error", "feature", *feature, "poll_err", err)
 	}
 

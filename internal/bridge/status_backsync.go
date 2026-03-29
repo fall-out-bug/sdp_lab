@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -125,7 +126,9 @@ func (s *StatusBackSync) SyncIssueStatus(ctx context.Context, issue BackSyncIssu
 		if err != nil {
 			auditEntry.Error = err.Error()
 		}
-		_ = s.auditor.Record(ctx, auditEntry)
+		if auditErr := s.auditor.Record(ctx, auditEntry); auditErr != nil {
+			slog.Error("failed to record audit entry", "err", auditErr)
+		}
 
 		result.Attempts = attempt
 		if err == nil {

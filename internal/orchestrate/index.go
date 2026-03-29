@@ -1,11 +1,12 @@
 package orchestrate
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -56,7 +57,7 @@ func GenerateIndexTable(projectRoot, featureID string, cp *Checkpoint) ([]IndexR
 		}
 		rows = append(rows, row)
 	}
-	sort.Slice(rows, func(i, j int) bool { return rows[i].WS < rows[j].WS })
+	slices.SortFunc(rows, func(a, b IndexRow) int { return cmp.Compare(a.WS, b.WS) })
 	return rows, nil
 }
 

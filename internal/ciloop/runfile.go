@@ -2,12 +2,13 @@ package ciloop
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -124,17 +125,17 @@ func findRunFile(dir, featureID string) (string, error) {
 	if len(matches) == 0 {
 		return "", fmt.Errorf("no run file found for feature %s in %s", featureID, dir)
 	}
-	sort.Slice(matches, func(i, j int) bool {
-		si := strings.TrimSuffix(matches[i], ".json")
-		sj := strings.TrimSuffix(matches[j], ".json")
-		ni := strings.TrimPrefix(si, prefix)
-		nj := strings.TrimPrefix(sj, prefix)
-		vi, ei := strconv.Atoi(ni)
-		vj, ej := strconv.Atoi(nj)
-		if ei == nil && ej == nil {
-			return vi < vj // ascending: last in slice = latest
+	slices.SortFunc(matches, func(a, b string) int {
+		sa := strings.TrimSuffix(a, ".json")
+		sb := strings.TrimSuffix(b, ".json")
+		na := strings.TrimPrefix(sa, prefix)
+		nb := strings.TrimPrefix(sb, prefix)
+		va, ea := strconv.Atoi(na)
+		vb, eb := strconv.Atoi(nb)
+		if ea == nil && eb == nil {
+			return cmp.Compare(va, vb) // ascending: last in slice = latest
 		}
-		return si < sj // fallback: string sort (e.g. timestamps)
+		return cmp.Compare(sa, sb) // fallback: string sort (e.g. timestamps)
 	})
 	return filepath.Join(dir, matches[len(matches)-1]), nil
 }

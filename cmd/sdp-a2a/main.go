@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"time"
 
 	"sdp_dev/internal/a2a"
 	"sdp_dev/internal/control"
@@ -30,7 +31,14 @@ func main() {
 	}
 
 	log.Printf("sdp-a2a listening on %s", *addr)
-	if err := http.ListenAndServe(*addr, server); err != nil {
+	srv := &http.Server{
+		Addr:         *addr,
+		Handler:      server,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("listen: %v", err)
 	}
 }

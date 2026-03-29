@@ -3,6 +3,7 @@ package planner
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -145,9 +146,13 @@ func (s *Scheduler) startTask(ctx context.Context, plan *Plan, task *Task) error
 		go func() {
 			err := s.executor.Execute(context.Background(), task)
 			if err != nil {
-				_ = plan.BlockTask(task.ID, err.Error())
+				if blockErr := plan.BlockTask(task.ID, err.Error()); blockErr != nil {
+					slog.Error("failed to block task", "task", task.ID, "err", blockErr)
+				}
 			} else {
-				_ = plan.CompleteTask(task.ID)
+				if completeErr := plan.CompleteTask(task.ID); completeErr != nil {
+					slog.Error("failed to complete task", "task", task.ID, "err", completeErr)
+				}
 			}
 		}()
 	}
@@ -167,7 +172,9 @@ func (s *Scheduler) CancelPlan(ctx context.Context, planID string) error {
 	for _, task := range plan.tasks {
 		if task.Status == TaskStatusInProgress {
 			if s.executor != nil {
-				_ = s.executor.Cancel(ctx, task.ID)
+				if cancelErr := s.executor.Cancel(ctx, task.ID); cancelErr != nil {
+					slog.Error("failed to cancel task", "task", task.ID, "err", cancelErr)
+				}
 			}
 			task.Status = TaskStatusPending
 			task.StartedAt = nil

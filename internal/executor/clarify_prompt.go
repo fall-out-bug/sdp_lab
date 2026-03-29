@@ -1,9 +1,11 @@
 package executor
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -72,7 +74,7 @@ func formatTree(root string, depth, maxDepth int) string {
 	if err != nil {
 		return fmt.Sprintf("<error reading %s: %v>", root, err)
 	}
-	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+	slices.SortFunc(entries, func(a, b os.DirEntry) int { return cmp.Compare(a.Name(), b.Name()) })
 	var lines []string
 	for _, entry := range entries {
 		name := entry.Name()

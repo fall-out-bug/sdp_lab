@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 )
 
 type OrchestrateOnceResult struct {
@@ -104,15 +104,15 @@ func (s *Store) ingestExecutorResultIfExists() (*OrchestrateOnceResult, error) {
 		return nil, nil
 	}
 
-	sort.Slice(pending, func(i, j int) bool {
-		pathI := filepath.Join(resultsDir, pending[i])
-		pathJ := filepath.Join(resultsDir, pending[j])
-		infoI, errI := os.Stat(pathI)
-		infoJ, errJ := os.Stat(pathJ)
-		if errI != nil || errJ != nil {
-			return false
+	slices.SortFunc(pending, func(a, b string) int {
+		pathA := filepath.Join(resultsDir, a)
+		pathB := filepath.Join(resultsDir, b)
+		infoA, errA := os.Stat(pathA)
+		infoB, errB := os.Stat(pathB)
+		if errA != nil || errB != nil {
+			return 0
 		}
-		return infoI.ModTime().Before(infoJ.ModTime())
+		return infoA.ModTime().Compare(infoB.ModTime())
 	})
 
 	resultPath := filepath.Join(resultsDir, pending[0])

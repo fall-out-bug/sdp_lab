@@ -1,10 +1,11 @@
 package orchestrate
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 	"time"
 )
 
@@ -165,8 +166,8 @@ func (p *DefaultMergePolicy) ValidateMerge(results []BranchResult) error {
 func (p *DefaultMergePolicy) mergeData(results []BranchResult) (interface{}, []Conflict, error) {
 	var conflicts []Conflict
 
-	sort.Slice(results, func(i, j int) bool {
-		return string(results[i].BranchID) < string(results[j].BranchID)
+	slices.SortFunc(results, func(a, b BranchResult) int {
+		return cmp.Compare(string(a.BranchID), string(b.BranchID))
 	})
 
 	var mergedData map[string]interface{}

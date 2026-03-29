@@ -1,7 +1,8 @@
 package control
 
 import (
-	"sort"
+	"cmp"
+	"slices"
 	"strings"
 )
 
@@ -90,8 +91,8 @@ func limitQueue(items []QueueItem, n int) []QueueItem {
 
 func sortExecutiveQueues(queues map[string][]QueueItem) {
 	for key := range queues {
-		sort.SliceStable(queues[key], func(i, j int) bool {
-			return queuePriority(queues[key][i]) > queuePriority(queues[key][j])
+		slices.SortStableFunc(queues[key], func(a, b QueueItem) int {
+			return cmp.Compare(queuePriority(b), queuePriority(a))
 		})
 	}
 }

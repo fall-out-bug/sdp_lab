@@ -3,6 +3,7 @@ package deploy
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -103,7 +104,10 @@ func Staging(ctx context.Context, cfg *Config, commitHash string) (*Result, erro
 	}
 
 	// Collect container info
-	containers, _ := listContainers(cfg, "staging")
+	containers, err := listContainers(cfg, "staging")
+	if err != nil {
+		slog.Warn("failed to list staging containers", "err", err)
+	}
 	result.Containers = containers
 
 	// Smoke test
@@ -147,7 +151,10 @@ func Production(ctx context.Context, cfg *Config, stagingImageTag string) (*Resu
 		return result, fmt.Errorf("docker compose prod up: %w", err)
 	}
 
-	containers, _ := listContainers(cfg, "prod")
+	containers, err := listContainers(cfg, "prod")
+	if err != nil {
+		slog.Warn("failed to list prod containers", "err", err)
+	}
 	result.Containers = containers
 
 	// Smoke test
@@ -189,7 +196,10 @@ func Rollback(ctx context.Context, cfg *Config, previousTag string) (*Result, er
 		return result, fmt.Errorf("docker compose rollback: %w", err)
 	}
 
-	containers, _ := listContainers(cfg, "prod")
+	containers, err := listContainers(cfg, "prod")
+	if err != nil {
+		slog.Warn("failed to list rollback containers", "err", err)
+	}
 	result.Containers = containers
 	result.SmokeTest = runSmokeTest(ctx, cfg, "prod")
 
@@ -213,7 +223,11 @@ func shortHash(hash string) string {
 }
 
 func parseTime(s string) time.Time {
-	t, _ := time.Parse(time.RFC3339, s)
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		slog.Warn("failed to parse time", "input", s, "err", err)
+		return time.Time{}
+	}
 	return t
 }
 

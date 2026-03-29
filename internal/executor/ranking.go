@@ -1,8 +1,9 @@
 package executor
 
 import (
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -86,8 +87,8 @@ func RankAndPick(ready []control.FeatureCard, policy *RankingPolicy, retryCounts
 		return ""
 	}
 
-	sort.Slice(candidates, func(i, j int) bool {
-		return candidates[i].score > candidates[j].score
+	slices.SortFunc(candidates, func(a, b scored) int {
+		return cmp.Compare(b.score, a.score)
 	})
 
 	return candidates[0].id

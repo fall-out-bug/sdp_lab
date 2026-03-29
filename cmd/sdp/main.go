@@ -1,13 +1,14 @@
 package main
 
 import (
-	"sort"
+	"cmp"
 	"encoding/json"
 	"path/filepath"
 	"context"
 	"flag"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"sdp_dev/internal/cli"
@@ -1010,12 +1011,12 @@ func runTrace(args []string) {
 		files = append(files, evFile{name: e.Name(), phase: phase, ts: ts, data: parsed})
 	}
 
-	sort.Slice(files, func(i, j int) bool {
-		pi, pj := phaseOrder[files[i].phase], phaseOrder[files[j].phase]
-		if pi != pj {
-			return pi < pj
+	slices.SortFunc(files, func(a, b evFile) int {
+		pa, pb := phaseOrder[a.phase], phaseOrder[b.phase]
+		if c := cmp.Compare(pa, pb); c != 0 {
+			return c
 		}
-		return files[i].ts < files[j].ts
+		return cmp.Compare(a.ts, b.ts)
 	})
 
 	fmt.Println()

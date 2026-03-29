@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"sort"
+	"slices"
 
 	"sdp_dev/internal/dispatch"
 )
@@ -52,7 +52,7 @@ func runProfile() error {
 		for k := range p.Capabilities {
 			keys = append(keys, k)
 		}
-		sort.Strings(keys)
+		slices.Sort(keys)
 
 		for _, k := range keys {
 			score := p.Capabilities[k]

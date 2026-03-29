@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -59,14 +61,14 @@ func NewStatusViewFromBeads(beadsItems []BeadsItem) *StatusView {
 		})
 	}
 
-	sort.Slice(items, func(i, j int) bool {
-		if items[i].Status != items[j].Status {
-			return statusOrder(items[i].Status) < statusOrder(items[j].Status)
+	slices.SortFunc(items, func(a, b StatusItem) int {
+		if c := cmp.Compare(statusOrder(a.Status), statusOrder(b.Status)); c != 0 {
+			return c
 		}
-		if items[i].Priority != items[j].Priority {
-			return items[i].Priority < items[j].Priority
+		if c := cmp.Compare(a.Priority, b.Priority); c != 0 {
+			return c
 		}
-		return items[i].ID < items[j].ID
+		return cmp.Compare(a.ID, b.ID)
 	})
 
 	view := &StatusView{

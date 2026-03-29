@@ -3,12 +3,13 @@ package docsync
 import (
 	"bufio"
 	"bytes"
+	"cmp"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -51,14 +52,14 @@ func CheckConsistency(projectRoot string, strict bool) (ConsistencyReport, error
 	}
 	report.Issues = append(report.Issues, linkIssues...)
 
-	sort.Slice(report.Issues, func(i, j int) bool {
-		if report.Issues[i].Severity == report.Issues[j].Severity {
-			if report.Issues[i].File == report.Issues[j].File {
-				return report.Issues[i].Message < report.Issues[j].Message
-			}
-			return report.Issues[i].File < report.Issues[j].File
+	slices.SortFunc(report.Issues, func(a, b Issue) int {
+		if c := cmp.Compare(a.Severity, b.Severity); c != 0 {
+			return c
 		}
-		return report.Issues[i].Severity < report.Issues[j].Severity
+		if c := cmp.Compare(a.File, b.File); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Message, b.Message)
 	})
 
 	return report, nil

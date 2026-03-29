@@ -1,11 +1,12 @@
 package orchestrate
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -117,7 +118,7 @@ func topologicalSort(infos []WorkstreamInfo) ([]string, error) {
 		order = append(order, id)
 		return nil
 	}
-	sort.Slice(infos, func(i, j int) bool { return infos[i].ID < infos[j].ID })
+	slices.SortFunc(infos, func(a, b WorkstreamInfo) int { return cmp.Compare(a.ID, b.ID) })
 	for _, info := range infos {
 		if err := visit(info.ID); err != nil {
 			return nil, err

@@ -35,7 +35,14 @@ func Serve(projectRoot, port string) error {
 
 	addr := ":" + port
 	log.Printf("⚙️  Control Tower: http://localhost%s", addr)
-	return http.ListenAndServe(addr, mux)
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      mux,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+	return srv.ListenAndServe()
 }
 
 type handler struct {

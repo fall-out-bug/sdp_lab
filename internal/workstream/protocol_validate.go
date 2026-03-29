@@ -1,11 +1,12 @@
 package workstream
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 
 	"sdp_dev/internal/sdputil"
@@ -75,14 +76,14 @@ func ValidateProtocol(projectRoot string, strictBeads, strictAll bool) (Validati
 	report.Issues = append(report.Issues, validateFeatureReferences(projectRoot, strictAll, wsFeatures, indexFeatures, roadmapFeatures, indexPath, roadmapPath)...)
 	report.Issues = append(report.Issues, validateIndexWorkstreamReferences(projectRoot, indexWSIDs, wsFiles, indexPath)...)
 
-	sort.Slice(report.Issues, func(i, j int) bool {
-		if report.Issues[i].Severity == report.Issues[j].Severity {
-			if report.Issues[i].File == report.Issues[j].File {
-				return report.Issues[i].Message < report.Issues[j].Message
-			}
-			return report.Issues[i].File < report.Issues[j].File
+	slices.SortFunc(report.Issues, func(a, b ValidationIssue) int {
+		if c := cmp.Compare(a.Severity, b.Severity); c != 0 {
+			return c
 		}
-		return report.Issues[i].Severity < report.Issues[j].Severity
+		if c := cmp.Compare(a.File, b.File); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Message, b.Message)
 	})
 
 	return report, nil

@@ -2,8 +2,10 @@ package a2a
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -325,7 +327,7 @@ func (s *Server) authorized(r *http.Request) bool {
 		return true
 	}
 	want := "Bearer " + s.APIKey
-	return r.Header.Get("Authorization") == want
+	return subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte(want)) == 1
 }
 
 func (s *Server) writeRPCError(w http.ResponseWriter, id any, code int, message string) {
@@ -335,5 +337,7 @@ func (s *Server) writeRPCError(w http.ResponseWriter, id any, code int, message 
 func (s *Server) writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		slog.Error("failed to encode JSON response", "err", err)
+	}
 }

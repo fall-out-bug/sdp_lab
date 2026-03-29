@@ -1,9 +1,10 @@
 package dispatch
 
 import (
+	"cmp"
 	"fmt"
 	"math"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 )
@@ -56,8 +57,8 @@ func BenchScore(r BenchResult) float64 {
 func RankBenchResults(results []BenchResult) []BenchResult {
 	ranked := make([]BenchResult, len(results))
 	copy(ranked, results)
-	sort.Slice(ranked, func(i, j int) bool {
-		return BenchScore(ranked[i]) > BenchScore(ranked[j])
+	slices.SortFunc(ranked, func(a, b BenchResult) int {
+		return cmp.Compare(BenchScore(b), BenchScore(a))
 	})
 	return ranked
 }

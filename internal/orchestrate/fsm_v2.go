@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"sdp_dev/internal/adapters/sdk"
+	"sdp_dev/archive/adapters-sdk"
 )
 
 type State string

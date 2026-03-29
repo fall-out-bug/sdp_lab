@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"sdp_dev/internal/adapters/sdk"
+	"sdp_dev/archive/adapters-sdk"
 )
 
 func TestStateString(t *testing.T) {

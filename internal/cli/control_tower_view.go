@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"cmp"
 	"fmt"
 	"html/template"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -980,8 +982,8 @@ func summarizeProjects(snap *control.PortfolioBoardSnapshot) []string {
 		return []string{"- No registered projects."}
 	}
 	projects := append([]map[string]any(nil), snap.Projects...)
-	sort.Slice(projects, func(i, j int) bool {
-		return projectUrgencyScore(projects[i]) > projectUrgencyScore(projects[j])
+	slices.SortFunc(projects, func(a, b map[string]any) int {
+		return cmp.Compare(projectUrgencyScore(b), projectUrgencyScore(a))
 	})
 	lines := make([]string, 0, len(projects))
 	for _, proj := range projects {
@@ -1015,17 +1017,17 @@ func intFromAny(v any) int {
 }
 
 func sortDoctorChecks(checks []control.DoctorCheck) {
-	sort.Slice(checks, func(i, j int) bool {
-		if severityRank(checks[i].Severity) != severityRank(checks[j].Severity) {
-			return severityRank(checks[i].Severity) < severityRank(checks[j].Severity)
+	slices.SortFunc(checks, func(a, b control.DoctorCheck) int {
+		if c := cmp.Compare(severityRank(a.Severity), severityRank(b.Severity)); c != 0 {
+			return c
 		}
-		if checks[i].CheckID != checks[j].CheckID {
-			return checks[i].CheckID < checks[j].CheckID
+		if c := cmp.Compare(a.CheckID, b.CheckID); c != 0 {
+			return c
 		}
-		if checks[i].ProjectID != checks[j].ProjectID {
-			return checks[i].ProjectID < checks[j].ProjectID
+		if c := cmp.Compare(a.ProjectID, b.ProjectID); c != 0 {
+			return c
 		}
-		return checks[i].CardID < checks[j].CardID
+		return cmp.Compare(a.CardID, b.CardID)
 	})
 }
 

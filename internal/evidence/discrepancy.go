@@ -1,12 +1,13 @@
 package evidence
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -184,7 +185,7 @@ func findAttestation(dir, runID, prefix string) (string, error) {
 		return "", fmt.Errorf("glob partial attestation pattern %q: %w", pattern, err)
 	}
 	if len(matches) > 0 {
-		sort.Sort(sort.Reverse(sort.StringSlice(matches)))
+		slices.SortFunc(matches, func(a, b string) int { return cmp.Compare(b, a) })
 		return matches[0], nil
 	}
 
@@ -196,7 +197,7 @@ func findAttestation(dir, runID, prefix string) (string, error) {
 			return "", fmt.Errorf("glob fallback attestation pattern %q: %w", pattern, err)
 		}
 		if len(matches) > 0 {
-			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
+			slices.SortFunc(matches, func(a, b string) int { return cmp.Compare(b, a) })
 			return matches[0], nil
 		}
 	}
