@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
 
 	"sdp_dev/internal/dispatch"
 )
@@ -38,29 +37,7 @@ func runCompare() error {
 
 	var results []dispatch.BenchResult
 	for _, p := range profiles {
-		key := fmt.Sprintf("%s:%s", *task, *lang)
-		cap, hasCap := p.Capabilities[key]
-
-		var dur time.Duration
-		var testsPassed, testsTotal int
-		if hasCap {
-			dur = time.Duration(cap.AvgDuration * float64(time.Minute))
-			testsTotal = 10
-			testsPassed = int(cap.TestPassRate * float64(testsTotal))
-		}
-
-		results = append(results, dispatch.BenchResult{
-			Harness:     p.Harness,
-			Provider:    p.Provider,
-			Model:       p.Model,
-			Task:        *task,
-			TaskType:    *task,
-			Language:    *lang,
-			Duration:    dur,
-			TestsTotal:  testsTotal,
-			TestsPassed: testsPassed,
-			Timestamp:   time.Now().UTC(),
-		})
+		results = append(results, profileToBenchResult(p, *task, *lang))
 	}
 
 	ranked := dispatch.RankBenchResults(results)

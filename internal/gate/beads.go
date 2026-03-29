@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -21,8 +22,13 @@ func (m *BeadsGateManager) gatesDir() string {
 	return filepath.Join(m.ProjectRoot, ".sdp", "gates")
 }
 
-func (m *BeadsGateManager) gatePath(id string) string {
-	return filepath.Join(m.gatesDir(), id+".json")
+var validGateID = regexp.MustCompile(`^[a-f0-9]+$`)
+
+func (m *BeadsGateManager) gatePath(id string) (string, error) {
+	if !validGateID.MatchString(id) {
+		return "", fmt.Errorf("invalid gate ID: %q", id)
+	}
+	return filepath.Join(m.gatesDir(), id+".json"), nil
 }
 
 // generateID produces an 8-character hex string using crypto/rand.
@@ -115,14 +121,36 @@ func (m *BeadsGateManager) saveGate(g *Gate) error {
 		return fmt.Errorf("marshal gate: %w", err)
 	}
 
-	if err := os.WriteFile(m.gatePath(g.ID), data, 0o644); err != nil {
-		return fmt.Errorf("write gate file: %w", err)
+	tmp, err := os.CreateTemp(dir, "gate-*.tmp")
+	if err != nil {
+		return fmt.Errorf("create temp gate file: %w", err)
+	}
+	tmpName := tmp.Name()
+
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return fmt.Errorf("write temp gate file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpName)
+		return fmt.Errorf("close temp gate file: %w", err)
+	}
+
+	dest := filepath.Join(dir, g.ID+".json")
+	if err := os.Rename(tmpName, dest); err != nil {
+		os.Remove(tmpName)
+		return fmt.Errorf("rename gate file: %w", err)
 	}
 	return nil
 }
 
 func (m *BeadsGateManager) loadGate(id string) (*Gate, error) {
-	data, err := os.ReadFile(m.gatePath(id))
+	path, err := m.gatePath(id)
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read gate %s: %w", id, err)
 	}

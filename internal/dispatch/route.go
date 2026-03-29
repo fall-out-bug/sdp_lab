@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"sort"
 	"time"
 
@@ -52,11 +53,13 @@ func (r *Router) Route(ctx context.Context, task TaskClassification, limits map[
 		return nil, fmt.Errorf("dispatch: no capability profiles configured")
 	}
 
+	now := time.Now()
+
 	scored := make([]scoredProfile, 0, len(r.Profiles))
 	for _, p := range r.Profiles {
 		capScore := p.ScoreFor(task.TaskType, task.Language)
 		if r.StalenessConfig != nil {
-			freshness := CheckFreshness(p, *r.StalenessConfig, time.Now())
+			freshness := CheckFreshness(p, *r.StalenessConfig, now)
 			capScore = DecayScore(capScore, freshness, *r.StalenessConfig)
 		}
 		availFactor := 1.0
@@ -90,8 +93,9 @@ func (r *Router) Route(ctx context.Context, task TaskClassification, limits map[
 	}
 
 	// Sort descending by finalScore; stable by harness name for determinism.
+	const scoreEpsilon = 1e-9
 	sort.Slice(scored, func(i, j int) bool {
-		if scored[i].finalScore != scored[j].finalScore {
+		if math.Abs(scored[i].finalScore-scored[j].finalScore) > scoreEpsilon {
 			return scored[i].finalScore > scored[j].finalScore
 		}
 		return scored[i].profile.Harness < scored[j].profile.Harness
@@ -123,13 +127,13 @@ func (r *Router) Route(ctx context.Context, task TaskClassification, limits map[
 		Model:        winner.profile.Model,
 		Score:        winner.finalScore,
 		Reason:       reason,
-		Timestamp:    time.Now().UTC().Format(time.RFC3339),
+		Timestamp:    now.UTC().Format(time.RFC3339),
 		Alternatives: alts,
 		ColdStart:    coldStart,
 	}
 
 	if r.StalenessConfig != nil {
-		dec.Staleness = string(CheckFreshness(winner.profile, *r.StalenessConfig, time.Now()))
+		dec.Staleness = string(CheckFreshness(winner.profile, *r.StalenessConfig, now))
 	}
 
 	slog.Info("router selected harness",

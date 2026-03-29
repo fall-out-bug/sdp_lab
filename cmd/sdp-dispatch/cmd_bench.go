@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"time"
 
 	"sdp_dev/internal/dispatch"
 )
@@ -43,38 +42,12 @@ func runBench() error {
 
 	fmt.Fprintln(os.Stderr, "Bench scaffolding: real benchmarks require gastown. Showing profile-based estimates.")
 
-	now := time.Now().UTC()
 	var results []dispatch.BenchResult
 	for _, p := range profiles {
 		if *harnessFilter != "" && p.Harness != *harnessFilter {
 			continue
 		}
-
-		key := fmt.Sprintf("%s:%s", *task, *lang)
-		cap, hasCap := p.Capabilities[key]
-
-		var dur time.Duration
-		var testsPassed, testsTotal int
-		if hasCap {
-			dur = time.Duration(cap.AvgDuration * float64(time.Minute))
-			// Estimate tests from pass rate: assume 10 total tests as baseline.
-			testsTotal = 10
-			testsPassed = int(cap.TestPassRate * float64(testsTotal))
-		}
-
-		results = append(results, dispatch.BenchResult{
-			Harness:   p.Harness,
-			Provider:  p.Provider,
-			Model:     p.Model,
-			Task:      *task,
-			TaskType:  *task,
-			Language:  *lang,
-			Duration:  dur,
-			Timestamp: now,
-
-			TestsTotal:  testsTotal,
-			TestsPassed: testsPassed,
-		})
+		results = append(results, profileToBenchResult(p, *task, *lang))
 	}
 
 	if len(results) == 0 {

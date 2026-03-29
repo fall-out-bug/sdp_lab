@@ -1,6 +1,7 @@
 package gate
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -184,7 +185,7 @@ func TestWaitForGate_AlreadyResolved(t *testing.T) {
 	}
 
 	start := time.Now()
-	result, err := WaitForGate(mgr, g.ID, 100*time.Millisecond, 2*time.Second)
+	result, err := WaitForGate(context.Background(), mgr, g.ID, 100*time.Millisecond, 2*time.Second)
 	elapsed := time.Since(start)
 
 	if err != nil {

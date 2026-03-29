@@ -3,6 +3,7 @@ module sdp_dev
 go 1.26
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/in-toto/in-toto-golang v0.10.0
 	github.com/mattn/go-sqlite3 v1.14.34
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
@@ -48,7 +49,6 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/google/certificate-transparency-go v1.3.2 // indirect
 	github.com/google/go-containerregistry v0.20.7 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.3 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect

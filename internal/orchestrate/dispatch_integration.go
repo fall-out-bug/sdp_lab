@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	"sdp_dev/internal/dispatch"
 	"sdp_dev/internal/dispatch/harness"
@@ -107,7 +108,7 @@ func (h *harnessInvoker) Invoke(ctx context.Context, dir, agent, prompt string) 
 
 // loadPacketSummary reads .sdp/context-packet.json and extracts fields needed for classification.
 func loadPacketSummary(projectRoot string) (dispatch.ContextPacketSummary, error) {
-	path := projectRoot + "/.sdp/context-packet.json"
+	path := filepath.Join(projectRoot, ".sdp", "context-packet.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return dispatch.ContextPacketSummary{}, fmt.Errorf("read context packet: %w", err)
