@@ -133,15 +133,7 @@ func TestGeneratePlan_MediumRiskPending(t *testing.T) {
 }
 
 func TestGeneratePlan_OmOUnavailable(t *testing.T) {
-	prev, had := os.LookupEnv("OMO_SERVE_URL")
-	defer func() {
-		if had {
-			_ = os.Setenv("OMO_SERVE_URL", prev)
-		} else {
-			os.Unsetenv("OMO_SERVE_URL")
-		}
-	}()
-	_ = os.Setenv("OMO_SERVE_URL", "http://127.0.0.1:1")
+	t.Setenv("OMO_SERVE_URL", "http://127.0.0.1:1")
 
 	card := &control.FeatureCard{
 		ID:               "card-omo-unavailable",

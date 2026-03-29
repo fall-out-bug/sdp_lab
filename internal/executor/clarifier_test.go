@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
@@ -100,15 +99,7 @@ func TestClarifyIntent_CardPopulation(t *testing.T) {
 }
 
 func TestClarifyIntent_OmOUnavailable(t *testing.T) {
-	prev, had := os.LookupEnv("OMO_SERVE_URL")
-	defer func() {
-		if had {
-			_ = os.Setenv("OMO_SERVE_URL", prev)
-		} else {
-			os.Unsetenv("OMO_SERVE_URL")
-		}
-	}()
-	_ = os.Setenv("OMO_SERVE_URL", "http://127.0.0.1:1")
+	t.Setenv("OMO_SERVE_URL", "http://127.0.0.1:1")
 
 	card := &control.FeatureCard{ID: "card-4", RawRequest: "clarify this intent"}
 	result, err := ClarifyIntent(context.Background(), t.TempDir(), card.RawRequest, card)
