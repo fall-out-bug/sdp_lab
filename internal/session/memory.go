@@ -203,7 +203,7 @@ func loadProfileSection(storagePath string, maxItems int) (string, error) {
 		b.WriteString("\n")
 	}
 	b.WriteString("Preferences:\n")
-	for i := 0; i < maxItems; i++ {
+	for i := range maxItems {
 		pref := pd.Preferences[i]
 		if pref.Description == "" {
 			continue

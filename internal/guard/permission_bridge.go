@@ -223,10 +223,8 @@ func (pb *PermissionBridge) matches(rule *PermissionRule, toolName, target strin
 	
 	// Check if pattern includes tool prefix (e.g., "edit:*")
 	if strings.Contains(rule.Pattern, ":") {
-		parts := strings.SplitN(rule.Pattern, ":", 2)
-		if len(parts) == 2 {
-			toolPattern := parts[0]
-			targetPattern := parts[1]
+		toolPattern, targetPattern, ok := strings.Cut(rule.Pattern, ":")
+		if ok {
 			
 			// Match tool name
 			if !pb.matchPattern(toolPattern, false, toolName) {

@@ -282,12 +282,12 @@ func parseFrontmatter(content string) map[string]string {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		parts := strings.SplitN(line, ":", 2)
-		if len(parts) != 2 {
+		k, v, ok := strings.Cut(line, ":")
+		if !ok {
 			continue
 		}
-		k := strings.TrimSpace(parts[0])
-		v := strings.TrimSpace(parts[1])
+		k = strings.TrimSpace(k)
+		v = strings.TrimSpace(v)
 		v = strings.Trim(v, `"`)
 		result[k] = v
 	}

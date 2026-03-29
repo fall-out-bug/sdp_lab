@@ -2,6 +2,7 @@ package bridge
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -416,10 +417,7 @@ func buildTypedFindingTitle(finding TypedFinding) string {
 	if finding.WSID != "" {
 		parts = append(parts, finding.WSID)
 	}
-	prefix := strings.Join(parts, " ")
-	if prefix == "" {
-		prefix = strings.ToUpper(string(finding.Source))
-	}
+	prefix := cmp.Or(strings.Join(parts, " "), strings.ToUpper(string(finding.Source)))
 	if finding.Summary != "" {
 		return fmt.Sprintf("%s: %s", prefix, truncate(finding.Summary, 72))
 	}
