@@ -1,6 +1,7 @@
 # sdp_dev Makefile
 .PHONY: test test-internal test-scripts coverage lint quality quality-go generate protocol-e2e
 .PHONY: build-sdp build-sdp-orchestrate build-sdp-guard build-sdp-eval build-sdp-ci-loop build-sdp-evidence
+.PHONY: install-hooks
 
 test:
 	go test ./... -count=1
@@ -73,3 +74,6 @@ protocol-e2e:
 envtest:
 	@go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 	@$(shell go env GOPATH)/bin/setup-envtest use -i -p path
+
+install-hooks:
+	bash scripts/install-hooks.sh
