@@ -1,0 +1,12 @@
+{
+  "harness": "claude",
+  "provider": "anthropic",
+  "model": "opus-4",
+  "capabilities": {
+    "feature:go": {"test_pass_rate": 0.94, "avg_duration": 8.5, "sample_count": 12},
+    "refactor:go": {"test_pass_rate": 0.91, "avg_duration": 6.0, "sample_count": 8},
+    "bugfix:go": {"test_pass_rate": 0.88, "avg_duration": 4.2, "sample_count": 15},
+    "analysis:go": {"test_pass_rate": 0.96, "avg_duration": 3.0, "sample_count": 5}
+  },
+  "updated_at": "2026-03-29T10:00:00Z"
+}

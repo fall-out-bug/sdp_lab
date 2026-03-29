@@ -1,0 +1,10 @@
+{
+  "harness": "opencode",
+  "provider": "local",
+  "model": "default",
+  "capabilities": {
+    "feature:go": {"test_pass_rate": 0.75, "avg_duration": 5.0, "sample_count": 20},
+    "bugfix:go": {"test_pass_rate": 0.72, "avg_duration": 3.0, "sample_count": 25}
+  },
+  "updated_at": "2026-03-29T10:00:00Z"
+}
