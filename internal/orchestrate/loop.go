@@ -173,6 +173,10 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				slog.Info("rerouted qa to build due to blocking findings", "feature", action.Feature, "ws_id", targetWS, "count", len(findings))
 				continue
 			}
+			if _, err := HydrateForReview(projectRoot, action.Feature, cp, workstreams); err != nil {
+				slog.Error("hydration failed", "error", err, "feature", action.Feature)
+				return err
+			}
 			phaseCtx, cancel := context.WithTimeout(ctx, qaPhaseTimeout)
 			passed, qaOutput, err := RunQAPhase(phaseCtx, projectRoot, action.Feature, nil)
 			cancel()

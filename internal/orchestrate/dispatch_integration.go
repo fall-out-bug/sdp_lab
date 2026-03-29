@@ -47,6 +47,8 @@ func NewDispatchingInvoker(projectRoot string) *dispatch.DispatchingInvoker {
 		}
 	}
 
+	verifyRouter := &dispatch.VerificationRouter{Profiles: profiles}
+
 	return &dispatch.DispatchingInvoker{
 		Router:   &dispatch.Router{Profiles: profiles},
 		Fallback: DefaultLLMInvoker,
@@ -55,6 +57,10 @@ func NewDispatchingInvoker(projectRoot string) *dispatch.DispatchingInvoker {
 		},
 		PacketLoader: func(root string) (dispatch.ContextPacketSummary, error) {
 			return loadPacketSummary(root)
+		},
+		ContextEnricher: buildPromptWithContext,
+		VerifyHarness: func(buildDec *dispatch.DispatchDecision, task dispatch.TaskClassification) (*dispatch.DispatchDecision, error) {
+			return verifyRouter.RouteVerification(context.Background(), task, buildDec.Harness, nil)
 		},
 	}
 }

@@ -158,3 +158,123 @@ func TestDispatchingInvoker_FallbackOnNilInvoker(t *testing.T) {
 		t.Errorf("expected fallback-output on nil invoker, got %q", output)
 	}
 }
+
+// TestDispatchingInvoker_ContextEnricher verifies that ContextEnricher enriches
+// the prompt before it reaches the dispatched invoker.
+func TestDispatchingInvoker_ContextEnricher(t *testing.T) {
+	dispatched := &fakeInvoker{name: "dispatched", output: "ok", exitCode: 0}
+
+	profile := makeProfile("test-harness", "anthropic", "claude-3", featureCaps(0.92))
+
+	di := &DispatchingInvoker{
+		Router:   &Router{Profiles: []*CapabilityProfile{profile}},
+		Fallback: &fakeInvoker{name: "fallback"},
+		Limits:   map[string]*harness.Limits{},
+		InvokerFor: func(_ string) LLMInvoker {
+			return dispatched
+		},
+		PacketLoader: fakePacketLoader,
+		ContextEnricher: func(root, basePrompt string) string {
+			return basePrompt + " [ENRICHED:" + root + "]"
+		},
+	}
+
+	output, _, err := di.Invoke(context.Background(), "/project", "implementer", "do the thing")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if output != "ok" {
+		t.Errorf("expected ok, got %q", output)
+	}
+	if dispatched.lastPrompt != "do the thing [ENRICHED:/project]" {
+		t.Errorf("expected enriched prompt, got %q", dispatched.lastPrompt)
+	}
+}
+
+// TestDispatchingInvoker_ContextEnricherNil verifies that nil ContextEnricher
+// passes the prompt unchanged (backward compatible).
+func TestDispatchingInvoker_ContextEnricherNil(t *testing.T) {
+	dispatched := &fakeInvoker{name: "dispatched", output: "ok", exitCode: 0}
+
+	profile := makeProfile("test-harness", "anthropic", "claude-3", featureCaps(0.92))
+
+	di := &DispatchingInvoker{
+		Router:   &Router{Profiles: []*CapabilityProfile{profile}},
+		Fallback: &fakeInvoker{name: "fallback"},
+		Limits:   map[string]*harness.Limits{},
+		InvokerFor: func(_ string) LLMInvoker {
+			return dispatched
+		},
+		PacketLoader:    fakePacketLoader,
+		ContextEnricher: nil, // explicitly nil
+	}
+
+	_, _, err := di.Invoke(context.Background(), "/project", "implementer", "raw prompt")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if dispatched.lastPrompt != "raw prompt" {
+		t.Errorf("expected raw prompt, got %q", dispatched.lastPrompt)
+	}
+}
+
+// TestDispatchingInvoker_CrossHarnessVerification verifies that review/qa agents
+// get routed through VerifyHarness when set.
+func TestDispatchingInvoker_CrossHarnessVerification(t *testing.T) {
+	buildInvoker := &fakeInvoker{name: "build-harness", output: "built", exitCode: 0}
+	verifyInvoker := &fakeInvoker{name: "verify-harness", output: "verified", exitCode: 0}
+
+	buildProfile := makeProfile("claude", "anthropic", "claude-3", featureCaps(0.92))
+	verifyProfile := makeProfile("opencode", "omo", "default", map[string]CapabilityScore{
+		"review:go": {TestPassRate: 0.88},
+	})
+
+	di := &DispatchingInvoker{
+		Router:   &Router{Profiles: []*CapabilityProfile{buildProfile, verifyProfile}},
+		Fallback: &fakeInvoker{name: "fallback"},
+		Limits:   map[string]*harness.Limits{},
+		InvokerFor: func(name string) LLMInvoker {
+			switch name {
+			case "claude":
+				return buildInvoker
+			case "opencode":
+				return verifyInvoker
+			}
+			return nil
+		},
+		PacketLoader:    fakePacketLoader,
+		ContextEnricher: func(_, p string) string { return p + " [CTX]" },
+		VerifyHarness: func(_ *DispatchDecision, _ TaskClassification) (*DispatchDecision, error) {
+			return &DispatchDecision{
+				Harness:  "opencode",
+				Provider: "omo",
+				Model:    "default",
+				Score:    0.88,
+			}, nil
+		},
+	}
+
+	// Build agent should go through normal routing → claude
+	output, _, err := di.Invoke(context.Background(), "/project", "implementer", "build it")
+	if err != nil {
+		t.Fatalf("build: unexpected error: %v", err)
+	}
+	if output != "built" {
+		t.Errorf("build: expected built, got %q", output)
+	}
+	if buildInvoker.lastPrompt != "build it [CTX]" {
+		t.Errorf("build: expected enriched prompt, got %q", buildInvoker.lastPrompt)
+	}
+
+	// Review agent should go through VerifyHarness → opencode
+	output, _, err = di.Invoke(context.Background(), "/project", "reviewer", "review it")
+	if err != nil {
+		t.Fatalf("review: unexpected error: %v", err)
+	}
+	if output != "verified" {
+		t.Errorf("review: expected verified, got %q", output)
+	}
+	if verifyInvoker.lastPrompt != "review it [CTX]" {
+		t.Errorf("review: expected enriched prompt, got %q", verifyInvoker.lastPrompt)
+	}
+}
