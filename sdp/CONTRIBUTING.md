@@ -1,0 +1,189 @@
+# Contributing to Spec-Driven Protocol
+
+Thank you for your interest in contributing!
+
+**New contributors:** See [DEVELOPMENT.md](DEVELOPMENT.md) for setup instructions.
+
+## Ways to Contribute
+
+- **Report bugs** — Open an issue describing the problem
+- **Suggest features** — Open an issue with your idea
+- **Improve documentation** — Fix typos, add examples, clarify explanations
+- **Add skills** — Create new agent skills in `prompts/skills/`
+- **Add agents** — Create new agent definitions in `prompts/agents/`
+- **Share integrations** — Document how you use SDP with other tools
+
+## Getting Started
+
+1. Fork the repository
+2. Clone your fork:
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/sdp.git
+   cd sdp
+   ```
+3. Create a branch:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+## Project Structure
+
+```
+sdp/
+├── sdp-plugin/           # Go implementation (CLI + agents)
+│   ├── cmd/              # CLI commands
+│   └── internal/         # Core logic
+├── src/sdp/              # Go source (graph, monitoring, synthesis)
+├── tests/                # Go test suite
+├── prompts/
+│   ├── skills/           # Canonical AI skill definitions (source of truth)
+│   └── agents/           # Canonical multi-agent definitions (source of truth)
+├── .claude/
+│   ├── skills -> ../prompts/skills   # Compatibility symlink
+│   └── agents -> ../prompts/agents   # Compatibility symlink
+├── .cursor/              # Cursor IDE integration
+├── .opencode/            # OpenCode integration
+├── docs/
+│   ├── PROTOCOL.md       # Core specification
+│   ├── reference/        # API and command reference
+│   ├── vision/           # Strategic vision documents
+│   ├── drafts/           # Feature specifications
+│   ├── decisions/        # Architecture Decision Records
+│   └── workstreams/      # Backlog and completed WS
+├── hooks/                # Git hooks and validators
+├── templates/            # Workstream templates
+├── PRODUCT_VISION.md     # Product vision v3.0
+├── CLAUDE.md             # Claude Code integration guide
+├── AGENTS.md             # Agent instructions
+└── go.mod                # Go module definition
+```
+
+## Go Module Structure (WS-067-10)
+
+SDP uses two separate Go modules:
+
+| Module | Location | Module Path | Purpose |
+|--------|----------|-------------|---------|
+| **Root** | `go.mod` | `github.com/fall-out-bug/sdp` | Core libraries (src/sdp/) |
+| **Plugin** | `sdp-plugin/go.mod` | `github.com/fall-out-bug/sdp` | CLI implementation |
+
+### Building
+
+```bash
+# Build CLI (primary development)
+cd sdp-plugin && CGO_ENABLED=0 go build -o sdp ./cmd/sdp
+
+# Build root module (if needed)
+go build ./...
+```
+
+### Testing
+
+```bash
+# Test CLI module
+cd sdp-plugin && go test ./...
+
+# Test root module
+go test ./...
+```
+
+### Why No go.work?
+
+Both modules share the same module path (`github.com/fall-out-bug/sdp`), which prevents using Go workspaces. See [ADR-001](docs/decisions/ADR-001-dual-module-structure.md) for the consolidation decision.
+
+## Using SDP for Contributions
+
+For larger changes, use the SDP workflow:
+
+1. **Requirements** — Run `@idea "description"` to create draft
+2. **Design** — Run `@design idea-{slug}` to create workstreams
+3. **Implement** — Run `@build 00-FFF-SS` for each workstream
+4. **Review** — Run `@review F{FF}` to verify quality
+5. **Deploy** — Run `@deploy F{FF}` when ready
+
+## Pull Request Process
+
+1. **Update documentation** if your change affects usage
+2. **Write clear commit messages** (conventional commits)
+3. **One feature per PR**
+4. **Reference issues** in PR description
+
+### PR Title Format
+
+```
+type: brief description
+
+Examples:
+- docs: add integration example
+- feat: add @refactor skill
+- fix: correct dependency resolution
+```
+
+## Code Style
+
+- **Go** — Follow standard Go conventions, `gofmt`
+- **Markdown** — Consistent formatting, no trailing whitespace
+- **Skills** — Follow `prompts/skills/` SKILL.md format
+
+### Go Style
+
+Use modern stdlib idioms that are supported by the repo's Go version.
+
+- Prefer `slices.SortFunc` over `sort.Slice`
+- Prefer `strings.Cut` over `strings.SplitN(..., 2)` or manual `strings.Index` slicing
+- Prefer `strings.CutPrefix` or `strings.CutSuffix` over prefix or suffix checks plus trim
+- Prefer `slices.Contains`, `maps.Copy`, and `maps.Clone` over handwritten helper loops
+- Prefer `any` over `interface{}` when behavior and public contracts stay the same
+- Use `golangci-lint` or `staticcheck` instead of `golint`
+
+For agent-driven Go work, load `@go-modern` before making style or cleanup changes.
+
+## PR Checklist
+
+Before submitting a PR, ensure:
+
+- [ ] Go version is 1.24 (`go version`)
+- [ ] Tests pass (`cd sdp-plugin && go test ./...`)
+- [ ] Coverage ≥80% (`go test -cover ./... | grep total`)
+- [ ] Guard checks pass (`./sdp guard check --staged`)
+- [ ] Prompt edits are in `prompts/` only (not `.claude/` or `sdp-plugin/prompts/`)
+- [ ] No `.out`, `bin/`, or `dist/` files staged
+- [ ] Run drift check: `./hooks/check-prompt-drift.sh`
+- [ ] Update relevant documentation if behavior changed
+
+## Canonical Prompt Paths
+
+**CRITICAL:** All prompt/agent definitions have a single canonical location.
+
+| Content | Canonical Path | Symlink |
+|---------|---------------|---------|
+| Skills | `prompts/skills/` | `.claude/skills` |
+| Agents | `prompts/agents/` | `.claude/agents` |
+
+**Rules:**
+1. **Never create duplicate prompt files** in other locations
+2. **Always edit canonical files** in `prompts/`
+3. **Tool adapters** should reference canonical paths or symlinks
+4. **CI validates** no duplicate prompt trees exist
+
+To check for drift: `./hooks/check-prompt-drift.sh`
+
+## Generated Files
+
+The following directories contain generated artifacts and should not be committed:
+
+| Directory | Description | Why Ignore |
+|-----------|-------------|------------|
+| `.contracts/` | API contracts generated from code | Derived from source, regenerable |
+| `.oneshot/` | Checkpoint files | May contain sensitive state |
+| `docs/decisions/` | Local decision logs | Local audit trail only |
+
+These are configured in `.gitignore`. If you see them in your working tree, do not commit them.
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the MIT License.
+
+---
+
+**Version:** 0.10.0
