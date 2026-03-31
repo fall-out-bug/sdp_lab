@@ -1,7 +1,8 @@
-# sdp_dev Roadmap — Standards-Based Trust Layer + Ecosystem Integration
+# sdp_dev Roadmap — Agent Platform + Trust Lane
 
 > **Updated:** 2026-03-24
-> **Direction:** Standards-based enforcement (in-toto, OPA, Sigstore) + ecosystem integration (OhMyOpenCode, Gas Town, Beads)
+> **Direction:** Reusable agent platform (`kernel`, `adapters`, `augmentation`, `evals`) with standards-based trust and evidence as a secondary lane
+> **Platform Reset:** [AGENT_PLATFORM_ROADMAP_2026-03-31.md](AGENT_PLATFORM_ROADMAP_2026-03-31.md) + [2026-03-31-platform-backlog-reset.md](../plans/2026-03-31-platform-backlog-reset.md)
 > **Pivot:** [ADR-002 Standards Pivot](../decisions/ADR-002-standards-pivot.md) — why we moved from custom to standards
 > **Research:** [Enforcement Hypotheses](../plans/2026-02-24-enforcement-hypotheses.md) — SLSA, in-toto, MI9, AgentSpec
 > **Audit:** [Phase 0 Enforcement Audit](../plans/2026-02-24-phase0-enforcement-audit.md) — why Phase 0 tools didn't enforce
@@ -15,6 +16,19 @@
 ---
 
 ## Overview
+
+Execution priority has changed.
+
+Current build priority is the platform reset lane:
+
+- `F091` backlog reset and canonical doc sync
+- `F092` kernel contract surface
+- `F093` adapter gateway layer
+- `F094` augmentation engine
+- `F095` behavioral eval system
+
+Trust, evidence, and enterprise governance remain in the roadmap.
+They are now the `trust lane`, not the whole product story.
 
 Two horizons. Phases 1-7 build the trust layer as CLI tools with CI enforcement. Phases 8-9 extend the same standards into K8s for autonomous swarm execution. The dream (issue in, PR with proof out) doesn't change — the path becomes standards-based.
 
