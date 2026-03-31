@@ -7,13 +7,12 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"sdp_dev/internal/kernel"
 )
 
-// TraceEvent is a minimal event for trace validation (phase only).
-type TraceEvent struct {
-	At    string
-	Phase string
-}
+// TraceEvent is a kernel trace event consumed by trust-lane validation.
+type TraceEvent = kernel.TraceEvent
 
 // TraceValidationResult holds the outcome of trace chain validation.
 type TraceValidationResult struct {

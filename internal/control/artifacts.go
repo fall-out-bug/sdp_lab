@@ -2,29 +2,24 @@ package control
 
 import (
 	"context"
-	"time"
+
+	"sdp_dev/internal/kernel"
 )
 
 // ArtifactType classifies artifact kinds.
-type ArtifactType string
+type ArtifactType = kernel.ArtifactType
 
 const (
-	ArtifactDispatchPacket ArtifactType = "dispatch_packet"
-	ArtifactResultPacket   ArtifactType = "result_packet"
-	ArtifactEvidence        ArtifactType = "evidence"
-	ArtifactProvenance      ArtifactType = "provenance"
-	ArtifactContract        ArtifactType = "contract"
-	ArtifactIntake          ArtifactType = "intake"
+	ArtifactDispatchPacket = kernel.ArtifactDispatchPacket
+	ArtifactResultPacket   = kernel.ArtifactResultPacket
+	ArtifactEvidence       = kernel.ArtifactEvidence
+	ArtifactProvenance     = kernel.ArtifactProvenance
+	ArtifactContract       = kernel.ArtifactContract
+	ArtifactIntake         = kernel.ArtifactIntake
 )
 
 // ArtifactRef is a reference to a file-based artifact.
-type ArtifactRef struct {
-	Type      ArtifactType `json:"type"`
-	Path      string       `json:"path"`
-	Hash      string       `json:"hash,omitempty"`
-	CreatedAt time.Time    `json:"created_at"`
-	Size      int64        `json:"size,omitempty"`
-}
+type ArtifactRef = kernel.ArtifactRef
 
 // ArtifactStore manages file-based artifacts (dispatch packets, results,
 // evidence envelopes, provenance files, contracts, intake docs).
