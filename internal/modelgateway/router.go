@@ -8,55 +8,34 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"sdp_dev/internal/kernel"
 )
 
-type TaskClass string
+type TaskClass = kernel.TaskClass
 
 const (
-	TaskClassCode      TaskClass = "code"
-	TaskClassAnalysis  TaskClass = "analysis"
-	TaskClassCreative  TaskClass = "creative"
-	TaskClassReasoning TaskClass = "reasoning"
-	TaskClassEmbedding TaskClass = "embedding"
+	TaskClassCode      = kernel.TaskClassCode
+	TaskClassAnalysis  = kernel.TaskClassAnalysis
+	TaskClassCreative  = kernel.TaskClassCreative
+	TaskClassReasoning = kernel.TaskClassReasoning
+	TaskClassEmbedding = kernel.TaskClassEmbedding
 )
 
-type SensitivityLevel string
+type SensitivityLevel = kernel.SensitivityLevel
 
 const (
-	SensitivityPublic       SensitivityLevel = "public"
-	SensitivityInternal     SensitivityLevel = "internal"
-	SensitivityConfidential SensitivityLevel = "confidential"
-	SensitivityRestricted   SensitivityLevel = "restricted"
+	SensitivityPublic       = kernel.SensitivityPublic
+	SensitivityInternal     = kernel.SensitivityInternal
+	SensitivityConfidential = kernel.SensitivityConfidential
+	SensitivityRestricted   = kernel.SensitivityRestricted
 )
 
-type RoutingInput struct {
-	TaskClass         TaskClass        `json:"task_class"`
-	Sensitivity       SensitivityLevel `json:"sensitivity"`
-	MaxLatencyMs      int              `json:"max_latency_ms,omitempty"`
-	MaxCostCents      int              `json:"max_cost_cents,omitempty"`
-	RequiresVision    bool             `json:"requires_vision"`
-	RequiresFunctions bool             `json:"requires_functions"`
-	TenantID          string           `json:"tenant_id"`
-	ModelHint         ModelID          `json:"model_hint,omitempty"`
-}
+type RoutingInput = kernel.RoutingInput
 
-type RoutingDecision struct {
-	SelectedProvider ProviderID         `json:"selected_provider"`
-	SelectedModel    ModelID            `json:"selected_model"`
-	FallbackChain    []ProviderID       `json:"fallback_chain"`
-	DecisionReason   string             `json:"decision_reason"`
-	PolicyID         string             `json:"policy_id"`
-	EvaluatedAt      time.Time          `json:"evaluated_at"`
-	InputHash        string             `json:"input_hash"`
-	Constraints      RoutingConstraints `json:"constraints"`
-}
+type RoutingDecision = kernel.RoutingDecision
 
-type RoutingConstraints struct {
-	AllowedProviders     []ProviderID `json:"allowed_providers"`
-	AllowedModels        []ModelID    `json:"allowed_models"`
-	MaxCostPerToken      float64      `json:"max_cost_per_token"`
-	RequireDataResidency string       `json:"require_data_residency,omitempty"`
-}
+type RoutingConstraints = kernel.RoutingConstraints
 
 type RoutingEvidence struct {
 	Decision  RoutingDecision `json:"decision"`
