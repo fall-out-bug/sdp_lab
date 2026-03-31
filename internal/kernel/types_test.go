@@ -15,6 +15,8 @@ func TestKernelContractsJSONRoundTrip(t *testing.T) {
 		Pack     WorkflowPack    `json:"pack"`
 		Policy   ToolPolicy      `json:"policy"`
 		Trace    TraceEvent      `json:"trace"`
+		Provider ProviderMeta    `json:"provider"`
+		Routing  RoutingDecision `json:"routing"`
 		Approval ApprovalHook    `json:"approval"`
 		Eval     EvalCase        `json:"eval"`
 	}{
@@ -70,6 +72,32 @@ func TestKernelContractsJSONRoundTrip(t *testing.T) {
 			CorrelationID: "corr-1",
 			Payload:       json.RawMessage(`{"tool":"bd ready"}`),
 		},
+		Provider: ProviderMeta{
+			ProviderID: "openai",
+			ModelName:  "gpt-4o",
+			Capabilities: ModelCapabilities{
+				Vision:          true,
+				FunctionCall:    true,
+				Streaming:       true,
+				MaxContext:      128000,
+				SupportedModels: []ModelID{"gpt-4o"},
+			},
+			Latency: 120 * time.Millisecond,
+		},
+		Routing: RoutingDecision{
+			SelectedProvider: "openai",
+			SelectedModel:    "gpt-4o",
+			FallbackChain:    []ProviderID{"openai", "selfhosted"},
+			DecisionReason:   "default provider",
+			PolicyID:         "default.policy",
+			EvaluatedAt:      timestamp,
+			InputHash:        "route-123",
+			Constraints: RoutingConstraints{
+				AllowedProviders: []ProviderID{"openai", "selfhosted"},
+				AllowedModels:    []ModelID{"gpt-4o"},
+				MaxCostPerToken:  0.01,
+			},
+		},
 		Approval: ApprovalHook{
 			ID:          "approval.default",
 			RequestType: "tool_call",
@@ -97,6 +125,8 @@ func TestKernelContractsJSONRoundTrip(t *testing.T) {
 		Pack     WorkflowPack    `json:"pack"`
 		Policy   ToolPolicy      `json:"policy"`
 		Trace    TraceEvent      `json:"trace"`
+		Provider ProviderMeta    `json:"provider"`
+		Routing  RoutingDecision `json:"routing"`
 		Approval ApprovalHook    `json:"approval"`
 		Eval     EvalCase        `json:"eval"`
 	}
@@ -115,6 +145,12 @@ func TestKernelContractsJSONRoundTrip(t *testing.T) {
 	}
 	if decoded.Trace.Kind != TraceEventTool || string(decoded.Trace.Payload) != `{"tool":"bd ready"}` {
 		t.Fatalf("trace mismatch: %#v", decoded.Trace)
+	}
+	if decoded.Provider.ProviderID != "openai" || decoded.Provider.Capabilities.MaxContext != 128000 {
+		t.Fatalf("provider mismatch: %#v", decoded.Provider)
+	}
+	if decoded.Routing.SelectedModel != "gpt-4o" || len(decoded.Routing.FallbackChain) != 2 {
+		t.Fatalf("routing mismatch: %#v", decoded.Routing)
 	}
 	if len(decoded.Eval.ExpectedToolDecisions) != 1 || decoded.Eval.ExpectedToolDecisions[0] != ToolPolicyAsk {
 		t.Fatalf("eval mismatch: %#v", decoded.Eval)
