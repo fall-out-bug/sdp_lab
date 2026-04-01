@@ -52,9 +52,9 @@ Issues in Beads are:
 - Fast, lightweight, and stays out of your way
 
 🔧 **Git Integration**
-- Git branch backup via `bd backup export-git`
+- Git branch backup via `scripts/beads_transport.sh export`
 - Branch-aware issue tracking
-- Recovery path without a dedicated Dolt remote
+- Archival export path without a dedicated Dolt remote
 
 ## Get Started with Beads
 

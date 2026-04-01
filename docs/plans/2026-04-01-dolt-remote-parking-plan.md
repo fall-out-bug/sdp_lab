@@ -8,7 +8,7 @@ The repo now has:
 
 - `scripts/beads_transport.sh` for normal transport
 - `scripts/beads_dolt_remote_bootstrap.sh` for real remote bootstrap
-- `origin/beads-backup` as working fallback transport
+- `origin/beads-backup` as an archival export path
 
 What it does not have:
 
@@ -22,7 +22,7 @@ That means the remaining work is infra provisioning, not more repo-side implemen
 
 - `./scripts/beads_transport.sh status` returns `mode=git-backup`
 - `bd dolt remote list` returns `No remotes configured.`
-- `origin/beads-backup` exists and is updated as the current fallback transport
+- `origin/beads-backup` exists and is updated as the current archival export path via portable `bd export` snapshots
 - `sdplab-bqc` is blocked on external infra input
 
 ## Resume Checklist
@@ -59,5 +59,6 @@ bd dolt push
 ## Explicit Non-Goals While Parked
 
 - Do not fake a local filesystem remote and call it shared infra
+- Do not treat `origin/beads-backup` as a safe hydration source for local Dolt state
 - Do not remove `origin/beads-backup` before real Dolt pull/push is proven
 - Do not pretend tracked `.beads/issues.jsonl` is authoritative again

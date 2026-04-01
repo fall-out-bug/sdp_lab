@@ -7,7 +7,7 @@ Updated: 2026-04-01
 - `bd 0.61.0` removed `bd sync` and the JSONL sync pipeline.
 - This repo currently has no configured Dolt remote for primary Beads replication.
 - The live Beads database is local Dolt state under `.beads/dolt/`.
-- The portable recovery snapshot is exported under `.beads/backup/`.
+- The portable fallback transport is an archival `bd export` snapshot stored on `origin/beads-backup`.
 
 ## Repo Rule
 
@@ -22,7 +22,7 @@ Use `scripts/beads_transport.sh` instead of calling `bd sync`.
 Behavior:
 
 - if a real Dolt remote named `origin` exists, the helper runs `bd dolt pull` / `bd dolt push`
-- otherwise it uses `bd backup fetch-git` / `bd backup export-git` against `origin/beads-backup`
+- otherwise it publishes a portable `bd export` snapshot through `origin/beads-backup` with a temporary git worktree
 
 ## Startup
 
@@ -32,7 +32,7 @@ After `git pull --rebase`, run:
 ./scripts/beads_transport.sh fetch
 ```
 
-If `origin/beads-backup` does not exist yet, fetch is a no-op.
+If `origin/beads-backup` exists but no real Dolt remote exists, fetch is still a no-op. The archival branch is not a safe source for local Dolt hydration.
 
 ## Shutdown
 
@@ -42,7 +42,7 @@ Before `git push`, run:
 ./scripts/beads_transport.sh export
 ```
 
-This publishes the current `.beads/backup/` snapshot to `origin/beads-backup` when no Dolt remote is configured.
+This publishes the current portable export to `origin/beads-backup` when no Dolt remote is configured.
 
 ## Bootstrap A Real Dolt Remote
 
@@ -71,7 +71,7 @@ Current blocker in this repo:
 - there is no Dolt remote URL configured
 - there are no `DOLT_REMOTE_USER` / `DOLT_REMOTE_PASSWORD` credentials in the current environment
 
-Until those inputs exist, `origin/beads-backup` remains the only off-machine transport path.
+Until those inputs exist, `origin/beads-backup` remains only an off-machine archival path.
 
 ## What This Does Not Solve
 

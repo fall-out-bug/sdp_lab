@@ -63,7 +63,7 @@ scripts/beads_transport.sh fetch   # Restore Beads state before work
 scripts/beads_transport.sh export  # Publish Beads state after work
 ```
 
-`bd sync` is removed in `bd 0.61.0`. This repo uses `scripts/beads_transport.sh`, which prefers `bd dolt pull/push` when a real Dolt remote is configured and otherwise falls back to `bd backup fetch-git/export-git` on `origin/beads-backup`.
+`bd sync` is removed in `bd 0.61.0`. This repo uses `scripts/beads_transport.sh`, which prefers `bd dolt pull/push` when a real Dolt remote is configured and otherwise publishes an archival `bd export` snapshot through `origin/beads-backup` with plain git worktrees. In git-backup mode, `fetch` is intentionally a no-op.
 
 ### Beads ↔ Workstream Sync
 
@@ -461,7 +461,7 @@ Beads transport is explicit in this repo:
 
 - Each write auto-commits to Dolt history
 - Use `scripts/beads_transport.sh fetch` before work and `scripts/beads_transport.sh export` before finishing
-- The helper uses `bd dolt pull/push` only when a real Dolt remote exists; otherwise it publishes/restores `.beads/backup/` through `origin/beads-backup`
+- The helper uses `bd dolt pull/push` only when a real Dolt remote exists; otherwise it publishes an archival `bd export` snapshot through `origin/beads-backup`
 
 ### Important Rules
 
