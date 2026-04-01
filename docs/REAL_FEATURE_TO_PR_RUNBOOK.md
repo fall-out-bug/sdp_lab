@@ -21,7 +21,7 @@ go run ./cmd/autonomy-worker
 
 ```bash
 git push -u origin <feature-branch>
-gh pr create --draft --base dev --title "FXXX: short-name"
+gh pr create --draft --base main --title "FXXX: short-name"
 ```
 
 If the `feature` already has an active `draft PR`, reuse it. Do not wait until the end of the feature to open the PR.
@@ -41,7 +41,7 @@ go run ./cmd/pr-gate --issue <issue-id> --prepublish
 5. Publish or update PR evidence and write `trace.pr_url`:
 
 ```bash
-go run ./cmd/pr-publish --issue <issue-id> --title "..." --head <feature-branch> --base dev --body-file <body.md>
+go run ./cmd/pr-publish --issue <issue-id> --title "..." --head <feature-branch> --base main --body-file <body.md>
 ```
 
 `pr-publish` now also writes `trace.run_context_link` + `trace.evidence_context_link` and appends a callback dispatch report note for `pr-callbacks.v1` recipients.

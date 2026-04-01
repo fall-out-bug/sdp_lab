@@ -73,7 +73,7 @@ scripts/beads_transport.sh export  # Publish Beads state after work
 
 ## Feature Delivery Flow
 
-**Base branch:** `dev`. Feature branches branch from `dev`; PRs target `dev`. `main`/`master` for releases only.
+**Base branch:** `main`. Feature branches branch from `main`; PRs target `main`.
 
 Canonical design reference: [docs/plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md](docs/plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md)
 
@@ -116,7 +116,7 @@ Each executable unit must link back to one `feature` and one `workstream`.
 ### Step 4: Branch and open early `draft PR`
 
 ```bash
-git checkout dev
+git checkout main
 git pull
 git checkout -b feature/FXXX-short-name   # e.g. feature/F004-sequential-reconciler
 ```
@@ -130,7 +130,7 @@ After the first meaningful commit:
 
 ```bash
 git push -u origin HEAD
-gh pr create --draft --base dev --title "FXXX: short-name"
+gh pr create --draft --base main --title "FXXX: short-name"
 ```
 
 ### Step 5: Execute ready `beads issue`
@@ -202,17 +202,18 @@ If the feature publishes artifacts to the `sdp` protocol repo:
 cp schema/evidence-envelope.schema.json sdp/schema/
 
 # Commit inside the submodule (sdp: branch from dev)
+SDP_BASE_BRANCH=$(git -C sdp symbolic-ref --short refs/remotes/origin/HEAD | sed 's@^origin/@@')
 cd sdp
-git checkout dev && git pull
+git checkout "$SDP_BASE_BRANCH" && git pull
 git checkout -b schema/evidence-envelope
 git add schema/
 git commit -m "Add evidence envelope JSON Schema"
 git push -u origin HEAD
-gh pr create --base dev --title "Add evidence envelope JSON Schema"
+gh pr create --base "$SDP_BASE_BRANCH" --title "Add evidence envelope JSON Schema"
 cd ..
 
 # After sdp PR is merged:
-cd sdp && git checkout dev && git pull && cd ..
+cd sdp && git checkout "$SDP_BASE_BRANCH" && git pull && cd ..
 git add sdp
 git commit -m "Update sdp submodule: evidence schema published"
 git push

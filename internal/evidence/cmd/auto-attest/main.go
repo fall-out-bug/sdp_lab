@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	baseBranch := flag.String("base-branch", "master", "Base branch for diff")
+	baseBranch := flag.String("base-branch", "", "Base branch for diff (defaults to the repository default branch)")
 	prNumber := flag.String("pr-number", "", "PR number")
 	prURL := flag.String("pr-url", "", "PR URL")
 	output := flag.String("output", ".sdp/attestations/ci-auto.json", "Output attestation path")
