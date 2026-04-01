@@ -10,6 +10,7 @@
 | **sdp** | Submodule at `sdp/` | Public | Protocol: schemas, prompts, sdp-plugin CLI |
 
 **Rule:** All development happens in sdp_dev. Touch `sdp/` only when publishing protocol artifacts.
+**Canonical remote:** `sdp/` must come from `https://github.com/fall-out-bug/sdp.git`, not from a local relative clone path.
 
 ---
 

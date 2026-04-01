@@ -8,12 +8,13 @@ This project has **two repos** with different roles:
 
 | | `sdp_dev` (this repo) | `sdp` (submodule at `sdp/`) |
 |---|---|---|
-| **Remote** | `origin → sdp_private.git` | `origin → sdp.git` |
+| **Remote** | `origin → fall-out-bug/sdp_lab` | `origin → fall-out-bug/sdp` |
 | **Visibility** | Private | Public |
 | **Contains** | Go code, K8s manifests, roadmap, research | Protocol: prompts, JSON schemas, hooks |
 | **Changes** | Daily — all features built here | Rare — only when protocol spec changes |
 
 **Rule:** All work happens in `sdp_dev`. The `sdp/` submodule is only touched when publishing protocol artifacts (schemas, prompts, hooks).
+**Source of truth:** `sdp/` must track the public GitHub repo `https://github.com/fall-out-bug/sdp.git`. A local sibling clone such as `../sdp` is a convenience checkout, not a canonical submodule URL.
 
 **sdp vs sdp_dev (CI/secrets):** sdp = protocol, CLI, release workflow. Secrets (e.g. GLM_API_KEY) live in sdp. sdp_dev = lab, Go binaries. When debugging CI for a PR in sdp, check sdp workflows and `workflow_call` / `secrets: inherit` — do not assume the user forgot to add secrets.
 
@@ -201,7 +202,7 @@ If the feature publishes artifacts to the `sdp` protocol repo:
 # Copy artifact into submodule
 cp schema/evidence-envelope.schema.json sdp/schema/
 
-# Commit inside the submodule (sdp: branch from dev)
+# Commit inside the submodule (sdp: branch from its remote default branch)
 SDP_BASE_BRANCH=$(git -C sdp symbolic-ref --short refs/remotes/origin/HEAD | sed 's@^origin/@@')
 cd sdp
 git checkout "$SDP_BASE_BRANCH" && git pull
@@ -220,6 +221,14 @@ git push
 ```
 
 **When to do Step 8:** Only when the workstream file says "Publish to sdp repo" or the feature touches `sdp/` contents. Check the workstream's Scope Files section.
+
+**Submodule recovery:** If `git submodule status` shows a missing path (`-<sha> sdp`) or a sha nobody can fetch, fix the source first:
+
+```bash
+git config -f .gitmodules submodule.sdp.url https://github.com/fall-out-bug/sdp.git
+git submodule sync -- sdp
+git submodule update --init --checkout sdp
+```
 
 ## Branch Naming
 
@@ -383,7 +392,7 @@ Example: `go run ./cmd/sdp-orchestrate --feature F053 --next-action`
 | File | Purpose |
 |---|---|
 | `docs/architecture/REPO-BOUNDARY.md` | sdp vs sdp_dev boundary, component mapping |
-| `docs/MULTI-REPO-WORKFLOW.md` | Multi-repo cheat sheet, commit workflow |
+| `docs/MULTI-REPO-WORKFLOW.md` | Multi-repo cheat sheet, commit workflow, submodule recovery |
 | `docs/roadmap/ROADMAP.md` | Features F001-F013, phases, dependencies |
 | `docs/workstreams/INDEX.md` | All workstreams with status |
 | `docs/workstreams/backlog/00-XXX-YY.md` | Individual workstream: goal, scope, acceptance criteria |
