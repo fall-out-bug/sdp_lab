@@ -8,6 +8,9 @@ import (
 	"slices"
 	"sort"
 	"strings"
+
+	"sdp_dev/internal/augmentation"
+	"sdp_dev/internal/prompt"
 )
 
 const clarifySystemPrompt = `You are an SDP intent clarifier. Your job is to normalize a raw development intent into a structured FeatureCard.
@@ -38,7 +41,14 @@ Output JSON only, no markdown:
 }`
 
 func BuildClarificationPrompt(projectRoot, rawIntent string) string {
-	return fmt.Sprintf("%s\n\nRaw intent:\n%s\n\nProject context:\n%s\n", clarifySystemPrompt, strings.TrimSpace(rawIntent), collectProjectContext(projectRoot))
+	var sections []string
+	sections = append(sections, clarifySystemPrompt)
+	if packSection := prompt.ContextSegmentsSection("Pack Context", augmentation.MustResolveDefaultPromptContext("planner.pack")); packSection != "" {
+		sections = append(sections, packSection)
+	}
+	sections = append(sections, "Raw intent:\n"+strings.TrimSpace(rawIntent))
+	sections = append(sections, "Project context:\n"+collectProjectContext(projectRoot))
+	return strings.Join(sections, "\n\n") + "\n"
 }
 
 func collectProjectContext(projectRoot string) string {
