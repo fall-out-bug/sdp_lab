@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"sdp_dev/internal/eval"
+	"sdp_dev/internal/evals"
 	"sdp_dev/internal/evidence"
 )
 
@@ -42,7 +42,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	results, err := eval.Run(absRoot, absCases, skillFilter)
+	results, err := evals.Run(absRoot, absCases, skillFilter)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
