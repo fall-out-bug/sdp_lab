@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"sdp_dev/archive/adapters-sdk"
+	"sdp_dev/internal/kernel"
 )
 
 type State string
@@ -36,7 +37,7 @@ type FSMContext struct {
 	WorkstreamID string
 	FeatureID    string
 	BeadsID      string
-	SessionID    string
+	SessionID    kernel.SessionID
 	GitBranch    string
 	GitCommitSHA string
 	Actor        *sdk.Actor
@@ -298,7 +299,7 @@ func (f *FSMV2) checkPolicy(ctx context.Context, transition *Transition) (*sdk.R
 		Actor:        f.context.Actor,
 		WorkstreamID: f.context.WorkstreamID,
 		FeatureID:    f.context.FeatureID,
-		SessionID:    f.context.SessionID,
+		SessionID:    string(f.context.SessionID),
 	}
 
 	return f.decisionMaker.MakeDecision(ctx, &decisionCtx.Request, decisionCtx)
@@ -333,7 +334,7 @@ func buildOrchestrationEvent(fsmCtx *FSMContext, eventType string, from, to Stat
 			WorkstreamID: fsmCtx.WorkstreamID,
 			FeatureID:    fsmCtx.FeatureID,
 			BeadsID:      fsmCtx.BeadsID,
-			SessionID:    fsmCtx.SessionID,
+			SessionID:    string(fsmCtx.SessionID),
 			GitContext: &sdk.GitContext{
 				Branch:    fsmCtx.GitBranch,
 				CommitSHA: fsmCtx.GitCommitSHA,

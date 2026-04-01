@@ -6,24 +6,19 @@ import (
 	"path/filepath"
 	"time"
 
+	"sdp_dev/internal/kernel"
 	"sdp_dev/internal/sdputil"
 )
 
 type runFileJSON struct {
-	RunID        string            `json:"run_id"`
+	RunID        kernel.RunID      `json:"run_id"`
 	FeatureID    string            `json:"feature_id"`
 	Orchestrator string            `json:"orchestrator"`
 	Branch       string            `json:"branch"`
 	StartedAt    string            `json:"started_at"`
-	Events       []runFileEventJSON `json:"events"`
+	Events       []kernel.TraceEvent `json:"events"`
 	LastPhase    string            `json:"last_phase"`
 	LastState    string            `json:"last_state"`
-}
-
-type runFileEventJSON struct {
-	At    string `json:"at"`
-	Phase string `json:"phase"`
-	State string `json:"state"`
 }
 
 // EnsureRunFile creates the initial run file for a feature (atomic write).
@@ -32,8 +27,8 @@ func EnsureRunFile(dir, featureID, branch string) error {
 		return fmt.Errorf("validate feature id: %w", err)
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
-	runID := fmt.Sprintf("oneshot-%s-%s", featureID, time.Now().UTC().Format("20060102T150405Z"))
-	path := filepath.Join(dir, runID+".json")
+	runID := kernel.RunID(fmt.Sprintf("oneshot-%s-%s", featureID, time.Now().UTC().Format("20060102T150405Z")))
+	path := filepath.Join(dir, string(runID)+".json")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("mkdir runs dir: %w", err)
 	}
@@ -43,7 +38,7 @@ func EnsureRunFile(dir, featureID, branch string) error {
 		Orchestrator: "sdp-orchestrate",
 		Branch:       branch,
 		StartedAt:    now,
-		Events:       []runFileEventJSON{{At: now, Phase: "init", State: "ok"}},
+		Events:       []kernel.TraceEvent{{RunID: runID, Phase: "init", At: now}},
 		LastPhase:    "init",
 		LastState:    "ok",
 	}

@@ -46,12 +46,20 @@ func TestEnsureRunFile(t *testing.T) {
 		RunID     string `json:"run_id"`
 		FeatureID string `json:"feature_id"`
 		Branch    string `json:"branch"`
+		Events    []struct {
+			RunID string `json:"run_id"`
+			Phase string `json:"phase"`
+			At    string `json:"at"`
+		} `json:"events"`
 	}
 	if err := json.Unmarshal(data, &rf); err != nil {
 		t.Fatal(err)
 	}
 	if rf.FeatureID != "F016" || rf.Branch != "feature/F016-oneshot" {
 		t.Errorf("run file content mismatch: %+v", rf)
+	}
+	if len(rf.Events) != 1 || rf.Events[0].Phase != "init" || rf.Events[0].RunID != rf.RunID {
+		t.Errorf("run file events mismatch: %+v", rf.Events)
 	}
 }
 

@@ -106,26 +106,19 @@ func detectTraceGaps(events []TraceEvent) []string {
 
 // LoadTraceEventsFromRunFile reads events from a run file at workDir/.sdp/runs/{runID}.json.
 // Returns nil if the file does not exist or cannot be parsed.
-func LoadTraceEventsFromRunFile(workDir, runID string) []TraceEvent {
-	path := filepath.Join(workDir, ".sdp", "runs", runID+".json")
+func LoadTraceEventsFromRunFile(workDir string, runID kernel.RunID) []TraceEvent {
+	path := filepath.Join(workDir, ".sdp", "runs", string(runID)+".json")
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil
 	}
 	var doc struct {
-		Events []struct {
-			At    string `json:"at"`
-			Phase string `json:"phase"`
-		} `json:"events"`
+		Events []TraceEvent `json:"events"`
 	}
 	if err := json.Unmarshal(b, &doc); err != nil {
 		return nil
 	}
-	out := make([]TraceEvent, len(doc.Events))
-	for i, e := range doc.Events {
-		out[i] = TraceEvent{At: e.At, Phase: e.Phase}
-	}
-	return out
+	return doc.Events
 }
 
 // AddTraceValidationToEvidence reads an evidence file, adds trace_validation, and writes back.
