@@ -18,17 +18,18 @@ import (
 // Case defines one eval scenario. Trace assertions are preferred.
 // Transcript pattern checks remain as a compatibility fallback.
 type Case struct {
-	Name                  string                      `yaml:"name"`
-	Skill                 string                      `yaml:"skill"`
-	InputTrace            string                      `yaml:"input_trace,omitempty"`
-	InputTranscript       string                      `yaml:"input_transcript,omitempty"`
-	ExpectedTraceKinds    []kernel.TraceEventKind     `yaml:"expected_trace_kinds,omitempty"`
-	ExpectedToolDecisions []kernel.ToolPolicyDecision `yaml:"expected_tool_decisions,omitempty"`
-	ExpectedArtifacts     []kernel.ArtifactType       `yaml:"expected_artifacts,omitempty"`
-	ExpectedMemoryScopes  []kernel.MemoryScope        `yaml:"expected_memory_scopes,omitempty"`
-	ForbiddenPatterns     []string                    `yaml:"forbidden_patterns,omitempty"`
-	RequiredPatterns      []string                    `yaml:"required_patterns,omitempty"`
-	Verdict               string                      `yaml:"verdict,omitempty"` // PASS or FAIL for transcript fallback
+	Name                     string                      `yaml:"name"`
+	Skill                    string                      `yaml:"skill"`
+	InputTrace               string                      `yaml:"input_trace,omitempty"`
+	InputTranscript          string                      `yaml:"input_transcript,omitempty"`
+	ExpectedTraceKinds       []kernel.TraceEventKind     `yaml:"expected_trace_kinds,omitempty"`
+	ExpectedRoutingProviders []kernel.ProviderID         `yaml:"expected_routing_providers,omitempty"`
+	ExpectedToolDecisions    []kernel.ToolPolicyDecision `yaml:"expected_tool_decisions,omitempty"`
+	ExpectedArtifacts        []kernel.ArtifactType       `yaml:"expected_artifacts,omitempty"`
+	ExpectedMemoryScopes     []kernel.MemoryScope        `yaml:"expected_memory_scopes,omitempty"`
+	ForbiddenPatterns        []string                    `yaml:"forbidden_patterns,omitempty"`
+	RequiredPatterns         []string                    `yaml:"required_patterns,omitempty"`
+	Verdict                  string                      `yaml:"verdict,omitempty"` // PASS or FAIL for transcript fallback
 }
 
 // Result is the outcome of running one case.
@@ -41,6 +42,7 @@ type Result struct {
 func (c Case) hasTraceAssertions() bool {
 	return c.InputTrace != "" ||
 		len(c.ExpectedTraceKinds) > 0 ||
+		len(c.ExpectedRoutingProviders) > 0 ||
 		len(c.ExpectedToolDecisions) > 0 ||
 		len(c.ExpectedArtifacts) > 0 ||
 		len(c.ExpectedMemoryScopes) > 0
@@ -48,13 +50,14 @@ func (c Case) hasTraceAssertions() bool {
 
 func (c Case) toEvalCase() kernel.EvalCase {
 	return kernel.EvalCase{
-		ID:                    c.Name,
-		Scenario:              c.Name,
-		Inputs:                map[string]any{"skill": c.Skill},
-		ExpectedTraceKinds:    c.ExpectedTraceKinds,
-		ExpectedToolDecisions: c.ExpectedToolDecisions,
-		ExpectedArtifacts:     c.ExpectedArtifacts,
-		ExpectedMemoryScopes:  c.ExpectedMemoryScopes,
+		ID:                       c.Name,
+		Scenario:                 c.Name,
+		Inputs:                   map[string]any{"skill": c.Skill},
+		ExpectedTraceKinds:       c.ExpectedTraceKinds,
+		ExpectedRoutingProviders: c.ExpectedRoutingProviders,
+		ExpectedToolDecisions:    c.ExpectedToolDecisions,
+		ExpectedArtifacts:        c.ExpectedArtifacts,
+		ExpectedMemoryScopes:     c.ExpectedMemoryScopes,
 	}
 }
 
@@ -136,6 +139,9 @@ func runTraceCase(c *Case, projectRoot string) Result {
 	if missing := missingTraceKinds(events, ev.ExpectedTraceKinds); len(missing) > 0 {
 		failures = append(failures, "missing trace kinds: "+joinKinds(missing))
 	}
+	if missing := missingRoutingProviders(events, ev.ExpectedRoutingProviders); len(missing) > 0 {
+		failures = append(failures, "missing routing providers: "+joinStrings(missing))
+	}
 	if missing := missingToolDecisions(events, ev.ExpectedToolDecisions); len(missing) > 0 {
 		failures = append(failures, "missing tool decisions: "+joinStrings(missing))
 	}
@@ -215,6 +221,25 @@ func missingToolDecisions(events []kernel.TraceEvent, expected []kernel.ToolPoli
 		}
 		if decision, ok := payloadString(evt.Payload, "decision", "tool_decision.decision", "result.decision"); ok {
 			seen[decision] = true
+		}
+	}
+	var missing []string
+	for _, want := range expected {
+		if !seen[string(want)] {
+			missing = append(missing, string(want))
+		}
+	}
+	return missing
+}
+
+func missingRoutingProviders(events []kernel.TraceEvent, expected []kernel.ProviderID) []string {
+	seen := make(map[string]bool)
+	for _, evt := range events {
+		if evt.Kind != kernel.TraceEventRouting {
+			continue
+		}
+		if provider, ok := payloadString(evt.Payload, "selected_provider", "decision.selected_provider", "route.selected_provider"); ok {
+			seen[provider] = true
 		}
 	}
 	var missing []string

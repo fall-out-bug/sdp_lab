@@ -1,0 +1,20 @@
+{
+  "events": [
+    {
+      "kind": "memory",
+      "payload": {
+        "memory": {
+          "id": "mem-1",
+          "scope": "project",
+          "content": "Repository uses platform-first roadmap.",
+          "confidence": 0.93,
+          "reason": "stable repo convention",
+          "trace_refs": [
+            "trace-1"
+          ]
+        },
+        "scope": "project"
+      }
+    }
+  ]
+}

@@ -35,3 +35,33 @@ func TestMainMissingSkillExits(t *testing.T) {
 		t.Errorf("stderr should mention skill or error, got: %s", out)
 	}
 }
+
+func TestMainRunsBehaviorSuite(t *testing.T) {
+	modRoot, _ := os.Getwd()
+	for {
+		if _, err := os.Stat(filepath.Join(modRoot, "go.mod")); err == nil {
+			break
+		}
+		parent := filepath.Dir(modRoot)
+		if parent == modRoot {
+			t.Skip("no go.mod found")
+		}
+		modRoot = parent
+	}
+	bin := filepath.Join(t.TempDir(), "sdp-eval")
+	cmd := exec.Command("go", "build", "-o", bin, "./cmd/sdp-eval")
+	cmd.Dir = modRoot
+	if err := cmd.Run(); err != nil {
+		t.Skipf("build failed: %v", err)
+	}
+
+	run := exec.Command(bin, "--skill", "behavior", "--project-root", ".")
+	run.Dir = modRoot
+	out, err := run.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected behavior suite to pass, got %v: %s", err, out)
+	}
+	if !strings.Contains(string(out), "behavior: 3/3 passed") {
+		t.Fatalf("unexpected behavior output: %s", out)
+	}
+}

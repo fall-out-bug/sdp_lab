@@ -122,13 +122,14 @@ func TestKernelContractsJSONRoundTrip(t *testing.T) {
 			Description: "Escalate restricted tool use.",
 		},
 		Eval: EvalCase{
-			ID:                    "eval.route",
-			Scenario:              "planner routes shell use through policy",
-			Inputs:                map[string]any{"phase": "plan"},
-			ExpectedTraceKinds:    []TraceEventKind{TraceEventTool},
-			ExpectedToolDecisions: []ToolPolicyDecision{ToolPolicyAsk},
-			ExpectedArtifacts:     []ArtifactType{ArtifactEvidence},
-			ExpectedMemoryScopes:  []MemoryScope{MemoryScopeTask},
+			ID:                       "eval.route",
+			Scenario:                 "planner routes shell use through policy",
+			Inputs:                   map[string]any{"phase": "plan"},
+			ExpectedTraceKinds:       []TraceEventKind{TraceEventRouting, TraceEventTool},
+			ExpectedRoutingProviders: []ProviderID{"openai"},
+			ExpectedToolDecisions:    []ToolPolicyDecision{ToolPolicyAsk},
+			ExpectedArtifacts:        []ArtifactType{ArtifactEvidence},
+			ExpectedMemoryScopes:     []MemoryScope{MemoryScopeTask},
 		},
 	}
 
@@ -183,5 +184,8 @@ func TestKernelContractsJSONRoundTrip(t *testing.T) {
 	}
 	if len(decoded.Eval.ExpectedToolDecisions) != 1 || decoded.Eval.ExpectedToolDecisions[0] != ToolPolicyAsk {
 		t.Fatalf("eval mismatch: %#v", decoded.Eval)
+	}
+	if len(decoded.Eval.ExpectedRoutingProviders) != 1 || decoded.Eval.ExpectedRoutingProviders[0] != "openai" {
+		t.Fatalf("eval routing mismatch: %#v", decoded.Eval)
 	}
 }

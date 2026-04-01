@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"sdp_dev/internal/kernel"
 )
@@ -12,12 +13,18 @@ import (
 func TestRunCaseTraceAssertionsPass(t *testing.T) {
 	root := t.TempDir()
 	tracePath := filepath.Join(root, "trace.json")
-	if err := os.WriteFile(tracePath, []byte(`{
-  "events": [
-    {"kind":"tool","payload":{"decision":"ask","tool":"docker"}},
-    {"kind":"artifact","payload":{"type":"evidence"}}
-  ]
-}`), 0o644); err != nil {
+	toolEvt, err := NewToolDecisionTraceEvent(
+		kernel.ToolCallRequest{Tool: "docker"},
+		kernel.ToolCallDecision{Decision: kernel.ToolPolicyAsk},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifactEvt := kernel.TraceEvent{
+		Kind:    kernel.TraceEventArtifact,
+		Payload: []byte(`{"type":"evidence"}`),
+	}
+	if err := WriteTraceFixture(tracePath, toolEvt, artifactEvt); err != nil {
 		t.Fatal(err)
 	}
 
@@ -55,6 +62,68 @@ func TestRunCaseTraceAssertionsFail(t *testing.T) {
 	}
 	if !strings.Contains(result.Reason, "missing trace kinds") || !strings.Contains(result.Reason, "missing tool decisions") {
 		t.Fatalf("unexpected reason: %s", result.Reason)
+	}
+}
+
+func TestRunCaseRoutingProviderAssertions(t *testing.T) {
+	root := t.TempDir()
+	tracePath := filepath.Join(root, "routing.json")
+	routingEvt, err := NewRoutingTraceEvent(
+		kernel.RoutingDecision{
+			SelectedProvider: "selfhosted",
+			SelectedModel:    "llama3",
+			DecisionReason:   "restricted data",
+			EvaluatedAt:      time.Date(2026, 4, 1, 10, 0, 0, 0, time.UTC),
+		},
+		kernel.RoutingInput{
+			TaskClass:   kernel.TaskClassCode,
+			Sensitivity: kernel.SensitivityRestricted,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteTraceFixture(tracePath, routingEvt); err != nil {
+		t.Fatal(err)
+	}
+
+	c := &Case{
+		Name:                     "routing-provider",
+		InputTrace:               "routing.json",
+		ExpectedTraceKinds:       []kernel.TraceEventKind{kernel.TraceEventRouting},
+		ExpectedRoutingProviders: []kernel.ProviderID{"selfhosted"},
+	}
+
+	result := RunCase(c, root)
+	if !result.Pass {
+		t.Fatalf("expected routing pass, got fail: %s", result.Reason)
+	}
+}
+
+func TestRunBehaviorCatalogCases(t *testing.T) {
+	modRoot, _ := os.Getwd()
+	for {
+		if _, err := os.Stat(filepath.Join(modRoot, "go.mod")); err == nil {
+			break
+		}
+		parent := filepath.Dir(modRoot)
+		if parent == modRoot {
+			t.Skip("no go.mod found")
+		}
+		modRoot = parent
+	}
+
+	results, err := Run(modRoot, filepath.Join(modRoot, "internal", "eval", "cases"), "behavior")
+	if err != nil {
+		t.Fatalf("run behavior catalog: %v", err)
+	}
+	if len(results) != 3 {
+		t.Fatalf("expected 3 behavior results, got %d", len(results))
+	}
+	for _, result := range results {
+		if !result.Pass {
+			t.Fatalf("expected behavior case %s to pass, got: %s", result.Case, result.Reason)
+		}
 	}
 }
 

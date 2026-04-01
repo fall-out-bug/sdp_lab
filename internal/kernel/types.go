@@ -155,6 +155,7 @@ type TraceEventKind string
 
 const (
 	TraceEventSession  TraceEventKind = "session"
+	TraceEventRouting  TraceEventKind = "routing"
 	TraceEventTool     TraceEventKind = "tool"
 	TraceEventMemory   TraceEventKind = "memory"
 	TraceEventArtifact TraceEventKind = "artifact"
@@ -189,11 +190,12 @@ type ApprovalHook struct {
 }
 
 type EvalCase struct {
-	ID                    string               `json:"id"`
-	Scenario              string               `json:"scenario"`
-	Inputs                map[string]any       `json:"inputs,omitempty"`
-	ExpectedTraceKinds    []TraceEventKind     `json:"expected_trace_kinds,omitempty"`
-	ExpectedToolDecisions []ToolPolicyDecision `json:"expected_tool_decisions,omitempty"`
-	ExpectedArtifacts     []ArtifactType       `json:"expected_artifacts,omitempty"`
-	ExpectedMemoryScopes  []MemoryScope        `json:"expected_memory_scopes,omitempty"`
+	ID                       string               `json:"id"`
+	Scenario                 string               `json:"scenario"`
+	Inputs                   map[string]any       `json:"inputs,omitempty"`
+	ExpectedTraceKinds       []TraceEventKind     `json:"expected_trace_kinds,omitempty"`
+	ExpectedRoutingProviders []ProviderID         `json:"expected_routing_providers,omitempty"`
+	ExpectedToolDecisions    []ToolPolicyDecision `json:"expected_tool_decisions,omitempty"`
+	ExpectedArtifacts        []ArtifactType       `json:"expected_artifacts,omitempty"`
+	ExpectedMemoryScopes     []MemoryScope        `json:"expected_memory_scopes,omitempty"`
 }

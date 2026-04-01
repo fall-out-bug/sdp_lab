@@ -1,0 +1,7 @@
+name: tool-policy-asks-approval
+skill: behavior
+input_trace: testdata/eval/tool-policy-asks-approval.json
+expected_trace_kinds:
+  - tool
+expected_tool_decisions:
+  - ask

@@ -1,0 +1,30 @@
+{
+  "events": [
+    {
+      "kind": "routing",
+      "payload": {
+        "decision": {
+          "selected_provider": "selfhosted",
+          "selected_model": "llama3",
+          "fallback_chain": [
+            "selfhosted"
+          ],
+          "decision_reason": "selected for data residency (restricted sensitivity)",
+          "policy_id": "default.policy",
+          "evaluated_at": "2026-04-01T10:00:00Z",
+          "input_hash": "route-restricted",
+          "constraints": {
+            "require_data_residency": "on-premise"
+          }
+        },
+        "input": {
+          "task_class": "code",
+          "sensitivity": "restricted",
+          "requires_vision": false,
+          "requires_functions": false,
+          "tenant_id": ""
+        }
+      }
+    }
+  ]
+}
