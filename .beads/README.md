@@ -26,17 +26,18 @@ bd show <issue-id>
 bd update <issue-id> --status in_progress
 bd update <issue-id> --status done
 
-# Sync with git remote
-bd sync
+# Restore/publish Beads transport state
+./scripts/beads_transport.sh fetch
+./scripts/beads_transport.sh export
 ```
 
 ### Working with Issues
 
 Issues in Beads are:
-- **Git-native**: Stored in `.beads/issues.jsonl` and synced like code
+- **Repo-local**: Managed by `bd` in `.beads/dolt/` with portable snapshots in `.beads/backup/`
 - **AI-friendly**: CLI-first design works perfectly with AI coding agents
 - **Branch-aware**: Issues can follow your branch workflow
-- **Always in sync**: Auto-syncs with your commits
+- **Transport-aware**: This repo publishes backups through `scripts/beads_transport.sh`
 
 ## Why Beads?
 
@@ -51,9 +52,9 @@ Issues in Beads are:
 - Fast, lightweight, and stays out of your way
 
 🔧 **Git Integration**
-- Automatic sync with git commits
+- Git branch backup via `bd backup export-git`
 - Branch-aware issue tracking
-- Intelligent JSONL merge resolution
+- Recovery path without a dedicated Dolt remote
 
 ## Get Started with Beads
 
