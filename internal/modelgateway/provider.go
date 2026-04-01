@@ -4,11 +4,13 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	"sdp_dev/internal/kernel"
 )
 
-type ProviderID string
+type ProviderID = kernel.ProviderID
 
-type ModelID string
+type ModelID = kernel.ModelID
 
 type MessageRole string
 
@@ -49,20 +51,9 @@ type TokenUsage struct {
 	TotalTokens      int `json:"total_tokens"`
 }
 
-type ProviderMeta struct {
-	ProviderID   ProviderID        `json:"provider_id"`
-	ModelName    string            `json:"model_name"`
-	Capabilities ModelCapabilities `json:"capabilities"`
-	Latency      time.Duration     `json:"latency"`
-}
+type ProviderMeta = kernel.ProviderMeta
 
-type ModelCapabilities struct {
-	Vision          bool      `json:"vision"`
-	FunctionCall    bool      `json:"function_call"`
-	Streaming       bool      `json:"streaming"`
-	MaxContext      int       `json:"max_context"`
-	SupportedModels []ModelID `json:"supported_models"`
-}
+type ModelCapabilities = kernel.ModelCapabilities
 
 type ProviderError struct {
 	Code       string     `json:"code"`

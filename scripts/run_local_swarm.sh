@@ -29,7 +29,7 @@ if [[ "$NO_COMPOSE" == "false" ]]; then
 fi
 
 echo "[run_local_swarm] Syncing Beads..."
-bd sync --import-only 2>/dev/null || true
+"${PROJECT_ROOT}/scripts/beads_transport.sh" fetch >/dev/null 2>&1 || true
 
 echo "[run_local_swarm] Running one swarm cycle..."
 export SDP_MODEL="${SDP_MODEL:-glm-4.7}"

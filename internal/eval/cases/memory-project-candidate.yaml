@@ -1,0 +1,7 @@
+name: memory-project-candidate
+skill: behavior
+input_trace: testdata/eval/memory-project-candidate.json
+expected_trace_kinds:
+  - memory
+expected_memory_scopes:
+  - project

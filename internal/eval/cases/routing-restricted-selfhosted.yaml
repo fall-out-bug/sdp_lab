@@ -1,0 +1,7 @@
+name: routing-restricted-selfhosted
+skill: behavior
+input_trace: testdata/eval/routing-restricted-selfhosted.json
+expected_trace_kinds:
+  - routing
+expected_routing_providers:
+  - selfhosted

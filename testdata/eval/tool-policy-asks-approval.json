@@ -1,0 +1,25 @@
+{
+  "events": [
+    {
+      "kind": "tool",
+      "payload": {
+        "tool": "docker",
+        "files": [
+          "Dockerfile"
+        ],
+        "tool_request": {
+          "tool": "docker",
+          "files": [
+            "Dockerfile"
+          ]
+        },
+        "tool_decision": {
+          "policy_id": "default.policy",
+          "decision": "ask",
+          "reason": "docker requires explicit approval"
+        },
+        "decision": "ask"
+      }
+    }
+  ]
+}

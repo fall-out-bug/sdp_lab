@@ -128,7 +128,7 @@ bd_args=("$title" -t task -p "$PRIORITY")
 [[ -n "${parent}" ]] && bd_args+=(--parent "$parent")
 bd_args+=(--spec-id "$spec_id" --description "$description" --labels "$labels" --json)
 bd_cmd="bd create $(printf ' %q' "${bd_args[@]}")"
-kubectl -n sdp-workers exec deploy/opencode-agent -- bash -lc "cd /workspace && bd sync --import-only >/dev/null && ${bd_cmd}"
+kubectl -n sdp-workers exec deploy/opencode-agent -- bash -lc "cd /workspace && ./scripts/beads_transport.sh fetch >/dev/null && ${bd_cmd}"
 EOF
 }
 

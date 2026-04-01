@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"sdp_dev/internal/kernel"
 )
 
 func TestTaskSection(t *testing.T) {
@@ -61,6 +63,19 @@ func TestEvidenceSection(t *testing.T) {
 	want := readGolden(t, goldenPath)
 	if got != want {
 		t.Errorf("EvidenceSection mismatch:\ngot:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestContextSegmentsSection(t *testing.T) {
+	got := ContextSegmentsSection("Pack Context", []kernel.ContextSegment{
+		{ID: "core", Content: "Core instruction"},
+		{ID: "planner", Content: "Planner instruction"},
+	})
+	if got == "" {
+		t.Fatal("expected non-empty context segments section")
+	}
+	if want := "## Pack Context"; got[:len(want)] != want {
+		t.Fatalf("section prefix = %q, want %q", got[:len(want)], want)
 	}
 }
 

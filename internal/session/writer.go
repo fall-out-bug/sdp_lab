@@ -15,7 +15,7 @@ const defaultLogDir = ".sdp/log"
 type Writer struct {
 	mu        sync.Mutex
 	file      *os.File
-	sessionID string
+	sessionID SessionID
 	prevHash  string
 	sequence  int
 	closed    bool
@@ -27,13 +27,14 @@ func NewWriter(projectRoot, sessionID string) (*Writer, error) {
 	if err := validateSessionID(sessionID); err != nil {
 		return nil, fmt.Errorf("invalid session ID: %w", err)
 	}
+	sid := SessionID(sessionID)
 
 	logDir := filepath.Join(projectRoot, defaultLogDir)
 	if err := os.MkdirAll(logDir, 0o755); err != nil {
 		return nil, fmt.Errorf("create log dir: %w", err)
 	}
 
-	logPath := filepath.Join(logDir, fmt.Sprintf("session-%s.jsonl", sessionID))
+	logPath := filepath.Join(logDir, fmt.Sprintf("session-%s.jsonl", sid))
 	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		return nil, fmt.Errorf("open log file: %w", err)
@@ -41,7 +42,7 @@ func NewWriter(projectRoot, sessionID string) (*Writer, error) {
 
 	return &Writer{
 		file:      f,
-		sessionID: sessionID,
+		sessionID: sid,
 		prevHash:  "",
 		sequence:  0,
 		closed:    false,
@@ -59,7 +60,7 @@ func (w *Writer) Append(eventType string, payload any) (Event, error) {
 	}
 
 	w.sequence++
-	evt, err := NewEvent(eventType, w.sessionID, w.sequence, w.prevHash, payload)
+	evt, err := NewEvent(eventType, string(w.sessionID), w.sequence, w.prevHash, payload)
 	if err != nil {
 		return Event{}, fmt.Errorf("create event: %w", err)
 	}
@@ -122,7 +123,7 @@ func (w *Writer) Finalize(status string) (rootHash string, eventCount int, err e
 	}
 
 	// Write session_end event
-	evt, err := NewEvent(EventTypeSessionEnd, w.sessionID, w.sequence+1, w.prevHash, SessionEndPayload{
+	evt, err := NewEvent(EventTypeSessionEnd, string(w.sessionID), w.sequence+1, w.prevHash, SessionEndPayload{
 		RootHash:   w.prevHash, // Root hash is the last event's hash
 		EventCount: w.sequence,
 		Status:     status,
@@ -163,7 +164,7 @@ func (w *Writer) Close() error {
 }
 
 // SessionID returns the session ID.
-func (w *Writer) SessionID() string {
+func (w *Writer) SessionID() SessionID {
 	return w.sessionID
 }
 

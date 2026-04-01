@@ -1,7 +1,8 @@
-# sdp_dev Roadmap — Standards-Based Trust Layer + Ecosystem Integration
+# sdp_dev Roadmap — Agent Platform + Trust Lane
 
-> **Updated:** 2026-03-24
-> **Direction:** Standards-based enforcement (in-toto, OPA, Sigstore) + ecosystem integration (OhMyOpenCode, Gas Town, Beads)
+> **Updated:** 2026-04-01
+> **Direction:** Reusable agent platform (`kernel`, `adapters`, `augmentation`, `evals`) with standards-based trust and evidence as a secondary lane
+> **Platform Reset:** [AGENT_PLATFORM_ROADMAP_2026-03-31.md](AGENT_PLATFORM_ROADMAP_2026-03-31.md) + [2026-03-31-platform-backlog-reset.md](../plans/2026-03-31-platform-backlog-reset.md)
 > **Pivot:** [ADR-002 Standards Pivot](../decisions/ADR-002-standards-pivot.md) — why we moved from custom to standards
 > **Research:** [Enforcement Hypotheses](../plans/2026-02-24-enforcement-hypotheses.md) — SLSA, in-toto, MI9, AgentSpec
 > **Audit:** [Phase 0 Enforcement Audit](../plans/2026-02-24-phase0-enforcement-audit.md) — why Phase 0 tools didn't enforce
@@ -15,6 +16,20 @@
 ---
 
 ## Overview
+
+Execution priority has changed.
+
+Current build priority is the platform reset lane:
+
+- `F091` backlog reset and canonical doc sync
+- `F092` kernel contract surface
+- `F093` adapter gateway layer
+- `F094` augmentation engine
+- `F095` behavioral eval system
+- `F096` legacy drift cleanup support lane
+
+Trust, evidence, and enterprise governance remain in the roadmap.
+They are now the `trust lane`, not the whole product story.
 
 Two horizons. Phases 1-7 build the trust layer as CLI tools with CI enforcement. Phases 8-9 extend the same standards into K8s for autonomous swarm execution. The dream (issue in, PR with proof out) doesn't change — the path becomes standards-based.
 
@@ -252,7 +267,7 @@ in-toto Envelope (DSSE)
 
 ### Feature ID continuity note
 
-Reserved (intentionally unused) feature IDs: `F050`, `F051`, `F055`, `F056`, `F057`, `F058`.
+Reserved (intentionally unused) feature IDs: `F050`, `F051`, `F057`, `F058`.
 
 These IDs are kept for historical continuity and are not active roadmap items.
 
@@ -263,8 +278,10 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 - Archived pre-pivot features: `F001`..`F013`
 - Phase 0/7 completed bootstrap features: `F014`..`F030`
 - Auto-generated planning ranges: `F031`..`F052`
+- Historical protocol and workflow hardening tracks: `F053`..`F056`
 - Active strategy and ecosystem ranges: `F059`..`F085`
 - Parked long-horizon ideas: `F086`..`F089`
+- Canonical alignment and platform reset lanes: `F090`..`F096`
 
 ### Standards & Tools
 - [in-toto attestation](https://github.com/in-toto/attestation) — envelope format
@@ -292,8 +309,16 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 | **vibe-kanban** | Kanban orchestration, MCP config centralization | F062 |
 | **opencode-mem** | Persistent memory, Session continuity, User profiles | F063 |
 | **opencode-beads** | Beads plugin for OpenCode | F061 |
+
+### Historical Support Lanes
+
+- **F053** — sdp Repository Comprehensive Audit and Remediation (00-053-01 … 00-053-46). Historical protocol and orchestrator hardening lane. **Status: DONE**.
+- **F054** — Continuous Protocol Improvement (00-054-01 … 00-054-06). Historical workflow and agent contract sync lane. **Status: DONE**.
+- **F055** — Evidence Enforcement Reality (00-055-01 … 00-055-03). Evidence commit flow, CI gate blocking, and branch protection validation. **Status: DONE**.
+- **F056** — Local Git Hook Enforcement (00-056-01 … 00-056-03). Pre-commit, pre-push, and install/docs lane. **Status: DONE**.
+- **F096** — Legacy Drift Cleanup (00-096-01 ... 00-096-03). Support lane for roadmap/index/backlog hygiene. Buckets A-D are complete; future cleanup is issue-driven, including parked tech debt around Beads shared-Dolt cutover.
+
 ### Ongoing
-- **F053/F054** — Historical planning tracks; no active workstream files in `INDEX.md` or `backlog/` yet. Keep analysis in [multifaceted analysis](../plans/2026-02-25-agent-protocol-multifaceted-analysis.md) until re-materialized into concrete WS IDs.
 - **F059** — OhMyOpenCode Evidence Integration (00-059-01 … 00-059-04). Pre-tool-call guard, session evidence emitter, permission↔guard bridge, stuck detection. Phase 5. **Status: DONE** (sdp-omc-guard, sdp-ready implemented).
 - **F060** — Gas Town Adapter (00-060-01 … 00-060-04). Convoy→WS bridge, hook→guard, witness escalation, Agent CV→provenance. Phase 8-9 target. Source: [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md).
 **F061** — Beads Graph Integration (00-061-01 … 00-061-04). SQL dep query, `sdp ready` bridge, formula templates, wisps. Phase 5 target. **Status: DONE** (sdp-ready, beads client implemented, opencode-beads plugin installed).

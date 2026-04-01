@@ -12,6 +12,6 @@ This directory contains strategic thinking about SDP's direction.
 
 ## Current Direction
 
-- **Evidence layer** — protocol + schema + validation CLI for proving what agents did
-- **Ecosystem composition** — not a platform; composes with Vibe Kanban, Cupcake, kubeopencode
-- **Roadmap** — lives in [sdp_lab](https://github.com/fall-out-bug/sdp_lab) (private research repo)
+- **Agent platform first** — `sdp_lab` is moving toward a reusable agent platform with kernel, augmentation, adapters, evals, and trust as one lane
+- **Trust lane, not whole story** — protocol, provenance, policy, and evidence remain important, but no longer define the entire product thesis
+- **Roadmap and backlog** — active execution priority lives in the private `sdp_lab` roadmap and workstream backlog

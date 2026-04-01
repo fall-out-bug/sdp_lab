@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	"sdp_dev/internal/augmentation"
 	"sdp_dev/internal/control"
+	"sdp_dev/internal/prompt"
 )
 
 func BuildEvaluationPrompt(model string, card *control.FeatureCard, evidence *buildEvidence, changedFiles []string, diff string) string {
@@ -13,7 +15,7 @@ func BuildEvaluationPrompt(model string, card *control.FeatureCard, evidence *bu
 		model = "default"
 	}
 	evidenceJSON, _ := json.MarshalIndent(evidence, "", "  ")
-	return fmt.Sprintf(`You are the SDP build evaluator.
+	base := fmt.Sprintf(`You are the SDP build evaluator.
 
 Evaluate the completed build for card %s.
 Model hint: %s.
@@ -58,6 +60,10 @@ Changed Files:
 Relevant Diff (truncated if needed):
 %s
 `, card.ID, model, card.ID, card.Title, card.NormalizedIntent, joinQuoted(card.ScopeIn), joinQuoted(card.ScopeOut), joinQuoted(card.RequiredArtifacts), string(evidenceJSON), joinQuoted(changedFiles), diff)
+	if packSection := prompt.ContextSegmentsSection("Pack Context", augmentation.MustResolveDefaultPromptContext("reviewer.pack")); packSection != "" {
+		return packSection + "\n\n" + base
+	}
+	return base
 }
 
 func joinQuoted(items []string) string {

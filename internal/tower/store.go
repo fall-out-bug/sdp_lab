@@ -39,11 +39,11 @@ type EvidencePreview struct {
 
 // Column represents a kanban column.
 type Column struct {
-	Name        string
-	NameEN      string // for CSS classes
-	Icon        string
-	Color       string // tailwind border color
-	Cards       []CardView
+	Name   string
+	NameEN string // for CSS classes
+	Icon   string
+	Color  string // tailwind border color
+	Cards  []CardView
 }
 
 // BoardData is the full board view.
@@ -71,11 +71,11 @@ type CardDetail struct {
 }
 
 type EvidenceClarification struct {
-	Status       string   `json:"status"`
-	Questions    []string `json:"questions,omitempty"`
-	RawFeedback  string   `json:"raw_feedback,omitempty"`
-	NormalizedIntent string `json:"normalized_intent,omitempty"`
-	Intent       string
+	Status           string   `json:"status"`
+	Questions        []string `json:"questions,omitempty"`
+	RawFeedback      string   `json:"raw_feedback,omitempty"`
+	NormalizedIntent string   `json:"normalized_intent,omitempty"`
+	Intent           string
 }
 
 type EvidenceBuild struct {
@@ -95,19 +95,19 @@ type BuildArtifact struct {
 }
 
 type EvidenceEval struct {
-	Verdict    string          `json:"verdict"`
-	Score      float64         `json:"score"`
-	Passed     map[string]bool `json:"passed"`
-	Findings   []string        `json:"findings,omitempty"`
-	RawFeedback string         `json:"raw_feedback,omitempty"`
-	Timestamp  string          `json:"timestamp,omitempty"`
+	Verdict     string          `json:"verdict"`
+	Score       float64         `json:"score"`
+	Passed      map[string]bool `json:"passed"`
+	Findings    []string        `json:"findings,omitempty"`
+	RawFeedback string          `json:"raw_feedback,omitempty"`
+	Timestamp   string          `json:"timestamp,omitempty"`
 }
 
 type EvidenceProvenance struct {
-	Timestamp      string            `json:"timestamp"`
-	ContractHash   string            `json:"contract_hash"`
-	PacketHash     string            `json:"packet_hash"`
-	PromptHash     string            `json:"prompt_hash"`
+	Timestamp      string             `json:"timestamp"`
+	ContractHash   string             `json:"contract_hash"`
+	PacketHash     string             `json:"packet_hash"`
+	PromptHash     string             `json:"prompt_hash"`
 	ContextSources []ProvenanceSource `json:"context_sources"`
 }
 
@@ -290,11 +290,11 @@ func LoadCardDetail(showJSON []byte, cardID, projectRoot string) (*CardDetail, e
 
 	issue := issues[0]
 	detail := &CardDetail{
-		ID:        cardID,
-		Title:     strVal(issue, "title"),
+		ID:          cardID,
+		Title:       strVal(issue, "title"),
 		Description: strVal(issue, "description"),
-		Status:    strVal(issue, "status"),
-		Priority:  intVal(issue, "priority"),
+		Status:      strVal(issue, "status"),
+		Priority:    intVal(issue, "priority"),
 	}
 
 	if labels, ok := issue["labels"].([]any); ok {
@@ -316,19 +316,19 @@ func LoadCardDetail(showJSON []byte, cardID, projectRoot string) (*CardDetail, e
 
 	if data, err := os.ReadFile(filepath.Join(artDir, "clarification.json")); err == nil {
 		var ev struct {
-			Status      string `json:"status"`
+			Status      string   `json:"status"`
 			Questions   []string `json:"questions"`
-			RawFeedback string `json:"raw_feedback"`
+			RawFeedback string   `json:"raw_feedback"`
 			Card        struct {
 				NormalizedIntent string `json:"normalized_intent"`
 			} `json:"card"`
 		}
 		if json.Unmarshal(data, &ev) == nil {
 			detail.Clarification = &EvidenceClarification{
-				Status:            ev.Status,
-				Questions:         ev.Questions,
-				RawFeedback:       stripANSI(ev.RawFeedback),
-				NormalizedIntent:  ev.Card.NormalizedIntent,
+				Status:           ev.Status,
+				Questions:        ev.Questions,
+				RawFeedback:      stripANSI(ev.RawFeedback),
+				NormalizedIntent: ev.Card.NormalizedIntent,
 			}
 		}
 	}
@@ -375,7 +375,7 @@ func strVal(m map[string]any, key string) string {
 }
 
 func intVal(m map[string]any, key string) int {
-	v, _ := m[key]
+	v := m[key]
 	switch val := v.(type) {
 	case float64:
 		return int(val)

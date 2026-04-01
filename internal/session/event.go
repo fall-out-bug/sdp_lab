@@ -28,7 +28,7 @@ type Event struct {
 	Timestamp string `json:"timestamp"`
 
 	// SessionID is the unique session identifier.
-	SessionID string `json:"session_id"`
+	SessionID SessionID `json:"session_id"`
 
 	// Sequence is the monotonically increasing event number (1-indexed).
 	Sequence int `json:"sequence"`
@@ -91,11 +91,12 @@ func NewEvent(eventType, sessionID string, sequence int, prevHash string, payloa
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
+	sid := SessionID(sessionID)
 
 	evt := Event{
 		Type:      eventType,
 		Timestamp: now,
-		SessionID: sessionID,
+		SessionID: sid,
 		Sequence:  sequence,
 		PrevHash:  prevHash,
 		Payload:   json.RawMessage(payloadBytes),
@@ -113,7 +114,7 @@ func computeEventHash(evt Event) string {
 	hashInput := struct {
 		Type      string          `json:"type"`
 		Timestamp string          `json:"timestamp"`
-		SessionID string          `json:"session_id"`
+		SessionID SessionID       `json:"session_id"`
 		Sequence  int             `json:"sequence"`
 		PrevHash  string          `json:"prev_hash,omitempty"`
 		Payload   json.RawMessage `json:"payload"`

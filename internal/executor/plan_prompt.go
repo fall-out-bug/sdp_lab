@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	"sdp_dev/internal/augmentation"
 	"sdp_dev/internal/control"
+	"sdp_dev/internal/prompt"
 )
 
 const planSystemPrompt = `You are an SDP implementation planner. Your job is to create a detailed implementation plan for a FeatureCard before execution.
@@ -35,6 +37,9 @@ Output JSON only, no markdown:
 func BuildPlanPrompt(projectRoot string, card *control.FeatureCard) string {
 	var sections []string
 	sections = append(sections, planSystemPrompt)
+	if packSection := prompt.ContextSegmentsSection("Pack Context", augmentation.MustResolveDefaultPromptContext("planner.pack")); packSection != "" {
+		sections = append(sections, packSection)
+	}
 
 	sections = append(sections, "=== CARD DETAILS ===")
 	sections = append(sections, fmt.Sprintf("Card ID: %s", card.ID))

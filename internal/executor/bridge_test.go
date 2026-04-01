@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"sdp_dev/internal/control"
+	"sdp_dev/internal/kernel"
 )
 
 type mockInvoker struct {
@@ -19,10 +20,10 @@ type mockInvoker struct {
 	err    error
 }
 
-func (m *mockInvoker) Invoke(_ context.Context, _ string, agent, prompt string) (string, int, error) {
-	m.agent = agent
-	m.prompt = prompt
-	return m.output, m.code, m.err
+func (m *mockInvoker) Invoke(_ context.Context, req kernel.RuntimeInvocation) (kernel.RuntimeResult, error) {
+	m.agent = req.Agent
+	m.prompt = req.Prompt
+	return kernel.RuntimeResult{Output: m.output, ExitCode: m.code}, m.err
 }
 
 func setupStore(t *testing.T) *control.Store {

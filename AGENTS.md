@@ -59,8 +59,11 @@ bd ready --json       # Find available work (JSON output)
 bd show <id>          # View issue details
 bd update <id> --status in_progress  # Claim work
 bd close <id> -r "reason"  # Complete work with reason
-bd sync               # Sync with git
+scripts/beads_transport.sh fetch   # Restore Beads state before work
+scripts/beads_transport.sh export  # Publish Beads state after work
 ```
+
+`bd sync` is removed in `bd 0.61.0`. This repo uses `scripts/beads_transport.sh`, which prefers `bd dolt pull/push` when a real Dolt remote is configured and otherwise publishes an archival `bd export` snapshot through `origin/beads-backup` with plain git worktrees. In git-backup mode, `fetch` is intentionally a no-op.
 
 ### Beads ↔ Workstream Sync
 
@@ -338,7 +341,7 @@ sdp-doc-sync --mode check --strict
 4. **PUSH TO REMOTE** — this is MANDATORY:
    ```bash
    git pull --rebase
-   bd sync
+   scripts/beads_transport.sh export
    git push
    git status  # MUST show "up to date with origin"
    ```
@@ -454,11 +457,11 @@ bd close bd-42 --reason "Completed" --json
 
 ### Auto-Sync
 
-bd automatically syncs via Dolt:
+Beads transport is explicit in this repo:
 
 - Each write auto-commits to Dolt history
-- Use `bd dolt push`/`bd dolt pull` for remote sync
-- No manual export/import needed!
+- Use `scripts/beads_transport.sh fetch` before work and `scripts/beads_transport.sh export` before finishing
+- The helper uses `bd dolt pull/push` only when a real Dolt remote exists; otherwise it publishes an archival `bd export` snapshot through `origin/beads-backup`
 
 ### Important Rules
 
@@ -484,7 +487,7 @@ For more details, see README.md and docs/QUICKSTART.md.
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
    git pull --rebase
-   bd dolt push
+   scripts/beads_transport.sh export
    git push
    git status  # MUST show "up to date with origin"
    ```

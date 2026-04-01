@@ -2,7 +2,6 @@ package orchestrate
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -170,10 +169,6 @@ func reviewerResults(verdict string, findings []string, notes string) map[string
 
 func writeJSONArtifact(path string, payload interface{}) error {
 	return sdputil.AtomicWriteJSON(path, payload)
-}
-
-func jsonMarshal(payload interface{}) ([]byte, error) {
-	return json.MarshalIndent(payload, "", "  ")
 }
 
 func buildReviewFailureFindingInput(cp *Checkpoint, reviewOutput string, reviewErr error) bridge.ReviewFindingInput {
