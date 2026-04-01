@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"sdp_dev/internal/kernel"
 )
 
 func TestRunBuildPhase_WithFakeInvoker(t *testing.T) {
@@ -68,9 +70,9 @@ type fakeLLMInvoker struct {
 	invoked  bool
 }
 
-func (f *fakeLLMInvoker) Invoke(ctx context.Context, dir, agent, prompt string) (string, int, error) {
+func (f *fakeLLMInvoker) Invoke(ctx context.Context, req kernel.RuntimeInvocation) (kernel.RuntimeResult, error) {
 	f.invoked = true
-	return f.output, f.exitCode, nil
+	return kernel.RuntimeResult{Output: f.output, ExitCode: f.exitCode}, nil
 }
 
 func TestComputePromptHash(t *testing.T) {

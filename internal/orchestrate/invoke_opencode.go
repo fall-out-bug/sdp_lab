@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"sdp_dev/internal/kernel"
 	"sdp_dev/internal/sdputil"
 )
 
@@ -131,15 +132,19 @@ func RunBuildPhase(ctx context.Context, projectRoot, featureID, wsID string, inv
 	}
 	sources := BuildContextSources(projectRoot, featureID, wsID, scopeFiles)
 	_ = WritePromptProvenance(projectRoot, promptHash, sources)
-	out, code, err := invoker.Invoke(ctx, projectRoot, "implementer", prompt)
+	res, err := invoker.Invoke(ctx, kernel.RuntimeInvocation{
+		WorkDir: projectRoot,
+		Agent:   "implementer",
+		Prompt:  prompt,
+	})
 	if err != nil {
 		return "", err
 	}
-	if code != 0 {
-		return "", fmt.Errorf("opencode build exited %d: %s", code, out)
+	if res.ExitCode != 0 {
+		return "", fmt.Errorf("opencode build exited %d: %s", res.ExitCode, res.Output)
 	}
 	// Extract last line as commit hash if it looks like a SHA
-	lines := strings.Split(strings.TrimSpace(out), "\n")
+	lines := strings.Split(strings.TrimSpace(res.Output), "\n")
 	for i := len(lines) - 1; i >= 0; i-- {
 		s := strings.TrimSpace(lines[i])
 		if len(s) == 40 && isHex(s) {
@@ -156,12 +161,16 @@ func RunReviewPhase(ctx context.Context, dir, featureID string, invoker LLMInvok
 		invoker = DefaultLLMInvoker
 	}
 	prompt := buildPromptWithContext(dir, fmt.Sprintf("Execute @review %s. Fix P0/P1 findings. Output APPROVED when done.", featureID))
-	out, code, err := invoker.Invoke(ctx, dir, "reviewer", prompt)
+	res, err := invoker.Invoke(ctx, kernel.RuntimeInvocation{
+		WorkDir: dir,
+		Agent:   "reviewer",
+		Prompt:  prompt,
+	})
 	if err != nil {
-		return false, out, err
+		return false, "", err
 	}
-	approved = code == 0 && strings.Contains(strings.ToUpper(out), "APPROVED")
-	return approved, out, nil
+	approved = res.ExitCode == 0 && strings.Contains(strings.ToUpper(res.Output), "APPROVED")
+	return approved, res.Output, nil
 }
 
 func RunQAPhase(ctx context.Context, dir, featureID string, invoker LLMInvoker) (passed bool, output string, err error) {
@@ -169,12 +178,16 @@ func RunQAPhase(ctx context.Context, dir, featureID string, invoker LLMInvoker) 
 		invoker = DefaultLLMInvoker
 	}
 	prompt := buildPromptWithContext(dir, fmt.Sprintf("Execute @qa %s. Validate QA/UAT against the feature intent. Output QA_PASS when done.", featureID))
-	out, code, err := invoker.Invoke(ctx, dir, "qa", prompt)
+	res, err := invoker.Invoke(ctx, kernel.RuntimeInvocation{
+		WorkDir: dir,
+		Agent:   "qa",
+		Prompt:  prompt,
+	})
 	if err != nil {
-		return false, out, err
+		return false, "", err
 	}
-	passed = code == 0 && strings.Contains(strings.ToUpper(out), "QA_PASS")
-	return passed, out, nil
+	passed = res.ExitCode == 0 && strings.Contains(strings.ToUpper(res.Output), "QA_PASS")
+	return passed, res.Output, nil
 }
 
 func isHex(s string) bool {

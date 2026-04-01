@@ -12,6 +12,7 @@ import (
 
 	"sdp_dev/internal/control"
 	"sdp_dev/internal/deploy"
+	"sdp_dev/internal/kernel"
 	"sdp_dev/internal/executor/omoclient"
 	)
 
@@ -132,10 +133,14 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 	}
 	agent := ResolveAgent(phase)
 
-	output, exitCode, invokeErr := InvokeWithFallback(ctx, b.ProjectRoot, agent, governedPrompt)
+	runtimeResult, invokeErr := InvokeWithFallback(ctx, kernel.RuntimeInvocation{
+		WorkDir: b.ProjectRoot,
+		Agent:   agent,
+		Prompt:  governedPrompt,
+	})
 
 	// Build result
-	result := translateResult(packet, output, exitCode)
+	result := translateResult(packet, runtimeResult.Output, runtimeResult.ExitCode)
 
 	// Evidence capture
 	if beadsRepo != nil {
@@ -145,7 +150,7 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 			"card_id":       cardID,
 			"timestamp":     time.Now().UTC().Format(time.RFC3339),
 			"executor":      agent,
-			"exit_code":     exitCode,
+			"exit_code":     runtimeResult.ExitCode,
 			"status":        result.Status,
 			"summary":       result.Summary,
 			"files_changed": extractArtifactReferences(result.Artifacts),

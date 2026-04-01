@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"sdp_dev/internal/dispatch/harness"
+	"sdp_dev/internal/kernel"
 )
 
 // fakeInvoker is a test double for LLMInvoker.
@@ -18,10 +19,10 @@ type fakeInvoker struct {
 	lastPrompt string
 }
 
-func (f *fakeInvoker) Invoke(_ context.Context, _, agent, prompt string) (string, int, error) {
-	f.lastAgent = agent
-	f.lastPrompt = prompt
-	return f.output, f.exitCode, f.err
+func (f *fakeInvoker) Invoke(_ context.Context, req kernel.RuntimeInvocation) (kernel.RuntimeResult, error) {
+	f.lastAgent = req.Agent
+	f.lastPrompt = req.Prompt
+	return kernel.RuntimeResult{Output: f.output, ExitCode: f.exitCode}, f.err
 }
 
 // fakePacketLoader returns a fixed ContextPacketSummary for testing.
