@@ -316,7 +316,7 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 - **F054** — Continuous Protocol Improvement (00-054-01 … 00-054-06). Historical workflow and agent contract sync lane. **Status: DONE**.
 - **F055** — Evidence Enforcement Reality (00-055-01 … 00-055-03). Evidence commit flow, CI gate blocking, and branch protection validation. **Status: DONE**.
 - **F056** — Local Git Hook Enforcement (00-056-01 … 00-056-03). Pre-commit, pre-push, and install/docs lane. **Status: DONE**.
-- **F096** — Legacy Drift Cleanup (00-096-01 ... 00-096-02). Support lane for roadmap/index/backlog hygiene. Buckets A-D are complete; future cleanup should be issue-driven.
+- **F096** — Legacy Drift Cleanup (00-096-01 ... 00-096-03). Support lane for roadmap/index/backlog hygiene. Buckets A-D are complete; future cleanup is issue-driven, including parked tech debt around Beads shared-Dolt cutover.
 
 ### Ongoing
 - **F059** — OhMyOpenCode Evidence Integration (00-059-01 … 00-059-04). Pre-tool-call guard, session evidence emitter, permission↔guard bridge, stuck detection. Phase 5. **Status: DONE** (sdp-omc-guard, sdp-ready implemented).
