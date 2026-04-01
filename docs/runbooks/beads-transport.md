@@ -21,7 +21,7 @@ Use `scripts/beads_transport.sh` instead of calling `bd sync`.
 
 Behavior:
 
-- if a real Dolt remote exists, the helper runs `bd dolt pull` / `bd dolt push`
+- if a real Dolt remote named `origin` exists, the helper runs `bd dolt pull` / `bd dolt push`
 - otherwise it uses `bd backup fetch-git` / `bd backup export-git` against `origin/beads-backup`
 
 ## Startup
@@ -43,6 +43,35 @@ Before `git push`, run:
 ```
 
 This publishes the current `.beads/backup/` snapshot to `origin/beads-backup` when no Dolt remote is configured.
+
+## Bootstrap A Real Dolt Remote
+
+Input you need:
+
+- a real Dolt remote URL, for example `https://doltremoteapi.dolthub.com/<org>/<repo>`
+- `DOLT_REMOTE_USER`
+- `DOLT_REMOTE_PASSWORD`
+
+Bootstrap command:
+
+```bash
+export DOLT_REMOTE_USER=...
+export DOLT_REMOTE_PASSWORD=...
+./scripts/beads_dolt_remote_bootstrap.sh --url https://doltremoteapi.dolthub.com/<org>/<repo> --push
+```
+
+What it does:
+
+- configures the Dolt remote under the name `origin`
+- optionally pushes the current local `sdplab` database to that remote
+- makes `scripts/beads_transport.sh fetch/export` switch from git-backup mode to first-class Dolt push/pull
+
+Current blocker in this repo:
+
+- there is no Dolt remote URL configured
+- there are no `DOLT_REMOTE_USER` / `DOLT_REMOTE_PASSWORD` credentials in the current environment
+
+Until those inputs exist, `origin/beads-backup` remains the only off-machine transport path.
 
 ## What This Does Not Solve
 

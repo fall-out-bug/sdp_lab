@@ -7,6 +7,7 @@ cd "${PROJECT_ROOT}"
 
 REMOTE="${BEADS_BACKUP_REMOTE:-origin}"
 BRANCH="${BEADS_BACKUP_BRANCH:-beads-backup}"
+DOLT_REMOTE_NAME="${BEADS_DOLT_REMOTE_NAME:-origin}"
 
 usage() {
   cat <<'EOF'
@@ -24,7 +25,8 @@ EOF
 has_dolt_remote() {
   local output
   output="$(bd dolt remote list 2>/dev/null || true)"
-  [[ -n "${output}" && "${output}" != "No remotes configured." ]]
+  [[ -n "${output}" && "${output}" != "No remotes configured." ]] || return 1
+  printf '%s\n' "${output}" | rg -q "(^|[[:space:]])${DOLT_REMOTE_NAME}([[:space:]]|$)"
 }
 
 has_backup_branch() {
@@ -33,7 +35,7 @@ has_backup_branch() {
 
 fetch_transport() {
   if has_dolt_remote; then
-    echo "[beads_transport] pulling from Dolt remote"
+    echo "[beads_transport] pulling from Dolt remote ${DOLT_REMOTE_NAME}"
     bd dolt pull
     return 0
   fi
@@ -49,7 +51,7 @@ fetch_transport() {
 
 export_transport() {
   if has_dolt_remote; then
-    echo "[beads_transport] pushing to Dolt remote"
+    echo "[beads_transport] pushing to Dolt remote ${DOLT_REMOTE_NAME}"
     bd dolt push
     return 0
   fi
@@ -60,16 +62,16 @@ export_transport() {
 
 status_transport() {
   if has_dolt_remote; then
-    echo "mode=dolt-remote remote_configured=true backup_branch=${REMOTE}/${BRANCH}"
+    echo "mode=dolt-remote remote_name=${DOLT_REMOTE_NAME} remote_configured=true backup_branch=${REMOTE}/${BRANCH}"
     return 0
   fi
 
   if has_backup_branch; then
-    echo "mode=git-backup remote_configured=false backup_branch=${REMOTE}/${BRANCH}"
+    echo "mode=git-backup remote_name=${DOLT_REMOTE_NAME} remote_configured=false backup_branch=${REMOTE}/${BRANCH}"
     return 0
   fi
 
-  echo "mode=local-only remote_configured=false backup_branch=${REMOTE}/${BRANCH}"
+  echo "mode=local-only remote_name=${DOLT_REMOTE_NAME} remote_configured=false backup_branch=${REMOTE}/${BRANCH}"
 }
 
 main() {
