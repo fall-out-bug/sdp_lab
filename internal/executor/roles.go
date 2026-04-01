@@ -3,6 +3,8 @@ package executor
 import (
 	"os"
 	"strings"
+
+	"sdp_dev/internal/augmentation"
 )
 
 const defaultOmOAgent = "sisyphus"
@@ -36,6 +38,9 @@ func ResolveAgent(phase string) string {
 	normalized := strings.ToLower(strings.TrimSpace(phase))
 	if normalized == "" {
 		return defaultOmOAgent
+	}
+	if role, ok := augmentation.ResolveDefaultRole(normalized); ok && strings.TrimSpace(role.Agent) != "" {
+		return role.Agent
 	}
 	for _, role := range PhaseRoleMap {
 		if normalized == role.Phase {

@@ -10,17 +10,17 @@ func TestKernelContractsJSONRoundTrip(t *testing.T) {
 	timestamp := time.Date(2026, 3, 31, 12, 0, 0, 0, time.UTC)
 
 	payload := struct {
-		Agent    AgentDefinition `json:"agent"`
-		Session  SessionState    `json:"session"`
-		Pack     WorkflowPack    `json:"pack"`
-		Policy   ToolPolicy      `json:"policy"`
-		Trace    TraceEvent      `json:"trace"`
-		Runtime  RuntimeResult   `json:"runtime"`
+		Agent    AgentDefinition   `json:"agent"`
+		Session  SessionState      `json:"session"`
+		Pack     WorkflowPack      `json:"pack"`
+		Policy   ToolPolicy        `json:"policy"`
+		Trace    TraceEvent        `json:"trace"`
+		Runtime  RuntimeResult     `json:"runtime"`
 		Request  RuntimeInvocation `json:"request"`
-		Provider ProviderMeta    `json:"provider"`
-		Routing  RoutingDecision `json:"routing"`
-		Approval ApprovalHook    `json:"approval"`
-		Eval     EvalCase        `json:"eval"`
+		Provider ProviderMeta      `json:"provider"`
+		Routing  RoutingDecision   `json:"routing"`
+		Approval ApprovalHook      `json:"approval"`
+		Eval     EvalCase          `json:"eval"`
 	}{
 		Agent: AgentDefinition{
 			ID:                   "planner",
@@ -49,12 +49,19 @@ func TestKernelContractsJSONRoundTrip(t *testing.T) {
 		},
 		Pack: WorkflowPack{
 			ID:           "core.pack",
-			Version:      "v1",
+			Version:      "1.0.0",
 			Description:  "Core pack",
 			Dependencies: []string{"base.pack"},
-			Roles:        []string{"planner", "verifier"},
-			Hooks:        []string{"approval.default"},
-			EvalRefs:     []string{"eval.route"},
+			PromptFragments: []PromptFragment{
+				{ID: "core.instructions", Kind: "system", Content: "Keep changes narrow."},
+			},
+			Roles: []RoleDefinition{
+				{ID: "planner", Phase: "plan", Agent: "metis", PromptFragmentIDs: []string{"core.instructions"}},
+			},
+			Hooks: []HookRegistration{
+				{ID: "approval.default", Kind: HookKindApproval},
+			},
+			EvalRefs: []string{"eval.route"},
 		},
 		Policy: ToolPolicy{
 			ID:              "default.policy",
@@ -131,17 +138,17 @@ func TestKernelContractsJSONRoundTrip(t *testing.T) {
 	}
 
 	var decoded struct {
-		Agent    AgentDefinition `json:"agent"`
-		Session  SessionState    `json:"session"`
-		Pack     WorkflowPack    `json:"pack"`
-		Policy   ToolPolicy      `json:"policy"`
-		Trace    TraceEvent      `json:"trace"`
-		Runtime  RuntimeResult   `json:"runtime"`
+		Agent    AgentDefinition   `json:"agent"`
+		Session  SessionState      `json:"session"`
+		Pack     WorkflowPack      `json:"pack"`
+		Policy   ToolPolicy        `json:"policy"`
+		Trace    TraceEvent        `json:"trace"`
+		Runtime  RuntimeResult     `json:"runtime"`
 		Request  RuntimeInvocation `json:"request"`
-		Provider ProviderMeta    `json:"provider"`
-		Routing  RoutingDecision `json:"routing"`
-		Approval ApprovalHook    `json:"approval"`
-		Eval     EvalCase        `json:"eval"`
+		Provider ProviderMeta      `json:"provider"`
+		Routing  RoutingDecision   `json:"routing"`
+		Approval ApprovalHook      `json:"approval"`
+		Eval     EvalCase          `json:"eval"`
 	}
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("unmarshal kernel payload: %v", err)
@@ -158,6 +165,12 @@ func TestKernelContractsJSONRoundTrip(t *testing.T) {
 	}
 	if decoded.Trace.Kind != TraceEventTool || string(decoded.Trace.Payload) != `{"tool":"bd ready"}` {
 		t.Fatalf("trace mismatch: %#v", decoded.Trace)
+	}
+	if len(decoded.Pack.Roles) != 1 || decoded.Pack.Roles[0].Agent != "metis" {
+		t.Fatalf("workflow pack roles mismatch: %#v", decoded.Pack.Roles)
+	}
+	if len(decoded.Pack.Hooks) != 1 || decoded.Pack.Hooks[0].Kind != HookKindApproval {
+		t.Fatalf("workflow pack hooks mismatch: %#v", decoded.Pack.Hooks)
 	}
 	if decoded.Runtime.ExitCode != 0 || decoded.Request.Agent != "implementer" {
 		t.Fatalf("runtime mismatch: %#v %#v", decoded.Runtime, decoded.Request)

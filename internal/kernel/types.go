@@ -66,13 +66,44 @@ type SessionState struct {
 }
 
 type WorkflowPack struct {
-	ID           string   `json:"id"`
-	Version      string   `json:"version"`
-	Description  string   `json:"description,omitempty"`
-	Dependencies []string `json:"dependencies,omitempty"`
-	Roles        []string `json:"roles,omitempty"`
-	Hooks        []string `json:"hooks,omitempty"`
-	EvalRefs     []string `json:"eval_refs,omitempty"`
+	ID              string             `json:"id"`
+	Version         string             `json:"version"`
+	Description     string             `json:"description,omitempty"`
+	Dependencies    []string           `json:"dependencies,omitempty"`
+	PromptFragments []PromptFragment   `json:"prompt_fragments,omitempty"`
+	Roles           []RoleDefinition   `json:"roles,omitempty"`
+	Hooks           []HookRegistration `json:"hooks,omitempty"`
+	EvalRefs        []string           `json:"eval_refs,omitempty"`
+}
+
+type PromptFragment struct {
+	ID          string `json:"id"`
+	Kind        string `json:"kind,omitempty"`
+	Content     string `json:"content,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+type RoleDefinition struct {
+	ID                string   `json:"id"`
+	Phase             string   `json:"phase"`
+	Agent             string   `json:"agent,omitempty"`
+	Description       string   `json:"description,omitempty"`
+	PromptFragmentIDs []string `json:"prompt_fragment_ids,omitempty"`
+}
+
+type HookKind string
+
+const (
+	HookKindApproval        HookKind = "approval"
+	HookKindToolPolicy      HookKind = "tool_policy"
+	HookKindMemoryCandidate HookKind = "memory_candidate"
+	HookKindTraceEnrichment HookKind = "trace_enrichment"
+)
+
+type HookRegistration struct {
+	ID          string   `json:"id"`
+	Kind        HookKind `json:"kind"`
+	Description string   `json:"description,omitempty"`
 }
 
 type MemoryScope string
