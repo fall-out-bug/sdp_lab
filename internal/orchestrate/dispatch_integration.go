@@ -10,6 +10,7 @@ import (
 
 	"sdp_dev/internal/dispatch"
 	"sdp_dev/internal/dispatch/harness"
+	"sdp_dev/internal/kernel"
 )
 
 // NewDispatchingInvoker creates a DispatchingInvoker if profiles exist.
@@ -98,18 +99,18 @@ type harnessInvoker struct {
 	harness harness.Harness
 }
 
-func (h *harnessInvoker) Invoke(ctx context.Context, dir, agent, prompt string) (string, int, error) {
+func (h *harnessInvoker) Invoke(ctx context.Context, req kernel.RuntimeInvocation) (kernel.RuntimeResult, error) {
 	proc, err := h.harness.Spawn(ctx, harness.SpawnOpts{
-		Worktree: dir,
-		Prompt:   prompt,
-		Agent:    agent,
+		Worktree: req.WorkDir,
+		Prompt:   req.Prompt,
+		Agent:    req.Agent,
 	})
 	if err != nil {
-		return "", -1, fmt.Errorf("spawn %s: %w", h.harness.Name(), err)
+		return kernel.RuntimeResult{ExitCode: -1}, fmt.Errorf("spawn %s: %w", h.harness.Name(), err)
 	}
 
 	result := <-proc.Done
-	return result.Output, result.ExitCode, nil
+	return kernel.RuntimeResult{Output: result.Output, ExitCode: result.ExitCode}, nil
 }
 
 // loadPacketSummary reads .sdp/context-packet.json and extracts fields needed for classification.

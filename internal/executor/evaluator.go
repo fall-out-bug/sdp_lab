@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"sdp_dev/internal/control"
+	"sdp_dev/internal/kernel"
 )
 
 const (
@@ -342,13 +343,17 @@ func EvaluateBuild(ctx context.Context, projectRoot string, card *control.Featur
 	}
 
 	prompt := BuildEvaluationPrompt(cfg.Model, card, evidence, changed, gitDiff(projectRoot))
-	raw, exitCode, invokeErr := InvokeWithFallback(ctx, projectRoot, "sisyphus", prompt)
-	if invokeErr != nil || exitCode != 0 {
+	runtimeResult, invokeErr := InvokeWithFallback(ctx, kernel.RuntimeInvocation{
+		WorkDir: projectRoot,
+		Agent:   "sisyphus",
+		Prompt:  prompt,
+	})
+	if invokeErr != nil || runtimeResult.ExitCode != 0 {
 		score, _ := scoreCriteria(cfg.Criteria, passed)
 		return EvalResult{Verdict: evalVerdictBlocked, Score: score, Findings: dedupeStrings(append(findings, fmt.Sprintf("evaluation failed: %v", invokeErr)))}, nil
 	}
 
-	result := parseEvalResult(raw, cfg, passed, findings)
+	result := parseEvalResult(runtimeResult.Output, cfg, passed, findings)
 	if _, ok := result.Passed["code_quality"]; !ok {
 		result.Passed["code_quality"] = result.Verdict == evalVerdictPass || result.Score >= 0.80
 	}

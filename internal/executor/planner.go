@@ -12,6 +12,7 @@ import (
 
 	"sdp_dev/internal/control"
 	"sdp_dev/internal/executor/omoclient"
+	"sdp_dev/internal/kernel"
 )
 
 const planPendingBlockingReason = "plan_pending_approval"
@@ -107,14 +108,18 @@ func GeneratePlan(ctx context.Context, projectRoot string, card *control.Feature
 	}
 
 	invoker := omoclient.NewServeInvoker(baseURL, logger)
-	raw, exitCode, invokeErr := invoker.Invoke(ctx, projectRoot, "sisyphus", prompt)
-	if invokeErr != nil || exitCode != 0 {
-		return PlanResult{CardID: card.ID, Status: "error", RawPlan: raw}, fmt.Errorf("OmO serve plan failed: %v", invokeErr)
+	runtimeResult, invokeErr := invoker.Invoke(ctx, kernel.RuntimeInvocation{
+		WorkDir: projectRoot,
+		Agent:   "sisyphus",
+		Prompt:  prompt,
+	})
+	if invokeErr != nil || runtimeResult.ExitCode != 0 {
+		return PlanResult{CardID: card.ID, Status: "error", RawPlan: runtimeResult.Output}, fmt.Errorf("OmO serve plan failed: %v", invokeErr)
 	}
 
 	payload := llmPlanPayload{}
-	if err := json.NewDecoder(strings.NewReader(extractJSONObject(raw))).Decode(&payload); err != nil {
-		return PlanResult{CardID: card.ID, Status: "error", RawPlan: raw}, fmt.Errorf("parse plan response: %w", err)
+	if err := json.NewDecoder(strings.NewReader(extractJSONObject(runtimeResult.Output))).Decode(&payload); err != nil {
+		return PlanResult{CardID: card.ID, Status: "error", RawPlan: runtimeResult.Output}, fmt.Errorf("parse plan response: %w", err)
 	}
 
 	result := PlanResult{
@@ -125,7 +130,7 @@ func GeneratePlan(ctx context.Context, projectRoot string, card *control.Feature
 		TestsToWrite:   dedupeStrings(payload.TestsToWrite),
 		RiskAssessment: strings.TrimSpace(payload.RiskAssessment),
 		EstimatedSteps: payload.EstimatedSteps,
-		RawPlan:        raw,
+		RawPlan:        runtimeResult.Output,
 	}
 
 	planPath := filepath.Join(projectRoot, ".sdp", "artifacts", card.ID, "plan.json")

@@ -7,9 +7,11 @@ import (
 	"net"
 	"strings"
 	"time"
+
+	"sdp_dev/internal/kernel"
 )
 
-// ServeInvoker implements orchestrate.LLMInvoker using OmO serve
+// ServeInvoker implements kernel.RuntimeAdapter using OmO serve.
 type ServeInvoker struct {
 	client     *OmOServeClient
 	supervisor *OmOSupervisor
@@ -25,8 +27,9 @@ func NewServeInvoker(baseURL string, logger *log.Logger) *ServeInvoker {
 	}
 }
 
-// Invoke implements orchestrate.LLMInvoker
-func (s *ServeInvoker) Invoke(ctx context.Context, dir, agent, prompt string) (string, int, error) {
+// Invoke implements kernel.RuntimeAdapter.
+func (s *ServeInvoker) Invoke(ctx context.Context, req kernel.RuntimeInvocation) (kernel.RuntimeResult, error) {
+	dir := req.WorkDir
 	if dir == "" {
 		dir = "."
 	}
@@ -38,22 +41,22 @@ func (s *ServeInvoker) Invoke(ctx context.Context, dir, agent, prompt string) (s
 		Session: sessionID,
 	})
 	if err != nil {
-		return "", 1, fmt.Errorf("create session: %v (serve API unavailable, use exec mode)", err)
+		return kernel.RuntimeResult{ExitCode: 1}, fmt.Errorf("create session: %v (serve API unavailable, use exec mode)", err)
 	}
 	defer func() {
 		_ = s.client.DeleteSession(sessionID)
 	}()
 
-	resp, err := s.client.SendMessageStream(prompt)
+	resp, err := s.client.SendMessageStream(req.Prompt)
 	if err != nil {
-		return "", 1, fmt.Errorf("send message stream: %v", err)
+		return kernel.RuntimeResult{ExitCode: 1}, fmt.Errorf("send message stream: %v", err)
 	}
 	defer resp.Body.Close()
 
 	// Check if response is HTML (SPA fallback) — means API not available
 	ct := resp.Header.Get("Content-Type")
 	if strings.Contains(ct, "text/html") {
-		return "", 1, fmt.Errorf("serve returned HTML instead of SSE — API not available, use exec mode")
+		return kernel.RuntimeResult{ExitCode: 1}, fmt.Errorf("serve returned HTML instead of SSE — API not available, use exec mode")
 	}
 	defer resp.Body.Close()
 
@@ -89,7 +92,7 @@ func (s *ServeInvoker) Invoke(ctx context.Context, dir, agent, prompt string) (s
 	}
 
 	if ctx.Err() != nil {
-		return "", 130, fmt.Errorf("invoke cancelled: %w", ctx.Err())
+		return kernel.RuntimeResult{ExitCode: 130}, fmt.Errorf("invoke cancelled: %w", ctx.Err())
 	}
 
 	result := output.String()
@@ -98,10 +101,10 @@ func (s *ServeInvoker) Invoke(ctx context.Context, dir, agent, prompt string) (s
 	}
 
 	if exitCode == 0 && result == "" {
-		return "", 0, nil
+		return kernel.RuntimeResult{}, nil
 	}
 
-	return result, exitCode, nil
+	return kernel.RuntimeResult{Output: result, ExitCode: exitCode}, nil
 }
 
 // StartSupervisor starts the opencode serve subprocess

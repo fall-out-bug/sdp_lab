@@ -11,13 +11,14 @@ import (
 	"time"
 
 	"sdp_dev/internal/control"
+	"sdp_dev/internal/kernel"
 	"sdp_dev/internal/orchestrate"
 )
 
 // ExecutorBridge connects dispatched execution packets to the configured LLM invoker.
 type ExecutorBridge struct {
 	Store       *control.Store
-	Invoker     orchestrate.LLMInvoker
+	Invoker     kernel.RuntimeAdapter
 	ProjectRoot string
 }
 
@@ -61,7 +62,11 @@ func (b *ExecutorBridge) DispatchAndRun(ctx context.Context, projectID, cardID s
 		return nil, fmt.Errorf("save running card state: %w", err)
 	}
 
-	output, exitCode, err := b.Invoker.Invoke(ctx, b.ProjectRoot, agent, prompt)
+	runtimeResult, err := b.Invoker.Invoke(ctx, kernel.RuntimeInvocation{
+		WorkDir: b.ProjectRoot,
+		Agent:   agent,
+		Prompt:  prompt,
+	})
 	if err != nil {
 		card.ExecutorRuntimeState = "failed"
 		card.ExecutorProgressSummary = strings.TrimSpace(err.Error())
@@ -74,7 +79,7 @@ func (b *ExecutorBridge) DispatchAndRun(ctx context.Context, projectID, cardID s
 		return nil, fmt.Errorf("invoke executor: %w", err)
 	}
 
-	result := translateResult(packet, output, exitCode)
+	result := translateResult(packet, runtimeResult.Output, runtimeResult.ExitCode)
 	if err := RouteFindingsToCard(b.Store, projectID, cardID, result); err != nil {
 		return nil, fmt.Errorf("route findings to card: %w", err)
 	}

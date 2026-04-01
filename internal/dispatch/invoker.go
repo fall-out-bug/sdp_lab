@@ -5,12 +5,10 @@ import (
 	"log/slog"
 
 	"sdp_dev/internal/dispatch/harness"
+	"sdp_dev/internal/kernel"
 )
 
-// LLMInvoker matches orchestrate.LLMInvoker to avoid circular imports.
-type LLMInvoker interface {
-	Invoke(ctx context.Context, dir, agent, prompt string) (output string, exitCode int, err error)
-}
+type LLMInvoker = kernel.RuntimeAdapter
 
 // DispatchingInvoker classifies incoming invocations, routes them to the best
 // harness via Router, writes a DispatchDecision, and delegates to the selected
@@ -39,7 +37,8 @@ func (d *DispatchingInvoker) Invoke(ctx context.Context, dir, agent, prompt stri
 	pkt, err := d.PacketLoader(dir)
 	if err != nil {
 		slog.Warn("dispatch: packet load failed, falling back", "dir", dir, "err", err)
-		return d.Fallback.Invoke(ctx, dir, agent, prompt)
+		res, invokeErr := d.Fallback.Invoke(ctx, kernel.RuntimeInvocation{WorkDir: dir, Agent: agent, Prompt: prompt})
+		return res.Output, res.ExitCode, invokeErr
 	}
 
 	task := Classify(pkt)
@@ -47,7 +46,8 @@ func (d *DispatchingInvoker) Invoke(ctx context.Context, dir, agent, prompt stri
 	dec, err := d.Router.Route(ctx, task, d.Limits)
 	if err != nil {
 		slog.Warn("dispatch: routing failed, falling back", "err", err)
-		return d.Fallback.Invoke(ctx, dir, agent, prompt)
+		res, invokeErr := d.Fallback.Invoke(ctx, kernel.RuntimeInvocation{WorkDir: dir, Agent: agent, Prompt: prompt})
+		return res.Output, res.ExitCode, invokeErr
 	}
 
 	// Cross-harness verification: for review/qa agents, try a different harness.
@@ -78,7 +78,8 @@ func (d *DispatchingInvoker) Invoke(ctx context.Context, dir, agent, prompt stri
 	inv := d.InvokerFor(dec.Harness)
 	if inv == nil {
 		slog.Warn("dispatch: no invoker for harness, falling back", "harness", dec.Harness)
-		return d.Fallback.Invoke(ctx, dir, agent, enrichedPrompt)
+		res, invokeErr := d.Fallback.Invoke(ctx, kernel.RuntimeInvocation{WorkDir: dir, Agent: agent, Prompt: enrichedPrompt})
+		return res.Output, res.ExitCode, invokeErr
 	}
 
 	slog.Info("dispatch: invoking via harness",
@@ -87,7 +88,12 @@ func (d *DispatchingInvoker) Invoke(ctx context.Context, dir, agent, prompt stri
 		"score", dec.Score,
 	)
 
-	return inv.Invoke(ctx, dir, agent, enrichedPrompt)
+	res, invokeErr := inv.Invoke(ctx, kernel.RuntimeInvocation{
+		WorkDir: dir,
+		Agent:   agent,
+		Prompt:  enrichedPrompt,
+	})
+	return res.Output, res.ExitCode, invokeErr
 }
 
 // isVerificationAgent returns true for agents that perform verification work

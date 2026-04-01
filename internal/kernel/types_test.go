@@ -15,6 +15,8 @@ func TestKernelContractsJSONRoundTrip(t *testing.T) {
 		Pack     WorkflowPack    `json:"pack"`
 		Policy   ToolPolicy      `json:"policy"`
 		Trace    TraceEvent      `json:"trace"`
+		Runtime  RuntimeResult   `json:"runtime"`
+		Request  RuntimeInvocation `json:"request"`
 		Provider ProviderMeta    `json:"provider"`
 		Routing  RoutingDecision `json:"routing"`
 		Approval ApprovalHook    `json:"approval"`
@@ -72,6 +74,15 @@ func TestKernelContractsJSONRoundTrip(t *testing.T) {
 			CorrelationID: "corr-1",
 			Payload:       json.RawMessage(`{"tool":"bd ready"}`),
 		},
+		Runtime: RuntimeResult{
+			Output:   "done",
+			ExitCode: 0,
+		},
+		Request: RuntimeInvocation{
+			WorkDir: "/tmp/project",
+			Agent:   "implementer",
+			Prompt:  "Execute @build 00-092-02",
+		},
 		Provider: ProviderMeta{
 			ProviderID: "openai",
 			ModelName:  "gpt-4o",
@@ -125,6 +136,8 @@ func TestKernelContractsJSONRoundTrip(t *testing.T) {
 		Pack     WorkflowPack    `json:"pack"`
 		Policy   ToolPolicy      `json:"policy"`
 		Trace    TraceEvent      `json:"trace"`
+		Runtime  RuntimeResult   `json:"runtime"`
+		Request  RuntimeInvocation `json:"request"`
 		Provider ProviderMeta    `json:"provider"`
 		Routing  RoutingDecision `json:"routing"`
 		Approval ApprovalHook    `json:"approval"`
@@ -145,6 +158,9 @@ func TestKernelContractsJSONRoundTrip(t *testing.T) {
 	}
 	if decoded.Trace.Kind != TraceEventTool || string(decoded.Trace.Payload) != `{"tool":"bd ready"}` {
 		t.Fatalf("trace mismatch: %#v", decoded.Trace)
+	}
+	if decoded.Runtime.ExitCode != 0 || decoded.Request.Agent != "implementer" {
+		t.Fatalf("runtime mismatch: %#v %#v", decoded.Runtime, decoded.Request)
 	}
 	if decoded.Provider.ProviderID != "openai" || decoded.Provider.Capabilities.MaxContext != 128000 {
 		t.Fatalf("provider mismatch: %#v", decoded.Provider)

@@ -12,6 +12,7 @@ import (
 
 	"sdp_dev/internal/control"
 	"sdp_dev/internal/executor/omoclient"
+	"sdp_dev/internal/kernel"
 )
 
 const clarificationBlockingReason = "needs_clarification"
@@ -145,15 +146,19 @@ func ClarifyIntentWithConfig(ctx context.Context, projectRoot, rawIntent string,
 		result := ClarifyResult{Card: existingCard, Status: "error", Questions: []string{"OmO serve unavailable — clarification blocked"}}
 		return result, nil
 	}
-	raw, exitCode, invokeErr := InvokeWithFallback(ctx, projectRoot, "sisyphus", prompt)
-	if invokeErr != nil || exitCode != 0 {
-		result := ClarifyResult{Card: existingCard, Status: "error", RawFeedback: raw, Questions: []string{fmt.Sprintf("OmO serve clarification failed: %v", invokeErr)}}
+	runtimeResult, invokeErr := InvokeWithFallback(ctx, kernel.RuntimeInvocation{
+		WorkDir: projectRoot,
+		Agent:   "sisyphus",
+		Prompt:  prompt,
+	})
+	if invokeErr != nil || runtimeResult.ExitCode != 0 {
+		result := ClarifyResult{Card: existingCard, Status: "error", RawFeedback: runtimeResult.Output, Questions: []string{fmt.Sprintf("OmO serve clarification failed: %v", invokeErr)}}
 		return result, nil
 	}
 
 	payload := llmClarifyPayload{}
-	if err := json.NewDecoder(strings.NewReader(extractJSONObject(raw))).Decode(&payload); err != nil {
-		return ClarifyResult{Card: existingCard, Status: "error", RawFeedback: raw}, nil
+	if err := json.NewDecoder(strings.NewReader(extractJSONObject(runtimeResult.Output))).Decode(&payload); err != nil {
+		return ClarifyResult{Card: existingCard, Status: "error", RawFeedback: runtimeResult.Output}, nil
 	}
 
 	cardCopy := *existingCard
@@ -170,11 +175,11 @@ func ClarifyIntentWithConfig(ctx context.Context, projectRoot, rawIntent string,
 		questions := dedupeStrings(payload.Questions)
 		cardCopy.OpenQuestions = dedupeStrings(append(cardCopy.OpenQuestions, questions...))
 		cardCopy.BlockingReasons = dedupeStrings(append(cardCopy.BlockingReasons, clarificationBlockingReason))
-		return ClarifyResult{Card: &cardCopy, Status: "needs_clarification", Questions: questions, RawFeedback: raw}, nil
+		return ClarifyResult{Card: &cardCopy, Status: "needs_clarification", Questions: questions, RawFeedback: runtimeResult.Output}, nil
 	}
 
 	cardCopy.OpenQuestions = removeStringsLocal(cardCopy.OpenQuestions, payload.Questions)
-	return ClarifyResult{Card: &cardCopy, Status: "ready", RawFeedback: raw}, nil
+	return ClarifyResult{Card: &cardCopy, Status: "ready", RawFeedback: runtimeResult.Output}, nil
 }
 
 func (b *ServeBridge) Clarify(ctx context.Context, card *control.FeatureCard) (ClarifyResult, error) {
