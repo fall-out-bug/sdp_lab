@@ -80,13 +80,13 @@ func (h *handler) handleBoard(w http.ResponseWriter, r *http.Request) {
 	// Pass filter state for form
 	type boardView struct {
 		*BoardData
-		QueryParam   string
+		QueryParam    string
 		FilterProject string
 		FilterPhase   string
 	}
 	render(w, "board", boardView{
-		BoardData:    board,
-		QueryParam:   filter.Query,
+		BoardData:     board,
+		QueryParam:    filter.Query,
 		FilterProject: filter.Project,
 		FilterPhase:   filter.Phase,
 	})
@@ -110,7 +110,9 @@ func (h *handler) handleCardPartial(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	tmpl := template.Must(template.New("partial").Funcs(funcMap()).ParseFS(webFS, "web/card_detail.html"))
-	tmpl.Execute(w, detail)
+	if err := tmpl.Execute(w, detail); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (h *handler) handleAction(action string) http.HandlerFunc {
@@ -204,7 +206,7 @@ func funcMap() template.FuncMap {
 			return t.Format("15:04 Jan 02")
 		},
 		"hasPrefix": strings.HasPrefix,
-		"contains": strings.Contains,
+		"contains":  strings.Contains,
 		"priorityLabel": func(p int) string {
 			if p <= 1 {
 				return "P0-P1"

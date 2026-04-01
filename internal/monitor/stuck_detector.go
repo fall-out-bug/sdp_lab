@@ -17,8 +17,6 @@ type stuckDetector struct {
 	sessionPath   string
 	timeout       time.Duration
 	checkTicker   *time.Ticker
-	stopCh        chan struct{}
-	stopOnce      sync.Once
 	onStuck       func(sessionID string, lastEvent time.Time)
 	onRecovered   func(sessionID string)
 	stuckSessions map[string]time.Time
@@ -82,7 +80,6 @@ func newStuckDetector(cfg stuckDetectorConfig) (*stuckDetector, error) {
 	sd := &stuckDetector{
 		sessionPath:   sessionPath,
 		timeout:       timeout,
-		stopCh:        make(chan struct{}),
 		onStuck:       cfg.OnStuck,
 		onRecovered:   cfg.OnRecovered,
 		stuckSessions: make(map[string]time.Time),
@@ -97,16 +94,6 @@ func (sd *stuckDetector) start(ctx context.Context) {
 	go sd.run(ctx)
 }
 
-// stop stops the monitoring. Safe to call multiple times.
-func (sd *stuckDetector) stop() {
-	sd.stopOnce.Do(func() {
-		close(sd.stopCh)
-	})
-	if sd.checkTicker != nil {
-		sd.checkTicker.Stop()
-	}
-}
-
 func (sd *stuckDetector) run(ctx context.Context) {
 	defer func() {
 		if sd.checkTicker != nil {
@@ -117,8 +104,6 @@ func (sd *stuckDetector) run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			return
-		case <-sd.stopCh:
 			return
 		case <-sd.checkTicker.C:
 			sd.check(ctx)
@@ -248,18 +233,6 @@ func (sd *stuckDetector) getLastEventTime(file string) (sessionID string, lastEv
 	}
 
 	return sessionID, lastEvent, nil
-}
-
-// getStuckSessions returns the currently stuck sessions.
-func (sd *stuckDetector) getStuckSessions() map[string]time.Time {
-	sd.mu.Lock()
-	defer sd.mu.Unlock()
-
-	result := make(map[string]time.Time)
-	for k, v := range sd.stuckSessions {
-		result[k] = v
-	}
-	return result
 }
 
 // isStuck checks if a specific session is stuck.

@@ -21,11 +21,7 @@ func (s *BeadsSink) LoadExistingFindings(ctx context.Context) error {
 
 	existing := make([]ExistingIssue, 0, len(issues))
 	for _, issue := range issues {
-		existing = append(existing, ExistingIssue{
-			ID:     issue.ID,
-			Status: issue.Status,
-			Labels: issue.Labels,
-		})
+		existing = append(existing, ExistingIssue(issue))
 	}
 	s.dedupe.ImportExisting(existing)
 
