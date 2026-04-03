@@ -1,6 +1,7 @@
-# sdp_dev Roadmap — Agent Platform + Trust Lane
+# sdp_lab Roadmap — Agent Platform + Trust Lane
 
 > **Updated:** 2026-04-01
+> **Repo naming:** GitHub repo is `sdp_lab`; historical workstreams and bead IDs may still use `sdp_dev` as a legacy label for the same codebase
 > **Direction:** Reusable agent platform (`kernel`, `adapters`, `augmentation`, `evals`) with standards-based trust and evidence as a secondary lane
 > **Platform Reset:** [AGENT_PLATFORM_ROADMAP_2026-03-31.md](AGENT_PLATFORM_ROADMAP_2026-03-31.md) + [2026-03-31-platform-backlog-reset.md](../plans/2026-03-31-platform-backlog-reset.md)
 > **Pivot:** [ADR-002 Standards Pivot](../decisions/ADR-002-standards-pivot.md) — why we moved from custom to standards

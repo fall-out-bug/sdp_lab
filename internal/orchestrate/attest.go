@@ -16,6 +16,7 @@ import (
 
 	"sdp_dev/internal/evidence"
 	"sdp_dev/internal/executil"
+	"sdp_dev/internal/gitutil"
 )
 
 // GenerateOrchestratorAttestation creates an in-toto attestation from a checkpoint.
@@ -42,8 +43,8 @@ func GenerateOrchestratorAttestation(projectRoot string, cp *Checkpoint) (eviden
 		wsIDs = append(wsIDs, ws.ID)
 	}
 
-	// Get changed files since branch diverged from master
-	changedFiles := getChangedFilesSinceBranch(projectRoot, "master")
+	// Get changed files since the repository default branch.
+	changedFiles := getChangedFilesSinceBase(projectRoot, gitutil.ComparisonBase(context.Background(), projectRoot, ""))
 
 	// Determine scope from workstream files
 	scopePrefixes := collectWorkstreamScopePrefixes(projectRoot, wsIDs)
@@ -276,14 +277,14 @@ func matchesPrefix(file string, prefixes []string) bool {
 	return false
 }
 
-// GetChangedFiles returns changed files vs origin/master (for policy input construction).
+// GetChangedFiles returns changed files vs the repository default branch.
 func GetChangedFiles(projectRoot string) []string {
-	return getChangedFilesSinceBranch(projectRoot, "master")
+	return getChangedFilesSinceBase(projectRoot, gitutil.ComparisonBase(context.Background(), projectRoot, ""))
 }
 
-func getChangedFilesSinceBranch(projectRoot, baseBranch string) []string {
+func getChangedFilesSinceBase(projectRoot, baseRef string) []string {
 	ctx := context.Background()
-	out, err := executil.DefaultRunner.Output(ctx, projectRoot, "git", "diff", "--name-only", "origin/"+baseBranch+"...HEAD")
+	out, err := executil.DefaultRunner.Output(ctx, projectRoot, "git", "diff", "--name-only", baseRef+"...HEAD")
 	if err != nil {
 		// Fallback: uncommitted changes
 		out2, _ := executil.DefaultRunner.Output(ctx, projectRoot, "git", "diff", "--name-only", "HEAD")

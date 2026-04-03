@@ -112,7 +112,7 @@ if [[ "$MODE" == "execute" ]]; then
   REPORT_PATH="$ARTIFACT_DIR/demo-auto-attest-report.json"
   SUMMARY_PATH="$ARTIFACT_DIR/summary.md"
 
-  "$GO_TOOL" run ./internal/evidence/cmd/auto-attest --base-branch master --output "$ATTEST_PATH" --report "$REPORT_PATH"
+  "$GO_TOOL" run ./internal/evidence/cmd/auto-attest --output "$ATTEST_PATH" --report "$REPORT_PATH"
 
   python3 - "$TASK_ID" "$ATTEST_PATH" "$REPORT_PATH" "$SUMMARY_PATH" <<'PY'
 import json

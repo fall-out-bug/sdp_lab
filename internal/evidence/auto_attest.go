@@ -1,8 +1,8 @@
 package evidence
 
 import (
-	"context"
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -15,6 +15,8 @@ import (
 
 	intoto "github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/common"
+
+	"sdp_dev/internal/gitutil"
 )
 
 type AutoAttestOptions struct {
@@ -145,10 +147,8 @@ func buildAutoAttestPredicate(opts AutoAttestOptions, facts autoAttestFacts) Cod
 }
 
 func gitChangedFiles(repoRoot, baseBranch string) ([]string, error) {
-	if baseBranch == "" {
-		baseBranch = "master"
-	}
-	out, err := runGit(repoRoot, "diff", "--name-only", "origin/"+baseBranch+"...HEAD")
+	baseRef := gitutil.ComparisonBase(context.Background(), repoRoot, baseBranch)
+	out, err := runGit(repoRoot, "diff", "--name-only", baseRef+"...HEAD")
 	if err != nil {
 		return nil, err
 	}
@@ -172,10 +172,8 @@ func gitHeadSHA(repoRoot string) (string, error) {
 }
 
 func gitCommitsSinceBase(repoRoot, baseBranch string) ([]string, error) {
-	if baseBranch == "" {
-		baseBranch = "master"
-	}
-	out, err := runGit(repoRoot, "log", "--format=%H", "origin/"+baseBranch+"...HEAD")
+	baseRef := gitutil.ComparisonBase(context.Background(), repoRoot, baseBranch)
+	out, err := runGit(repoRoot, "log", "--format=%H", baseRef+"...HEAD")
 	if err != nil {
 		return nil, err
 	}
@@ -185,10 +183,8 @@ func gitCommitsSinceBase(repoRoot, baseBranch string) ([]string, error) {
 var beadsIDRe = regexp.MustCompile(`sdp_dev-[a-z0-9]{4}`)
 
 func extractBeadsIDsFromCommits(repoRoot, baseBranch string) []string {
-	if baseBranch == "" {
-		baseBranch = "master"
-	}
-	out, _ := runGit(repoRoot, "log", "--format=%s %b", "origin/"+baseBranch+"...HEAD")
+	baseRef := gitutil.ComparisonBase(context.Background(), repoRoot, baseBranch)
+	out, _ := runGit(repoRoot, "log", "--format=%s %b", baseRef+"...HEAD")
 	seen := map[string]bool{}
 	var ids []string
 	for _, id := range beadsIDRe.FindAllString(out, -1) {

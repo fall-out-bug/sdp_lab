@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"sdp_dev/internal/gitutil"
 	"sdp_dev/internal/sdputil"
-
 )
 
 type prInfo struct {
@@ -68,8 +68,9 @@ func EnsureDraftPR(ctx context.Context, projectRoot, featureID string, cp *Check
 	if err != nil {
 		return fmt.Errorf("current branch: %w", err)
 	}
+	baseBranch := gitutil.DefaultBranch(phaseCtx, projectRoot)
 	title := fmt.Sprintf("F%s: oneshot outer loop", strings.TrimPrefix(featureID, "F"))
-	create := exec.CommandContext(phaseCtx, "gh", "pr", "create", "--draft", "--base", "dev", "--head", head, "--title", title, "--body", "Autonomous execution via sdp orchestrate")
+	create := exec.CommandContext(phaseCtx, "gh", "pr", "create", "--draft", "--base", baseBranch, "--head", head, "--title", title, "--body", "Autonomous execution via sdp orchestrate")
 	create.Dir = projectRoot
 	out, err := create.CombinedOutput()
 	if err != nil {

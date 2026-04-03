@@ -1,21 +1,23 @@
 # Agent Instructions
 
-> **Sync:** When updating shared conventions (placement, "продолжай", command tree), also update `sdp/CLAUDE.md`. See [docs/plans/2026-02-25-agents-claude-sync-rules.md](docs/plans/2026-02-25-agents-claude-sync-rules.md).
+> **Sync:** Sync only genuinely shared agent conventions (placement, "продолжай", command tree) to `sdp/CLAUDE.md`. Repo topology, branch policy, beads workflow, and private-lab process stay local to `sdp_lab`. See [docs/plans/2026-02-25-agents-claude-sync-rules.md](docs/plans/2026-02-25-agents-claude-sync-rules.md).
 
 ## Project Structure
 
 This project has **two repos** with different roles:
 
-| | `sdp_dev` (this repo) | `sdp` (submodule at `sdp/`) |
+| | `sdp_lab` (this repo) | `sdp` (submodule at `sdp/`) |
 |---|---|---|
-| **Remote** | `origin → sdp_private.git` | `origin → sdp.git` |
+| **Remote** | `origin → fall-out-bug/sdp_lab` | `origin → fall-out-bug/sdp` |
 | **Visibility** | Private | Public |
 | **Contains** | Go code, K8s manifests, roadmap, research | Protocol: prompts, JSON schemas, hooks |
 | **Changes** | Daily — all features built here | Rare — only when protocol spec changes |
 
-**Rule:** All work happens in `sdp_dev`. The `sdp/` submodule is only touched when publishing protocol artifacts (schemas, prompts, hooks).
+**Rule:** All work happens in `sdp_lab`. The `sdp/` submodule is only touched when publishing protocol artifacts (schemas, prompts, hooks).
+**Source of truth:** `sdp/` must track the public GitHub repo `https://github.com/fall-out-bug/sdp.git`. A local sibling clone such as `../sdp` is a convenience checkout, not a canonical submodule URL.
+**Legacy naming:** Historical workstreams, plans, and beads IDs may still use `sdp_dev` or `sdp_dev-*` as a label for this same root repo. Treat that as legacy naming, not as a third repository.
 
-**sdp vs sdp_dev (CI/secrets):** sdp = protocol, CLI, release workflow. Secrets (e.g. GLM_API_KEY) live in sdp. sdp_dev = lab, Go binaries. When debugging CI for a PR in sdp, check sdp workflows and `workflow_call` / `secrets: inherit` — do not assume the user forgot to add secrets.
+**sdp vs sdp_lab (CI/secrets):** sdp = protocol, CLI, release workflow. Secrets (e.g. GLM_API_KEY) live in sdp. sdp_lab = lab, Go binaries. When debugging CI for a PR in sdp, check sdp workflows and `workflow_call` / `secrets: inherit` — do not assume the user forgot to add secrets.
 
 ### Multi-Repo: Repo from Path
 
@@ -23,16 +25,16 @@ This project has **two repos** with different roles:
 
 | Path prefix | Repo | Commit | CI | PR |
 |-------------|------|--------|-----|-----|
-| (root), `internal/`, `cmd/`, `docs/` | sdp_dev | `git add/commit/push` in root | `.github/workflows/ci.yml` | sdp_dev |
-| `sdp/` | sdp | `cd sdp && git add/commit/push` | `sdp/.github/workflows/` | sdp; then `git add sdp` in sdp_dev |
+| (root), `internal/`, `cmd/`, `docs/` | sdp_lab | `git add/commit/push` in root | `.github/workflows/ci.yml` | sdp_lab |
+| `sdp/` | sdp | `cd sdp && git add/commit/push` | `sdp/.github/workflows/` | sdp; then `git add sdp` in sdp_lab |
 
-**When editing sdp/:** 1) Commit in sdp first. 2) Push sdp. 3) `git add sdp && git commit` in sdp_dev. 4) Push sdp_dev.
+**When editing sdp/:** 1) Commit in sdp first. 2) Push sdp. 3) `git add sdp && git commit` in sdp_lab. 4) Push sdp_lab.
 
-**Ambiguous task?** Ask: "в sdp или в sdp_dev?" — See [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md).
+**Ambiguous task?** Ask: "в sdp или в sdp_lab?" — See [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md).
 
 ## Agent Interaction Rules
 
-**Scope:** sdp_dev only — do not sync to sdp/CLAUDE.md (sdp stays generic).
+**Scope:** sdp_lab only — do not sync repo-specific rules to sdp/CLAUDE.md (sdp stays generic).
 
 **Source:** [docs/plans/2026-02-26-agent-frustration-analysis.md](docs/plans/2026-02-26-agent-frustration-analysis.md)
 
@@ -43,13 +45,13 @@ This project has **two repos** with different roles:
 | **Complete the task** | "Done" = push + CI green. If CI red → keep debugging | Stop at "I made changes" without push/verify |
 | **Fix, not workaround** | Find and fix root cause | Skip, non-blocking, exclude — only if user explicitly asks |
 | **Commit yourself** | After changes: commit + push | "Who will make commits?" |
-| **Right repo** | sdp PR → sdp workflow; sdp_dev PR → sdp_dev workflow | Fix sdp_dev when the issue is in sdp |
+| **Right repo** | sdp PR → sdp workflow; sdp_lab PR → sdp_lab workflow | Fix sdp_lab when the issue is in sdp |
 | **Clarify, don't guess** | If the task is ambiguous — ask: scope? fix vs analyze? which repo? | Assume intent and proceed |
 | **Push back on non-constructive insults** | If the user insults without adding useful info — you may respond firmly or bluntly | Take abuse silently |
 | **ПишиСокращай / ЯсноПонятно** | Notes, comments, docs: no filler, active voice, short sentences, clear structure. Each text helps solve a problem. | Watery prose, "на данном этапе", jargon, long paragraphs |
 | **Radical Candor** | Care personally + challenge directly. Disagree, argue, push back when you see a better way. Not a yes-man. | Sugarcoating, ruinous empathy, subservient "as you wish" |
 
-**Ambiguous examples:** "разобраться" (analyze or fix until done?), "займись X" (just do it or push + CI green?), "исправить" (root cause or workaround OK?), "почини CI" (в sdp или в sdp_dev?). When in doubt — one short clarifying question.
+**Ambiguous examples:** "разобраться" (analyze or fix until done?), "займись X" (just do it or push + CI green?), "исправить" (root cause or workaround OK?), "почини CI" (в sdp или в sdp_lab?). When in doubt — one short clarifying question.
 
 ## Issue Tracking (beads)
 
@@ -67,13 +69,13 @@ scripts/beads_transport.sh export  # Publish Beads state after work
 
 ### Beads ↔ Workstream Sync
 
-- **Mapping:** `.beads-sdp-mapping.jsonl` maps `00-XXX-YY` (WS ID) → `sdp_dev-abc` (beads ID)
+- **Mapping:** `.beads-sdp-mapping.jsonl` maps `00-XXX-YY` (WS ID) → `sdp_dev-abc` (legacy beads prefix for this repo)
 - **WS files:** Each `docs/workstreams/backlog/00-XXX-YY.md` has `Feature: FXXX (sdp_dev-abc)` with the beads ID
 - **Validation:** `wc -l .beads-sdp-mapping.jsonl` must equal `ls docs/workstreams/backlog/*.md | wc -l`
 
 ## Feature Delivery Flow
 
-**Base branch:** `dev`. Feature branches branch from `dev`; PRs target `dev`. `main`/`master` for releases only.
+**Base branch:** `main`. Feature branches branch from `main`; PRs target `main`. This repo does not use a living `dev` branch.
 
 Canonical design reference: [docs/plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md](docs/plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md)
 
@@ -116,7 +118,7 @@ Each executable unit must link back to one `feature` and one `workstream`.
 ### Step 4: Branch and open early `draft PR`
 
 ```bash
-git checkout dev
+git checkout main
 git pull
 git checkout -b feature/FXXX-short-name   # e.g. feature/F004-sequential-reconciler
 ```
@@ -130,7 +132,7 @@ After the first meaningful commit:
 
 ```bash
 git push -u origin HEAD
-gh pr create --draft --base dev --title "FXXX: short-name"
+gh pr create --draft --base main --title "FXXX: short-name"
 ```
 
 ### Step 5: Execute ready `beads issue`
@@ -188,7 +190,7 @@ After `qa:pass`:
 go test ./...
 gh pr merge                 # after review
 bd close <id> -r "done"
-bd sync
+scripts/beads_transport.sh export
 ```
 
 Merge stays manual. SDP is done when the `PR` is clean, the `drift` verdict is recorded, and `QA/UAT` has passed.
@@ -201,24 +203,33 @@ If the feature publishes artifacts to the `sdp` protocol repo:
 # Copy artifact into submodule
 cp schema/evidence-envelope.schema.json sdp/schema/
 
-# Commit inside the submodule (sdp: branch from dev)
+# Commit inside the submodule (sdp: branch from its remote default branch)
+SDP_BASE_BRANCH=$(git -C sdp symbolic-ref --short refs/remotes/origin/HEAD | sed 's@^origin/@@')
 cd sdp
-git checkout dev && git pull
+git checkout "$SDP_BASE_BRANCH" && git pull
 git checkout -b schema/evidence-envelope
 git add schema/
 git commit -m "Add evidence envelope JSON Schema"
 git push -u origin HEAD
-gh pr create --base dev --title "Add evidence envelope JSON Schema"
+gh pr create --base "$SDP_BASE_BRANCH" --title "Add evidence envelope JSON Schema"
 cd ..
 
 # After sdp PR is merged:
-cd sdp && git checkout dev && git pull && cd ..
+cd sdp && git checkout "$SDP_BASE_BRANCH" && git pull && cd ..
 git add sdp
 git commit -m "Update sdp submodule: evidence schema published"
 git push
 ```
 
 **When to do Step 8:** Only when the workstream file says "Publish to sdp repo" or the feature touches `sdp/` contents. Check the workstream's Scope Files section.
+
+**Submodule recovery:** If `git submodule status` shows a missing path (`-<sha> sdp`) or a sha nobody can fetch, fix the source first:
+
+```bash
+git config -f .gitmodules submodule.sdp.url https://github.com/fall-out-bug/sdp.git
+git submodule sync -- sdp
+git submodule update --init --checkout sdp
+```
 
 ## Branch Naming
 
@@ -232,19 +243,19 @@ docs/topic                  # documentation-only changes
 
 | Change Type | Where | Example |
 |---|---|---|
-| Go code (`internal/`, `cmd/`) | sdp_dev only | F004 reconciler rewrite |
-| Lab binaries (orchestrate, ci-loop, evidence, guard, eval) | sdp_dev `cmd/` | `make build-sdp-orchestrate` |
+| Go code (`internal/`, `cmd/`) | sdp_lab only | F004 reconciler rewrite |
+| Lab binaries (orchestrate, ci-loop, evidence, guard, eval) | sdp_lab `cmd/` | `make build-sdp-orchestrate` |
 | Protocol CLI (`sdp quality`, `sdp apply`, etc.) | sdp `sdp-plugin/` | Published to sdp repo |
-| K8s manifests (`deploy/`) | sdp_dev only | F009 beads-bridge CronJob |
-| Tests | sdp_dev only | F004 integration test |
-| Roadmap, workstreams, plans | sdp_dev only | Any planning work |
-| JSON Schema for evidence | sdp_dev (create) → sdp (publish) | F001 |
-| Prompts, hooks | sdp_dev (develop) → sdp (publish) | Rare |
+| K8s manifests (`deploy/`) | sdp_lab only | F009 beads-bridge CronJob |
+| Tests | sdp_lab only | F004 integration test |
+| Roadmap, workstreams, plans | sdp_lab only | Any planning work |
+| JSON Schema for evidence | sdp_lab (create) → sdp (publish) | F001 |
+| Prompts, hooks | sdp_lab (develop) → sdp (publish) | Rare |
 | README, Manifesto | sdp submodule directly | Rare |
 
 **Boundary:** See [docs/architecture/REPO-BOUNDARY.md](docs/architecture/REPO-BOUNDARY.md) for component → repo → publish mapping.
 
-**If unsure:** it goes in sdp_dev. The only things in `sdp/` are spec artifacts that external users need.
+**If unsure:** it goes in sdp_lab. The only things in `sdp/` are spec artifacts that external users need.
 
 ### Artifact Placement
 
@@ -381,8 +392,8 @@ Example: `go run ./cmd/sdp-orchestrate --feature F053 --next-action`
 
 | File | Purpose |
 |---|---|
-| `docs/architecture/REPO-BOUNDARY.md` | sdp vs sdp_dev boundary, component mapping |
-| `docs/MULTI-REPO-WORKFLOW.md` | Multi-repo cheat sheet, commit workflow |
+| `docs/architecture/REPO-BOUNDARY.md` | sdp vs sdp_lab boundary, component mapping |
+| `docs/MULTI-REPO-WORKFLOW.md` | Multi-repo cheat sheet, commit workflow, submodule recovery |
 | `docs/roadmap/ROADMAP.md` | Features F001-F013, phases, dependencies |
 | `docs/workstreams/INDEX.md` | All workstreams with status |
 | `docs/workstreams/backlog/00-XXX-YY.md` | Individual workstream: goal, scope, acceptance criteria |
