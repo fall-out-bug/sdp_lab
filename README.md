@@ -1,6 +1,7 @@
-# SDP Dev Control Workspace
+# SDP Lab Control Workspace
 
 Private planning and orchestration workspace for SDP evolution.
+GitHub repo name: `sdp_lab`. Historical docs and bead IDs may still use `sdp_dev` as a legacy label for the same root repo.
 
 ## Rules
 
@@ -10,7 +11,8 @@ Private planning and orchestration workspace for SDP evolution.
 
 ## Folders
 
-- `docs/architecture/REPO-BOUNDARY.md` - sdp vs sdp_dev boundary (binaries, publish mapping).
+- `docs/architecture/REPO-BOUNDARY.md` - sdp vs sdp_lab boundary (binaries, publish mapping).
+- `docs/MULTI-REPO-WORKFLOW.md` - parent repo vs submodule commit order, branch defaults, and recovery steps.
 - `docs/PRIVATE_BLUEPRINT.md` - full private architecture and roadmap.
 - `docs/OSS_EXPORT_TEMPLATE.md` - sanitized structure for public RFCs.
 - `docs/REDACTION_RULES.md` - what must never leak to OSS.

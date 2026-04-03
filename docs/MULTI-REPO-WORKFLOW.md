@@ -1,11 +1,20 @@
-# Multi-Repo Workflow
+# sdp_lab <-> sdp Workflow
 
 Use this repo as a two-repo workspace:
 
 | Path | Repo | Remote | Typical change |
 |------|------|--------|----------------|
-| Root, `internal/`, `cmd/`, `docs/` | `sdp_lab` / `sdp_dev` | `https://github.com/fall-out-bug/sdp_lab` | Lab code, research docs, orchestration |
+| Root, `internal/`, `cmd/`, `docs/` | `sdp_lab` | `https://github.com/fall-out-bug/sdp_lab` | Lab code, research docs, orchestration |
 | `sdp/` | `sdp` submodule | `https://github.com/fall-out-bug/sdp.git` | Public protocol artifacts, prompts, hooks, `sdp-plugin` |
+
+Historical note: many workstreams and beads IDs still use `sdp_dev-*` as a legacy label for the root repo. That is history, not a third repo.
+
+## Branch defaults
+
+| Repo | Default branch |
+|------|----------------|
+| `sdp_lab` | `main` |
+| `sdp` | `main` |
 
 ## Decide the repo first
 
