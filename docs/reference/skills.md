@@ -192,6 +192,17 @@ Use when:
 - `@idea` is internal to `@vision` and `@feature`
 - `@design` is internal to `@feature` unless manual decomposition is explicitly requested
 - explicit `plan` flow is conditional, not a mandatory public step
+- `superpowers` is an upstream capability source, not a second canonical skill tree for SDP
+
+Current intake decision:
+
+- keep the public path unchanged;
+- absorb only curated capabilities from `superpowers` into SDP;
+- wave 1 candidates are the visual companion, a conditional local worktree helper, and the internal two-stage review pattern used by `@oneshot`.
+
+Reference:
+
+- `docs/plans/2026-04-01-superpowers-curated-intake-wave-1.md`
 
 Skills that still depend on phantom commands, wrong language assumptions, or duplicated workflow logic should be rewritten or removed.
 
