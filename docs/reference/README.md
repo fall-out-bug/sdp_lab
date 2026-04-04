@@ -14,6 +14,7 @@ Start here:
 | Need | Reference |
 |---|---|
 | Project identity and read order | [project-map.md](project-map.md) |
+| Adopt SDP in another repo | [../../sdp/docs/QUICKSTART.md](../../sdp/docs/QUICKSTART.md) |
 | Canonical loop and default agents | [agent-catalog.md](agent-catalog.md) |
 | Canonical skill surface | [skills.md](skills.md) |
 | Commands | [commands.md](commands.md) |
