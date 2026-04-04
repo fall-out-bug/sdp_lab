@@ -14,4 +14,4 @@ This directory contains strategic thinking about SDP's direction.
 
 - **Agent platform first** — `sdp_lab` is moving toward a reusable agent platform with kernel, augmentation, adapters, evals, and trust as one lane
 - **Trust lane, not whole story** — protocol, provenance, policy, and evidence remain important, but no longer define the entire product thesis
-- **Roadmap and backlog** — active execution priority lives in the private `sdp_lab` roadmap and workstream backlog
+- **Roadmap and backlog** — planning priority lives in the private `sdp_lab` roadmap and workstream backlog; the live executable queue still comes from Beads

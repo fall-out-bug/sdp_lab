@@ -117,10 +117,12 @@ Use the `beads issue` graph for:
 ### Step 3: Claim ready work
 
 ```bash
-bd ready                    # or: look at docs/roadmap/ROADMAP.md
+bd ready                    # live executable queue
 bd show <id>                # read acceptance criteria
 bd update <id> --status in_progress
 ```
+
+Use `docs/roadmap/ROADMAP.md` and `docs/workstreams/INDEX.md` for planning priority, not as a substitute for the live Beads queue.
 
 Each executable unit must link back to one `feature` and one `workstream`.
 
