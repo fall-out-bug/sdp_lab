@@ -541,18 +541,23 @@ jobs:
         with:
           go-version: '1.26'
 
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.0
+
       - name: Generate auto-attestation
         id: attest
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           BASE_REF: ${{ github.base_ref }}
+          HEAD_BRANCH: ${{ github.head_ref }}
         run: |
           set -e
           mkdir -p .sdp/attestations
           ATTEST_FAILED=false
           if ! go run ./internal/evidence/cmd/auto-attest \
             --base-branch "$BASE_REF" \
+            --branch "$HEAD_BRANCH" \
             --pr-number "$PR_NUMBER" \
             --pr-url "$PR_URL" \
             --output .sdp/attestations/ci-auto.json \
