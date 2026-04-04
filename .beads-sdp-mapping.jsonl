@@ -127,16 +127,6 @@
 {"sdp_id":"00-090-02","beads_id":"sdplab-ac2g","updated_at":"2026-03-16T00:00:00Z"}
 {"sdp_id":"00-090-03","beads_id":"sdplab-pglm","updated_at":"2026-03-16T00:00:00Z"}
 {"sdp_id":"00-090-04","beads_id":"sdplab-y37p","updated_at":"2026-03-16T00:00:00Z"}
-{"workstream_id":"00-069-06","feature_id":"F069","beads_project":"sdp_dev","beads_label":"sdp:project-sdp_dev"}
-{"workstream_id":"00-069-07","feature_id":"F069","beads_project":"sdp_dev","beads_label":"sdp:project-sdp_dev"}
-{"workstream_id":"00-069-08","feature_id":"F069","beads_project":"sdp_dev","beads_label":"sdp:project-sdp_dev"}
-{"workstream_id":"00-069-09","feature_id":"F069","beads_project":"sdp_dev","beads_label":"sdp:project-sdp_dev"}
-{"workstream_id":"00-069-10","feature_id":"F069","beads_project":"sdp_dev","beads_label":"sdp:project-sdp_dev"}
-{"workstream_id":"00-069-11","feature_id":"F069","beads_project":"sdp_dev","beads_label":"sdp:project-sdp_dev"}
-{"workstream_id":"00-069-12","feature_id":"F069","beads_project":"sdp_dev","beads_label":"sdp:project-sdp_dev"}
-{"workstream_id":"00-069-13","feature_id":"F069","beads_project":"sdp_dev","beads_label":"sdp:project-sdp_dev"}
-{"workstream_id":"00-069-14","feature_id":"F069","beads_project":"sdp_dev","beads_label":"sdp:project-sdp_dev"}
-{"workstream_id":"00-069-15","feature_id":"F069","beads_project":"sdp_dev","beads_label":"sdp:project-sdp_dev"}
 {"sdp_id":"00-069-06","beads_id":"","updated_at":"2026-03-25T00:00:00Z"}
 {"sdp_id":"00-069-07","beads_id":"","updated_at":"2026-03-25T00:00:00Z"}
 {"sdp_id":"00-069-08","beads_id":"","updated_at":"2026-03-25T00:00:00Z"}
@@ -149,7 +139,7 @@
 {"sdp_id":"00-069-15","beads_id":"","updated_at":"2026-03-25T00:00:00Z"}
 {"sdp_id":"00-096-02","beads_id":"sdplab-s9u","updated_at":"2026-04-01T00:00:00Z"}
 {"sdp_id":"00-091-01","beads_id":"sdplab-d15","updated_at":"2026-04-01T00:00:00Z"}
-{"sdp_id":"00-092-01","beads_id":"sdplab-62a","updated_at":"2026-04-01T00:00:00Z"}
+{"sdp_id":"00-092-01","beads_id":"sdplab-nkr","updated_at":"2026-04-04T00:00:00Z"}
 {"sdp_id":"00-092-02","beads_id":"sdplab-7uz","updated_at":"2026-04-01T00:00:00Z"}
 {"sdp_id":"00-093-01","beads_id":"sdplab-5f1","updated_at":"2026-04-01T00:00:00Z"}
 {"sdp_id":"00-093-02","beads_id":"sdplab-cxu","updated_at":"2026-04-01T00:00:00Z"}

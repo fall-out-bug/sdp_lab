@@ -1,6 +1,6 @@
 # sdp_lab Roadmap — Agent Platform + Trust Lane
 
-> **Updated:** 2026-04-01
+> **Updated:** 2026-04-04
 > **Repo naming:** GitHub repo is `sdp_lab`; historical workstreams and bead IDs may still use `sdp_dev` as a legacy label for the same codebase
 > **Direction:** Reusable agent platform (`kernel`, `adapters`, `augmentation`, `evals`) with standards-based trust and evidence as a secondary lane
 > **Platform Reset:** [AGENT_PLATFORM_ROADMAP_2026-03-31.md](AGENT_PLATFORM_ROADMAP_2026-03-31.md) + [2026-03-31-platform-backlog-reset.md](../plans/2026-03-31-platform-backlog-reset.md)
@@ -20,7 +20,7 @@
 
 Execution priority has changed.
 
-Current build priority is the platform reset lane:
+Current planning priority is the platform reset lane:
 
 - `F091` backlog reset and canonical doc sync
 - `F092` kernel contract surface
@@ -31,6 +31,8 @@ Current build priority is the platform reset lane:
 
 Trust, evidence, and enterprise governance remain in the roadmap.
 They are now the `trust lane`, not the whole product story.
+
+This lane is not an exclusive ready queue. `bd ready` remains the live source of executable work, and older ecosystem tasks can still coexist in Beads until they are explicitly triaged or deprioritized.
 
 Two horizons. Phases 1-7 build the trust layer as CLI tools with CI enforcement. Phases 8-9 extend the same standards into K8s for autonomous swarm execution. The dream (issue in, PR with proof out) doesn't change — the path becomes standards-based.
 
@@ -317,7 +319,7 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 - **F054** — Continuous Protocol Improvement (00-054-01 … 00-054-06). Historical workflow and agent contract sync lane. **Status: DONE**.
 - **F055** — Evidence Enforcement Reality (00-055-01 … 00-055-03). Evidence commit flow, CI gate blocking, and branch protection validation. **Status: DONE**.
 - **F056** — Local Git Hook Enforcement (00-056-01 … 00-056-03). Pre-commit, pre-push, and install/docs lane. **Status: DONE**.
-- **F096** — Legacy Drift Cleanup (00-096-01 ... 00-096-03). Support lane for roadmap/index/backlog hygiene. Buckets A-D are complete; future cleanup is issue-driven, including parked tech debt around Beads shared-Dolt cutover.
+- **F096** — Legacy Drift Cleanup (00-096-01 ... 00-096-03). Support lane for roadmap/index/backlog hygiene. Buckets A-D are complete; the remaining Dolt cutover item is blocked on external remote/secrets, so this lane is parked rather than actively executing.
 
 ### Ongoing
 - **F059** — OhMyOpenCode Evidence Integration (00-059-01 … 00-059-04). Pre-tool-call guard, session evidence emitter, permission↔guard bridge, stuck detection. Phase 5. **Status: DONE** (sdp-omc-guard, sdp-ready implemented).

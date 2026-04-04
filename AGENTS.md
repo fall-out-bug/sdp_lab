@@ -78,9 +78,9 @@ scripts/beads_transport.sh export  # Publish Beads state after work
 
 ### Beads ↔ Workstream Sync
 
-- **Mapping:** `.beads-sdp-mapping.jsonl` maps `00-XXX-YY` (WS ID) → `sdp_dev-abc` (legacy beads prefix for this repo)
-- **WS files:** Each `docs/workstreams/backlog/00-XXX-YY.md` has `Feature: FXXX (sdp_dev-abc)` with the beads ID
-- **Coverage warning:** do not assume line-count parity between `.beads-sdp-mapping.jsonl` and `docs/workstreams/backlog/*.md`; that legacy rule is under triage in `sdplab-3ks`
+- **Mapping:** `.beads-sdp-mapping.jsonl` is a helper map from `00-XXX-YY` to one primary `sdplab-*` issue when automation needs a direct lookup.
+- **WS files:** The canonical live issue links belong in each workstream file's `## Beads` section. The `Feature: FXXX (...)` line names the feature, not the Beads issue.
+- **Coverage rule:** do not assume `.beads-sdp-mapping.jsonl` has 1:1 line-count parity with `docs/workstreams/backlog/*.md`. Historical backlog coverage is intentionally partial, and one workstream can accumulate more than one Beads issue over time.
 
 ## Feature Delivery Flow
 
