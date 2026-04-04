@@ -71,10 +71,12 @@ The default operator path in `sdp_lab` is local and PR-driven.
 
 K8s, swarm, and NATS flows are background or optional execution environments, not the default operator starting point.
 
+Roadmap and workstream docs set planning priority. Beads is still the live execution graph. If `bd ready` disagrees with a planning doc, fix the planning doc or file a Beads follow-up instead of freelancing from stale text.
+
 ## Sequence
 
 1. **Shape `feature`:** confirm linked `workstream` and acceptance are clear enough to execute.
-2. **Find ready work:** `bd ready`
+2. **Find ready work:** `bd ready` (`bd ready` is authoritative for executable work; roadmap/index are not a substitute for the live queue)
 3. **Get context:** `bd show <id>`
 4. **Claim:** `bd update <id> --status in_progress`
 5. **Preflight:** `git pull`, `scripts/beads_transport.sh fetch`, confirm branch and linked `PR` state.

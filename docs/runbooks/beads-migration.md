@@ -1,92 +1,31 @@
 # Beads Migration Runbook
 
-**Purpose:** Migrate SDP workstreams (markdown) to Beads tasks for 100% integration.
+Status: historical context, not the current default workflow
 
-## Beads-First Workflow
+The old `bd sync` and `sdp beads migrate` flow is no longer the live operating model in this repo.
 
-**Recommended:** Create Beads tasks first, then workstream markdown.
+## Current Rule
 
-```
-✅ Right:  bd create → work → bd sync → commit
-❌ Wrong:  Create .md file → (forget bd sync)
-```
+- create or locate the Beads issue directly with `bd create`, `bd show`, or `bd ready`
+- record canonical issue links in the workstream file under `## Beads`
+- use `.beads-sdp-mapping.jsonl` only as helper lookup data when automation needs one primary WS → Beads mapping
+- use `./scripts/beads_transport.sh fetch` and `./scripts/beads_transport.sh export` for transport
 
-**If you created workstream markdown manually** (e.g., via @design or copy-paste):
+## What Changed
 
-```bash
-# Sync markdown → Beads
-sdp beads migrate docs/workstreams/backlog/ --real
-sdp beads migrate docs/workstreams/completed/ --real
+- `bd 0.61.0` removed `bd sync`
+- this repo does not treat `.beads-sdp-mapping.jsonl` as a full 1:1 mirror of every backlog file
+- one workstream can accumulate more than one Beads issue over time, so the workstream file is the canonical live trace
 
-# Verify
-bd list | grep <ws_id>
-sdp guard activate <ws_id>  # Should work after migration
-```
+## If You Need To Reconcile Workstream And Beads State
 
-**Guard activate:** Accepts both `ws_id` (00-020-03) and Beads task ID (sdp-4qq). Resolves via `.beads-sdp-mapping.jsonl`.
+1. Inspect the workstream file and the `## Beads` section.
+2. Check the live issue state with `bd show <id>` or `bd ready`.
+3. Update the workstream file if ownership changed or the current Beads issue is missing.
+4. Update `.beads-sdp-mapping.jsonl` only if a primary lookup needs to move.
 
-## Prerequisites
+## Related Docs
 
-- Beads CLI installed: `bd --version`
-- Beads initialized: `bd init` (creates `.beads/`)
-- Project in SDP format with workstreams in `docs/workstreams/`
-
-## Migration Command
-
-```bash
-# Migrate backlog (work to be done)
-poetry run sdp beads migrate docs/workstreams/backlog/ --real
-
-# Migrate completed (historical)
-poetry run sdp beads migrate docs/workstreams/completed/ --real
-```
-
-**Note:** Use `--real` for real Beads CLI. Without it, uses mock (no actual tasks created).
-
-## Workstream Requirements
-
-For migration to succeed, workstream must have YAML frontmatter with:
-
-- `ws_id` — PP-FFF-SS format (e.g., 00-032-01)
-- `feature` — Feature ID (e.g., F032)
-- `status` — backlog | active | completed | blocked
-- `size` — SMALL | MEDIUM | LARGE
-
-**Excluded from migration:**
-- `00-032-00-*` — Feature overviews (no ws_id)
-- `BEADS-001-*` — Epics (different format)
-- Files without frontmatter (P0/P1 runbooks)
-- Legacy WS with `id:` instead of `ws_id:`
-
-## Output
-
-- **Mapping file:** `.beads-sdp-mapping.jsonl` (ws_id ↔ beads_id, deduplicated on each run)
-- **Beads tasks:** Created in `.beads/issues.jsonl`
-
-**Note:** Migration calls `persist_mapping()` at the end to deduplicate the mapping file (fixes legacy append-duplicates).
-
-## Verification
-
-```bash
-# Count migrated workstreams
-wc -l .beads-sdp-mapping.jsonl
-
-# List Beads tasks
-bd list
-
-# Check ready tasks
-bd ready
-
-# SDP status
-poetry run sdp beads status
-```
-
-## Troubleshooting
-
-**"title must be 500 characters or less"** — Fixed in sync: title truncated to 500 chars.
-
-**"Missing required fields"** — Add ws_id, feature, status, size to frontmatter.
-
-**"No frontmatter found"** — File uses blockquote format; add YAML frontmatter or exclude.
-
-**Dependencies not linked** — Migrate in dependency order, or run migration twice (second run updates deps).
+- [../beads-transport.md](beads-transport.md)
+- [../../AGENTS.md](../../AGENTS.md)
+- [../MULTI-REPO-WORKFLOW.md](../MULTI-REPO-WORKFLOW.md)

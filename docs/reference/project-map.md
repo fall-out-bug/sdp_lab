@@ -47,8 +47,8 @@ Use one source per question.
 | What belongs in `sdp_lab` vs `sdp`? | [docs/architecture/REPO-BOUNDARY.md](../architecture/REPO-BOUNDARY.md) |
 | What is the canonical operator loop? | [docs/plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md](../plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md) |
 | What agents and skills are on the happy path? | [agent-catalog.md](agent-catalog.md), [skills.md](skills.md) |
-| What is ready or blocked right now? | `bd ready`, `bd show`, `docs/workstreams/INDEX.md` |
-| What work exists in backlog form? | `docs/workstreams/backlog/`, `.beads-sdp-mapping.jsonl` (legacy coverage gaps still under triage) |
+| What is ready or blocked right now? | `bd ready` and `bd show` are authoritative; `docs/workstreams/INDEX.md` is only the planning summary |
+| What work exists in backlog form? | `docs/workstreams/backlog/` is canonical backlog; `.beads-sdp-mapping.jsonl` is helper data, not full historical coverage |
 | How does an operator execute a feature? | [docs/SDP_OPERATOR_WORKFLOW.md](../SDP_OPERATOR_WORKFLOW.md), [docs/REAL_FEATURE_TO_PR_RUNBOOK.md](../REAL_FEATURE_TO_PR_RUNBOOK.md) |
 | How do docs stay consistent? | `go run ./cmd/sdp-protocol-check --format json`, `go run ./cmd/sdp-doc-sync --mode check --strict` |
 
