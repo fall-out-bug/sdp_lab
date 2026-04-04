@@ -27,7 +27,7 @@ Do not use this doc as your main onboarding path if your real goal is:
 - give SDP your IDE and keys
 - start greenfield delivery or brownfield adoption
 
-For that path, go straight to [../../sdp/docs/QUICKSTART.md](../../sdp/docs/QUICKSTART.md). Today that quickstart is honest for `Claude Code`, `Cursor`, and `OpenCode`. `Codex` compatibility exists, but setup is still more manual; use [../../sdp/.codex/INSTALL.md](../../sdp/.codex/INSTALL.md).
+For that path, go straight to [../../sdp/docs/QUICKSTART.md](../../sdp/docs/QUICKSTART.md). Today that quickstart covers `Claude Code`, `Cursor`, `OpenCode`, and `Codex`. Use [../../sdp/.codex/INSTALL.md](../../sdp/.codex/INSTALL.md) for Codex-specific notes after install.
 
 ## Main Components
 
