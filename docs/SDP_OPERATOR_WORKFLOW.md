@@ -1,7 +1,7 @@
 # SDP Operator Workflow
 
 Status: reference
-Scope: Beads + orchestrate + quality gates + evidence + `QA/UAT` for operator tasks
+Scope: local operator workflow for `feature` -> `workstream` -> `beads` -> PR -> `QA/UAT`
 
 ## Overview
 
@@ -10,6 +10,7 @@ This document describes the canonical SDP operator loop for conducting work thro
 Canonical design references:
 
 - [../AGENTS.md](../AGENTS.md)
+- [reference/project-map.md](reference/project-map.md)
 - [plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md](plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md)
 
 ## Workflow Diagram
@@ -17,19 +18,18 @@ Canonical design references:
 ```mermaid
 flowchart TD
     subgraph beads [Beads]
-        Ready[bd ready --label autonomy]
+        Ready[bd ready]
         Show[bd show id]
         Claim[bd update id --status in_progress]
         Close[bd close id --reason]
-        Sync[bd sync]
+        Export[scripts/beads_transport.sh export]
     end
 
     subgraph orchestrate [Orchestrate]
-        Preflight[git pull + bd sync --import-only]
+        Preflight[git pull + scripts/beads_transport.sh fetch]
         DraftPR[ensure early draft PR]
-        Dispatch[orchestrate_k8s_issue.sh --host --issue]
-        Worker[opencode-agent runs swarm-worker]
-        Reviewer[swarm-reviewer]
+        Execute[run local execution path]
+        Reviewer[reviewer or review loop]
         Findings[review or CI findings become beads issues]
         QA[QA or UAT verdict]
     end
@@ -48,48 +48,43 @@ flowchart TD
     end
 
     Ready --> Show --> Claim
-    Claim --> Preflight --> DraftPR --> Dispatch
-    Dispatch --> Worker --> SDP --> Reviewer
+    Claim --> Preflight --> DraftPR --> Execute
+    Execute --> SDP --> Reviewer
     Reviewer --> PRGate --> Trace --> Drift --> Findings
     Findings -->|blocking findings| Ready
     Findings -->|clean PR| QA
     QA -->|qa:fail| Ready
-    QA -->|qa:pass| FSM --> Close --> Sync
+    QA -->|qa:pass| FSM --> Close --> Export
 ```
 
-## NATS Flow (Swarm Platform)
+## Default Loop
 
-When the swarm platform is deployed, intake and lifecycle flow through NATS:
+The default operator path in `sdp_lab` is local and PR-driven.
 
-```mermaid
-flowchart LR
-    Intake[POST /api/v1/intake] --> Gateway[intake-gateway]
-    Gateway -->|publish| NATS[(NATS JetStream)]
-    NATS -->|sdp.intake.{project}| Orchestrator[swarm-orchestrator]
-    Orchestrator -->|dispatch| Coder[role-agent-coder]
-    Orchestrator -->|dispatch| Analyst[role-agent-analyst]
-    Coder -->|sdp.lifecycle.>| NATS
-    Analyst -->|sdp.lifecycle.>| NATS
-```
+- shape work in `feature` and `workstream`
+- use Beads as the durable execution graph
+- branch from `main`
+- open an early draft PR
+- run local execution and verification
+- feed findings back into Beads
+- finish with `QA/UAT` and a clean PR
 
-- **Subjects:** `sdp.intake.{projectID}` (intake), `sdp.lifecycle.>` (lifecycle events)
-- **Stream:** `SDP_INTAKE` (JetStream)
-- **KEDA:** Scales coder/analyst agents by consumer lag
+K8s, swarm, and NATS flows are background or optional execution environments, not the default operator starting point.
 
 ## Sequence
 
 1. **Shape `feature`:** confirm linked `workstream` and acceptance are clear enough to execute.
-2. **Find ready work:** `bd ready --label autonomy --label workstream:kubeopencode-upstream` (or `workstream:agentrun-operator`)
+2. **Find ready work:** `bd ready`
 3. **Get context:** `bd show <id>`
 4. **Claim:** `bd update <id> --status in_progress`
-5. **Preflight:** git pull, `bd sync --import-only`, confirm branch and linked `PR` state.
+5. **Preflight:** `git pull`, `scripts/beads_transport.sh fetch`, confirm branch and linked `PR` state.
 6. **Open early `draft PR`:** create or re-use the feature `PR` at the first blocking `workstream` or first meaningful change.
-7. **Dispatch execution:** locally or via `scripts/orchestrate_k8s_issue.sh --host <user@ip> --issue <id>`
-8. **In pod:** swarm-worker executes the task and records `evidence`, `trace`, and `drift` inputs.
+7. **Execute:** use the local operator path unless a workstream explicitly requires swarm or remote infrastructure.
+8. **Record artifacts:** execution must produce `evidence`, `trace`, and `drift` inputs.
 9. **Quality gates:** `sdp quality all`, `go test ./...`, lint, and any workstream-specific verification.
 10. **Review loop:** reviewer validates output; any review, CI, or `drift` finding becomes a typed `beads issue` with `source`, linked `feature`, linked `workstream`, `blocking`, and `PR` or artifact reference.
 11. **`QA/UAT`:** after engineering gates are clean, run `QA/UAT` against the `feature` intent. `qa:fail` creates new blocking `beads issue`; `qa:pass` records `UAT evidence`.
-12. **Complete:** `cmd/beads-fsm` moves flow to `verified` and `done`, then `bd close <id> --reason "..."`, `bd sync`.
+12. **Complete:** `cmd/beads-fsm` moves flow to `verified` and `done`, then `bd close <id> --reason "..."`, `scripts/beads_transport.sh export`.
 
 ## Findings Loop
 
@@ -109,20 +104,16 @@ Contract reference:
 
 The operator loop is not complete until all blocking findings are resolved and the active `PR` is clean.
 
-## Workstreams
+## Optional Runtime Paths
 
-| Workstream | Paths | Use case |
-|------------|-------|----------|
-| `workstream:kubeopencode-upstream` | docs/, specs/, scripts/, internal/adapter/ | UP-001 fixes, adapter changes |
-| `workstream:agentrun-operator` | internal/controller/, api/, deploy/k8s/, docs/, specs/, scripts/ | O2 AgentRun CRD, controller, RBAC |
+Use these only when the workstream explicitly requires them:
 
-## Orchestrate Script
+- swarm or K8s execution
+- NATS-backed intake flows
+- remote `orchestrate_k8s_issue.sh` execution
+- operator-controller development under `deploy/`, `api/`, or `internal/controller/`
 
-```bash
-scripts/orchestrate_k8s_issue.sh --host <user@ip> --issue <beads-id> [--timeout 300] [--retries 3]
-```
-
-Preflight: git pull, bd sync --import-only, then exec into opencode-agent pod to run swarm-worker.
+If none of those are true, stay on the local path.
 
 ## Quality Gates
 
@@ -141,6 +132,7 @@ Preflight: git pull, bd sync --import-only, then exec into opencode-agent pod to
 
 ## References
 
+- [reference/project-map.md](reference/project-map.md)
 - [BEADS_AUTONOMY_SPEC.md](BEADS_AUTONOMY_SPEC.md)
 - [BEADS_SDP_REQUIREMENTS.md](BEADS_SDP_REQUIREMENTS.md)
 - [K8S_OPERATOR_BACKLOG_PLAN.md](K8S_OPERATOR_BACKLOG_PLAN.md)

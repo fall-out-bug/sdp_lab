@@ -24,11 +24,13 @@ type AutoAttestOptions struct {
 	PRNumber   string
 	PRURL      string
 	RepoRoot   string
+	BranchName string
 }
 
 type autoAttestFacts struct {
 	changedFiles []string
 	branch       string
+	workstreams  []string
 	headSHA      string
 	commits      []string
 	beadsIDs     []string
@@ -67,9 +69,12 @@ func collectAutoAttestFacts(opts AutoAttestOptions) (autoAttestFacts, error) {
 	}
 
 	branch, err := gitCurrentBranch(opts.RepoRoot)
-	if err != nil {
+	if strings.TrimSpace(opts.BranchName) != "" {
+		branch = strings.TrimSpace(opts.BranchName)
+	} else if err != nil {
 		return autoAttestFacts{}, fmt.Errorf("git branch: %w", err)
 	}
+	workstreams := extractWorkstreamsFromBranch(branch)
 
 	headSHA, err := gitHeadSHA(opts.RepoRoot)
 	if err != nil {
@@ -89,11 +94,12 @@ func collectAutoAttestFacts(opts AutoAttestOptions) (autoAttestFacts, error) {
 
 	testResults, coverage := collectTestResults(opts.RepoRoot)
 	lintResults := collectLintResults(opts.RepoRoot)
-	boundary, _ := checkScopeCompliance(opts.RepoRoot, changedFiles)
+	boundary, _ := checkScopeCompliance(opts.RepoRoot, changedFiles, workstreams)
 
 	return autoAttestFacts{
 		changedFiles: changedFiles,
 		branch:       branch,
+		workstreams:  workstreams,
 		headSHA:      headSHA,
 		commits:      commits,
 		beadsIDs:     beadsIDs,
@@ -112,7 +118,7 @@ func buildAutoAttestPredicate(opts AutoAttestOptions, facts autoAttestFacts) Cod
 			Trigger: "ci-auto-attestation",
 		},
 		Plan: Plan{
-			Workstreams:       extractWorkstreamsFromBranch(facts.branch),
+			Workstreams:       facts.workstreams,
 			OrderingRationale: "auto-detected from branch name",
 		},
 		Execution: Execution{
@@ -180,14 +186,18 @@ func gitCommitsSinceBase(repoRoot, baseBranch string) ([]string, error) {
 	return splitLines(out), nil
 }
 
-var beadsIDRe = regexp.MustCompile(`sdp_dev-[a-z0-9]{4}`)
+var beadsIDRe = regexp.MustCompile(`(?:sdplab|sdp_dev)-[a-z0-9]+`)
 
 func extractBeadsIDsFromCommits(repoRoot, baseBranch string) []string {
 	baseRef := gitutil.ComparisonBase(context.Background(), repoRoot, baseBranch)
 	out, _ := runGit(repoRoot, "log", "--format=%s %b", baseRef+"...HEAD")
+	return extractBeadsIDs(out)
+}
+
+func extractBeadsIDs(text string) []string {
 	seen := map[string]bool{}
 	var ids []string
-	for _, id := range beadsIDRe.FindAllString(out, -1) {
+	for _, id := range beadsIDRe.FindAllString(text, -1) {
 		if !seen[id] {
 			seen[id] = true
 			ids = append(ids, id)
@@ -299,7 +309,7 @@ func collectLintResults(repoRoot string) []GateResult {
 	// Run golangci-lint if available
 	lintPath, err := exec.LookPath("golangci-lint")
 	if err == nil {
-		lintCmd := exec.CommandContext(context.Background(), lintPath, "run", "--out-format=line-number", "--timeout=120s", "./...")
+		lintCmd := exec.CommandContext(context.Background(), lintPath, "run", "--timeout=120s", "./...")
 		lintCmd.Dir = repoRoot
 		lintOut, lintErr := lintCmd.CombinedOutput()
 		lintStatus := "pass"
@@ -315,20 +325,24 @@ func collectLintResults(repoRoot string) []GateResult {
 
 // checkScopeCompliance checks changed files against declared workstream scope files.
 // Returns a Boundary and whether it's compliant.
-func checkScopeCompliance(repoRoot string, changedFiles []string) (Boundary, bool) {
+func checkScopeCompliance(repoRoot string, changedFiles []string, workstreams []string) (Boundary, bool) {
 	boundary := Boundary{
 		Observed: ObservedBoundary{
 			TouchedPaths: changedFiles,
 		},
 	}
 
-	// Try to find declared scope from workstream files in the backlog
-	declaredPrefixes := collectDeclaredScopePrefixes(repoRoot)
+	// Scope should be evaluated only against workstreams linked to this change.
+	declaredPrefixes := collectDeclaredScopePrefixes(repoRoot, workstreams)
 
 	if len(declaredPrefixes) == 0 {
+		reason := "no linked workstreams — auto-attested from CI observation"
+		if len(workstreams) > 0 {
+			reason = fmt.Sprintf("linked workstreams %s declare no scope files — auto-attested from CI observation", strings.Join(workstreams, ", "))
+		}
 		boundary.Compliance = BoundaryCompliance{
 			OK:     true,
-			Reason: "no declared scope — auto-attested from CI observation",
+			Reason: reason,
 		}
 		return boundary, true
 	}
@@ -359,23 +373,18 @@ func checkScopeCompliance(repoRoot string, changedFiles []string) (Boundary, boo
 	return boundary, false
 }
 
-// collectDeclaredScopePrefixes reads active workstream files and extracts scope paths.
-func collectDeclaredScopePrefixes(repoRoot string) []string {
-	backlogDir := filepath.Join(repoRoot, "docs", "workstreams", "backlog")
-	entries, err := os.ReadDir(backlogDir)
-	if err != nil {
+// collectDeclaredScopePrefixes reads linked workstream files and extracts scope paths.
+func collectDeclaredScopePrefixes(repoRoot string, workstreams []string) []string {
+	if len(workstreams) == 0 {
 		return nil
 	}
 
+	backlogDir := filepath.Join(repoRoot, "docs", "workstreams", "backlog")
 	var prefixes []string
 	seen := map[string]bool{}
 
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
-			continue
-		}
-
-		f, err := os.Open(filepath.Join(backlogDir, e.Name()))
+	for _, ws := range workstreams {
+		f, err := os.Open(filepath.Join(backlogDir, ws+".md"))
 		if err != nil {
 			continue
 		}
@@ -475,20 +484,29 @@ func WriteAutoAttestationReport(outputPath string, stmt CodingWorkflowStatement)
 		}
 	}
 
+	beadsIDs := stmt.Predicate.Trace.BeadsIDs
+	if beadsIDs == nil {
+		beadsIDs = []string{}
+	}
+	outOfScope := stmt.Predicate.Boundary.Observed.OutOfBoundaryPaths
+	if outOfScope == nil {
+		outOfScope = []string{}
+	}
+
 	report := map[string]any{
 		"type":             "ci-auto-attestation",
 		"generated_at":     stmt.Predicate.Provenance.CapturedAt,
 		"attestation_id":   stmt.Predicate.Provenance.RunID,
 		"branch":           stmt.Predicate.Trace.Branch,
 		"head_commit":      firstOrEmpty(stmt.Predicate.Trace.Commits),
-		"beads_ids":        stmt.Predicate.Trace.BeadsIDs,
+		"beads_ids":        beadsIDs,
 		"changed_files":    len(stmt.Predicate.Execution.ChangedFiles),
 		"test_results":     stmt.Predicate.Verification.Tests,
 		"all_tests_pass":   AllTestsPass,
 		"lint_results":     stmt.Predicate.Verification.Lint,
 		"all_lint_pass":    allLintPass,
 		"scope_compliance": stmt.Predicate.Boundary.Compliance,
-		"out_of_scope":     stmt.Predicate.Boundary.Observed.OutOfBoundaryPaths,
+		"out_of_scope":     outOfScope,
 	}
 	if stmt.Predicate.Verification.Coverage != nil {
 		report["coverage_pct"] = stmt.Predicate.Verification.Coverage.Value

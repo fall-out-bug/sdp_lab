@@ -1,6 +1,7 @@
 package evidence
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,7 +12,7 @@ import (
 
 func TestCheckScopeCompliance_NoDeclaredScope(t *testing.T) {
 	dir := t.TempDir()
-	boundary, ok := checkScopeCompliance(dir, []string{"internal/foo.go"})
+	boundary, ok := checkScopeCompliance(dir, []string{"internal/foo.go"}, nil)
 	if !ok {
 		t.Error("no declared scope should be compliant")
 	}
@@ -87,11 +88,11 @@ func TestWriteAutoAttestationReport(t *testing.T) {
 			Intent: Intent{IssueID: "x"},
 			Trace:  Trace{Branch: "main"},
 			Verification: Verification{
-				Tests: []GateResult{{Name: "go-test", Status: "pass (1 passed, 0 failed)"}},
-				Lint:  []GateResult{{Name: "go-vet", Status: "pass"}},
+				Tests:    []GateResult{{Name: "go-test", Status: "pass (1 passed, 0 failed)"}},
+				Lint:     []GateResult{{Name: "go-vet", Status: "pass"}},
 				Coverage: &Coverage{Value: 85, Threshold: 80},
 			},
-			Boundary: Boundary{Compliance: BoundaryCompliance{OK: true, Reason: "ok"}},
+			Boundary:   Boundary{Compliance: BoundaryCompliance{OK: true, Reason: "ok"}},
 			Provenance: Provenance{RunID: "run-1", CapturedAt: "2026-01-01T00:00:00Z"},
 		},
 	)
@@ -104,6 +105,25 @@ func TestWriteAutoAttestationReport(t *testing.T) {
 	}
 	if len(data) == 0 {
 		t.Error("report should not be empty")
+	}
+
+	var report map[string]any
+	if err := json.Unmarshal(data, &report); err != nil {
+		t.Fatalf("unmarshal report: %v", err)
+	}
+	beadsIDs, ok := report["beads_ids"].([]any)
+	if !ok {
+		t.Fatalf("beads_ids type = %T, want JSON array", report["beads_ids"])
+	}
+	if len(beadsIDs) != 0 {
+		t.Fatalf("beads_ids len = %d, want 0", len(beadsIDs))
+	}
+	outOfScope, ok := report["out_of_scope"].([]any)
+	if !ok {
+		t.Fatalf("out_of_scope type = %T, want JSON array", report["out_of_scope"])
+	}
+	if len(outOfScope) != 0 {
+		t.Fatalf("out_of_scope len = %d, want 0", len(outOfScope))
 	}
 }
 

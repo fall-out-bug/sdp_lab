@@ -24,9 +24,9 @@ func TestCollectDeclaredScopePrefixes_ExtractsScopeFiles(t *testing.T) {
 		t.Fatalf("write workstream 2: %v", err)
 	}
 
-	prefixes := collectDeclaredScopePrefixes(repo)
-	if len(prefixes) != 3 {
-		t.Fatalf("prefix count = %d, want 3 (%v)", len(prefixes), prefixes)
+	prefixes := collectDeclaredScopePrefixes(repo, []string{"00-001-01"})
+	if len(prefixes) != 2 {
+		t.Fatalf("prefix count = %d, want 2 (%v)", len(prefixes), prefixes)
 	}
 
 	joined := strings.Join(prefixes, ",")
@@ -36,8 +36,15 @@ func TestCollectDeclaredScopePrefixes_ExtractsScopeFiles(t *testing.T) {
 	if !strings.Contains(joined, "docs/workstreams/INDEX.md") {
 		t.Fatalf("missing index path in %v", prefixes)
 	}
-	if !strings.Contains(joined, "internal/evidence/discrepancy.go") {
-		t.Fatalf("missing discrepancy path in %v", prefixes)
+	if strings.Contains(joined, "internal/evidence/discrepancy.go") {
+		t.Fatalf("unexpected unrelated workstream path in %v", prefixes)
+	}
+}
+
+func TestCollectDeclaredScopePrefixes_NoLinkedWorkstreams(t *testing.T) {
+	repo := t.TempDir()
+	if got := collectDeclaredScopePrefixes(repo, nil); got != nil {
+		t.Fatalf("collectDeclaredScopePrefixes() = %v, want nil", got)
 	}
 }
 
@@ -65,5 +72,26 @@ func TestCollectTestResults_CommandFailure(t *testing.T) {
 	}
 	if coverage != -1 {
 		t.Fatalf("coverage = %v, want -1 on command error", coverage)
+	}
+}
+
+func TestExtractBeadsIDs_SupportsCurrentAndLegacyPrefixes(t *testing.T) {
+	text := strings.Join([]string{
+		"first sdplab-n8w",
+		"legacy sdp_dev-abcd",
+		"short sdplab-7",
+		"repeat sdplab-n8w",
+	}, "\n")
+
+	got := extractBeadsIDs(text)
+	want := []string{"sdplab-n8w", "sdp_dev-abcd", "sdplab-7"}
+
+	if len(got) != len(want) {
+		t.Fatalf("len(extractBeadsIDs()) = %d, want %d (%v)", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("extractBeadsIDs()[%d] = %q, want %q", i, got[i], want[i])
+		}
 	}
 }

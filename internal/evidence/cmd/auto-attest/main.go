@@ -14,6 +14,7 @@ func main() {
 	prURL := flag.String("pr-url", "", "PR URL")
 	output := flag.String("output", ".sdp/attestations/ci-auto.json", "Output attestation path")
 	report := flag.String("report", "", "Output report path (optional)")
+	branchName := flag.String("branch", "", "Branch name override for detached CI checkouts")
 	flag.Parse()
 
 	wd, err := os.Getwd()
@@ -27,6 +28,7 @@ func main() {
 		PRNumber:   *prNumber,
 		PRURL:      *prURL,
 		RepoRoot:   wd,
+		BranchName: *branchName,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "auto-attest: %v\n", err)
