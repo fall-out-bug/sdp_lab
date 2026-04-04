@@ -2,6 +2,15 @@
 
 > **Sync:** Sync only genuinely shared agent conventions (placement, "продолжай", command tree) to `sdp/CLAUDE.md`. Repo topology, branch policy, beads workflow, and private-lab process stay local to `sdp_lab`. See [docs/plans/2026-02-25-agents-claude-sync-rules.md](docs/plans/2026-02-25-agents-claude-sync-rules.md).
 
+## Start Here
+
+Use these entrypoints before diving into older plans or runbooks:
+
+1. [docs/reference/project-map.md](docs/reference/project-map.md) — project identity, source-of-truth split, read order
+2. [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md) — parent repo vs submodule workflow
+3. [docs/architecture/REPO-BOUNDARY.md](docs/architecture/REPO-BOUNDARY.md) — what belongs in `sdp_lab` vs `sdp`
+4. [docs/roadmap/ROADMAP.md](docs/roadmap/ROADMAP.md) — current platform-first direction
+
 ## Project Structure
 
 This project has **two repos** with different roles:
@@ -71,7 +80,7 @@ scripts/beads_transport.sh export  # Publish Beads state after work
 
 - **Mapping:** `.beads-sdp-mapping.jsonl` maps `00-XXX-YY` (WS ID) → `sdp_dev-abc` (legacy beads prefix for this repo)
 - **WS files:** Each `docs/workstreams/backlog/00-XXX-YY.md` has `Feature: FXXX (sdp_dev-abc)` with the beads ID
-- **Validation:** `wc -l .beads-sdp-mapping.jsonl` must equal `ls docs/workstreams/backlog/*.md | wc -l`
+- **Coverage warning:** do not assume line-count parity between `.beads-sdp-mapping.jsonl` and `docs/workstreams/backlog/*.md`; that legacy rule is under triage in `sdplab-3ks`
 
 ## Feature Delivery Flow
 

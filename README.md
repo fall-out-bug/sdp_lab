@@ -9,6 +9,17 @@ GitHub repo name: `sdp_lab`. Historical docs and bead IDs may still use `sdp_dev
 - Do not publish private architecture, enterprise scope, or commercial details into OSS repos.
 - Export to OSS only through sanitized artifacts.
 
+## Start Here
+
+Use these as the canonical entrypoints:
+
+1. `docs/reference/project-map.md` - what this repo is, where source of truth lives, and what to read first
+2. `AGENTS.md` - operator rules, repo boundaries, branch policy, and delivery flow
+3. `docs/MULTI-REPO-WORKFLOW.md` - `sdp_lab` vs `sdp` commit workflow
+4. `docs/roadmap/ROADMAP.md` - current product direction and active feature train
+
+This README is a broad inventory, not the canonical workflow doc.
+
 ## Folders
 
 - `docs/architecture/REPO-BOUNDARY.md` - sdp vs sdp_lab boundary (binaries, publish mapping).
