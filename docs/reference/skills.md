@@ -4,9 +4,18 @@ Status: canonical reference
 
 Canonical design reference:
 
-- `docs/plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md`
+- `docs/reference/canonical-happy-path.md`
+- `docs/plans/2026-04-05-canonical-sdp-happy-path-consistency.md`
 
 This document defines the public SDP skill surface and the internal or conditional skills that support the canonical workflow.
+
+Skills are the guided control surface over the canonical stage model.
+They are not a second workflow separate from board state, Beads, CLI, PR, or `QA/UAT`.
+
+Mode note:
+
+- `Local Mode` may use skills without a full shared queue
+- full board-backed `Operator Mode` still depends on Beads-backed operational truth
 
 ## Canonical Public Surface
 

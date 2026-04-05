@@ -4,9 +4,16 @@ Status: canonical reference
 
 Canonical design reference:
 
-- `docs/plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md`
+- `docs/reference/canonical-happy-path.md`
+- `docs/plans/2026-04-05-canonical-sdp-happy-path-consistency.md`
 
-This document defines the default SDP agent workflow.
+This document defines the default SDP agent workflow for the canonical happy path.
+
+Mode note:
+
+- `Local Mode` is the adoption ramp
+- this catalog primarily describes the agent ownership model for full `Operator Mode`
+- skills and CLI remain control surfaces over the same stage model
 
 ## Canonical SDP Loop
 

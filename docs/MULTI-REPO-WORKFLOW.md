@@ -1,5 +1,7 @@
 # sdp_lab <-> sdp Workflow
 
+If your real goal is "install SDP into my own repo and start using it", leave this doc and go to [../sdp/docs/QUICKSTART.md](../sdp/docs/QUICKSTART.md). This file is only for contributors working across the private parent repo and the public submodule.
+
 Use this repo as a two-repo workspace:
 
 | Path | Repo | Remote | Typical change |

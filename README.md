@@ -1,13 +1,37 @@
 # SDP Lab Control Workspace
 
-Private planning and orchestration workspace for SDP evolution.
+Private build, planning, and orchestration workspace for SDP.
 GitHub repo name: `sdp_lab`. Historical docs and bead IDs may still use `sdp_dev` as a legacy label for the same root repo.
+
+## What This Repo Actually Does
+
+`sdp_lab` is the private repo where we build and steer the SDP platform itself.
+
+- platform code lives here: Go binaries, orchestration, evals, adapters, K8s manifests
+- planning lives here: roadmap, workstreams, private design docs, execution runbooks
+- public protocol artifacts live in `sdp/`: prompts, hooks, schemas, and OSS CLI work
+
+If your goal is to **use SDP inside your own project**, this repo is not the primary onboarding surface. Start with [`sdp/docs/QUICKSTART.md`](sdp/docs/QUICKSTART.md).
 
 ## Rules
 
 - This repo is the default place for strategic planning.
 - Do not publish private architecture, enterprise scope, or commercial details into OSS repos.
 - Export to OSS only through sanitized artifacts.
+
+## Choose Your Path
+
+| Goal | Start here |
+|---|---|
+| Understand what `sdp_lab` is and what lives here | [`docs/reference/project-map.md`](docs/reference/project-map.md) |
+| Contribute to the platform or private lab runtime | [`AGENTS.md`](AGENTS.md), [`docs/MULTI-REPO-WORKFLOW.md`](docs/MULTI-REPO-WORKFLOW.md), [`docs/roadmap/ROADMAP.md`](docs/roadmap/ROADMAP.md) |
+| Adopt SDP in a greenfield or brownfield project | [`sdp/docs/QUICKSTART.md`](sdp/docs/QUICKSTART.md), then [`sdp/README.md`](sdp/README.md) |
+
+## IDE Support Today
+
+- public onboarding flow is first-class for `Claude Code`, `Cursor`, and `OpenCode` / `Windsurf`
+- `Codex` prompt compatibility exists in [`sdp/.codex/`](sdp/.codex/), but the public install flow is still manual rather than auto-detected
+- if the question is "can I give SDP my keys and start working?", the honest answer lives in `sdp/`, not in the private-lab runbooks here
 
 ## Start Here
 
@@ -20,7 +44,14 @@ Use these as the canonical entrypoints:
 
 This README is a broad inventory, not the canonical workflow doc.
 
-## Folders
+## Main Components
+
+- `cmd/`, `internal/` - platform binaries, orchestration, evals, kernel, adapters
+- `deploy/` - deployable runtime and observability manifests
+- `docs/roadmap/`, `docs/workstreams/`, `docs/plans/` - planning and execution surfaces
+- `sdp/` - public submodule for prompts, hooks, schemas, and OSS CLI work
+
+## Inventory
 
 - `docs/architecture/REPO-BOUNDARY.md` - sdp vs sdp_lab boundary (binaries, publish mapping).
 - `docs/MULTI-REPO-WORKFLOW.md` - parent repo vs submodule commit order, branch defaults, and recovery steps.

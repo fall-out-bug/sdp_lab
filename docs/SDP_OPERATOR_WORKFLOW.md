@@ -1,17 +1,27 @@
 # SDP Operator Workflow
 
 Status: reference
-Scope: local operator workflow for `feature` -> `workstream` -> `beads` -> PR -> `QA/UAT`
+Scope: Operator Mode workflow for `feature` -> `workstream` -> `beads` -> PR -> `QA/UAT`
 
 ## Overview
 
-This document describes the canonical SDP operator loop for conducting work through linked `feature`, `workstream`, `beads issue`, `evidence`, `trace`, `drift`, and `PR` state.
+This document describes the Operator Mode slice of the canonical SDP happy path.
+
+Use this doc when:
+
+- work is already entering a board-backed queue
+- `Beads` is the operational source of truth
+- the question is how SDP moves an item through execution, findings, `QA/UAT`, and delivery
+
+Do not use this doc as first-run onboarding for repo adoption.
+For the stable system story, start with [reference/canonical-happy-path.md](reference/canonical-happy-path.md).
 
 Canonical design references:
 
 - [../AGENTS.md](../AGENTS.md)
 - [reference/project-map.md](reference/project-map.md)
-- [plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md](plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md)
+- [reference/canonical-happy-path.md](reference/canonical-happy-path.md)
+- [plans/2026-04-05-canonical-sdp-happy-path-consistency.md](plans/2026-04-05-canonical-sdp-happy-path-consistency.md)
 
 ## Workflow Diagram
 
@@ -59,7 +69,7 @@ flowchart TD
 
 ## Default Loop
 
-The default operator path in `sdp_lab` is local and PR-driven.
+The default Operator Mode path in `sdp_lab` is Beads-backed and PR-driven.
 
 - shape work in `feature` and `workstream`
 - use Beads as the durable execution graph
@@ -72,6 +82,12 @@ The default operator path in `sdp_lab` is local and PR-driven.
 K8s, swarm, and NATS flows are background or optional execution environments, not the default operator starting point.
 
 Roadmap and workstream docs set planning priority. Beads is still the live execution graph. If `bd ready` disagrees with a planning doc, fix the planning doc or file a Beads follow-up instead of freelancing from stale text.
+
+Board semantics:
+
+- `Beads` is the operational source of truth
+- board and status surfaces are derived projections
+- this doc assumes the queue already exists and is visible through Beads-backed state
 
 ## Sequence
 

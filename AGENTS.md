@@ -11,6 +11,23 @@ Use these entrypoints before diving into older plans or runbooks:
 3. [docs/architecture/REPO-BOUNDARY.md](docs/architecture/REPO-BOUNDARY.md) — what belongs in `sdp_lab` vs `sdp`
 4. [docs/roadmap/ROADMAP.md](docs/roadmap/ROADMAP.md) — current platform-first direction
 
+## Cold Start For Development Agents
+
+If you enter this repo cold, answer these before doing real work:
+
+1. Am I changing `sdp_lab`, or am I actually being asked to adopt or publish through `sdp/`?
+2. Is the user asking for platform work, or for "use SDP in my project" onboarding?
+3. Which single `feature`, `workstream`, or `beads issue` owns this task?
+4. Which doc is canonical for this question, instead of a historical plan?
+
+Minimum first pass:
+
+1. `git status --short --branch`
+2. read [docs/reference/project-map.md](docs/reference/project-map.md)
+3. if this is execution work, run `scripts/beads_transport.sh fetch` and `bd ready --json`
+4. if the request is about greenfield or brownfield SDP adoption, stop reading private-lab process docs and jump to [sdp/docs/QUICKSTART.md](sdp/docs/QUICKSTART.md)
+5. if the path starts with `sdp/`, read [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md) before editing anything
+
 ## Project Structure
 
 This project has **two repos** with different roles:
