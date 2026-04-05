@@ -1,6 +1,8 @@
 package ciloop
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -8,7 +10,6 @@ import (
 	"time"
 
 	"sdp_dev/internal/sdputil"
-
 )
 
 // Checkpoint mirrors the .sdp/checkpoints/F{NNN}.json schema.
@@ -54,6 +55,7 @@ func SaveCheckpoint(dir string, cp *Checkpoint) error {
 		if err := sdputil.UnmarshalJSON(data, &raw); err == nil {
 			// Merge: overlay cp's fields, preserve others (workstreams, review, created_at)
 			mergeCheckpointInto(raw, cp)
+			recomputeIntegrity(raw)
 			data, err := json.MarshalIndent(raw, "", "  ")
 			if err != nil {
 				return fmt.Errorf("marshal checkpoint: %w", err)
@@ -81,6 +83,42 @@ func mergeCheckpointInto(raw map[string]any, cp *Checkpoint) {
 		delete(raw, "pr_number")
 	}
 	raw["pr_url"] = cp.PRURL
+}
+
+// recomputeIntegrity recalculates the SHA-256 integrity hash on a raw checkpoint map.
+// To match orchestrate's validation (which roundtrips through a struct), we marshal the
+// map to JSON, re-parse into a stable struct, clear integrity, re-marshal, and hash that.
+func recomputeIntegrity(raw map[string]any) {
+	raw["integrity"] = ""
+	// Marshal map → JSON → re-parse into ordered struct → re-marshal for stable key order
+	tmpData, err := json.Marshal(raw)
+	if err != nil {
+		return
+	}
+	var stable struct {
+		Schema      string `json:"schema"`
+		FeatureID   string `json:"feature_id"`
+		Branch      string `json:"branch"`
+		PRNumber    *int   `json:"pr_number,omitempty"`
+		PRURL       string `json:"pr_url,omitempty"`
+		Phase       string `json:"phase"`
+		CreatedAt   string `json:"created_at,omitempty"`
+		UpdatedAt   string `json:"updated_at,omitempty"`
+		Workstreams json.RawMessage `json:"workstreams,omitempty"`
+		Review      json.RawMessage `json:"review,omitempty"`
+		QA          json.RawMessage `json:"qa,omitempty"`
+		Integrity   string          `json:"integrity,omitempty"`
+	}
+	if err := json.Unmarshal(tmpData, &stable); err != nil {
+		return
+	}
+	stable.Integrity = ""
+	hashData, err := json.MarshalIndent(&stable, "", "  ")
+	if err != nil {
+		return
+	}
+	h := sha256.Sum256(hashData)
+	raw["integrity"] = "sha256:" + hex.EncodeToString(h[:])
 }
 
 func writeCheckpointAtomically(path string, data []byte) error {

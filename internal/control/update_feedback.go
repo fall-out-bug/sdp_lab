@@ -181,9 +181,12 @@ type InboundReplyEnvelope struct {
 	ResumeTargetStatus string   `json:"resume_target_status,omitempty"`
 }
 
+var correlationCounter uint64
+
 // GenerateCorrelationID creates a unique correlation ID for message tracking
 func GenerateCorrelationID() string {
-	return fmt.Sprintf("corr-%d", time.Now().UnixNano())
+	correlationCounter++
+	return fmt.Sprintf("corr-%d-%d", time.Now().UnixNano(), correlationCounter)
 }
 
 // ExportOutboundMessage creates a correlation-enabled outbound message envelope for a card

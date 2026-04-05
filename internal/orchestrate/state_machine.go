@@ -3,6 +3,7 @@ package orchestrate
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 )
 
 // NextAction describes what the agent should do next.
@@ -11,6 +12,95 @@ type NextAction struct {
 	WSID    string `json:"ws_id,omitempty"`
 	Feature string `json:"feature,omitempty"`
 	PR      int    `json:"pr,omitempty"`
+}
+
+// FormatNextAction returns a human-readable string for a NextAction.
+func FormatNextAction(a *NextAction) string {
+	switch a.Action {
+	case "init":
+		return "Phase: init -- run advance to begin build"
+	case "build":
+		return fmt.Sprintf("Phase: build -- next workstream: %s (feature %s)", a.WSID, a.Feature)
+	case "review":
+		return fmt.Sprintf("Phase: review -- feature %s ready for review", a.Feature)
+	case "pr":
+		return fmt.Sprintf("Phase: pr -- create/update pull request for %s", a.Feature)
+	case "ci-loop":
+		if a.PR > 0 {
+			return fmt.Sprintf("Phase: ci -- run CI loop for PR #%d (feature %s)", a.PR, a.Feature)
+		}
+		return fmt.Sprintf("Phase: ci -- run CI loop for %s (no PR yet)", a.Feature)
+	case "qa":
+		return fmt.Sprintf("Phase: qa -- run QA for feature %s", a.Feature)
+	case "done":
+		return "Phase: done -- all phases complete"
+	default:
+		return fmt.Sprintf("Phase: %s", a.Action)
+	}
+}
+
+// FormatCheckpointStatus returns a human-readable status summary for a checkpoint.
+func FormatCheckpointStatus(featureID string, cp *Checkpoint, workstreams []string, action *NextAction) string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("## Feature Status: %s\n\n", featureID))
+
+	// Phase
+	phase := "unknown"
+	if cp != nil {
+		phase = cp.Phase
+	}
+	sb.WriteString(fmt.Sprintf("**Phase:** %s\n\n", phase))
+
+	// Workstream table
+	sb.WriteString("**Workstreams:**\n\n")
+	if cp != nil && len(cp.Workstreams) > 0 {
+		sb.WriteString("| # | Workstream | Status |\n")
+		sb.WriteString("|---|------------|--------|\n")
+		done := 0
+		for i, ws := range cp.Workstreams {
+			marker := " "
+			switch ws.Status {
+			case "done":
+				marker = "done"
+				done++
+			case "in_progress":
+				marker = "in-progress"
+			case "pending":
+				marker = "pending"
+			default:
+				marker = ws.Status
+			}
+			sb.WriteString(fmt.Sprintf("| %d | %s | %s |\n", i+1, ws.ID, marker))
+		}
+		sb.WriteString(fmt.Sprintf("\nProgress: %d/%d workstreams done\n", done, len(cp.Workstreams)))
+	} else {
+		var pending []string
+		if cp != nil {
+			for _, ws := range cp.Workstreams {
+				if ws.Status != "done" {
+					pending = append(pending, ws.ID)
+				}
+			}
+		} else {
+			pending = workstreams
+		}
+		if len(pending) == 0 {
+			sb.WriteString("(all done)\n")
+		} else {
+			sb.WriteString(strings.Join(pending, ", ") + "\n")
+		}
+	}
+
+	// Next action
+	sb.WriteString("\n**Next action:** ")
+	if action != nil {
+		sb.WriteString(FormatNextAction(action))
+	} else {
+		sb.WriteString("(unknown)")
+	}
+	sb.WriteString("\n")
+
+	return sb.String()
 }
 
 // ComputeNextAction returns the next action based on checkpoint state.

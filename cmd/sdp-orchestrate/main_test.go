@@ -31,7 +31,7 @@ func captureStdout(fn func()) []byte {
 func TestRunNextAction_Init(t *testing.T) {
 	cp := &orchestrate.Checkpoint{FeatureID: "F053", Phase: orchestrate.PhaseInit}
 	workstreams := []string{"00-053-01"}
-	out := captureStdout(func() { runNextAction(cp, workstreams, ".") })
+	out := captureStdout(func() { runNextAction(cp, workstreams, ".", true) })
 	var action orchestrate.NextAction
 	if err := json.Unmarshal(out, &action); err != nil {
 		t.Fatalf("output should be valid JSON: %v\n%s", err, out)
@@ -48,7 +48,7 @@ func TestRunNextAction_Build(t *testing.T) {
 		Workstreams: []orchestrate.WSStatus{{ID: "00-053-01", Status: "pending"}},
 	}
 	workstreams := []string{"00-053-01"}
-	out := captureStdout(func() { runNextAction(cp, workstreams, ".") })
+	out := captureStdout(func() { runNextAction(cp, workstreams, ".", true) })
 	var action orchestrate.NextAction
 	if err := json.Unmarshal(out, &action); err != nil {
 		t.Fatalf("output should be valid JSON: %v\n%s", err, out)
@@ -61,13 +61,35 @@ func TestRunNextAction_Build(t *testing.T) {
 func TestRunNextAction_Done(t *testing.T) {
 	cp := &orchestrate.Checkpoint{FeatureID: "F053", Phase: orchestrate.PhaseDone}
 	workstreams := []string{"00-053-01"}
-	out := captureStdout(func() { runNextAction(cp, workstreams, ".") })
+	out := captureStdout(func() { runNextAction(cp, workstreams, ".", true) })
 	var action orchestrate.NextAction
 	if err := json.Unmarshal(out, &action); err != nil {
 		t.Fatalf("output should be valid JSON: %v\n%s", err, out)
 	}
 	if action.Action != "done" {
 		t.Errorf("action = %q, want done", action.Action)
+	}
+}
+
+func TestRunNextAction_HumanReadable(t *testing.T) {
+	cp := &orchestrate.Checkpoint{
+		FeatureID:   "F053",
+		Phase:       orchestrate.PhaseBuild,
+		Workstreams: []orchestrate.WSStatus{{ID: "00-053-01", Status: "pending"}},
+	}
+	workstreams := []string{"00-053-01"}
+	out := captureStdout(func() { runNextAction(cp, workstreams, ".", false) })
+	s := string(out)
+	if !strings.Contains(s, "build") {
+		t.Errorf("human-readable output should contain 'build', got: %s", s)
+	}
+	if !strings.Contains(s, "00-053-01") {
+		t.Errorf("human-readable output should contain ws id, got: %s", s)
+	}
+	// Should NOT be valid JSON
+	var action orchestrate.NextAction
+	if err := json.Unmarshal(out, &action); err == nil {
+		t.Error("human-readable output should not be valid JSON")
 	}
 }
 

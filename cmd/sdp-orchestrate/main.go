@@ -32,6 +32,9 @@ func main() {
 	ws := flag.String("ws", "", "Workstream ID for --hydrate (default: current build ws from next-action)")
 	index := flag.Bool("index", false, "Generate INDEX table for feature workstreams (print to stdout)")
 	status := flag.Bool("status", false, "Output status: pending WS, open beads, next action")
+	jsonOutput := flag.Bool("json", false, "Output in JSON format (default is human-readable)")
+	repair := flag.Bool("repair", false, "Repair corrupted checkpoint from git history")
+	noCommit := flag.Bool("no-commit", false, "Skip git commit after build phase (for CI)")
 	flag.Parse()
 
 	if *feature == "" {
@@ -60,6 +63,11 @@ func main() {
 		runIndex(projectRoot, featureID, *checkpointDir)
 		return
 	}
+	if *repair {
+		runRepair(projectRoot, featureID, filepath.Join(projectRoot, *checkpointDir))
+		return
+	}
+	_ = *noCommit // used by advance command
 
 	workstreams, err := orchestrate.DiscoverWorkstreams(projectRoot, featureID)
 	if err != nil {
@@ -83,9 +91,14 @@ func main() {
 
 	cp, err := orchestrate.LoadCheckpoint(cpPath, featureID)
 	if err != nil {
+		if errors.Is(err, orchestrate.ErrCheckpointCorrupted) {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Checkpoint corrupted. Run --repair to recover.\n")
+			os.Exit(orchestrate.ExitCorrupted)
+		}
 		if *resume || !errors.Is(err, os.ErrNotExist) {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			os.Exit(1)
+			os.Exit(orchestrate.ExitFailure)
 		}
 		branch, err := orchestrate.CurrentBranch(ctx)
 		if err != nil {
@@ -109,11 +122,11 @@ func main() {
 	}
 
 	if *status {
-		runStatus(projectRoot, featureID, cp, workstreams)
+		runStatus(projectRoot, featureID, cp, workstreams, *jsonOutput)
 		return
 	}
 	if *nextAction {
-		runNextAction(cp, workstreams, projectRoot)
+		runNextAction(cp, workstreams, projectRoot, *jsonOutput)
 		return
 	}
 	if *hydrate {

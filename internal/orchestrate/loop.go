@@ -4,14 +4,58 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"os/signal"
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
+)
+
+// Exit codes for orchestrator (CI contract).
+const (
+	ExitSuccess   = 0
+	ExitFailure   = 1
+	ExitNeedsHuman = 2
+	ExitCorrupted = 3
 )
 
 func failf(format string, args ...any) error {
 	return fmt.Errorf(format, args...)
+}
+
+// ProgressInfo tracks per-workstream progress for display.
+type ProgressInfo struct {
+	Done  int
+	Total int
+	WSID  string
+	Phase string
+}
+
+// FormatProgress returns a progress line like "[3/7] building 00-042-03".
+func FormatProgress(p ProgressInfo) string {
+	return fmt.Sprintf("[%d/%d] %s %s", p.Done+1, p.Total, p.Phase, p.WSID)
+}
+
+func countDone(cp *Checkpoint) int {
+	done := 0
+	for _, ws := range cp.Workstreams {
+		if ws.Status == "done" {
+			done++
+		}
+	}
+	return done
+}
+
+func printProgress(cp *Checkpoint, phase, wsID string) {
+	total := len(cp.Workstreams)
+	done := countDone(cp)
+	info := ProgressInfo{Done: done, Total: total, WSID: wsID, Phase: phase}
+	fmt.Fprintf(os.Stderr, "%s\n", FormatProgress(info))
+}
+
+func printPhaseProgress(phase, featureID string) {
+	fmt.Fprintf(os.Stderr, "[phase] %s %s\n", phase, featureID)
 }
 
 // RunOpenCodeLoop drives the full workflow using opencode as the inner loop.
@@ -22,8 +66,11 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 	for {
 		select {
 		case <-ctx.Done():
-			_ = SaveCheckpoint(cpPath, cp) // best-effort so resume does not re-run last phase
+			if err := SaveCheckpoint(cpPath, cp); err != nil {
+				slog.Error("failed to save checkpoint on shutdown", "error", err)
+			}
 			slog.Warn("shutdown", "error", ctx.Err())
+			fmt.Fprintf(os.Stderr, "\nInterrupted. Resume with: sdp-orchestrate --feature %s --resume --runtime opencode\n", featureID)
 			return ctx.Err()
 		default:
 		}
@@ -34,6 +81,8 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 		}
 		switch action.Action {
 		case "build":
+			startTime := time.Now()
+			printProgress(cp, "building", action.WSID)
 			cpFilePath := filepath.Join(cpPath, featureID+".json")
 			hookEnv := HookEnv{WSID: action.WSID, FeatureID: featureID, Phase: "build", CheckpointPath: cpFilePath}
 			if err := RunHooks(ctx, projectRoot, "build", "pre", hookEnv, func(msg string) { slog.Info("hook", "msg", msg) }); err != nil {
@@ -78,7 +127,10 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 			if err := SaveCheckpoint(cpPath, cp); err != nil {
 				return failf("error: save checkpoint: %v", err)
 			}
+			elapsed := time.Since(startTime).Truncate(time.Second)
+			fmt.Fprintf(os.Stderr, "[%d/%d] done %s (%s)\n", countDone(cp), len(cp.Workstreams), action.WSID, elapsed)
 		case "review":
+			printPhaseProgress("review", action.Feature)
 			if blocked, findings, err := HasBlockingFindings(ctx, action.Feature); err == nil && blocked {
 				targetWS, findingIDs, rerouteErr := RedirectToBuildForBlockingFindings(cp, PhaseReview, findings)
 				if rerouteErr != nil {
@@ -113,7 +165,9 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				if _, verdictErr := WriteReviewVerdict(projectRoot, cp, buildChangesRequestedReviewVerdict(cp, firstNonEmpty(strings.TrimSpace(reviewOutput), "review not approved"), findingID)); verdictErr != nil {
 					slog.Warn("review verdict write failed", "error", verdictErr, "feature", action.Feature)
 				}
-				_ = SaveCheckpoint(cpPath, cp)
+				if saveErr := SaveCheckpoint(cpPath, cp); saveErr != nil {
+					slog.Error("failed to save checkpoint after review failure", "error", saveErr)
+				}
 				slog.Error("opencode review failed", "error", err, "approved", approved, "feature", action.Feature)
 				if err != nil {
 					return fmt.Errorf("review phase: %w", err)
@@ -139,6 +193,7 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				return failf("error: save checkpoint: %v", err)
 			}
 		case "pr":
+			printPhaseProgress("pr", action.Feature)
 			if report, err := EnforceContractGate(projectRoot, featureID); err != nil {
 				if report != nil {
 					slog.Error("contract gate blocked", "phase", report.Phase)
@@ -159,6 +214,7 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				return failf("error: %v", err)
 			}
 		case "qa":
+			printPhaseProgress("qa", action.Feature)
 			if blocked, findings, err := HasBlockingFindings(ctx, action.Feature); err == nil && blocked {
 				targetWS, findingIDs, rerouteErr := RedirectToBuildForBlockingFindings(cp, PhaseQA, findings)
 				if rerouteErr != nil {
@@ -189,7 +245,9 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				if _, verdictErr := WriteQAVerdict(projectRoot, cp, buildFailedQAVerdict(cp, firstNonEmpty(strings.TrimSpace(qaOutput), "qa not passed"), cp.QA.EvidenceRef, findingID)); verdictErr != nil {
 					slog.Warn("qa verdict write failed", "error", verdictErr, "feature", action.Feature)
 				}
-				_ = SaveCheckpoint(cpPath, cp)
+				if saveErr := SaveCheckpoint(cpPath, cp); saveErr != nil {
+					slog.Error("failed to save checkpoint after qa failure", "error", saveErr)
+				}
 				slog.Error("opencode qa failed", "error", err, "passed", passed, "feature", action.Feature)
 				if err != nil {
 					return fmt.Errorf("QA phase: %w", err)

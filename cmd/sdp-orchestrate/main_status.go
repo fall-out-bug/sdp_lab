@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 
 	"sdp_dev/internal/orchestrate"
 )
@@ -14,7 +13,18 @@ type readyIssue struct {
 	ID string `json:"id"`
 }
 
-func runStatus(projectRoot, featureID string, cp *orchestrate.Checkpoint, workstreams []string) {
+type statusJSON struct {
+	FeatureID   string                   `json:"feature_id"`
+	Phase       string                   `json:"phase"`
+	Workstreams []orchestrate.WSStatus   `json:"workstreams"`
+	Pending     []string                 `json:"pending"`
+	BeadsReady  string                   `json:"beads_ready"`
+	NextAction  *orchestrate.NextAction  `json:"next_action"`
+	Interrupted bool                     `json:"interrupted"`
+	ResumeHint  string                   `json:"resume_hint,omitempty"`
+}
+
+func runStatus(projectRoot, featureID string, cp *orchestrate.Checkpoint, workstreams []string, jsonOutput bool) {
 	var pending []string
 	if cp != nil {
 		for _, ws := range cp.Workstreams {
@@ -44,21 +54,49 @@ func runStatus(projectRoot, featureID string, cp *orchestrate.Checkpoint, workst
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
-	actionJSON, _ := json.Marshal(action)
 
-	fmt.Println("## Feature Status:", featureID)
-	fmt.Println()
-	fmt.Println("**Pending workstreams:**", strings.Join(pending, ", "))
-	if len(pending) == 0 && cp != nil && cp.Phase != orchestrate.PhaseInit {
-		fmt.Println("(all done)")
+	// Detect interruption: build phase with in_progress workstreams
+	interrupted := false
+	if cp != nil && cp.Phase == orchestrate.PhaseBuild {
+		for _, ws := range cp.Workstreams {
+			if ws.Status == "in_progress" {
+				interrupted = true
+				break
+			}
+		}
 	}
+
+	resumeHint := ""
+	if interrupted {
+		resumeHint = fmt.Sprintf("Resume with: sdp-orchestrate --feature %s --resume --runtime opencode", featureID)
+	}
+
+	if jsonOutput {
+		sj := statusJSON{
+			FeatureID:   featureID,
+			Phase:       cp.Phase,
+			Workstreams: cp.Workstreams,
+			Pending:     pending,
+			BeadsReady:  beadsCount,
+			NextAction:  action,
+			Interrupted: interrupted,
+			ResumeHint:  resumeHint,
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(sj); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	// Human-readable output
+	fmt.Print(orchestrate.FormatCheckpointStatus(featureID, cp, workstreams, action))
 	fmt.Println()
 	fmt.Println("**Open beads (bd ready):**", beadsCount)
-	fmt.Println()
-	fmt.Println("**Next action:**")
-	fmt.Println("```json")
-	fmt.Println(string(actionJSON))
-	fmt.Println("```")
-	fmt.Println()
-	fmt.Println("**Run:** `go run ./cmd/sdp-orchestrate --feature", featureID, "--next-action`")
+	if interrupted {
+		fmt.Println()
+		fmt.Println("**Interrupted!**", resumeHint)
+	}
 }
