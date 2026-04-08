@@ -42,7 +42,17 @@ const scanUserPromptTpl = `Scan the market for tools relevant to this problem.
 PROBLEM: %s
 JOBS: %s
 
-Find 5–8 relevant tools/frameworks/products. For each, provide honest coverage metadata based on how well you actually know the tool.
+Find 5–8 relevant tools/frameworks/products. For each, provide honest coverage metadata.
+
+IMPORTANT coverage field rules:
+- primary_source_read: true ONLY if you have read their actual docs, README, or website (not just training memory). Default false.
+- architecture_reviewed: true ONLY if you have reviewed their technical architecture docs. Default false.
+- desc_sentences: count of sentences you can write from verified knowledge (not guesses).
+- source_count: number of distinct sources you can cite for this tool.
+- multi_source: true only if source_count >= 2 AND sources are from different domains.
+- disposition_confidence: 0.0-1.0, how confident you are in the disposition given your actual knowledge depth.
+
+Be conservative — most tools should have primary_source_read: false in this initial scan.
 
 Return JSON:
 {"items":[{"name":"string","disposition":"ADOPT|EXTRACT|INSPIRE|MONITOR|IGNORE","covers_phases":["frame|hypothesize|scan|validate|experiment"],"key_strength":"string","key_gap":"string","stars":0,"primary_source_read":false,"architecture_reviewed":false,"desc_sentences":3,"source_count":1,"multi_source":false,"disposition_confidence":0.5}],"whitespace":"string describing the gap nobody fills","recommended_stack":["string"]}`
