@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"sdp_dev/internal/discovery"
 )
@@ -165,7 +166,7 @@ func runDiscover(args []string) {
 
 	// ── Create beads issue ─────────────────────────────────────────
 	fmt.Printf("\n📌 Creating beads issue...\n")
-	issueID, err := createDiscoveryIssue(idea, frame, hypothesis, absOut)
+	issueID, err := createDiscoveryIssue(idea, frame, hypothesis, validation, absOut)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "   warning: could not create beads issue: %v\n", err)
 	} else {
@@ -173,27 +174,73 @@ func runDiscover(args []string) {
 	}
 }
 
-func createDiscoveryIssue(idea string, frame *discovery.FrameResult,
-	hypothesis *discovery.HypothesisResult, artifactDir string) (string, error) {
-
-	hypoSection := ""
-	if hypothesis != nil && hypothesis.WeBelieve != "" {
-		riskiest := "—"
-		if len(hypothesis.Assumptions) > 0 {
-			riskiest = hypothesis.Assumptions[0].Statement
+// buildDiscoveryDescription constructs the beads issue description for a discovery run.
+// On GO verdict, includes hypothesis requirements for the feature backlog.
+func buildDiscoveryDescription(
+	idea string,
+	frame *discovery.FrameResult,
+	hyp *discovery.HypothesisResult,
+	val *discovery.ValidationResult,
+	artifactDir string,
+) string {
+	verdictSection := ""
+	if val != nil {
+		verdictSection = fmt.Sprintf("\n\n**Verdict:** %s — %s", val.FinalVerdict, val.VerdictReason)
+		if val.PivotSuggestion != "" {
+			verdictSection += fmt.Sprintf("\n\n**Pivot:** %s", val.PivotSuggestion)
 		}
-		hypoSection = fmt.Sprintf("\n\n**Hypothesis:** %s\n\n**Riskiest assumption:** %s",
-			hypothesis.WeBelieve, riskiest)
+		if val.KillReason != "" {
+			verdictSection += fmt.Sprintf("\n\n**Kill reason:** %s", val.KillReason)
+		}
 	}
 
-	desc := fmt.Sprintf(
-		"## Discovery: %s\n\n**Problem:** %s\n\n**Appetite:** %s%s\n\n**Artifacts:** %s/",
-		idea, frame.ProblemStatement, frame.Appetite, hypoSection, artifactDir,
+	hypoSection := ""
+	if hyp != nil && hyp.WeBelieve != "" {
+		riskiest := "—"
+		if len(hyp.Assumptions) > 0 {
+			riskiest = hyp.Assumptions[0].Statement
+		}
+		hypoSection = fmt.Sprintf("\n\n**Hypothesis:** %s\n\n**Riskiest assumption:** %s",
+			hyp.WeBelieve, riskiest)
+	}
+
+	reqSection := ""
+	if val != nil && val.FinalVerdict == discovery.VerdictGO && hyp != nil && len(hyp.Requirements) > 0 {
+		var sb strings.Builder
+		sb.WriteString("\n\n## Requirements\n\n")
+		for _, r := range hyp.Requirements {
+			fmt.Fprintf(&sb, "- %s\n", r)
+		}
+		reqSection = sb.String()
+	}
+
+	return fmt.Sprintf(
+		"## Discovery: %s\n\n**Problem:** %s\n\n**Appetite:** %s%s%s%s\n\n**Artifacts:** %s/",
+		idea, frame.ProblemStatement, frame.Appetite,
+		hypoSection, verdictSection, reqSection, artifactDir,
 	)
+}
+
+func createDiscoveryIssue(
+	idea string,
+	frame *discovery.FrameResult,
+	hypothesis *discovery.HypothesisResult,
+	validation *discovery.ValidationResult,
+	artifactDir string,
+) (string, error) {
+	issueType := "task"
+	title := "Discovery: " + idea
+	if validation != nil && validation.FinalVerdict == discovery.VerdictGO {
+		issueType = "feature"
+		title = "Feature: " + idea
+	}
+
+	desc := buildDiscoveryDescription(idea, frame, hypothesis, validation, artifactDir)
+
 	cmd := exec.Command("bd", "create",
-		"--title=Discovery: "+idea,
+		"--title="+title,
 		"--description="+desc,
-		"--type=task",
+		"--type="+issueType,
 		"--priority=2",
 	)
 	out, err := cmd.CombinedOutput()
