@@ -103,12 +103,13 @@ func EvalDepth(item ScanItem) DepthFlag {
 		}
 	}
 
-	// H2: multi-source mention, none read directly
-	if item.SourceCount >= 3 && !item.PrimarySourceRead {
+	// H2: primary source read but only one source cited — weak corroboration
+	// (Note: the !PrimarySourceRead case is already caught by H3 above for non-IGNORE items)
+	if item.PrimarySourceRead && item.SourceCount == 1 && item.DescSentences < 8 {
 		return DepthFlag{
 			Flagged:           true,
-			Reason:            "multi_source_no_primary",
-			RecommendedAction: "deep_dive",
+			Reason:            "single_source_thin_description",
+			RecommendedAction: "proceed_provisional",
 		}
 	}
 

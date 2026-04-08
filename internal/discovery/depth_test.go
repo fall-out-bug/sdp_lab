@@ -38,6 +38,25 @@ func TestDepthFlag_H1_HighStarsLowDescription(t *testing.T) {
 	}
 }
 
+func TestDepthFlag_H2_SingleSourceThinDescription(t *testing.T) {
+	item := discovery.ScanItem{
+		Name:              "LesserKnownTool",
+		Disposition:       discovery.DispositionInspire,
+		Stars:             500,
+		PrimarySourceRead: true, // primary read but only one source
+		DescSentences:     5,    // < 8
+		SourceCount:       1,    // single source
+		MultiSource:       false,
+	}
+	flag := discovery.EvalDepth(item)
+	if !flag.Flagged {
+		t.Error("H2: primary source read but single source + thin description must be flagged")
+	}
+	if flag.Reason != "single_source_thin_description" {
+		t.Errorf("expected reason single_source_thin_description, got %s", flag.Reason)
+	}
+}
+
 func TestDepthFlag_Settled_NoFlag(t *testing.T) {
 	item := discovery.ScanItem{
 		Name:                 "WellResearched",

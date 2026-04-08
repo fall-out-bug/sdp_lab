@@ -39,13 +39,7 @@ func Frame(ctx context.Context, c *LLMClient, idea string) (*FrameResult, error)
 		return nil, fmt.Errorf("frame llm: %w", err)
 	}
 	content := strings.TrimSpace(resp.Content)
-	// strip markdown fences if model disobeyed
-	if strings.HasPrefix(content, "```") {
-		lines := strings.Split(content, "\n")
-		if len(lines) > 2 {
-			content = strings.Join(lines[1:len(lines)-1], "\n")
-		}
-	}
+	content = stripMarkdownFences(content)
 	var result FrameResult
 	if err := json.Unmarshal([]byte(content), &result); err != nil {
 		return nil, fmt.Errorf("frame parse (finish=%s): %w\ncontent: %s",
