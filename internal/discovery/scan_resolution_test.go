@@ -21,6 +21,9 @@ func TestApplyResolutions_DowngradeChangesDisposition(t *testing.T) {
 	if updated.Items[0].Disposition != discovery.DispositionMonitor {
 		t.Errorf("expected MONITOR after downgrade, got %s", updated.Items[0].Disposition)
 	}
+	if updated.Items[0].DepthFlag != nil {
+		t.Error("downgrade should clear DepthFlag to nil")
+	}
 }
 
 func TestApplyResolutions_ProceedProvisionalPreservesDisposition(t *testing.T) {
