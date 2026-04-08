@@ -17,6 +17,7 @@ type Session struct {
 	Hypothesis *HypothesisResult
 	Scan       *ScanResult
 	Validation *ValidationResult
+	Experiment *ExperimentBrief
 }
 
 // NewSession creates a new Session with today's date and a slug derived from idea.
@@ -70,6 +71,11 @@ func WriteArtifacts(dir string, s *Session) error {
 	}
 	if s.Validation != nil {
 		if err := writeValidation(prefix+"-validation.md", s.Validation); err != nil {
+			return err
+		}
+	}
+	if s.Experiment != nil {
+		if err := writeExperiment(prefix+"-experiment.md", s.Experiment); err != nil {
 			return err
 		}
 	}
@@ -191,5 +197,34 @@ func writeValidation(path string, v *ValidationResult) error {
 	}
 
 	fmt.Fprintf(&b, "---\n\n*Cost: $%.5f*\n", v.CostUSD)
+	return os.WriteFile(path, []byte(b.String()), 0o644)
+}
+
+func writeExperiment(path string, e *ExperimentBrief) error {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# Discovery Experiment Brief\n\n")
+	fmt.Fprintf(&b, "## Format: %s\n\n", e.Format)
+	fmt.Fprintf(&b, "**Objective:** %s\n\n", e.Objective)
+	fmt.Fprintf(&b, "**Hypothesis:** %s\n\n", e.Hypothesis)
+	fmt.Fprintf(&b, "**Success metric:** %s\n\n", e.SuccessMetric)
+	fmt.Fprintf(&b, "**Time box:** %d days\n\n", e.TimeBoxDays)
+	if e.RawClaim != "" {
+		fmt.Fprintf(&b, "**Testing claim:** %s\n\n", e.RawClaim)
+	}
+	if len(e.SetupSteps) > 0 {
+		fmt.Fprintf(&b, "## Setup Steps\n\n")
+		for i, s := range e.SetupSteps {
+			fmt.Fprintf(&b, "%d. %s\n", i+1, s)
+		}
+		fmt.Fprintf(&b, "\n")
+	}
+	if len(e.RequiredTools) > 0 {
+		fmt.Fprintf(&b, "## Required Tools\n\n")
+		for _, t := range e.RequiredTools {
+			fmt.Fprintf(&b, "- %s\n", t)
+		}
+		fmt.Fprintf(&b, "\n")
+	}
+	fmt.Fprintf(&b, "---\n\n*Cost: $%.5f*\n", e.CostUSD)
 	return os.WriteFile(path, []byte(b.String()), 0o644)
 }
