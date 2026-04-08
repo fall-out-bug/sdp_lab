@@ -65,7 +65,7 @@ func Scan(ctx context.Context, c *LLMClient, frame *FrameResult) (*ScanResult, e
 			{Role: "system", Content: scanSystemPrompt},
 			{Role: "user", Content: fmt.Sprintf(scanUserPromptTpl, frame.ProblemStatement, jobs)},
 		},
-		MaxTokens:   2000,
+		MaxTokens:   3500,
 		Temperature: 0.1,
 	})
 	if err != nil {

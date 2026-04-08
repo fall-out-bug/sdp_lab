@@ -37,8 +37,15 @@ PROBLEM: %s
 JOBS: %s
 APPETITE: %s
 
+QUALITY RULES:
+- we_believe: name the SPECIFIC customer segment and their exact job (avoid generic "users need to"). Example of BAD: "users need a faster tool because it saves time". Example of GOOD: "solo founders need to validate market demand before writing code because they cannot afford 6-week discovery cycles".
+- to_verify: must be the CHEAPEST possible test — often a 5-question customer interview, a one-page doc, or a smoke-test page — NOT a full prototype. A landing page is only appropriate if the core risk is demand, not usability.
+- we_are_right_if: must include a NUMBER, a METRIC, and a TIME BOUND (e.g., "8 out of 10 interviewees rank this as their #1 friction point" or ">30%% click-through on smoke-test page within 7 days").
+- assumptions: include 4–6 assumptions with genuinely VARIED risk/uncertainty combinations — NOT all high/high. At least one should be medium/low or low/medium to reflect known knowns.
+- requirements: describe WHAT the product does for the user (functional), not HOW it is built (technical). Example of BAD: "use LLM API with streaming". Example of GOOD: "user can upload a transcript and receive a structured insight summary within 60 seconds".
+
 Return JSON with this exact schema:
-{"we_believe":"customer segment needs to [job] because [reason]","to_verify":"cheapest test to validate the core assumption","we_measure":"the key metric","we_are_right_if":"measurable success criterion (e.g. >50 signups in 14 days)","assumptions":[{"statement":"assumption that must be true for the hypothesis to hold","risk_level":"high|medium|low","uncertainty":"high|medium|low"}],"requirements":["functional requirement 1","functional requirement 2"]}`
+{"we_believe":"[specific segment] need to [specific job] because [specific reason]","to_verify":"cheapest test to validate the core assumption","we_measure":"the key metric","we_are_right_if":"measurable success criterion with number, metric, and time bound","assumptions":[{"statement":"assumption that must be true for the hypothesis to hold","risk_level":"high|medium|low","uncertainty":"high|medium|low"}],"requirements":["functional requirement 1","functional requirement 2"]}`
 
 // Hypothesize generates a Strategyzer Test Card and RAT-ranked assumptions from a FrameResult.
 func Hypothesize(ctx context.Context, c *LLMClient, frame *FrameResult) (*HypothesisResult, error) {
@@ -50,7 +57,7 @@ func Hypothesize(ctx context.Context, c *LLMClient, frame *FrameResult) (*Hypoth
 			{Role: "user", Content: fmt.Sprintf(hypothesizeUserPromptTpl,
 				frame.ProblemStatement, jobs, frame.Appetite)},
 		},
-		MaxTokens:   1200,
+		MaxTokens:   1500,
 		Temperature: 0.1,
 	})
 	if err != nil {
