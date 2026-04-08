@@ -51,6 +51,15 @@ func RunOrchestrateLoopV2(ctx context.Context, store *control.Store, projectRoot
 				continue
 			}
 
+			// Route discovery issues to the discovery pipeline instead of normal dispatch.
+			if isDiscoveryCard(card) {
+				logger.Info("routing discovery issue to pipeline", "card_id", cardID, "idea", card.Title)
+				if discErr := RunDiscoveryFromCard(ctx, bridge.Store, card, projectRoot); discErr != nil {
+					logger.Error("discovery pipeline failed", "card_id", cardID, "error", discErr)
+				}
+				continue
+			}
+
 			clarifyResult, clarifyErr := bridge.Clarify(ctx, card)
 			if clarifyErr != nil {
 				logger.Error("clarification failed", "card_id", cardID, "error", clarifyErr)
