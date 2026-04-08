@@ -50,6 +50,59 @@ func runDiscover(args []string) {
 	fmt.Printf("   problem:  %s\n", frame.ProblemStatement)
 	fmt.Printf("   appetite: %s\n\n", frame.Appetite)
 
+	// ── Checkpoint A: Typed clarifications (non-blocking) ──────────
+	fmt.Printf("💬 Checkpoint A: Generating clarifications...\n")
+	clarifications, err := discovery.GenerateClarifications(ctx, client, frame)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "   warning: clarifications: %v\n", err)
+	} else if len(clarifications) > 0 {
+		fmt.Printf("\n── Clarifications (refine idea before continuing) ──\n\n")
+		for i, clr := range clarifications {
+			fmt.Printf("  %d. [%s] %s\n", i+1, clr.Type, clr.Question)
+			if clr.Context != "" {
+				fmt.Printf("     context: %s\n", clr.Context)
+			}
+			if len(clr.Options) > 0 {
+				for j, opt := range clr.Options {
+					fmt.Printf("     [%c] %s\n", 'A'+j, opt)
+				}
+			}
+		}
+		fmt.Printf("\n   (proceeding with defaults — re-run with refined idea to update)\n\n")
+	}
+
+	// ── Phase 2: HYPOTHESIZE ────────────────────────────────────────
+	fmt.Printf("💡 Phase 2: Generating hypothesis...\n")
+	hypothesis, err := discovery.Hypothesize(ctx, client, frame)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: hypothesize: %v\n", err)
+		os.Exit(1)
+	}
+	session.Hypothesis = hypothesis
+	fmt.Printf("   we believe: %s\n", hypothesis.WeBelieve)
+	if len(hypothesis.Assumptions) > 0 {
+		fmt.Printf("   riskiest:   %s (RAT=%.0f)\n",
+			hypothesis.Assumptions[0].Statement,
+			hypothesis.Assumptions[0].RATScore)
+	}
+	fmt.Printf("\n")
+
+	// ── Checkpoint B: Hypothesis summary ───────────────────────────
+	fmt.Printf("── Checkpoint B — Hypothesis ──\n\n")
+	fmt.Printf("  Test Card:\n")
+	fmt.Printf("    We believe: %s\n", hypothesis.WeBelieve)
+	fmt.Printf("    To verify:  %s\n", hypothesis.ToVerify)
+	fmt.Printf("    Measure:    %s\n", hypothesis.WeMeasure)
+	fmt.Printf("    Right if:   %s\n\n", hypothesis.WeAreRightIf)
+	if len(hypothesis.Assumptions) > 0 {
+		fmt.Printf("  RAT-ranked assumptions:\n")
+		for _, a := range hypothesis.Assumptions {
+			fmt.Printf("    %d. [RAT=%.0f] %s (%s risk, %s uncertainty)\n",
+				a.RATRank, a.RATScore, a.Statement, a.RiskLevel, a.Uncertainty)
+		}
+		fmt.Printf("\n")
+	}
+
 	// ── Phase 3: SCAN ──────────────────────────────────────────────
 	fmt.Printf("🔍 Phase 3: Scanning market...\n")
 	scanResult, err := discovery.Scan(ctx, client, frame)
@@ -64,7 +117,7 @@ func runDiscover(args []string) {
 		len(scanResult.Flagged()))
 	fmt.Printf("   cost: $%.5f\n\n", scanResult.CostUSD)
 
-	// ── Checkpoint ─────────────────────────────────────────────────
+	// ── Checkpoint C: Depth decisions ──────────────────────────────
 	fmt.Println(discovery.RenderCheckpoint(scanResult))
 
 	// ── Write artifacts ────────────────────────────────────────────
@@ -80,7 +133,7 @@ func runDiscover(args []string) {
 
 	// ── Create beads issue ─────────────────────────────────────────
 	fmt.Printf("\n📌 Creating beads issue...\n")
-	issueID, err := createDiscoveryIssue(idea, frame, absOut)
+	issueID, err := createDiscoveryIssue(idea, frame, hypothesis, absOut)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "   warning: could not create beads issue: %v\n", err)
 	} else {
@@ -88,10 +141,22 @@ func runDiscover(args []string) {
 	}
 }
 
-func createDiscoveryIssue(idea string, frame *discovery.FrameResult, artifactDir string) (string, error) {
+func createDiscoveryIssue(idea string, frame *discovery.FrameResult,
+	hypothesis *discovery.HypothesisResult, artifactDir string) (string, error) {
+
+	hypoSection := ""
+	if hypothesis != nil && hypothesis.WeBelieve != "" {
+		riskiest := "—"
+		if len(hypothesis.Assumptions) > 0 {
+			riskiest = hypothesis.Assumptions[0].Statement
+		}
+		hypoSection = fmt.Sprintf("\n\n**Hypothesis:** %s\n\n**Riskiest assumption:** %s",
+			hypothesis.WeBelieve, riskiest)
+	}
+
 	desc := fmt.Sprintf(
-		"## Discovery: %s\n\n**Problem:** %s\n\n**Appetite:** %s\n\n**Artifacts:** %s/",
-		idea, frame.ProblemStatement, frame.Appetite, artifactDir,
+		"## Discovery: %s\n\n**Problem:** %s\n\n**Appetite:** %s%s\n\n**Artifacts:** %s/",
+		idea, frame.ProblemStatement, frame.Appetite, hypoSection, artifactDir,
 	)
 	cmd := exec.Command("bd", "create",
 		"--title=Discovery: "+idea,
