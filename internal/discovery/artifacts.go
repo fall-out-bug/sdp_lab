@@ -11,10 +11,11 @@ import (
 
 // Session holds all pipeline state for one discovery run.
 type Session struct {
-	Slug  string
-	Date  string
-	Frame *FrameResult
-	Scan  *ScanResult
+	Slug       string
+	Date       string
+	Frame      *FrameResult
+	Hypothesis *HypothesisResult
+	Scan       *ScanResult
 }
 
 // NewSession creates a new Session with today's date and a slug derived from idea.
@@ -56,6 +57,11 @@ func WriteArtifacts(dir string, s *Session) error {
 			return err
 		}
 	}
+	if s.Hypothesis != nil {
+		if err := writeHypothesis(prefix+"-hypothesis.md", s.Hypothesis); err != nil {
+			return err
+		}
+	}
 	if s.Scan != nil {
 		if err := writeScan(prefix+"-scan.md", s.Scan); err != nil {
 			return err
@@ -74,6 +80,34 @@ func writeFrame(path string, f *FrameResult) error {
 		fmt.Fprintf(&b, "- %s\n", j)
 	}
 	fmt.Fprintf(&b, "\n**Appetite:** %s\n\n**Scope:** %s\n", f.Appetite, f.Scope)
+	return os.WriteFile(path, []byte(b.String()), 0o644)
+}
+
+func writeHypothesis(path string, h *HypothesisResult) error {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# Discovery Hypothesis\n\n")
+	fmt.Fprintf(&b, "**Raw idea:** %s\n\n", h.RawIdea)
+	fmt.Fprintf(&b, "## Test Card (Strategyzer)\n\n")
+	fmt.Fprintf(&b, "**We believe** %s\n\n", h.WeBelieve)
+	fmt.Fprintf(&b, "**To verify this**, we will %s\n\n", h.ToVerify)
+	fmt.Fprintf(&b, "**We'll measure** %s\n\n", h.WeMeasure)
+	fmt.Fprintf(&b, "**We are right if** %s\n\n", h.WeAreRightIf)
+	fmt.Fprintf(&b, "## Assumptions (RAT-Ranked)\n\n")
+	fmt.Fprintf(&b, "| Rank | Assumption | Risk | Uncertainty | RAT Score |\n")
+	fmt.Fprintf(&b, "|------|-----------|------|-------------|----------|\n")
+	for _, a := range h.Assumptions {
+		fmt.Fprintf(&b, "| %d | %s | %s | %s | %.0f |\n",
+			a.RATRank, a.Statement, a.RiskLevel, a.Uncertainty, a.RATScore)
+	}
+	if len(h.Assumptions) > 0 {
+		fmt.Fprintf(&b, "\n**Riskiest assumption (rank 1):** %s\n", h.Assumptions[0].Statement)
+	}
+	if len(h.Requirements) > 0 {
+		fmt.Fprintf(&b, "\n## Requirements\n\n")
+		for _, r := range h.Requirements {
+			fmt.Fprintf(&b, "- %s\n", r)
+		}
+	}
 	return os.WriteFile(path, []byte(b.String()), 0o644)
 }
 
