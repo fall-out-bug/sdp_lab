@@ -52,6 +52,7 @@ type FeatureCard struct {
 	FollowupRefs            []string               `yaml:"followup_refs,omitempty" json:"followup_refs,omitempty"`
 	NormalizedIntent        string                 `yaml:"normalized_intent,omitempty" json:"normalized_intent,omitempty"`
 	TaskType                string                 `yaml:"task_type,omitempty" json:"task_type,omitempty"`
+	IssueType               string                 `yaml:"issue_type,omitempty" json:"issue_type,omitempty"`
 	ExecutionMode           string                 `yaml:"execution_mode,omitempty" json:"execution_mode,omitempty"`
 	TargetRepo              string                 `yaml:"target_repo,omitempty" json:"target_repo,omitempty"`
 	TargetArea              string                 `yaml:"target_area,omitempty" json:"target_area,omitempty"`

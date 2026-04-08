@@ -111,6 +111,10 @@ func bdToCard(bd bdIssue) *FeatureCard {
 	// Map Beads priority to string
 	card.ExecutionMode = strconv.Itoa(bd.Priority)
 
+	if bd.Type != "" {
+		card.IssueType = bd.Type
+	}
+
 	// Map Beads description to normalized intent (objective)
 	if bd.Description != "" {
 		card.NormalizedIntent = bd.Description
