@@ -120,6 +120,38 @@ func runDiscover(args []string) {
 	// ── Checkpoint C: Depth decisions ──────────────────────────────
 	fmt.Println(discovery.RenderCheckpoint(scanResult))
 
+	// ── Phase 4a: VALIDATE (desk research) ────────────────────────
+	fmt.Printf("🔬 Phase 4a: Validating top assumptions...\n")
+	validation, err := discovery.Validate(ctx, client, frame, hypothesis)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: validate: %v\n", err)
+		os.Exit(1)
+	}
+	session.Validation = validation
+
+	// ── Checkpoint D: Validation verdict ──────────────────────────
+	verdictIcon := map[discovery.FinalVerdict]string{
+		discovery.VerdictGO:    "✅ GO",
+		discovery.VerdictPIVOT: "🔄 PIVOT",
+		discovery.VerdictKILL:  "❌ KILL",
+	}
+	verdictLabel := verdictIcon[validation.FinalVerdict]
+	if verdictLabel == "" {
+		verdictLabel = string(validation.FinalVerdict)
+	}
+	fmt.Printf("\n── Checkpoint D — Validation Verdict ──\n\n")
+	fmt.Printf("  Verdict:  %s\n", verdictLabel)
+	fmt.Printf("  Reason:   %s\n", validation.VerdictReason)
+	if validation.PivotSuggestion != "" {
+		fmt.Printf("  Pivot to: %s\n", validation.PivotSuggestion)
+	}
+	if validation.KillReason != "" {
+		fmt.Printf("  Kill why: %s\n", validation.KillReason)
+	}
+	fmt.Printf("  Claims:   %d validated (needs_experiment=%v)\n",
+		len(validation.Claims), validation.NeedsExperiment)
+	fmt.Printf("  Cost:     $%.5f\n\n", validation.CostUSD)
+
 	// ── Write artifacts ────────────────────────────────────────────
 	absOut, err := filepath.Abs(*outDir)
 	if err != nil {
