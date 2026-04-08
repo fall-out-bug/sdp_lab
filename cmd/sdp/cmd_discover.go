@@ -118,8 +118,19 @@ func runDiscover(args []string) {
 		len(scanResult.Flagged()))
 	fmt.Printf("   cost: $%.5f\n\n", scanResult.CostUSD)
 
-	// ── Checkpoint C: Depth decisions ──────────────────────────────
+	// ── Checkpoint C: Depth decisions ─────────────────────────────
 	fmt.Println(discovery.RenderCheckpoint(scanResult))
+	interactive := isTerminal()
+	if !interactive {
+		fmt.Printf("   (non-interactive mode — proceeding with defaults for all flagged items)\n\n")
+	}
+	resolutions := resolveCheckpointC(scanResult, interactive, nil)
+	if interactive && len(resolutions) > 0 {
+		printResolutionSummary(resolutions)
+		fmt.Println()
+	} else if !interactive && len(resolutions) > 0 {
+		printResolutionSummary(resolutions)
+	}
 
 	// ── Phase 4a: VALIDATE (desk research) ────────────────────────
 	fmt.Printf("🔬 Phase 4a: Validating top assumptions...\n")
