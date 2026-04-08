@@ -57,6 +57,39 @@ Be conservative — most tools should have primary_source_read: false in this in
 Return JSON:
 {"items":[{"name":"string","disposition":"ADOPT|EXTRACT|INSPIRE|MONITOR|IGNORE","covers_phases":["frame|hypothesize|scan|validate|experiment"],"key_strength":"string","key_gap":"string","stars":0,"primary_source_read":false,"architecture_reviewed":false,"desc_sentences":3,"source_count":1,"multi_source":false,"disposition_confidence":0.5}],"whitespace":"string describing the gap nobody fills","recommended_stack":["string"]}`
 
+// ApplyResolutions applies human checkpoint-C decisions to a ScanResult.
+// "downgrade" -> change disposition to MONITOR and unflag the item.
+// "proceed_provisional" -> leave disposition unchanged, keep DepthFlag.
+// "deep_dive" -> treated as proceed_provisional for now (real deep dive is future work).
+func ApplyResolutions(r *ScanResult, resolutions map[string]string) *ScanResult {
+	if len(resolutions) == 0 {
+		return r
+	}
+	updated := &ScanResult{
+		Items:            make([]ScanItem, len(r.Items)),
+		Whitespace:       r.Whitespace,
+		RecommendedStack: r.RecommendedStack,
+		CostUSD:          r.CostUSD,
+	}
+	copy(updated.Items, r.Items)
+	for i, item := range updated.Items {
+		res, ok := resolutions[item.Name]
+		if !ok {
+			continue
+		}
+		switch res {
+		case "downgrade":
+			updated.Items[i].Disposition = DispositionMonitor
+			updated.Items[i].DepthFlag = nil // clear flag — decision made
+		case "deep_dive":
+			// Treated as proceed_provisional until deep dive is implemented.
+			// Flag is preserved; user can re-run with real sources.
+		}
+		// proceed_provisional: no change to disposition or flag
+	}
+	return updated
+}
+
 func Scan(ctx context.Context, c *LLMClient, frame *FrameResult) (*ScanResult, error) {
 	jobs := strings.Join(frame.Jobs, "; ")
 	resp, err := c.Chat(ctx, ChatRequest{
