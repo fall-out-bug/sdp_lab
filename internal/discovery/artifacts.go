@@ -45,7 +45,7 @@ func slugify(s string) string {
 	return strings.Trim(slug, "-")
 }
 
-// WriteArtifacts writes frame and scan markdown files to dir.
+// WriteArtifacts writes frame, hypothesis, and scan markdown files to dir.
 func WriteArtifacts(dir string, s *Session) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", dir, err)

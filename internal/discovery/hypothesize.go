@@ -125,7 +125,7 @@ func ratScore(riskLevel, uncertainty string) float64 {
 func computeRATRanks(assumptions []Assumption) []Assumption {
 	sorted := make([]Assumption, len(assumptions))
 	copy(sorted, assumptions)
-	sort.Slice(sorted, func(i, j int) bool {
+	sort.SliceStable(sorted, func(i, j int) bool {
 		return sorted[i].RATScore > sorted[j].RATScore
 	})
 	for i := range sorted {
