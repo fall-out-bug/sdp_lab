@@ -58,4 +58,10 @@ func TestBuildFeatureDescription_PIVOTOmitsRequirements(t *testing.T) {
 	if !strings.Contains(desc, "narrow to research repo") {
 		t.Error("description missing pivot suggestion")
 	}
+	if strings.Contains(desc, "some requirement") {
+		t.Error("PIVOT description must not include requirements")
+	}
+	if strings.Contains(desc, "## Requirements") {
+		t.Error("PIVOT description must not include Requirements section header")
+	}
 }
