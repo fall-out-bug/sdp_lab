@@ -16,6 +16,7 @@ type Session struct {
 	Frame      *FrameResult
 	Hypothesis *HypothesisResult
 	Scan       *ScanResult
+	Validation *ValidationResult
 }
 
 // NewSession creates a new Session with today's date and a slug derived from idea.
@@ -64,6 +65,11 @@ func WriteArtifacts(dir string, s *Session) error {
 	}
 	if s.Scan != nil {
 		if err := writeScan(prefix+"-scan.md", s.Scan); err != nil {
+			return err
+		}
+	}
+	if s.Validation != nil {
+		if err := writeValidation(prefix+"-validation.md", s.Validation); err != nil {
 			return err
 		}
 	}
@@ -129,5 +135,61 @@ func writeScan(path string, r *ScanResult) error {
 	// Append raw JSON for downstream use
 	raw, _ := json.MarshalIndent(r, "", "  ")
 	fmt.Fprintf(&b, "\n```json\n%s\n```\n", raw)
+	return os.WriteFile(path, []byte(b.String()), 0o644)
+}
+
+func writeValidation(path string, v *ValidationResult) error {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# Discovery Validation\n\n")
+
+	verdictIcon := map[FinalVerdict]string{
+		VerdictGO:    "✅",
+		VerdictPIVOT: "🔄",
+		VerdictKILL:  "❌",
+	}
+	icon := verdictIcon[v.FinalVerdict]
+	if icon == "" {
+		icon = "❓"
+	}
+	fmt.Fprintf(&b, "## %s Final Verdict: %s\n\n", icon, v.FinalVerdict)
+	fmt.Fprintf(&b, "%s\n\n", v.VerdictReason)
+
+	if v.PivotSuggestion != "" {
+		fmt.Fprintf(&b, "**Pivot suggestion:** %s\n\n", v.PivotSuggestion)
+	}
+	if v.KillReason != "" {
+		fmt.Fprintf(&b, "**Kill reason:** %s\n\n", v.KillReason)
+	}
+	if v.NeedsExperiment {
+		fmt.Fprintf(&b, "> ⚠️ **Needs experiment:** one or more claims have insufficient desk-research data — Phase 4b recommended.\n\n")
+	}
+
+	fmt.Fprintf(&b, "## Claim Validation\n\n")
+	for _, c := range v.Claims {
+		verdictStr := string(c.Verdict)
+		fmt.Fprintf(&b, "### Rank %d — %s (confidence %.0f%%)\n\n", c.RATRank, verdictStr, c.Confidence*100)
+		fmt.Fprintf(&b, "**Claim:** %s\n\n", c.Claim)
+		if c.Notes != "" {
+			fmt.Fprintf(&b, "**Notes:** %s\n\n", c.Notes)
+		}
+		if len(c.Evidence) > 0 {
+			fmt.Fprintf(&b, "| Direction | Evidence | Estimate? |\n")
+			fmt.Fprintf(&b, "|-----------|----------|-----------|\n")
+			for _, e := range c.Evidence {
+				est := "no"
+				if e.IsEstimate {
+					est = "yes"
+				}
+				stmt := e.Statement
+				if e.SourceURL != "" {
+					stmt = fmt.Sprintf("[%s](%s)", e.Statement, e.SourceURL)
+				}
+				fmt.Fprintf(&b, "| %s | %s | %s |\n", strings.ToUpper(e.Direction), stmt, est)
+			}
+			fmt.Fprintf(&b, "\n")
+		}
+	}
+
+	fmt.Fprintf(&b, "---\n\n*Cost: $%.5f*\n", v.CostUSD)
 	return os.WriteFile(path, []byte(b.String()), 0o644)
 }

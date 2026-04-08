@@ -76,3 +76,50 @@ func TestArtifacts_WritesHypothesisFile(t *testing.T) {
 		t.Error("hypothesis file missing assumption")
 	}
 }
+
+func TestArtifacts_WritesValidationFile(t *testing.T) {
+	dir := t.TempDir()
+	session := &discovery.Session{
+		Slug: "test-idea",
+		Date: "2026-04-08",
+		Frame: &discovery.FrameResult{
+			RawIdea:          "test idea",
+			ProblemStatement: "test problem",
+			Jobs:             []string{"job 1"},
+			Appetite:         "small",
+		},
+		Validation: &discovery.ValidationResult{
+			FinalVerdict:  discovery.VerdictGO,
+			VerdictReason: "evidence supports both core assumptions",
+			Claims: []discovery.ClaimValidation{
+				{
+					Claim:   "founders lack time for discovery",
+					RATRank: 1,
+					Verdict: discovery.VerdictSupported,
+					Evidence: []discovery.Evidence{
+						{Direction: "for", Statement: "62% of indie hackers skip validation", IsEstimate: true},
+						{Direction: "against", Statement: "some use customer interviews", IsEstimate: true},
+					},
+					Confidence: 0.8,
+					Notes:      "strong signal from survey data",
+				},
+			},
+			NeedsExperiment: false,
+			CostUSD:         0.00123,
+		},
+	}
+	if err := discovery.WriteArtifacts(dir, session); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	valFile := filepath.Join(dir, "2026-04-08-test-idea-validation.md")
+	if _, err := os.Stat(valFile); err != nil {
+		t.Errorf("validation file not created: %v", err)
+	}
+	content, _ := os.ReadFile(valFile)
+	s := string(content)
+	for _, want := range []string{"GO", "founders lack time", "supported", "evidence supports"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("validation file missing %q", want)
+		}
+	}
+}
