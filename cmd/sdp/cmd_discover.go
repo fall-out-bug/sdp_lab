@@ -131,6 +131,10 @@ func runDiscover(args []string) {
 	} else if !interactive && len(resolutions) > 0 {
 		printResolutionSummary(resolutions)
 	}
+	if len(resolutions) > 0 {
+		scanResult = discovery.ApplyResolutions(scanResult, resolutions)
+		session.Scan = scanResult
+	}
 
 	// ── Phase 4a: VALIDATE (desk research) ────────────────────────
 	fmt.Printf("🔬 Phase 4a: Validating top assumptions...\n")
@@ -164,6 +168,21 @@ func runDiscover(args []string) {
 		len(validation.Claims), validation.NeedsExperiment)
 	fmt.Printf("  Cost:     $%.5f\n\n", validation.CostUSD)
 
+	// ── Phase 4b: EXPERIMENT (conditional on insufficient_data) ──
+	if validation.NeedsExperiment {
+		fmt.Printf("🧪 Phase 4b: Designing experiment for unresolved assumptions...\n")
+		experiment, err := discovery.GenerateExperiment(ctx, client, frame, validation)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "   warning: experiment design: %v\n", err)
+		} else {
+			session.Experiment = experiment
+			fmt.Printf("   format:  %s\n", experiment.Format)
+			fmt.Printf("   metric:  %s\n", experiment.SuccessMetric)
+			fmt.Printf("   timebox: %d days\n", experiment.TimeBoxDays)
+			fmt.Printf("   cost:    $%.5f\n\n", experiment.CostUSD)
+		}
+	}
+
 	// ── Write artifacts ────────────────────────────────────────────
 	absOut, err := filepath.Abs(*outDir)
 	if err != nil {
@@ -174,6 +193,17 @@ func runDiscover(args []string) {
 		os.Exit(1)
 	}
 	fmt.Printf("📁 Artifacts written to %s/\n", absOut)
+
+	// ── Create experiment beads issue (if Phase 4b ran) ───────────
+	if session.Experiment != nil {
+		fmt.Printf("\n📌 Creating experiment issue...\n")
+		expID, err := createExperimentIssue(idea, session.Experiment, absOut)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "   warning: could not create experiment issue: %v\n", err)
+		} else {
+			fmt.Printf("   created: %s\n", expID)
+		}
+	}
 
 	// ── Create beads issue ─────────────────────────────────────────
 	fmt.Printf("\n📌 Creating beads issue...\n")
@@ -230,6 +260,25 @@ func buildDiscoveryDescription(
 		idea, frame.ProblemStatement, frame.Appetite,
 		hypoSection, verdictSection, reqSection, artifactDir,
 	)
+}
+
+func createExperimentIssue(idea string, e *discovery.ExperimentBrief, artifactDir string) (string, error) {
+	title := fmt.Sprintf("Experiment: %s [%s]", idea, e.Format)
+	desc := fmt.Sprintf(
+		"## Experiment Brief\n\n**Idea:** %s\n\n**Format:** %s\n\n**Objective:** %s\n\n**Hypothesis:** %s\n\n**Success metric:** %s\n\n**Time box:** %d days\n\n**Testing claim:** %s\n\n**Artifacts:** %s/",
+		idea, e.Format, e.Objective, e.Hypothesis, e.SuccessMetric, e.TimeBoxDays, e.RawClaim, artifactDir,
+	)
+	cmd := exec.Command("bd", "create",
+		"--title="+title,
+		"--description="+desc,
+		"--type=task",
+		"--priority=2",
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("bd create: %w: %s", err, out)
+	}
+	return string(out), nil
 }
 
 func createDiscoveryIssue(
