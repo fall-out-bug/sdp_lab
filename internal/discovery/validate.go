@@ -123,8 +123,14 @@ Rules:
 - KILL: the rank-1 claim is "contradicted" with high confidence (>= 0.7), OR majority are contradicted
 - PIVOT: mixed — some supported, some contradicted or insufficient_data; a pivot direction is visible
 
-Return JSON:
-{"final_verdict":"GO|PIVOT|KILL","verdict_reason":"2-3 sentences referencing specific claims","pivot_suggestion":"what to pivot to (only if PIVOT, else omit)","kill_reason":"why kill (only if KILL, else omit)"}`
+Return JSON with ONLY these fields:
+- Always include: final_verdict, verdict_reason
+- Include pivot_suggestion ONLY if final_verdict is "PIVOT" — otherwise OMIT the field entirely
+- Include kill_reason ONLY if final_verdict is "KILL" — otherwise OMIT the field entirely
+
+Example for GO: {"final_verdict":"GO","verdict_reason":"..."}
+Example for PIVOT: {"final_verdict":"PIVOT","verdict_reason":"...","pivot_suggestion":"..."}
+Example for KILL: {"final_verdict":"KILL","verdict_reason":"...","kill_reason":"..."}`
 
 const validateTopN = 3
 
@@ -176,6 +182,21 @@ type synthResult struct {
 	KillReason      string       `json:"kill_reason"`
 }
 
+// cleanSynthesisJSON removes LLM artefacts like bare empty keys (,""}) that break JSON parsing.
+// These appear when a model includes an optional field as an empty-string key without a value.
+func cleanSynthesisJSON(s string) string {
+	// Remove bare empty-key entries, e.g. ,"" } or ,"" ,
+	for {
+		cleaned := strings.ReplaceAll(s, `,""}`, "}")
+		cleaned = strings.ReplaceAll(cleaned, `,"",`, ",")
+		if cleaned == s {
+			break
+		}
+		s = cleaned
+	}
+	return s
+}
+
 // validateSynthesis runs the synthesis LLM call to produce the overall GO/PIVOT/KILL verdict.
 // Returns the synthResult and LLM cost in USD.
 func validateSynthesis(ctx context.Context, c *LLMClient, problem string, claims []ClaimValidation) (synthResult, float64, error) {
@@ -194,6 +215,7 @@ func validateSynthesis(ctx context.Context, c *LLMClient, problem string, claims
 	}
 	content := strings.TrimSpace(resp.Content)
 	content = stripMarkdownFences(content)
+	content = cleanSynthesisJSON(content)
 
 	var sr synthResult
 	if err := json.Unmarshal([]byte(content), &sr); err != nil {
