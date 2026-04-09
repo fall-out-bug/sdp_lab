@@ -34,7 +34,6 @@ func main() {
 	status := flag.Bool("status", false, "Output status: pending WS, open beads, next action")
 	jsonOutput := flag.Bool("json", false, "Output in JSON format (default is human-readable)")
 	repair := flag.Bool("repair", false, "Repair corrupted checkpoint from git history")
-	noCommit := flag.Bool("no-commit", false, "Skip git commit after build phase (for CI)")
 	flag.Parse()
 
 	if *feature == "" {
@@ -67,8 +66,6 @@ func main() {
 		runRepair(projectRoot, featureID, filepath.Join(projectRoot, *checkpointDir))
 		return
 	}
-	_ = *noCommit // used by advance command
-
 	workstreams, err := orchestrate.DiscoverWorkstreams(projectRoot, featureID)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)

@@ -1,13 +1,25 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"strings"
 
 	"sdp_dev/internal/orchestrate"
 )
 
 func runRepair(projectRoot, featureID, cpPath string) {
+	fmt.Printf("This will overwrite the checkpoint for %s with the last committed version from git.\n", featureID)
+	fmt.Print("Continue? [y/N] ")
+	reader := bufio.NewReader(os.Stdin)
+	answer, _ := reader.ReadString('\n')
+	answer = strings.TrimSpace(strings.ToLower(answer))
+	if answer != "y" && answer != "yes" {
+		fmt.Fprintln(os.Stderr, "Aborted.")
+		os.Exit(1)
+	}
+
 	cp, err := orchestrate.RepairCheckpoint(projectRoot, cpPath, featureID)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
