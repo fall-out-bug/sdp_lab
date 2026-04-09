@@ -284,17 +284,17 @@ func GetChangedFiles(projectRoot string) []string {
 
 func getChangedFilesSinceBase(projectRoot, baseRef string) []string {
 	ctx := context.Background()
-	out, err := executil.DefaultRunner.Output(ctx, projectRoot, "git", "diff", "--name-only", baseRef+"...HEAD")
+	out, err := executil.GetDefaultRunner().Output(ctx, projectRoot, "git", "diff", "--name-only", baseRef+"...HEAD")
 	if err != nil {
 		// Fallback: uncommitted changes
-		out2, _ := executil.DefaultRunner.Output(ctx, projectRoot, "git", "diff", "--name-only", "HEAD")
+		out2, _ := executil.GetDefaultRunner().Output(ctx, projectRoot, "git", "diff", "--name-only", "HEAD")
 		return splitLines(string(out2))
 	}
 	return splitLines(string(out))
 }
 
 func gitHeadSHA(projectRoot string) (string, error) {
-	out, err := executil.DefaultRunner.Output(context.Background(), projectRoot, "git", "rev-parse", "HEAD")
+	out, err := executil.GetDefaultRunner().Output(context.Background(), projectRoot, "git", "rev-parse", "HEAD")
 	if err != nil {
 		return "", err
 	}

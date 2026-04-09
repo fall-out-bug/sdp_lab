@@ -25,7 +25,7 @@ func InvokeWithFallback(ctx context.Context, req kernel.RuntimeInvocation) (kern
 			logger.Printf("serve invoke failed (output=%d, err=%v), falling back to exec", len(result.Output), err)
 		}
 	}
-	return orchestrate.DefaultLLMInvoker.Invoke(ctx, req)
+	return orchestrate.GetDefaultInvoker().Invoke(ctx, req)
 }
 
 // execFallback invokes opencode directly via exec (no serve mode).

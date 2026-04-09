@@ -122,7 +122,7 @@ func InvokeOpenCode(ctx context.Context, dir, agent, prompt string) (string, int
 // If invoker is nil, uses DefaultLLMInvoker.
 func RunBuildPhase(ctx context.Context, projectRoot, featureID, wsID string, invoker LLMInvoker) (commit string, err error) {
 	if invoker == nil {
-		invoker = DefaultLLMInvoker
+		invoker = GetDefaultInvoker()
 	}
 	prompt := buildPromptWithContext(projectRoot, fmt.Sprintf("Execute @build %s. Output only code and commit message. After commit, output the commit hash.", wsID))
 	promptHash := ComputePromptHash(prompt)
@@ -158,7 +158,7 @@ func RunBuildPhase(ctx context.Context, projectRoot, featureID, wsID string, inv
 // If invoker is nil, uses DefaultLLMInvoker.
 func RunReviewPhase(ctx context.Context, dir, featureID string, invoker LLMInvoker) (approved bool, output string, err error) {
 	if invoker == nil {
-		invoker = DefaultLLMInvoker
+		invoker = GetDefaultInvoker()
 	}
 	prompt := buildPromptWithContext(dir, fmt.Sprintf("Execute @review %s. Fix P0/P1 findings. Output APPROVED when done.", featureID))
 	res, err := invoker.Invoke(ctx, kernel.RuntimeInvocation{
@@ -175,7 +175,7 @@ func RunReviewPhase(ctx context.Context, dir, featureID string, invoker LLMInvok
 
 func RunQAPhase(ctx context.Context, dir, featureID string, invoker LLMInvoker) (passed bool, output string, err error) {
 	if invoker == nil {
-		invoker = DefaultLLMInvoker
+		invoker = GetDefaultInvoker()
 	}
 	prompt := buildPromptWithContext(dir, fmt.Sprintf("Execute @qa %s. Validate QA/UAT against the feature intent. Output QA_PASS when done.", featureID))
 	res, err := invoker.Invoke(ctx, kernel.RuntimeInvocation{

@@ -109,11 +109,10 @@ func ComputeNextAction(cp *Checkpoint, workstreams []string, projectRoot string)
 	case PhaseInit:
 		return &NextAction{Action: "init"}, nil
 	case PhaseBuild:
-		for i, ws := range cp.Workstreams {
+		for _, ws := range cp.Workstreams {
 			if ws.Status != "done" {
-				if ws.Status == "pending" {
-					return &NextAction{Action: "build", WSID: workstreams[i], Feature: cp.FeatureID}, nil
-				}
+				// Use ws.ID directly instead of indexing workstreams slice
+				// to avoid index out of bounds panic if lengths differ
 				return &NextAction{Action: "build", WSID: ws.ID, Feature: cp.FeatureID}, nil
 			}
 		}

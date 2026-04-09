@@ -4,6 +4,7 @@ package beads
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 )
 
 const noOpenBlockersClause = `
@@ -242,7 +243,34 @@ func (sc *SQLClient) GetPriorityBreakdown(status string) (map[int]int, error) {
 
 // ExecuteRawQuery executes a raw SQL query and returns results as maps.
 // This is for advanced users who need custom queries.
+//
+// SECURITY: This function validates that the query is read-only by checking
+// that it starts with SELECT or WITH (for CTEs). It also blocks common
+// SQL injection patterns by rejecting queries containing DROP, DELETE,
+// INSERT, UPDATE, ALTER, CREATE, or EXECUTE.
+//
+// IMPORTANT: This is a pragmatic mitigation, not perfect security.
+// Sophisticated attackers could potentially bypass these checks.
+// This function should only be used with trusted input or in
+// controlled environments where users are already authenticated
+// and authorized to execute read-only queries.
 func (sc *SQLClient) ExecuteRawQuery(query string, args ...interface{}) ([]map[string]interface{}, error) {
+	trimmedQuery := strings.TrimSpace(query)
+	upperQuery := strings.ToUpper(trimmedQuery)
+
+	// Check that query starts with SELECT or WITH (for CTEs)
+	if !strings.HasPrefix(upperQuery, "SELECT") && !strings.HasPrefix(upperQuery, "WITH") {
+		return nil, fmt.Errorf("only SELECT and WITH queries are allowed")
+	}
+
+	// Block dangerous SQL keywords
+	dangerousKeywords := []string{"DROP", "DELETE", "INSERT", "UPDATE", "ALTER", "CREATE", "EXECUTE"}
+	for _, keyword := range dangerousKeywords {
+		if strings.Contains(upperQuery, keyword) {
+			return nil, fmt.Errorf("query contains disallowed keyword: %s", keyword)
+		}
+	}
+
 	rows, err := sc.db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("execute raw query: %w", err)

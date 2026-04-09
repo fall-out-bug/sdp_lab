@@ -27,7 +27,7 @@ func (b *ExecutorBridge) DispatchAndRun(ctx context.Context, projectID, cardID s
 		return nil, fmt.Errorf("nil executor bridge/store")
 	}
 	if b.Invoker == nil {
-		b.Invoker = orchestrate.DefaultLLMInvoker
+		b.Invoker = orchestrate.GetDefaultInvoker()
 	}
 
 	card, err := b.Store.LoadCard(projectID, cardID)

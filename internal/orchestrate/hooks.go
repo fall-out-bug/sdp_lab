@@ -230,7 +230,19 @@ func isAllowedHookExecutable(projectRoot, command string) bool {
 			candidate = filepath.Join(projectRoot, candidate)
 		}
 		clean := filepath.Clean(candidate)
-		rel, err := filepath.Rel(projectRoot, clean)
+
+		// Resolve symlinks to prevent path traversal attacks
+		resolvedProjectRoot, err := filepath.EvalSymlinks(projectRoot)
+		if err != nil {
+			return false
+		}
+
+		resolvedCandidate, err := filepath.EvalSymlinks(clean)
+		if err != nil {
+			return false
+		}
+
+		rel, err := filepath.Rel(resolvedProjectRoot, resolvedCandidate)
 		if err != nil {
 			return false
 		}

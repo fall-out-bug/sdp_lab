@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os/exec"
 	"sync"
 	"time"
@@ -55,6 +56,10 @@ func (s *OmOSupervisor) WaitReady(ctx context.Context, timeout time.Duration) er
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
+	client := &http.Client{
+		Timeout: 2 * time.Second,
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -77,7 +82,25 @@ func (s *OmOSupervisor) WaitReady(ctx context.Context, timeout time.Duration) er
 				s.mu.Unlock()
 				return fmt.Errorf("opencode serve process exited unexpectedly")
 			}
+			s.mu.Unlock()
 
+			// Probe the HTTP endpoint to verify the server is actually ready
+			probeURL := fmt.Sprintf("%s/session", s.baseURL)
+			req, err := http.NewRequestWithContext(ctx, "GET", probeURL, nil)
+			if err != nil {
+				// Context canceled or invalid URL, try again next tick
+				continue
+			}
+
+			resp, err := client.Do(req)
+			if err != nil {
+				// Server not ready yet, try again next tick
+				continue
+			}
+			resp.Body.Close()
+
+			// Any response means the server is ready
+			s.mu.Lock()
 			s.ready = true
 			s.mu.Unlock()
 			return nil

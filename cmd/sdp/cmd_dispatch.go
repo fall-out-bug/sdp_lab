@@ -68,7 +68,7 @@ func runDispatchNext(args []string) {
 			fmt.Printf("   Packet: %s\n", result.PacketPath)
 		}
 		if *execute {
-			bridge := &executor.ExecutorBridge{Store: store, Invoker: orchestrate.DefaultLLMInvoker, ProjectRoot: store.ProjectRoot}
+			bridge := &executor.ExecutorBridge{Store: store, Invoker: orchestrate.GetDefaultInvoker(), ProjectRoot: store.ProjectRoot}
 			execResult, err := bridge.DispatchAndRun(context.Background(), result.ProjectID, result.CardID)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error: execute dispatched card: %v\n", err)

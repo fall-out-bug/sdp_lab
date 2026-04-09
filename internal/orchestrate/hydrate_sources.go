@@ -11,7 +11,7 @@ import (
 
 // gitLSFiles returns tracked files for scope checks. Reserved for future use.
 func gitLSFiles(projectRoot string) (map[string]bool, error) { //nolint:unused
-	out, err := executil.DefaultRunner.Output(context.Background(), projectRoot, "git", "ls-files")
+	out, err := executil.GetDefaultRunner().Output(context.Background(), projectRoot, "git", "ls-files")
 	if err != nil {
 		return nil, err
 	}
@@ -25,7 +25,7 @@ func gitLSFiles(projectRoot string) (map[string]bool, error) { //nolint:unused
 }
 
 func gitStatusPorcelain(projectRoot string) (string, error) {
-	out, err := executil.DefaultRunner.Output(context.Background(), projectRoot, "git", "status", "--porcelain")
+	out, err := executil.GetDefaultRunner().Output(context.Background(), projectRoot, "git", "status", "--porcelain")
 	if err != nil {
 		return "", err
 	}
@@ -33,7 +33,7 @@ func gitStatusPorcelain(projectRoot string) (string, error) {
 }
 
 func bdShow(projectRoot, beadsID string) (string, error) {
-	out, err := executil.DefaultRunner.Output(context.Background(), projectRoot, "bd", "show", beadsID)
+	out, err := executil.GetDefaultRunner().Output(context.Background(), projectRoot, "bd", "show", beadsID)
 	if err != nil {
 		return "", err
 	}

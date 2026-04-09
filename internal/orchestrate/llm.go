@@ -3,6 +3,7 @@ package orchestrate
 import (
 	"context"
 	"log/slog"
+	"sync"
 
 	"sdp_dev/internal/kernel"
 )
@@ -11,9 +12,10 @@ import (
 // RunBuildPhase and RunReviewPhase use this for testability.
 type LLMInvoker = kernel.RuntimeAdapter
 
-// DefaultLLMInvoker uses InvokeOpenCode (opencode CLI subprocess).
-// Switch to serve mode via SetDefaultInvoker.
-var DefaultLLMInvoker LLMInvoker = openCodeInvoker{}
+var (
+	defaultLLMInvoker LLMInvoker = openCodeInvoker{}
+	defaultLLMMutex   sync.RWMutex
+)
 
 type openCodeInvoker struct{}
 
@@ -22,9 +24,18 @@ func (openCodeInvoker) Invoke(ctx context.Context, req kernel.RuntimeInvocation)
 	return kernel.RuntimeResult{Output: output, ExitCode: exitCode}, err
 }
 
-// SetDefaultInvoker replaces the global DefaultLLMInvoker.
+// GetDefaultInvoker returns the current DefaultLLMInvoker in a thread-safe manner.
+func GetDefaultInvoker() LLMInvoker {
+	defaultLLMMutex.RLock()
+	defer defaultLLMMutex.RUnlock()
+	return defaultLLMInvoker
+}
+
+// SetDefaultInvoker replaces the global DefaultLLMInvoker in a thread-safe manner.
 // Call with omoclient.NewServeInvoker(...) to switch from subprocess to serve mode.
 func SetDefaultInvoker(inv kernel.RuntimeAdapter) {
-	DefaultLLMInvoker = inv
+	defaultLLMMutex.Lock()
+	defer defaultLLMMutex.Unlock()
+	defaultLLMInvoker = inv
 	slog.Info("LLM invoker switched")
 }

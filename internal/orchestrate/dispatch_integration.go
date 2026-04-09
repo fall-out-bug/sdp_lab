@@ -39,7 +39,7 @@ func NewDispatchingInvoker(projectRoot string) *dispatch.DispatchingInvoker {
 		switch name {
 		case "opencode":
 			// Reuse existing opencode invocation (it's the current default)
-			invokerMap[name] = DefaultLLMInvoker
+			invokerMap[name] = GetDefaultInvoker()
 		default:
 			// For other harnesses, create spawn-based invokers
 			// that launch their CLI and capture output
@@ -52,7 +52,7 @@ func NewDispatchingInvoker(projectRoot string) *dispatch.DispatchingInvoker {
 
 	return &dispatch.DispatchingInvoker{
 		Router:   &dispatch.Router{Profiles: profiles},
-		Fallback: DefaultLLMInvoker,
+		Fallback: GetDefaultInvoker(),
 		InvokerFor: func(name string) dispatch.LLMInvoker {
 			return invokerMap[name]
 		},

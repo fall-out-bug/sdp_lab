@@ -38,5 +38,5 @@ func CreateScopeEscalationBead(wsID string, violations []string) error {
 	if len(title) > 200 {
 		title = title[:197] + "..."
 	}
-	return executil.DefaultRunner.Run(context.Background(), "", "bd", "create", "--title", title, "--priority", "1", "--labels", "scope-violation")
+	return executil.GetDefaultRunner().Run(context.Background(), "", "bd", "create", "--title", title, "--priority", "1", "--labels", "scope-violation")
 }

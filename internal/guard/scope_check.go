@@ -70,7 +70,7 @@ func ChangedFiles(projectRoot string, useCached bool) ([]string, error) {
 	} else {
 		args = append(args, "HEAD~1", "HEAD")
 	}
-	out, err := executil.DefaultRunner.Output(context.Background(), projectRoot, "git", args...)
+	out, err := executil.GetDefaultRunner().Output(context.Background(), projectRoot, "git", args...)
 	if err != nil {
 		return nil, fmt.Errorf("git diff: %w", err)
 	}

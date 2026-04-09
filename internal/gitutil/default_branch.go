@@ -13,14 +13,14 @@ const fallbackDefaultBranch = "main"
 // When origin/HEAD is unavailable, it falls back to known local/remote refs and
 // finally to main.
 func DefaultBranch(ctx context.Context, repoRoot string) string {
-	return defaultBranchWithRunner(ctx, repoRoot, executil.DefaultRunner)
+	return defaultBranchWithRunner(ctx, repoRoot, executil.GetDefaultRunner())
 }
 
 // ComparisonBase returns the best git ref to diff/log against for a branch.
 // It prefers origin/<branch> when available, then the local branch, and falls
 // back to origin/<branch> so callers keep the expected remote-tracking shape.
 func ComparisonBase(ctx context.Context, repoRoot, branch string) string {
-	return comparisonBaseWithRunner(ctx, repoRoot, branch, executil.DefaultRunner)
+	return comparisonBaseWithRunner(ctx, repoRoot, branch, executil.GetDefaultRunner())
 }
 
 func defaultBranchWithRunner(ctx context.Context, repoRoot string, runner executil.CommandRunner) string {

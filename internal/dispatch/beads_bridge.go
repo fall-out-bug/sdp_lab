@@ -65,7 +65,7 @@ func NewShellBeadsReader(projectRoot string) *ShellBeadsReader {
 
 // defaultBdShow runs `bd show <id> --json` via executil.DefaultRunner.
 func defaultBdShow(ctx context.Context, projectRoot, beadID string) (string, error) {
-	out, err := executil.DefaultRunner.Output(ctx, projectRoot, "bd", "show", beadID, "--json")
+	out, err := executil.GetDefaultRunner().Output(ctx, projectRoot, "bd", "show", beadID, "--json")
 	if err != nil {
 		return "", fmt.Errorf("bd show %s: %w", beadID, err)
 	}

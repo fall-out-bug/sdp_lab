@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
 )
 
 // CommandRunner abstracts exec.Command for testability.
@@ -18,12 +19,18 @@ type CommandRunner interface {
 	Run(ctx context.Context, dir, name string, args ...string) error
 }
 
-// DefaultRunner uses os/exec.
-var DefaultRunner CommandRunner = &defaultRunner{}
+var (
+	defaultRunner CommandRunner
+	runnerMutex   sync.RWMutex
+)
 
-type defaultRunner struct{}
+func init() {
+	defaultRunner = &realRunner{}
+}
 
-func (r *defaultRunner) Output(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
+type realRunner struct{}
+
+func (r *realRunner) Output(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -36,7 +43,7 @@ func (r *defaultRunner) Output(ctx context.Context, dir, name string, args ...st
 	return out, nil
 }
 
-func (r *defaultRunner) CombinedOutput(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
+func (r *realRunner) CombinedOutput(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -49,7 +56,7 @@ func (r *defaultRunner) CombinedOutput(ctx context.Context, dir, name string, ar
 	return out, nil
 }
 
-func (r *defaultRunner) Run(ctx context.Context, dir, name string, args ...string) error {
+func (r *realRunner) Run(ctx context.Context, dir, name string, args ...string) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -61,4 +68,18 @@ func (r *defaultRunner) Run(ctx context.Context, dir, name string, args ...strin
 		return fmt.Errorf("%s %s: %w", name, strings.Join(args, " "), err)
 	}
 	return nil
+}
+
+// GetDefaultRunner returns the current DefaultRunner in a thread-safe manner.
+func GetDefaultRunner() CommandRunner {
+	runnerMutex.RLock()
+	defer runnerMutex.RUnlock()
+	return defaultRunner
+}
+
+// SetDefaultRunner replaces the global DefaultRunner in a thread-safe manner.
+func SetDefaultRunner(r CommandRunner) {
+	runnerMutex.Lock()
+	defer runnerMutex.Unlock()
+	defaultRunner = r
 }

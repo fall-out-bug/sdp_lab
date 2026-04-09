@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math"
 	"sort"
+	"sync/atomic"
 	"time"
 
 	"sdp_dev/internal/dispatch/harness"
@@ -37,7 +38,8 @@ type Router struct {
 	StalenessConfig   *StalenessConfig
 
 	// rrCounter tracks round-robin position across calls.
-	rrCounter int
+	// Use atomic.Int32 for concurrent access.
+	rrCounter atomic.Int32
 }
 
 // scoredProfile pairs a profile with its final computed score.
@@ -163,8 +165,9 @@ func (r *Router) applyColdStart(scored []scoredProfile) []scoredProfile {
 	switch strategy {
 	case ColdStartRoundRobin:
 		// Pick the next profile in sequence; all others get 0.
-		idx := r.rrCounter % len(scored)
-		r.rrCounter++
+		// Use atomic operations for thread safety.
+		idx := int(r.rrCounter.Load()) % len(scored)
+		r.rrCounter.Add(1)
 		for i := range scored {
 			if i == idx {
 				scored[i].finalScore = 1.0
