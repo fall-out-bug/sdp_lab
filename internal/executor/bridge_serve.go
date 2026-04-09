@@ -124,7 +124,9 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 	if beadsRepo != nil {
 		now := time.Now().UTC()
 		sessionID := fmt.Sprintf("omo-%d", now.UnixNano())
-		_ = beadsRepo.SetExecutorState(cardID, "omo-implementation", sessionID, "running")
+		if err := beadsRepo.SetExecutorState(cardID, "omo-implementation", sessionID, "running"); err != nil {
+				log.Printf("warn: set executor state: %v", err)
+			}
 	}
 
 	phase := card.TaskType
@@ -157,11 +159,15 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 			"artifacts":     result.Artifacts,
 			"findings":      result.Findings,
 		}, "", "  ")
-		_ = os.MkdirAll(filepath.Dir(evidencePath), 0o755)
+		if err := os.MkdirAll(filepath.Dir(evidencePath), 0o755); err != nil {
+				log.Printf("warn: create evidence dir: %v", err)
+			}
 		_ = os.WriteFile(evidencePath, evidenceJSON, 0o644)
 
 		// Link evidence in Beads metadata
-		_ = beadsRepo.LinkEvidence(cardID, "build", []string{evidencePath})
+		if err := beadsRepo.LinkEvidence(cardID, "build", []string{evidencePath}); err != nil {
+				log.Printf("warn: link evidence: %v", err)
+			}
 	}
 
 	// Route findings
@@ -172,7 +178,10 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 	}
 
 	// Update card state
-	card, _ = b.Store.LoadCard(projectID, cardID)
+	card, loadErr := b.Store.LoadCard(projectID, cardID)
+		if loadErr != nil {
+			return nil, fmt.Errorf("reload card after execution: %w", loadErr)
+		}
 	completedAt := time.Now().UTC()
 	card.LastExecutorHeartbeatAt = completedAt.Format(time.RFC3339)
 	card.ExecutorProgressSummary = result.Summary
@@ -182,7 +191,9 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 	} else {
 		card.ExecutorRuntimeState = "failed"
 	}
-	_ = b.Store.SaveCard(card)
+	if err := b.Store.SaveCard(card); err != nil {
+			log.Printf("warn: save card after execution: %v", err)
+		}
 
 	// Set final executor state in Beads
 	if beadsRepo != nil {
@@ -190,7 +201,9 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 		if result.Status != control.ResultStatusSuccess {
 			state = "failed"
 		}
-		_ = beadsRepo.SetExecutorState(cardID, "omo-implementation", "", state)
+		if err := beadsRepo.SetExecutorState(cardID, "omo-implementation", "", state); err != nil {
+				log.Printf("warn: set final executor state: %v", err)
+			}
 	}
 
 	return result, invokeErr

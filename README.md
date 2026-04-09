@@ -87,17 +87,24 @@ This README is a broad inventory, not the canonical workflow doc.
 - `specs/autonomy-runtime-contract.yaml` - runtime contract baseline.
 - `specs/brain-decision-api.yaml` - brain decision request/response contract.
 - `specs/strict-evidence-template.json` - mandatory PR evidence structure.
-- `cmd/autonomy-worker/` - picks next autonomy task from Beads and prepares execution packet. Modular: main_types, main_picker, main_labels, main_io, main_evidence, main_observability.
-- `cmd/brain-gateway/` - evaluates policy/risk/model/branch decision.
-- `cmd/beads-fsm/` - validates/applies guarded state transitions.
-- `cmd/pr-gate/` - blocks PR progression when strict evidence is incomplete.
+- `cmd/sdp/` - main SDP CLI: `discover`, `dispatch`, `board`, `tower`, `doctor`, `pipeline`.
+- `cmd/sdp-orchestrate/` - oneshot outer loop: `--advance`, `--status`, `--next-action`.
 - `cmd/sdp-evidence/` - standalone evidence CLI: `validate` and `inspect` subcommands. Zero K8s dependency.
-- `cmd/pr-publish/` - creates PR via `gh` and writes `trace.pr_url` into evidence.
-- `cmd/swarm-worker/` - worker role that claims and implements eligible coding tasks. Modular: main_flow, main_handlers, main_patches, main_ensure_*, main_verify*, main_observability, main_runner, main_util. See docs/SWARM_WORKER_RUNBOOK.md.
-- `cmd/swarm-reviewer/` - reviewer role that validates review flow and finalizes tasks.
-- `cmd/opencode-agent/` - orchestrates worker+reviewer cycle using OpenCode with model routing (`swarm-worker`: `glm-4.7`, `swarm-reviewer`: `glm-5`).
-- `cmd/redaction-check/` - scans candidate OSS exports for forbidden private terms.
-- `cmd/runtime-parity-check/` - compares runtime capability sets for contract parity.
+- `cmd/sdp-dispatch/` - routing and profiling for harness dispatch.
+- `cmd/sdp-ci-loop/` - CI feedback loop with deterministic autofix.
+- `cmd/sdp-eval/` - evaluation framework runner.
+- `cmd/sdp-guard/` - permission scope gate for agent invocations.
+- `cmd/sdp-omc-guard/` - OMO client guard for tool policy enforcement.
+- `cmd/sdp-beads-bridge/` - Beads issue tracker bridge.
+- `cmd/sdp-ready/` - find ready work from Beads queue with SDP mapping.
+- `cmd/sdp-protocol-check/` - validate SDP protocol hygiene across files.
+- `cmd/sdp-doc-sync/` - documentation consistency and changelog automation.
+- `cmd/sdp-a2a/` - agent-to-agent communication server.
+- `cmd/sdp-control/` - control plane CLI.
+- `cmd/sdp-ws-verdict-validate/` - workstream verdict validation.
+- `cmd/sdp-orchestrate-daemon/` - long-running orchestration daemon.
+- `cmd/sdp-gh-findings-sync/` - sync GitHub findings into local Beads queue.
+- `cmd/sdp-up/` - bootstrap and deploy SDP components.
 - `scripts/bootstrap_remote_k8s.sh` - creates required namespaces on remote cluster via SSH.
 - `scripts/check_remote_k8s.sh` - runs namespace health checks on remote cluster via SSH.
 - `scripts/apply_control_manifests.sh` - applies baseline control-plane manifests to remote cluster.
@@ -113,8 +120,6 @@ This README is a broad inventory, not the canonical workflow doc.
 - `scripts/run_kubeopencode_multi_role_probe.sh` - runs analyst/coder/reviewer operator task probe and prints summary.
 - `deploy/images/opencode-agent/Dockerfile.runtime` - runtime image with agent binaries plus `bd`/`git`/`gh` for in-pod execution.
 - `deploy/k8s/observability/` - deployable observability stack and telemetry ingestion pipeline manifests.
-
-- `cmd/flow-inspect/` - inspects protocol flow state from run packets.
 
 ## sdp-evidence CLI
 

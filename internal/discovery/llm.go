@@ -64,7 +64,10 @@ func (c *LLMClient) Chat(ctx context.Context, req ChatRequest) (*ChatResponse, e
 		return nil, fmt.Errorf("http: %w", err)
 	}
 	defer resp.Body.Close()
-	raw, _ := io.ReadAll(resp.Body)
+	raw, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("read response body: %w", err)
+		}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("status %d: %s", resp.StatusCode, raw)
 	}

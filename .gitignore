@@ -9,9 +9,6 @@
 
 # session-only wisps (ephemeral work items)
 .sdp/session/
-
-# opencode-mem storage
-.sdp/mem/
 __pycache__/
 *.pyc
 .tmp/
@@ -65,3 +62,17 @@ sdp-up
 .dolt/
 *.db
 sdp-dispatch
+
+# Env files (secrets)
+.env
+.env.*
+
+# Cursor hooks state
+.cursor/hooks/
+
+# Stale git artifacts
+ORIG_HEAD
+
+# Additional build artifacts
+sdp_bin
+sdp-beads-bridge

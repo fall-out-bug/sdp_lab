@@ -139,7 +139,10 @@ func writeScan(path string, r *ScanResult) error {
 			item.Name, item.Disposition, item.CoverageScore, flagged)
 	}
 	// Append raw JSON for downstream use
-	raw, _ := json.MarshalIndent(r, "", "  ")
+	raw, err := json.MarshalIndent(r, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal scan result: %w", err)
+	}
 	fmt.Fprintf(&b, "\n```json\n%s\n```\n", raw)
 	return os.WriteFile(path, []byte(b.String()), 0o644)
 }

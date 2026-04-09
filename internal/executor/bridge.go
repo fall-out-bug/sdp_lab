@@ -75,7 +75,9 @@ func (b *ExecutorBridge) DispatchAndRun(ctx context.Context, projectID, cardID s
 			Summary:    strings.TrimSpace(err.Error()),
 			ReceivedAt: time.Now().UTC().Format(time.RFC3339),
 		}
-		_ = b.Store.SaveCard(card)
+		if saveErr := b.Store.SaveCard(card); saveErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: save card on failure: %v\n", saveErr)
+		}
 		return nil, fmt.Errorf("invoke executor: %w", err)
 	}
 
