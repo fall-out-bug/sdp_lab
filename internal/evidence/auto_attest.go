@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 	"github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/common"
 
 	"sdp_dev/internal/gitutil"
+	"sdp_dev/internal/sdputil"
 )
 
 type AutoAttestOptions struct {
@@ -87,7 +89,7 @@ func collectAutoAttestFacts(opts AutoAttestOptions) (autoAttestFacts, error) {
 	}
 
 	beadsIDs := extractBeadsIDsFromCommits(opts.RepoRoot, opts.BaseBranch)
-	issueID := firstOrEmpty(beadsIDs)
+	issueID := sdputil.FirstOrEmpty(beadsIDs)
 	if issueID == "" {
 		issueID = fmt.Sprintf("ci-auto-pr%s", opts.PRNumber)
 	}
@@ -138,7 +140,7 @@ func buildAutoAttestPredicate(opts AutoAttestOptions, facts autoAttestFacts) Cod
 		},
 		Boundary: facts.boundary,
 		Provenance: Provenance{
-			RunID:        fmt.Sprintf("ci-auto-%s-%s", opts.PRNumber, facts.headSHA[:minLen(len(facts.headSHA), 8)]),
+			RunID:        fmt.Sprintf("ci-auto-%s-%s", opts.PRNumber, facts.headSHA[:sdputil.MinLen(len(facts.headSHA), 8)]),
 			Orchestrator: "github-actions",
 			Runtime:      "ci",
 			CapturedAt:   time.Now().UTC().Format(time.RFC3339),
@@ -158,7 +160,7 @@ func gitChangedFiles(repoRoot, baseBranch string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return splitLines(out), nil
+	return sdputil.SplitLines(out), nil
 }
 
 func gitCurrentBranch(repoRoot string) (string, error) {
@@ -183,7 +185,7 @@ func gitCommitsSinceBase(repoRoot, baseBranch string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return splitLines(out), nil
+	return sdputil.SplitLines(out), nil
 }
 
 var beadsIDRe = regexp.MustCompile(`(?:sdplab|sdp_dev)-[a-z0-9]+`)
@@ -412,6 +414,7 @@ func collectDeclaredScopePrefixes(repoRoot string, workstreams []string) []strin
 
 		_ = f.Close()
 		if scanner.Err() != nil {
+			slog.Warn("scanner error reading workstream scope", "workstream", ws, "error", scanner.Err())
 			continue
 		}
 	}
@@ -448,32 +451,6 @@ func runGit(dir string, args ...string) (string, error) {
 	return string(out), nil
 }
 
-func splitLines(s string) []string {
-	lines := strings.Split(strings.TrimSpace(s), "\n")
-	result := make([]string, 0, len(lines))
-	for _, l := range lines {
-		l = strings.TrimSpace(l)
-		if l != "" {
-			result = append(result, l)
-		}
-	}
-	return result
-}
-
-func firstOrEmpty(s []string) string {
-	if len(s) > 0 {
-		return s[0]
-	}
-	return ""
-}
-
-func minLen(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // WriteAutoAttestationReport writes a human-readable summary JSON alongside the attestation.
 func WriteAutoAttestationReport(outputPath string, stmt CodingWorkflowStatement) error {
 	AllTestsPass := AllTestsPass(stmt)
@@ -498,7 +475,7 @@ func WriteAutoAttestationReport(outputPath string, stmt CodingWorkflowStatement)
 		"generated_at":     stmt.Predicate.Provenance.CapturedAt,
 		"attestation_id":   stmt.Predicate.Provenance.RunID,
 		"branch":           stmt.Predicate.Trace.Branch,
-		"head_commit":      firstOrEmpty(stmt.Predicate.Trace.Commits),
+		"head_commit":      sdputil.FirstOrEmpty(stmt.Predicate.Trace.Commits),
 		"beads_ids":        beadsIDs,
 		"changed_files":    len(stmt.Predicate.Execution.ChangedFiles),
 		"test_results":     stmt.Predicate.Verification.Tests,

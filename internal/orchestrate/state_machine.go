@@ -152,6 +152,11 @@ func CurrentBuildWS(cp *Checkpoint) string {
 // Advance transitions the checkpoint to the next phase.
 // For build phase, result is the commit hash of the completed workstream.
 func Advance(cp *Checkpoint, workstreams []string, result string) error {
+	// Validate the transition before mutating any state
+	if err := ValidateAdvance(cp, workstreams); err != nil {
+		return err
+	}
+
 	switch cp.Phase {
 	case PhaseInit:
 		cp.Phase = PhaseBuild

@@ -108,9 +108,12 @@ func NewPolicyRouter(registry *ProviderRegistry, opts ...PolicyRouterOption) *Po
 }
 
 func (r *PolicyRouter) Route(ctx context.Context, input RoutingInput) (*RoutingDecision, *RoutingEvidence, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	// Step 1: Snapshot simulationMode under RLock
+	r.mu.RLock()
+	simulationMode := r.simulationMode
+	r.mu.RUnlock()
 
+	// Step 2: Release lock - do policy evaluation and tenant lookup outside lock
 	var decision *RoutingDecision
 	var err error
 
@@ -136,10 +139,14 @@ func (r *PolicyRouter) Route(ctx context.Context, input RoutingInput) (*RoutingD
 		Timestamp: time.Now(),
 	}
 
-	if !r.simulationMode {
+	// Step 3: Acquire Lock only to append to decisionLog
+	r.mu.Lock()
+	if !simulationMode {
 		r.decisionLog = append(r.decisionLog, *evidence)
 	}
+	r.mu.Unlock()
 
+	// Step 4: Return result
 	return decision, evidence, nil
 }
 

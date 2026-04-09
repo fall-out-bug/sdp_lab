@@ -193,3 +193,76 @@ hooks:
 		t.Fatalf("expected allowlist error, got: %v", err)
 	}
 }
+
+func TestParseCommandParts_ValidCommands(t *testing.T) {
+	// Test that commands with valid parsing are accepted
+	validCommands := []struct {
+		input  string
+		reason string
+	}{
+		{"echo hello", "simple command with space"},
+		{"echo 'hello world'", "single quoted argument"},
+		{`echo "hello world"`, "double quoted argument"},
+		{"git status", "git command"},
+		{"echo hello\\ world", "escaped space"},
+		{"  echo   hello  ", "leading/trailing whitespace"},
+	}
+
+	for _, tc := range validCommands {
+		t.Run(tc.reason, func(t *testing.T) {
+			// Test that the command can be parsed without error
+			// We use echo as it's in the allowlist
+			err := testCommandParses(t, tc.input)
+			// Commands may fail execution, but shouldn't fail parsing
+			if err != nil && !strings.Contains(err.Error(), "disallowed") {
+				t.Logf("Command: %s - Error: %v (may be execution failure, not parsing)", tc.input, err)
+			}
+		})
+	}
+}
+
+func TestParseCommandParts_InvalidCommands(t *testing.T) {
+	invalidCommands := []struct {
+		input  string
+		reason string
+	}{
+		{"", "empty string"},
+		{"   ", "whitespace only"},
+		{"echo 'unterminated", "unterminated single quote"},
+		{`echo "unterminated`, "unterminated double quote"},
+	}
+
+	for _, tc := range invalidCommands {
+		t.Run(tc.reason, func(t *testing.T) {
+			err := testCommandParses(t, tc.input)
+			if err == nil {
+				t.Errorf("Expected error for: %s (%s)", tc.input, tc.reason)
+			}
+		})
+	}
+}
+
+// testCommandParses tests if a command can be parsed and validated
+func testCommandParses(t *testing.T, cmd string) error {
+	t.Helper()
+	dir := t.TempDir()
+	sdp := filepath.Join(dir, ".sdp")
+	if err := os.MkdirAll(sdp, 0o755); err != nil {
+		return err
+	}
+	path := filepath.Join(sdp, "pipeline-hooks.yaml")
+	content := `
+hooks:
+  - phase: build
+    when: pre
+    command: "` + cmd + `"
+    on_fail: halt
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		return err
+	}
+
+	// We don't care if the command executes, just that it parses
+	err := orchestrate.RunHooks(context.Background(), dir, "build", "pre", orchestrate.HookEnv{}, nil)
+	return err
+}

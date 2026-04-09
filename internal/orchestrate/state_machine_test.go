@@ -203,7 +203,7 @@ func TestAdvanceFullLifecycle(t *testing.T) {
 	t.Run("review to pr", func(t *testing.T) {
 		cp := &orchestrate.Checkpoint{
 			FeatureID: "F004", Phase: orchestrate.PhaseReview,
-			Review: &orchestrate.ReviewStatus{Status: "pending"},
+			Review: &orchestrate.ReviewStatus{Status: "approved"},
 		}
 		if err := orchestrate.Advance(cp, workstreams, ""); err != nil {
 			t.Fatal(err)

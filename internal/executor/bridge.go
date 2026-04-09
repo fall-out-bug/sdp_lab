@@ -89,8 +89,7 @@ func (b *ExecutorBridge) DispatchAndRun(ctx context.Context, projectID, cardID s
 	if err != nil {
 		return nil, fmt.Errorf("reload card after findings routing: %w", err)
 	}
-	resultPath, writeErr := b.writeResult(cardID, result)
-	if writeErr != nil {
+	if _, writeErr := b.writeResult(cardID, result); writeErr != nil {
 		return nil, writeErr
 	}
 
@@ -107,18 +106,17 @@ func (b *ExecutorBridge) DispatchAndRun(ctx context.Context, projectID, cardID s
 		return nil, fmt.Errorf("save completed card state: %w", err)
 	}
 
-	_ = resultPath
 	return result, nil
 }
 
 func loadExecutionPacket(path string) (*control.ExecutionPacket, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read execution packet: %w", err)
 	}
 	var packet control.ExecutionPacket
 	if err := json.Unmarshal(data, &packet); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unmarshal execution packet: %w", err)
 	}
 	return &packet, nil
 }

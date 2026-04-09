@@ -197,6 +197,13 @@ func cleanSynthesisJSON(s string) string {
 	return s
 }
 
+func truncateContent(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "...truncated"
+}
+
 // validateSynthesis runs the synthesis LLM call to produce the overall GO/PIVOT/KILL verdict.
 // Returns the synthResult and LLM cost in USD.
 func validateSynthesis(ctx context.Context, c *LLMClient, problem string, claims []ClaimValidation) (synthResult, float64, error) {
@@ -220,7 +227,7 @@ func validateSynthesis(ctx context.Context, c *LLMClient, problem string, claims
 	var sr synthResult
 	if err := json.Unmarshal([]byte(content), &sr); err != nil {
 		return synthResult{}, 0, fmt.Errorf("validate synthesis parse (finish=%s): %w\ncontent: %s",
-			resp.FinishReason, err, content)
+			resp.FinishReason, err, truncateContent(content, 200))
 	}
 	return sr, resp.CostUSD, nil
 }

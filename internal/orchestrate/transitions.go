@@ -3,6 +3,7 @@ package orchestrate
 import (
 	"context"
 	"fmt"
+	"log/slog"
 )
 
 type TransitionName string
@@ -60,7 +61,6 @@ var transitions = map[State][]Transition{
 			To:          StateAssigned,
 			PolicyCheck: true,
 			Validator:   validateValidatedToAssigned,
-			Action:      actionAssignWork,
 			Description: "Assign work to available agent with matching skills",
 		},
 		{
@@ -78,7 +78,6 @@ var transitions = map[State][]Transition{
 			To:          StateExecuted,
 			PolicyCheck: true,
 			Validator:   validateAssignedToExecuted,
-			Action:      actionExecuteWork,
 			Description: "Execute the assigned work within sandbox boundaries",
 		},
 		{
@@ -96,7 +95,6 @@ var transitions = map[State][]Transition{
 			To:          StateReviewed,
 			PolicyCheck: true,
 			Validator:   validateExecutedToReviewed,
-			Action:      actionReviewWork,
 			Description: "Review completed work for quality and correctness",
 		},
 		{
@@ -114,7 +112,6 @@ var transitions = map[State][]Transition{
 			To:          StateCompleted,
 			PolicyCheck: true,
 			Validator:   validateReviewedToCompleted,
-			Action:      actionFinalizeWork,
 			Description: "Finalize and mark work as complete",
 		},
 		{
@@ -139,7 +136,6 @@ var transitions = map[State][]Transition{
 			From:        StateFailed,
 			To:          StateRolledBack,
 			PolicyCheck: false,
-			Action:      actionRollback,
 			Description: "Roll back all changes and restore previous state",
 		},
 	},
@@ -219,25 +215,6 @@ func validateRetry(ctx context.Context, fsmCtx *FSMContext, state *FSMState) err
 	return nil
 }
 
-func actionAssignWork(ctx context.Context, fsmCtx *FSMContext, state *FSMState) error {
-	return nil
-}
-
-func actionExecuteWork(ctx context.Context, fsmCtx *FSMContext, state *FSMState) error {
-	return nil
-}
-
-func actionReviewWork(ctx context.Context, fsmCtx *FSMContext, state *FSMState) error {
-	return nil
-}
-
-func actionFinalizeWork(ctx context.Context, fsmCtx *FSMContext, state *FSMState) error {
-	return nil
-}
-
-func actionRollback(ctx context.Context, fsmCtx *FSMContext, state *FSMState) error {
-	return nil
-}
 
 type PolicyCheckpointer interface {
 	Check(ctx context.Context, transition TransitionName, fsmCtx *FSMContext) error
@@ -250,6 +227,20 @@ type AuditLogger interface {
 type DefaultAuditLogger struct{}
 
 func (l *DefaultAuditLogger) LogTransition(ctx context.Context, from, to State, fsmCtx *FSMContext, err error) error {
+attrs := []slog.Attr{
+		slog.String("from", string(from)),
+		slog.String("to", string(to)),
+	}
+	if fsmCtx != nil {
+		attrs = append(attrs, slog.String("feature_id", fsmCtx.FeatureID))
+		attrs = append(attrs, slog.String("workstream_id", fsmCtx.WorkstreamID))
+	}
+	if err != nil {
+		attrs = append(attrs, slog.String("error", err.Error()))
+		slog.LogAttrs(ctx, slog.LevelError, "FSM transition failed", attrs...)
+	} else {
+		slog.LogAttrs(ctx, slog.LevelInfo, "FSM transition", attrs...)
+	}
 	return nil
 }
 
@@ -262,6 +253,15 @@ func NewLoggingHook(logger AuditLogger) *LoggingHook {
 }
 
 func (h *LoggingHook) BeforeTransition(ctx context.Context, from, to State, fsmCtx *FSMContext) error {
+	attrs := []slog.Attr{
+		slog.String("from", string(from)),
+		slog.String("to", string(to)),
+	}
+	if fsmCtx != nil {
+		attrs = append(attrs, slog.String("feature_id", fsmCtx.FeatureID))
+		attrs = append(attrs, slog.String("workstream_id", fsmCtx.WorkstreamID))
+	}
+	slog.LogAttrs(ctx, slog.LevelInfo, "FSM transition attempted", attrs...)
 	return nil
 }
 

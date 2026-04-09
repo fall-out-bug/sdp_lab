@@ -299,14 +299,12 @@ func (c *PolicyConsistencyChecker) CheckScopes(results []BranchResult) error {
 }
 
 type IsolatedMergePolicy struct {
-	inner       MergePolicy
-	contaminate bool
+	inner MergePolicy
 }
 
 func NewIsolatedMergePolicy(inner MergePolicy) *IsolatedMergePolicy {
 	return &IsolatedMergePolicy{
-		inner:       inner,
-		contaminate: false,
+		inner: inner,
 	}
 }
 

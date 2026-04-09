@@ -3,6 +3,7 @@ package orchestrate
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -311,7 +312,9 @@ func (f *FSMV2) emitEvent(ctx context.Context, eventType string, from, to State,
 	}
 
 	event := buildOrchestrationEvent(f.context, eventType, from, to, err)
-	_ = f.eventProducer.EmitEventAsync(ctx, event)
+	if emitErr := f.eventProducer.EmitEventAsync(ctx, event); emitErr != nil {
+		slog.Warn("failed to emit event", "event_type", eventType, "error", emitErr)
+	}
 }
 
 func buildOrchestrationEvent(fsmCtx *FSMContext, eventType string, from, to State, err error) *sdk.OrchestrationEvent {
@@ -423,7 +426,9 @@ func (f *FSMV2) Fail(ctx context.Context, reason string) error {
 	go func() {
 		if f.eventProducer != nil {
 			event := buildOrchestrationEvent(f.context, "transition_failed", from, to, f.state.LastError)
-			_ = f.eventProducer.EmitEventAsync(ctx, event)
+			if emitErr := f.eventProducer.EmitEventAsync(ctx, event); emitErr != nil {
+					slog.Warn("failed to emit event", "event_type", "transition_failed", "error", emitErr)
+				}
 		}
 	}()
 

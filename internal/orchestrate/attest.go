@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -17,6 +18,7 @@ import (
 	"sdp_dev/internal/evidence"
 	"sdp_dev/internal/executil"
 	"sdp_dev/internal/gitutil"
+	"sdp_dev/internal/sdputil"
 )
 
 // GenerateOrchestratorAttestation creates an in-toto attestation from a checkpoint.
@@ -249,6 +251,7 @@ func collectWorkstreamScopePrefixes(projectRoot string, wsIDs []string) []string
 
 			return scanner.Err()
 		}(); err != nil {
+			slog.Warn("error reading workstream scope file", "workstream", wsID, "error", err)
 			continue
 		}
 	}
@@ -302,27 +305,13 @@ func gitHeadSHA(projectRoot string) (string, error) {
 }
 
 func splitLines(s string) []string {
-	lines := strings.Split(strings.TrimSpace(s), "\n")
-	result := make([]string, 0, len(lines))
-	for _, l := range lines {
-		l = strings.TrimSpace(l)
-		if l != "" {
-			result = append(result, l)
-		}
-	}
-	return result
+	return sdputil.SplitLines(s)
 }
 
 func firstBeadsID(ids []string) string {
-	if len(ids) > 0 {
-		return ids[0]
-	}
-	return ""
+	return sdputil.FirstOrEmpty(ids)
 }
 
 func minLen(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
+	return sdputil.MinLen(a, b)
 }

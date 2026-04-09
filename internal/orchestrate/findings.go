@@ -258,23 +258,12 @@ func checkpointQAIteration(cp *Checkpoint) int {
 	return cp.QA.Iteration
 }
 
+// nonEmptyStrings calls sdputil.NonEmptyStrings
 func nonEmptyStrings(values ...string) []string {
-	out := make([]string, 0, len(values))
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value != "" {
-			out = append(out, value)
-		}
-	}
-	return out
+	return sdputil.NonEmptyStrings(values...)
 }
 
+// firstNonEmpty calls sdputil.FirstNonEmpty
 func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value != "" {
-			return value
-		}
-	}
-	return ""
+	return sdputil.FirstNonEmpty(values...)
 }
