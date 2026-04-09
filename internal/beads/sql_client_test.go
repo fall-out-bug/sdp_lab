@@ -8,7 +8,7 @@ import (
 // TestExecuteRawQuery_ValidQueries tests that valid SELECT and WITH queries are allowed
 func TestExecuteRawQuery_ValidQueries(t *testing.T) {
 	client := setupTestClient(t)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 	sqlClient := NewSQLClient(client)
 
 	validQueries := []string{
@@ -36,7 +36,7 @@ func TestExecuteRawQuery_ValidQueries(t *testing.T) {
 // TestExecuteRawQuery_InvalidKeywords tests that dangerous SQL keywords are blocked
 func TestExecuteRawQuery_InvalidKeywords(t *testing.T) {
 	client := setupTestClient(t)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 	sqlClient := NewSQLClient(client)
 
 	invalidQueries := []struct {
@@ -70,7 +70,7 @@ func TestExecuteRawQuery_InvalidKeywords(t *testing.T) {
 // TestExecuteRawQuery_NonSelectStatements tests that non-SELECT/WITH statements are rejected
 func TestExecuteRawQuery_NonSelectStatements(t *testing.T) {
 	client := setupTestClient(t)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 	sqlClient := NewSQLClient(client)
 
 	invalidStatements := []string{
@@ -96,7 +96,7 @@ func TestExecuteRawQuery_NonSelectStatements(t *testing.T) {
 // TestExecuteRawQuery_EmptyAndWhitespace tests edge cases
 func TestExecuteRawQuery_EmptyAndWhitespace(t *testing.T) {
 	client := setupTestClient(t)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 	sqlClient := NewSQLClient(client)
 
 	emptyQueries := []string{
@@ -140,7 +140,7 @@ func setupTestDB(t *testing.T, dir string) string {
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Create the schema
 	schema := `
@@ -182,7 +182,7 @@ func setupTestDB(t *testing.T, dir string) string {
 // TestSQLClient_QueryOptions tests the query option functions
 func TestSQLClient_QueryOptions(t *testing.T) {
 	client := setupTestClient(t)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 	sqlClient := NewSQLClient(client)
 
 	t.Run("WithStatus", func(t *testing.T) {
@@ -246,7 +246,7 @@ func TestSQLClient_QueryOptions(t *testing.T) {
 // TestSQLClient_CountIssues tests the count functionality
 func TestSQLClient_CountIssues(t *testing.T) {
 	client := setupTestClient(t)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 	sqlClient := NewSQLClient(client)
 
 	count, err := sqlClient.CountIssues(WithStatus("open"))
@@ -269,7 +269,7 @@ func TestSQLClient_CountIssues(t *testing.T) {
 // TestSQLClient_GetPriorityBreakdown tests priority breakdown
 func TestSQLClient_GetPriorityBreakdown(t *testing.T) {
 	client := setupTestClient(t)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 	sqlClient := NewSQLClient(client)
 
 	breakdown, err := sqlClient.GetPriorityBreakdown("open")
@@ -293,7 +293,7 @@ func TestSQLClient_GetPriorityBreakdown(t *testing.T) {
 // TestSQLClient_QueryIssuesByDependency tests dependency-based queries
 func TestSQLClient_QueryIssuesByDependency(t *testing.T) {
 	client := setupTestClient(t)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 	sqlClient := NewSQLClient(client)
 
 	t.Run("AsSource", func(t *testing.T) {

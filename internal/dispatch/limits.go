@@ -93,8 +93,8 @@ func FormatLimitsTable(limits map[string]*harness.Limits) string {
 	for _, name := range names {
 		l := limits[name]
 		status := usageStatus(l.UsagePercent())
-		sb.WriteString(fmt.Sprintf("%-20s  %8d  %8d  %8s  %s\n",
-			name, l.Used, l.Total, l.Window, status))
+		fmt.Fprintf(&sb, "%-20s  %8d  %8d  %8s  %s\n",
+				name, l.Used, l.Total, l.Window, status)
 	}
 
 	return sb.String()

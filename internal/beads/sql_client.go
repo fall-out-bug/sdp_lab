@@ -122,7 +122,7 @@ func (sc *SQLClient) QueryIssues(opts ...QueryOption) ([]Issue, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query issues: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var issues []Issue
 	for rows.Next() {
@@ -163,7 +163,7 @@ func (sc *SQLClient) QueryIssuesByDependency(depType DependencyType, asSource bo
 	if err != nil {
 		return nil, fmt.Errorf("query issues by dependency: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var issues []Issue
 	for rows.Next() {
@@ -226,7 +226,7 @@ func (sc *SQLClient) GetPriorityBreakdown(status string) (map[int]int, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query priority breakdown: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	breakdown := make(map[int]int)
 	for rows.Next() {
@@ -275,7 +275,7 @@ func (sc *SQLClient) ExecuteRawQuery(query string, args ...interface{}) ([]map[s
 	if err != nil {
 		return nil, fmt.Errorf("execute raw query: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	columns, err := rows.Columns()
 	if err != nil {

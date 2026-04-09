@@ -72,7 +72,7 @@ func TestWriter_LogFileExists(t *testing.T) {
 		t.Fatalf("append event: %v", err)
 	}
 
-	writer.Close()
+	_ = writer.Close()
 
 	// Verify file exists
 	logPath := filepath.Join(tmpDir, defaultLogDir, "session-"+sessionID+".jsonl")

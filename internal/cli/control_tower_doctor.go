@@ -28,7 +28,7 @@ func RenderDoctorControl(report *control.DoctorReport) string {
 	}
 
 	b.WriteString("DOCTOR CONTROL\n")
-	b.WriteString(fmt.Sprintf("Checks: %d total | %d passed | %d issues\n", report.TotalChecks, report.Passed, report.Failed))
+	fmt.Fprintf(&b, "Checks: %d total | %d passed | %d issues\n", report.TotalChecks, report.Passed, report.Failed)
 
 	if len(issues) == 0 {
 		b.WriteString("Status: healthy\n")
@@ -36,7 +36,7 @@ func RenderDoctorControl(report *control.DoctorReport) string {
 		return strings.TrimSpace(b.String())
 	}
 
-	b.WriteString(fmt.Sprintf("Status: action needed (%d errors, %d warnings)\n", errors, warnings))
+	fmt.Fprintf(&b, "Status: action needed (%d errors, %d warnings)\n", errors, warnings)
 	b.WriteString("Next action: fix errors first, then clear the oldest/stalest warnings.\n")
 	b.WriteString("\nIssue groups:\n")
 	for _, line := range summarizeCheckCounts(byCheck) {
@@ -45,7 +45,7 @@ func RenderDoctorControl(report *control.DoctorReport) string {
 
 	b.WriteString("\nTop issues:\n")
 	for _, check := range issues {
-		b.WriteString(fmt.Sprintf("- [%s] %s", strings.ToUpper(check.Severity), humanizeCheckID(check.CheckID)))
+		fmt.Fprintf(&b, "- [%s] %s", strings.ToUpper(check.Severity), humanizeCheckID(check.CheckID))
 		if check.ProjectID != "" || check.CardID != "" {
 			b.WriteString(" — ")
 			if check.ProjectID != "" {

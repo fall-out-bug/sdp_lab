@@ -154,7 +154,7 @@ func loadProfileSection(storagePath string, maxItems int) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("open profile db: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	row := db.QueryRow(`
 		SELECT display_name, user_name, user_email, profile_data
@@ -216,7 +216,7 @@ func loadProfileSection(storagePath string, maxItems int) (string, error) {
 		}
 		b.WriteString(pref.Description)
 		if pref.Confidence > 0 {
-			b.WriteString(fmt.Sprintf(" (%.2f)", pref.Confidence))
+			fmt.Fprintf(&b, " (%.2f)", pref.Confidence)
 		}
 		b.WriteString("\n")
 	}
@@ -237,7 +237,7 @@ func loadProjectMemorySection(storagePath, gitRepoURL string, maxMemories int) (
 	if err != nil {
 		return "", fmt.Errorf("open metadata db: %w", err)
 	}
-	defer metaDB.Close()
+	defer func() { _ = metaDB.Close() }()
 
 	rows, err := metaDB.Query(`
 		SELECT db_path
@@ -248,7 +248,7 @@ func loadProjectMemorySection(storagePath, gitRepoURL string, maxMemories int) (
 	if err != nil {
 		return "", fmt.Errorf("query project shards: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	remaining := maxMemories
 	if remaining <= 0 {
@@ -313,7 +313,7 @@ func queryShardMemories(shardPath, gitRepoURL string, limit int) ([]memoryRow, e
 	if err != nil {
 		return nil, fmt.Errorf("open shard db %s: %w", shardPath, err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	const qWithRepo = `
 		SELECT content, created_at
@@ -328,7 +328,7 @@ func queryShardMemories(shardPath, gitRepoURL string, limit int) ([]memoryRow, e
 	if err != nil {
 		return nil, fmt.Errorf("query shard memories %s: %w", shardPath, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	out := make([]memoryRow, 0, limit)
 	for rows.Next() {

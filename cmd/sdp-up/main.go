@@ -19,7 +19,7 @@ var (
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), `sdp-up - Provision SDP integration environment
+		_, _ = fmt.Fprintf(flag.CommandLine.Output(), `sdp-up - Provision SDP integration environment
 
 Usage:
   sdp up --profile <name>     Provision environment
@@ -29,7 +29,7 @@ Usage:
 Flags:
 `)
 		flag.PrintDefaults()
-		fmt.Fprintf(flag.CommandLine.Output(), `
+		_, _ = fmt.Fprintf(flag.CommandLine.Output(), `
 Examples:
   sdp up --profile oss-combine
   sdp up --profile oss-combine --dry-run

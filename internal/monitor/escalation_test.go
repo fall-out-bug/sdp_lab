@@ -122,6 +122,7 @@ func TestNewEscalationHandler(t *testing.T) {
 
 	if eh == nil {
 		t.Fatal("newEscalationHandler returned nil")
+		return
 	}
 
 	if eh.createWisp != false {

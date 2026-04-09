@@ -17,7 +17,7 @@ func ReadSSEStream(ctx context.Context, body io.ReadCloser) <-chan OmOEvent {
 
 	go func() {
 		defer close(ch)
-		defer body.Close()
+		defer func() { _ = body.Close() }()
 
 		scanner := bufio.NewScanner(body)
 		var currentEvent OmOEvent

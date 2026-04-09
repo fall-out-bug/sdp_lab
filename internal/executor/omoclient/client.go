@@ -41,7 +41,7 @@ func (c *OmOServeClient) CreateSession(req CreateSessionRequest) (*SessionInfo, 
 	if err != nil {
 		return nil, fmt.Errorf("create session request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -64,7 +64,7 @@ func (c *OmOServeClient) GetSession(id string) (*SessionInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get session request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -87,7 +87,7 @@ func (c *OmOServeClient) ListSessions() ([]SessionInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list sessions request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Any response (even HTML fallback) means the server is reachable.
 	// Don't try to parse as JSON — opencode serve doesn't have a REST /session endpoint.
@@ -112,7 +112,7 @@ func (c *OmOServeClient) DeleteSession(id string) error {
 	if err != nil {
 		return fmt.Errorf("delete session request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -142,7 +142,7 @@ func (c *OmOServeClient) SendMessageStream(content string) (*http.Response, erro
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("send message failed: status %d, body: %s", resp.StatusCode, string(respBody))
 	}
 

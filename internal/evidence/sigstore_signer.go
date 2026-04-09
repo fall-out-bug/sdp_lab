@@ -113,7 +113,7 @@ func (s *Signer) VerifyAttestation(signed []byte) (CodingWorkflowStatement, erro
 		return CodingWorkflowStatement{}, fmt.Errorf("decode signed attestation: %w", err)
 	}
 
-	env := b.Bundle.GetDsseEnvelope()
+	env := b.GetDsseEnvelope()
 	if env == nil {
 		return CodingWorkflowStatement{}, errors.New("sigstore bundle missing DSSE envelope")
 	}
@@ -251,7 +251,7 @@ func (s *Signer) signWithCosignBundle(payload []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create temp dir for cosign signing: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	predicatePath := filepath.Join(tmpDir, "predicate.json")
 	artifactPath := filepath.Join(tmpDir, "artifact.txt")
@@ -342,7 +342,7 @@ func (s *Signer) fetchGitHubOIDCToken(ctx context.Context, requestURL, requestTo
 	if err != nil {
 		return "", fmt.Errorf("request OIDC token: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

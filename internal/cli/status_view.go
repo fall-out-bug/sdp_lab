@@ -95,7 +95,7 @@ func NewStatusViewFromBeads(beadsItems []BeadsItem) *StatusView {
 func (s *StatusView) RenderText() string {
 	var b strings.Builder
 	b.WriteString("SDP Ready Status\n")
-	b.WriteString(fmt.Sprintf("Ready: %d | Blocked: %d | In Progress: %d\n\n", s.ReadyCount, s.BlockedCount, s.InProgressCount))
+	fmt.Fprintf(&b, "Ready: %d | Blocked: %d | In Progress: %d\n\n", s.ReadyCount, s.BlockedCount, s.InProgressCount)
 
 	for _, item := range s.Items {
 		line := fmt.Sprintf("- [%s] P%d %s: %s", item.Status, item.Priority, item.ID, item.Title)

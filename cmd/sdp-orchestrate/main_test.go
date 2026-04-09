@@ -23,7 +23,7 @@ func captureStdout(fn func()) []byte {
 		done <- buf.Bytes()
 	}()
 	fn()
-	w.Close()
+	_ = w.Close()
 	os.Stdout = old
 	return <-done
 }

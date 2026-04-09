@@ -30,6 +30,7 @@ func TestNewParallelExecutor(t *testing.T) {
 	executor := NewParallelExecutor(&mockBranchExecutor{})
 	if executor == nil {
 		t.Fatal("expected non-nil executor")
+		return
 	}
 	if executor.maxBranches != 10 {
 		t.Errorf("expected maxBranches 10, got %d", executor.maxBranches)
@@ -131,9 +132,10 @@ func TestExecuteWithFailure(t *testing.T) {
 
 	var succeeded, failed int
 	for r := range resultChan {
-		if r.Status == BranchStatusSucceeded {
+		switch r.Status {
+		case BranchStatusSucceeded:
 			succeeded++
-		} else if r.Status == BranchStatusFailed {
+		case BranchStatusFailed:
 			failed++
 		}
 	}

@@ -268,7 +268,7 @@ func funcMap() template.FuncMap {
 			}
 			var b strings.Builder
 			for _, v := range s {
-				b.WriteString(fmt.Sprintf(`<span class="inline-block px-1.5 py-0.5 bg-gray-800 rounded text-xs mr-1 mb-1">%s</span>`, v))
+				fmt.Fprintf(&b, `<span class="inline-block px-1.5 py-0.5 bg-gray-800 rounded text-xs mr-1 mb-1">%s</span>`, v)
 			}
 			return template.HTML(b.String())
 		},
@@ -284,7 +284,7 @@ func funcMap() template.FuncMap {
 					icon = "❌"
 					color = "text-red-400"
 				}
-				b.WriteString(fmt.Sprintf(`<span class="inline-flex items-center gap-1 text-xs %s mr-3">%s %s</span>`, color, icon, k))
+				fmt.Fprintf(&b, `<span class="inline-flex items-center gap-1 text-xs %s mr-3">%s %s</span>`, color, icon, k)
 			}
 			return template.HTML(b.String())
 		},

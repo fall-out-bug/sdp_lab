@@ -15,7 +15,7 @@ import (
 func TestWaitReady_ServerRespondsQuickly(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, `{"status":"ready"}`)
+		_, _ = fmt.Fprintln(w, `{"status":"ready"}`)
 	}))
 	defer server.Close()
 
@@ -27,7 +27,7 @@ func TestWaitReady_ServerRespondsQuickly(t *testing.T) {
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Failed to start mock process: %v", err)
 	}
-	defer cmd.Wait()
+	defer func() { _ = cmd.Wait() }()
 
 	sup.cmd = cmd
 
@@ -49,7 +49,7 @@ func TestWaitReady_ServerNotResponding(t *testing.T) {
 		t.Fatalf("Failed to find unused port: %v", err)
 	}
 	addr := listener.Addr().String()
-	listener.Close()
+	_ = listener.Close()
 
 		sup := NewOmOSupervisor("http://" + addr)
 
@@ -59,7 +59,7 @@ func TestWaitReady_ServerNotResponding(t *testing.T) {
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Failed to start mock process: %v", err)
 	}
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }()
 
 	sup.cmd = cmd
 
@@ -79,7 +79,7 @@ func TestWaitReady_ContextCancellation(t *testing.T) {
 		t.Fatalf("Failed to find unused port: %v", err)
 	}
 	addr := listener.Addr().String()
-	listener.Close()
+	_ = listener.Close()
 
 		sup := NewOmOSupervisor("http://" + addr)
 
@@ -89,7 +89,7 @@ func TestWaitReady_ContextCancellation(t *testing.T) {
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Failed to start mock process: %v", err)
 	}
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }()
 
 	sup.cmd = cmd
 
@@ -141,7 +141,7 @@ func TestWaitReady_ProcessExited(t *testing.T) {
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Failed to start mock process: %v", err)
 	}
-	cmd.Wait() // Wait for it to exit
+	_, _ = cmd.Process.Wait() // Wait for it to exit
 
 	sup.cmd = cmd
 
@@ -174,7 +174,7 @@ func TestStart(t *testing.T) {
 		t.Logf("Start failed (opencode may not be installed): %v", err)
 	} else {
 		// Clean up if it started
-		sup.Stop(0)
+		_ = sup.Stop(0)
 	}
 }
 

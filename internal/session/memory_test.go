@@ -111,7 +111,7 @@ func seedMetadataDB(path string) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	if _, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS shards (
@@ -139,7 +139,7 @@ func seedProjectShardDB(path, repoURL string) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	if _, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS memories (
@@ -183,7 +183,7 @@ func seedUserProfileDB(path string) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	if _, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS user_profiles (

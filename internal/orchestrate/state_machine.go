@@ -42,14 +42,14 @@ func FormatNextAction(a *NextAction) string {
 // FormatCheckpointStatus returns a human-readable status summary for a checkpoint.
 func FormatCheckpointStatus(featureID string, cp *Checkpoint, workstreams []string, action *NextAction) string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("## Feature Status: %s\n\n", featureID))
+	fmt.Fprintf(&sb, "## Feature Status: %s\n\n", featureID)
 
 	// Phase
 	phase := "unknown"
 	if cp != nil {
 		phase = cp.Phase
 	}
-	sb.WriteString(fmt.Sprintf("**Phase:** %s\n\n", phase))
+	fmt.Fprintf(&sb, "**Phase:** %s\n\n", phase)
 
 	// Workstream table
 	sb.WriteString("**Workstreams:**\n\n")
@@ -58,7 +58,7 @@ func FormatCheckpointStatus(featureID string, cp *Checkpoint, workstreams []stri
 		sb.WriteString("|---|------------|--------|\n")
 		done := 0
 		for i, ws := range cp.Workstreams {
-			marker := " "
+			var marker string
 			switch ws.Status {
 			case "done":
 				marker = "done"
@@ -70,10 +70,9 @@ func FormatCheckpointStatus(featureID string, cp *Checkpoint, workstreams []stri
 			default:
 				marker = ws.Status
 			}
-			sb.WriteString(fmt.Sprintf("| %d | %s | %s |\n", i+1, ws.ID, marker))
+			fmt.Fprintf(&sb, "| %d | %s | %s |\n", i+1, ws.ID, marker)
 		}
-		sb.WriteString(fmt.Sprintf("\nProgress: %d/%d workstreams done\n", done, len(cp.Workstreams)))
-	} else {
+fmt.Fprintf(&sb, "\nProgress: %d/%d workstreams done\n", done, len(cp.Workstreams))	} else {
 		var pending []string
 		if cp != nil {
 			for _, ws := range cp.Workstreams {

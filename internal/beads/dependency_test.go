@@ -33,7 +33,7 @@ func TestDependencyQuery_GetDependencies(t *testing.T) {
     if err != nil {
         t.Fatalf("Failed to create in-memory db: %v", err)
     }
-    defer db.Close()
+    defer func() { _ = db.Close() }()
 
     // Create schema
     _, err = db.Exec(`
@@ -130,7 +130,7 @@ func TestDependencyQuery_GetBlockingDependencies(t *testing.T) {
     if err != nil {
         t.Fatalf("Failed to create in-memory db: %v", err)
     }
-    defer db.Close()
+    defer func() { _ = db.Close() }()
 
     // Create schema
     _, err = db.Exec(`

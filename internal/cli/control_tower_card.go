@@ -58,8 +58,8 @@ func canonicalOwners(card *control.FeatureCard) []canonicalOwner {
 
 func RenderCardDetail(card *control.FeatureCard) string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("CARD — %s\n", card.Title))
-	b.WriteString(fmt.Sprintf("ID: %s/%s | Status: %s", card.ProjectID, card.ID, card.Status))
+	fmt.Fprintf(&b, "CARD — %s\n", card.Title)
+	fmt.Fprintf(&b, "ID: %s/%s | Status: %s", card.ProjectID, card.ID, card.Status)
 	if risk := strings.TrimSpace(card.RiskLevel); risk != "" {
 		b.WriteString(" | Risk: " + risk)
 	}
@@ -80,7 +80,7 @@ func RenderCardDetail(card *control.FeatureCard) string {
 
 	b.WriteString("Canonical owners\n")
 	for _, owner := range canonicalOwners(card) {
-		b.WriteString(fmt.Sprintf("- %s: %s — %s\n", owner.Flow, owner.Owner, owner.Detail))
+		fmt.Fprintf(&b, "- %s: %s — %s\n", owner.Flow, owner.Owner, owner.Detail)
 	}
 	b.WriteString("\n")
 

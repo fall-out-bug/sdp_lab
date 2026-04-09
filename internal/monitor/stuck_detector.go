@@ -181,7 +181,7 @@ func (sd *stuckDetector) getLastEventTime(file string) (sessionID string, lastEv
 	if err != nil {
 		return sessionID, lastEvent, nil
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Read backwards from end to find last complete line
 	buf := make([]byte, 4096)

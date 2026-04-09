@@ -24,6 +24,7 @@ func TestVerificationRouter_SelectsAlternative(t *testing.T) {
 	}
 	if dec == nil {
 		t.Fatal("expected non-nil decision")
+		return
 	}
 	if dec.Harness == "claude" {
 		t.Errorf("verification harness should NOT be the build harness, got %q", dec.Harness)
@@ -73,6 +74,7 @@ func TestVerificationRouter_RespectsLimits(t *testing.T) {
 	// which is still > 0, so it should be selected via cold-start
 	if dec == nil {
 		t.Fatal("expected non-nil decision (cold-start should kick in)")
+		return
 	}
 	if dec.Harness != "opencode" {
 		t.Errorf("expected opencode, got %q", dec.Harness)
@@ -95,6 +97,7 @@ func TestVerificationRouter_MultipleAlternatives(t *testing.T) {
 	}
 	if dec == nil {
 		t.Fatal("expected non-nil decision")
+		return
 	}
 	if dec.Harness != "codex" {
 		t.Errorf("expected codex (highest score), got %q", dec.Harness)

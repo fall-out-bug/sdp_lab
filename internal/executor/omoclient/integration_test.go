@@ -21,7 +21,7 @@ func skipIfNoServer(t *testing.T) string {
 	if err != nil {
 		t.Skipf("opencode serve not running at %s: %v", url, err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	return url
 }
 
@@ -126,7 +126,7 @@ func TestIntegration_SendMessageSSE(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SendMessageStream: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()

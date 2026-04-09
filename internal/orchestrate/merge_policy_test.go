@@ -35,6 +35,7 @@ func TestNewDefaultMergePolicy(t *testing.T) {
 			p := NewDefaultMergePolicy(tt.opts...)
 			if p == nil {
 				t.Fatal("NewDefaultMergePolicy returned nil")
+				return
 			}
 			if p.resolution != tt.want {
 				t.Errorf("resolution = %v, want %v", p.resolution, tt.want)

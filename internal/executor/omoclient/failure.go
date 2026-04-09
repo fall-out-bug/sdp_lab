@@ -206,7 +206,7 @@ func IsStrike(f *Failure) bool {
 	// Transport transient errors (retryable or temporary) are not strikes
 	// Non-transient transport errors are strikes
 	if f.Kind == FailureTransport {
-		return !(f.Retryable || f.Temporary)
+		return !f.Retryable && !f.Temporary
 	}
 
 	// Malformed and validation errors are strikes

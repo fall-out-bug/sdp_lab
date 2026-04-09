@@ -96,7 +96,7 @@ func TestRunBench_JSON(t *testing.T) {
 
 	os.Args = []string{"bench", "-task", "feature", "-lang", "go", "-json", "-project", dir}
 	err := runBench()
-	w.Close()
+	_ = w.Close()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

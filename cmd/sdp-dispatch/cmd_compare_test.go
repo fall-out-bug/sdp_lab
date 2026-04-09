@@ -47,7 +47,7 @@ func TestRunCompare_JSON(t *testing.T) {
 
 	os.Args = []string{"compare", "-task", "feature", "-lang", "go", "-json", "-project", dir}
 	err := runCompare()
-	w.Close()
+	_ = w.Close()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

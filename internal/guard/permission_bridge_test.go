@@ -20,7 +20,7 @@ func TestNewPermissionBridge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPermissionBridge failed: %v", err)
 	}
-	defer pb.Close()
+	defer func() { _ = pb.Close() }()
 	
 	if pb.config.DefaultAction != ActionDeny {
 		t.Errorf("DefaultAction = %v, want %v", pb.config.DefaultAction, ActionDeny)
@@ -32,7 +32,7 @@ func TestNewPermissionBridgeNilConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPermissionBridge failed: %v", err)
 	}
-	defer pb.Close()
+	defer func() { _ = pb.Close() }()
 	
 	if pb.config.DefaultAction != ActionAsk {
 		t.Errorf("DefaultAction = %v, want %v", pb.config.DefaultAction, ActionAsk)
@@ -50,7 +50,7 @@ func TestNewPermissionBridgeRegex(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPermissionBridge failed: %v", err)
 	}
-	defer pb.Close()
+	defer func() { _ = pb.Close() }()
 	
 	// Check that regex was compiled
 	if pb.config.Rules[0].compiledRegex == nil {
@@ -83,7 +83,7 @@ func TestCheckAllow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPermissionBridge failed: %v", err)
 	}
-	defer pb.Close()
+	defer func() { _ = pb.Close() }()
 	
 	decision, err := pb.Check(context.Background(), PermissionRequest{
 		ToolName: "edit",
@@ -110,7 +110,7 @@ func TestCheckDeny(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPermissionBridge failed: %v", err)
 	}
-	defer pb.Close()
+	defer func() { _ = pb.Close() }()
 	
 	decision, err := pb.Check(context.Background(), PermissionRequest{
 		ToolName: "edit",
@@ -137,7 +137,7 @@ func TestCheckAskWithCallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPermissionBridge failed: %v", err)
 	}
-	defer pb.Close()
+	defer func() { _ = pb.Close() }()
 	
 	askCalled := false
 	pb.SetOnAsk(func(ctx context.Context, req PermissionRequest) (PermissionAction, error) {
@@ -172,7 +172,7 @@ func TestCheckDefaultAction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPermissionBridge failed: %v", err)
 	}
-	defer pb.Close()
+	defer func() { _ = pb.Close() }()
 	
 	decision, err := pb.Check(context.Background(), PermissionRequest{
 		ToolName: "edit",
@@ -200,7 +200,7 @@ func TestCheckWithToolPrefix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPermissionBridge failed: %v", err)
 	}
-	defer pb.Close()
+	defer func() { _ = pb.Close() }()
 	
 	// Should match edit:*.go
 	decision, err := pb.Check(context.Background(), PermissionRequest{
@@ -242,7 +242,7 @@ func TestAuditLog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPermissionBridge failed: %v", err)
 	}
-	defer pb.Close()
+	defer func() { _ = pb.Close() }()
 	
 	_, err = pb.Check(context.Background(), PermissionRequest{
 		ToolName:  "edit",
@@ -269,8 +269,9 @@ func TestDefaultPermissionConfig(t *testing.T) {
 	
 	if config == nil {
 		t.Fatal("DefaultPermissionConfig returned nil")
+		return
 	}
-	
+
 	if len(config.Rules) == 0 {
 		t.Error("DefaultPermissionConfig should have rules")
 	}
@@ -282,7 +283,7 @@ func TestDefaultPermissionConfig(t *testing.T) {
 
 func TestMatchesGlob(t *testing.T) {
 	pb, _ := NewPermissionBridge(nil)
-	defer pb.Close()
+	defer func() { _ = pb.Close() }()
 	
 	tests := []struct {
 		pattern string

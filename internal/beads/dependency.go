@@ -49,7 +49,7 @@ func (dq *DependencyQuery) GetDependencies(depType DependencyType) ([]Dependency
 	if err != nil {
 		return nil, fmt.Errorf("query dependencies: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var deps []Dependency
 	for rows.Next() {
@@ -75,7 +75,7 @@ func (dq *DependencyQuery) GetBlockingDependencies(issueID string) ([]Dependency
 	if err != nil {
 		return nil, fmt.Errorf("query blocking dependencies: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var deps []Dependency
 	for rows.Next() {
@@ -116,7 +116,7 @@ func (dq *DependencyQuery) GetReadyIssuesWithDeps() ([]ReadyIssue, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query ready issues with deps: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var issues []ReadyIssue
 	for rows.Next() {
@@ -142,7 +142,7 @@ func (dq *DependencyQuery) GetDependencyGraph() (map[string][]Dependency, error)
 	if err != nil {
 		return nil, fmt.Errorf("query dependency graph: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	graph := make(map[string][]Dependency)
 	for rows.Next() {
@@ -169,7 +169,7 @@ func (dq *DependencyQuery) GetRelatedIssues(issueID string) ([]Dependency, error
 	if err != nil {
 		return nil, fmt.Errorf("query related issues: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var deps []Dependency
 	for rows.Next() {
@@ -231,7 +231,7 @@ func (dq *DependencyQuery) GetTransitiveBlockers(issueID string) ([]Issue, error
 	if err != nil {
 		return nil, fmt.Errorf("query transitive blockers: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var issues []Issue
 	for rows.Next() {
@@ -257,7 +257,7 @@ func (dq *DependencyQuery) GetDependencyStats() (map[DependencyType]int, error) 
 	if err != nil {
 		return nil, fmt.Errorf("query dependency stats: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	stats := make(map[DependencyType]int)
 	for rows.Next() {

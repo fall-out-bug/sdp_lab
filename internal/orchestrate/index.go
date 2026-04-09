@@ -141,7 +141,7 @@ func FormatIndexTable(rows []IndexRow) string {
 	sb.WriteString("| WS | Feature | Title | Status |\n")
 	sb.WriteString("|----|---------|-------|--------|\n")
 	for _, r := range rows {
-		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s |\n", r.WS, r.Feature, r.Title, r.Status))
+		fmt.Fprintf(&sb, "| %s | %s | %s | %s |\n", r.WS, r.Feature, r.Title, r.Status)
 	}
 	return sb.String()
 }
@@ -168,7 +168,7 @@ func UpdateIndexFile(projectRoot, featureID string, cp *Checkpoint) error {
 	// Map featureID to section header in INDEX.md (try in order)
 	content := string(data)
 	sectionHeaders := sectionHeadersForFeature(featureID)
-	var start int = -1
+	var start = -1
 	for _, h := range sectionHeaders {
 		if idx := strings.Index(content, h); idx >= 0 {
 			start = idx

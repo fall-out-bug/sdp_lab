@@ -329,7 +329,7 @@ func emitGuardCheckEvent(projectRoot, sessionID string, result GuardResult) erro
 	if err != nil {
 		return err
 	}
-	defer writer.Close()
+	defer func() { _ = writer.Close() }()
 
 	_, err = writer.AppendGuardCheck(
 		result.WSID,

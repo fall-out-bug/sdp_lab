@@ -36,12 +36,13 @@ func runOrchestrateOnce(args []string) {
 		os.Exit(1)
 	}
 
-	if result.Action == "ingested" {
+	switch result.Action {
+	case "ingested":
 		fmt.Printf("✅ %s\n", result.Message)
 		if result.IngestedCard != nil {
 			fmt.Printf("   Card: %s/%s\n", result.IngestedCard.ProjectID, result.IngestedCard.ID)
 		}
-	} else if result.Action == "dispatched" {
+	case "dispatched":
 		fmt.Printf("✅ %s\n", result.Message)
 		if result.DispatchedCard != nil {
 			fmt.Printf("   Project: %s | Card: %s\n", result.DispatchedCard.ProjectID, result.DispatchedCard.ID)
@@ -52,7 +53,7 @@ func runOrchestrateOnce(args []string) {
 		if result.PacketPath != "" {
 			fmt.Printf("   Packet: %s\n", result.PacketPath)
 		}
-	} else {
+	default:
 		fmt.Printf("⏸️  %s\n", result.Message)
 		if result.NoActionReason != "" {
 			fmt.Printf("   Reason: %s\n", result.NoActionReason)

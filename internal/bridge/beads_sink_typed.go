@@ -97,48 +97,48 @@ func buildTypedFindingTitle(finding TypedFinding) string {
 func buildTypedFindingDescription(finding TypedFinding, findingHash, payloadHash string) string {
 	var buf bytes.Buffer
 
-	buf.WriteString(fmt.Sprintf("**Source:** %s\n", finding.Source))
+	fmt.Fprintf(&buf, "**Source:** %s\n", finding.Source)
 	if finding.FeatureID != "" {
-		buf.WriteString(fmt.Sprintf("**Feature:** %s\n", finding.FeatureID))
+		fmt.Fprintf(&buf, "**Feature:** %s\n", finding.FeatureID)
 	}
 	if finding.WSID != "" {
-		buf.WriteString(fmt.Sprintf("**Workstream:** %s\n", finding.WSID))
+		fmt.Fprintf(&buf, "**Workstream:** %s\n", finding.WSID)
 	}
-	buf.WriteString(fmt.Sprintf("**Blocking:** %t\n", finding.Blocking))
+	fmt.Fprintf(&buf, "**Blocking:** %t\n", finding.Blocking)
 	if finding.Severity != "" {
-		buf.WriteString(fmt.Sprintf("**Severity:** %s\n", finding.Severity))
+		fmt.Fprintf(&buf, "**Severity:** %s\n", finding.Severity)
 	}
 	if finding.Priority > 0 {
-		buf.WriteString(fmt.Sprintf("**Priority:** P%d\n", finding.Priority))
+		fmt.Fprintf(&buf, "**Priority:** P%d\n", finding.Priority)
 	}
 	buf.WriteString("\n")
 	if finding.Summary != "" {
-		buf.WriteString(fmt.Sprintf("**Summary:** %s\n\n", finding.Summary))
+		fmt.Fprintf(&buf, "**Summary:** %s\n\n", finding.Summary)
 	}
 	if finding.Description != "" {
-		buf.WriteString(fmt.Sprintf("**Description:** %s\n\n", finding.Description))
+		fmt.Fprintf(&buf, "**Description:** %s\n\n", finding.Description)
 	}
 	if finding.EvidenceRef != "" || finding.ArtifactRef != "" || finding.PRURL != "" || finding.TraceRef != "" || finding.DriftVerdict != "" {
 		buf.WriteString("**References:**\n")
 		if finding.EvidenceRef != "" {
-			buf.WriteString(fmt.Sprintf("- Evidence: %s\n", finding.EvidenceRef))
+			fmt.Fprintf(&buf, "- Evidence: %s\n", finding.EvidenceRef)
 		}
 		if finding.ArtifactRef != "" {
-			buf.WriteString(fmt.Sprintf("- Artifact: %s\n", finding.ArtifactRef))
+			fmt.Fprintf(&buf, "- Artifact: %s\n", finding.ArtifactRef)
 		}
 		if finding.PRURL != "" {
-			buf.WriteString(fmt.Sprintf("- PR: %s\n", finding.PRURL))
+			fmt.Fprintf(&buf, "- PR: %s\n", finding.PRURL)
 		}
 		if finding.TraceRef != "" {
-			buf.WriteString(fmt.Sprintf("- Trace: %s\n", finding.TraceRef))
+			fmt.Fprintf(&buf, "- Trace: %s\n", finding.TraceRef)
 		}
 		if finding.DriftVerdict != "" {
-			buf.WriteString(fmt.Sprintf("- Drift: %s\n", finding.DriftVerdict))
+			fmt.Fprintf(&buf, "- Drift: %s\n", finding.DriftVerdict)
 		}
 		buf.WriteString("\n")
 	}
-	buf.WriteString(fmt.Sprintf("**Finding Hash:** `%s`\n", findingHash))
-	buf.WriteString(fmt.Sprintf("**Payload Hash:** `%s`\n", payloadHash))
+	fmt.Fprintf(&buf, "**Finding Hash:** `%s`\n", findingHash)
+	fmt.Fprintf(&buf, "**Payload Hash:** `%s`\n", payloadHash)
 
 	return buf.String()
 }
@@ -156,7 +156,7 @@ func buildReviewSummary(input ReviewFindingInput) string {
 func buildReviewDescription(input ReviewFindingInput) string {
 	var buf bytes.Buffer
 	if input.Role != "" {
-		buf.WriteString(fmt.Sprintf("Reviewer role: %s\n", input.Role))
+		fmt.Fprintf(&buf, "Reviewer role: %s\n", input.Role)
 	}
 	if input.Description != "" {
 		buf.WriteString(strings.TrimSpace(input.Description))

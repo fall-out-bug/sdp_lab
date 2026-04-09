@@ -54,16 +54,16 @@ func (p *InstructionPayload) RenderText() string {
 
 	b.WriteString("Instructions:\n")
 	for _, instr := range p.Instructions {
-		b.WriteString(fmt.Sprintf("\n%d. %s\n", instr.Step, instr.Action))
-		b.WriteString(fmt.Sprintf("   Reason: %s\n", instr.Reason))
+		fmt.Fprintf(&b, "\n%d. %s\n", instr.Step, instr.Action)
+		fmt.Fprintf(&b, "   Reason: %s\n", instr.Reason)
 		if instr.Command != "" {
-			b.WriteString(fmt.Sprintf("   Command: %s\n", instr.Command))
+			fmt.Fprintf(&b, "   Command: %s\n", instr.Command)
 		}
 		if instr.ExpectedOutcome != "" {
-			b.WriteString(fmt.Sprintf("   Expected: %s\n", instr.ExpectedOutcome))
+			fmt.Fprintf(&b, "   Expected: %s\n", instr.ExpectedOutcome)
 		}
 		if instr.Troubleshooting != "" {
-			b.WriteString(fmt.Sprintf("   Troubleshooting: %s\n", instr.Troubleshooting))
+			fmt.Fprintf(&b, "   Troubleshooting: %s\n", instr.Troubleshooting)
 		}
 	}
 

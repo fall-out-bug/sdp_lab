@@ -334,6 +334,7 @@ func TestFSMV2_GetState_ReturnsDefensiveCopy(t *testing.T) {
 	copyState := fsm.GetState()
 	if copyState == nil {
 		t.Fatal("expected state copy")
+		return
 	}
 
 	copyState.State = StateFailed
@@ -385,6 +386,7 @@ func TestGetTransition(t *testing.T) {
 	trans := GetTransition(StatePending, StateValidated)
 	if trans == nil {
 		t.Fatal("GetTransition() returned nil for valid transition")
+		return
 	}
 
 	if trans.Name != TransitionValidate {
@@ -416,6 +418,7 @@ func TestBuildOrchestrationEvent_IncludesErrorPayload(t *testing.T) {
 
 	if event == nil {
 		t.Fatal("expected event")
+		return
 	}
 	if got := event.Payload["error"]; got != "boom" {
 		t.Fatalf("error payload = %v, want boom", got)

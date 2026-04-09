@@ -317,9 +317,10 @@ func printBlockersText(issueID string, blockers []beads.Issue, transitive bool) 
 
 	for _, blocker := range blockers {
 		status := blocker.Status
-		if status == "done" {
+		switch status {
+		case "done":
 			status = "✓"
-		} else if status == "open" {
+		case "open":
 			status = "●"
 		}
 		fmt.Printf("  %s [%s] %s: %s\n", status, fmt.Sprintf("P%d", blocker.Priority), blocker.ID, blocker.Title)

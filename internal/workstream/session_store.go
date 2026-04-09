@@ -309,7 +309,7 @@ func (s *SessionStore) ExpireWisps() (int, error) {
 		}
 
 		if w.ExpiresAt.Before(now) {
-			os.Remove(wispPath)
+			_ = os.Remove(wispPath)
 			expired++
 		}
 	}

@@ -80,31 +80,31 @@ func findJSONInOutput(output string) string {
 
 func buildBeadsDescription(card *FeatureCard) string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("FeatureCard: %s\n\n", card.ID))
-	sb.WriteString(fmt.Sprintf("Project: %s\n\n", card.ProjectID))
+	fmt.Fprintf(&sb, "FeatureCard: %s\n\n", card.ID)
+	fmt.Fprintf(&sb, "Project: %s\n\n", card.ProjectID)
 
 	if card.NormalizedIntent != "" {
-		sb.WriteString(fmt.Sprintf("Normalized Intent: %s\n\n", card.NormalizedIntent))
+		fmt.Fprintf(&sb, "Normalized Intent: %s\n\n", card.NormalizedIntent)
 	}
 
 	if card.TaskType != "" {
-		sb.WriteString(fmt.Sprintf("Task Type: %s\n", card.TaskType))
+		fmt.Fprintf(&sb, "Task Type: %s\n", card.TaskType)
 	}
 	if card.ExecutionMode != "" {
-		sb.WriteString(fmt.Sprintf("Execution Mode: %s\n", card.ExecutionMode))
+		fmt.Fprintf(&sb, "Execution Mode: %s\n", card.ExecutionMode)
 	}
 	if card.TargetRepo != "" {
-		sb.WriteString(fmt.Sprintf("Target Repo: %s\n", card.TargetRepo))
+		fmt.Fprintf(&sb, "Target Repo: %s\n", card.TargetRepo)
 	}
 	if card.TargetArea != "" {
-		sb.WriteString(fmt.Sprintf("Target Area: %s\n", card.TargetArea))
+		fmt.Fprintf(&sb, "Target Area: %s\n", card.TargetArea)
 	}
 	sb.WriteString("\n")
 
 	if len(card.ScopeIn) > 0 {
 		sb.WriteString("Scope In:\n")
 		for _, item := range card.ScopeIn {
-			sb.WriteString(fmt.Sprintf("- %s\n", item))
+			fmt.Fprintf(&sb, "- %s\n", item)
 		}
 		sb.WriteString("\n")
 	}
@@ -112,7 +112,7 @@ func buildBeadsDescription(card *FeatureCard) string {
 	if len(card.ScopeOut) > 0 {
 		sb.WriteString("Scope Out:\n")
 		for _, item := range card.ScopeOut {
-			sb.WriteString(fmt.Sprintf("- %s\n", item))
+			fmt.Fprintf(&sb, "- %s\n", item)
 		}
 		sb.WriteString("\n")
 	}
@@ -120,7 +120,7 @@ func buildBeadsDescription(card *FeatureCard) string {
 	if len(card.NonGoals) > 0 {
 		sb.WriteString("Non-goals:\n")
 		for _, item := range card.NonGoals {
-			sb.WriteString(fmt.Sprintf("- %s\n", item))
+			fmt.Fprintf(&sb, "- %s\n", item)
 		}
 		sb.WriteString("\n")
 	}
@@ -128,13 +128,13 @@ func buildBeadsDescription(card *FeatureCard) string {
 	if len(card.AcceptanceShape) > 0 {
 		sb.WriteString("Acceptance Criteria:\n")
 		for _, item := range card.AcceptanceShape {
-			sb.WriteString(fmt.Sprintf("- %s\n", item))
+			fmt.Fprintf(&sb, "- %s\n", item)
 		}
 		sb.WriteString("\n")
 	}
 
 	if card.RecommendedNext != "" {
-		sb.WriteString(fmt.Sprintf("Recommended Next Step: %s\n", card.RecommendedNext))
+		fmt.Fprintf(&sb, "Recommended Next Step: %s\n", card.RecommendedNext)
 	}
 
 	return sb.String()

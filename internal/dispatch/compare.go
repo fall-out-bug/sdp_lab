@@ -85,7 +85,7 @@ func FormatCompareTable(results []BenchResult) string {
 			marker = "WINNER"
 		}
 		score := BenchScore(r)
-		sb.WriteString(fmt.Sprintf("%-14s %-12s %-8s %6.3f %8s %7d %s\n",
+		fmt.Fprintf(&sb, "%-14s %-12s %-8s %6.3f %8s %7d %s\n",
 			r.Harness,
 			r.Model,
 			r.Language,
@@ -93,7 +93,7 @@ func FormatCompareTable(results []BenchResult) string {
 			r.Duration.Round(time.Second).String(),
 			r.Commits,
 			marker,
-		))
+		)
 	}
 	return sb.String()
 }

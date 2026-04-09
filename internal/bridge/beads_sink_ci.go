@@ -141,25 +141,25 @@ func (s *BeadsSink) syncDocsFinding(ctx context.Context, f *DocsFinding, source 
 func (s *BeadsSink) buildProtocolDescription(f *ProtocolFinding, source *FindingsSource, findingHash, payloadHash string) string {
 	var buf bytes.Buffer
 
-	buf.WriteString(fmt.Sprintf("**Category:** %s\n", f.Category))
-	buf.WriteString(fmt.Sprintf("**Severity:** %s\n", f.Severity))
-	buf.WriteString(fmt.Sprintf("**File:** `%s`", f.File))
+	fmt.Fprintf(&buf, "**Category:** %s\n", f.Category)
+	fmt.Fprintf(&buf, "**Severity:** %s\n", f.Severity)
+	fmt.Fprintf(&buf, "**File:** `%s`", f.File)
 	if f.Line > 0 {
-		buf.WriteString(fmt.Sprintf(":%d", f.Line))
+		fmt.Fprintf(&buf, ":%d", f.Line)
 	}
 	buf.WriteString("\n\n")
-	buf.WriteString(fmt.Sprintf("**Message:** %s\n\n", f.Message))
+	fmt.Fprintf(&buf, "**Message:** %s\n\n", f.Message)
 
 	if f.Remediation != nil {
 		buf.WriteString("**Remediation:**\n")
 		if f.Remediation.Hint != "" {
-			buf.WriteString(fmt.Sprintf("- %s\n", f.Remediation.Hint))
+			fmt.Fprintf(&buf, "- %s\n", f.Remediation.Hint)
 		}
 		if f.Remediation.Template != "" {
-			buf.WriteString(fmt.Sprintf("```\n%s\n```\n", f.Remediation.Template))
+			fmt.Fprintf(&buf, "```\n%s\n```\n", f.Remediation.Template)
 		}
 		if f.Remediation.DocURL != "" {
-			buf.WriteString(fmt.Sprintf("- Docs: %s\n", f.Remediation.DocURL))
+			fmt.Fprintf(&buf, "- Docs: %s\n", f.Remediation.DocURL)
 		}
 		buf.WriteString("\n")
 	}
@@ -167,17 +167,17 @@ func (s *BeadsSink) buildProtocolDescription(f *ProtocolFinding, source *Finding
 	if f.Context.FeatureID != "" || f.Context.WSID != "" {
 		buf.WriteString("**Context:**\n")
 		if f.Context.FeatureID != "" {
-			buf.WriteString(fmt.Sprintf("- Feature: %s\n", f.Context.FeatureID))
+			fmt.Fprintf(&buf, "- Feature: %s\n", f.Context.FeatureID)
 		}
 		if f.Context.WSID != "" {
-			buf.WriteString(fmt.Sprintf("- Workstream: %s\n", f.Context.WSID))
+			fmt.Fprintf(&buf, "- Workstream: %s\n", f.Context.WSID)
 		}
 		buf.WriteString("\n")
 	}
 
-	buf.WriteString(fmt.Sprintf("**Finding Hash:** `%s`\n", findingHash))
-	buf.WriteString(fmt.Sprintf("**Payload Hash:** `%s`\n\n", payloadHash))
-	buf.WriteString(fmt.Sprintf("---\n*Source: %s (run %d)*\n", source.CheckName, source.RunID))
+	fmt.Fprintf(&buf, "**Finding Hash:** `%s`\n", findingHash)
+	fmt.Fprintf(&buf, "**Payload Hash:** `%s`\n\n", payloadHash)
+	fmt.Fprintf(&buf, "---\n*Source: %s (run %d)*\n", source.CheckName, source.RunID)
 
 	return buf.String()
 }
@@ -185,19 +185,19 @@ func (s *BeadsSink) buildProtocolDescription(f *ProtocolFinding, source *Finding
 func (s *BeadsSink) buildDocsDescription(f *DocsFinding, source *FindingsSource, findingHash, payloadHash string) string {
 	var buf bytes.Buffer
 
-	buf.WriteString(fmt.Sprintf("**Category:** %s\n", f.Category))
-	buf.WriteString(fmt.Sprintf("**Severity:** %s\n", f.Severity))
-	buf.WriteString(fmt.Sprintf("**File:** `%s`", f.File))
+	fmt.Fprintf(&buf, "**Category:** %s\n", f.Category)
+	fmt.Fprintf(&buf, "**Severity:** %s\n", f.Severity)
+	fmt.Fprintf(&buf, "**File:** `%s`", f.File)
 	if f.Line > 0 {
-		buf.WriteString(fmt.Sprintf(":%d", f.Line))
+		fmt.Fprintf(&buf, ":%d", f.Line)
 	}
 	buf.WriteString("\n\n")
-	buf.WriteString(fmt.Sprintf("**Message:** %s\n\n", f.Message))
+	fmt.Fprintf(&buf, "**Message:** %s\n\n", f.Message)
 
 	if f.Context.LinkTarget != "" {
-		buf.WriteString(fmt.Sprintf("**Link Target:** `%s`\n", f.Context.LinkTarget))
+		fmt.Fprintf(&buf, "**Link Target:** `%s`\n", f.Context.LinkTarget)
 		if f.Context.LinkText != "" {
-			buf.WriteString(fmt.Sprintf("**Link Text:** %s\n", f.Context.LinkText))
+			fmt.Fprintf(&buf, "**Link Text:** %s\n", f.Context.LinkText)
 		}
 		buf.WriteString("\n")
 	}
@@ -205,17 +205,17 @@ func (s *BeadsSink) buildDocsDescription(f *DocsFinding, source *FindingsSource,
 	if f.Remediation != nil {
 		buf.WriteString("**Remediation:**\n")
 		if f.Remediation.Hint != "" {
-			buf.WriteString(fmt.Sprintf("- %s\n", f.Remediation.Hint))
+			fmt.Fprintf(&buf, "- %s\n", f.Remediation.Hint)
 		}
 		if f.Remediation.SuggestedFix != "" {
-			buf.WriteString(fmt.Sprintf("Suggested: `%s`\n", f.Remediation.SuggestedFix))
+			fmt.Fprintf(&buf, "Suggested: `%s`\n", f.Remediation.SuggestedFix)
 		}
 		buf.WriteString("\n")
 	}
 
-	buf.WriteString(fmt.Sprintf("**Finding Hash:** `%s`\n", findingHash))
-	buf.WriteString(fmt.Sprintf("**Payload Hash:** `%s`\n\n", payloadHash))
-	buf.WriteString(fmt.Sprintf("---\n*Source: %s (run %d)*\n", source.CheckName, source.RunID))
+	fmt.Fprintf(&buf, "**Finding Hash:** `%s`\n", findingHash)
+	fmt.Fprintf(&buf, "**Payload Hash:** `%s`\n\n", payloadHash)
+	fmt.Fprintf(&buf, "---\n*Source: %s (run %d)*\n", source.CheckName, source.RunID)
 
 	return buf.String()
 }

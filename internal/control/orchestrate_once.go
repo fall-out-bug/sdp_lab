@@ -206,7 +206,7 @@ func writeLines(path string, lines []string) error {
 	if err != nil {
 		return fmt.Errorf("create file %s: %w", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	for _, line := range lines {
 		if _, err := f.WriteString(line + "\n"); err != nil {

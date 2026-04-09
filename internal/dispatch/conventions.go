@@ -55,21 +55,21 @@ func (c *ConventionSet) FormatForPrompt() string {
 	var sb strings.Builder
 
 	sb.WriteString("## Project Conventions\n\n")
-	sb.WriteString(fmt.Sprintf("- Commit style: %s\n", c.CommitStyle))
-	sb.WriteString(fmt.Sprintf("- Merge strategy: %s\n", c.MergeStrategy))
-	sb.WriteString(fmt.Sprintf("- Tests required: %t\n", c.TestRequired))
-	sb.WriteString(fmt.Sprintf("- Lint before push: %t\n", c.LintBeforePush))
+	fmt.Fprintf(&sb, "- Commit style: %s\n", c.CommitStyle)
+	fmt.Fprintf(&sb, "- Merge strategy: %s\n", c.MergeStrategy)
+	fmt.Fprintf(&sb, "- Tests required: %t\n", c.TestRequired)
+	fmt.Fprintf(&sb, "- Lint before push: %t\n", c.LintBeforePush)
 
 	if c.MaxFileLines > 0 {
-		sb.WriteString(fmt.Sprintf("- Max file lines: %d\n", c.MaxFileLines))
+		fmt.Fprintf(&sb, "- Max file lines: %d\n", c.MaxFileLines)
 	}
 	if c.GoVersion != "" {
-		sb.WriteString(fmt.Sprintf("- Go version: %s\n", c.GoVersion))
+		fmt.Fprintf(&sb, "- Go version: %s\n", c.GoVersion)
 	}
 	if len(c.CustomRules) > 0 {
 		sb.WriteString("\n### Custom Rules\n\n")
 		for _, rule := range c.CustomRules {
-			sb.WriteString(fmt.Sprintf("- %s\n", rule))
+			fmt.Fprintf(&sb, "- %s\n", rule)
 		}
 	}
 

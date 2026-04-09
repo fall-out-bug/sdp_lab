@@ -49,14 +49,14 @@ func (s *ServeInvoker) Invoke(ctx context.Context, req kernel.RuntimeInvocation)
 	if err != nil {
 		return kernel.RuntimeResult{ExitCode: 1}, fmt.Errorf("send message stream: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Check if response is HTML (SPA fallback) — means API not available
 	ct := resp.Header.Get("Content-Type")
 	if strings.Contains(ct, "text/html") {
 		return kernel.RuntimeResult{ExitCode: 1}, fmt.Errorf("serve returned HTML instead of SSE — API not available, use exec mode")
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	events := ReadSSEStream(ctx, resp.Body)
 
@@ -144,6 +144,6 @@ func (s *ServeInvoker) httpProbe() (running bool, ready bool) {
 	if err != nil {
 		return false, false
 	}
-	conn.Close()
+	_ = conn.Close()
 	return true, true
 }

@@ -17,9 +17,9 @@ func RenderProjectBoard(snap *control.ProjectBoardSnapshot) string {
 		name = projectID
 	}
 
-	b.WriteString(fmt.Sprintf("PROJECT BOARD — %s\n", name))
-	b.WriteString(fmt.Sprintf("State: attention %d | waiting %d | blocked %d | ready %d | executing %d | done %d\n",
-		snap.Counts["needs_input"], snap.Counts["clarifying"]+snap.Counts["inbox"], snap.Counts["blocked"], snap.Counts["ready"], snap.Counts["executing"], snap.Counts["done"]))
+	fmt.Fprintf(&b, "PROJECT BOARD — %s\n", name)
+	fmt.Fprintf(&b, "State: attention %d | waiting %d | blocked %d | ready %d | executing %d | done %d\n",
+		snap.Counts["needs_input"], snap.Counts["clarifying"]+snap.Counts["inbox"], snap.Counts["blocked"], snap.Counts["ready"], snap.Counts["executing"], snap.Counts["done"])
 	b.WriteString("\n")
 
 	for _, section := range projectSections(snap) {
@@ -31,7 +31,7 @@ func RenderProjectBoard(snap *control.ProjectBoardSnapshot) string {
 	}
 
 	b.WriteString("Next action\n")
-	b.WriteString(fmt.Sprintf("- %s\n", humanizeRecommendation(snap.NextAction["recommended"])))
+	fmt.Fprintf(&b, "- %s\n", humanizeRecommendation(snap.NextAction["recommended"]))
 	if reason := strings.TrimSpace(snap.NextAction["reason"]); reason != "" {
 		b.WriteString("  " + reason + "\n")
 	}
@@ -54,8 +54,8 @@ func RenderProjectBoard(snap *control.ProjectBoardSnapshot) string {
 func RenderPortfolioBoard(snap *control.PortfolioBoardSnapshot) string {
 	var b strings.Builder
 	b.WriteString("CONTROL TOWER\n")
-	b.WriteString(fmt.Sprintf("Attention now: %d | Waiting on human: %d | Blocked: %d | Ready: %d | Executing: %d | Done: %d\n",
-		snap.Totals["needs_input"]+snap.Totals["blocked"], len(snap.Queues["waiting_on_human"]), len(snap.Queues["blocked"]), len(snap.Queues["ready_to_execute"]), snap.Totals["executing"], snap.Totals["done"]))
+	fmt.Fprintf(&b, "Attention now: %d | Waiting on human: %d | Blocked: %d | Ready: %d | Executing: %d | Done: %d\n",
+		snap.Totals["needs_input"]+snap.Totals["blocked"], len(snap.Queues["waiting_on_human"]), len(snap.Queues["blocked"]), len(snap.Queues["ready_to_execute"]), snap.Totals["executing"], snap.Totals["done"])
 	b.WriteString("\n")
 
 	for _, section := range portfolioSections(snap) {
@@ -73,7 +73,7 @@ func RenderPortfolioBoard(snap *control.PortfolioBoardSnapshot) string {
 	b.WriteString("\n")
 
 	b.WriteString("Next action\n")
-	b.WriteString(fmt.Sprintf("- %s\n", humanizeRecommendation(snap.NextAction["recommended"])))
+	fmt.Fprintf(&b, "- %s\n", humanizeRecommendation(snap.NextAction["recommended"]))
 	if reason := strings.TrimSpace(snap.NextAction["reason"]); reason != "" {
 		b.WriteString("  " + reason + "\n")
 	}
@@ -94,14 +94,14 @@ func RenderPortfolioBoard(snap *control.PortfolioBoardSnapshot) string {
 func RenderAttention(snap *control.PortfolioBoardSnapshot) string {
 	var b strings.Builder
 	b.WriteString("EXECUTIVE ATTENTION\n")
-	b.WriteString(fmt.Sprintf("Attention now: %d | Waiting on human: %d | Blocked: %d | Movement: %d | Delivery trouble: %d | Ready to move: %d\n",
+	fmt.Fprintf(&b, "Attention now: %d | Waiting on human: %d | Blocked: %d | Movement: %d | Delivery trouble: %d | Ready to move: %d\n",
 		snap.Executive.AttentionNowCount,
 		snap.Executive.WaitingOnHumanCount,
 		snap.Executive.BlockedCount,
 		snap.Executive.MovementCount,
 		snap.Executive.DeliveryTroubleCount,
 		snap.Executive.ReadyToMoveCount,
-	))
+	)
 	b.WriteString("\n")
 
 	sections := []renderedSection{
@@ -122,7 +122,7 @@ func RenderAttention(snap *control.PortfolioBoardSnapshot) string {
 	}
 
 	b.WriteString("Next best action\n")
-	b.WriteString(fmt.Sprintf("- %s\n", humanizeRecommendation(snap.NextAction["recommended"])))
+	fmt.Fprintf(&b, "- %s\n", humanizeRecommendation(snap.NextAction["recommended"]))
 	if reason := strings.TrimSpace(snap.NextAction["reason"]); reason != "" {
 		b.WriteString("  " + reason + "\n")
 	}
@@ -161,9 +161,7 @@ func renderExecutiveActionSurface(snap *control.PortfolioBoardSnapshot) []string
 				continue
 			}
 			seen[key] = true
-			for _, line := range renderItemActionLines(item, 1) { //nolint:gosimple
-				lines = append(lines, line)
-			}
+			lines = append(lines, renderItemActionLines(item, 1)...)
 			if len(lines) >= 3 {
 				return lines[:3]
 			}
@@ -177,9 +175,7 @@ func renderProjectActionSurface(snap *control.ProjectBoardSnapshot) []string {
 	lines := []string{}
 	for _, group := range groups {
 		for _, item := range group {
-			for _, line := range renderCardSummaryActionLines(snap.Project["project_id"], item, 1) { //nolint:gosimple
-				lines = append(lines, line)
-			}
+			lines = append(lines, renderCardSummaryActionLines(snap.Project["project_id"], item, 1)...)
 			if len(lines) >= 4 {
 				return lines[:4]
 			}

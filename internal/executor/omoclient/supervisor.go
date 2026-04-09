@@ -97,7 +97,7 @@ func (s *OmOSupervisor) WaitReady(ctx context.Context, timeout time.Duration) er
 				// Server not ready yet, try again next tick
 				continue
 			}
-			resp.Body.Close()
+			_ = resp.Body.Close()
 
 			// Any response means the server is ready
 			s.mu.Lock()

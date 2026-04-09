@@ -25,8 +25,8 @@ func (b *GovernancePromptBuilder) Build(envelope TaskEnvelope) string {
 	sb.WriteString("You are executing a governed task. The following rules MUST be followed.\n\n")
 
 	// Task identity
-	sb.WriteString(fmt.Sprintf("**Task:** %s (phase: %s)\n\n", envelope.TaskID, envelope.Phase))
-	sb.WriteString(fmt.Sprintf("**Objective:** %s\n\n", envelope.Objective))
+	fmt.Fprintf(&sb, "**Task:** %s (phase: %s)\n\n", envelope.TaskID, envelope.Phase)
+	fmt.Fprintf(&sb, "**Objective:** %s\n\n", envelope.Objective)
 
 	// Scope
 	if len(envelope.ScopeIn) > 0 || len(envelope.ScopeOut) > 0 {
@@ -35,16 +35,14 @@ func (b *GovernancePromptBuilder) Build(envelope TaskEnvelope) string {
 		if len(envelope.ScopeIn) > 0 {
 			sb.WriteString("**Files you MAY modify:**\n")
 			for _, f := range envelope.ScopeIn {
-				sb.WriteString(fmt.Sprintf("- `%s`\n", f))
-			}
+fmt.Fprintf(&sb, "- `%s`\n", f)			}
 			sb.WriteString("\n")
 		}
 
 		if len(envelope.ScopeOut) > 0 {
 			sb.WriteString("**Files you MUST NOT modify (out of scope):**\n")
 			for _, f := range envelope.ScopeOut {
-				sb.WriteString(fmt.Sprintf("- `%s`\n", f))
-			}
+fmt.Fprintf(&sb, "- `%s`\n", f)			}
 			sb.WriteString("\n")
 		}
 
@@ -55,8 +53,7 @@ func (b *GovernancePromptBuilder) Build(envelope TaskEnvelope) string {
 	if len(envelope.Constraints) > 0 {
 		sb.WriteString("### Constraints\n\n")
 		for _, c := range envelope.Constraints {
-			sb.WriteString(fmt.Sprintf("- %s\n", c))
-		}
+fmt.Fprintf(&sb, "- %s\n", c)		}
 		sb.WriteString("\n")
 	}
 
@@ -66,8 +63,7 @@ func (b *GovernancePromptBuilder) Build(envelope TaskEnvelope) string {
 		sb.WriteString("### Execution Rules\n\n")
 
 		if g.MaxToolCalls > 0 {
-			sb.WriteString(fmt.Sprintf("- Maximum %d tool calls per task\n", g.MaxToolCalls))
-		}
+fmt.Fprintf(&sb, "- Maximum %d tool calls per task\n", g.MaxToolCalls)		}
 
 		if g.MustCiteEvidence {
 			sb.WriteString("- Every claim MUST be supported by evidence (test output, file content, command output)\n")

@@ -80,8 +80,8 @@ func TestProfileStore_SaveLoad(t *testing.T) {
 	}
 	if loaded == nil {
 		t.Fatal("Load() returned nil profile")
+		return
 	}
-
 	if loaded.Harness != original.Harness {
 		t.Errorf("Harness = %q, want %q", loaded.Harness, original.Harness)
 	}

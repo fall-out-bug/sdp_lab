@@ -140,7 +140,7 @@ func (c *Client) QueryReadyIssues() ([]ReadyIssue, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query ready issues: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var issues []ReadyIssue
 	for rows.Next() {
@@ -177,7 +177,7 @@ func (c *Client) GetBlockingIssues(issueID string) ([]Issue, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query blocking issues: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var issues []Issue
 	for rows.Next() {

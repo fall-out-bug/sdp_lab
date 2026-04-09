@@ -64,7 +64,7 @@ func AppendRunEvent(dir, featureID, phase, state, notes string) error {
 	if err != nil {
 		return fmt.Errorf("open run file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if err := flock(f.Fd(), syscall.LOCK_EX); err != nil {
 		return fmt.Errorf("lock run file: %w", err)
 	}

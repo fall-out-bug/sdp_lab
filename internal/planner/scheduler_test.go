@@ -14,6 +14,7 @@ func TestNewScheduler(t *testing.T) {
 	s := NewScheduler(executor, validator)
 	if s == nil {
 		t.Fatal("NewScheduler returned nil")
+		return
 	}
 	if s.executor == nil {
 		t.Error("executor not set")
@@ -213,6 +214,7 @@ func TestScheduler_GetProgress(t *testing.T) {
 	}
 	if progress == nil {
 		t.Fatal("progress is nil")
+		return
 	}
 	if progress.TotalTasks != 2 {
 		t.Errorf("progress.TotalTasks = %d, want 2", progress.TotalTasks)

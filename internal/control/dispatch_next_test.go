@@ -26,6 +26,7 @@ func TestSelectDispatchableCardReadyCard(t *testing.T) {
 
 	if selected == nil {
 		t.Fatal("expected to select ready card, got nil")
+		return
 	}
 	if selected.ID != card.ID {
 		t.Fatalf("selected card ID = %s, want %s", selected.ID, card.ID)
@@ -92,6 +93,7 @@ func TestSelectDispatchableCardPrefersReadyOverExecuting(t *testing.T) {
 
 	if selected == nil {
 		t.Fatal("expected to select a card, got nil")
+		return
 	}
 	if selected.ID != readyCard.ID {
 		t.Fatalf("selected card ID = %s, want ready card %s (not executing)", selected.ID, readyCard.ID)

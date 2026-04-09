@@ -39,9 +39,10 @@ func main() {
 
 	// --format takes precedence over --json
 	if *format != "" {
-		if *format == "json" {
+		switch *format {
+		case "json":
 			*jsonOutput = true
-		} else if *format == "text" {
+		case "text":
 			*jsonOutput = false
 		}
 	}

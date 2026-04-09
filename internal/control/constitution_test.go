@@ -15,6 +15,7 @@ func TestLoadConstitutionReturnsDefaultWhenMissing(t *testing.T) {
 	}
 	if constitution == nil {
 		t.Fatal("constitution is nil")
+		return
 	}
 	if constitution.Vision == "" {
 		t.Fatal("default vision should be set")

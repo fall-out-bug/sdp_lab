@@ -138,7 +138,7 @@ func syncFromRun(ctx context.Context, sink *bridge.BeadsSink, repo string, runID
 		fmt.Fprintf(os.Stderr, "Error creating temp dir: %v\n", err)
 		return
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	files, err := client.FetchArtifacts(ctx, runID, tmpDir)
 	if err != nil {
