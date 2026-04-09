@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -136,12 +135,11 @@ func ClarifyIntentWithConfig(ctx context.Context, projectRoot, rawIntent string,
 	}
 
 	prompt := BuildClarificationPrompt(projectRoot, rawIntent)
-	logger := log.New(log.Writer(), "[clarifier] ", log.LstdFlags)
 	baseURL := strings.TrimSpace(os.Getenv("OMO_SERVE_URL"))
 	if baseURL == "" {
 		baseURL = "http://127.0.0.1:4096"
 	}
-	client := omoclient.NewClient(baseURL, logger)
+	client := omoclient.NewClient(baseURL)
 	if _, err := client.ListSessions(); err != nil {
 		result := ClarifyResult{Card: existingCard, Status: "error", Questions: []string{"OmO serve unavailable — clarification blocked"}}
 		return result, nil

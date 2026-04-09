@@ -33,6 +33,7 @@ type CacheEntry struct {
 
 func main() {
 	format := flag.String("format", "text", "Output format: json, text, or status-view")
+	jsonOutput := flag.Bool("json", false, "Output in JSON format (shorthand for --format json)")
 	useCache := flag.Bool("cache", true, "Use cached results (5 min TTL)")
 	cacheTTL := flag.Duration("cache-ttl", 1*time.Minute, "Cache TTL")
 	noCache := flag.Bool("no-cache", false, "Disable cache")
@@ -43,6 +44,11 @@ func main() {
 
 	if *noCache {
 		*useCache = false
+	}
+
+	// --json takes precedence over --format
+	if *jsonOutput {
+		*format = "json"
 	}
 
 	// Find project root

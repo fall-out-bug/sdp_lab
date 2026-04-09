@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 )
 
 // ReadSSEStream reads SSE events from body and sends them to the returned channel
-func ReadSSEStream(ctx context.Context, body io.ReadCloser, logger *log.Logger) <-chan OmOEvent {
+func ReadSSEStream(ctx context.Context, body io.ReadCloser) <-chan OmOEvent {
 	ch := make(chan OmOEvent, 10)
 
 	go func() {
@@ -58,7 +58,7 @@ func ReadSSEStream(ctx context.Context, body io.ReadCloser, logger *log.Logger) 
 		}
 
 		if err := scanner.Err(); err != nil {
-			logger.Printf("SSE scanner error: %v", err)
+			slog.Warn("SSE scanner error", "error", err)
 		}
 	}()
 

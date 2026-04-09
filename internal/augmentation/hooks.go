@@ -2,6 +2,7 @@ package augmentation
 
 import (
 	"context"
+	"fmt"
 
 	"sdp_dev/internal/kernel"
 )
@@ -94,7 +95,7 @@ func (h *HookSet) EmitMemoryCandidates(ctx context.Context, session kernel.Sessi
 	for _, hook := range h.memory {
 		candidates, err := hook.EmitMemoryCandidates(ctx, session, event)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("emit memory candidates: %w", err)
 		}
 		out = append(out, candidates...)
 	}
@@ -106,7 +107,7 @@ func (h *HookSet) EnrichTrace(ctx context.Context, session kernel.SessionState, 
 	for _, hook := range h.trace {
 		enriched, err := hook.EnrichTrace(ctx, session, current)
 		if err != nil {
-			return current, err
+			return current, fmt.Errorf("enrich trace: %w", err)
 		}
 		current = enriched
 	}

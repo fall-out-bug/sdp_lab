@@ -3,7 +3,7 @@ package control
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 )
 
@@ -16,18 +16,13 @@ import (
 type DualWriteRepository struct {
 	primary *FileCardRepository
 	shadow  *BeadsCardRepository
-	logger  *log.Logger
 }
 
 // NewDualWriteRepository creates a dual-write repository.
-func NewDualWriteRepository(primary *FileCardRepository, shadow *BeadsCardRepository, logger *log.Logger) *DualWriteRepository {
-	if logger == nil {
-		logger = log.New(log.Writer(), "[dual-write] ", log.LstdFlags)
-	}
+func NewDualWriteRepository(primary *FileCardRepository, shadow *BeadsCardRepository) *DualWriteRepository {
 	return &DualWriteRepository{
 		primary: primary,
 		shadow:  shadow,
-		logger:  logger,
 	}
 }
 
@@ -59,7 +54,7 @@ func (d *DualWriteRepository) CreateCard(projectID string, card *FeatureCard) er
 
 	// Shadow write (best-effort, log errors but don't fail)
 	if err := d.shadow.CreateCard(projectID, card); err != nil {
-		d.logger.Printf("WARN: shadow create failed for %s: %v", card.ID, err)
+		slog.Warn("shadow create failed", "card", card.ID, "error", err)
 	}
 
 	return nil
@@ -72,7 +67,7 @@ func (d *DualWriteRepository) SaveCard(card *FeatureCard) error {
 	}
 
 	if err := d.shadow.SaveCard(card); err != nil {
-		d.logger.Printf("WARN: shadow save failed for %s: %v", card.ID, err)
+		slog.Warn("shadow save failed", "card", card.ID, "error", err)
 	}
 
 	return nil
@@ -119,7 +114,7 @@ func (d *DualWriteRepository) Compare(ctx context.Context, projectID string) (*D
 		var err error
 		shadowCards, err = d.shadow.LoadCards(projectID)
 		if err != nil {
-			d.logger.Printf("WARN: shadow load failed for project %s: %v", projectID, err)
+			slog.Warn("shadow load failed", "project", projectID, "error", err)
 		}
 	}
 	report.TotalShadow = len(shadowCards)

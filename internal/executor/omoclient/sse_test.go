@@ -3,7 +3,6 @@ package omoclient
 import (
 	"context"
 	"io"
-	"log"
 	"strings"
 	"testing"
 	"time"
@@ -56,10 +55,9 @@ func TestReadSSEStream(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			logger := log.New(io.Discard, "", 0)
-
+			
 			body := io.NopCloser(strings.NewReader(tt.input))
-			ch := ReadSSEStream(ctx, body, logger)
+			ch := ReadSSEStream(ctx, body)
 
 			var events []OmOEvent
 			for event := range ch {
@@ -93,9 +91,8 @@ func TestReadSSEStream(t *testing.T) {
 func TestReadSSEStreamCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	logger := log.New(io.Discard, "", 0)
-	body := io.NopCloser(strings.NewReader("event: tool.started\ndata: test\n"))
-	ch := ReadSSEStream(ctx, body, logger)
+		body := io.NopCloser(strings.NewReader("event: tool.started\ndata: test\n"))
+	ch := ReadSSEStream(ctx, body)
 
 	cancel()
 
@@ -159,8 +156,7 @@ func TestParseToolCallError(t *testing.T) {
 
 func TestTimestampParsing(t *testing.T) {
 	ctx := context.Background()
-	logger := log.New(io.Discard, "", 0)
-
+	
 	input := `timestamp: ` + time.Now().UTC().Format(time.RFC3339) + `
 event: tool.started
 data: test
@@ -168,7 +164,7 @@ data: test
 ` + "\n"
 
 	body := io.NopCloser(strings.NewReader(input))
-	ch := ReadSSEStream(ctx, body, logger)
+	ch := ReadSSEStream(ctx, body)
 
 	events := []OmOEvent{}
 	for event := range ch {

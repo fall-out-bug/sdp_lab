@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,7 +14,7 @@ import (
 	"sdp_dev/internal/deploy"
 	"sdp_dev/internal/kernel"
 	"sdp_dev/internal/executor/omoclient"
-	)
+)
 
 // ServeBridge connects SDP dispatch to OmO via opencode serve (REST+SSE).
 // This replaces ExecutorBridge which used exec.CommandContext.
@@ -107,8 +107,7 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 	// Create governance wrapper
 	var govWrapper *omoclient.GovernanceWrapper
 	if b.serveURL() != "" {
-		logger := log.New(log.Writer(), "[serve-bridge] ", log.LstdFlags)
-		client := omoclient.NewClient(b.serveURL(), logger)
+		client := omoclient.NewClient(b.serveURL())
 		govWrapper = omoclient.NewGovernanceWrapper(client, omoclient.DefaultStrikePolicy(), true)
 	}
 
@@ -125,7 +124,7 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 		now := time.Now().UTC()
 		sessionID := fmt.Sprintf("omo-%d", now.UnixNano())
 		if err := beadsRepo.SetExecutorState(cardID, "omo-implementation", sessionID, "running"); err != nil {
-				log.Printf("warn: set executor state: %v", err)
+				slog.Warn("set executor state", "card", cardID, "error", err)
 			}
 	}
 
@@ -160,13 +159,13 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 			"findings":      result.Findings,
 		}, "", "  ")
 		if err := os.MkdirAll(filepath.Dir(evidencePath), 0o755); err != nil {
-				log.Printf("warn: create evidence dir: %v", err)
+				slog.Warn("create evidence dir", "card", cardID, "error", err)
 			}
 		_ = os.WriteFile(evidencePath, evidenceJSON, 0o644)
 
 		// Link evidence in Beads metadata
 		if err := beadsRepo.LinkEvidence(cardID, "build", []string{evidencePath}); err != nil {
-				log.Printf("warn: link evidence: %v", err)
+				slog.Warn("link evidence", "card", cardID, "error", err)
 			}
 	}
 
@@ -192,7 +191,7 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 		card.ExecutorRuntimeState = "failed"
 	}
 	if err := b.Store.SaveCard(card); err != nil {
-			log.Printf("warn: save card after execution: %v", err)
+			slog.Warn("save card after execution", "card", cardID, "error", err)
 		}
 
 	// Set final executor state in Beads
@@ -202,7 +201,7 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 			state = "failed"
 		}
 		if err := beadsRepo.SetExecutorState(cardID, "omo-implementation", "", state); err != nil {
-				log.Printf("warn: set final executor state: %v", err)
+				slog.Warn("set final executor state", "card", cardID, "error", err)
 			}
 	}
 

@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -35,7 +35,7 @@ func Serve(projectRoot, port string) error {
 	mux.HandleFunc("POST /card/{id}/reopen", t.handleAction("reopen"))
 
 	addr := ":" + port
-	log.Printf("⚙️  Control Tower: http://localhost%s", addr)
+	slog.Info("Control Tower", "url", "http://localhost"+addr)
 	srv := &http.Server{
 		Addr:         addr,
 		Handler:      mux,
@@ -139,9 +139,9 @@ func (h *handler) handleAction(action string) http.HandlerFunc {
 		cmd.Dir = h.projectRoot
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Printf("action %s on %s: %v\n%s", action, cardID, err, out)
+			slog.Error("action failed", "action", action, "card", cardID, "error", err, "output", string(out))
 		} else {
-			log.Printf("action %s on %s: OK", action, cardID)
+			slog.Info("action completed", "action", action, "card", cardID)
 		}
 
 		// HTMX: if requested as partial, return the updated card
@@ -185,7 +185,7 @@ func render(w http.ResponseWriter, name string, data any) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	tmpl := template.Must(template.New("layout").Funcs(funcMap()).ParseFS(webFS, "web/layout.html", "web/"+name+".html", "web/card_detail.html"))
 	if err := tmpl.ExecuteTemplate(w, "layout", data); err != nil {
-		log.Printf("render error: %v", err)
+		slog.Error("render error", "template", name, "error", err)
 	}
 }
 

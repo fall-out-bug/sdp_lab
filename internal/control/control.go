@@ -263,12 +263,12 @@ func OpenWithMode(projectRoot string, mode RepositoryMode, beadsDBPath string) (
 
 	switch mode {
 	case RepoModeBeads:
-		store.beadsRepo = NewBeadsCardRepository(beadsDBPath, nil)
+		store.beadsRepo = NewBeadsCardRepository(beadsDBPath)
 		store.repo = store.beadsRepo
 	case RepoModeDual:
 		fileRepo := NewFileCardRepository(store.ProjectRoot, store.ControlRoot, store.Registry)
-		store.beadsRepo = NewBeadsCardRepository(beadsDBPath, nil)
-		store.repo = NewDualWriteRepository(fileRepo, store.beadsRepo, nil)
+		store.beadsRepo = NewBeadsCardRepository(beadsDBPath)
+		store.repo = NewDualWriteRepository(fileRepo, store.beadsRepo)
 	default: // RepoModeFile
 		store.repo = NewFileCardRepository(store.ProjectRoot, store.ControlRoot, store.Registry)
 	}

@@ -2,6 +2,7 @@ package augmentation
 
 import (
 	"context"
+	"fmt"
 
 	"sdp_dev/internal/kernel"
 )
@@ -9,7 +10,7 @@ import (
 func ResolvePromptContext(ctx context.Context, loader Loader, packRefs []string) ([]kernel.ContextSegment, error) {
 	resolved, err := NewResolver(loader).Resolve(ctx, packRefs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolve prompt context: %w", err)
 	}
 	var segments []kernel.ContextSegment
 	for _, packID := range resolved.Order {

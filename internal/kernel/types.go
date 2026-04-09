@@ -1,3 +1,6 @@
+// Package kernel provides core types and interfaces for AI agent runtime orchestration.
+// It defines the data structures used for session management, artifact tracking,
+// tool policy enforcement, and event tracing across the SDP system.
 package kernel
 
 import (
@@ -5,21 +8,31 @@ import (
 	"time"
 )
 
+// RunID uniquely identifies a single runtime execution of an agent.
 type RunID string
 
+// SessionID uniquely identifies a conversation session across multiple runs.
 type SessionID string
 
+// ArtifactType represents the category of an artifact produced or consumed during execution.
 type ArtifactType string
 
 const (
+	// ArtifactDispatchPacket represents the input parameters sent to an agent.
 	ArtifactDispatchPacket ArtifactType = "dispatch_packet"
-	ArtifactResultPacket   ArtifactType = "result_packet"
-	ArtifactEvidence       ArtifactType = "evidence"
-	ArtifactProvenance     ArtifactType = "provenance"
-	ArtifactContract       ArtifactType = "contract"
-	ArtifactIntake         ArtifactType = "intake"
+	// ArtifactResultPacket represents the output produced by an agent.
+	ArtifactResultPacket ArtifactType = "result_packet"
+	// ArtifactEvidence represents verification data produced during execution.
+	ArtifactEvidence ArtifactType = "evidence"
+	// ArtifactProvenance represents metadata tracking the origin and history of artifacts.
+	ArtifactProvenance ArtifactType = "provenance"
+	// ArtifactContract represents a policy or agreement document.
+	ArtifactContract ArtifactType = "contract"
+	// ArtifactIntake represents data ingested from external sources.
+	ArtifactIntake ArtifactType = "intake"
 )
 
+// ArtifactRef references an artifact with metadata for tracking and verification.
 type ArtifactRef struct {
 	Type      ArtifactType `json:"type"`
 	Path      string       `json:"path"`
@@ -28,6 +41,7 @@ type ArtifactRef struct {
 	Size      int64        `json:"size,omitempty"`
 }
 
+// ContextSegment represents a piece of context (code, docs, etc.) included in a prompt.
 type ContextSegment struct {
 	ID         string `json:"id"`
 	Kind       string `json:"kind"`
@@ -36,6 +50,7 @@ type ContextSegment struct {
 	TokenCount int    `json:"token_count,omitempty"`
 }
 
+// CapabilitySet describes the capabilities and limits of an AI runtime.
 type CapabilitySet struct {
 	Vision            bool `json:"vision,omitempty"`
 	ToolCalling       bool `json:"tool_calling,omitempty"`
@@ -44,6 +59,7 @@ type CapabilitySet struct {
 	MaxContextTokens  int  `json:"max_context_tokens,omitempty"`
 }
 
+// AgentDefinition defines an AI agent including its role and required capabilities.
 type AgentDefinition struct {
 	ID                   string        `json:"id"`
 	Role                 string        `json:"role"`
@@ -53,6 +69,7 @@ type AgentDefinition struct {
 	RequiredCapabilities CapabilitySet `json:"required_capabilities,omitempty"`
 }
 
+// SessionState tracks the current state of an active agent session.
 type SessionState struct {
 	RunID            RunID             `json:"run_id"`
 	SessionID        SessionID         `json:"session_id"`
@@ -65,6 +82,7 @@ type SessionState struct {
 	TraceRefs        []string          `json:"trace_refs,omitempty"`
 }
 
+// WorkflowPack bundles together prompts, roles, and hooks for a specific workflow.
 type WorkflowPack struct {
 	ID              string             `json:"id"`
 	Version         string             `json:"version"`
@@ -76,6 +94,7 @@ type WorkflowPack struct {
 	EvalRefs        []string           `json:"eval_refs,omitempty"`
 }
 
+// PromptFragment is a reusable piece of prompt content.
 type PromptFragment struct {
 	ID          string `json:"id"`
 	Kind        string `json:"kind,omitempty"`
@@ -83,6 +102,7 @@ type PromptFragment struct {
 	Description string `json:"description,omitempty"`
 }
 
+// RoleDefinition defines a role within a workflow phase.
 type RoleDefinition struct {
 	ID                string   `json:"id"`
 	Phase             string   `json:"phase"`
@@ -91,6 +111,7 @@ type RoleDefinition struct {
 	PromptFragmentIDs []string `json:"prompt_fragment_ids,omitempty"`
 }
 
+// HookKind classifies the type of hook being registered.
 type HookKind string
 
 const (
@@ -100,6 +121,7 @@ const (
 	HookKindTraceEnrichment HookKind = "trace_enrichment"
 )
 
+// HookRegistration represents a hook registered in the workflow system.
 type HookRegistration struct {
 	ID          string   `json:"id"`
 	Kind        HookKind `json:"kind"`
@@ -114,6 +136,7 @@ const (
 	MemoryScopeTask    MemoryScope = "task"
 )
 
+// MemoryCandidate represents a piece of memory proposed for storage.
 type MemoryCandidate struct {
 	ID         string      `json:"id"`
 	Scope      MemoryScope `json:"scope"`
@@ -131,6 +154,7 @@ const (
 	ToolPolicyDeny  ToolPolicyDecision = "deny"
 )
 
+// ToolPolicy defines rules for controlling tool usage.
 type ToolPolicy struct {
 	ID              string             `json:"id"`
 	Description     string             `json:"description,omitempty"`
@@ -139,18 +163,21 @@ type ToolPolicy struct {
 	DefaultDecision ToolPolicyDecision `json:"default_decision,omitempty"`
 }
 
+// ToolCallRequest represents a request to call a tool.
 type ToolCallRequest struct {
 	Tool  string          `json:"tool"`
 	Args  json.RawMessage `json:"args,omitempty"`
 	Files []string        `json:"files,omitempty"`
 }
 
+// ToolCallDecision represents the decision made for a tool call request.
 type ToolCallDecision struct {
 	PolicyID string             `json:"policy_id,omitempty"`
 	Decision ToolPolicyDecision `json:"decision"`
 	Reason   string             `json:"reason,omitempty"`
 }
 
+// TraceEventKind classifies the type of trace event.
 type TraceEventKind string
 
 const (
@@ -162,6 +189,7 @@ const (
 	TraceEventEval     TraceEventKind = "eval"
 )
 
+// TraceEvent represents an event in the execution trace.
 type TraceEvent struct {
 	ID            string          `json:"id,omitempty"`
 	RunID         RunID           `json:"run_id,omitempty"`
@@ -175,6 +203,7 @@ type TraceEvent struct {
 	Payload       json.RawMessage `json:"payload,omitempty"`
 }
 
+// ApprovalDecision represents the decision made for an approval request.
 type ApprovalDecision string
 
 const (
@@ -183,12 +212,14 @@ const (
 	ApprovalEscalate ApprovalDecision = "escalate"
 )
 
+// ApprovalHook represents an approval request requiring human intervention.
 type ApprovalHook struct {
 	ID          string `json:"id"`
 	RequestType string `json:"request_type"`
 	Description string `json:"description,omitempty"`
 }
 
+// EvalCase represents a test case for evaluating workflow behavior.
 type EvalCase struct {
 	ID                       string               `json:"id"`
 	Scenario                 string               `json:"scenario"`

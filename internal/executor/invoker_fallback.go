@@ -2,7 +2,7 @@ package executor
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -15,14 +15,13 @@ import (
 func InvokeWithFallback(ctx context.Context, req kernel.RuntimeInvocation) (kernel.RuntimeResult, error) {
 	baseURL := strings.TrimSpace(os.Getenv("OMO_SERVE_URL"))
 	if baseURL != "" {
-		logger := log.New(log.Writer(), "[invoker] ", log.LstdFlags)
-		serveInv := omoclient.NewServeInvoker(baseURL, logger)
+		serveInv := omoclient.NewServeInvoker(baseURL)
 		if running, _ := serveInv.Status(); running {
 			result, err := serveInv.Invoke(ctx, req)
 			if err == nil && result.Output != "" {
 				return result, nil
 			}
-			logger.Printf("serve invoke failed (output=%d, err=%v), falling back to exec", len(result.Output), err)
+			slog.Debug("serve invoke failed, falling back to exec", "output_length", len(result.Output), "error", err)
 		}
 	}
 	return orchestrate.GetDefaultInvoker().Invoke(ctx, req)

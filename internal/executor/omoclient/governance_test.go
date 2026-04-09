@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"testing"
 	"time"
@@ -374,8 +373,7 @@ func TestGovernanceWrapper_PreCall_MissingFields(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var logger *log.Logger
-			client := NewClient("http://test", logger)
+						client := NewClient("http://test")
 			gw := NewGovernanceWrapper(client, DefaultStrikePolicy(), true)
 
 			err := gw.PreCall(context.Background(), tt.envelope)
@@ -399,8 +397,7 @@ func TestGovernanceWrapper_PreCall_ScopeConflict(t *testing.T) {
 		ScopeOut:   []string{"src/*.go"},
 	}
 
-	var logger *log.Logger
-	client := NewClient("http://test", logger)
+		client := NewClient("http://test")
 	gw := NewGovernanceWrapper(client, DefaultStrikePolicy(), true)
 
 	err := gw.PreCall(context.Background(), envelope)
@@ -475,8 +472,7 @@ func TestGovernanceWrapper_PostCall(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var logger *log.Logger
-			client := NewClient("http://test", logger)
+						client := NewClient("http://test")
 			gw := NewGovernanceWrapper(client, DefaultStrikePolicy(), true)
 
 			envelope := TaskEnvelope{
@@ -513,8 +509,7 @@ func TestGovernanceWrapper_PostCall(t *testing.T) {
 }
 
 func TestGovernanceWrapper_Escalation(t *testing.T) {
-	var logger *log.Logger
-	client := NewClient("http://test", logger)
+		client := NewClient("http://test")
 	policy := &StrikePolicy{MaxTransportRetries: 2, MaxQualityStrikes: 1}
 	gw := NewGovernanceWrapper(client, policy, true)
 
@@ -542,8 +537,7 @@ func TestGovernanceWrapper_Escalation(t *testing.T) {
 }
 
 func TestGovernanceWrapper_Disabled(t *testing.T) {
-	var logger *log.Logger
-	client := NewClient("http://test", logger)
+		client := NewClient("http://test")
 	gw := NewGovernanceWrapper(client, nil, false)
 
 	if gw.IsEnabled() {
@@ -563,8 +557,7 @@ func TestGovernanceWrapper_Disabled(t *testing.T) {
 }
 
 func TestGovernanceWrapper_Client(t *testing.T) {
-	var logger *log.Logger
-	client := NewClient("http://test", logger)
+		client := NewClient("http://test")
 	gw := NewGovernanceWrapper(client, DefaultStrikePolicy(), true)
 
 	if gw.Client() != client {

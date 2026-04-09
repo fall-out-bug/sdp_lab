@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -15,17 +14,15 @@ import (
 type OmOServeClient struct {
 	baseURL string
 	client  *http.Client
-	logger  *log.Logger
 }
 
 // NewClient creates a new OmOServeClient instance
-func NewClient(baseURL string, logger *log.Logger) *OmOServeClient {
+func NewClient(baseURL string) *OmOServeClient {
 	return &OmOServeClient{
 		baseURL: baseURL,
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		logger: logger,
 	}
 }
 

@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log"
 	"net/http"
 	"os"
 	"testing"
@@ -30,8 +28,7 @@ func skipIfNoServer(t *testing.T) string {
 func TestIntegration_CreateAndListSession(t *testing.T) {
 t.Skip("Integration test requires REST API not available on opencode serve")
 	baseURL := skipIfNoServer(t)
-	logger := log.New(io.Discard, "", 0)
-	client := NewClient(baseURL, logger)
+	client := NewClient(baseURL)
 
 	session, err := client.CreateSession(CreateSessionRequest{
 		Project: "bridge-integration-test",
@@ -64,8 +61,7 @@ t.Skip("Integration test requires REST API not available on opencode serve")
 
 func TestIntegration_WarmStartLatency(t *testing.T) {
 	baseURL := skipIfNoServer(t)
-	logger := log.New(io.Discard, "", 0)
-	client := NewClient(baseURL, logger)
+	client := NewClient(baseURL)
 
 	n := 5
 	times := make([]time.Duration, n)
@@ -115,8 +111,7 @@ func TestIntegration_WarmStartLatency(t *testing.T) {
 
 func TestIntegration_SendMessageSSE(t *testing.T) {
 	baseURL := skipIfNoServer(t)
-	logger := log.New(io.Discard, "", 0)
-	client := NewClient(baseURL, logger)
+	client := NewClient(baseURL)
 
 	session, err := client.CreateSession(CreateSessionRequest{
 		Project: "bridge-sse-test",
@@ -136,7 +131,7 @@ func TestIntegration_SendMessageSSE(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	events := ReadSSEStream(ctx, resp.Body, logger)
+	events := ReadSSEStream(ctx, resp.Body)
 
 	timeout := time.After(90 * time.Second)
 	eventCount := 0

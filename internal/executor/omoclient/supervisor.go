@@ -3,8 +3,9 @@ package omoclient
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 	"os/exec"
 	"sync"
 	"time"
@@ -17,14 +18,12 @@ type OmOSupervisor struct {
 	running bool
 	ready   bool
 	baseURL string
-	logger  *log.Logger
 }
 
 // NewOmOSupervisor creates a new supervisor instance
-func NewOmOSupervisor(baseURL string, logger *log.Logger) *OmOSupervisor {
+func NewOmOSupervisor(baseURL string) *OmOSupervisor {
 	return &OmOSupervisor{
 		baseURL: baseURL,
-		logger:  logger,
 	}
 }
 
@@ -38,8 +37,8 @@ func (s *OmOSupervisor) Start(ctx context.Context) error {
 	}
 
 	s.cmd = exec.CommandContext(ctx, "opencode", "serve", "--listen", s.baseURL)
-	s.cmd.Stdout = s.logger.Writer()
-	s.cmd.Stderr = s.logger.Writer()
+	s.cmd.Stdout = os.Stdout
+	s.cmd.Stderr = os.Stderr
 
 	if err := s.cmd.Start(); err != nil {
 		return fmt.Errorf("start opencode serve: %w", err)
@@ -47,6 +46,7 @@ func (s *OmOSupervisor) Start(ctx context.Context) error {
 
 	s.running = true
 	s.ready = false
+	slog.Info("opencode serve started", "url", s.baseURL)
 	return nil
 }
 

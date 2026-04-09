@@ -13,10 +13,16 @@ import (
 func main() {
 	mode := flag.String("mode", "check", "Mode: check or changelog")
 	format := flag.String("format", "text", "Output format: text or json")
+	jsonOutput := flag.Bool("json", false, "Output in JSON format (shorthand for --format json)")
 	strict := flag.Bool("strict", false, "Treat documentation consistency findings as errors")
 	since := flag.String("since", "", "Git range for changelog update (default: HEAD~1..HEAD)")
 	projectRoot := flag.String("project-root", "", "Project root (auto-detected if empty)")
 	flag.Parse()
+
+	// --json takes precedence over --format
+	if *jsonOutput {
+		*format = "json"
+	}
 
 	root := *projectRoot
 	if root == "" {

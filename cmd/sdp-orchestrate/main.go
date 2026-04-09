@@ -33,8 +33,18 @@ func main() {
 	index := flag.Bool("index", false, "Generate INDEX table for feature workstreams (print to stdout)")
 	status := flag.Bool("status", false, "Output status: pending WS, open beads, next action")
 	jsonOutput := flag.Bool("json", false, "Output in JSON format (default is human-readable)")
+	format := flag.String("format", "", "Output format: json or text (overrides --json if both set)")
 	repair := flag.Bool("repair", false, "Repair corrupted checkpoint from git history")
 	flag.Parse()
+
+	// --format takes precedence over --json
+	if *format != "" {
+		if *format == "json" {
+			*jsonOutput = true
+		} else if *format == "text" {
+			*jsonOutput = false
+		}
+	}
 
 	if *feature == "" {
 		fmt.Fprintln(os.Stderr, "error: --feature is required")

@@ -33,7 +33,7 @@ func TestDualWriteRepository_Compare_NilShadow(t *testing.T) {
 	_ = primary.CreateCard("test", card)
 
 	// nil shadow — should handle gracefully
-	dual := NewDualWriteRepository(primary, nil, nil)
+	dual := NewDualWriteRepository(primary, nil)
 
 	report, err := dual.Compare(context.Background(), "test")
 	if err != nil {

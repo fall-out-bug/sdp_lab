@@ -2,7 +2,7 @@ package control
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 )
@@ -95,11 +95,11 @@ func (s *Store) MarkReady(projectID, cardID string) (*FeatureCard, error) {
 		return nil, err
 	}
 	if contractPath, err := s.writeGeneratedContract(card); err != nil {
-		log.Printf("warning: failed to auto-generate task contract for %s: %v", card.ID, err)
+		slog.Warn("failed to auto-generate task contract", "card", card.ID, "error", err)
 	} else {
 		card.RequiredArtifacts = cleanList(append(card.RequiredArtifacts, contractPath))
 		if err := s.SaveCard(card); err != nil {
-			log.Printf("warning: failed to persist generated contract path for %s: %v", card.ID, err)
+			slog.Warn("failed to persist generated contract path", "card", card.ID, "error", err)
 		}
 	}
 	return card, nil

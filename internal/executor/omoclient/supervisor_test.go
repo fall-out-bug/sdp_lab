@@ -3,7 +3,6 @@ package omoclient
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -20,8 +19,7 @@ func TestWaitReady_ServerRespondsQuickly(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logger := log.New(log.Writer(), "", log.LstdFlags)
-	sup := NewOmOSupervisor(server.URL, logger)
+		sup := NewOmOSupervisor(server.URL)
 
 	// Start a mock process
 	ctx := context.Background()
@@ -53,8 +51,7 @@ func TestWaitReady_ServerNotResponding(t *testing.T) {
 	addr := listener.Addr().String()
 	listener.Close()
 
-	logger := log.New(log.Writer(), "", log.LstdFlags)
-	sup := NewOmOSupervisor("http://"+addr, logger)
+		sup := NewOmOSupervisor("http://" + addr)
 
 	// Start a mock process
 	ctx := context.Background()
@@ -84,8 +81,7 @@ func TestWaitReady_ContextCancellation(t *testing.T) {
 	addr := listener.Addr().String()
 	listener.Close()
 
-	logger := log.New(log.Writer(), "", log.LstdFlags)
-	sup := NewOmOSupervisor("http://"+addr, logger)
+		sup := NewOmOSupervisor("http://" + addr)
 
 	// Start a mock process
 	ctx, cancel := context.WithCancel(context.Background())
@@ -119,8 +115,7 @@ func TestWaitReady_ServerBecomesReady(t *testing.T) {
 
 // TestWaitReady_ProcessNotStarted tests that WaitReady fails when process isn't started
 func TestWaitReady_ProcessNotStarted(t *testing.T) {
-	logger := log.New(log.Writer(), "", log.LstdFlags)
-	sup := NewOmOSupervisor("http://localhost:8080", logger)
+		sup := NewOmOSupervisor("http://localhost:8080")
 
 	// Create a command but don't start it - Process will be nil
 	ctx := context.Background()
@@ -136,8 +131,7 @@ func TestWaitReady_ProcessNotStarted(t *testing.T) {
 
 // TestWaitReady_ProcessExited tests that WaitReady fails when process exits unexpectedly
 func TestWaitReady_ProcessExited(t *testing.T) {
-	logger := log.New(log.Writer(), "", log.LstdFlags)
-	sup := NewOmOSupervisor("http://localhost:8080", logger)
+		sup := NewOmOSupervisor("http://localhost:8080")
 
 	// Simulate process exiting
 	ctx := context.Background()
@@ -160,8 +154,7 @@ func TestWaitReady_ProcessExited(t *testing.T) {
 
 // TestStatus tests the Status method
 func TestStatus(t *testing.T) {
-	logger := log.New(log.Writer(), "", log.LstdFlags)
-	sup := NewOmOSupervisor("http://localhost:8080", logger)
+		sup := NewOmOSupervisor("http://localhost:8080")
 
 	running, ready := sup.Status()
 	if running || ready {
@@ -172,8 +165,7 @@ func TestStatus(t *testing.T) {
 
 // TestStart tests the Start method
 func TestStart(t *testing.T) {
-	logger := log.New(log.Writer(), "", log.LstdFlags)
-	sup := NewOmOSupervisor("http://localhost:8080", logger)
+		sup := NewOmOSupervisor("http://localhost:8080")
 
 	ctx := context.Background()
 	err := sup.Start(ctx)
@@ -193,8 +185,7 @@ func TestStart_AlreadyRunning(t *testing.T) {
 
 // TestStop tests the Stop method
 func TestStop(t *testing.T) {
-	logger := log.New(log.Writer(), "", log.LstdFlags)
-	sup := NewOmOSupervisor("http://localhost:8080", logger)
+		sup := NewOmOSupervisor("http://localhost:8080")
 
 	err := sup.Stop(1 * time.Second)
 	// This might fail if there's no actual process, which is OK
@@ -205,8 +196,7 @@ func TestStop(t *testing.T) {
 
 // TestStop_NotRunning tests that Stop is idempotent when not running
 func TestStop_NotRunning(t *testing.T) {
-	logger := log.New(log.Writer(), "", log.LstdFlags)
-	sup := NewOmOSupervisor("http://localhost:8080", logger)
+		sup := NewOmOSupervisor("http://localhost:8080")
 
 	err := sup.Stop(1 * time.Second)
 	if err != nil {

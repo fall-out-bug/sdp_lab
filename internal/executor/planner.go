@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -97,17 +96,16 @@ func GeneratePlan(ctx context.Context, projectRoot string, card *control.Feature
 	}
 
 	prompt := BuildPlanPrompt(projectRoot, card)
-	logger := log.New(log.Writer(), "[planner] ", log.LstdFlags)
 	baseURL := strings.TrimSpace(os.Getenv("OMO_SERVE_URL"))
 	if baseURL == "" {
 		baseURL = "http://127.0.0.1:4096"
 	}
-	client := omoclient.NewClient(baseURL, logger)
+	client := omoclient.NewClient(baseURL)
 	if _, err := client.ListSessions(); err != nil {
 		return PlanResult{CardID: card.ID, Status: "error"}, fmt.Errorf("OmO serve unavailable — plan generation blocked")
 	}
 
-	invoker := omoclient.NewServeInvoker(baseURL, logger)
+	invoker := omoclient.NewServeInvoker(baseURL)
 	runtimeResult, invokeErr := invoker.Invoke(ctx, kernel.RuntimeInvocation{
 		WorkDir: projectRoot,
 		Agent:   "sisyphus",

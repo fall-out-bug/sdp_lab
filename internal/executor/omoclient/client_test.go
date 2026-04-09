@@ -2,8 +2,6 @@ package omoclient
 
 import (
 	"encoding/json"
-	"io"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -35,8 +33,7 @@ func TestCreateSession(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logger := log.New(io.Discard, "", 0)
-	client := NewClient(server.URL, logger)
+	client := NewClient(server.URL)
 
 	session, err := client.CreateSession(CreateSessionRequest{
 		Project: "test-project",
@@ -68,8 +65,7 @@ func TestGetSession(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logger := log.New(io.Discard, "", 0)
-	client := NewClient(server.URL, logger)
+	client := NewClient(server.URL)
 
 	session, err := client.GetSession("test-session-456")
 
@@ -95,8 +91,7 @@ t.Skip("ListSessions requires REST API not available on opencode serve")
 	}))
 	defer server.Close()
 
-	logger := log.New(io.Discard, "", 0)
-	client := NewClient(server.URL, logger)
+	client := NewClient(server.URL)
 
 	sessions, err := client.ListSessions()
 
@@ -120,8 +115,7 @@ func TestDeleteSession(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logger := log.New(io.Discard, "", 0)
-	client := NewClient(server.URL, logger)
+	client := NewClient(server.URL)
 
 	err := client.DeleteSession("test-session")
 
@@ -141,8 +135,7 @@ func TestCreateSessionError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logger := log.New(io.Discard, "", 0)
-	client := NewClient(server.URL, logger)
+	client := NewClient(server.URL)
 
 	_, err := client.CreateSession(CreateSessionRequest{Project: "test"})
 

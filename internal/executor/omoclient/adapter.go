@@ -3,7 +3,7 @@ package omoclient
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"strings"
 	"time"
@@ -15,15 +15,13 @@ import (
 type ServeInvoker struct {
 	client     *OmOServeClient
 	supervisor *OmOSupervisor
-	logger     *log.Logger
 }
 
 // NewServeInvoker creates a new ServeInvoker
-func NewServeInvoker(baseURL string, logger *log.Logger) *ServeInvoker {
+func NewServeInvoker(baseURL string) *ServeInvoker {
 	return &ServeInvoker{
-		client:     NewClient(baseURL, logger),
-		supervisor: NewOmOSupervisor(baseURL, logger),
-		logger:     logger,
+		client:     NewClient(baseURL),
+		supervisor: NewOmOSupervisor(baseURL),
 	}
 }
 
@@ -60,14 +58,14 @@ func (s *ServeInvoker) Invoke(ctx context.Context, req kernel.RuntimeInvocation)
 	}
 	defer resp.Body.Close()
 
-	events := ReadSSEStream(ctx, resp.Body, s.logger)
+	events := ReadSSEStream(ctx, resp.Body)
 
 	var output strings.Builder
 	var exitCode int
 	var lastError string
 
 	for event := range events {
-		s.logger.Printf("Event: %s, Prefix: %s, Data: %s", event.Class, event.Prefix, event.Data)
+		slog.Debug("SSE event", "class", event.Class, "prefix", event.Prefix, "data", event.Data)
 
 		switch event.Class {
 		case EventToolStarted, EventToolCompleted:
@@ -79,7 +77,7 @@ func (s *ServeInvoker) Invoke(ctx context.Context, req kernel.RuntimeInvocation)
 				lastError = event.Data
 			}
 		case EventWarning:
-			s.logger.Printf("Warning: %s", event.Data)
+			slog.Warn("warning from serve", "data", event.Data)
 		case EventUnknown:
 			if event.Prefix != "" {
 				output.WriteString(event.Prefix)

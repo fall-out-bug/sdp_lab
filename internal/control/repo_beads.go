@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -17,18 +17,13 @@ import (
 type BeadsCardRepository struct {
 	bdPath string // path to bd binary (default: "bd")
 	dbPath string // optional override for --db flag
-	logger *log.Logger
 }
 
 // NewBeadsCardRepository creates a CLI-backed Beads repository.
-func NewBeadsCardRepository(dbPath string, logger *log.Logger) *BeadsCardRepository {
-	if logger == nil {
-		logger = log.New(log.Writer(), "[beads-repo] ", log.LstdFlags)
-	}
+func NewBeadsCardRepository(dbPath string) *BeadsCardRepository {
 	return &BeadsCardRepository{
 		bdPath: "bd",
 		dbPath: dbPath,
-		logger: logger,
 	}
 }
 
@@ -55,7 +50,7 @@ func (r *BeadsCardRepository) runBDWrite(args ...string) ([]byte, error) {
 		allArgs = []string{"--db", r.dbPath}
 	}
 	allArgs = append(allArgs, args...)
-	r.logger.Printf("exec: bd %s", strings.Join(args, " "))
+	slog.Debug("bd exec", "args", strings.Join(args, " "))
 
 	cmd := exec.CommandContext(context.Background(), r.bdPath, allArgs...)
 	var stdout, stderr bytes.Buffer
@@ -76,7 +71,7 @@ func (r *BeadsCardRepository) runBD(args ...string) ([]byte, error) {
 	}
 	allArgs = append(allArgs, "--json")
 	allArgs = append(allArgs, args...)
-	r.logger.Printf("exec: bd %s", strings.Join(args, " "))
+	slog.Debug("bd exec", "args", strings.Join(args, " "))
 
 	cmd := exec.CommandContext(context.Background(), r.bdPath, allArgs...)
 	var stdout, stderr bytes.Buffer

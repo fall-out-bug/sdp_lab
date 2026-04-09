@@ -2,7 +2,7 @@ package control
 
 import (
 	"bytes"
-	"log"
+	"log/slog"
 	"testing"
 )
 
@@ -25,7 +25,7 @@ func TestMissingInfo_Struct(t *testing.T) {
 
 func TestPrintMissing_Empty(t *testing.T) {
 	var buf bytes.Buffer
-	logger := log.New(&buf, "", 0)
+	logger := slog.New(slog.NewTextHandler(&buf, nil))
 	PrintMissing(nil, logger)
 
 	if buf.String() == "" {
@@ -35,7 +35,7 @@ func TestPrintMissing_Empty(t *testing.T) {
 
 func TestPrintMissing_WithItems(t *testing.T) {
 	var buf bytes.Buffer
-	logger := log.New(&buf, "", 0)
+	logger := slog.New(slog.NewTextHandler(&buf, nil))
 
 	missing := []MissingInfo{
 		{ID: "F-001", Title: "Test", MissingEvidence: true},
@@ -50,7 +50,7 @@ func TestPrintMissing_WithItems(t *testing.T) {
 
 func TestPrintWhyBlocked_Empty(t *testing.T) {
 	var buf bytes.Buffer
-	logger := log.New(&buf, "", 0)
+	logger := slog.New(slog.NewTextHandler(&buf, nil))
 	PrintWhyBlocked(nil, logger)
 
 	if buf.String() == "" {

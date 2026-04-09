@@ -78,11 +78,11 @@ func (r *Resolver) Resolve(ctx context.Context, roots []string) (*ResolvedPacks,
 		visiting[packID] = true
 		pack, err := r.loader.Load(ctx, packID)
 		if err != nil {
-			return err
+			return fmt.Errorf("load workflow pack %s: %w", packID, err)
 		}
 		for _, dep := range pack.Dependencies {
 			if err := visit(dep); err != nil {
-				return err
+				return fmt.Errorf("visit dependency %s of %s: %w", dep, packID, err)
 			}
 		}
 
@@ -95,7 +95,7 @@ func (r *Resolver) Resolve(ctx context.Context, roots []string) (*ResolvedPacks,
 
 	for _, root := range roots {
 		if err := visit(root); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("resolve workflow pack %s: %w", root, err)
 		}
 	}
 	return resolved, nil

@@ -3,7 +3,7 @@ package control
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 )
 
 // WhyBlocked explains why a given card is blocked.
@@ -201,29 +201,29 @@ type FeatureTrace struct {
 }
 
 // PrintWhyBlocked is a convenience method for CLI output.
-func PrintWhyBlocked(blockers []BlockerInfo, logger *log.Logger) {
+func PrintWhyBlocked(blockers []BlockerInfo, logger *slog.Logger) {
 	if logger == nil {
-		logger = log.New(log.Writer(), "", 0)
+		logger = slog.Default()
 	}
 	if len(blockers) == 0 {
-		logger.Println("No blockers found.")
+		logger.Info("No blockers found.")
 		return
 	}
 	for _, b := range blockers {
-		logger.Printf("  🔒 %s: %s", b.ID, b.Title)
+		logger.Info("blocker", "id", b.ID, "title", b.Title)
 		if b.Notes != "" {
-			logger.Printf("     %s", b.Notes)
+			logger.Info("notes", "notes", b.Notes)
 		}
 	}
 }
 
 // PrintMissing is a convenience method for CLI output.
-func PrintMissing(missing []MissingInfo, logger *log.Logger) {
+func PrintMissing(missing []MissingInfo, logger *slog.Logger) {
 	if logger == nil {
-		logger = log.New(log.Writer(), "", 0)
+		logger = slog.Default()
 	}
 	if len(missing) == 0 {
-		logger.Println("All items have complete information.")
+		logger.Info("All items have complete information.")
 		return
 	}
 	for _, m := range missing {
@@ -237,6 +237,6 @@ func PrintMissing(missing []MissingInfo, logger *log.Logger) {
 		if m.MissingExecutorState {
 			flags = append(flags, "executor_state")
 		}
-		logger.Printf("  ⚠️  %s: %s [missing: %s]", m.ID, m.Title, fmt.Sprintf("%v", flags))
+		logger.Warn("missing info", "id", m.ID, "title", m.Title, "missing", fmt.Sprintf("%v", flags))
 	}
 }
