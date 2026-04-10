@@ -55,6 +55,8 @@ func main() {
 		runApprovePlan(os.Args[2:])
 	case "discover":
 		runDiscover(os.Args[2:])
+	case "architect":
+		runArchitect(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
