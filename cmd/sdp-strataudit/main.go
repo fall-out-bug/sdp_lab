@@ -99,7 +99,7 @@ func runRun(args []string) {
 		fmt.Fprintf(os.Stderr, "error opening store: %v\n", err)
 		os.Exit(1)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	ctx := context.Background()
 	llm := strataudit.NewLLMClient(apiKey, "https://openrouter.ai/api/v1")
