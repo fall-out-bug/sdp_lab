@@ -3,6 +3,7 @@ package classify
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -55,6 +56,7 @@ func (h *Hypothesizer) Analyze(ctx context.Context, profile *architect.CodebaseP
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	var errs []error
 
 	result := &HypothesisResult{}
 
@@ -63,7 +65,7 @@ func (h *Hypothesizer) Analyze(ctx context.Context, profile *architect.CodebaseP
 		func(ctx context.Context, profileJSON string) error {
 			styleHypothesis, inputTokens, cost, err := h.analyzeStyle(ctx, profileJSON)
 			if err != nil {
-				return err
+				return fmt.Errorf("style analysis: %w", err)
 			}
 			mu.Lock()
 			defer mu.Unlock()
@@ -75,7 +77,7 @@ func (h *Hypothesizer) Analyze(ctx context.Context, profile *architect.CodebaseP
 		func(ctx context.Context, profileJSON string) error {
 			patterns, inputTokens, cost, err := h.detectPatterns(ctx, profileJSON)
 			if err != nil {
-				return err
+				return fmt.Errorf("pattern detection: %w", err)
 			}
 			mu.Lock()
 			defer mu.Unlock()
@@ -87,7 +89,7 @@ func (h *Hypothesizer) Analyze(ctx context.Context, profile *architect.CodebaseP
 		func(ctx context.Context, profileJSON string) error {
 			risks, inputTokens, cost, err := h.assessRisks(ctx, profileJSON)
 			if err != nil {
-				return err
+				return fmt.Errorf("risk assessment: %w", err)
 			}
 			mu.Lock()
 			defer mu.Unlock()
@@ -101,14 +103,18 @@ func (h *Hypothesizer) Analyze(ctx context.Context, profile *architect.CodebaseP
 		go func(f func(context.Context, string) error) {
 			defer wg.Done()
 			if err := f(ctx, string(profileJSON)); err != nil {
-				// In a real implementation, we might want to collect errors
-				// and return them all. For now, we'll just log and continue.
-				// The caller can check for partial results.
+				mu.Lock()
+				defer mu.Unlock()
+				errs = append(errs, err)
 			}
 		}(fn)
 	}
 	wg.Wait()
 
+	// Return partial results even if some calls failed
+	if len(errs) > 0 {
+		return result, fmt.Errorf("LLM analysis completed with %d error(s): %w", len(errs), errors.Join(errs...))
+	}
 	return result, nil
 }
 

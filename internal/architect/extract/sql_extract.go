@@ -155,7 +155,7 @@ func (e *SQLExtractor) Extract(ctx context.Context, root string) (*architect.Pro
 
 	// If nothing found, return empty fragment.
 	if len(sqlFiles) == 0 && len(ormFiles) == 0 {
-		return &architect.ProfileFragment{SQL: &architect.SQLAnalysis{}}, nil
+		return &architect.ProfileFragment{SQLAnalysis: &architect.SQLAnalysis{}}, nil
 	}
 
 	analysis := &architect.SQLAnalysis{}
@@ -183,7 +183,7 @@ func (e *SQLExtractor) Extract(ctx context.Context, root string) (*architect.Pro
 	// Data domain clustering.
 	analysis.DataDomains = clusterDomains(analysis.Tables, analysis.ForeignKeys)
 
-	return &architect.ProfileFragment{SQL: analysis}, nil
+	return &architect.ProfileFragment{SQLAnalysis: analysis}, nil
 }
 
 // fileContent is a helper that pairs a relative path with file contents.

@@ -235,9 +235,6 @@ func (pa *ProfileAssembler) mergeFragments(fragments []*ProfileFragment) *Codeba
 		}
 
 		// SQL: first non-nil wins
-		if frag.SQL != nil && profile.SQLAnalysis == nil {
-			profile.SQLAnalysis = frag.SQL
-		}
 		if frag.SQLAnalysis != nil && profile.SQLAnalysis == nil {
 			profile.SQLAnalysis = frag.SQLAnalysis
 		}

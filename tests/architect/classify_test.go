@@ -497,3 +497,158 @@ func extractJSONTest(content string) (string, error) {
 
 	return "", nil
 }
+
+// TestHypothesizerAnalyze_PartialFailure tests that errors from parallel goroutines are collected and returned.
+// When 1 of 3 LLM calls fails, an error should be returned but partial results should still be available.
+func TestHypothesizerAnalyze_PartialFailure(t *testing.T) {
+	// Track which endpoints were called
+	styleCalled := false
+	patternsCalled := false
+	risksCalled := false
+
+	// Create a mock server that returns error for patterns, success for others
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST request, got %s", r.Method)
+		}
+		if r.URL.Path != "/chat/completions" {
+			t.Errorf("expected path /chat/completions, got %s", r.URL.Path)
+		}
+
+		var req discovery.ChatRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("failed to decode request: %v", err)
+		}
+
+		if len(req.Messages) == 0 {
+			t.Error("expected at least one message")
+		}
+
+		prompt := req.Messages[0].Content
+
+		// Style: success
+		if strings.Contains(prompt, "architecture style hypothesis") {
+			styleCalled = true
+			responseJSON := map[string]interface{}{
+				"choices": []map[string]interface{}{
+					{
+						"message": map[string]string{
+							"role":    "assistant",
+							"content": `{"styles": [{"style": "layered", "confidence": 0.8}]}`,
+						},
+						"finish_reason": "stop",
+					},
+				},
+				"usage": map[string]interface{}{
+					"prompt_tokens":     1000,
+					"completion_tokens": 100,
+					"cost":              0.001,
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(responseJSON)
+			return
+		}
+
+		// Patterns: error
+		if strings.Contains(prompt, "design patterns") {
+			patternsCalled = true
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		// Risks: success
+		if strings.Contains(prompt, "architectural risks") {
+			risksCalled = true
+			responseJSON := map[string]interface{}{
+				"choices": []map[string]interface{}{
+					{
+						"message": map[string]string{
+							"role":    "assistant",
+							"content": `{"risks": [{"severity": "medium", "category": "test_gap", "description": "Low coverage"}]}`,
+						},
+						"finish_reason": "stop",
+					},
+				},
+				"usage": map[string]interface{}{
+					"prompt_tokens":     1000,
+					"completion_tokens": 100,
+					"cost":              0.001,
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(responseJSON)
+			return
+		}
+
+		t.Errorf("unexpected prompt: %s", prompt[:100])
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer server.Close()
+
+	client := discovery.NewLLMClient("test-key", server.URL)
+	h := classify.NewHypothesizer(client, "test-model")
+
+	profile := &architect.CodebaseProfile{
+		Name: "test-repo",
+		FileTree: architect.FileTreeInfo{
+			TotalFiles: 10,
+			TotalDirs:  3,
+		},
+		Dependencies: architect.DependencyInfo{},
+		ImportGraph:  architect.ImportGraph{},
+		Infra:        architect.InfraInfo{},
+		Metrics: architect.CodeMetrics{
+			TotalFiles: 10,
+			TotalLOC:   1000,
+		},
+	}
+
+	ctx := context.Background()
+	result, err := h.Analyze(ctx, profile)
+
+	// Verify error was returned
+	if err == nil {
+		t.Fatal("expected error when patterns call fails, got nil")
+	}
+	if !strings.Contains(err.Error(), "error") {
+		t.Errorf("error message should mention error count, got: %v", err)
+	}
+
+	// Verify all three LLM calls were attempted
+	if !styleCalled {
+		t.Error("style hypothesis LLM call was not made")
+	}
+	if !patternsCalled {
+		t.Error("patterns LLM call was not made")
+	}
+	if !risksCalled {
+		t.Error("risks LLM call was not made")
+	}
+
+	// Verify partial results: style and risks should be populated
+	if len(result.StyleHypothesis.Styles) == 0 {
+		t.Error("expected style hypothesis to be populated despite partial failure")
+	} else if result.StyleHypothesis.Styles[0].Style != architect.StyleLayered {
+		t.Errorf("expected style 'layered', got '%s'", result.StyleHypothesis.Styles[0].Style)
+	}
+
+	if len(result.Risks) == 0 {
+		t.Error("expected risks to be populated despite partial failure")
+	} else if result.Risks[0].Category != "test_gap" {
+		t.Errorf("expected risk category 'test_gap', got '%s'", result.Risks[0].Category)
+	}
+
+	// Patterns should be empty (failed call)
+	if len(result.Patterns) != 0 {
+		t.Errorf("expected patterns to be empty after failure, got %d", len(result.Patterns))
+	}
+
+	// Token/cost aggregation should only include successful calls
+	if result.TotalInputTokens != 2000 {
+		t.Errorf("expected 2000 total input tokens (2 successful calls), got %d", result.TotalInputTokens)
+	}
+	if result.TotalCostUSD != 0.002 {
+		t.Errorf("expected 0.002 total cost (2 successful calls), got %f", result.TotalCostUSD)
+	}
+}

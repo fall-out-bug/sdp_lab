@@ -8,7 +8,6 @@ type ProfileFragment struct {
 	Infra          *InfraInfo         `json:"infra,omitempty"`
 	FileTree       *FileTreeInfo      `json:"file_tree,omitempty"`
 	Specs          []SpecArtifact     `json:"specs,omitempty"`
-	SQL            *SQLAnalysis       `json:"sql,omitempty"`
 	SQLAnalysis    *SQLAnalysis       `json:"sql_analysis,omitempty"`
 	GitAnalysis    *GitAnalysis       `json:"git_analysis,omitempty"`
 	Metrics        *CodeMetrics       `json:"metrics,omitempty"`
