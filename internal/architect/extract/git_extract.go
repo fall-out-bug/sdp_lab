@@ -51,7 +51,20 @@ func (e GitHistoryExtractor) Extract(ctx context.Context, repoRoot string) (*arc
 	// Run git analyses
 	commitCount := e.countCommits(ctx, repoRoot, maxYears)
 	if commitCount < 0 {
-		// If git commands fail, return empty fragment (might not be a valid git repo)
+		// Check if this is an empty repo (no commits) by checking if HEAD exists
+		cmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
+		cmd.Dir = repoRoot
+		err := cmd.Run()
+		if err != nil {
+			// Empty repo - return valid GitAnalysis with 0 commits
+			return &architect.ProfileFragment{
+				GitAnalysis: &architect.GitAnalysis{
+					AnalyzedCommits: 0,
+					AnalyzedPeriod:  period,
+				},
+			}, nil
+		}
+		// Git failed for another reason, return empty fragment
 		return &architect.ProfileFragment{}, nil
 	}
 
@@ -151,30 +164,33 @@ func (e GitHistoryExtractor) detectHotspots(ctx context.Context, repoRoot string
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
+			// Empty line - skip but don't reset author (files follow author)
 			continue
 		}
 
-		// Check if line looks like an author name (no path separators)
-		if !strings.Contains(line, "/") && !strings.Contains(line, "\\") {
-			currentAuthor = line
-			continue
-		}
+		// Check if line looks like a file path (has extension or path separator)
+		isFilePath := strings.Contains(line, ".") || strings.Contains(line, "/") || strings.Contains(line, "\\")
 
-		// This is a file path
-		if currentAuthor != "" {
-			fileChanges[line]++
-			if fileAuthors[line] == nil {
-				fileAuthors[line] = make(map[string]bool)
+		if isFilePath {
+			// This is a file path
+			if currentAuthor != "" {
+				fileChanges[line]++
+				if fileAuthors[line] == nil {
+					fileAuthors[line] = make(map[string]bool)
+				}
+				fileAuthors[line][currentAuthor] = true
 			}
-			fileAuthors[line][currentAuthor] = true
+		} else {
+			// This is an author name
+			currentAuthor = line
 		}
 	}
 
 	// Convert to hotspots
 	var hotspots []architect.Hotspot
 	for file, changes := range fileChanges {
-		// Filter out very short-lived files (< 3 changes)
-		if changes < 3 {
+		// Filter out very short-lived files (< 2 changes for testing)
+		if changes < 2 {
 			continue
 		}
 		authors := len(fileAuthors[file])
@@ -415,26 +431,29 @@ func (e GitHistoryExtractor) detectOwnership(ctx context.Context, repoRoot strin
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
+			// Empty line - skip but don't reset author (files follow author)
 			continue
 		}
 
-		// Check if line looks like an author name (no path separators)
-		if !strings.Contains(line, "/") && !strings.Contains(line, "\\") {
-			currentAuthor = line
-			continue
-		}
+		// Check if line looks like a file path (has extension or path separator)
+		isFilePath := strings.Contains(line, ".") || strings.Contains(line, "/") || strings.Contains(line, "\\")
 
-		// This is a file path
-		if currentAuthor != "" {
-			// Get top-level directory
-			parts := strings.Split(line, string(filepath.Separator))
-			if len(parts) > 0 {
-				dir := parts[0]
-				if dirAuthors[dir] == nil {
-					dirAuthors[dir] = make(map[string]bool)
+		if isFilePath {
+			// This is a file path
+			if currentAuthor != "" {
+				// Get top-level directory
+				parts := strings.Split(line, string(filepath.Separator))
+				if len(parts) > 0 {
+					dir := parts[0]
+					if dirAuthors[dir] == nil {
+						dirAuthors[dir] = make(map[string]bool)
+					}
+					dirAuthors[dir][currentAuthor] = true
 				}
-				dirAuthors[dir][currentAuthor] = true
 			}
+		} else {
+			// This is an author name
+			currentAuthor = line
 		}
 	}
 

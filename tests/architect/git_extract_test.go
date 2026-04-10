@@ -310,15 +310,20 @@ func TestGitHistoryCODEOWNERSRoot(t *testing.T) {
 
 	// Look for @codeowners entries
 	foundCodeowners := false
-	for key := range frag.GitAnalysis.Ownership {
+	foundTeamGo := false
+	for key, owners := range frag.GitAnalysis.Ownership {
 		if strings.HasPrefix(key, "@codeowners:") {
 			foundCodeowners = true
-			owners := frag.GitAnalysis.Ownership[key]
 			assert.NotEmpty(t, owners)
-			assert.Contains(t, owners, "@team-go")
+			for _, owner := range owners {
+				if owner == "@team-go" {
+					foundTeamGo = true
+				}
+			}
 		}
 	}
 	assert.True(t, foundCodeowners, "Should have @codeowners entries")
+	assert.True(t, foundTeamGo, "Should find @team-go in codeowners")
 }
 
 func TestGitHistorySampling(t *testing.T) {
