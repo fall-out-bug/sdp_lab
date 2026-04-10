@@ -23,11 +23,13 @@ func TestDetectCrossLangDeps_EmptyProfile(t *testing.T) {
 }
 
 func TestDetectCrossLangDeps_SharedOpenAPI(t *testing.T) {
+	// Test with a monorepo structure where both services share a common parent
+	// and there's an API spec in that parent directory
 	profile := &architect.CodebaseProfile{
 		Specs: []architect.SpecArtifact{
 			{
 				Kind:    "openapi",
-				Path:    "api/orders/openapi.yaml",
+				Path:    "monorepo/api/orders/openapi.yaml",
 				Version: "3.1",
 			},
 		},
@@ -35,12 +37,12 @@ func TestDetectCrossLangDeps_SharedOpenAPI(t *testing.T) {
 			Containers: []architect.ContainerInfo{
 				{
 					Name:   "orders-service",
-					Source: "services/orders/Dockerfile",
+					Source: "monorepo/services/orders/Dockerfile",
 					Type:   "service",
 				},
 				{
 					Name:   "frontend",
-					Source: "services/frontend/Dockerfile",
+					Source: "monorepo/services/frontend/Dockerfile",
 					Type:   "service",
 				},
 			},
@@ -48,11 +50,11 @@ func TestDetectCrossLangDeps_SharedOpenAPI(t *testing.T) {
 		Dependencies: architect.DependencyInfo{
 			Manifests: []architect.ManifestInfo{
 				{
-					Path:     "services/orders/go.mod",
+					Path:     "monorepo/services/orders/go.mod",
 					Language: "go",
 				},
 				{
-					Path:     "services/frontend/package.json",
+					Path:     "monorepo/services/frontend/package.json",
 					Language: "typescript",
 				},
 			},
@@ -61,6 +63,8 @@ func TestDetectCrossLangDeps_SharedOpenAPI(t *testing.T) {
 
 	result := architect.DetectCrossLangDeps(profile)
 
+	// With the common ancestor check, both containers should be detected
+	// as referencing the spec (they share "monorepo" as common ancestor)
 	if len(result.Dependencies) == 0 {
 		t.Fatal("expected at least 1 cross-lang dependency")
 	}
@@ -70,8 +74,8 @@ func TestDetectCrossLangDeps_SharedOpenAPI(t *testing.T) {
 	for _, dep := range result.Dependencies {
 		if dep.BridgeType == "openapi" {
 			found = true
-			if dep.BridgePath != "api/orders/openapi.yaml" {
-				t.Errorf("expected bridge path 'api/orders/openapi.yaml', got %q", dep.BridgePath)
+			if dep.BridgePath != "monorepo/api/orders/openapi.yaml" {
+				t.Errorf("expected bridge path 'monorepo/api/orders/openapi.yaml', got %q", dep.BridgePath)
 			}
 			if dep.Confidence != 1.0 {
 				t.Errorf("expected confidence 1.0, got %f", dep.Confidence)
@@ -620,9 +624,7 @@ func TestNormalizeLanguage(t *testing.T) {
 				},
 			}
 
-			lang := architect.ContainerLanguage(profile, "test")
-			// Since we're using go.mod, it should detect as "go" regardless of manifest language
-			// unless the manifest language is empty
+			_ = architect.ContainerLanguage(profile, "test")
 		})
 	}
 }

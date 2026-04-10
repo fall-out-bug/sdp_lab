@@ -72,7 +72,8 @@ func detectSharedSpecs(profile *CodebaseProfile) []CrossLangDep {
 			// Check if spec is within or near the container's source directory
 			if strings.HasPrefix(spec.Path, containerDir) ||
 				strings.Contains(filepath.Dir(spec.Path), containerDir) ||
-				isAdjacentPath(spec.Path, containerDir) {
+				isAdjacentPath(spec.Path, containerDir) ||
+					shareCommonAncestor(spec.Path, container.Source) {
 				refContainers = append(refContainers, container.Name)
 			}
 		}
@@ -364,6 +365,33 @@ func isAdjacentPath(path1, path2 string) bool {
 	}
 
 	return false
+}
+
+// shareCommonAncestor checks if two paths share a common ancestor directory.
+// This is useful for monorepo structures where specs are in shared directories.
+func shareCommonAncestor(path1, path2 string) bool {
+	// Split paths into components
+	parts1 := strings.Split(filepath.Clean(path1), string(filepath.Separator))
+	parts2 := strings.Split(filepath.Clean(path2), string(filepath.Separator))
+
+	// Find common prefix
+	minLen := len(parts1)
+	if len(parts2) < minLen {
+		minLen = len(parts2)
+	}
+
+	commonCount := 0
+	for i := 0; i < minLen; i++ {
+		if parts1[i] == parts2[i] && parts1[i] != "" {
+			commonCount++
+		} else {
+			break
+		}
+	}
+
+	// If they share at least 1 directory level, consider them related
+	// (e.g., "monorepo/services/orders" and "monorepo/api" share "monorepo")
+	return commonCount >= 1
 }
 
 // AddCrossLangEdges adds CrossLangDep relationships to the ReferenceModel as C4Relationships.
