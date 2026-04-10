@@ -113,8 +113,8 @@ func TestFileTreeExtractor_ExtCounts(t *testing.T) {
 	frag, err := extract.FileTreeExtractor{}.Extract(context.Background(), root)
 	require.NoError(t, err)
 
-	assert.Equal(t, 2, frag.FileTree.ExtCounts["go"])
-	assert.Equal(t, 1, frag.FileTree.ExtCounts["ts"])
+	assert.Equal(t, 2, frag.FileTree.ExtCounts[".go"])
+	assert.Equal(t, 1, frag.FileTree.ExtCounts[".ts"])
 }
 
 // ---------------------------------------------------------------------------
