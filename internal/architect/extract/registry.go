@@ -11,5 +11,9 @@ func DefaultExtractors() []architect.Extractor {
 		GeneratedCodeDetector{},
 		&InfraExtractor{},
 		GitHistoryExtractor{},
+		GoAdapter{},
+		PythonAdapter{},
+		JavaAdapter{},
+		TypeScriptAdapter{},
 	}
 }

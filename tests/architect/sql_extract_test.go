@@ -33,9 +33,9 @@ CREATE TABLE posts (
 	ext := extract.NewSQLExtractor()
 	frag, err := ext.Extract(context.Background(), root)
 	require.NoError(t, err)
-	require.NotNil(t, frag.SQL)
+	require.NotNil(t, frag.SQLAnalysis)
 
-	tables := frag.SQL.Tables
+	tables := frag.SQLAnalysis.Tables
 	require.Len(t, tables, 2)
 
 	// users table
@@ -74,7 +74,7 @@ CREATE TABLE orders (
 	frag, err := ext.Extract(context.Background(), root)
 	require.NoError(t, err)
 
-	fks := frag.SQL.ForeignKeys
+	fks := frag.SQLAnalysis.ForeignKeys
 	require.Len(t, fks, 2)
 
 	assert.Equal(t, "orders", fks[0].FromTable)
@@ -99,7 +99,7 @@ func TestSQLExtractor_MigrationDetection(t *testing.T) {
 	frag, err := ext.Extract(context.Background(), root)
 	require.NoError(t, err)
 
-	mig := frag.SQL.Migrations
+	mig := frag.SQLAnalysis.Migrations
 	require.NotNil(t, mig)
 	assert.Equal(t, "db/migrate", mig.Dir)
 	assert.Equal(t, 3, mig.Count)
@@ -130,7 +130,7 @@ CREATE TABLE customers (
 	frag, err := ext.Extract(context.Background(), root)
 	require.NoError(t, err)
 
-	pii := frag.SQL.PIIColumns
+	pii := frag.SQLAnalysis.PIIColumns
 	require.NotEmpty(t, pii)
 
 	// Collect results by column.
@@ -187,7 +187,7 @@ model Post {
 	frag, err := ext.Extract(context.Background(), root)
 	require.NoError(t, err)
 
-	orms := frag.SQL.ORMModels
+	orms := frag.SQLAnalysis.ORMModels
 	require.Len(t, orms, 2)
 
 	assert.Equal(t, "prisma", orms[0].Framework)
@@ -229,7 +229,7 @@ CREATE TABLE logs (
 	frag, err := ext.Extract(context.Background(), root)
 	require.NoError(t, err)
 
-	domains := frag.SQL.DataDomains
+	domains := frag.SQLAnalysis.DataDomains
 	require.Len(t, domains, 3, "expected 3 connected components")
 
 	// Build a map from domain name to table list for easier assertion.
@@ -267,14 +267,14 @@ func TestSQLExtractor_NoSQLFiles(t *testing.T) {
 	ext := extract.NewSQLExtractor()
 	frag, err := ext.Extract(context.Background(), root)
 	require.NoError(t, err)
-	require.NotNil(t, frag.SQL)
+	require.NotNil(t, frag.SQLAnalysis)
 
 	// No tables, no FKs, no migrations, no PII, no domains.
-	assert.Empty(t, frag.SQL.Tables)
-	assert.Empty(t, frag.SQL.ForeignKeys)
-	assert.Nil(t, frag.SQL.Migrations)
-	assert.Empty(t, frag.SQL.PIIColumns)
-	assert.Empty(t, frag.SQL.DataDomains)
+	assert.Empty(t, frag.SQLAnalysis.Tables)
+	assert.Empty(t, frag.SQLAnalysis.ForeignKeys)
+	assert.Nil(t, frag.SQLAnalysis.Migrations)
+	assert.Empty(t, frag.SQLAnalysis.PIIColumns)
+	assert.Empty(t, frag.SQLAnalysis.DataDomains)
 }
 
 // findDomainContaining returns the first domain whose Tables slice contains tableName.
