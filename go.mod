@@ -5,6 +5,7 @@ go 1.26
 require (
 	github.com/google/uuid v1.6.0
 	github.com/in-toto/in-toto-golang v0.10.0
+	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
 	github.com/mattn/go-sqlite3 v1.14.34
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/sigstore/sigstore-go v1.1.4

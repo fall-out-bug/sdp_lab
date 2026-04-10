@@ -326,6 +326,24 @@ func (s *SQLiteStore) CountEntitiesByLevel(ctx context.Context, levelID string) 
 	return count, err
 }
 
+func (s *SQLiteStore) DocumentByPath(ctx context.Context, path string) (*model.Document, error) {
+	var d model.Document
+	var meta sql.NullString
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id, path, level_id, content_hash, content, version, metadata FROM documents WHERE path = ?`, path).
+		Scan(&d.ID, &d.Path, &d.LevelID, &d.ContentHash, &d.Content, &d.Version, &meta)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if meta.Valid {
+		json.Unmarshal([]byte(meta.String), &d.Metadata)
+	}
+	return &d, nil
+}
+
 func nilIfZero(n int) interface{} {
 	if n == 0 {
 		return nil
