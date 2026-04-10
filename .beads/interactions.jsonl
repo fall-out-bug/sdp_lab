@@ -190,3 +190,5 @@
 {"id":"int-7e36ec2a","kind":"field_change","created_at":"2026-04-10T11:27:28.803398Z","actor":"Andrei","issue_id":"sdplab-570","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Closed"}}
 {"id":"int-86c156fc","kind":"field_change","created_at":"2026-04-10T11:27:28.816475Z","actor":"Andrei","issue_id":"sdplab-krr","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Closed"}}
 {"id":"int-d979f71a","kind":"field_change","created_at":"2026-04-10T11:27:28.828442Z","actor":"Andrei","issue_id":"sdplab-m2o","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Closed"}}
+{"id":"int-cd46dbb7","kind":"field_change","created_at":"2026-04-10T11:42:44.969645Z","actor":"Andrei","issue_id":"sdplab-zho","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
+{"id":"int-9362012b","kind":"field_change","created_at":"2026-04-10T11:42:44.993326Z","actor":"Andrei","issue_id":"sdplab-5vr","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
