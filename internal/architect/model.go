@@ -130,6 +130,8 @@ const (
 )
 
 // Component is a logical grouping of modules (C4 Level 3).
+// Note: C4Component (defined above) is used in C4 rendering code.
+// Component is the canonical data model type for extractor assembly.
 type Component struct {
 	ID         string        `json:"id"`
 	Name       string        `json:"name"`
@@ -157,11 +159,12 @@ type ModuleBoundary struct {
 	PublicInterfaces []string `json:"public_interfaces"`
 }
 
-// LayerAssignment maps a module to an architectural layer.
+// LayerAssignment maps directories to an architectural layer.
 type LayerAssignment struct {
-	ModuleID string `json:"module_id"`
-	Layer    string `json:"layer"` // "presentation", "business", "data", "infrastructure"
-	Source   string `json:"source"` // "convention", "heuristic", "explicit"
+	Layer        string   `json:"layer"`         // "presentation", "business", "data", "infrastructure"
+	Directories  []string `json:"directories"`   // ["internal/handlers", "api/"]
+	FilePatterns []string `json:"file_patterns"` // ["*_handler.go", "*_controller.py"]
+	Confidence   float64  `json:"confidence"`
 }
 
 // --- End Data Model types ---
