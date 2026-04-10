@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StratAudit Report — SDP Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ===== Faust Design Tokens ===== */
+:root {
+  --cw-accent: #4760F3;
+  --cw-accent-hover: #8082F4;
+  --cw-accent-lavender: #8082F4;
+  --cw-accent-light: #A8B5FF;
+  --cw-surface-tint: rgba(71,96,243,0.12);
+  --cw-danger: #FF8080;
+  --cw-warning: #fbbf24;
+  --cw-success: #34d399;
+  --cw-radius-sm: 6px;
+  --cw-radius-md: 8px;
+  --cw-radius-lg: 16px;
+  --cw-radius-xl: 20px;
+  --cw-font: "Geologica", system-ui, sans-serif;
+  --cw-mono: "SFMono-Regular", "SF Mono", ui-monospace, monospace;
+}
+
+[data-theme="dark"] {
+  --cw-bg: #0f0f0f;
+  --cw-bg-elevated: #1a1a1a;
+  --cw-bg-hover: #222222;
+  --cw-bg-active: #2a2a2a;
+  --cw-text: #e8e8e8;
+  --cw-text-secondary: #8B93A7;
+  --cw-text-muted: #555555;
+  --cw-border: #2a2a2a;
+  --cw-border-strong: #3a3a3a;
+  --cw-shadow-sm: 0 1px 2px rgba(71,96,243,0.12);
+  --cw-shadow-md: 0 6px 18px rgba(71,96,243,0.16);
+  --cw-shadow-lg: 0 12px 32px rgba(71,96,243,0.20);
+  --cw-shadow-xl: 0 18px 48px rgba(71,96,243,0.24);
+}
+
+[data-theme="light"] {
+  --cw-bg: #ffffff;
+  --cw-bg-elevated: #f9f9f9;
+  --cw-bg-hover: #f3f3f3;
+  --cw-bg-active: #ebebeb;
+  --cw-text: #1a1a1a;
+  --cw-text-secondary: #6C778E;
+  --cw-text-muted: #aaaaaa;
+  --cw-border: #e5e5e5;
+  --cw-border-strong: #d0d0d0;
+  --cw-shadow-sm: 0 1px 2px rgba(71,96,243,0.06);
+  --cw-shadow-md: 0 6px 18px rgba(71,96,243,0.08);
+  --cw-shadow-lg: 0 12px 32px rgba(71,96,243,0.12);
+  --cw-shadow-xl: 0 18px 48px rgba(71,96,243,0.16);
+  --cw-surface-tint: #E9EBFF;
+}
+
+/* ===== Typography ===== */
+.faust-h1 { font-family: var(--cw-font); font-size: 28px; font-weight: 700; line-height: 94%; letter-spacing: -0.02em; color: var(--cw-text); }
+.faust-h2 { font-family: var(--cw-font); font-size: 20px; font-weight: 500; line-height: 115%; color: var(--cw-text); }
+.faust-h3 { font-family: var(--cw-font); font-size: 16px; font-weight: 400; line-height: 115%; color: var(--cw-text); }
+.faust-body { font-family: var(--cw-font); font-size: 15px; font-weight: 300; line-height: 115%; color: var(--cw-text); }
+.faust-caption { font-family: var(--cw-font); font-size: 13px; font-weight: 300; line-height: 115%; color: var(--cw-text-secondary); }
+.cw-text-secondary { color: var(--cw-text-secondary); }
+
+/* ===== Base ===== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: var(--cw-font);
+  background: var(--cw-bg);
+  color: var(--cw-text);
+  line-height: 115%;
+  min-height: 100vh;
+}
+
+/* ===== Layout ===== */
+.page { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+
+/* ===== Header ===== */
+.report-header {
+  background: var(--cw-bg-elevated);
+  border: 1px solid var(--cw-border);
+  border-radius: var(--cw-radius-lg);
+  padding: 32px;
+  box-shadow: var(--cw-shadow-md);
+  margin-bottom: 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.report-header h1 { margin-bottom: 8px; }
+.report-meta { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; }
+.report-meta-item {
+  background: var(--cw-surface-tint);
+  color: var(--cw-accent);
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 400;
+}
+.theme-toggle {
+  background: var(--cw-bg-active);
+  border: 1px solid var(--cw-border);
+  border-radius: var(--cw-radius-md);
+  color: var(--cw-text-secondary);
+  padding: 8px 16px;
+  cursor: pointer;
+  font-family: var(--cw-font);
+  font-size: 13px;
+  transition: all 150ms ease;
+}
+.theme-toggle:hover { background: var(--cw-bg-hover); color: var(--cw-accent); }
+
+/* ===== Section ===== */
+.section { margin-bottom: 32px; }
+.section-title {
+  font-size: 20px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--cw-border);
+  color: var(--cw-text);
+}
+
+/* ===== Coverage Cards ===== */
+.coverage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+.cw-card {
+  background: var(--cw-bg-elevated);
+  border: 1px solid var(--cw-border);
+  border-radius: var(--cw-radius-lg);
+  padding: 24px;
+  box-shadow: var(--cw-shadow-sm);
+  transition: box-shadow 150ms ease;
+}
+.cw-card:hover { box-shadow: var(--cw-shadow-md); }
+.coverage-card .level-name {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.coverage-card .stats {
+  font-size: 13px;
+  color: var(--cw-text-secondary);
+  margin-bottom: 12px;
+}
+.coverage-bar-track {
+  background: var(--cw-bg-active);
+  border-radius: 9999px;
+  height: 6px;
+  overflow: hidden;
+}
+.coverage-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 400ms ease;
+}
+.pct-tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 400;
+}
+.pct-high { background: rgba(52,211,153,0.15); color: var(--cw-success); }
+.pct-mid { background: rgba(251,191,36,0.15); color: var(--cw-warning); }
+.pct-low { background: rgba(255,128,128,0.15); color: var(--cw-danger); }
+
+/* ===== Stats Row ===== */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.stat-card {
+  background: var(--cw-bg-elevated);
+  border: 1px solid var(--cw-border);
+  border-radius: var(--cw-radius-lg);
+  padding: 20px 24px;
+  box-shadow: var(--cw-shadow-sm);
+  text-align: center;
+}
+.stat-number {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--cw-accent);
+  letter-spacing: -0.02em;
+}
+.stat-label {
+  font-size: 13px;
+  color: var(--cw-text-secondary);
+  margin-top: 4px;
+}
+
+/* ===== Trace Chains ===== */
+.trace-chain {
+  border-left: 3px solid var(--cw-accent);
+  margin-bottom: 12px;
+}
+.chain-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.chain-path {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--cw-text-secondary);
+  margin-bottom: 8px;
+}
+.chain-arrow { color: var(--cw-accent-light); font-size: 12px; }
+.chain-status {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+}
+
+/* ===== Findings ===== */
+.findings-filter {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.filter-btn {
+  padding: 6px 14px;
+  border-radius: 9999px;
+  border: 1px solid var(--cw-border);
+  background: transparent;
+  color: var(--cw-text-secondary);
+  font-family: var(--cw-font);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.filter-btn:hover { background: var(--cw-bg-hover); }
+.filter-btn.active { background: var(--cw-surface-tint); color: var(--cw-accent); border-color: var(--cw-accent); }
+
+.finding-card {
+  background: var(--cw-bg-elevated);
+  border: 1px solid var(--cw-border);
+  border-radius: var(--cw-radius-lg);
+  padding: 20px 24px;
+  margin-bottom: 12px;
+  box-shadow: var(--cw-shadow-sm);
+  transition: box-shadow 150ms ease;
+  display: none;
+}
+.finding-card.visible { display: block; }
+.finding-card:hover { box-shadow: var(--cw-shadow-md); }
+.finding-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.severity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.severity-critical .severity-dot { background: var(--cw-danger); }
+.severity-warn .severity-dot { background: var(--cw-warning); }
+.severity-info .severity-dot { background: var(--cw-success); }
+.severity-inferred .severity-dot { background: var(--cw-accent-lavender); }
+.finding-type {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+.type-conflict { background: rgba(255,128,128,0.15); color: var(--cw-danger); }
+.type-gap { background: rgba(251,191,36,0.15); color: var(--cw-warning); }
+.type-orphan { background: rgba(251,191,36,0.15); color: var(--cw-warning); }
+.type-unknown_rationale { background: rgba(251,191,36,0.15); color: var(--cw-warning); }
+.type-alignment { background: rgba(52,211,153,0.15); color: var(--cw-success); }
+.type-strong_trace { background: rgba(52,211,153,0.15); color: var(--cw-success); }
+.type-inferred_strategy { background: rgba(128,130,244,0.15); color: var(--cw-accent-lavender); }
+.type-shadow_strategy { background: rgba(128,130,244,0.15); color: var(--cw-accent-lavender); }
+.type-coverage { background: rgba(168,181,255,0.15); color: var(--cw-accent-light); }
+
+.finding-title { font-size: 15px; font-weight: 400; color: var(--cw-text); }
+.finding-body { font-size: 14px; color: var(--cw-text-secondary); margin-top: 6px; line-height: 130%; }
+
+/* ===== Level Tags ===== */
+.level-tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+.level-vision { background: rgba(71,96,243,0.2); color: var(--cw-accent); }
+.level-strategy { background: rgba(128,130,244,0.2); color: var(--cw-accent-lavender); }
+.level-plan { background: rgba(168,181,255,0.2); color: var(--cw-accent-light); }
+.level-initiative { background: rgba(52,211,153,0.15); color: var(--cw-success); }
+.level-task { background: rgba(139,92,246,0.15); color: #a78bfa; }
+
+/* ===== Mermaid Graph ===== */
+.graph-container {
+  background: var(--cw-bg-elevated);
+  border: 1px solid var(--cw-border);
+  border-radius: var(--cw-radius-lg);
+  padding: 24px;
+  box-shadow: var(--cw-shadow-sm);
+  overflow-x: auto;
+}
+.graph-container svg { max-width: 100%; height: auto; }
+
+/* ===== Trace Graph (custom SVG) ===== */
+.trace-graph { width: 100%; min-height: 400px; }
+.trace-graph .node { cursor: pointer; transition: opacity 150ms ease; }
+.trace-graph .node:hover { opacity: 0.8; }
+.trace-graph .node rect { rx: 8; ry: 8; }
+.trace-graph .edge { fill: none; stroke: var(--cw-border-strong); stroke-width: 1.5; }
+.trace-graph .edge-gap { stroke: var(--cw-danger); stroke-width: 1.5; stroke-dasharray: 6 3; }
+.trace-graph .edge-label { font-family: var(--cw-font); font-size: 10px; fill: var(--cw-text-muted); }
+
+/* ===== Footer ===== */
+.report-footer {
+  margin-top: 48px;
+  padding-top: 16px;
+  border-top: 1px solid var(--cw-border);
+  font-size: 13px;
+  color: var(--cw-text-muted);
+  display: flex;
+  justify-content: space-between;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 640px) {
+  .page { padding: 16px; }
+  .report-header { padding: 20px; flex-direction: column; gap: 12px; }
+  .coverage-grid { grid-template-columns: 1fr; }
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .faust-h1 { font-size: 22px; }
+}
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- HEADER -->
+  <header class="report-header">
+    <div>
+      <h1 class="faust-h1">StratAudit: SDP Lab</h1>
+      <p class="faust-caption" style="margin-top:6px;">Стратегическая трассировка проекта</p>
+      <div class="report-meta">
+        <span class="report-meta-item">10 апреля 2026</span>
+        <span class="report-meta-item">23 документа</span>
+        <span class="report-meta-item">186 сущностей</span>
+        <span class="report-meta-item">147 связей</span>
+      </div>
+    </div>
+    <button class="theme-toggle" onclick="toggleTheme()">Сменить тему</button>
+  </header>
+
+  <!-- STATS ROW -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-number">147</div>
+      <div class="stat-label">Подтверждённых связей</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" style="color:var(--cw-success)">79%</div>
+      <div class="stat-label">Общее покрытие</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" style="color:var(--cw-warning)">14</div>
+      <div class="stat-label">Gaps / Orphans</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" style="color:var(--cw-danger)">2</div>
+      <div class="stat-label">Противоречия</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number" style="color:var(--cw-accent-lavender)">3</div>
+      <div class="stat-label">Выведенных стратегий</div>
+    </div>
+  </div>
+
+  <!-- COVERAGE -->
+  <div class="section">
+    <h2 class="section-title">Покрытие по уровням</h2>
+    <div class="coverage-grid">
+
+      <div class="cw-card coverage-card">
+        <div class="level-name">
+          <span>Vision</span>
+          <span class="pct-tag pct-high">100%</span>
+        </div>
+        <div class="stats">2 сущности &middot; 2 с трассировкой</div>
+        <div class="coverage-bar-track">
+          <div class="coverage-bar-fill" style="width:100%; background:var(--cw-success);"></div>
+        </div>
+      </div>
+
+      <div class="cw-card coverage-card">
+        <div class="level-name">
+          <span>Strategy</span>
+          <span class="pct-tag pct-mid">75%</span>
+        </div>
+        <div class="stats">8 сущностей &middot; 6 с трассировкой &middot; 2 gap</div>
+        <div class="coverage-bar-track">
+          <div class="coverage-bar-fill" style="width:75%; background:var(--cw-warning);"></div>
+        </div>
+      </div>
+
+      <div class="cw-card coverage-card">
+        <div class="level-name">
+          <span>Plan</span>
+          <span class="pct-tag pct-high">80%</span>
+        </div>
+        <div class="stats">15 сущностей &middot; 12 с трассировкой &middot; 3 orphan</div>
+        <div class="coverage-bar-track">
+          <div class="coverage-bar-fill" style="width:80%; background:var(--cw-success);"></div>
+        </div>
+      </div>
+
+      <div class="cw-card coverage-card">
+        <div class="level-name">
+          <span>Initiative</span>
+          <span class="pct-tag pct-high">82%</span>
+        </div>
+        <div class="stats">34 сущности &middot; 28 с трассировкой</div>
+        <div class="coverage-bar-track">
+          <div class="coverage-bar-fill" style="width:82%; background:var(--cw-success);"></div>
+        </div>
+      </div>
+
+      <div class="cw-card coverage-card">
+        <div class="level-name">
+          <span>Task</span>
+          <span class="pct-tag pct-mid">77%</span>
+        </div>
+        <div class="stats">127 сущностей &middot; 98 с трассировкой &middot; 29 orphan</div>
+        <div class="coverage-bar-track">
+          <div class="coverage-bar-fill" style="width:77%; background:var(--cw-warning);"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ALIGNMENT CHAINS -->
+  <div class="section">
+    <h2 class="section-title">Подтверждённые соответствия</h2>
+
+    <div class="cw-card trace-chain">
+      <div class="chain-header">
+        <span class="level-tag level-vision">Vision</span>
+        <span class="faust-h3">Global expansion</span>
+      </div>
+      <div class="chain-path">
+        <span class="level-tag level-strategy">Strategy</span> SEA market
+        <span class="chain-arrow">&rarr;</span>
+        <span class="level-tag level-plan">Plan</span> SEA Roadmap 2026
+        <span class="chain-arrow">&rarr;</span>
+        <span class="level-tag level-initiative">Initiative</span> Singapore office launch
+        <span class="chain-arrow">&rarr;</span>
+        <span class="level-tag level-task">Task</span> Hire country manager SG
+      </div>
+      <span class="chain-status pct-tag pct-high">confidence: 0.94</span>
+    </div>
+
+    <div class="cw-card trace-chain">
+      <div class="chain-header">
+        <span class="level-tag level-vision">Vision</span>
+        <span class="faust-h3">Global expansion</span>
+      </div>
+      <div class="chain-path">
+        <span class="level-tag level-strategy">Strategy</span> SEA market
+        <span class="chain-arrow">&rarr;</span>
+        <span class="level-tag level-initiative">Initiative</span> Localization TH/ID
+        <span class="chain-arrow">&rarr;</span>
+        <span class="level-tag level-task">Task</span> Thai language pack
+        <span class="chain-arrow">&rarr;</span>
+        <span class="level-tag level-task">Task</span> Indonesian language pack
+      </div>
+      <span class="chain-status pct-tag pct-high">confidence: 0.91</span>
+    </div>
+
+    <div class="cw-card trace-chain">
+      <div class="chain-header">
+        <span class="level-tag level-vision">Vision</span>
+        <span class="faust-h3">Developer-first platform</span>
+      </div>
+      <div class="chain-path">
+        <span class="level-tag level-strategy">Strategy</span> OSS ecosystem
+        <span class="chain-arrow">&rarr;</span>
+        <span class="level-tag level-plan">Plan</span> 12-week growth playbook
+        <span class="chain-arrow">&rarr;</span>
+        <span class="level-tag level-initiative">Initiative</span> Public protocol repo
+        <span class="chain-arrow">&rarr;</span>
+        <span class="level-tag level-task">Task</span> Kernel boundary spec
+      </div>
+      <span class="chain-status pct-tag pct-high">confidence: 0.87</span>
+    </div>
+
+    <div class="cw-card trace-chain" style="border-left-color: var(--cw-accent-lavender);">
+      <div class="chain-header">
+        <span class="level-tag level-vision">Vision</span>
+        <span class="faust-h3">Developer-first platform</span>
+      </div>
+      <div class="chain-path">
+        <span class="level-tag level-strategy">Strategy</span> OSS ecosystem
+        <span class="chain-arrow">&rarr;</span>
+        <span class="level-tag level-initiative">Initiative</span> Behavioral eval system
+        <span class="chain-arrow">&rarr;</span>
+        <span class="level-tag level-task">Task</span> Trace assertion framework
+      </div>
+      <span class="chain-status pct-tag pct-mid">confidence: 0.73 &middot; skip-level</span>
+    </div>
+  </div>
+
+  <!-- FINDINGS -->
+  <div class="section">
+    <h2 class="section-title">Находки</h2>
+
+    <div class="findings-filter">
+      <button class="filter-btn active" onclick="filterFindings('all')">Все (19)</button>
+      <button class="filter-btn" onclick="filterFindings('conflict')">Противоречия (2)</button>
+      <button class="filter-btn" onclick="filterFindings('gap')">Gaps (4)</button>
+      <button class="filter-btn" onclick="filterFindings('unknown_rationale')">Неизвестно зачем (3)</button>
+      <button class="filter-btn" onclick="filterFindings('orphan')">Orphans (4)</button>
+      <button class="filter-btn" onclick="filterFindings('inferred')">Выведенные (3)</button>
+      <button class="filter-btn" onclick="filterFindings('alignment')">Соответствия (3)</button>
+    </div>
+
+    <!-- CRITICAL: Conflict -->
+    <div class="finding-card visible severity-critical" data-type="conflict">
+      <div class="finding-header">
+        <div class="severity-dot"></div>
+        <span class="finding-type type-conflict">CONFLICT</span>
+        <span class="finding-title">Migrate to AWS conflicts_with Reduce cloud costs by 40%</span>
+      </div>
+      <div class="finding-body">
+        Миграция на AWS потребует ~$2M CapEx в первый год, что прямо противоречит стратегической цели сокращения облачных расходов на 40%. Рекомендация: провести TCO-анализ на 3 года или пересмотреть формулировку стратегии.
+      </div>
+    </div>
+
+    <div class="finding-card visible severity-critical" data-type="conflict">
+      <div class="finding-header">
+        <div class="severity-dot"></div>
+        <span class="finding-type type-conflict">CONFLICT</span>
+        <span class="finding-title">Microservices-first conflicts_with Reduce operational complexity</span>
+      </div>
+      <div class="finding-body">
+        Стратегия перехода на микросервисы увеличивает операционную сложность (service mesh, observability, deployment orchestration), противореча цели её снижения. Recommendation: определить bounded contexts сначала, возможно подойти через modular monolith.
+      </div>
+    </div>
+
+    <!-- WARN: Gap -->
+    <div class="finding-card visible severity-warn" data-type="gap">
+      <div class="finding-header">
+        <div class="severity-dot"></div>
+        <span class="finding-type type-gap">GAP</span>
+        <span class="finding-title">AI-first product development — 0 инициатив снизу</span>
+      </div>
+      <div class="finding-body">
+        Стратегическая цель заявлена на уровне Strategy, но не декомпозирована ни в один план или инициативу. Отсутствие исполнителей делает цель декларативной.
+      </div>
+    </div>
+
+    <div class="finding-card visible severity-warn" data-type="gap">
+      <div class="finding-header">
+        <div class="severity-dot"></div>
+        <span class="finding-type type-gap">GAP</span>
+        <span class="finding-title">Enterprise compliance readiness — частичный gap</span>
+      </div>
+      <div class="finding-body">
+        Есть инициатива SOC 2 Type II audit, но отсутствуют инициативы по GDPR compliance и data residency, которые требуются для enterprise-клиентов из EU.
+      </div>
+    </div>
+
+    <div class="finding-card visible severity-warn" data-type="gap">
+      <div class="finding-header">
+        <div class="severity-dot"></div>
+        <span class="finding-type type-gap">GAP</span>
+        <span class="finding-title">Developer documentation — нет плана</span>
+      </div>
+      <div class="finding-body">
+        В стратегии заявлен приоритет DX, но планов по документации API, tutorials и onboarding guides не обнаружено.
+      </div>
+    </div>
+
+    <div class="finding-card visible severity-warn" data-type="gap">
+      <div class="finding-header">
+        <div class="severity-dot"></div>
+        <span class="finding-type type-gap">GAP</span>
+        <span class="finding-title">Security audit cadence — нет задач</span>
+      </div>
+      <div class="finding-body">
+        Принцип "regular security audits" заявлен, но нет ни одной задачи по планированию или проведению аудита.
+      </div>
+    </div>
+
+    <!-- WARN: Unknown Rationale -->
+    <div class="finding-card visible severity-warn" data-type="unknown_rationale">
+      <div class="finding-header">
+        <div class="severity-dot"></div>
+        <span class="finding-type type-unknown_rationale">UNKNOWN RATIONALE</span>
+        <span class="finding-title">Blockchain proof-of-concept</span>
+      </div>
+      <div class="finding-body">
+        Initiative "Blockchain proof-of-concept" не удаётся связать ни с одной стратегической целью. Зачем выполняется — неясно. Возможные причины: эксперимент R&D, инициатива отдельного стейкхолдера, или устаревший проект.
+      </div>
+    </div>
+
+    <div class="finding-card visible severity-warn" data-type="unknown_rationale">
+      <div class="finding-header">
+        <div class="severity-dot"></div>
+        <span class="finding-type type-unknown_rationale">UNKNOWN RATIONALE</span>
+        <span class="finding-title">Internal messaging platform migration</span>
+      </div>
+      <div class="finding-body">
+        Проект миграции внутреннего мессенджера не привязан к стратегическим целям. Команда выполняет работу, но rationale не обнаружен в документах верхних уровней.
+      </div>
+    </div>
+
+    <div class="finding-card visible severity-warn" data-type="unknown_rationale">
+      <div class="finding-header">
+        <div class="severity-dot"></div>
+        <span class="finding-type type-unknown_rationale">UNKNOWN RATIONALE</span>
+        <span class="finding-title">Office redesign project</span>
+      </div>
+      <div class="finding-body">
+        Проект редизайна офиса активен, но не соотносится ни с одной стратегической целью. Вероятно, операционная необходимость, не требующая стратегического обоснования.
+      </div>
+    </div>
+
+    <!-- WARN: Orphan -->
+    <div class="finding-card visible severity-warn" data-type="orphan">
+      <div class="finding-header">
+        <div class="severity-dot"></div>
+        <span class="finding-type type-orphan">ORPHAN</span>
+        <span class="finding-title">29 tasks без связи со стратегией</span>
+      </div>
+      <div class="finding-body">
+        23% задач уровня Task не трассируются вверх. Типичные категории: bug fixes, tech debt, инфраструктурные задачи. Большинство — операционная необходимость, но 8 задач выглядят как потерянные инициативы.
+      </div>
+    </div>
+
+    <!-- INFO: Inferred Strategy -->
+    <div class="finding-card visible severity-inferred" data-type="inferred">
+      <div class="finding-header">
+        <div class="severity-dot"></div>
+        <span class="finding-type type-inferred_strategy">INFERRED STRATEGY</span>
+        <span class="finding-title">Tech stack modernization — скрытая стратегия</span>
+      </div>
+      <div class="finding-body">
+        23% задач (29 из 127) относятся к обновлению технологического стека: Go migration, CI/CD pipeline overhaul, observability stack upgrade. Эта тема не формализована как стратегия, но де-факто поглощает значительную часть ресурсов. Рекомендация: либо формализовать, либо сократить объём.
+      </div>
+    </div>
+
+    <div class="finding-card visible severity-inferred" data-type="inferred">
+      <div class="finding-header">
+        <div class="severity-dot"></div>
+        <span class="finding-type type-shadow_strategy">SHADOW STRATEGY</span>
+        <span class="finding-title">Внутренние инструменты приоритетнее OSS</span>
+      </div>
+      <div class="finding-body">
+        Несмотря на заявленную стратегию "OSS ecosystem", 68% задач по разработке направлены на внутренние инструменты (sdp-orchestrate, sdp-guard, sdp-eval). Реальное распределение ресурсов противоречит заявленному фокусу. Shadow strategy: "build internal platform first, open-source later".
+      </div>
+    </div>
+
+    <div class="finding-card visible severity-inferred" data-type="inferred">
+      <div class="finding-header">
+        <div class="severity-dot"></div>
+        <span class="finding-type type-inferred_strategy">INFERRED STRATEGY</span>
+        <span class="finding-title">Evidence-based everything — неформализованный принцип</span>
+      </div>
+      <div class="finding-body">
+        Обнаружен повторяющийся паттерн: in-toto attestations, sigstore signing, evidence validation, verification logic. Это не заявлено как принцип, но пронизывает все уровни. Рекомендация: формализовать как architecture principle.
+      </div>
+    </div>
+
+    <!-- INFO: Alignment -->
+    <div class="finding-card visible severity-info" data-type="alignment">
+      <div class="finding-header">
+        <div class="severity-dot"></div>
+        <span class="finding-type type-alignment">ALIGNMENT</span>
+        <span class="finding-title">SEA expansion — полная трассировка</span>
+      </div>
+      <div class="finding-body">
+        Vision "Global expansion" → Strategy "SEA market" → Plan "SEA Roadmap" → 2 Initiatives → 14 Tasks. Полная цепочка без разрывов. Средний confidence: 0.89.
+      </div>
+    </div>
+
+    <div class="finding-card visible severity-info" data-type="alignment">
+      <div class="finding-header">
+        <div class="severity-dot"></div>
+        <span class="finding-type type-alignment">ALIGNMENT</span>
+        <span class="finding-title">OSS ecosystem — сильная связь</span>
+      </div>
+      <div class="finding-body">
+        Vision "Developer-first platform" → Strategy "OSS ecosystem" → Plan "12-week growth" → 5 Initiatives → 22 Tasks. Средний confidence: 0.84.
+      </div>
+    </div>
+
+    <div class="finding-card visible severity-info" data-type="alignment">
+      <div class="finding-header">
+        <div class="severity-dot"></div>
+        <span class="finding-type type-strong_trace">STRONG TRACE</span>
+        <span class="finding-title">Kernel boundary spec → Platform reliability</span>
+      </div>
+      <div class="finding-body">
+        Task "Kernel boundary spec" → Initiative "Kernel contract surface" → Plan "Platform backlog reset" → Strategy "Platform reliability". Confidence: 0.93. Обоснование: спецификация границ ядра напрямую определяет стабильность контрактов платформы.
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TRACE GRAPH -->
+  <div class="section">
+    <h2 class="section-title">Трассировочный граф</h2>
+    <div class="graph-container">
+      <svg class="trace-graph" viewBox="0 0 900 520" xmlns="http://www.w3.org/2000/svg">
+        <!-- Edges -->
+        <line class="edge" x1="150" y1="60" x2="150" y2="140"/>
+        <line class="edge" x1="150" y1="60" x2="380" y2="140"/>
+        <line class="edge" x1="150" y1="60" x2="620" y2="140"/>
+        <line class="edge" x1="150" y1="140" x2="120" y2="220"/>
+        <line class="edge" x1="150" y1="140" x2="280" y2="220"/>
+        <line class="edge" x1="380" y1="140" x2="430" y2="220"/>
+        <line class="edge" x1="380" y1="140" x2="580" y2="220"/>
+        <line class="edge" x1="620" y1="140" x2="750" y2="220"/>
+        <line class="edge-gap" x1="620" y1="140" x2="620" y2="220"/>
+        <line class="edge" x1="120" y1="220" x2="80" y2="310"/>
+        <line class="edge" x1="120" y1="220" x2="180" y2="310"/>
+        <line class="edge" x1="280" y1="220" x2="280" y2="310"/>
+        <line class="edge" x1="430" y1="220" x2="400" y2="310"/>
+        <line class="edge" x1="430" y1="220" x2="480" y2="310"/>
+        <line class="edge" x1="580" y1="220" x2="560" y2="310"/>
+        <line class="edge" x1="580" y1="220" x2="640" y2="310"/>
+        <line class="edge" x1="750" y1="220" x2="720" y2="310"/>
+        <line class="edge" x1="750" y1="220" x2="800" y2="310"/>
+        <!-- Task level edges -->
+        <line class="edge" x1="80" y1="310" x2="60" y2="400" style="opacity:0.4"/>
+        <line class="edge" x1="80" y1="310" x2="110" y2="400" style="opacity:0.4"/>
+        <line class="edge" x1="180" y1="310" x2="170" y2="400" style="opacity:0.4"/>
+        <line class="edge" x1="180" y1="310" x2="210" y2="400" style="opacity:0.4"/>
+        <line class="edge" x1="280" y1="310" x2="270" y2="400" style="opacity:0.4"/>
+        <line class="edge" x1="400" y1="310" x2="390" y2="400" style="opacity:0.4"/>
+        <line class="edge" x1="480" y1="310" x2="460" y2="400" style="opacity:0.4"/>
+        <line class="edge" x1="560" y1="310" x2="540" y2="400" style="opacity:0.4"/>
+        <line class="edge" x1="640" y1="310" x2="620" y2="400" style="opacity:0.4"/>
+        <line class="edge" x1="720" y1="310" x2="700" y2="400" style="opacity:0.4"/>
+        <line class="edge" x1="800" y1="310" x2="780" y2="400" style="opacity:0.4"/>
+
+        <!-- Vision -->
+        <g class="node">
+          <rect x="60" y="20" width="180" height="40" fill="#4760F3" opacity="0.25" stroke="#4760F3"/>
+          <text x="150" y="45" text-anchor="middle" fill="var(--cw-accent)" font-family="var(--cw-font)" font-size="12" font-weight="500">Vision</text>
+        </g>
+
+        <!-- Strategy -->
+        <g class="node">
+          <rect x="60" y="120" width="180" height="40" fill="#8082F4" opacity="0.2" stroke="#8082F4"/>
+          <text x="150" y="145" text-anchor="middle" fill="var(--cw-accent-lavender)" font-family="var(--cw-font)" font-size="11" font-weight="400">SEA market</text>
+        </g>
+        <g class="node">
+          <rect x="300" y="120" width="160" height="40" fill="#8082F4" opacity="0.2" stroke="#8082F4"/>
+          <text x="380" y="145" text-anchor="middle" fill="var(--cw-accent-lavender)" font-family="var(--cw-font)" font-size="11" font-weight="400">OSS ecosystem</text>
+        </g>
+        <g class="node">
+          <rect x="530" y="120" width="180" height="40" fill="#8082F4" opacity="0.2" stroke="#8082F4"/>
+          <text x="620" y="145" text-anchor="middle" fill="var(--cw-accent-lavender)" font-family="var(--cw-font)" font-size="11" font-weight="400">AI-first product</text>
+        </g>
+
+        <!-- Plan -->
+        <g class="node">
+          <rect x="30" y="200" width="180" height="40" fill="#A8B5FF" opacity="0.15" stroke="#A8B5FF"/>
+          <text x="120" y="225" text-anchor="middle" fill="var(--cw-accent-light)" font-family="var(--cw-font)" font-size="10" font-weight="400">SEA Roadmap</text>
+        </g>
+        <g class="node">
+          <rect x="200" y="200" width="160" height="40" fill="#A8B5FF" opacity="0.15" stroke="#A8B5FF"/>
+          <text x="280" y="225" text-anchor="middle" fill="var(--cw-accent-light)" font-family="var(--cw-font)" font-size="10" font-weight="400">Localization</text>
+        </g>
+        <g class="node">
+          <rect x="350" y="200" width="160" height="40" fill="#A8B5FF" opacity="0.15" stroke="#A8B5FF"/>
+          <text x="430" y="225" text-anchor="middle" fill="var(--cw-accent-light)" font-family="var(--cw-font)" font-size="10" font-weight="400">12-week growth</text>
+        </g>
+        <g class="node">
+          <rect x="510" y="200" width="140" height="40" fill="#A8B5FF" opacity="0.15" stroke="#A8B5FF"/>
+          <text x="580" y="225" text-anchor="middle" fill="var(--cw-accent-light)" font-family="var(--cw-font)" font-size="10" font-weight="400">Platform reset</text>
+        </g>
+        <g class="node">
+          <rect x="670" y="200" width="160" height="40" fill="#A8B5FF" opacity="0.15" stroke="#A8B5FF"/>
+          <text x="750" y="225" text-anchor="middle" fill="var(--cw-accent-light)" font-family="var(--cw-font)" font-size="10" font-weight="400">Eval system</text>
+        </g>
+        <!-- Gap node -->
+        <g class="node">
+          <rect x="565" y="200" width="110" height="40" fill="none" stroke="#FF8080" stroke-dasharray="4 2"/>
+          <text x="620" y="225" text-anchor="middle" fill="var(--cw-danger)" font-family="var(--cw-font)" font-size="10" font-weight="400">??? no plan</text>
+        </g>
+
+        <!-- Initiative level labels -->
+        <text x="85" y="305" text-anchor="middle" fill="var(--cw-success)" font-family="var(--cw-font)" font-size="9" opacity="0.8">SG office</text>
+        <text x="180" y="305" text-anchor="middle" fill="var(--cw-success)" font-family="var(--cw-font)" font-size="9" opacity="0.8">TH/ID l10n</text>
+        <text x="280" y="305" text-anchor="middle" fill="var(--cw-success)" font-family="var(--cw-font)" font-size="9" opacity="0.8">Public repo</text>
+        <text x="400" y="305" text-anchor="middle" fill="var(--cw-success)" font-family="var(--cw-font)" font-size="9" opacity="0.8">Kernel spec</text>
+        <text x="480" y="305" text-anchor="middle" fill="var(--cw-success)" font-family="var(--cw-font)" font-size="9" opacity="0.8">Growth</text>
+        <text x="560" y="305" text-anchor="middle" fill="var(--cw-success)" font-family="var(--cw-font)" font-size="9" opacity="0.8">Contracts</text>
+        <text x="640" y="305" text-anchor="middle" fill="var(--cw-success)" font-family="var(--cw-font)" font-size="9" opacity="0.8">Adapter gw</text>
+        <text x="720" y="305" text-anchor="middle" fill="var(--cw-success)" font-family="var(--cw-font)" font-size="9" opacity="0.8">Eval runner</text>
+        <text x="800" y="305" text-anchor="middle" fill="var(--cw-success)" font-family="var(--cw-font)" font-size="9" opacity="0.8">Assertions</text>
+
+        <!-- Task dots -->
+        <circle cx="60" cy="400" r="4" fill="var(--cw-text-muted)" opacity="0.4"/>
+        <circle cx="110" cy="400" r="4" fill="var(--cw-text-muted)" opacity="0.4"/>
+        <circle cx="170" cy="400" r="4" fill="var(--cw-text-muted)" opacity="0.4"/>
+        <circle cx="210" cy="400" r="4" fill="var(--cw-text-muted)" opacity="0.4"/>
+        <circle cx="270" cy="400" r="4" fill="var(--cw-text-muted)" opacity="0.4"/>
+        <circle cx="390" cy="400" r="4" fill="var(--cw-text-muted)" opacity="0.4"/>
+        <circle cx="460" cy="400" r="4" fill="var(--cw-text-muted)" opacity="0.4"/>
+        <circle cx="540" cy="400" r="4" fill="var(--cw-text-muted)" opacity="0.4"/>
+        <circle cx="620" cy="400" r="4" fill="var(--cw-text-muted)" opacity="0.4"/>
+        <circle cx="700" cy="400" r="4" fill="var(--cw-text-muted)" opacity="0.4"/>
+        <circle cx="780" cy="400" r="4" fill="var(--cw-text-muted)" opacity="0.4"/>
+
+        <!-- Level labels on the right -->
+        <text x="870" y="45" fill="var(--cw-text-muted)" font-family="var(--cw-font)" font-size="10">L0</text>
+        <text x="870" y="145" fill="var(--cw-text-muted)" font-family="var(--cw-font)" font-size="10">L1</text>
+        <text x="870" y="225" fill="var(--cw-text-muted)" font-family="var(--cw-font)" font-size="10">L2</text>
+        <text x="870" y="310" fill="var(--cw-text-muted)" font-family="var(--cw-font)" font-size="10">L3</text>
+        <text x="870" y="405" fill="var(--cw-text-muted)" font-family="var(--cw-font)" font-size="10">L4</text>
+
+        <!-- Legend -->
+        <line x1="40" y1="460" x2="70" y2="460" stroke="var(--cw-border-strong)" stroke-width="1.5"/>
+        <text x="78" y="464" fill="var(--cw-text-secondary)" font-family="var(--cw-font)" font-size="10">confirmed trace</text>
+        <line x1="200" y1="460" x2="230" y2="460" stroke="var(--cw-danger)" stroke-width="1.5" stroke-dasharray="6 3"/>
+        <text x="238" y="464" fill="var(--cw-text-secondary)" font-family="var(--cw-font)" font-size="10">gap (no trace)</text>
+        <circle cx="380" cy="460" r="4" fill="var(--cw-text-muted)" opacity="0.4"/>
+        <text x="392" y="464" fill="var(--cw-text-secondary)" font-family="var(--cw-font)" font-size="10">task (collapsed)</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="report-footer">
+    <span>StratAudit v0.1.0 &middot; Модель: claude-sonnet-4-20250514 &middot; Embeddings: text-embedding-3-small</span>
+    <span>Сгенерировано 10 апреля 2026</span>
+  </footer>
+
+</div>
+
+<script>
+function toggleTheme() {
+  const html = document.documentElement;
+  const current = html.getAttribute('data-theme');
+  html.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+}
+
+function filterFindings(type) {
+  document.querySelectorAll('.finding-card').forEach(card => {
+    if (type === 'all') {
+      card.classList.add('visible');
+    } else if (type === 'inferred') {
+      const t = card.dataset.type;
+      card.classList.toggle('visible', t === 'inferred_strategy' || t === 'shadow_strategy');
+    } else {
+      card.classList.toggle('visible', card.dataset.type === type);
+    }
+  });
+  document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>
