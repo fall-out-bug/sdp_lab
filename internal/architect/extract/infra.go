@@ -55,7 +55,7 @@ func (e *InfraExtractor) Extract(ctx context.Context, root string) (*architect.P
 
 		switch {
 		case isDockerfile(name):
-			if perr := parseDockerfile(path, info); perr != nil {
+			if perr := parseDockerfile(path, rel, info); perr != nil {
 				walkErr = perr
 			}
 			artifacts = append(artifacts, rel)
@@ -155,12 +155,30 @@ var reFrom = regexp.MustCompile(`(?i)^\s*FROM\s+(\S+)`)
 // reExpose matches EXPOSE lines: EXPOSE <port>[/<proto>] ...
 var reExpose = regexp.MustCompile(`(?i)^\s*EXPOSE\s+(.+)`)
 
-func parseDockerfile(path string, info *architect.InfraInfo) error {
+func parseDockerfile(path, relPath string, info *architect.InfraInfo) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("open dockerfile %s: %w", path, err)
 	}
 	defer f.Close()
+
+	// Derive container name from directory path
+	// e.g., "docker/src/main/dockerfiles/spark/Dockerfile" -> "spark"
+	dir := filepath.Dir(path)
+	baseName := filepath.Base(dir)
+	if baseName == "." || strings.ToLower(baseName) == "docker" || strings.ToLower(baseName) == "dockerfiles" {
+		// If directory is just "docker" or "dockerfiles", use parent directory name
+		parentDir := filepath.Base(filepath.Dir(dir))
+		if parentDir != "." {
+			baseName = parentDir
+		} else {
+			baseName = "default"
+		}
+	}
+
+	// Track if we found any FROM instruction
+	foundFrom := false
+	var lastImage string
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -171,6 +189,8 @@ func parseDockerfile(path string, info *architect.InfraInfo) error {
 			// Skip ARG variable references like $BASE
 			if !strings.HasPrefix(img, "$") {
 				info.BaseImages = appendUnique(info.BaseImages, img)
+				lastImage = img
+				foundFrom = true
 			}
 		}
 
@@ -180,7 +200,23 @@ func parseDockerfile(path string, info *architect.InfraInfo) error {
 			}
 		}
 	}
-	return scanner.Err()
+
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	// Create a ContainerInfo entry if we found a FROM instruction
+	if foundFrom {
+		ci := architect.ContainerInfo{
+			Name:   baseName,
+			Image:  lastImage, // Use the last (usually runtime) image
+			Type:   "service",
+			Source: relPath,
+		}
+		info.Containers = append(info.Containers, ci)
+	}
+
+	return nil
 }
 
 // ---------------------------------------------------------------------------

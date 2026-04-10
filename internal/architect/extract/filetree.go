@@ -1,8 +1,10 @@
 package extract
 
 import (
+	"bufio"
 	"context"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -37,8 +39,21 @@ var namingPatterns = map[string]string{
 	"entities":    "entity",
 }
 
+// textExtensions lists file extensions that should be treated as text files
+// for line counting purposes.
+var textExtensions = map[string]bool{
+	".scala": true, ".java": true, ".py": true, ".go": true,
+	".ts": true, ".tsx": true, ".js": true, ".jsx": true,
+	".sql": true, ".R": true, ".r": true,
+	".xml": true, ".json": true, ".yaml": true, ".yml": true,
+	".toml": true, ".md": true, ".txt": true, ".properties": true,
+	".conf": true, ".sh": true, ".bat": true, ".css": true, ".html": true,
+	".kt": true, ".kts": true, ".c": true, ".h": true, ".cpp": true,
+	".rs": true, ".rb": true, ".php": true, ".swift": true,
+}
+
 // FileTreeExtractor walks the directory tree, counts files and directories,
-// measures maximum depth, and detects common naming conventions.
+// measures maximum depth, counts lines of code, and detects common naming conventions.
 type FileTreeExtractor struct{}
 
 // Name implements architect.Extractor.
@@ -49,6 +64,7 @@ func (FileTreeExtractor) Extract(ctx context.Context, repoRoot string) (*archite
 	var (
 		totalFiles int
 		totalDirs  int
+		totalLOC   int
 		maxDepth   int
 		extCounts  = make(map[string]int)
 		seen       = make(map[string]bool)
@@ -92,10 +108,15 @@ func (FileTreeExtractor) Extract(ctx context.Context, repoRoot string) (*archite
 
 		totalFiles++
 
-		// Extension counts.
-		ext := strings.TrimPrefix(filepath.Ext(d.Name()), ".")
+		// Extension counts - keep the dot (e.g., ".scala", ".java")
+		ext := filepath.Ext(d.Name())
 		if ext != "" {
 			extCounts[ext]++
+		}
+
+		// Count lines of code for text-like files
+		if textExtensions[ext] {
+			totalLOC += countLines(path)
 		}
 
 		// Check naming patterns on files (without extension).
@@ -133,6 +154,10 @@ func (FileTreeExtractor) Extract(ctx context.Context, repoRoot string) (*archite
 			Patterns:   patterns,
 			ExtCounts:  extCounts,
 		},
+		Metrics: &architect.CodeMetrics{
+			TotalFiles: totalFiles,
+			TotalLOC:   totalLOC,
+		},
 	}, nil
 }
 
@@ -144,4 +169,20 @@ func sortStrings(s []string) {
 			s[j], s[j-1] = s[j-1], s[j]
 		}
 	}
+}
+
+// countLines counts the number of lines in a file.
+func countLines(path string) int {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0
+	}
+	defer f.Close()
+
+	count := 0
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		count++
+	}
+	return count
 }
