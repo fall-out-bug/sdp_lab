@@ -1528,3 +1528,1020 @@ These are the target accuracy numbers for Phase 1 (regex-based, with the enhance
 | Layer detection | 70-80% | 65-75% | 75-85% (Spring annotations) | 65-75% | N/A |
 
 Numbers in parentheses indicate the framework or convention that achieves the high end of the range. Projects without clear conventions fall to the low end.
+
+---
+
+## 9. New Types (Exact Struct Definitions)
+
+### 9.1 Types to add to `internal/architect/types.go`
+
+```go
+// ModuleBoundary represents a deployable unit within the repository.
+type ModuleBoundary struct {
+    ID           string   `json:"id"`
+    DisplayName  string   `json:"display_name"`
+    BuildSystem  string   `json:"build_system"` // "maven", "gradle", "npm", "go", "python", "fallback"
+    SourcePath   string   `json:"source_path"`
+    Dependencies []string `json:"dependencies,omitempty"` // IDs of other ModuleBoundaries this depends on
+    Language     string   `json:"language,omitempty"`
+    Confidence   float64  `json:"confidence"`
+    Method       string   `json:"method,omitempty"` // "build_system", "convention", "heuristic"
+}
+
+// APISurface describes a single entry point exposed by a component.
+type APISurface struct {
+    Type        string            `json:"type"`         // "http_endpoint", "grpc_service", "graphql_resolver", "message_producer", "message_consumer", "exported_interface", "cli_command"
+    Method      string            `json:"method,omitempty"`
+    Path        string            `json:"path,omitempty"`
+    Handler     string            `json:"handler,omitempty"`
+    File        string            `json:"file"`
+    ContainerID string            `json:"container_id,omitempty"`
+    Metadata    map[string]string `json:"metadata,omitempty"`
+}
+
+// LayerAssignment records the architectural layer classification of a source file.
+type LayerAssignment struct {
+    FilePath   string  `json:"file_path"`
+    Layer      string  `json:"layer"`       // "presentation", "business", "data", "infrastructure", "unclassified"
+    Score      float64 `json:"score"`
+    Confidence float64 `json:"confidence"`
+    Evidence   string  `json:"evidence"`
+}
+
+// CIInfo describes CI/CD pipeline metadata.
+type CIInfo struct {
+    Platform string   `json:"platform"` // "github_actions", "gitlab_ci", "jenkins", "circleci"
+    Jobs     []string `json:"jobs,omitempty"`
+    Triggers []string `json:"triggers,omitempty"` // "push", "pull_request", "schedule", "manual"
+}
+
+// PackageBoundary represents a Python package or namespace package.
+type PackageBoundary struct {
+    Type string `json:"type"` // "python_package", "namespace_package"
+    Path string `json:"path"`
+    Name string `json:"name"`
+}
+```
+
+### 9.2 Fields to add to `ProfileFragment` in `internal/architect/profile.go`
+
+```go
+type ProfileFragment struct {
+    // ... existing fields ...
+    Layers          []LayerAssignment  `json:"layers,omitempty"`
+    APISurfaces     []APISurface      `json:"api_surfaces,omitempty"`
+    ModuleBoundaries []ModuleBoundary `json:"module_boundaries,omitempty"`
+    CI              *CIInfo           `json:"ci,omitempty"`
+}
+```
+
+### 9.3 Fields to add to `CodebaseProfile` in `internal/architect/profile.go`
+
+```go
+type CodebaseProfile struct {
+    // ... existing fields ...
+    Layers          []LayerAssignment  `json:"layers,omitempty"`
+    APISurfaces     []APISurface      `json:"api_surfaces,omitempty"`
+    ModuleBoundaries []ModuleBoundary `json:"module_boundaries,omitempty"`
+}
+```
+
+---
+
+## 10. SecurityFilter Enhancement (Phase A-1)
+
+### Current state
+
+`internal/architect/security.go` has 5 secret patterns and 2 PII rules.
+
+### New secret patterns to add to `NewSecurityFilter()`
+
+```go
+{re: regexp.MustCompile(`sk_live_[0-9a-zA-Z]{24,}`), typ: "stripe_live_key"},
+{re: regexp.MustCompile(`eyJ[A-Za-z0-9-_]{20,}\.eyJ[A-Za-z0-9-_]{20,}`), typ: "jwt_token"},
+{re: regexp.MustCompile(`xox[baprs]-[0-9]{10,}-[0-9]{10,}-[0-9a-zA-Z]{24,}`), typ: "slack_token"},
+{re: regexp.MustCompile(`//[^/@\s]+:[^/@\s]+@`), typ: "connection_string_credentials"},
+```
+
+### Enhanced PII rules
+
+Replace the existing path-scrubbing regexes:
+
+```go
+var reUserPath = regexp.MustCompile(`(?:/Users/|/home/)[^/]+`)
+var reWindowsPath = regexp.MustCompile(`C:\\Users\\[^\\]+`)
+```
+
+Update `sanitizeString()` to also apply `reWindowsPath`:
+
+```go
+func (sf *SecurityFilter) sanitizeString(s string) string {
+    // 1. Redact secrets.
+    for _, p := range sf.patterns {
+        s = p.re.ReplaceAllStringFunc(s, func(match string) string {
+            return "[REDACTED:" + p.typ + "]"
+        })
+    }
+    // 2. Scrub user paths (Unix).
+    s = reUserPath.ReplaceAllString(s, "/Users/[REDACTED]")
+    // 3. Scrub user paths (Windows).
+    s = reWindowsPath.ReplaceAllString(s, "C:\\Users\\[REDACTED]")
+    // 4. Hash internal package names.
+    s = reInternalPkg.ReplaceAllStringFunc(s, func(match string) string {
+        parts := strings.Split(match, ".")
+        if len(parts) < 3 { return match }
+        return "pkg." + parts[len(parts)-1]
+    })
+    return s
+}
+```
+
+### Changed signature
+
+```go
+// Sanitize returns (sanitized_copy, SecretsFound_report).
+func (sf *SecurityFilter) Sanitize(profile *CodebaseProfile) (*CodebaseProfile, *SecretsFound)
+```
+
+The existing signature returns only `*CodebaseProfile`. Update callers.
+
+### Testing
+
+| Test case | Input | Expected |
+|-----------|-------|----------|
+| AWS key | `"key=AKIAIOSFODNN7EXAMPLE"` | Contains `[REDACTED:aws_key]` |
+| JWT | `"Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyIn0.sig"` | Contains `[REDACTED:jwt_token]` |
+| Stripe live key | `"sk_live_abcdefghijklmnopqrstuvwxyz123456"` | Contains `[REDACTED:stripe_live_key]` |
+| Connection string | `"postgres://user:pass@host:5432/db"` | Contains `[REDACTED:connection_string_credentials]` |
+| Unix user path | `"/Users/alice/projects/app"` | `/Users/[REDACTED]/projects/app` |
+| Windows path | `"C:\\Users\\bob\\code\\app"` | `C:\Users\[REDACTED]\code\app` |
+| No secrets | `"package main\nfunc main() {}"` | Unchanged, SecretsFound.Count == 0 |
+
+---
+
+## 11. FileTreeExtractor Enhancement (Phase A-2)
+
+### Missing field population
+
+The existing `FileTreeInfo` struct has `TopLevel []string` and `NamingPatterns map[string]int` fields that are never populated. Fix this.
+
+### Algorithm for TopLevel
+
+```
+1. During WalkDir, when depth == 1 (rel has no path separator or exactly one):
+   - If d.IsDir(): append d.Name() to topLevelDirs
+   - Else: append d.Name() to topLevelFiles
+2. Sort both slices.
+3. TopLevel = topLevelDirs + topLevelFiles.
+```
+
+### Algorithm for NamingPatterns
+
+```
+1. Replace the "seen" map with a counter map[string]int.
+2. On each naming pattern match, increment the counter.
+3. Convert to map[string]int in the return value.
+```
+
+### Performance guard
+
+```go
+const maxLineCountFileSize = 2 * 1024 * 1024 // 2 MB
+
+// Before calling countLines:
+info, _ := d.Info()
+if info != nil && info.Size() > maxLineCountFileSize {
+    return nil // skip line counting for very large files
+}
+```
+
+---
+
+## 12. DependencyManifestParser Enhancement (Phase A-2)
+
+### Enhancement: Parse go.mod properly
+
+Replace the line-scanning approach with proper parsing:
+
+```go
+type GoModInfo struct {
+    ModulePath string
+    GoVersion  string
+    Requires   []GoModRequire
+}
+
+type GoModRequire struct {
+    Path    string
+    Version string
+    Indirect bool
+}
+
+func parseGoMod(path string) (*GoModInfo, error) {
+    // Scan lines:
+    // "module github.com/org/repo" -> ModulePath
+    // "go 1.22" -> GoVersion
+    // "require (" block or single require lines -> Requires
+    // "// indirect" comment -> Indirect = true
+}
+```
+
+### Enhancement: Parse package.json properly
+
+Replace the fragile line-scanning in `countPackageJSON` with `encoding/json`:
+
+```go
+type packageJSONDeps struct {
+    Dependencies    map[string]string `json:"dependencies"`
+    DevDependencies map[string]string `json:"devDependencies"`
+}
+
+func parsePackageJSONDeps(path string) ([]TSDependency, error) {
+    data, err := os.ReadFile(path)
+    if err != nil { return nil, err }
+    var pkg packageJSONDeps
+    if err := json.Unmarshal(data, &pkg); err != nil { return nil, err }
+    var deps []TSDependency
+    for name, ver := range pkg.Dependencies {
+        deps = append(deps, TSDependency{Name: name, Version: ver, Dev: false})
+    }
+    for name, ver := range pkg.DevDependencies {
+        deps = append(deps, TSDependency{Name: name, Version: ver, Dev: true})
+    }
+    return deps, nil
+}
+```
+
+### Cross-manifest correlation
+
+After all manifests are parsed, correlate dependency names:
+
+```
+1. Collect all ParsedDep slices keyed by manifest file.
+2. For each dep name, count how many manifests contain it -> FoundIn.
+3. Map to NotableDep{Name, FoundIn, Signal}.
+4. Use the existing notableSignals map in deps.go for signal classification.
+```
+
+### Error handling
+
+| Error | Severity | Action |
+|-------|----------|--------|
+| Unparseable manifest | Non-fatal | Log warning, skip file |
+| Missing manifest file | Non-fatal | Normal, skip silently |
+| File permission error | Non-fatal | Log warning, skip |
+
+---
+
+## 13. InfraExtractor Enhancement (Phase A-3)
+
+### New: Serverless detection
+
+```go
+var serverlessIndicators = []struct {
+    Filename string
+    Kind     string
+}{
+    {"serverless.yml", "serverless_framework"},
+    {"serverless.yaml", "serverless_framework"},
+    {"vercel.json", "vercel"},
+    {"netlify.toml", "netlify"},
+    {"sam.yaml", "aws_sam"},
+    {"template.yaml", "aws_sam"},
+}
+```
+
+Algorithm: during WalkDir, check basename against `serverlessIndicators`. If matched, set `DeploymentType` to `"serverless"`.
+
+### New: Helm chart detection
+
+```go
+func isHelmChart(name string) bool {
+    return name == "Chart.yaml" || name == "Chart.yml"
+}
+```
+
+Parse `Chart.yaml` for `name`, `version`, `appVersion`. Create `ContainerInfo` with `Type="helm_chart"`.
+
+### New: DeploymentType priority
+
+```
+Priority: kubernetes > serverless > helm > docker-compose > bare
+```
+
+### New: CI pipeline analysis
+
+For GitHub Actions workflows, parse `on:` for triggers and `jobs:` for job names. Populate `CIInfo{Platform, Jobs, Triggers}` in the fragment.
+
+### Testing
+
+| Test case | Input | Expected |
+|-----------|-------|----------|
+| Multi-stage Dockerfile | 3 FROM lines | 3 BaseImages, ContainerInfo created |
+| compose depends_on | api depends on db | ServiceDep{From:"api", To:"db"} |
+| serverless.yml | functions section | DeploymentType="serverless" |
+| Helm Chart.yaml | name, version | ContainerInfo Type="helm_chart" |
+
+---
+
+## 14. GeneratedCodeDetector Enhancement (Phase A-4)
+
+### New filename patterns
+
+```go
+"*.pb.ts":          "protobuf_generated",
+"*_pb2.py":         "protobuf_generated",
+"*_pb2_grpc.py":    "protobuf_generated",
+"*.graphql.ts":     "graphql_codegen",
+"*.generated.go":   "autogenerated",
+"*.generated.java": "autogenerated",
+"*.min.js":         "minified",
+"*.min.css":        "minified",
+```
+
+### New header markers
+
+```go
+"# Generated by",
+"/* eslint-disable */",
+"// @generated",
+"<auto-generated>",
+```
+
+### Size-based heuristic
+
+After all pattern/header checks, if a file is >500KB and the first 1KB contains no
+function/class definitions (no `func `, `class `, `def `, `function ` keywords),
+flag as `"likely_generated:large_file"`.
+
+---
+
+## 15. CodebaseProfile Assembly (Phase A-5)
+
+### Algorithm
+
+```
+func AssembleProfile(fragments []*architect.ProfileFragment) *architect.CodebaseProfile
+
+1. Initialize CodebaseProfile with zero values.
+2. For each fragment:
+   a. Languages: append and dedup.
+   b. Dependencies: merge DependencyInfo slices.
+   c. ImportGraph: merge nodes, edges, clusters, circular deps.
+   d. Infra: merge containers, services, resources.
+   e. FileTree: take the first non-nil FileTree.
+   f. Specs: append and dedup by path.
+   g. SQLAnalysis: merge tables, FKs, views, indexes, ORM models.
+   h. GitAnalysis: take the first non-nil GitAnalysis.
+   i. Metrics: sum/merge fields.
+   j. Generated: append all generated files.
+   k. Layers: append all layer assignments.
+   l. APISurfaces: append all API surfaces.
+   m. ModuleBoundaries: append and dedup by ID.
+   n. CI: take the first non-nil CIInfo.
+3. Compute derived metrics:
+   a. TestRatio = test file LOC / total LOC
+   b. LanguagesCount = len(unique primary languages)
+   c. ContainersDetected = len(Infra.Containers)
+   d. ComponentsDetected = len(ImportGraph.Clusters)
+   e. ContractsDiscovered = len(Specs)
+   f. GeneratedExcluded = len(Generated)
+4. Return assembled profile.
+```
+
+### Merge rules for ImportGraph
+
+```
+- Nodes: sum all node counts.
+- Edges: sum all edge counts.
+- Clusters: append, dedup by ID.
+- CircularDependencies: append, dedup by (A, B) pair.
+- ExtractionMethod: comma-separated if multiple methods.
+- AccuracyEstimate: weighted average by node count.
+```
+
+---
+
+## 16. Evaluation Harness Framework (Phase A-6)
+
+### Test fixture directory structure
+
+```
+testdata/
+  go/
+    simple-service/       # 3 packages, no cycles
+    monorepo/             # go.workspace with 2 modules
+    grpc-service/         # gRPC project with generated files
+  python/
+    flask-app/            # Flask with routes and blueprints
+    fastapi-app/          # FastAPI with decorators
+    django-project/       # Django with apps, models, urls
+  java/
+    spring-boot/          # Spring Boot with @RestController
+    multi-module-maven/   # Multi-module Maven project
+  typescript/
+    nextjs-app/           # Next.js with app/ directory
+    express-api/          # Express API with routes
+    nestjs-app/           # NestJS with decorators
+    monorepo/             # pnpm workspace with 3 packages
+  sql/
+    ecommerce-schema/     # 15+ tables with FKs, migrations, views
+```
+
+### Harness test case definition
+
+```go
+type ExtractorTest struct {
+    Name       string
+    FixtureDir string            // relative to testdata/
+    Extractor  architect.Extractor
+    Assertions []Assertion
+}
+
+type Assertion struct {
+    Field    string      // dot-path into ProfileFragment
+    Op       string      // "eq", "gte", "lte", "contains", "not_contains"
+    Expected interface{}
+}
+```
+
+Example:
+
+```go
+ExtractorTest{
+    Name:       "go_simple_service_import_count",
+    FixtureDir: "go/simple-service",
+    Extractor:  extract.GoAdapter{},
+    Assertions: []Assertion{
+        {Field: "ImportGraph.Nodes", Op: "gte", Expected: 3},
+        {Field: "ImportGraph.CircularDependencies", Op: "eq", Expected: 0},
+    },
+}
+```
+
+### Accuracy measurement with golden files
+
+```go
+type AccuracyReport struct {
+    Extractor    string
+    FixtureDir   string
+    Fields       []FieldAccuracy
+    Precision    float64 // TP / (TP + FP) -- of detected items, how many are correct
+    Recall       float64 // TP / (TP + FN) -- of actual items, how many were detected
+    F1           float64 // 2 * (Precision * Recall) / (Precision + Recall)
+    OverallScore float64
+}
+
+type FieldAccuracy struct {
+    Field    string
+    Expected interface{}
+    Actual   interface{}
+    Score    float64 // 0.0-1.0
+}
+```
+
+Where TP = true positive (correctly detected item), FP = false positive (detected but incorrect), FN = false negative (missed item).
+
+**Test assertion format for precision/recall/F1:**
+
+```go
+// Example assertions using the new metrics:
+ExtractorTest{
+    Name:       "go_simple_service_accuracy",
+    FixtureDir: "go/simple-service",
+    Extractor:  extract.GoAdapter{},
+    Assertions: []Assertion{
+        {Field: "ImportGraph.Nodes", Op: "gte", Expected: 3},
+        {Field: "ImportGraph.CircularDependencies", Op: "eq", Expected: 0},
+    },
+}
+
+// Precision/recall/F1 are computed by the harness when golden files are present:
+//   - Compare extractor output against golden file fields.
+//   - Each field match = TP, extra field = FP, missing field = FN.
+//   - Assert: Precision >= 0.8, Recall >= 0.8, F1 >= 0.8 (thresholds per extractor).
+```
+
+Golden files live at `testdata/<fixture>/<extractor>.golden.json`. Example golden file for `go/simple-service/go.golden.json`:
+
+```json
+{
+  "import_graph": {
+    "nodes": 4,
+    "edges": 5,
+    "circular_dependencies": [],
+    "accuracy_estimate": 0.93
+  },
+  "languages": [{"primary": "go", "all": ["go"]}]
+}
+```
+
+---
+
+## 17. Go Extractor Enhancement (Phase A-7)
+
+### Accuracy target: 90-95%
+
+Already achieved via `go/packages`. Enhancements target edge cases.
+
+### go.work support
+
+```go
+func detectGoWork(dir string) ([]string, error) {
+    data, err := os.ReadFile(filepath.Join(dir, "go.work"))
+    if err != nil { return nil, err }
+    var modules []string
+    for _, line := range strings.Split(string(data), "\n") {
+        line = strings.TrimSpace(line)
+        if strings.HasPrefix(line, "use ") {
+            modDir := strings.TrimSpace(strings.TrimPrefix(line, "use "))
+            modDir = strings.Trim(modDir, "()")
+            modules = append(modules, modDir)
+        }
+    }
+    return modules, nil
+}
+```
+
+When `go.work` exists, run `GoExtractor` for each module directory and merge.
+
+### cmd/ directory detection
+
+```go
+func DetectDeployUnits(dir string) []string {
+    cmdDir := filepath.Join(dir, "cmd")
+    entries, err := os.ReadDir(cmdDir)
+    if err != nil { return nil }
+    var units []string
+    for _, e := range entries {
+        if e.IsDir() { units = append(units, e.Name()) }
+    }
+    return units
+}
+```
+
+### Framework detection from imports
+
+```go
+var goFrameworkSignals = map[string]architect.Framework{
+    "github.com/gin-gonic/gin":       {Name: "Gin", Confidence: 0.95, Evidence: "gin import"},
+    "github.com/labstack/echo/v4":    {Name: "Echo", Confidence: 0.95, Evidence: "echo import"},
+    "github.com/go-chi/chi/v5":       {Name: "Chi", Confidence: 0.95, Evidence: "chi import"},
+    "google.golang.org/grpc":         {Name: "gRPC", Confidence: 0.9, Evidence: "grpc import"},
+    "github.com/gorilla/mux":         {Name: "Gorilla Mux", Confidence: 0.9, Evidence: "gorilla/mux import"},
+    "github.com/go-kratos/kratos/v2": {Name: "Kratos", Confidence: 0.9, Evidence: "kratos import"},
+    "github.com/gofiber/fiber/v2":    {Name: "Fiber", Confidence: 0.9, Evidence: "fiber import"},
+}
+```
+
+After building the import graph, scan edges for known framework imports and add
+Framework entries to the output.
+
+### HTTP handler detection
+
+```go
+var reGoHTTPHandler = regexp.MustCompile(
+    `func\s+\w+\s*\(\s*\w+\s+(?:\*?)?(?:\w+\.)?ResponseWriter\b`,
+)
+```
+
+### Error handling
+
+| Error | Severity | Action |
+|-------|----------|--------|
+| No go.mod | Non-fatal | Return empty fragment (not a Go project) |
+| go/packages.Load fails | Fatal | Return error (build environment issue) |
+| Individual file read error | Non-fatal | Skip file |
+
+---
+
+## 18. Python Extractor Enhancement (Phase A-8)
+
+### Accuracy target: 60-70%
+
+### Import resolution strategy
+
+```
+1. Absolute imports ("import flask"):
+   - Top-level module -> classify as stdlib (pythonStdlib map), third-party, or local.
+   - Local = directory with __init__.py exists under project root.
+
+2. Relative imports ("from . import utils"):
+   - Already implemented in resolveImport(). No changes needed.
+
+3. Conditional imports (try/except):
+   - Tree-sitter captures both branches.
+   - Mark both as "conditional" in Kind field.
+
+4. Dynamic imports (importlib.import_module(...)):
+   - If argument is a string literal, capture it.
+   - Otherwise mark as "dynamic_import" with low confidence.
+```
+
+### Blueprint instance tracking
+
+See Section 2.2 for the full algorithm. Key function:
+
+```go
+var blueprintAssignPattern = regexp.MustCompile(
+    `(\w+)\s*=\s*Blueprint\s*\(\s*["']([^"']+)["']\s*(?:,\s*__name__)?\s*(?:,\s*url_prefix\s*=\s*["']([^"']+)["'])?`)
+
+var registerBlueprintPattern = regexp.MustCompile(
+    `app\.register_blueprint\s*\(\s*(\w+)\s*(?:,\s*url_prefix\s*=\s*["']([^"']+)["'])?`)
+```
+
+### Error handling
+
+| Error | Severity | Action |
+|-------|----------|--------|
+| Unparseable .py file | Non-fatal | Skip file |
+| Missing requirements.txt | Non-fatal | Rely on source analysis |
+| Unicode decode error | Non-fatal | Skip file |
+| Tree-sitter parse error | Non-fatal | Fall back to regex |
+
+### Testing
+
+| Fixture | Assertion | Expected |
+|---------|-----------|----------|
+| `python/flask-app` | Framework Flask detected | Confidence >= 0.9 |
+| `python/flask-app` | Route count | >= 2 |
+| `python/fastapi-app` | Framework FastAPI detected | Confidence >= 0.9 |
+| `python/django-project` | Framework Django detected | Confidence >= 0.8 |
+| `python/django-project` | Dependencies from requirements.txt | >= 5 |
+
+### Known limitations
+
+- `importlib.import_module()` with dynamic names cannot be resolved.
+- `sys.path` runtime modifications are not analyzed.
+- Jupyter notebook (.ipynb) imports are not extracted.
+- Conditional imports inside try/except are captured but not resolved to one branch.
+
+---
+
+## 19. Java/Kotlin Extractor Enhancement (Phase A-9)
+
+### Accuracy target: 70-80%
+
+### Annotation-level scanning
+
+The current implementation detects Spring via imports only. Add direct annotation scanning:
+
+```go
+var springAnnotationPatterns = map[string]string{
+    `@SpringBootApplication`: "spring_app",
+    `@RestController`:        "spring_controller",
+    `@Controller`:            "spring_controller",
+    `@RequestMapping`:        "spring_endpoint",
+    `@GetMapping`:            "spring_endpoint_get",
+    `@PostMapping`:           "spring_endpoint_post",
+    `@Service`:               "spring_service",
+    `@Component`:             "spring_component",
+    `@Repository`:            "spring_repository",
+    `@Entity`:                "spring_entity",
+    `@Configuration`:         "spring_config",
+    `@Bean`:                  "spring_config_bean",
+}
+```
+
+Algorithm: scan file content for each pattern. Record file path and class name.
+
+### HTTP endpoint extraction
+
+```go
+var reSpringMapping = regexp.MustCompile(
+    `@(?:Get|Post|Put|Delete|Patch|Request)Mapping\s*\(\s*(?:"([^"]*)")?`)
+```
+
+Extract URL path from annotation. Concatenate class-level `@RequestMapping` prefix with method-level path.
+
+### Module boundary: Maven multi-module
+
+See Section 3.1 for the full algorithm. Uses existing `parseModules()` function.
+
+### Module boundary: Gradle subprojects
+
+See Section 3.2 for the full algorithm. Parse `settings.gradle`/`settings.gradle.kts` for `include` directives.
+
+### Import resolution strategy
+
+```
+1. Parse import declarations from each .java/.kt file.
+2. Classify:
+   a. java.*/javax.*/jakarta.* -> stdlib
+   b. Matches known dependency from pom.xml/build.gradle -> third-party
+   c. Matches a package within the project -> internal
+   d. Everything else -> unresolved_external
+3. For internal imports, build edges: (source_package, target_package).
+```
+
+### Error handling
+
+| Error | Severity | Action |
+|-------|----------|--------|
+| No pom.xml or build.gradle | Non-fatal | May not be Java project |
+| Malformed XML | Non-fatal | Log warning, skip |
+| File >2MB | Non-fatal | Skip file |
+| Missing package declaration | Non-fatal | Use directory path |
+
+### Testing
+
+| Fixture | Assertion | Expected |
+|---------|-----------|----------|
+| `java/spring-boot` | Spring Boot detected | Confidence >= 0.9 |
+| `java/spring-boot` | REST controllers found | >= 1 |
+| `java/multi-module-maven` | Module count | >= 2 |
+| `java/spring-boot` | Import graph nodes | >= 5 |
+
+### Known limitations
+
+- Reflection (`Class.forName`) not tracked.
+- Runtime DI wiring (Spring XML, Guice) not analyzed.
+- Annotation processors (Lombok, MapStruct) generate invisible code.
+- Kotlin DSL build scripts parsed with regex only.
+
+---
+
+## 20. TypeScript/JavaScript Extractor Enhancement (Phase A-10)
+
+### Accuracy target: 65-75%
+
+### Import resolution strategy
+
+```
+1. Bare specifiers ("react", "lodash"):
+   - Check workspace package names -> internal workspace dep
+   - Check node_modules -> third-party
+   - Otherwise -> unresolved
+
+2. Relative specifiers ("./utils", "../Button"):
+   - Resolve against importing file's directory.
+   - Try extensions: .ts, .tsx, .js, .jsx, .mjs, .cjs.
+   - Try /index.ts, /index.tsx, /index.js.
+
+3. Path aliases ("@/components"):
+   - Apply tsconfig.json paths mappings (already implemented).
+   - After alias resolution, treat as relative.
+
+4. Dynamic imports (import("...")):
+   - Capture string literal argument.
+   - Classify same as static imports.
+   - Mark Kind as "dynamic_import" with lower confidence.
+```
+
+### pnpm workspace detection
+
+```go
+func parsePnpmWorkspace(rootDir string) ([]string, error) {
+    data, err := os.ReadFile(filepath.Join(rootDir, "pnpm-workspace.yaml"))
+    if err != nil { return nil, err }
+    var ws struct {
+        Packages []string `yaml:"packages"`
+    }
+    if err := yaml.Unmarshal(data, &ws); err != nil {
+        return nil, fmt.Errorf("parse pnpm-workspace.yaml: %w", err)
+    }
+    return ws.Packages, nil
+}
+```
+
+### Turborepo detection
+
+```go
+func detectTurborepo(root string) bool {
+    return fileExists(filepath.Join(root, "turbo.json"))
+}
+```
+
+### Error handling
+
+| Error | Severity | Action |
+|-------|----------|--------|
+| Malformed package.json | Non-fatal | Skip, log warning |
+| Missing tsconfig.json | Non-fatal | No path alias resolution |
+| Unparseable .ts/.tsx | Non-fatal | Skip file |
+| Circular re-exports | Non-fatal | Detect and flag as CircularDep |
+
+### Testing
+
+| Fixture | Assertion | Expected |
+|---------|-----------|----------|
+| `typescript/express-api` | Express detected | Confidence >= 0.9 |
+| `typescript/express-api` | Route count | >= 3 |
+| `typescript/nestjs-app` | NestJS detected | Confidence >= 0.9 |
+| `typescript/nextjs-app` | Next.js detected | Confidence >= 0.9 |
+| `typescript/monorepo` | Workspace count | >= 2 |
+
+### Known limitations
+
+- Webpack module federation not analyzed.
+- Barrel re-exports create false coupling.
+- `require()` with variable arguments not resolved.
+- Path aliases in jsconfig.json not parsed (only tsconfig.json).
+
+---
+
+## 21. SQL Extractor Enhancement (Phase A-11)
+
+### Accuracy target: 80-90% schema, 50-60% queries
+
+### Stored procedure detection
+
+```go
+var reCreateProc = regexp.MustCompile(
+    `(?i)CREATE\s+(?:OR\s+REPLACE\s+)?(?:FUNCTION|PROCEDURE)\s+["\x60]?(\w+)["\x60]?\s*\(`)
+
+var reCreateTrigger = regexp.MustCompile(
+    `(?i)CREATE\s+(?:OR\s+REPLACE\s+)?TRIGGER\s+["\x60]?(\w+)["\x60]?`)
+```
+
+### ALTER TABLE tracking
+
+```go
+var reAlterAddColumn = regexp.MustCompile(
+    `(?i)ALTER\s+TABLE\s+["\x60]?(\w+)["\x60]?\s+ADD\s+(?:COLUMN\s+)?["\x60]?(\w+)["\x60]?\s+(\w+)`)
+
+var reAlterAddFK = regexp.MustCompile(
+    `(?i)ALTER\s+TABLE\s+["\x60]?(\w+)["\x60]?\s+ADD\s+(?:CONSTRAINT\s+\w+\s+)?` +
+    `FOREIGN\s+KEY\s*\(\s*["\x60]?(\w+)["\x60]?\s*\)\s*REFERENCES\s+["\x60]?(\w+)["\x60]?`)
+```
+
+### ORM correlation algorithm
+
+```
+1. For each ORM model (GORM, Django, SQLAlchemy, Prisma, JPA):
+   a. Extract the model name.
+   b. Search SQLAnalysis.Tables for a matching table name.
+   c. If found: link ORM model to SQL table.
+   d. If not found: table may be in a different service.
+
+2. Cross-reference column names:
+   a. For linked ORM-table pairs, compare column names.
+   b. Flag mismatches (schema drift).
+```
+
+### Expanded PII detection
+
+```go
+var piiExactPatterns = []string{
+    "email", "phone", "ssn", "birth_date", "date_of_birth",
+    "address", "first_name", "last_name", "ip_address",
+    "credit_card", "password", "salary", "iban",
+    "passport", "national_id",
+}
+```
+
+### Testing
+
+| Fixture | Assertion | Expected |
+|---------|-----------|----------|
+| `sql/ecommerce-schema` | Table count | >= 10 |
+| `sql/ecommerce-schema` | FK count | >= 5 |
+| `sql/ecommerce-schema` | PII columns | >= 3 |
+| `sql/ecommerce-schema` | Data domains | >= 2 |
+| `sql/ecommerce-schema` | Migrations detected | Count > 0 |
+
+### Known limitations
+
+- Dynamic SQL (generated at runtime) invisible.
+- ORM-generated queries not traced.
+- Cross-database references not resolved.
+- Database-specific dialects may not parse correctly.
+
+---
+
+## 22. Cross-Cutting Concerns
+
+### 22.1 Concurrency model
+
+```go
+func RunExtractors(ctx context.Context, repoRoot string,
+    extractors []architect.Extractor) ([]*architect.ProfileFragment, error) {
+
+    g, gctx := errgroup.WithContext(ctx)
+    g.SetLimit(runtime.GOMAXPROCS(0))
+
+    var mu sync.Mutex
+    var results []*architect.ProfileFragment
+    var firstErr error
+
+    for _, ext := range extractors {
+        ext := ext
+        g.Go(func() error {
+            frag, err := ext.Extract(gctx, repoRoot)
+            mu.Lock()
+            defer mu.Unlock()
+            if err != nil {
+                if firstErr == nil {
+                    firstErr = fmt.Errorf("extractor %s: %w", ext.Name(), err)
+                }
+                return nil // do not cancel other extractors
+            }
+            results = append(results, frag)
+            return nil
+        })
+    }
+
+    _ = g.Wait()
+    return results, firstErr
+}
+```
+
+### 22.2 Performance SLAs
+
+> **Authoritative values** are defined in Section 7.3 and Section 7.2. The table below restates them for quick reference. In case of conflict, Section 7 wins.
+
+| Scope | Timeout | Rationale |
+|-------|---------|-----------|
+| Per extractor CALL | **30s** | Section 7.3: single-language extractor timeout |
+| Per round (all extractors) | **180s** | All extractors run concurrently; wall-clock bound |
+| Per repository session | **300s (5 min)** | Section 7.2: CLI must return fast enough for interactive use |
+
+**Scaling table (extraction phase only):**
+
+| Repo size | Max extraction time | Max total time (extraction + LLM) |
+|-----------|--------------------|----------------------------------|
+| <1K files | <10s | <30s |
+| <10K files | <60s | <2 min |
+| <50K files | <5 min (300s) | <6 min |
+| >50K files | Incremental | Variable |
+
+### 22.3 Performance guard rails
+
+| Concern | Limit | Implementation |
+|---------|-------|----------------|
+| Max file size for parsing | 2 MB | Check `os.Stat().Size()` before reading |
+| Max memory per extractor | 256 MB | Streaming parsers, no full-file buffering |
+| Concurrency | `runtime.NumCPU()` | `errgroup.Group` with `SetLimit` |
+| Large repos (>50K files) | Sample first 10K files | Reservoir sampling for import extraction |
+| Tree-sitter parse timeout | 5s per file | Context with timeout |
+
+### 22.4 Registry update
+
+After all enhancements, `DefaultExtractors()` remains unchanged in order:
+
+```go
+func DefaultExtractors() []architect.Extractor {
+    return []architect.Extractor{
+        FileTreeExtractor{},          // runs first: tree structure + naming
+        DependencyManifestParser{},   // manifest deps + signals
+        SpecInventoryScanner{},       // spec file inventory
+        GeneratedCodeDetector{},      // flag generated files
+        &InfraExtractor{},            // Docker, k8s, Terraform, CI, serverless
+        GitHistoryExtractor{},        // git history, co-change, ownership
+        GoAdapter{},                  // go/packages + framework detection
+        PythonAdapter{},              // regex + tree-sitter fallback
+        JavaAdapter{},                // regex + tree-sitter fallback
+        TypeScriptAdapter{},          // regex + tree-sitter fallback
+        SQLExtractor{},               // DDL parser + ORM + PII
+    }
+}
+```
+
+Order matters: `FileTreeExtractor` and `GeneratedCodeDetector` run before
+language adapters so later extractors can reference the generated file list.
+
+### 22.5 Tree-sitter dependency
+
+```go
+// go.mod additions:
+// github.com/tree-sitter/go-tree-sitter v0.24
+// github.com/tree-sitter/tree-sitter-python v0.23
+// github.com/tree-sitter/tree-sitter-java v0.23
+// github.com/tree-sitter/tree-sitter-typescript v0.23
+// github.com/tree-sitter/tree-sitter-kotlin v0.4
+```
+
+Grammars compile into the binary via `go generate`. No external shared libraries.
+
+---
+
+## 23. Implementation Order
+
+| Phase | Item | Estimated effort | Depends on |
+|-------|------|-----------------|------------|
+| 1 | SecurityFilter enhancement (Section 10) | 1 day | Nothing |
+| 2 | FileTreeExtractor TopLevel + NamingPatterns (Section 11) | 0.5 day | Nothing |
+| 3 | GeneratedCodeDetector patterns (Section 14) | 0.5 day | Nothing |
+| 4 | DependencyManifestParser enhancement (Section 12) | 1 day | Nothing |
+| 5 | InfraExtractor serverless + Helm + CI (Section 13) | 1 day | Nothing |
+| 6 | Evaluation harness framework (Section 16) | 1 day | Nothing |
+| 7 | Go extractor framework detection + go.work (Section 17) | 1 day | go/packages |
+| 8 | Python extractor tree-sitter + frameworks (Section 18) | 2 days | tree-sitter |
+| 9 | Java/Kotlin extractor tree-sitter + Spring (Section 19) | 2 days | tree-sitter |
+| 10 | TypeScript extractor tree-sitter + frameworks (Section 20) | 2 days | tree-sitter |
+| 11 | SQL extractor enhancements (Section 21) | 1 day | Nothing |
+| 12 | CodebaseProfile assembly + merge (Section 15) | 1 day | Items 2-11 |
+| 13 | Integration testing + accuracy validation | 2 days | All above |
+
+Total estimate: ~15 working days for one developer.
+
+---
+
+## 24. Acceptance Criteria
+
+Each extractor must pass:
+
+1. **Zero crashes**: No panics, no unhandled errors on any fixture.
+2. **Accuracy floor**: Each language meets its stated accuracy target on the evaluation harness (measured against golden files).
+3. **Performance budget**: Full extraction on `sql/ecommerce-schema` completes in under 5 seconds. On a 10K-file repo, under 60 seconds.
+4. **Security**: Running `SecurityFilter.Sanitize` on the assembled profile produces zero `SecretMatch` hits and scrubs all user paths.
+5. **Determinism**: Running the same extractor twice on the same fixture produces byte-identical JSON output.

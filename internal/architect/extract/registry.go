@@ -15,5 +15,6 @@ func DefaultExtractors() []architect.Extractor {
 		PythonAdapter{},
 		JavaAdapter{},
 		TypeScriptAdapter{},
+		&SQLExtractor{},
 	}
 }

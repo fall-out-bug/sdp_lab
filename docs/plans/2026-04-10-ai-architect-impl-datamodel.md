@@ -1,0 +1,282 @@
+# Data Model Implementation Spec
+
+Date: 2026-04-10
+Status: Draft
+Owner: F105 (AI Architect)
+Depends on: WS-02 (Core Types), C4 Graph Schema (Section 1)
+
+---
+
+## 1. DependencyInfo Split
+
+The current `DependencyInfo` conflates manifest entries, graph topology, and LLM annotations. Split into four disjoint types:
+
+### 1.1 ManifestDependency
+
+Raw entry from a single manifest file. No resolution, no inference.
+
+```go
+type ManifestDependency struct {
+    Name         string `json:"name"`           // e.g. "github.com/gin-gonic/gin"
+    Version      string `json:"version"`        // semver string or commit hash
+    ManifestPath string `json:"manifest_path"`  // e.g. "go.mod", "package.json"
+    Constraint   string `json:"constraint,omitempty"` // e.g. "^1.2.0", ">=2.0.0"
+    Direct       bool   `json:"direct"`         // true = declared in manifest, false = transitive
+    Dev          bool   `json:"dev,omitempty"`  // devDependency / test-only
+}
+```
+
+### 1.2 DependencyCorrelation
+
+Cross-manifest deduplication result. Links the same logical dependency across ecosystems.
+
+```go
+type DependencyCorrelation struct {
+    CanonicalName string               `json:"canonical_name"` // e.g. "lodash"
+    Ecosystem     string               `json:"ecosystem"`      // "go", "npm", "maven", "pypi"
+    Sources       []ManifestDependency `json:"sources"`        // all manifest entries that resolve here
+    ResolvedID    string               `json:"resolved_id"`    // deterministic ID (see Section 3)
+    IsInternal    bool                 `json:"is_internal"`    // references another module in this repo
+}
+```
+
+### 1.3 StructuralEdge
+
+Graph topology edge. Pure structural, no LLM data.
+
+```go
+type EdgeKind string
+
+const (
+    EdgeImport      EdgeKind = "import"       // compile-time import
+    EdgeCall        EdgeKind = "call"         // runtime function/method call
+    EdgeImplements  EdgeKind = "implements"   // contract fulfillment
+    EdgePersistsTo  EdgeKind = "persists_to"  // data storage dependency
+    EdgeExposes     EdgeKind = "exposes"      // public API surface
+    EdgeContains    EdgeKind = "contains"     // parent/child ownership
+)
+
+type StructuralEdge struct {
+    Source    string  `json:"source"`              // node ID
+    Target    string  `json:"target"`              // node ID
+    Kind      EdgeKind `json:"kind"`
+    Weight    int     `json:"weight,omitempty"`    // import count / call frequency
+    Protocol  string  `json:"protocol,omitempty"`  // HTTP, GRPC, Import, FunctionCall
+    Schema    []string `json:"schema,omitempty"`   // table names for PersistsTo
+    Path      string  `json:"path,omitempty"`      // URL path for Exposes
+    Method    string  `json:"method,omitempty"`    // HTTP verb or gRPC method
+    SpecType  string  `json:"spec_type,omitempty"` // OpenAPI, Proto, GraphQL
+    SpecPath  string  `json:"spec_path,omitempty"` // path to spec file
+    Confidence float64 `json:"confidence"`         // 0.0-1.0
+}
+```
+
+### 1.4 LLMEnrichment
+
+Semantic annotations only. NEVER read by structural algorithms.
+
+```go
+type LLMEnrichment struct {
+    Description      string   `json:"description,omitempty"`
+    TechnologyTags   []string `json:"technology_tags,omitempty"`  // ["Go", "Gin", "PostgreSQL"]
+    BusinessPurpose  string   `json:"business_purpose,omitempty"`
+    DataFlow         string   `json:"data_flow,omitempty"`       // edges only
+}
+```
+
+Invariant: `LLMEnrichment` is attached via a separate map (`map[string]LLMEnrichment`, keyed by node/edge ID). It is never a struct field on `Module`, `Component`, or `StructuralEdge`.
+
+---
+
+## 2. Concrete Go Types
+
+### 2.1 Module
+
+```go
+type Module struct {
+    ID           string             `json:"id"`            // deterministic (Section 3)
+    Language     string             `json:"language"`      // "go", "python", "java", "typescript", "sql"
+    Path         string             `json:"path"`          // directory relative to repo root
+    Name         string             `json:"name"`          // package/module name
+    Dependencies []ModuleDependency `json:"dependencies,omitempty"`
+    Files        []string           `json:"files,omitempty"`     // relative paths
+    ContainerID  string            `json:"container_id,omitempty"` // parent container
+    IsGenerated  bool              `json:"is_generated,omitempty"`
+}
+```
+
+### 2.2 ModuleDependency
+
+```go
+type DepType string
+
+const (
+    DepImport   DepType = "import"   // static import statement
+    DepRequire  DepType = "require"  // package manager require
+    DepDynamic  DepType = "dynamic"  // importlib, require(variable), reflection
+)
+
+type ModuleDependency struct {
+    TargetID   string `json:"target_id"`              // resolved module ID or external name
+    Type       DepType `json:"type"`
+    Line       int    `json:"line,omitempty"`          // source line number
+    IsExternal bool   `json:"is_external"`            // true if outside this repo
+}
+```
+
+### 2.3 Component
+
+```go
+type ComponentType string
+
+const (
+    CompService     ComponentType = "service"
+    CompLibrary     ComponentType = "library"
+    CompApplication ComponentType = "application"
+)
+
+type Component struct {
+    ID       string         `json:"id"`
+    Name     string         `json:"name"`
+    Modules  []string       `json:"modules"`          // module IDs
+    Type     ComponentType  `json:"type"`
+    Path     string         `json:"path"`             // primary directory
+    Confidence float64     `json:"confidence"`
+}
+```
+
+### 2.4 APISurface
+
+```go
+type APISurface struct {
+    Path         string `json:"path"`                    // "/api/v1/users"
+    Method       string `json:"method"`                  // GET, POST, or gRPC method path
+    Handler      string `json:"handler"`                 // function/method reference
+    RequestType  string `json:"request_type,omitempty"`  // Go struct / TS interface name
+    ResponseType string `json:"response_type,omitempty"`
+    ComponentID  string `json:"component_id,omitempty"`
+}
+```
+
+### 2.5 ModuleBoundary
+
+```go
+type ModuleBoundary struct {
+    Name             string   `json:"name"`              // e.g. "auth", "billing"
+    Pattern          string   `json:"pattern"`           // glob: "internal/auth/**"
+    EntryFiles       []string `json:"entry_files"`       // public API files
+    PublicInterfaces []string `json:"public_interfaces"` // exported types/functions
+}
+```
+
+### 2.6 LayerAssignment
+
+```go
+type LayerAssignment struct {
+    Layer        string   `json:"layer"`         // "presentation", "business", "data", "infrastructure"
+    Directories  []string `json:"directories"`    // ["internal/handlers", "api/"]
+    FilePatterns []string `json:"file_patterns"`  // ["*_handler.go", "*_controller.py"]
+    Confidence   float64  `json:"confidence"`
+}
+```
+
+---
+
+## 3. Deterministic ID Scheme
+
+Format: `"<language>:<package-path>:<module-name>"`
+
+Rules:
+- Language: lowercase ecosystem tag (`go`, `python`, `java`, `typescript`, `sql`)
+- Package path: relative to repo root, forward slashes, no leading slash
+- Module name: last segment of import path or directory name
+- For external dependencies: `"ext:<ecosystem>:<name>"` (no path segment)
+- For containers: `"container:<container-name>"` (derived from deploy config)
+- For components: `"<container-id>/<component-slug>"`
+
+Examples:
+```
+go:internal/architect:architect
+typescript:src/api:api
+ext:npm:lodash
+container:auth-service
+container:auth-service/user-handlers
+```
+
+Content hash fallback: when path alone is ambiguous (multiple modules at same path), append `:<sha256(content)[:8]>`.
+
+---
+
+## 4. Merge Strategy: ProfileFragment to CodebaseProfile
+
+Each extractor emits a `ProfileFragment`. The assembler merges fragments into a `CodebaseProfile`.
+
+```go
+type ProfileFragment struct {
+    Source         string               `json:"source"`          // extractor name
+    Modules        []Module             `json:"modules,omitempty"`
+    Dependencies   []ManifestDependency `json:"dependencies,omitempty"`
+    Edges          []StructuralEdge     `json:"edges,omitempty"`
+    APISurfaces    []APISurface         `json:"api_surfaces,omitempty"`
+    Boundaries     []ModuleBoundary     `json:"boundaries,omitempty"`
+    Layers         []LayerAssignment    `json:"layers,omitempty"`
+    Containers     []C4Container        `json:"containers,omitempty"`
+    Components     []C4Component        `json:"components,omitempty"`
+}
+```
+
+Per-field merge rules:
+
+| Field | Rule | Collision resolution |
+|-------|------|---------------------|
+| `modules` | Union by `id` | Last-writer-wins (later extractor stage overwrites) |
+| `dependencies` | Union by `(name, manifest_path)` | Last-writer-wins |
+| `edges` | Union by `(source, target, kind, protocol)` | Increment `weight`, keep higher `confidence` |
+| `api_surfaces` | Union by `(path, method)` | Last-writer-wins |
+| `boundaries` | Union by `name` | Merge: union `entry_files` and `public_interfaces` |
+| `layers` | Union by `layer` | Keep highest `confidence` entry per layer name |
+| `containers` | Union by `id` | Merge: union `components` arrays |
+| `components` | Union by `id` | Last-writer-wins |
+
+Merge order (extractor precedence, later overwrites earlier):
+1. FileTreeAnalyzer
+2. DependencyManifestParser
+3. SpecInventoryScanner
+4. InfraExtractor
+5. Language extractors (Go, Python, Java, TS, SQL — order within tier is undefined)
+6. ImportGraphExtractor
+
+---
+
+## 5. Serialization Format
+
+All types serialize as JSON with these conventions:
+- `omitempty` on all optional fields (already in struct tags)
+- No `null` values in output — omit the key entirely
+- Arrays never null — use empty `[]` if needed
+- `confidence` always present on nodes/edges, range `[0.0, 1.0]`
+- Timestamps in RFC3339 (`generated_at`, etc.)
+- IDs are strings, never integers
+
+### CodebaseProfile (top-level output)
+
+```go
+type CodebaseProfile struct {
+    Version        string               `json:"version"`
+    GeneratedAt    string               `json:"generated_at"`
+    AnalyzedCommit string               `json:"analyzed_commit,omitempty"`
+    System         SystemInfo           `json:"system"`
+    Modules        []Module             `json:"modules"`
+    Containers     []C4Container        `json:"containers"`
+    Components     []C4Component        `json:"components"`
+    Edges          []StructuralEdge     `json:"edges"`
+    Dependencies   []ManifestDependency `json:"dependencies"`
+    APISurfaces    []APISurface         `json:"api_surfaces,omitempty"`
+    Boundaries     []ModuleBoundary     `json:"boundaries,omitempty"`
+    Layers         []LayerAssignment    `json:"layers,omitempty"`
+    Enrichment     map[string]LLMEnrichment `json:"enrichment,omitempty"` // keyed by node/edge ID
+}
+```
+
+File output: `{target-repo}/.sdp/architecture/codebase-profile.json`
+Schema: `architecture-model.schema.json` (registered in `sdp/schema/index.json`)

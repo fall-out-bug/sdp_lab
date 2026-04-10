@@ -103,6 +103,9 @@ var (
 // SQLExtractor implements architect.Extractor for SQL schema analysis.
 type SQLExtractor struct{}
 
+// Name returns the extractor name.
+func (e *SQLExtractor) Name() string { return "sql" }
+
 // NewSQLExtractor returns a new SQLExtractor.
 func NewSQLExtractor() *SQLExtractor {
 	return &SQLExtractor{}

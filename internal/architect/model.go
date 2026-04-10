@@ -34,6 +34,138 @@ type C4Container struct {
 	Components       []C4Component `json:"components,omitempty"`
 }
 
+// --- Data Model types (Council Round 2 I1 resolution) ---
+
+// EdgeKind describes the type of a structural graph edge.
+type EdgeKind string
+
+const (
+	EdgeImport     EdgeKind = "import"
+	EdgeCall       EdgeKind = "call"
+	EdgeImplements EdgeKind = "implements"
+	EdgePersistsTo EdgeKind = "persists_to"
+	EdgeExposes    EdgeKind = "exposes"
+	EdgeContains   EdgeKind = "contains"
+)
+
+// ManifestDependency is a raw entry from a single manifest file.
+type ManifestDependency struct {
+	Name         string `json:"name"`
+	Version      string `json:"version"`
+	ManifestPath string `json:"manifest_path"`
+	Constraint   string `json:"constraint,omitempty"`
+	Direct       bool   `json:"direct"`
+	Dev          bool   `json:"dev,omitempty"`
+}
+
+// DependencyCorrelation is a cross-manifest deduplication result.
+type DependencyCorrelation struct {
+	CanonicalName string               `json:"canonical_name"`
+	Ecosystem     string               `json:"ecosystem"`
+	Sources       []ManifestDependency `json:"sources"`
+	ResolvedID    string               `json:"resolved_id"`
+	IsInternal    bool                 `json:"is_internal"`
+}
+
+// StructuralEdge is a graph topology edge. Pure structural, no LLM data.
+type StructuralEdge struct {
+	Source     string   `json:"source"`
+	Target     string   `json:"target"`
+	Kind       EdgeKind `json:"kind"`
+	Weight     int      `json:"weight,omitempty"`
+	Protocol   string   `json:"protocol,omitempty"`
+	Schema     []string `json:"schema,omitempty"`
+	Path       string   `json:"path,omitempty"`
+	Method     string   `json:"method,omitempty"`
+	SpecType   string   `json:"spec_type,omitempty"`
+	SpecPath   string   `json:"spec_path,omitempty"`
+	Confidence float64  `json:"confidence"`
+}
+
+// LLMEnrichment holds semantic annotations. NEVER read by structural algorithms.
+// Attached via separate map[string]LLMEnrichment keyed by node/edge ID.
+type LLMEnrichment struct {
+	Description     string   `json:"description,omitempty"`
+	TechnologyTags  []string `json:"technology_tags,omitempty"`
+	BusinessPurpose string   `json:"business_purpose,omitempty"`
+	DataFlow        string   `json:"data_flow,omitempty"`
+}
+
+// DepType describes how a module dependency is expressed.
+type DepType string
+
+const (
+	DepImport  DepType = "import"
+	DepRequire DepType = "require"
+	DepDynamic DepType = "dynamic"
+)
+
+// ModuleDependency describes a single dependency within a module.
+type ModuleDependency struct {
+	TargetID   string  `json:"target_id"`
+	Type       DepType `json:"type"`
+	Line       int     `json:"line,omitempty"`
+	IsExternal bool    `json:"is_external"`
+}
+
+// Module represents a language-level module/package.
+type Module struct {
+	ID           string             `json:"id"`
+	Language     string             `json:"language"`
+	Path         string             `json:"path"`
+	Name         string             `json:"name"`
+	Dependencies []ModuleDependency `json:"dependencies,omitempty"`
+	Files        []string           `json:"files,omitempty"`
+	ContainerID  string             `json:"container_id,omitempty"`
+	IsGenerated  bool               `json:"is_generated,omitempty"`
+}
+
+// ComponentType classifies the kind of component.
+type ComponentType string
+
+const (
+	CompService     ComponentType = "service"
+	CompLibrary     ComponentType = "library"
+	CompApplication ComponentType = "application"
+)
+
+// Component is a logical grouping of modules (C4 Level 3).
+type Component struct {
+	ID         string        `json:"id"`
+	Name       string        `json:"name"`
+	Modules    []string      `json:"modules"`
+	Type       ComponentType `json:"type"`
+	Path       string        `json:"path"`
+	Confidence float64       `json:"confidence"`
+}
+
+// APISurface describes a single exposed API endpoint or method.
+type APISurface struct {
+	Path         string `json:"path"`
+	Method       string `json:"method"`
+	Handler      string `json:"handler"`
+	RequestType  string `json:"request_type,omitempty"`
+	ResponseType string `json:"response_type,omitempty"`
+	ComponentID  string `json:"component_id,omitempty"`
+}
+
+// ModuleBoundary defines a logical boundary within the codebase.
+type ModuleBoundary struct {
+	Name             string   `json:"name"`
+	Pattern          string   `json:"pattern"`
+	EntryFiles       []string `json:"entry_files"`
+	PublicInterfaces []string `json:"public_interfaces"`
+}
+
+// LayerAssignment maps a module to an architectural layer.
+type LayerAssignment struct {
+	ModuleID string `json:"module_id"`
+	Layer    string `json:"layer"` // "presentation", "business", "data", "infrastructure"
+	Source   string `json:"source"` // "convention", "heuristic", "explicit"
+}
+
+// --- End Data Model types ---
+
 // C4Relationship represents a dependency between C4 elements.
 type C4Relationship struct {
 	From        string `json:"from"`
