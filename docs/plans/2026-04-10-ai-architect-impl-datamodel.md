@@ -184,28 +184,31 @@ type LayerAssignment struct {
 
 ## 3. Deterministic ID Scheme
 
-Format: `"<language>/<package-path>/<module-name>"` — uses `/` separator (safe across Windows, Maven, URLs). If any component contains `/`, it is URL-encoded.
+Format: `"<language>::<package-path>::<module-name>"` — uses `::` separator (guaranteed absent from file paths, package names, and Maven coordinates).
 
 Rules:
 - Language: lowercase ecosystem tag (`go`, `python`, `java`, `typescript`, `sql`)
-- Package path: relative to repo root, forward slashes, no leading slash; if empty, use `_`
+- Package path: relative to repo root, forward slashes, no leading slash; if empty, use `_`. NPM scoped packages encode `/` as `%2F` (e.g., `@types/node` → `typescript::@types%2Fnode::node`)
 - Module name: last segment of import path or directory name
-- For external dependencies: `"ext/<ecosystem>/<name>"` (no path segment)
-- For containers: `"container/<container-name>"` (derived from deploy config)
-- For components: `"<container-id>/<component-slug>"`
-- For Maven coordinates (`groupId:artifactId`): encode as `java/<group-path>/<artifactId>` where `group-path` replaces `.` with `/` (e.g., `com.example.auth` → `java/com/example/auth/mylib`)
+- For external dependencies: `"ext::<ecosystem>::<name>"` (no path segment)
+- For containers: `"container::<container-name>"` (derived from deploy config)
+- For components: `"<container-id>::<component-slug>"`
+- For Maven coordinates (`groupId:artifactId`): `java::<group-path>::<artifactId>` where `group-path` replaces `.` with `/` (e.g., `com.google.guava` → `java::com/google/guava::guava`)
 
 Examples:
 ```
-go/internal/architect/architect
-typescript/src/api/api
-ext/npm/lodash
-container/auth-service
-container/auth-service/user-handlers
-java/com/google/guava/guava
+go::internal/architect::architect
+typescript::src/api::api
+typescript::@types%2Fnode::node
+ext::npm::lodash
+container::auth-service
+container::auth-service::user-handlers
+java::com/google/guava::guava
 ```
 
-Content hash fallback: when path alone is ambiguous (multiple modules at same path), append `/~<sha256(canonical_json)[:8]>`. Canonical JSON: keys sorted, no whitespace, UTF-8.
+Content hash fallback: when path alone is ambiguous (multiple modules at same path), append `::~<sha256(canonical_json)[:8]>`. Canonical JSON: keys sorted, no whitespace, UTF-8.
+
+Validation regex: `^[a-z][a-z0-9]*::([^:]+)::([^:]+)$`
 
 ---
 
@@ -247,7 +250,7 @@ Merge order (extractor precedence, HIGHER number = HIGHER precedence, wins on co
 2. DependencyManifestParser
 3. SpecInventoryScanner
 4. InfraExtractor
-5. Language extractors (Go > Python > Java > TypeScript > SQL — alphabetical within tier for determinism)
+5. Language extractors (explicit index-based precedence: Go=0, Python=1, Java=2, TypeScript=3, SQL=4 — NOT alphabetical)
 6. ImportGraphExtractor (highest)
 
 **Invariant:** Once a higher-precedence extractor has populated a field for a given key, no lower-precedence extractor may overwrite it, regardless of execution order. This prevents race conditions from async extractor execution.
