@@ -135,6 +135,8 @@ const (
     CompApplication ComponentType = "application"
 )
 
+// Component is the canonical type. The C4 spec's C4Component alias is
+// type C4Component = Component (same underlying type, zero conversion cost).
 type Component struct {
     ID       string         `json:"id"`
     Name     string         `json:"name"`
@@ -184,31 +186,57 @@ type LayerAssignment struct {
 
 ## 3. Deterministic ID Scheme
 
-Format: `"<language>::<package-path>::<module-name>"` — uses `::` separator (guaranteed absent from file paths, package names, and Maven coordinates).
+Format: `"<language>\x00<package-path>\x00<module-name>"` — uses null byte (`\x00`) separator.
+
+**Why null byte:** `\x00` is invalid in POSIX paths, NPM package names, Maven coordinates, Cargo crate names, PyPI package names, and all target ecosystems. Unlike `::` (which collides with C++ scope resolution, Rust path separators, and Java method references), `\x00` has zero collision risk across all programming languages and package managers. Go strings can contain null bytes; the delimiter is safe for in-process use.
+
+**Canonicalization invariant:** `JoinID(SplitID(id)) == id` for any well-formed ID. SplitID and JoinID are the SOLE canonical functions for ID construction and parsing. All ID comparisons must use normalized IDs (join after split). A well-formed ID never contains a literal `\x00` except as the delimiter between segments.
+
+**Encoding rule:** All segments are stored verbatim (no URL-encoding, no base64). The null byte is the only reserved character; any segment containing `\x00` has it replaced with `%00` during JoinID (and `%00` in a segment is decoded back to `\x00` during SplitID). This normalization happens ONLY inside JoinID/SplitID — no other code may perform this encoding/decoding.
 
 Rules:
 - Language: lowercase ecosystem tag (`go`, `python`, `java`, `typescript`, `sql`)
-- Package path: relative to repo root, forward slashes, no leading slash; if empty, use `_`. NPM scoped packages encode `/` as `%2F` (e.g., `@types/node` → `typescript::@types%2Fnode::node`)
+- Package path: relative to repo root, forward slashes, no leading slash; if empty, use `_`. NPM scoped packages use their natural `/` separator (e.g., `@types/node` → `typescript\x00@types/node\x00node`)
 - Module name: last segment of import path or directory name
-- For external dependencies: `"ext::<ecosystem>::<name>"` (no path segment)
-- For containers: `"container::<container-name>"` (derived from deploy config)
-- For components: `"<container-id>::<component-slug>"`
-- For Maven coordinates (`groupId:artifactId`): `java::<group-path>::<artifactId>` where `group-path` replaces `.` with `/` (e.g., `com.google.guava` → `java::com/google/guava::guava`)
+- For external dependencies: `"ext\x00<ecosystem>\x00<name>"` (no path segment)
+- For containers: `"container\x00<container-name>"` (derived from deploy config)
+- For components: `"<container-id>\x00<component-slug>"`
+- For Maven coordinates (`groupId:artifactId`): `java\x00<group-path>\x00<artifactId>` where `group-path` replaces `.` with `/` (e.g., `com.google.guava` → `java\x00com/google/guava\x00guava`)
 
-Examples:
+Examples (shown with `[NUL]` for null byte readability):
 ```
-go::internal/architect::architect
-typescript::src/api::api
-typescript::@types%2Fnode::node
-ext::npm::lodash
-container::auth-service
-container::auth-service::user-handlers
-java::com/google/guava::guava
+go[NUL]internal/architect[NUL]architect
+typescript[NUL]src/api[NUL]api
+typescript[NUL]@types/node[NUL]node
+ext[NUL]npm[NUL]lodash
+container[NUL]auth-service
+container[NUL]auth-service[NUL]user-handlers
+java[NUL]com/google/guava[NUL]guava
 ```
 
-Content hash fallback: when path alone is ambiguous (multiple modules at same path), append `::~<sha256(canonical_json)[:8]>`. Canonical JSON: keys sorted, no whitespace, UTF-8.
+Content hash disambiguation: when path alone is ambiguous (multiple modules at same path), the module-name segment is suffixed with `~<sha256(canonical_json)[:8]>` (e.g., `architect~a1b2c3d4`). This keeps the ID at exactly 3 segments. Canonical JSON: keys sorted, no whitespace, UTF-8.
 
-Validation regex: `^[a-z][a-z0-9]*::([^:]+)::([^:]+)$`
+Validation: split on `\x00`, expect exactly 3 segments for module IDs. First segment must match `^[a-z][a-z0-9]*$` or be `ext`/`container`. No segment may be empty.
+
+**Runtime helpers:**
+
+```go
+// SplitID splits a deterministic ID into its segments.
+// Decodes %00 back to \x00 within segments.
+// Returns an error if the ID format is invalid.
+// Idempotent: JoinID(SplitID(id)) == id for well-formed IDs.
+func SplitID(id string) (segments []string, err error)
+
+// JoinID constructs a deterministic ID from segments.
+// Encodes any \x00 within segments as %00 before joining.
+// Rejects empty segments.
+// Idempotent: SplitID(JoinID(segs)) == segs for valid segments.
+func JoinID(segments ...string) (string, error)
+
+// NormalizeID parses and re-joins an ID to its canonical form.
+// All ID comparisons MUST use NormalizeID on both sides.
+func NormalizeID(id string) (string, error)
+```
 
 ---
 
