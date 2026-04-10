@@ -1,0 +1,50 @@
+version: "1"
+project:
+  name: "Test Project"
+  description: "Test"
+  source_dirs:
+    - docs/strategy
+  exclude:
+    - "*.tmp"
+levels:
+  - name: vision
+    rank: 0
+    description: "Vision"
+    patterns: ["*vision*"]
+  - name: strategy
+    rank: 1
+    description: "Strategy"
+    patterns: ["*strategy*"]
+  - name: task
+    rank: 2
+    description: "Tasks"
+    patterns: ["*task*"]
+entity_types:
+  - goal
+  - objective
+  - task
+llm:
+  model: "deepseek/deepseek-v3.2"
+  extract_model: "deepseek/deepseek-v3.2"
+  embedding_model: "openai/text-embedding-3-small"
+  embedding_dims: 1536
+  temperature: 0.1
+  temperatures:
+    classify: 0.0
+    extract: 0.1
+    verify: 0.0
+    infer: 0.3
+  requests_per_minute: 30
+  max_concurrent: 5
+  max_retries: 3
+  retry_base_delay_ms: 1000
+thresholds:
+  similarity: 0.5
+  trace_confidence: 0.6
+  coverage_warn: 70
+  stale_days: 90
+  chunk_token_limit: 3000
+  chunk_overlap_tokens: 500
+output:
+  dir: ".strataudit"
+  formats: [html, json]
