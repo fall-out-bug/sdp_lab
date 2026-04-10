@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -101,10 +102,23 @@ func runRun(args []string) {
 	defer store.Close()
 
 	ctx := context.Background()
-	_ = strataudit.NewLLMClient(apiKey, "https://openrouter.ai/api/v1")
+	llm := strataudit.NewLLMClient(apiKey, "https://openrouter.ai/api/v1")
+	llm.SetRateLimit(cfg.LLM.RequestsPerMin)
 
 	fmt.Printf("StratAudit config loaded: %d levels, %d source dirs\n", len(cfg.Levels), len(cfg.Project.SourceDirs))
 	fmt.Printf("Store: %s\n", dbPath)
-	fmt.Println("Pipeline not yet implemented. Foundation ready.")
-	_ = ctx
+
+	result, err := strataudit.RunPipeline(ctx, cfg, store, llm)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "pipeline error: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("\n=== StratAudit Complete ===\n")
+	fmt.Printf("Ingest:   %d new, %d updated, %d unchanged\n", result.Ingest.New, result.Ingest.Updated, result.Ingest.Unchanged)
+	fmt.Printf("Extract:  %d entities from %d documents\n", result.Extract.EntitiesExtracted, result.Extract.Documents)
+	fmt.Printf("Link:     %d traces from %d candidates (%d level pairs)\n", result.Link.TracesCreated, result.Link.CandidatesGenerated, result.Link.Pairs)
+	fmt.Printf("Analyze:  %d findings\n", result.Analyze.Findings)
+	fmt.Printf("Duration: %s\n", result.Duration.Round(time.Millisecond))
+	fmt.Printf("Output:   %s\n", cfg.Output.Dir)
 }
