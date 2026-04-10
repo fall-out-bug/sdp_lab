@@ -30,16 +30,12 @@ func TestAdaptersImplementInterface(t *testing.T) {
 			// Verify Name() returns non-empty
 			assert.NotEmpty(t, tc.extractor.Name())
 
-			// Verify Extract() can be called (may return error for non-matching repos)
+			// Verify Extract() can be called (should return empty fragment for non-matching repos)
 			ctx := context.Background()
 			frag, err := tc.extractor.Extract(ctx, "/tmp/test")
-			// Java extractor returns error for non-Java repos, others return empty fragment
-			if tc.name == "JavaAdapter" {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, frag)
-			}
+			// All adapters should return empty fragment for non-matching repos without error
+			assert.NoError(t, err)
+			assert.NotNil(t, frag)
 		})
 	}
 }
