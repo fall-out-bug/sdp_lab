@@ -53,6 +53,12 @@ func Ingest(ctx context.Context, cfg *Config, store *SQLiteStore) (*IngestResult
 			if err != nil {
 				return nil
 			}
+			if evaled, err := filepath.EvalSymlinks(absPath); err == nil {
+				absPath = evaled
+			}
+			if evaled, err := filepath.EvalSymlinks(absDir); err == nil {
+				absDir = evaled
+			}
 			if !strings.HasPrefix(absPath, absDir) {
 				return nil
 			}

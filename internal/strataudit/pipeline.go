@@ -29,7 +29,7 @@ func RunPipeline(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLMC
 		return nil, fmt.Errorf("ingest stage: %w", err)
 	}
 	result.Ingest = ingestResult
-	saveCheckpoint(ctx, store, "ingest", "completed", ingestResult.New, ingestResult.Updated)
+	saveCheckpoint(ctx, store, "ingest", stageStatus(ingestResult.Errors), ingestResult.New, ingestResult.Updated)
 
 	// Stage 2: Extract
 	extractResult, err := ExtractEntities(ctx, cfg, store, llm)
@@ -37,7 +37,7 @@ func RunPipeline(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLMC
 		return nil, fmt.Errorf("extract stage: %w", err)
 	}
 	result.Extract = extractResult
-	saveCheckpoint(ctx, store, "extract", "completed", extractResult.EntitiesExtracted, extractResult.Documents)
+	saveCheckpoint(ctx, store, "extract", stageStatus(extractResult.Errors), extractResult.EntitiesExtracted, extractResult.Documents)
 
 	// Stage 3: Link
 	linkResult, err := LinkEntities(ctx, cfg, store, llm)
@@ -45,7 +45,7 @@ func RunPipeline(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLMC
 		return nil, fmt.Errorf("link stage: %w", err)
 	}
 	result.Link = linkResult
-	saveCheckpoint(ctx, store, "link", "completed", linkResult.TracesCreated, linkResult.CandidatesGenerated)
+	saveCheckpoint(ctx, store, "link", stageStatus(linkResult.Errors), linkResult.TracesCreated, linkResult.CandidatesGenerated)
 
 	// Stage 4: Analyze
 	analyzeResult, err := Analyze(ctx, cfg, store)
@@ -53,7 +53,7 @@ func RunPipeline(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLMC
 		return nil, fmt.Errorf("analyze stage: %w", err)
 	}
 	result.Analyze = analyzeResult
-	saveCheckpoint(ctx, store, "analyze", "completed", analyzeResult.Findings, 0)
+	saveCheckpoint(ctx, store, "analyze", stageStatus(analyzeResult.Errors), analyzeResult.Findings, 0)
 
 	// Stage 5: Report
 	rpt, err := BuildReport(ctx, cfg, store)
@@ -78,6 +78,13 @@ func RunPipeline(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLMC
 
 	result.Duration = time.Since(start)
 	return result, nil
+}
+
+func stageStatus(errs []error) string {
+	if len(errs) == 0 {
+		return "completed"
+	}
+	return "partial"
 }
 
 func saveCheckpoint(ctx context.Context, store *SQLiteStore, stage, status string, count, count2 int) {

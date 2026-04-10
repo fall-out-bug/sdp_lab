@@ -128,6 +128,9 @@ func (c *Config) Validate() error {
 		}
 		ranks[l.Rank] = l.Name
 	}
+	if c.Thresholds.ChunkOverlapTokens >= c.Thresholds.ChunkTokenLimit {
+		return fmt.Errorf("chunk_overlap_tokens (%d) must be less than chunk_token_limit (%d)", c.Thresholds.ChunkOverlapTokens, c.Thresholds.ChunkTokenLimit)
+	}
 	return nil
 }
 

@@ -157,7 +157,7 @@ func Analyze(ctx context.Context, cfg *Config, store *SQLiteStore) (*AnalyzeResu
 		pct := float64(tracedCount) / float64(total) * 100
 
 		allFindings = append(allFindings, model.Finding{
-			ID:             findingID("coverage", int(total)),
+			ID:             findingID("coverage_"+level.ID, 0),
 			Type:           model.FindingCoverage,
 			Severity:       coverageSeverity(pct, cfg.Thresholds.CoverageWarn),
 			Title:          fmt.Sprintf("%s coverage: %.0f%% (%d/%d)", level.Name, pct, tracedCount, total),

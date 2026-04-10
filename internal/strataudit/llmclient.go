@@ -36,19 +36,28 @@ type LLMResponse struct {
 }
 
 type LLMClient struct {
-	apiKey  string
-	baseURL string
-	http    *http.Client
-	limiter *rate.Limiter
+	apiKey    string
+	baseURL   string
+	http      *http.Client
+	limiter   *rate.Limiter
+	maxRetries int
+	retryDelay time.Duration
 }
 
 func NewLLMClient(apiKey, baseURL string) *LLMClient {
 	return &LLMClient{
-		apiKey:  apiKey,
-		baseURL: strings.TrimRight(baseURL, "/"),
-		http:    &http.Client{Timeout: 120 * time.Second},
-		limiter: rate.NewLimiter(rate.Limit(0.5), 1),
+		apiKey:     apiKey,
+		baseURL:    strings.TrimRight(baseURL, "/"),
+		http:       &http.Client{Timeout: 120 * time.Second},
+		limiter:    rate.NewLimiter(rate.Limit(0.5), 1),
+		maxRetries: 3,
+		retryDelay: 1 * time.Second,
 	}
+}
+
+func (c *LLMClient) SetRetryConfig(maxRetries int, baseDelay time.Duration) {
+	c.maxRetries = maxRetries
+	c.retryDelay = baseDelay
 }
 
 func (c *LLMClient) SetRateLimit(requestsPerMinute int) {
@@ -84,23 +93,43 @@ func (c *LLMClient) Chat(ctx context.Context, req LLMRequest) (*LLMResponse, err
 	}
 
 	bodyJSON, _ := json.Marshal(body)
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/chat/completions", bytes.NewReader(bodyJSON))
-	if err != nil {
-		return nil, err
-	}
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
-	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.http.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("llm request: %w", err)
+	var resp *http.Response
+	var lastErr error
+	for attempt := 0; attempt <= c.maxRetries; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-time.After(c.retryDelay * time.Duration(1<<(attempt-1))):
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+		httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/chat/completions", bytes.NewReader(bodyJSON))
+		if err != nil {
+			return nil, err
+		}
+		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+		httpReq.Header.Set("Content-Type", "application/json")
+
+		resp, lastErr = c.http.Do(httpReq)
+		if lastErr != nil {
+			continue
+		}
+		if resp.StatusCode == 200 {
+			break
+		}
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+			b, _ := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			return nil, fmt.Errorf("llm status %d: %s", resp.StatusCode, string(b))
+		}
+		_ = resp.Body.Close()
+		lastErr = fmt.Errorf("llm status %d", resp.StatusCode)
+	}
+	if lastErr != nil {
+		return nil, fmt.Errorf("llm request after %d retries: %w", c.maxRetries, lastErr)
 	}
 	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != 200 {
-		b, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("llm status %d: %s", resp.StatusCode, string(b))
-	}
 
 	var result struct {
 		Choices []struct {
@@ -178,8 +207,15 @@ func (c *LLMClient) Embed(ctx context.Context, texts []string, model string) ([]
 	return embs, nil
 }
 
+const maxCacheEntries = 10000
+
+type cacheEntry struct {
+	value     string
+	createdAt time.Time
+}
+
 var (
-	llmCache   = make(map[string]string)
+	llmCache   = make(map[string]cacheEntry)
 	llmCacheMu sync.RWMutex
 )
 
@@ -192,13 +228,27 @@ func (c *LLMClient) cacheKey(req LLMRequest) string {
 func (c *LLMClient) checkCache(key string) string {
 	llmCacheMu.RLock()
 	defer llmCacheMu.RUnlock()
-	return llmCache[key]
+	if e, ok := llmCache[key]; ok {
+		return e.value
+	}
+	return ""
 }
 
 func (c *LLMClient) storeCache(key, value string) {
 	llmCacheMu.Lock()
 	defer llmCacheMu.Unlock()
-	llmCache[key] = value
+	// Evict 20% of entries when cache is full
+	if len(llmCache) >= maxCacheEntries {
+		count := 0
+		for k := range llmCache {
+			delete(llmCache, k)
+			count++
+			if count >= maxCacheEntries/5 {
+				break
+			}
+		}
+	}
+	llmCache[key] = cacheEntry{value: value, createdAt: time.Now()}
 }
 
 // ParseLLMJSON extracts JSON from LLM response (handles markdown wrapping, prefixes)

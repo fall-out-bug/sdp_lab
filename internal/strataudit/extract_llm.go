@@ -9,6 +9,13 @@ import (
 	"sdp_dev/internal/strataudit/model"
 )
 
+// xmlEscape replaces < and > with HTML entities to prevent tag injection in prompts.
+func xmlEscape(s string) string {
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	return s
+}
+
 // ExtractResult holds extraction statistics.
 type ExtractResult struct {
 	EntitiesExtracted int
@@ -101,7 +108,7 @@ func extractFromDocument(ctx context.Context, cfg *Config, llm *LLMClient, doc m
 		}
 
 		for _, e := range entities {
-			key := strings.ToLower(e.Title)
+			key := strings.ToLower(string(e.Type)) + "|" + strings.ToLower(e.Title)
 			if !seen[key] {
 				seen[key] = true
 				allEntities = append(allEntities, e)
@@ -137,7 +144,7 @@ Extract all strategic entities as JSON. Return a JSON object with an "entities" 
 - "source_quote": exact quote from the document supporting this extraction (max 500 chars)
 
 If the content contains no strategic entities, return {"entities": []}.
-If uncertain about an entity, do not include it.`, level.Name, level.Rank, types, content, types)
+If uncertain about an entity, do not include it.`, level.Name, level.Rank, types, xmlEscape(content), types)
 
 	if totalChunks > 1 {
 		prompt += fmt.Sprintf("\n\nNote: This is chunk %d of %d from a larger document. Extract only entities clearly present in this chunk.", chunkIndex+1, totalChunks)
