@@ -23,20 +23,39 @@ var skipDirs = map[string]bool{
 // namingPatterns maps directory/file name substrings to architectural pattern
 // labels.  Plural forms are included so that e.g. "entities" matches "entity".
 var namingPatterns = map[string]string{
-	"controller":  "controller",
-	"controllers": "controller",
-	"service":     "service",
-	"services":    "service",
-	"repository":  "repository",
+	"controller":   "controller",
+	"controllers":  "controller",
+	"service":      "service",
+	"services":     "service",
+	"repository":   "repository",
 	"repositories": "repository",
-	"handler":     "handler",
-	"handlers":    "handler",
-	"middleware":  "middleware",
-	"middlewares": "middleware",
-	"model":       "model",
-	"models":      "model",
-	"entity":      "entity",
-	"entities":    "entity",
+	"handler":      "handler",
+	"handlers":     "handler",
+	"middleware":   "middleware",
+	"middlewares":  "middleware",
+	"model":        "model",
+	"models":       "model",
+	"entity":       "entity",
+	"entities":     "entity",
+}
+
+// dirConventions lists well-known directory names that signal project layout
+// conventions. These are reported alongside naming patterns.
+var dirConventions = map[string]string{
+	"src":      "src_layout",
+	"lib":      "lib_layout",
+	"cmd":      "cmd_layout",
+	"pkg":      "pkg_layout",
+	"internal": "internal_layout",
+	"api":      "api_layout",
+	"web":      "web_layout",
+	"app":      "app_layout",
+	"bin":      "bin_layout",
+	"docs":     "docs_layout",
+	"config":   "config_layout",
+	"scripts":  "scripts_layout",
+	"test":     "test_layout",
+	"tests":    "test_layout",
 }
 
 // textExtensions lists file extensions that should be treated as text files
@@ -68,6 +87,7 @@ func (FileTreeExtractor) Extract(ctx context.Context, repoRoot string) (*archite
 		maxDepth   int
 		extCounts  = make(map[string]int)
 		seen       = make(map[string]bool)
+		dirConvos  = make(map[string]bool)
 	)
 
 	err := filepath.WalkDir(repoRoot, func(path string, d fs.DirEntry, err error) error {
@@ -96,8 +116,14 @@ func (FileTreeExtractor) Extract(ctx context.Context, repoRoot string) (*archite
 			if depth > maxDepth {
 				maxDepth = depth
 			}
-			// Check naming patterns on directories.
+			// Check directory conventions (src, lib, cmd, pkg, internal, etc.).
 			lower := strings.ToLower(d.Name())
+			for name, label := range dirConventions {
+				if lower == name && !dirConvos[label] {
+					dirConvos[label] = true
+				}
+			}
+			// Check naming patterns on directories.
 			for substr, label := range namingPatterns {
 				if strings.Contains(lower, substr) && !seen[label] {
 					seen[label] = true
@@ -139,6 +165,12 @@ func (FileTreeExtractor) Extract(ctx context.Context, repoRoot string) (*archite
 	var patterns []string
 	for _, label := range namingPatterns {
 		if seen[label] && !added[label] {
+			added[label] = true
+			patterns = append(patterns, label)
+		}
+	}
+	for _, label := range dirConventions {
+		if dirConvos[label] && !added[label] {
 			added[label] = true
 			patterns = append(patterns, label)
 		}

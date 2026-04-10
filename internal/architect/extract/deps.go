@@ -3,6 +3,7 @@ package extract
 import (
 	"bufio"
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,6 +55,8 @@ var manifests = []manifestSpec{
 	{File: "Cargo.toml", Language: "rust", Counter: countLineFile},
 	{File: "pom.xml", Language: "java", Counter: countXMLDeps},
 	{File: "build.gradle", Language: "java", Counter: countLineFile},
+	{File: "build.gradle.kts", Language: "kotlin", Counter: countLineFile},
+	{File: "Gemfile", Language: "ruby", Counter: countGemfile},
 }
 
 // DependencyManifestParser detects dependency manifest files and extracts
@@ -90,6 +93,14 @@ func (DependencyManifestParser) Extract(ctx context.Context, repoRoot string) (*
 			Signals:  signals,
 		})
 	}
+
+	// Walk for *.csproj files (C# projects) since they are not fixed-name.
+	csprojDeps, err := scanCsprojFiles(ctx, repoRoot)
+	if err != nil {
+		// Non-fatal: continue with other deps.
+		return &architect.ProfileFragment{Dependencies: deps}, nil
+	}
+	deps = append(deps, csprojDeps...)
 
 	return &architect.ProfileFragment{
 		Dependencies: deps,
@@ -244,4 +255,101 @@ func mapKeys(m map[string]bool) []string {
 	}
 	sortStrings(keys)
 	return keys
+}
+
+// countGemfile counts gem lines in a Ruby Gemfile, skipping comments,
+// blanks, source/group/group-end lines.
+func countGemfile(path string) (int, []string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer f.Close()
+
+	var (
+		count int
+		seen  = make(map[string]bool)
+	)
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "source ") ||
+			strings.HasPrefix(line, "ruby ") || strings.HasPrefix(line, "group ") ||
+			line == "end" || strings.HasPrefix(line, "git ") || strings.HasPrefix(line, "platforms:") {
+			continue
+		}
+		// Only count lines that look like gem declarations or similar.
+		if strings.HasPrefix(line, "gem ") || strings.Contains(line, ",") {
+			count++
+			detectSignals(line, seen)
+		}
+	}
+	return count, mapKeys(seen), sc.Err()
+}
+
+// scanCsprojFiles walks the repo for *.csproj files and counts
+// <PackageReference> tags in each.
+func scanCsprojFiles(ctx context.Context, repoRoot string) ([]architect.DependencyInfo, error) {
+	var deps []architect.DependencyInfo
+
+	err := filepath.WalkDir(repoRoot, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		if d.IsDir() {
+			if skipDirs[d.Name()] {
+				return fs.SkipDir
+			}
+			return nil
+		}
+
+		if !strings.HasSuffix(d.Name(), ".csproj") {
+			return nil
+		}
+
+		count, signals, parseErr := countCsproj(path)
+		if parseErr != nil {
+			return nil // Non-fatal
+		}
+
+		rel, _ := filepath.Rel(repoRoot, path)
+		deps = append(deps, architect.DependencyInfo{
+			File:     rel,
+			Language: "csharp",
+			DepCount: count,
+			Signals:  signals,
+		})
+		return nil
+	})
+	return deps, err
+}
+
+// countCsproj counts <PackageReference> tags in a .csproj file.
+func countCsproj(path string) (int, []string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer f.Close()
+
+	var (
+		count int
+		seen  = make(map[string]bool)
+	)
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if strings.Contains(line, "<PackageReference") {
+			count++
+			detectSignals(line, seen)
+		}
+	}
+	return count, mapKeys(seen), sc.Err()
 }

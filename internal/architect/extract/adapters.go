@@ -20,9 +20,15 @@ func (GoAdapter) Name() string { return "go" }
 
 // Extract analyzes the Go repository at repoRoot and returns a ProfileFragment.
 func (GoAdapter) Extract(ctx context.Context, repoRoot string) (*architect.ProfileFragment, error) {
-	// Check if go.mod exists
-	if _, err := os.Stat(filepath.Join(repoRoot, "go.mod")); os.IsNotExist(err) {
-		return &architect.ProfileFragment{}, nil // Not a Go project
+	// Check if go.mod or go.work exists (go.work for monorepos)
+	hasGoMod := false
+	if _, err := os.Stat(filepath.Join(repoRoot, "go.mod")); err == nil {
+		hasGoMod = true
+	}
+	if !hasGoMod {
+		if _, err := os.Stat(filepath.Join(repoRoot, "go.work")); err != nil {
+			return &architect.ProfileFragment{}, nil // Not a Go project
+		}
 	}
 
 	e := NewGoExtractor(repoRoot)
@@ -92,8 +98,58 @@ func (GoAdapter) Extract(ctx context.Context, repoRoot string) (*architect.Profi
 		}
 
 		frag.ImportGraph = importGraph
+
+		// Surface framework detection as DependencyInfo signals.
+		if len(graph.Frameworks) > 0 {
+			depInfo := architect.DependencyInfo{
+				Language: "go",
+				File:     "go.mod",
+			}
+			for _, fw := range graph.Frameworks {
+				depInfo.NotableDeps = append(depInfo.NotableDeps, architect.NotableDep{
+					Name:    fw.Name,
+					FoundIn: 1,
+					Signal:  "web_framework",
+				})
+			}
+			frag.Dependencies = append(frag.Dependencies, depInfo)
+		}
+
+		// Surface go.mod module info as DependencyInfo.
+		if graph.ModuleInfo != nil && len(graph.ModuleInfo.Requires) > 0 {
+			modDepInfo := architect.DependencyInfo{
+				Language: "go",
+				File:     "go.mod",
+				DepCount: len(graph.ModuleInfo.Requires),
+			}
+			// Collect notable signals from go.mod requires.
+			signalSet := make(map[string]bool)
+			for _, req := range graph.ModuleInfo.Requires {
+				for prefix, signal := range notableSignals {
+					if strings.Contains(strings.ToLower(req.Path), prefix) && !signalSet[signal] {
+						signalSet[signal] = true
+						modDepInfo.Signals = append(modDepInfo.Signals, signal)
+					}
+				}
+			}
+			sortStrings(modDepInfo.Signals)
+
+			// Merge with framework DependencyInfo if both exist.
+			if len(frag.Dependencies) > 0 {
+				// Merge notable deps from frameworks into module deps.
+				for _, nd := range frag.Dependencies[0].NotableDeps {
+					modDepInfo.NotableDeps = append(modDepInfo.NotableDeps, nd)
+				}
+				frag.Dependencies[0] = modDepInfo
+			} else {
+				frag.Dependencies = append(frag.Dependencies, modDepInfo)
+			}
+		}
+
 		frag.Metrics = &architect.CodeMetrics{
-			LanguagesCount: 1,
+			LanguagesCount:     1,
+			ContainersDetected: len(graph.DeployUnits),
+			ComponentsDetected: len(graph.Clusters),
 		}
 	}
 
@@ -145,7 +201,88 @@ func (PythonAdapter) Extract(ctx context.Context, repoRoot string) (*architect.P
 	if err != nil {
 		return nil, err
 	}
-	return convertExtractionResult(result), nil
+	frag := convertExtractionResult(result)
+
+	// Build and attach the Python import graph for C4 Level 3 clustering.
+	graph, graphErr := e.BuildPythonImportGraph(ctx, repoRoot)
+	if graphErr == nil && graph != nil && len(graph.Nodes) > 0 {
+		ig := &architect.ImportGraph{
+			ExtractionMethod: graph.ExtractionMethod,
+			AccuracyEstimate: graph.AccuracyEstimate,
+			Nodes:            len(graph.Nodes),
+			Edges:            len(graph.Edges),
+		}
+
+		// Convert clusters.
+		for _, c := range graph.Clusters {
+			ig.Clusters = append(ig.Clusters, architect.ImportCluster{
+				ID: c,
+			})
+		}
+
+		// Fill cluster packages.
+		for _, node := range graph.Nodes {
+			for i := range ig.Clusters {
+				if ig.Clusters[i].ID == node.Cluster {
+					ig.Clusters[i].Packages = append(ig.Clusters[i].Packages, node.ImportPath)
+					break
+				}
+			}
+		}
+
+		// Count internal/external edges per cluster.
+		pkgSet := make(map[string]bool)
+		for i, c := range ig.Clusters {
+			pkgSet = make(map[string]bool, len(c.Packages))
+			for _, p := range c.Packages {
+				pkgSet[p] = true
+			}
+			for _, edge := range graph.Edges {
+				if pkgSet[edge.From] {
+					if pkgSet[edge.To] {
+						ig.Clusters[i].InternalEdges++
+					} else {
+						ig.Clusters[i].ExternalEdges++
+					}
+				}
+			}
+		}
+
+		// Convert cycles.
+		cycles := DetectPythonCycles(graph.Nodes, graph.Edges)
+		for _, cycle := range cycles {
+			if len(cycle) >= 2 {
+				ig.CircularDependencies = append(ig.CircularDependencies, architect.CircularDep{
+					A:        cycle[0],
+					B:        cycle[len(cycle)-1],
+					EdgeType: "python_import",
+				})
+			}
+		}
+
+		frag.ImportGraph = ig
+
+		// Surface frameworks from the graph.
+		if len(graph.Frameworks) > 0 {
+			fwDepInfo := architect.DependencyInfo{
+				Language: "python",
+			}
+			for _, fw := range graph.Frameworks {
+				fwDepInfo.NotableDeps = append(fwDepInfo.NotableDeps, architect.NotableDep{
+					Name:    fw.Name,
+					FoundIn: len(fw.Files),
+					Signal:  "web_framework",
+				})
+			}
+			frag.Dependencies = append(frag.Dependencies, fwDepInfo)
+		}
+
+		if frag.Metrics != nil {
+			frag.Metrics.ComponentsDetected = len(graph.Clusters)
+		}
+	}
+
+	return frag, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -201,7 +338,7 @@ func (JavaAdapter) Extract(ctx context.Context, repoRoot string) (*architect.Pro
 // TypeScriptAdapter — wraps TypeScriptExtractor to implement architect.Extractor
 // ---------------------------------------------------------------------------
 
-// TypeScriptAdapter wraps TypeScriptExtractor to implement the canonical Extractor interface.
+// TypeScriptAdapter wraps TSExtractor to implement the canonical Extractor interface.
 type TypeScriptAdapter struct{}
 
 // Name returns the extractor identifier.
@@ -209,41 +346,8 @@ func (TypeScriptAdapter) Name() string { return "typescript" }
 
 // Extract analyzes the TypeScript/JavaScript repository at repoRoot and returns a ProfileFragment.
 func (TypeScriptAdapter) Extract(ctx context.Context, repoRoot string) (*architect.ProfileFragment, error) {
-	// Check if this is a TypeScript/JavaScript project by looking for common markers
-	hasTSMarkers := false
-	for _, marker := range []string{"package.json", "tsconfig.json", "jsconfig.json"} {
-		if _, err := os.Stat(filepath.Join(repoRoot, marker)); err == nil {
-			hasTSMarkers = true
-			break
-		}
-	}
-	// Also check for any .ts, .tsx, .js, or .jsx files
-	if !hasTSMarkers {
-		if err := filepath.Walk(repoRoot, func(path string, fi os.FileInfo, err error) error {
-			if err != nil || fi.IsDir() {
-				return nil
-			}
-			name := fi.Name()
-			if strings.HasSuffix(name, ".ts") || strings.HasSuffix(name, ".tsx") || strings.HasSuffix(name, ".js") || strings.HasSuffix(name, ".jsx") {
-				hasTSMarkers = true
-				return filepath.SkipDir // Found a TS/JS file, stop walking
-			}
-			return nil
-		}); err == nil && hasTSMarkers {
-			// Found TS/JS files
-		}
-	}
-
-	if !hasTSMarkers {
-		return &architect.ProfileFragment{}, nil // Not a TypeScript project
-	}
-
-	e := &TypeScriptExtractor{}
-	result, err := e.Extract(repoRoot)
-	if err != nil {
-		return nil, err
-	}
-	return convertTSResult(result), nil
+	e := NewTSExtractor()
+	return e.Extract(ctx, repoRoot)
 }
 
 // ---------------------------------------------------------------------------
@@ -311,13 +415,19 @@ func convertExtractionResult(r *architect.ExtractionResult) *architect.ProfileFr
 	}
 
 	// Convert Dependencies → DependencyInfo
-	// Only include deps from manifest files (requirements.txt/pyproject.toml), not from source analysis
+	// Only include deps from manifest files, not from source import analysis.
+	manifestSources := map[string]bool{
+		"requirements.txt": true,
+		"pyproject.toml":   true,
+		"setup.py":         true,
+		"setup.cfg":        true,
+		"Pipfile":          true,
+	}
 	if len(r.Dependencies) > 0 {
 		depInfo := architect.DependencyInfo{}
 		seenNotable := make(map[string]bool)
 		for _, d := range r.Dependencies {
-			// Only deps from manifest files, not source == "import" (which catches internal/local imports)
-			if (d.Source == "requirements.txt" || d.Source == "pyproject.toml") && !seenNotable[d.Name] {
+			if manifestSources[d.Source] && !seenNotable[d.Name] {
 				seenNotable[d.Name] = true
 				depInfo.NotableDeps = append(depInfo.NotableDeps, architect.NotableDep{
 					Name:    d.Name,
@@ -386,47 +496,3 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 	return frag
 }
 
-// convertTSResult converts TSExtractionResult to ProfileFragment.
-func convertTSResult(r *TSExtractionResult) *architect.ProfileFragment {
-	if r == nil {
-		return &architect.ProfileFragment{}
-	}
-	frag := &architect.ProfileFragment{
-		Languages: []architect.LanguageInfo{{
-			Primary: "typescript",
-			All:     []string{"typescript", "javascript"},
-		}},
-	}
-
-	// Convert Imports → ImportGraph
-	if len(r.Imports) > 0 {
-		totalEdges := 0
-		for _, imports := range r.Imports {
-			totalEdges += len(imports)
-		}
-		frag.ImportGraph = &architect.ImportGraph{
-			ExtractionMethod: r.ExtractionMethod,
-			AccuracyEstimate: r.AccuracyEstimate,
-			Nodes:            len(r.Imports),
-			Edges:            totalEdges,
-		}
-	}
-
-	// Convert Dependencies → DependencyInfo
-	if len(r.Dependencies) > 0 {
-		depInfo := architect.DependencyInfo{}
-		for _, d := range r.Dependencies {
-			depInfo.NotableDeps = append(depInfo.NotableDeps, architect.NotableDep{
-				Name:   d.Name,
-				Signal: "ts_dependency",
-			})
-		}
-		frag.Dependencies = []architect.DependencyInfo{depInfo}
-	}
-
-	frag.Metrics = &architect.CodeMetrics{
-		LanguagesCount: 1,
-	}
-
-	return frag
-}

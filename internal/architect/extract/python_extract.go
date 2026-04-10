@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"sdp_dev/internal/architect"
@@ -61,6 +62,7 @@ var pythonStdlib = map[string]bool{
 }
 
 // pythonSkipDirs lists directories to skip when walking a Python project.
+// Includes virtual environment directories, caches, and tool artifacts.
 var pythonSkipDirs = map[string]bool{
 	"venv":          true,
 	".venv":         true,
@@ -71,6 +73,22 @@ var pythonSkipDirs = map[string]bool{
 	".tox":          true,
 	".mypy_cache":   true,
 	".pytest_cache": true,
+	".eggs":         true,
+	"*.egg-info":    true, // handled via suffix check in walker
+	"dist":          true,
+	"build":         true,
+	".nox":          true,
+}
+
+// pythonTestDirNames identifies directories likely to hold test files.
+var pythonTestDirNames = map[string]bool{
+	"tests":        true,
+	"test":         true,
+	"spec":         true,
+	"specs":        true,
+	"_tests":       true,
+	"_test":        true,
+	"testing":      true,
 }
 
 var (
@@ -78,9 +96,17 @@ var (
 	reFromImport     = regexp.MustCompile(`^from\s+(\S+)\s+import\s+(\S+)`)
 
 	// Framework detection patterns.
-	reFlaskRoute   = regexp.MustCompile(`@app\.route\(`)
-	reFastAPIRoute = regexp.MustCompile(`@app\.(get|post|put|delete|patch)\(`)
-	reDjangoApps   = regexp.MustCompile(`INSTALLED_APPS\s*=`)
+	reFlaskApp      = regexp.MustCompile(`(?:app|application)\s*=\s*Flask\s*\(`)
+	reFlaskRoute    = regexp.MustCompile(`@(?:\w+)\.route\s*\(`)
+	reFlaskBlueprint = regexp.MustCompile(`Blueprint\s*\(`)
+	reFastAPIDecor  = regexp.MustCompile(`@(?:\w+)\.(get|post|put|delete|patch|api_route)\s*\(`)
+	reFastAPIApp    = regexp.MustCompile(`(?:app|application)\s*=\s*FastAPI\s*\(`)
+	reFastAPIRouter = regexp.MustCompile(`APIRouter\s*\(`)
+	reDjangoApps    = regexp.MustCompile(`INSTALLED_APPS\s*=`)
+	reDjangoURLs    = regexp.MustCompile(`urlpatterns\s*=`)
+	reDjangoModel   = regexp.MustCompile(`class\s+\w+\s*\(\s*(?:models\.)?Model\s*\)`)
+	reDjangoConfig  = regexp.MustCompile(`class\s+\w+Config\s*\(\s*(?:apps\.)?AppConfig\s*\)`)
+	reCeleryApp     = regexp.MustCompile(`(?:celery|app)\s*=\s*Celery\s*\(`)
 
 	// requirements.txt line: package==version or package>=version etc.
 	reRequirement = regexp.MustCompile(`^([A-Za-z0-9][A-Za-z0-9._-]*)`)
@@ -89,7 +115,52 @@ var (
 	rePyprojectDep = regexp.MustCompile(`^\s*"?([A-Za-z0-9][A-Za-z0-9._-]*)"?\s*[>=<~!]`)
 	// Simple key = "version" style (poetry)
 	rePoetryDep = regexp.MustCompile(`^([A-Za-z0-9][A-Za-z0-9._-]*)\s*=`)
+
+	// setup.py install_requires entry: "package" or 'package' with optional version
+	reSetupDep = regexp.MustCompile(`['"]([A-Za-z0-9][A-Za-z0-9._-]*)['"]`)
+
+	// Pipfile package line: name = "version"
+	rePipfileDep = regexp.MustCompile(`^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*=`)
 )
+
+// ---------------------------------------------------------------------------
+// PythonImportGraph — internal domain model for the Python import graph
+// ---------------------------------------------------------------------------
+
+// PythonModuleNode represents a Python module or package discovered during extraction.
+type PythonModuleNode struct {
+	ImportPath string `json:"import_path"`
+	RelPath    string `json:"rel_path"`
+	Name       string `json:"name"`
+	Cluster    string `json:"cluster"`
+	IsTest     bool   `json:"is_test"`
+	IsInit     bool   `json:"is_init"`
+}
+
+// PythonImportEdge represents a directed dependency from one Python module to another.
+type PythonImportEdge struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+// PythonImportGraph is the result of running PythonExtractor against a Python project.
+type PythonImportGraph struct {
+	Nodes            []PythonModuleNode  `json:"nodes"`
+	Edges            []PythonImportEdge  `json:"edges"`
+	Clusters         []string            `json:"clusters"`
+	TestDirs         []string            `json:"test_dirs,omitempty"`
+	Frameworks       []DetectedPythonFW  `json:"frameworks,omitempty"`
+	ExtractionMethod string              `json:"extraction_method"`
+	AccuracyEstimate float64             `json:"accuracy_estimate"`
+}
+
+// DetectedPythonFW records a Python framework detected from source analysis.
+type DetectedPythonFW struct {
+	Name       string  `json:"name"`
+	Confidence float64 `json:"confidence"`
+	Evidence   string  `json:"evidence"`
+	Files      []string `json:"files,omitempty"`
+}
 
 // PythonExtractor implements architect.Extractor for Python projects using regex.
 type PythonExtractor struct{}
@@ -97,8 +168,9 @@ type PythonExtractor struct{}
 // Language returns "python".
 func (p *PythonExtractor) Language() string { return "python" }
 
-// Extract walks rootDir, parses .py files for imports, reads requirements.txt
-// and pyproject.toml, and detects frameworks.
+// Extract walks rootDir, parses .py files for imports, reads dependency manifests,
+// and detects frameworks. For the full import graph with clustering, use
+// BuildPythonImportGraph instead.
 func (p *PythonExtractor) Extract(ctx context.Context, rootDir string) (*architect.ExtractionResult, error) {
 	result := &architect.ExtractionResult{
 		Language:         "python",
@@ -106,7 +178,7 @@ func (p *PythonExtractor) Extract(ctx context.Context, rootDir string) (*archite
 		AccuracyEstimate: 0.55,
 	}
 
-	seen := make(map[string]bool)     // dedup key: "source:name"
+	seen := make(map[string]bool) // dedup key: "source:name"
 	frameworks := make(map[string]architect.Framework)
 
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
@@ -121,29 +193,41 @@ func (p *PythonExtractor) Extract(ctx context.Context, rootDir string) (*archite
 		default:
 		}
 
+		rel, _ := filepath.Rel(rootDir, path)
+
 		if info.IsDir() {
-			if pythonSkipDirs[info.Name()] {
+			name := info.Name()
+			if pythonSkipDirs[name] {
+				return filepath.SkipDir
+			}
+			if strings.HasSuffix(name, ".egg-info") {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 
-		rel, _ := filepath.Rel(rootDir, path)
-
 		switch {
 		case strings.HasSuffix(info.Name(), ".py"):
-			deps, fws, err := parsePythonFile(path, rel)
+			_, fws, fileImports, err := parsePythonFileEnhanced(path, rel)
 			if err != nil {
 				return nil // skip unreadable files
 			}
 			result.FileCount++
-			for _, d := range deps {
-				key := d.Source + ":" + d.Name
+
+			// Record imports as dependencies.
+			for _, imp := range fileImports {
+				key := imp.Source + ":" + imp.Name
 				if !seen[key] {
 					seen[key] = true
-					result.Dependencies = append(result.Dependencies, d)
+					result.Dependencies = append(result.Dependencies, architect.Dependency{
+						Name:   imp.Name,
+						Source: imp.Source,
+						Kind:   imp.Kind,
+					})
 				}
 			}
+
+			// Merge framework detections.
 			for _, fw := range fws {
 				if existing, ok := frameworks[fw.Name]; !ok || fw.Confidence > existing.Confidence {
 					frameworks[fw.Name] = fw
@@ -169,13 +253,45 @@ func (p *PythonExtractor) Extract(ctx context.Context, rootDir string) (*archite
 					result.Dependencies = append(result.Dependencies, d)
 				}
 			}
+
+		case info.Name() == "setup.py":
+			deps := parseSetupPy(path)
+			for _, d := range deps {
+				key := d.Source + ":" + d.Name
+				if !seen[key] {
+					seen[key] = true
+					result.Dependencies = append(result.Dependencies, d)
+				}
+			}
+
+		case info.Name() == "setup.cfg":
+			deps := parseSetupCfg(path)
+			for _, d := range deps {
+				key := d.Source + ":" + d.Name
+				if !seen[key] {
+					seen[key] = true
+					result.Dependencies = append(result.Dependencies, d)
+				}
+			}
+
+		case info.Name() == "Pipfile":
+			deps := parsePipfile(path)
+			for _, d := range deps {
+				key := d.Source + ":" + d.Name
+				if !seen[key] {
+					seen[key] = true
+					result.Dependencies = append(result.Dependencies, d)
+				}
+			}
 		}
+
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
+	// Assemble frameworks.
 	for _, fw := range frameworks {
 		result.Frameworks = append(result.Frameworks, fw)
 	}
@@ -183,16 +299,189 @@ func (p *PythonExtractor) Extract(ctx context.Context, rootDir string) (*archite
 	return result, nil
 }
 
-// parsePythonFile extracts imports and detects frameworks from a single .py file.
-func parsePythonFile(path, relPath string) ([]architect.Dependency, []architect.Framework, error) {
+// BuildPythonImportGraph constructs the full import graph from extraction data.
+// This is called by the PythonAdapter after Extract completes.
+func (p *PythonExtractor) BuildPythonImportGraph(ctx context.Context, rootDir string) (*PythonImportGraph, error) {
+	nodeMap := make(map[string]*PythonModuleNode)
+	edgeSet := make(map[PythonImportEdge]bool)
+	clusterSet := make(map[string]bool)
+	var testDirs []string
+	fwMap := make(map[string]*DetectedPythonFW)
+
+	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		rel, _ := filepath.Rel(rootDir, path)
+
+		if info.IsDir() {
+			name := info.Name()
+			if pythonSkipDirs[name] {
+				return filepath.SkipDir
+			}
+			if strings.HasSuffix(name, ".egg-info") {
+				return filepath.SkipDir
+			}
+			if pythonTestDirNames[name] {
+				testDirs = append(testDirs, rel)
+			}
+			return nil
+		}
+
+		if !strings.HasSuffix(info.Name(), ".py") {
+			// Still do framework detection for key marker files.
+			detectFrameworkFromMarker(info.Name(), rel, fwMap)
+			return nil
+		}
+
+		// Parse this Python file for imports and framework signals.
+		_, fws, fileImports, _ := parsePythonFileEnhanced(path, rel)
+
+		modulePath := pyPathToModule(rel)
+		isTest := isPythonTestFile(rel)
+		isInit := info.Name() == "__init__.py"
+		cluster := pythonClusterFor(modulePath)
+
+		nodeMap[modulePath] = &PythonModuleNode{
+			ImportPath: modulePath,
+			RelPath:    rel,
+			Name:       strings.TrimSuffix(info.Name(), ".py"),
+			Cluster:    cluster,
+			IsTest:     isTest,
+			IsInit:     isInit,
+		}
+		clusterSet[cluster] = true
+
+		// Build edges for internal imports.
+		for _, imp := range fileImports {
+			resolved := imp.ResolvedModule
+			if resolved == "" {
+				continue
+			}
+			if imp.Kind == "relative" || isLikelyLocalModule(resolved, nodeMap) {
+				edge := PythonImportEdge{From: modulePath, To: resolved}
+				if !edgeSet[edge] {
+					edgeSet[edge] = true
+					if _, exists := nodeMap[resolved]; !exists {
+						nodeMap[resolved] = &PythonModuleNode{
+							ImportPath: resolved,
+							Name:       resolved,
+							Cluster:    pythonClusterFor(resolved),
+						}
+						clusterSet[pythonClusterFor(resolved)] = true
+					}
+				}
+			}
+		}
+
+		// Merge framework detections.
+		for _, fw := range fws {
+			if dfw, ok := fwMap[fw.Name]; ok {
+				dfw.Files = append(dfw.Files, rel)
+				if fw.Confidence > dfw.Confidence {
+					dfw.Confidence = fw.Confidence
+					dfw.Evidence = fw.Evidence
+				}
+			} else {
+				fwMap[fw.Name] = &DetectedPythonFW{
+					Name:       fw.Name,
+					Confidence: fw.Confidence,
+					Evidence:   fw.Evidence,
+					Files:      []string{rel},
+				}
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Build sorted slices.
+	nodes := make([]PythonModuleNode, 0, len(nodeMap))
+	for _, n := range nodeMap {
+		nodes = append(nodes, *n)
+	}
+	sort.Slice(nodes, func(i, j int) bool { return nodes[i].ImportPath < nodes[j].ImportPath })
+
+	edges := make([]PythonImportEdge, 0, len(edgeSet))
+	for e := range edgeSet {
+		edges = append(edges, e)
+	}
+	sort.Slice(edges, func(i, j int) bool {
+		if edges[i].From != edges[j].From {
+			return edges[i].From < edges[j].From
+		}
+		return edges[i].To < edges[j].To
+	})
+
+	clusters := make([]string, 0, len(clusterSet))
+	for c := range clusterSet {
+		if c != "" {
+			clusters = append(clusters, c)
+		}
+	}
+	sort.Strings(clusters)
+
+	var fws []DetectedPythonFW
+	for _, fw := range fwMap {
+		fws = append(fws, *fw)
+	}
+	sort.Slice(fws, func(i, j int) bool { return fws[i].Name < fws[j].Name })
+
+	// Validate test dirs — only keep those that contain .py files.
+	validTestDirs := make([]string, 0, len(testDirs))
+	for _, td := range testDirs {
+		absDir := filepath.Join(rootDir, td)
+		if hasPyFilesInDir(absDir) {
+			validTestDirs = append(validTestDirs, td)
+		}
+	}
+	sort.Strings(validTestDirs)
+
+	return &PythonImportGraph{
+		Nodes:            nodes,
+		Edges:            edges,
+		Clusters:         clusters,
+		TestDirs:         validTestDirs,
+		Frameworks:       fws,
+		ExtractionMethod: "regex",
+		AccuracyEstimate: 0.55,
+	}, nil
+}
+
+// ---------------------------------------------------------------------------
+// Enhanced file parsing
+// ---------------------------------------------------------------------------
+
+// pythonImportRecord holds a single import extracted from a Python file.
+type pythonImportRecord struct {
+	Name           string // raw module name
+	Source         string // "import", "from-import"
+	Kind           string // "stdlib", "third-party", "relative"
+	ResolvedModule string // resolved absolute module path (for relative imports)
+}
+
+// parsePythonFileEnhanced extracts imports and detects frameworks from a single .py file.
+// Returns dependencies, framework detections, import records, and any read error.
+func parsePythonFileEnhanced(path, relPath string) ([]architect.Dependency, []architect.Framework, []pythonImportRecord, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	defer f.Close()
 
 	var deps []architect.Dependency
 	var fws []architect.Framework
+	var imports []pythonImportRecord
 
 	scanner := bufio.NewScanner(f)
 	inTripleQuote := false
@@ -221,34 +510,19 @@ func parsePythonFile(path, relPath string) ([]architect.Dependency, []architect.
 		}
 
 		// Framework detection on every non-comment, non-string line.
-		if reFlaskRoute.MatchString(trimmed) {
-			fws = append(fws, architect.Framework{
-				Name:       "Flask",
-				Confidence: 0.9,
-				Evidence:   "@app.route",
-			})
-		}
-		if reFastAPIRoute.MatchString(trimmed) {
-			fws = append(fws, architect.Framework{
-				Name:       "FastAPI",
-				Confidence: 0.9,
-				Evidence:   "@app.get/post/put/delete/patch",
-			})
-		}
-		if reDjangoApps.MatchString(trimmed) {
-			fws = append(fws, architect.Framework{
-				Name:       "Django",
-				Confidence: 0.85,
-				Evidence:   "INSTALLED_APPS",
-			})
-		}
+		detectFrameworksFromLine(trimmed, relPath, &fws)
 
 		// Import extraction.
 		if m := reFromImport.FindStringSubmatch(trimmed); m != nil {
 			modName := m[1]
 			importedName := m[2]
-			dep := resolveImport(modName, importedName, relPath)
-			deps = append(deps, dep)
+			rec := resolveImportEnhanced(modName, importedName, relPath)
+			imports = append(imports, rec)
+			deps = append(deps, architect.Dependency{
+				Name:   rec.Name,
+				Source: rec.Source,
+				Kind:   rec.Kind,
+			})
 			continue
 		}
 		if m := reAbsoluteImport.FindStringSubmatch(trimmed); m != nil {
@@ -259,52 +533,143 @@ func parsePythonFile(path, relPath string) ([]architect.Dependency, []architect.
 				if name == "" {
 					continue
 				}
-				dep := classifyImport(name)
-				deps = append(deps, dep)
+				rec := classifyImportEnhanced(name)
+				imports = append(imports, rec)
+				deps = append(deps, architect.Dependency{
+					Name:   rec.Name,
+					Source: rec.Source,
+					Kind:   rec.Kind,
+				})
 			}
 		}
 	}
 
-	return deps, fws, scanner.Err()
+	return deps, fws, imports, scanner.Err()
 }
 
-// countAndToggleTriple detects triple-quote boundaries. Returns true if the
-// line is consumed by (or starts) a triple-quote block.
-func countAndToggleTriple(line string, inTriple *bool, tripleChar *string) bool {
-	for _, tq := range []string{`"""`, `'''`} {
-		count := strings.Count(line, tq)
-		if count == 0 {
-			continue
-		}
-		if count == 1 {
-			// Either opening or closing. If it's a standalone docstring on one
-			// line (e.g., """docstring"""), count would be 2.
-			*inTriple = true
-			*tripleChar = tq
-			return true
-		}
-		if count%2 == 0 {
-			// Even number of triple quotes on one line means they open and close
-			// on the same line. The line is consumed (it's a string literal).
-			return true
-		}
-		// Odd number > 1 means one is left open.
-		*inTriple = true
-		*tripleChar = tq
-		return true
+// detectFrameworksFromLine checks a single line for framework patterns.
+func detectFrameworksFromLine(trimmed, relPath string, fws *[]architect.Framework) {
+	// Flask detection.
+	if reFlaskApp.MatchString(trimmed) {
+		*fws = append(*fws, architect.Framework{
+			Name:       "Flask",
+			Confidence: 0.95,
+			Evidence:   "Flask app instantiation",
+		})
 	}
-	return false
+	if reFlaskRoute.MatchString(trimmed) {
+		*fws = append(*fws, architect.Framework{
+			Name:       "Flask",
+			Confidence: 0.9,
+			Evidence:   "@app.route decorator",
+		})
+	}
+	if reFlaskBlueprint.MatchString(trimmed) {
+		*fws = append(*fws, architect.Framework{
+			Name:       "Flask",
+			Confidence: 0.85,
+			Evidence:   "Blueprint registration",
+		})
+	}
+
+	// FastAPI detection.
+	if reFastAPIApp.MatchString(trimmed) {
+		*fws = append(*fws, architect.Framework{
+			Name:       "FastAPI",
+			Confidence: 0.95,
+			Evidence:   "FastAPI app instantiation",
+		})
+	}
+	if reFastAPIDecor.MatchString(trimmed) {
+		*fws = append(*fws, architect.Framework{
+			Name:       "FastAPI",
+			Confidence: 0.9,
+			Evidence:   "FastAPI route decorator",
+		})
+	}
+	if reFastAPIRouter.MatchString(trimmed) {
+		*fws = append(*fws, architect.Framework{
+			Name:       "FastAPI",
+			Confidence: 0.85,
+			Evidence:   "APIRouter usage",
+		})
+	}
+
+	// Django detection.
+	if reDjangoApps.MatchString(trimmed) {
+		*fws = append(*fws, architect.Framework{
+			Name:       "Django",
+			Confidence: 0.95,
+			Evidence:   "INSTALLED_APPS",
+		})
+	}
+	if reDjangoURLs.MatchString(trimmed) {
+		*fws = append(*fws, architect.Framework{
+			Name:       "Django",
+			Confidence: 0.9,
+			Evidence:   "urlpatterns",
+		})
+	}
+	if reDjangoModel.MatchString(trimmed) {
+		*fws = append(*fws, architect.Framework{
+			Name:       "Django",
+			Confidence: 0.85,
+			Evidence:   "Django model class",
+		})
+	}
+	if reDjangoConfig.MatchString(trimmed) {
+		*fws = append(*fws, architect.Framework{
+			Name:       "Django",
+			Confidence: 0.9,
+			Evidence:   "AppConfig subclass",
+		})
+	}
+
+	// Celery detection.
+	if reCeleryApp.MatchString(trimmed) {
+		*fws = append(*fws, architect.Framework{
+			Name:       "Celery",
+			Confidence: 0.9,
+			Evidence:   "Celery app instantiation",
+		})
+	}
 }
 
-// resolveImport resolves a Python import (potentially relative) to an absolute
-// module path and classifies it.
-//
-// modName is the module reference (e.g. ".", "..", ".core"),
-// importedName is what follows "import" (e.g. "utils" in "from . import utils"),
-// relPath is the file path relative to the project root.
-func resolveImport(modName, importedName, relPath string) architect.Dependency {
+// detectFrameworkFromMarker checks marker files (e.g., manage.py, settings.py)
+// for Django project indicators.
+func detectFrameworkFromMarker(fileName, relPath string, fwMap map[string]*DetectedPythonFW) {
+	switch fileName {
+	case "manage.py":
+		fwMap["Django"] = &DetectedPythonFW{
+			Name:       "Django",
+			Confidence: 0.95,
+			Evidence:   "manage.py present",
+			Files:      []string{relPath},
+		}
+	case "settings.py":
+		// settings.py alone is not enough — but if we see it in a Django-like
+		// path (e.g., project/settings.py) it's a strong signal.
+		// We add a lower-confidence detection here.
+		parts := strings.Split(filepath.ToSlash(relPath), "/")
+		if len(parts) >= 2 {
+			if fw, ok := fwMap["Django"]; ok {
+				fw.Files = append(fw.Files, relPath)
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Import resolution
+// ---------------------------------------------------------------------------
+
+// resolveImportEnhanced resolves a Python import to an absolute module path.
+func resolveImportEnhanced(modName, importedName, relPath string) pythonImportRecord {
 	if !strings.HasPrefix(modName, ".") {
-		return classifyImport(modName)
+		// Absolute import.
+		rec := classifyImportEnhanced(modName)
+		rec.ResolvedModule = modName
+		return rec
 	}
 
 	// Relative import: count leading dots.
@@ -332,7 +697,6 @@ func resolveImport(modName, importedName, relPath string) architect.Dependency {
 	}
 
 	// Build the resolved module path.
-	// If suffix is empty (pure dots like "from . import X"), append importedName.
 	if suffix == "" {
 		suffix = importedName
 	}
@@ -348,18 +712,19 @@ func resolveImport(modName, importedName, relPath string) architect.Dependency {
 	}
 
 	if resolved == "" {
-		resolved = modName // fallback
+		resolved = modName
 	}
 
-	return architect.Dependency{
-		Name:   resolved,
-		Source: "from-import",
-		Kind:   "relative",
+	return pythonImportRecord{
+		Name:           resolved,
+		Source:         "from-import",
+		Kind:           "relative",
+		ResolvedModule: resolved,
 	}
 }
 
-// classifyImport decides if a module is stdlib, third-party, or local.
-func classifyImport(name string) architect.Dependency {
+// classifyImportEnhanced decides if a module is stdlib, third-party, or local.
+func classifyImportEnhanced(name string) pythonImportRecord {
 	top := name
 	if idx := strings.Index(name, "."); idx > 0 {
 		top = name[:idx]
@@ -370,13 +735,36 @@ func classifyImport(name string) architect.Dependency {
 		kind = "stdlib"
 	}
 
-	source := "import"
-	return architect.Dependency{
-		Name:   name,
-		Source: source,
-		Kind:   kind,
+	return pythonImportRecord{
+		Name:           name,
+		Source:         "import",
+		Kind:           kind,
+		ResolvedModule: name,
 	}
 }
+
+// isLikelyLocalModule checks whether a resolved module path is likely a
+// local (project-internal) module based on known nodes.
+func isLikelyLocalModule(modulePath string, nodeMap map[string]*PythonModuleNode) bool {
+	if _, ok := nodeMap[modulePath]; ok {
+		return true
+	}
+	// Check if a prefix matches a known node (e.g. "pkg.sub" matches "pkg").
+	top := modulePath
+	if idx := strings.Index(modulePath, "."); idx > 0 {
+		top = modulePath[:idx]
+	}
+	for k := range nodeMap {
+		if k == top || strings.HasPrefix(k, top+".") {
+			return true
+		}
+	}
+	return false
+}
+
+// ---------------------------------------------------------------------------
+// Dependency manifest parsers
+// ---------------------------------------------------------------------------
 
 // parseRequirementsTxt reads a requirements.txt file.
 func parseRequirementsTxt(path string) []architect.Dependency {
@@ -423,8 +811,10 @@ func parsePyprojectToml(path string) []architect.Dependency {
 		// Detect dependency sections.
 		if strings.HasPrefix(trimmed, "[") {
 			lower := strings.ToLower(trimmed)
-			inDeps = strings.Contains(lower, "dependencies") ||
-				strings.Contains(lower, "tool.poetry.dependencies")
+			// PEP 621: [project.dependencies] or [project.optional-dependencies.*]
+			// Poetry: [tool.poetry.dependencies]
+			inDeps = strings.Contains(lower, "[project") && strings.Contains(lower, "dependencies") ||
+				strings.Contains(lower, "[tool.poetry") && strings.Contains(lower, "dependencies")
 			continue
 		}
 
@@ -432,7 +822,7 @@ func parsePyprojectToml(path string) []architect.Dependency {
 			continue
 		}
 
-		// Array-style: "flask>=2.0",
+		// Array-style (PEP 621): "flask>=2.0",
 		if m := rePyprojectDep.FindStringSubmatch(trimmed); m != nil {
 			name := strings.Trim(m[1], `"`)
 			if name != "" && name != "python" {
@@ -458,4 +848,333 @@ func parsePyprojectToml(path string) []architect.Dependency {
 		}
 	}
 	return deps
+}
+
+// parseSetupPy extracts dependencies from setup.py install_requires list.
+// Best-effort regex parsing; does not execute the file.
+func parseSetupPy(path string) []architect.Dependency {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+
+	var deps []architect.Dependency
+	scanner := bufio.NewScanner(f)
+	inInstallRequires := false
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		trimmed := strings.TrimSpace(line)
+
+		// Detect install_requires = [ ... ]
+		if strings.Contains(trimmed, "install_requires") {
+			inInstallRequires = true
+			// May be on the same line: install_requires = ["flask"]
+			extractSetupDepsFromLine(trimmed, &deps)
+			continue
+		}
+
+		if inInstallRequires {
+			// End of list.
+			if strings.Contains(trimmed, "]") {
+				inInstallRequires = false
+				// May have content before the bracket.
+				extractSetupDepsFromLine(trimmed, &deps)
+				continue
+			}
+			extractSetupDepsFromLine(trimmed, &deps)
+		}
+	}
+	return deps
+}
+
+// extractSetupDepsFromLine extracts quoted dependency names from a setup.py line.
+func extractSetupDepsFromLine(line string, deps *[]architect.Dependency) {
+	matches := reSetupDep.FindAllStringSubmatch(line, -1)
+	for _, m := range matches {
+		name := m[1]
+		if name == "" {
+			continue
+		}
+		*deps = append(*deps, architect.Dependency{
+			Name:   name,
+			Source: "setup.py",
+			Kind:   "third-party",
+		})
+	}
+}
+
+// parseSetupCfg extracts dependencies from setup.cfg install_requires section.
+func parseSetupCfg(path string) []architect.Dependency {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+
+	var deps []architect.Dependency
+	scanner := bufio.NewScanner(f)
+	inInstallRequires := false
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		trimmed := strings.TrimSpace(line)
+
+		// Detect [options] section which contains install_requires.
+		if strings.HasPrefix(trimmed, "[") {
+			inInstallRequires = strings.Contains(strings.ToLower(trimmed), "options")
+			continue
+		}
+
+		if !inInstallRequires {
+			continue
+		}
+
+		// Look for install_requires = followed by indented lines.
+		if strings.HasPrefix(trimmed, "install_requires") {
+			// May be inline: install_requires = flask
+			parts := strings.SplitN(trimmed, "=", 2)
+			if len(parts) == 2 {
+				val := strings.TrimSpace(parts[1])
+				if val != "" && !strings.HasPrefix(val, "\n") {
+					// Inline single dep.
+					name := strings.Trim(val, `'"`)
+					if name != "" {
+						deps = append(deps, architect.Dependency{
+							Name:   name,
+							Source: "setup.cfg",
+							Kind:   "third-party",
+						})
+					}
+				}
+			}
+			inInstallRequires = true
+			continue
+		}
+
+		// Indented continuation lines under install_requires.
+		if trimmed != "" && !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") {
+			// New non-indented line means end of install_requires block.
+			inInstallRequires = false
+			continue
+		}
+
+		if trimmed != "" {
+			// Extract dep name from the line (may have version specifiers).
+			name := trimmed
+			if idx := strings.IndexAny(name, "><=!~;"); idx >= 0 {
+				name = strings.TrimSpace(name[:idx])
+			}
+			name = strings.Trim(name, `'"`)
+			if name != "" {
+				deps = append(deps, architect.Dependency{
+					Name:   name,
+					Source: "setup.cfg",
+					Kind:   "third-party",
+				})
+			}
+		}
+	}
+	return deps
+}
+
+// parsePipfile extracts dependencies from Pipfile [packages] section.
+func parsePipfile(path string) []architect.Dependency {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+
+	var deps []architect.Dependency
+	scanner := bufio.NewScanner(f)
+	inPackages := false
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		trimmed := strings.TrimSpace(line)
+
+		// Detect [packages] section.
+		if strings.HasPrefix(trimmed, "[") {
+			inPackages = trimmed == "[packages]"
+			continue
+		}
+
+		if !inPackages || trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		// Pipfile style: name = "version" or name = "*"
+		if m := rePipfileDep.FindStringSubmatch(trimmed); m != nil {
+			name := strings.TrimSpace(m[1])
+			if name != "" {
+				deps = append(deps, architect.Dependency{
+					Name:   name,
+					Source: "Pipfile",
+					Kind:   "third-party",
+				})
+			}
+		}
+	}
+	return deps
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+// pyPathToModule converts a relative file path to a Python module path.
+// E.g., "pkg/sub/module.py" -> "pkg.sub.module"
+// E.g., "pkg/sub/__init__.py" -> "pkg.sub"
+func pyPathToModule(relPath string) string {
+	// Normalize separators.
+	p := filepath.ToSlash(relPath)
+	// Remove .py extension.
+	p = strings.TrimSuffix(p, ".py")
+	// __init__ means the package itself.
+	p = strings.TrimSuffix(p, "/__init__")
+	// Replace / with .
+	return strings.ReplaceAll(p, "/", ".")
+}
+
+// pythonClusterFor returns the cluster (parent directory path) for a module.
+// This is used for C4 Level 3 package clustering.
+func pythonClusterFor(modulePath string) string {
+	parts := strings.Split(modulePath, ".")
+	if len(parts) <= 1 {
+		return ""
+	}
+	// Use all but the last component as the cluster.
+	// E.g., "pkg.sub.module" -> "pkg.sub"
+	// But for "pkg.module" -> "pkg"
+	// For deeper nesting: "a.b.c.d" -> "a.b.c"
+	cluster := strings.Join(parts[:len(parts)-1], ".")
+	// Limit to top 3 levels for C4 readability.
+	if numParts := len(parts) - 1; numParts > 3 {
+		cluster = strings.Join(parts[:3], ".")
+	}
+	return cluster
+}
+
+// isPythonTestFile determines if a file path is in a test directory.
+func isPythonTestFile(relPath string) bool {
+	parts := strings.Split(filepath.ToSlash(relPath), "/")
+	for _, part := range parts[:len(parts)-1] { // exclude filename
+		if pythonTestDirNames[part] {
+			return true
+		}
+	}
+	// Also check if filename starts with test_ or _test.
+	base := parts[len(parts)-1]
+	return strings.HasPrefix(base, "test_") || strings.HasSuffix(base, "_test.py")
+}
+
+// hasPyFilesInDir returns true if the directory contains at least one .py file.
+func hasPyFilesInDir(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".py") {
+			return true
+		}
+	}
+	return false
+}
+
+// countAndToggleTriple detects triple-quote boundaries. Returns true if the
+// line is consumed by (or starts) a triple-quote block.
+func countAndToggleTriple(line string, inTriple *bool, tripleChar *string) bool {
+	for _, tq := range []string{`"""`, `'''`} {
+		count := strings.Count(line, tq)
+		if count == 0 {
+			continue
+		}
+		if count == 1 {
+			*inTriple = true
+			*tripleChar = tq
+			return true
+		}
+		if count%2 == 0 {
+			return true
+		}
+		*inTriple = true
+		*tripleChar = tq
+		return true
+	}
+	return false
+}
+
+// DetectPythonCycles performs DFS-based cycle detection on the Python import
+// graph nodes/edges and returns all elementary cycles found.
+func DetectPythonCycles(nodes []PythonModuleNode, edges []PythonImportEdge) [][]string {
+	adj := make(map[string][]string)
+	nodeSet := make(map[string]struct{})
+	for _, n := range nodes {
+		nodeSet[n.ImportPath] = struct{}{}
+	}
+	for _, e := range edges {
+		if _, ok := nodeSet[e.From]; !ok {
+			continue
+		}
+		if _, ok := nodeSet[e.To]; !ok {
+			continue
+		}
+		adj[e.From] = append(adj[e.From], e.To)
+	}
+
+	const (
+		white = 0
+		gray  = 1
+		black = 2
+	)
+
+	color := make(map[string]int)
+	parent := make(map[string]string)
+	var cycles [][]string
+
+	buildCycle := func(from, to string) []string {
+		var c []string
+		cur := from
+		for cur != to {
+			c = append(c, cur)
+			cur = parent[cur]
+		}
+		c = append(c, to)
+		for i, j := 0, len(c)-1; i < j; i, j = i+1, j-1 {
+			c[i], c[j] = c[j], c[i]
+		}
+		return c
+	}
+
+	var dfs func(u string)
+	dfs = func(u string) {
+		color[u] = gray
+		for _, v := range adj[u] {
+			switch color[v] {
+			case white:
+				parent[v] = u
+				dfs(v)
+			case gray:
+				cycles = append(cycles, buildCycle(u, v))
+			}
+		}
+		color[u] = black
+	}
+
+	keys := make([]string, 0, len(nodeSet))
+	for k := range nodeSet {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		if color[k] == white {
+			dfs(k)
+		}
+	}
+
+	return cycles
 }

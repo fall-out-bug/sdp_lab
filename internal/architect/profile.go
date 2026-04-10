@@ -105,11 +105,16 @@ type ImportGraph struct {
 
 // ContainerInfo describes a deployable unit detected from infrastructure.
 type ContainerInfo struct {
-	Name   string   `json:"name"`
-	Source string   `json:"source"`          // e.g. "services/auth/Dockerfile"
-	Type   string   `json:"type"`            // "service", "database", "message_broker", "cache"
-	Image  string   `json:"image,omitempty"` // container image reference
-	Ports  []string `json:"ports,omitempty"` // exposed ports
+	Name       string   `json:"name"`
+	Source     string   `json:"source"`          // e.g. "services/auth/Dockerfile"
+	Type       string   `json:"type"`            // "service", "database", "message_broker", "cache"
+	Image      string   `json:"image,omitempty"` // container image reference
+	Ports      []string `json:"ports,omitempty"` // exposed ports
+	Entrypoint string   `json:"entrypoint,omitempty"` // Dockerfile ENTRYPOINT
+	Cmd        string   `json:"cmd,omitempty"`        // Dockerfile CMD
+	EnvRefs    []string `json:"env_refs,omitempty"`   // environment variable names (values sanitized)
+	Networks   []string `json:"networks,omitempty"`   // docker-compose networks
+	DependsOn  []string `json:"depends_on,omitempty"` // service dependencies
 }
 
 // DeploymentInfo describes the deployment strategy.
@@ -134,13 +139,74 @@ type ResourceInfo struct {
 
 // InfraInfo aggregates infrastructure-level information.
 type InfraInfo struct {
-	Containers     []ContainerInfo `json:"containers,omitempty"`
-	Deployment     DeploymentInfo  `json:"deployment"`
-	DeploymentType string          `json:"deployment_type,omitempty"` // "kubernetes", "docker-compose", "serverless", "bare"
-	BaseImages     []string        `json:"base_images,omitempty"`
-	ExposedPorts   []string        `json:"exposed_ports,omitempty"`
-	Services       []ServiceDep    `json:"services,omitempty"`
-	Resources      []ResourceInfo  `json:"resources,omitempty"`
+	Containers     []ContainerInfo     `json:"containers,omitempty"`
+	Deployment     DeploymentInfo      `json:"deployment"`
+	DeploymentType string              `json:"deployment_type,omitempty"` // "kubernetes", "docker-compose", "serverless", "bare"
+	BaseImages     []string            `json:"base_images,omitempty"`
+	ExposedPorts   []string            `json:"exposed_ports,omitempty"`
+	Services       []ServiceDep        `json:"services,omitempty"`
+	Resources      []ResourceInfo      `json:"resources,omitempty"`
+	K8sServices    []K8sServiceInfo    `json:"k8s_services,omitempty"`
+	Ingresses      []IngressInfo       `json:"ingresses,omitempty"`
+	ConfigMaps     []ConfigMapInfo     `json:"configmaps,omitempty"`
+	CIJobs         []CIJobInfo         `json:"ci_jobs,omitempty"`
+	Networks       []string            `json:"networks,omitempty"`
+	Volumes        []string            `json:"volumes,omitempty"`
+	TerraformVars  []TerraformVarInfo  `json:"terraform_vars,omitempty"`
+	ModuleBoundaries []ModuleBoundaryInfo `json:"module_boundaries,omitempty"`
+}
+
+// K8sServiceInfo describes a Kubernetes Service resource.
+type K8sServiceInfo struct {
+	Name      string   `json:"name"`
+	Namespace string   `json:"namespace,omitempty"`
+	Type      string   `json:"type,omitempty"` // "ClusterIP", "NodePort", "LoadBalancer", "ExternalName"
+	Ports     []string `json:"ports,omitempty"`
+	Selector  map[string]string `json:"selector,omitempty"`
+	Source    string   `json:"source"`
+}
+
+// IngressInfo describes a Kubernetes Ingress resource.
+type IngressInfo struct {
+	Name      string   `json:"name"`
+	Namespace string   `json:"namespace,omitempty"`
+	Hosts     []string `json:"hosts,omitempty"`
+	Paths     []string `json:"paths,omitempty"`
+	Source    string   `json:"source"`
+}
+
+// ConfigMapInfo describes a Kubernetes ConfigMap resource.
+type ConfigMapInfo struct {
+	Name      string   `json:"name"`
+	Namespace string   `json:"namespace,omitempty"`
+	Keys      []string `json:"keys,omitempty"`
+	Source    string   `json:"source"`
+}
+
+// CIJobInfo describes a CI/CD pipeline job or stage.
+type CIJobInfo struct {
+	Name            string   `json:"name"`
+	Stage           string   `json:"stage,omitempty"`
+	Image           string   `json:"image,omitempty"`
+	Triggers        []string `json:"triggers,omitempty"`        // e.g. "push", "pull_request"
+	DeployTargets   []string `json:"deploy_targets,omitempty"`  // e.g. "production", "staging"
+	Source          string   `json:"source"`
+}
+
+// TerraformVarInfo describes a Terraform variable reference.
+type TerraformVarInfo struct {
+	Name     string `json:"name"`
+	Default  string `json:"default,omitempty"`
+	Type     string `json:"type,omitempty"`
+	Source   string `json:"source"`
+}
+
+// ModuleBoundaryInfo describes a build-system-detected module boundary.
+type ModuleBoundaryInfo struct {
+	Name       string   `json:"name"`
+	BuildSystem string  `json:"build_system"` // "maven", "gradle", "npm", "go"
+	Path       string   `json:"path"`
+	Children   []string `json:"children,omitempty"`
 }
 
 // GeneratedFile records a file detected as machine-generated.

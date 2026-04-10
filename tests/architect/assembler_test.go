@@ -332,8 +332,8 @@ func TestAssembler_TierSummary(t *testing.T) {
 func TestDefaultExtractors(t *testing.T) {
 	extractors := extract.DefaultExtractors()
 
-	if len(extractors) != 10 {
-		t.Errorf("Expected 10 extractors, got %d", len(extractors))
+	if len(extractors) != 11 {
+		t.Errorf("Expected 11 extractors, got %d", len(extractors))
 	}
 
 	names := make(map[string]bool)
@@ -352,6 +352,7 @@ func TestDefaultExtractors(t *testing.T) {
 		"python",
 		"java",
 		"typescript",
+		"sql",
 	}
 
 	for _, name := range expectedNames {

@@ -42,6 +42,7 @@ var specGlobs = []specGlob{
 	{Pattern: "adr/*.md", Kind: "adr"},
 	{Pattern: "docs/adr/*.md", Kind: "adr"},
 	{Pattern: "doc/adr/*.md", Kind: "adr"},
+	{Pattern: "ADR-*.md", Kind: "adr"},
 
 	// Docker
 	{Pattern: "Dockerfile", Kind: "docker"},
