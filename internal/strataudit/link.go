@@ -38,7 +38,7 @@ func LinkEntities(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLM
 		if err != nil {
 			return nil, fmt.Errorf("entities level %s: %w", level.ID, err)
 		}
-		allEntities = append(allEntities, allEntities...)
+		allEntities = append(allEntities, entities...)
 	}
 
 	// Filter to entities with embeddings

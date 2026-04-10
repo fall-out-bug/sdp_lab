@@ -15,7 +15,7 @@ func TestCosineSimilarity(t *testing.T) {
 		{"identical", []float32{1, 0, 0}, []float32{1, 0, 0}, 1.0},
 		{"orthogonal", []float32{1, 0, 0}, []float32{0, 1, 0}, 0.0},
 		{"opposite", []float32{1, 0, 0}, []float32{-1, 0, 0}, -1.0},
-		{"similar", []float32{1, 1, 1}, []float32{1, 1, 0.5}, 0.91},
+		{"similar", []float32{1, 1, 1}, []float32{1, 1, 0.5}, 0.96},
 		{"empty", []float32{}, []float32{}, 0.0},
 		{"different_len", []float32{1, 0}, []float32{1}, 0.0},
 	}
@@ -45,7 +45,6 @@ func TestCosineSimilarity(t *testing.T) {
 }
 
 func TestCosineSimilarity_Realistic(t *testing.T) {
-	// Simulate two strategy-related embeddings
 	a := []float32{0.1, 0.3, 0.5, 0.2, 0.8, 0.1, 0.4, 0.6}
 	b := []float32{0.15, 0.28, 0.52, 0.18, 0.78, 0.12, 0.42, 0.58}
 
@@ -79,44 +78,4 @@ func TestCandidateID_Deterministic(t *testing.T) {
 	if id1 != id2 {
 		t.Error("candidateID should be deterministic")
 	}
-}
-
-func TestGroupByLevel(t *testing.T) {
-	entities := []struct {
-		levelID string
-		title   string
-	}{
-		{"vision", "V1"},
-		{"vision", "V2"},
-		{"strategy", "S1"},
-		{"task", "T1"},
-	}
-
-	input := make([]struct {
-		LevelID string
-		Title   string
-	}, 0)
-	_ = input
-
-	// Test the actual groupByLevel function with mock entities
-	type mockEntity struct {
-		id     string
-		level  string
-		title  string
-	}
-
-	// Use real model.Entity
-	entities2 := make([]struct {
-		ID      string
-		LevelID string
-		Title   string
-	}, len(entities))
-	for i, e := range entities {
-		entities2[i] = struct {
-			ID      string
-			LevelID string
-			Title   string
-		}{e.title, e.levelID, e.title}
-	}
-	_ = entities2
 }

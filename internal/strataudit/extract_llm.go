@@ -168,7 +168,7 @@ HALLUCINATION PREVENTION:
 - Never fabricate quotes. Every source_quote must be a verbatim excerpt.`
 }
 
-func parseExtractionResponse(content string, docID, levelID, model string) ([]model.Entity, error) {
+func parseExtractionResponse(content string, docID, levelID, extractModel string) ([]model.Entity, error) {
 	raw := ParseLLMJSON(content)
 	if raw == nil {
 		return nil, fmt.Errorf("no valid JSON in response")
@@ -200,7 +200,7 @@ func parseExtractionResponse(content string, docID, levelID, model string) ([]mo
 			Title:           e.Title,
 			Description:     e.Description,
 			SourceQuote:     e.SourceQuote,
-			ExtractionModel: model,
+			ExtractionModel: extractModel,
 		})
 	}
 	return entities, nil

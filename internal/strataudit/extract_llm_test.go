@@ -1,7 +1,7 @@
 package strataudit
 
 import (
-	"encoding/json"
+	"strings"
 	"testing"
 
 	"sdp_dev/internal/strataudit/model"
@@ -95,13 +95,13 @@ func TestBuildExtractionPrompt(t *testing.T) {
 	level := model.Level{Name: "strategy", Rank: 1}
 
 	prompt := buildExtractionPrompt(cfg, level, "test content", 0, 1)
-	if !contains(prompt, "strategy") {
+	if !strings.Contains(prompt, "strategy") {
 		t.Error("prompt should contain level name")
 	}
-	if !contains(prompt, "goal, task") {
+	if !strings.Contains(prompt, "goal, task") {
 		t.Error("prompt should contain entity types")
 	}
-	if !contains(prompt, "test content") {
+	if !strings.Contains(prompt, "test content") {
 		t.Error("prompt should contain document content")
 	}
 }
@@ -111,19 +111,7 @@ func TestBuildExtractionPrompt_Chunked(t *testing.T) {
 	level := model.Level{Name: "vision", Rank: 0}
 
 	prompt := buildExtractionPrompt(cfg, level, "content", 2, 5)
-	if !contains(prompt, "chunk 3 of 5") {
+	if !strings.Contains(prompt, "chunk 3 of 5") {
 		t.Error("prompt should mention chunk number")
 	}
-}
-
-import (
-	"encoding/json"
-	"strings"
-	"testing"
-
-	"sdp_dev/internal/strataudit/model"
-)
-
-func contains(s, substr string) bool {
-	return strings.Contains(s, substr)
 }
