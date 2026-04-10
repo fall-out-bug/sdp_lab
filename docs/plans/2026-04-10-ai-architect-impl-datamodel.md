@@ -184,26 +184,28 @@ type LayerAssignment struct {
 
 ## 3. Deterministic ID Scheme
 
-Format: `"<language>:<package-path>:<module-name>"`
+Format: `"<language>/<package-path>/<module-name>"` — uses `/` separator (safe across Windows, Maven, URLs). If any component contains `/`, it is URL-encoded.
 
 Rules:
 - Language: lowercase ecosystem tag (`go`, `python`, `java`, `typescript`, `sql`)
-- Package path: relative to repo root, forward slashes, no leading slash
+- Package path: relative to repo root, forward slashes, no leading slash; if empty, use `_`
 - Module name: last segment of import path or directory name
-- For external dependencies: `"ext:<ecosystem>:<name>"` (no path segment)
-- For containers: `"container:<container-name>"` (derived from deploy config)
+- For external dependencies: `"ext/<ecosystem>/<name>"` (no path segment)
+- For containers: `"container/<container-name>"` (derived from deploy config)
 - For components: `"<container-id>/<component-slug>"`
+- For Maven coordinates (`groupId:artifactId`): encode as `java/<group-path>/<artifactId>` where `group-path` replaces `.` with `/` (e.g., `com.example.auth` → `java/com/example/auth/mylib`)
 
 Examples:
 ```
-go:internal/architect:architect
-typescript:src/api:api
-ext:npm:lodash
-container:auth-service
-container:auth-service/user-handlers
+go/internal/architect/architect
+typescript/src/api/api
+ext/npm/lodash
+container/auth-service
+container/auth-service/user-handlers
+java/com/google/guava/guava
 ```
 
-Content hash fallback: when path alone is ambiguous (multiple modules at same path), append `:<sha256(content)[:8]>`.
+Content hash fallback: when path alone is ambiguous (multiple modules at same path), append `/~<sha256(canonical_json)[:8]>`. Canonical JSON: keys sorted, no whitespace, UTF-8.
 
 ---
 
@@ -216,6 +218,7 @@ type ProfileFragment struct {
     Source         string               `json:"source"`          // extractor name
     Modules        []Module             `json:"modules,omitempty"`
     Dependencies   []ManifestDependency `json:"dependencies,omitempty"`
+    Correlations   []DependencyCorrelation `json:"correlations,omitempty"`
     Edges          []StructuralEdge     `json:"edges,omitempty"`
     APISurfaces    []APISurface         `json:"api_surfaces,omitempty"`
     Boundaries     []ModuleBoundary     `json:"boundaries,omitempty"`
@@ -229,22 +232,25 @@ Per-field merge rules:
 
 | Field | Rule | Collision resolution |
 |-------|------|---------------------|
-| `modules` | Union by `id` | Last-writer-wins (later extractor stage overwrites) |
-| `dependencies` | Union by `(name, manifest_path)` | Last-writer-wins |
+| `modules` | Union by `id` | Highest-precedence-wins (higher tier overwrites lower, same tier: deterministic sort by extractor name) |
+| `dependencies` | Union by `(name, manifest_path)` | Highest-precedence-wins |
 | `edges` | Union by `(source, target, kind, protocol)` | Increment `weight`, keep higher `confidence` |
-| `api_surfaces` | Union by `(path, method)` | Last-writer-wins |
+| `api_surfaces` | Union by `(path, method)` | Highest-precedence-wins |
 | `boundaries` | Union by `name` | Merge: union `entry_files` and `public_interfaces` |
 | `layers` | Union by `layer` | Keep highest `confidence` entry per layer name |
 | `containers` | Union by `id` | Merge: union `components` arrays |
-| `components` | Union by `id` | Last-writer-wins |
+| `components` | Union by `id` | Highest-precedence-wins |
+| `correlations` | Union by `canonical_name` | Merge: union `sources` arrays |
 
-Merge order (extractor precedence, later overwrites earlier):
-1. FileTreeAnalyzer
+Merge order (extractor precedence, HIGHER number = HIGHER precedence, wins on conflict):
+1. FileTreeAnalyzer (lowest)
 2. DependencyManifestParser
 3. SpecInventoryScanner
 4. InfraExtractor
-5. Language extractors (Go, Python, Java, TS, SQL — order within tier is undefined)
-6. ImportGraphExtractor
+5. Language extractors (Go > Python > Java > TypeScript > SQL — alphabetical within tier for determinism)
+6. ImportGraphExtractor (highest)
+
+**Invariant:** Once a higher-precedence extractor has populated a field for a given key, no lower-precedence extractor may overwrite it, regardless of execution order. This prevents race conditions from async extractor execution.
 
 ---
 
@@ -271,6 +277,7 @@ type CodebaseProfile struct {
     Components     []C4Component        `json:"components"`
     Edges          []StructuralEdge     `json:"edges"`
     Dependencies   []ManifestDependency `json:"dependencies"`
+    Correlations   []DependencyCorrelation `json:"correlations,omitempty"`
     APISurfaces    []APISurface         `json:"api_surfaces,omitempty"`
     Boundaries     []ModuleBoundary     `json:"boundaries,omitempty"`
     Layers         []LayerAssignment    `json:"layers,omitempty"`

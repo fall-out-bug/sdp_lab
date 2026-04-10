@@ -321,14 +321,14 @@ semantic annotations. It MUST NOT modify the graph structure.
 
 ### 4.2 Enrichment Fields
 
-Phase 2 adds exactly these fields to existing nodes and edges:
+Phase 2 populates the `map[string]LLMEnrichment` (defined in Data Model Spec Section 1.4), keyed by node/edge ID. Enrichment is stored in the separate map — it is NEVER added as struct fields on nodes or edges. This enforces the taint boundary: structural algorithms cannot accidentally read LLM-sourced data.
 
-**Nodes (Container, Component):**
+**Nodes (Container, Component) — via LLMEnrichment map:**
 - `description`: string — 1-2 sentence purpose statement
 - `technologyTags`: string[] — e.g., ["Go", "Gin", "PostgreSQL", "Docker"]
 - `businessPurpose`: string — business domain label (e.g., "Payment Processing", "User Auth")
 
-**Edges (Uses, PersistsTo):**
+**Edges (Uses, PersistsTo) — via LLMEnrichment map:**
 - `description`: string — nature of the dependency
 - `dataFlow`: string — what data flows across this edge (sanitized, no secrets)
 

@@ -1885,7 +1885,7 @@ func AssembleProfile(fragments []*architect.ProfileFragment) *architect.Codebase
 1. Initialize CodebaseProfile with zero values.
 2. For each fragment:
    a. Languages: append and dedup.
-   b. Dependencies: merge DependencyInfo slices.
+   b. Dependencies: merge ManifestDependency slices (union by name+manifest_path). Modules: union by id. Edges: union by source+target+kind. Correlations: union by canonical_name. See Data Model Spec Section 4 for full merge rules.
    c. ImportGraph: merge nodes, edges, clusters, circular deps.
    d. Infra: merge containers, services, resources.
    e. FileTree: take the first non-nil FileTree.
