@@ -213,8 +213,11 @@ func TestAssembler_TierFiltering(t *testing.T) {
 		t.Fatalf("Assemble failed: %v", err)
 	}
 
-	if profile1.ImportGraph.Nodes != 0 {
-		t.Errorf("Tier1 should strip ImportGraph details, got Nodes=%d", profile1.ImportGraph.Nodes)
+	if profile1.ImportGraph.Nodes != 5 {
+		t.Errorf("Tier1 should keep ImportGraph counts, got Nodes=%d", profile1.ImportGraph.Nodes)
+	}
+	if len(profile1.ImportGraph.Clusters) != 0 {
+		t.Errorf("Tier1 should strip ImportGraph clusters, got %d", len(profile1.ImportGraph.Clusters))
 	}
 
 	// Test Tier2 (full detail)

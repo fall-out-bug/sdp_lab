@@ -302,14 +302,28 @@ func (pa *ProfileAssembler) computeMetrics(profile *CodebaseProfile, fragments [
 }
 
 // applyTierFilter filters the profile based on tier level.
+// Tier1 (~2K tokens): system overview — containers, languages, external deps, spec inventory.
+// Tier2 (~5-15K tokens): full detail without source code.
+// Tier3: include everything (source code on demand).
 func (pa *ProfileAssembler) applyTierFilter(profile *CodebaseProfile) {
 	switch pa.tier {
 	case Tier1:
-		// Summary only: strip detailed fields
-		profile.ImportGraph = ImportGraph{}
-		profile.Infra = InfraInfo{
-			Containers: profile.Infra.Containers, // Keep container list for summary
+		// Keep: container names/types, languages, dependency signals, spec list.
+		// Strip: import graph edges/clusters, deployment evidence, resource details.
+		profile.ImportGraph = ImportGraph{
+			ExtractionMethod: profile.ImportGraph.ExtractionMethod,
+			AccuracyEstimate: profile.ImportGraph.AccuracyEstimate,
+			Nodes:            profile.ImportGraph.Nodes,
+			Edges:            profile.ImportGraph.Edges,
 		}
+		profile.Infra = InfraInfo{
+			Containers: profile.Infra.Containers,
+		}
+		profile.Dependencies = DependencyInfo{
+			NotableDeps: profile.Dependencies.NotableDeps, // keep signals
+		}
+		profile.GitAnalysis = nil
+		profile.SQLAnalysis = nil
 		profile.Files = nil
 	case Tier2:
 		// Full detail, but no source code

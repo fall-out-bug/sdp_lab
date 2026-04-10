@@ -77,13 +77,52 @@ var reInternalPkg = regexp.MustCompile(`\bcom\.\w+(?:\.\w+)+`)
 
 // Sanitize removes secrets and PII from a CodebaseProfile.
 // Returns a sanitized copy safe for LLM consumption.
+// All string fields are scrubbed; structural data (counts, metrics) pass through.
 func (sf *SecurityFilter) Sanitize(profile *CodebaseProfile) *CodebaseProfile {
 	result := &CodebaseProfile{
 		Name:    profile.Name,
 		Summary: sf.sanitizeString(profile.Summary),
 	}
 
-	// Copy and sanitize files.
+	// --- FileTree (top-level names may contain user paths) ---
+	result.FileTree = profile.FileTree // counts are safe
+	result.FileTree.TopLevel = sf.sanitizeStrings(profile.FileTree.TopLevel)
+
+	// --- Dependencies ---
+	result.Dependencies = profile.Dependencies // manifest paths are relative
+	result.Dependencies.Manifests = sf.sanitizeManifests(profile.Dependencies.Manifests)
+
+	// --- ImportGraph (package paths may leak usernames) ---
+	result.ImportGraph = profile.ImportGraph
+	result.ImportGraph.Clusters = sf.sanitizeClusters(profile.ImportGraph.Clusters)
+	result.ImportGraph.CircularDependencies = sf.sanitizeCircularDeps(profile.ImportGraph.CircularDependencies)
+
+	// --- Infra ---
+	result.Infra = profile.Infra
+	result.Infra.Deployment.Evidence = sf.sanitizeStrings(profile.Infra.Deployment.Evidence)
+	result.Infra.Resources = sf.sanitizeResources(profile.Infra.Resources)
+
+	// --- SQL ---
+	if profile.SQLAnalysis != nil {
+		sqlCopy := *profile.SQLAnalysis
+		result.SQLAnalysis = &sqlCopy
+	}
+
+	// --- Git (scrub contributor names/emails) ---
+	if profile.GitAnalysis != nil {
+		gitCopy := *profile.GitAnalysis
+		gitCopy.TopContributors = nil // PII: scrub contributor identities
+		gitCopy.Ownership = nil       // PII: scrub contributor-to-dir mapping
+		result.GitAnalysis = &gitCopy
+	}
+
+	// --- Specs ---
+	result.Specs = sf.sanitizeSpecs(profile.Specs)
+
+	// --- Metrics (safe — just numbers) ---
+	result.Metrics = profile.Metrics
+
+	// --- Files ---
 	if profile.Files != nil {
 		result.Files = make(map[string]string, len(profile.Files))
 		for path, content := range profile.Files {
@@ -92,7 +131,7 @@ func (sf *SecurityFilter) Sanitize(profile *CodebaseProfile) *CodebaseProfile {
 		}
 	}
 
-	// Copy and sanitize metadata.
+	// --- Metadata ---
 	if profile.Metadata != nil {
 		result.Metadata = make(map[string]string, len(profile.Metadata))
 		for k, v := range profile.Metadata {
@@ -101,6 +140,96 @@ func (sf *SecurityFilter) Sanitize(profile *CodebaseProfile) *CodebaseProfile {
 	}
 
 	return result
+}
+
+// --- Sanitize helpers ---
+
+func (sf *SecurityFilter) sanitizeStrings(ss []string) []string {
+	if ss == nil {
+		return nil
+	}
+	out := make([]string, len(ss))
+	for i, s := range ss {
+		out[i] = sf.sanitizeString(s)
+	}
+	return out
+}
+
+func (sf *SecurityFilter) sanitizeManifests(ms []ManifestInfo) []ManifestInfo {
+	if ms == nil {
+		return nil
+	}
+	out := make([]ManifestInfo, len(ms))
+	for i, m := range ms {
+		out[i] = ManifestInfo{
+			Path:      sf.sanitizeString(m.Path),
+			Language:  m.Language,
+			DepsCount: m.DepsCount,
+		}
+	}
+	return out
+}
+
+func (sf *SecurityFilter) sanitizeClusters(cs []ImportCluster) []ImportCluster {
+	if cs == nil {
+		return nil
+	}
+	out := make([]ImportCluster, len(cs))
+	for i, c := range cs {
+		out[i] = ImportCluster{
+			ID:            c.ID,
+			Packages:      sf.sanitizeStrings(c.Packages),
+			InternalEdges: c.InternalEdges,
+			ExternalEdges: c.ExternalEdges,
+		}
+	}
+	return out
+}
+
+func (sf *SecurityFilter) sanitizeCircularDeps(cd []CircularDep) []CircularDep {
+	if cd == nil {
+		return nil
+	}
+	out := make([]CircularDep, len(cd))
+	for i, d := range cd {
+		out[i] = CircularDep{
+			A:        sf.sanitizeString(d.A),
+			B:        sf.sanitizeString(d.B),
+			EdgeType: d.EdgeType,
+		}
+	}
+	return out
+}
+
+func (sf *SecurityFilter) sanitizeResources(rs []ResourceInfo) []ResourceInfo {
+	if rs == nil {
+		return nil
+	}
+	out := make([]ResourceInfo, len(rs))
+	for i, r := range rs {
+		out[i] = ResourceInfo{
+			Type:     r.Type,
+			Name:     r.Name,
+			Provider: r.Provider,
+			Source:   sf.sanitizeString(r.Source),
+		}
+	}
+	return out
+}
+
+func (sf *SecurityFilter) sanitizeSpecs(ss []SpecArtifact) []SpecArtifact {
+	if ss == nil {
+		return nil
+	}
+	out := make([]SpecArtifact, len(ss))
+	for i, s := range ss {
+		out[i] = SpecArtifact{
+			Kind:    s.Kind,
+			Path:    sf.sanitizeString(s.Path),
+			Version: s.Version,
+		}
+	}
+	return out
 }
 
 // sanitizeString applies all sanitization passes to a string.
