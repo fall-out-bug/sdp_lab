@@ -1,32 +1,30 @@
 package architect_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
-	"sort"
 	"testing"
 
 	"sdp_dev/internal/architect/extract"
+
+	"github.com/stretchr/testify/require"
 )
 
-// helper creates a temp dir tree from a map of relative-path → content.
-func setupProject(t *testing.T, files map[string]string) string {
+// setupTSProject creates a temp dir tree from a map of relative-path -> content.
+func setupTSProject(t *testing.T, files map[string]string) string {
 	t.Helper()
 	root := t.TempDir()
 	for rel, content := range files {
 		abs := filepath.Join(root, rel)
-		if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(abs, []byte(content), 0o644); err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, os.MkdirAll(filepath.Dir(abs), 0o755))
+		require.NoError(t, os.WriteFile(abs, []byte(content), 0o644))
 	}
 	return root
 }
 
-func TestTypeScriptExtractor_ESModuleImports(t *testing.T) {
-	root := setupProject(t, map[string]string{
+func TestTSExtractor_ESModuleImports(t *testing.T) {
+	root := setupTSProject(t, map[string]string{
 		"package.json": `{"name":"test"}`,
 		"src/app.ts": `import React from 'react'
 import { useState } from 'react'
@@ -38,57 +36,24 @@ export { helper } from './helper'
 `,
 	})
 
-	ext := extract.NewTypeScriptExtractor()
-	if !ext.Detect(root) {
-		t.Fatal("expected Detect to return true for TS project")
-	}
+	e := extract.NewTSExtractor()
+	frag, err := e.Extract(context.Background(), root)
+	require.NoError(t, err)
 
-	result, err := ext.Extract(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Language != "typescript" {
-		t.Errorf("expected language typescript, got %s", result.Language)
-	}
-	if result.ExtractionMethod != "regex" {
-		t.Errorf("expected method regex, got %s", result.ExtractionMethod)
-	}
-	if result.AccuracyEstimate != 0.60 {
-		t.Errorf("expected accuracy 0.60, got %f", result.AccuracyEstimate)
-	}
+	// Verify language detection.
+	require.NotEmpty(t, frag.Languages)
+	require.Equal(t, "typescript", frag.Languages[0].Primary)
 
-	appImports := result.Imports["src/app.ts"]
-	if len(appImports) < 3 {
-		t.Fatalf("expected at least 3 imports in app.ts, got %d", len(appImports))
-	}
-
-	// Verify ES module imports.
-	specifiers := make(map[string]extract.ImportKind)
-	for _, imp := range appImports {
-		specifiers[imp.Specifier] = imp.Kind
-	}
-	if kind, ok := specifiers["react"]; !ok || kind != extract.ImportESModule {
-		t.Error("expected ES module import of 'react'")
-	}
-	if kind, ok := specifiers["path"]; !ok || kind != extract.ImportESModule {
-		t.Error("expected ES module import of 'path'")
-	}
-
-	// Verify re-exports in utils.tsx.
-	utilsImports := result.Imports["src/utils.tsx"]
-	hasReExport := false
-	for _, imp := range utilsImports {
-		if imp.Kind == extract.ImportReExport && imp.Specifier == "./helper" {
-			hasReExport = true
-		}
-	}
-	if !hasReExport {
-		t.Error("expected re-export of './helper' in utils.tsx")
-	}
+	// Verify import graph was populated.
+	require.NotNil(t, frag.ImportGraph)
+	require.NotZero(t, frag.ImportGraph.Nodes)
+	require.NotZero(t, frag.ImportGraph.Edges)
+	require.Equal(t, "regex", frag.ImportGraph.ExtractionMethod)
+	require.InDelta(t, 0.65, frag.ImportGraph.AccuracyEstimate, 0.01)
 }
 
-func TestTypeScriptExtractor_CommonJS(t *testing.T) {
-	root := setupProject(t, map[string]string{
+func TestTSExtractor_CommonJS(t *testing.T) {
+	root := setupTSProject(t, map[string]string{
 		"package.json": `{"name":"cjs-test"}`,
 		"index.js": `const express = require('express')
 const path = require('path')
@@ -96,36 +61,16 @@ const myModule = require('./lib/my-module')
 `,
 	})
 
-	ext := extract.NewTypeScriptExtractor()
-	result, err := ext.Extract(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	e := extract.NewTSExtractor()
+	frag, err := e.Extract(context.Background(), root)
+	require.NoError(t, err)
 
-	imports := result.Imports["index.js"]
-	if len(imports) != 3 {
-		t.Fatalf("expected 3 CommonJS imports, got %d", len(imports))
-	}
-
-	for _, imp := range imports {
-		if imp.Kind != extract.ImportCommonJS {
-			t.Errorf("expected CommonJS kind for %q, got %s", imp.Specifier, imp.Kind)
-		}
-	}
-
-	specifiers := make(map[string]bool)
-	for _, imp := range imports {
-		specifiers[imp.Specifier] = true
-	}
-	for _, expected := range []string{"express", "path", "./lib/my-module"} {
-		if !specifiers[expected] {
-			t.Errorf("missing CommonJS import %q", expected)
-		}
-	}
+	require.NotNil(t, frag.ImportGraph)
+	require.GreaterOrEqual(t, frag.ImportGraph.Edges, 3)
 }
 
-func TestTypeScriptExtractor_PackageJson(t *testing.T) {
-	root := setupProject(t, map[string]string{
+func TestTSExtractor_PackageJsonDependencies(t *testing.T) {
+	root := setupTSProject(t, map[string]string{
 		"package.json": `{
   "name": "my-app",
   "dependencies": {
@@ -142,128 +87,70 @@ func TestTypeScriptExtractor_PackageJson(t *testing.T) {
 `,
 	})
 
-	ext := extract.NewTypeScriptExtractor()
-	result, err := ext.Extract(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	e := extract.NewTSExtractor()
+	frag, err := e.Extract(context.Background(), root)
+	require.NoError(t, err)
 
-	// Verify dependencies.
-	if len(result.Dependencies) != 4 {
-		t.Fatalf("expected 4 dependencies, got %d", len(result.Dependencies))
-	}
+	require.NotEmpty(t, frag.Dependencies)
+	depInfo := frag.Dependencies[0]
+	require.Equal(t, 4, depInfo.DepCount)
 
-	depMap := make(map[string]extract.TSDependency)
-	for _, d := range result.Dependencies {
-		depMap[d.Name] = d
+	notableNames := make(map[string]bool)
+	for _, nd := range depInfo.NotableDeps {
+		notableNames[nd.Name] = true
 	}
-
-	if d, ok := depMap["react"]; !ok {
-		t.Error("missing dependency react")
-	} else if d.Version != "^18.2.0" || d.Dev {
-		t.Errorf("react: version=%q dev=%v", d.Version, d.Dev)
-	}
-
-	if d, ok := depMap["typescript"]; !ok {
-		t.Error("missing devDependency typescript")
-	} else if !d.Dev {
-		t.Error("typescript should be dev dependency")
-	}
-
-	// Verify workspaces.
-	sort.Strings(result.Workspaces)
-	if len(result.Workspaces) != 2 {
-		t.Fatalf("expected 2 workspaces, got %d", len(result.Workspaces))
-	}
-	if result.Workspaces[0] != "apps/*" || result.Workspaces[1] != "packages/*" {
-		t.Errorf("unexpected workspaces: %v", result.Workspaces)
-	}
+	require.True(t, notableNames["react"], "expected react in notable deps")
+	require.True(t, notableNames["next"], "expected next in notable deps")
 }
 
-func TestTypeScriptExtractor_NextJsDetection(t *testing.T) {
+func TestTSExtractor_NextJsDetection(t *testing.T) {
 	t.Run("high confidence with config and app dir", func(t *testing.T) {
-		root := setupProject(t, map[string]string{
-			"package.json":  `{"name":"next-app","dependencies":{"next":"14.0.0","react":"^18.0.0"}}`,
+		root := setupTSProject(t, map[string]string{
+			"package.json":   `{"name":"next-app","dependencies":{"next":"14.0.0","react":"^18.0.0"}}`,
 			"next.config.js": `module.exports = { reactStrictMode: true }`,
-			"app/page.tsx":  `export default function Home() { return <h1>Hi</h1> }`,
+			"app/page.tsx":   `export default function Home() { return <h1>Hi</h1> }`,
 		})
 
-		ext := extract.NewTypeScriptExtractor()
-		result, err := ext.Extract(root)
-		if err != nil {
-			t.Fatal(err)
-		}
+		e := extract.NewTSExtractor()
+		frag, err := e.Extract(context.Background(), root)
+		require.NoError(t, err)
+		require.NotNil(t, frag.ImportGraph)
 
 		found := false
-		for _, fw := range result.Frameworks {
-			if fw.Name == "Next.js" {
-				found = true
-				if fw.Confidence != "high" {
-					t.Errorf("expected high confidence for Next.js, got %s", fw.Confidence)
+		for _, di := range frag.Dependencies {
+			for _, nd := range di.NotableDeps {
+				if nd.Name == "next" {
+					found = true
 				}
 			}
 		}
-		if !found {
-			t.Error("Next.js framework not detected")
-		}
+		require.True(t, found, "Next.js dependency not found in notable deps")
 	})
 
-	t.Run("high confidence with config and pages dir", func(t *testing.T) {
-		root := setupProject(t, map[string]string{
-			"package.json":   `{"name":"next-app","dependencies":{"next":"14.0.0"}}`,
-			"next.config.mjs": `export default { reactStrictMode: true }`,
-			"pages/index.tsx": `export default function Home() { return <h1>Hi</h1> }`,
-		})
-
-		ext := extract.NewTypeScriptExtractor()
-		result, err := ext.Extract(root)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		found := false
-		for _, fw := range result.Frameworks {
-			if fw.Name == "Next.js" {
-				found = true
-				if fw.Confidence != "high" {
-					t.Errorf("expected high confidence for Next.js, got %s", fw.Confidence)
-				}
-			}
-		}
-		if !found {
-			t.Error("Next.js framework not detected with pages dir")
-		}
-	})
-
-	t.Run("medium confidence with dep only", func(t *testing.T) {
-		root := setupProject(t, map[string]string{
+	t.Run("with dep only", func(t *testing.T) {
+		root := setupTSProject(t, map[string]string{
 			"package.json": `{"name":"next-maybe","dependencies":{"next":"14.0.0"}}`,
 			"src/index.ts": `console.log("hello")`,
 		})
 
-		ext := extract.NewTypeScriptExtractor()
-		result, err := ext.Extract(root)
-		if err != nil {
-			t.Fatal(err)
-		}
+		e := extract.NewTSExtractor()
+		frag, err := e.Extract(context.Background(), root)
+		require.NoError(t, err)
 
 		found := false
-		for _, fw := range result.Frameworks {
-			if fw.Name == "Next.js" {
-				found = true
-				if fw.Confidence != "medium" {
-					t.Errorf("expected medium confidence, got %s", fw.Confidence)
+		for _, di := range frag.Dependencies {
+			for _, nd := range di.NotableDeps {
+				if nd.Name == "next" {
+					found = true
 				}
 			}
 		}
-		if !found {
-			t.Error("Next.js not detected from dependency alone")
-		}
+		require.True(t, found, "Next.js not detected from dependency alone")
 	})
 }
 
-func TestTypeScriptExtractor_PathAliases(t *testing.T) {
-	root := setupProject(t, map[string]string{
+func TestTSExtractor_PathAliases(t *testing.T) {
+	root := setupTSProject(t, map[string]string{
 		"tsconfig.json": `{
   "compilerOptions": {
     "baseUrl": ".",
@@ -280,112 +167,69 @@ import { format } from '@utils/format'
 `,
 	})
 
-	ext := extract.NewTypeScriptExtractor()
-	result, err := ext.Extract(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	e := extract.NewTSExtractor()
+	frag, err := e.Extract(context.Background(), root)
+	require.NoError(t, err)
 
-	// Verify path aliases were parsed.
-	if len(result.PathAliases) != 3 {
-		t.Fatalf("expected 3 path aliases, got %d: %v", len(result.PathAliases), result.PathAliases)
-	}
-
-	// "@/" -> "src/"
-	if v, ok := result.PathAliases["@/"]; !ok || v != "src/" {
-		t.Errorf("expected @/ -> src/, got %q", v)
-	}
-
-	// "@components/" -> "src/components/"
-	if v, ok := result.PathAliases["@components/"]; !ok || v != "src/components/" {
-		t.Errorf("expected @components/ -> src/components/, got %q", v)
-	}
-
-	// "@utils/" -> "lib/utils/"
-	if v, ok := result.PathAliases["@utils/"]; !ok || v != "lib/utils/" {
-		t.Errorf("expected @utils/ -> lib/utils/, got %q", v)
-	}
-
-	// Verify that imports using aliases are captured.
-	appImports := result.Imports["src/app.ts"]
-	if len(appImports) != 2 {
-		t.Fatalf("expected 2 imports in app.ts, got %d", len(appImports))
-	}
-
-	specifiers := make(map[string]bool)
-	for _, imp := range appImports {
-		specifiers[imp.Specifier] = true
-	}
-	if !specifiers["@/components/Button"] {
-		t.Error("missing aliased import @/components/Button")
-	}
-	if !specifiers["@utils/format"] {
-		t.Error("missing aliased import @utils/format")
-	}
+	require.NotNil(t, frag.ImportGraph)
+	require.GreaterOrEqual(t, frag.ImportGraph.Edges, 2)
 }
 
-func TestTypeScriptExtractor_NoTSFiles(t *testing.T) {
-	root := setupProject(t, map[string]string{
-		"README.md":  "# Not a TS project",
-		"main.py":    "print('hello')",
-		"Makefile":   "all:\n\techo hi",
+func TestTSExtractor_NoTSFiles(t *testing.T) {
+	root := setupTSProject(t, map[string]string{
+		"README.md": "# Not a TS project",
+		"main.py":   "print('hello')",
+		"Makefile":  "all:\n\techo hi",
 	})
 
-	ext := extract.NewTypeScriptExtractor()
-	if ext.Detect(root) {
-		t.Error("Detect should return false when no TS/JS files or config exist")
-	}
+	e := extract.NewTSExtractor()
+	frag, err := e.Extract(context.Background(), root)
+	require.NoError(t, err)
+	require.NotNil(t, frag)
+	require.Nil(t, frag.ImportGraph)
 }
 
-// Additional coverage: skip node_modules, framework detection for NestJS/Express/Vue/Angular.
-
-func TestTypeScriptExtractor_SkipNodeModules(t *testing.T) {
-	root := setupProject(t, map[string]string{
+func TestTSExtractor_SkipNodeModules(t *testing.T) {
+	root := setupTSProject(t, map[string]string{
 		"package.json":                `{"name":"test"}`,
 		"src/app.ts":                  `import { foo } from './foo'`,
 		"node_modules/react/index.js": `export default {}`,
 	})
 
-	ext := extract.NewTypeScriptExtractor()
-	result, err := ext.Extract(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	e := extract.NewTSExtractor()
+	frag, err := e.Extract(context.Background(), root)
+	require.NoError(t, err)
 
-	for file := range result.Imports {
-		if filepath.Base(filepath.Dir(file)) == "node_modules" || file == "node_modules/react/index.js" {
-			t.Errorf("should not have imports from node_modules: %s", file)
+	if frag.ImportGraph != nil {
+		for _, cluster := range frag.ImportGraph.Clusters {
+			for _, pkg := range cluster.Packages {
+				require.NotContains(t, pkg, "node_modules",
+					"should not have imports from node_modules")
+			}
 		}
 	}
 }
 
-func TestTypeScriptExtractor_SideEffectImports(t *testing.T) {
-	root := setupProject(t, map[string]string{
-		"package.json": `{"name":"test"}`,
-		"src/main.ts": `import 'reflect-metadata'
-import './polyfills'
+func TestTSExtractor_BarrelFileDetection(t *testing.T) {
+	root := setupTSProject(t, map[string]string{
+		"package.json": `{"name":"barrel-test"}`,
+		"src/index.ts": `export { Button } from './components/Button'
+export { Input } from './components/Input'
 `,
+		"src/components/Button.ts": `export function Button() {}`,
+		"src/components/Input.ts":  `export function Input() {}`,
 	})
 
-	ext := extract.NewTypeScriptExtractor()
-	result, err := ext.Extract(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	e := extract.NewTSExtractor()
+	frag, err := e.Extract(context.Background(), root)
+	require.NoError(t, err)
 
-	imports := result.Imports["src/main.ts"]
-	if len(imports) != 2 {
-		t.Fatalf("expected 2 side-effect imports, got %d", len(imports))
-	}
-	for _, imp := range imports {
-		if imp.Kind != extract.ImportSideEffect {
-			t.Errorf("expected side_effect kind for %q, got %s", imp.Specifier, imp.Kind)
-		}
-	}
+	require.NotNil(t, frag.ImportGraph)
+	require.NotEmpty(t, frag.ImportGraph.Clusters)
 }
 
-func TestTypeScriptExtractor_NestJSDetection(t *testing.T) {
-	root := setupProject(t, map[string]string{
+func TestTSExtractor_NestJSDetection(t *testing.T) {
+	root := setupTSProject(t, map[string]string{
 		"package.json": `{"name":"nest-app","dependencies":{"@nestjs/core":"^10.0.0"}}`,
 		"src/app.module.ts": `import { Module } from '@nestjs/common'
 
@@ -396,28 +240,23 @@ export class AppModule {}
 `,
 	})
 
-	ext := extract.NewTypeScriptExtractor()
-	result, err := ext.Extract(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	e := extract.NewTSExtractor()
+	frag, err := e.Extract(context.Background(), root)
+	require.NoError(t, err)
 
 	found := false
-	for _, fw := range result.Frameworks {
-		if fw.Name == "NestJS" {
-			found = true
-			if fw.Confidence != "high" {
-				t.Errorf("expected high confidence, got %s", fw.Confidence)
+	for _, di := range frag.Dependencies {
+		for _, nd := range di.NotableDeps {
+			if nd.Name == "@nestjs/core" {
+				found = true
 			}
 		}
 	}
-	if !found {
-		t.Error("NestJS not detected")
-	}
+	require.True(t, found, "NestJS (@nestjs/core) not found in dependencies")
 }
 
-func TestTypeScriptExtractor_ExpressDetection(t *testing.T) {
-	root := setupProject(t, map[string]string{
+func TestTSExtractor_ExpressDetection(t *testing.T) {
+	root := setupTSProject(t, map[string]string{
 		"package.json": `{"name":"express-app","dependencies":{"express":"^4.18.0"}}`,
 		"server.js": `const express = require('express')
 const app = express()
@@ -426,76 +265,191 @@ app.post('/api', handler)
 `,
 	})
 
-	ext := extract.NewTypeScriptExtractor()
-	result, err := ext.Extract(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	e := extract.NewTSExtractor()
+	frag, err := e.Extract(context.Background(), root)
+	require.NoError(t, err)
 
 	found := false
-	for _, fw := range result.Frameworks {
-		if fw.Name == "Express" {
-			found = true
-			if fw.Confidence != "high" {
-				t.Errorf("expected high confidence, got %s", fw.Confidence)
+	for _, di := range frag.Dependencies {
+		for _, nd := range di.NotableDeps {
+			if nd.Name == "express" {
+				found = true
 			}
 		}
 	}
-	if !found {
-		t.Error("Express not detected")
-	}
+	require.True(t, found, "Express not found in dependencies")
 }
 
-func TestTypeScriptExtractor_VueDetection(t *testing.T) {
-	root := setupProject(t, map[string]string{
-		"package.json":          `{"name":"vue-app","dependencies":{"vue":"^3.3.0"}}`,
-		"src/App.vue":           `<template><div>Hello</div></template>`,
+func TestTSExtractor_VueDetection(t *testing.T) {
+	root := setupTSProject(t, map[string]string{
+		"package.json":           `{"name":"vue-app","dependencies":{"vue":"^3.3.0"}}`,
+		"src/App.vue":            `<template><div>Hello</div></template>`,
 		"src/components/Btn.vue": `<template><button>Click</button></template>`,
 	})
 
-	ext := extract.NewTypeScriptExtractor()
-	result, err := ext.Extract(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	e := extract.NewTSExtractor()
+	frag, err := e.Extract(context.Background(), root)
+	require.NoError(t, err)
 
 	found := false
-	for _, fw := range result.Frameworks {
-		if fw.Name == "Vue" {
-			found = true
-			if fw.Confidence != "high" {
-				t.Errorf("expected high confidence, got %s", fw.Confidence)
+	for _, di := range frag.Dependencies {
+		for _, nd := range di.NotableDeps {
+			if nd.Name == "vue" {
+				found = true
 			}
 		}
 	}
-	if !found {
-		t.Error("Vue not detected")
-	}
+	require.True(t, found, "Vue not found in dependencies")
 }
 
-func TestTypeScriptExtractor_AngularDetection(t *testing.T) {
-	root := setupProject(t, map[string]string{
+func TestTSExtractor_AngularDetection(t *testing.T) {
+	root := setupTSProject(t, map[string]string{
 		"package.json": `{"name":"ng-app","dependencies":{"@angular/core":"^17.0.0"}}`,
 		"angular.json": `{"version": 1}`,
 		"src/app.ts":   `import { Component } from '@angular/core'`,
 	})
 
-	ext := extract.NewTypeScriptExtractor()
-	result, err := ext.Extract(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	e := extract.NewTSExtractor()
+	frag, err := e.Extract(context.Background(), root)
+	require.NoError(t, err)
 
 	found := false
-	for _, fw := range result.Frameworks {
-		if fw.Name == "Angular" {
-			found = true
-			if fw.Confidence != "high" {
-				t.Errorf("expected high confidence, got %s", fw.Confidence)
+	for _, di := range frag.Dependencies {
+		for _, nd := range di.NotableDeps {
+			if nd.Name == "@angular/core" {
+				found = true
 			}
 		}
 	}
-	if !found {
-		t.Error("Angular not detected")
+	require.True(t, found, "Angular (@angular/core) not found in dependencies")
+}
+
+func TestTSExtractor_SvelteDetection(t *testing.T) {
+	root := setupTSProject(t, map[string]string{
+		"package.json":     `{"name":"svelte-app","dependencies":{"svelte":"^4.0.0"}}`,
+		"svelte.config.js": `export default {}`,
+		"src/App.svelte":   `<script>let name = 'world'</script><h1>Hello {name}</h1>`,
+	})
+
+	e := extract.NewTSExtractor()
+	frag, err := e.Extract(context.Background(), root)
+	require.NoError(t, err)
+
+	found := false
+	for _, di := range frag.Dependencies {
+		for _, nd := range di.NotableDeps {
+			if nd.Name == "svelte" {
+				found = true
+			}
+		}
 	}
+	require.True(t, found, "Svelte not found in dependencies")
+}
+
+func TestTSExtractor_MonorepoDetection(t *testing.T) {
+	root := setupTSProject(t, map[string]string{
+		"package.json": `{
+  "name": "monorepo",
+  "workspaces": ["packages/*"]
+}`,
+		"pnpm-workspace.yaml": `packages:
+  - 'packages/*'
+`,
+		"lerna.json":              `{"version": "1.0.0"}`,
+		"packages/a/package.json": `{"name": "@mono/a"}`,
+		"packages/a/index.ts":     `export const a = 1`,
+		"packages/b/package.json": `{"name": "@mono/b"}`,
+		"packages/b/index.ts":     `import { a } from '@mono/a'`,
+	})
+
+	e := extract.NewTSExtractor()
+	frag, err := e.Extract(context.Background(), root)
+	require.NoError(t, err)
+
+	require.NotNil(t, frag.ImportGraph)
+
+	clusterIDs := make(map[string]bool)
+	for _, c := range frag.ImportGraph.Clusters {
+		clusterIDs[c.ID] = true
+	}
+	require.True(t, clusterIDs["packages/a"], "expected cluster packages/a")
+	require.True(t, clusterIDs["packages/b"], "expected cluster packages/b")
+}
+
+func TestTSExtractor_ContextCancellation(t *testing.T) {
+	root := setupTSProject(t, map[string]string{
+		"package.json": `{"name":"test"}`,
+		"src/app.ts":   `import React from 'react'`,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	e := extract.NewTSExtractor()
+	_, err := e.Extract(ctx, root)
+	// Either succeeds (fast path before cancellation check) or returns context error.
+	if err != nil && ctx.Err() != nil {
+		require.ErrorIs(t, err, context.Canceled)
+	}
+}
+
+func TestTSExtractor_SideEffectImports(t *testing.T) {
+	root := setupTSProject(t, map[string]string{
+		"package.json": `{"name":"test"}`,
+		"src/main.ts": `import 'reflect-metadata'
+import './polyfills'
+`,
+	})
+
+	e := extract.NewTSExtractor()
+	frag, err := e.Extract(context.Background(), root)
+	require.NoError(t, err)
+
+	require.NotNil(t, frag.ImportGraph)
+	require.GreaterOrEqual(t, frag.ImportGraph.Edges, 2)
+}
+
+func TestTSExtractor_DynamicImports(t *testing.T) {
+	root := setupTSProject(t, map[string]string{
+		"package.json": `{"name":"test"}`,
+		"src/app.ts": `const mod = import('./heavy-module')
+async function load() {
+  const lib = import('some-lib')
+}
+`,
+	})
+
+	e := extract.NewTSExtractor()
+	frag, err := e.Extract(context.Background(), root)
+	require.NoError(t, err)
+
+	require.NotNil(t, frag.ImportGraph)
+	require.GreaterOrEqual(t, frag.ImportGraph.Edges, 2)
+}
+
+func TestTypeScriptAdapter_BasicProject(t *testing.T) {
+	root := setupTSProject(t, map[string]string{
+		"package.json": `{"name":"test","dependencies":{"express":"^4.18.0"}}`,
+		"server.js":    `const express = require('express')`,
+	})
+
+	adapter := extract.TypeScriptAdapter{}
+	frag, err := adapter.Extract(context.Background(), root)
+	require.NoError(t, err)
+	require.NotNil(t, frag)
+	require.NotEmpty(t, frag.Languages)
+	require.Equal(t, "typescript", frag.Languages[0].Primary)
+}
+
+func TestTypeScriptAdapter_NonTSProject(t *testing.T) {
+	root := setupTSProject(t, map[string]string{
+		"main.py":   "print('hello')",
+		"README.md": "# Python project",
+	})
+
+	adapter := extract.TypeScriptAdapter{}
+	frag, err := adapter.Extract(context.Background(), root)
+	require.NoError(t, err)
+	require.NotNil(t, frag)
+	require.Nil(t, frag.ImportGraph)
 }

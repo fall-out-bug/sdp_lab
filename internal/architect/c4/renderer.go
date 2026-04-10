@@ -55,10 +55,6 @@ func RenderL1(model *architect.ReferenceModel, opts RenderOptions) (*DiagramResu
 
 	var builder strings.Builder
 
-	// Header
-	builder.WriteString(fmt.Sprintf("%%{init: {'theme':'%s'}}%%\n", opts.Theme))
-	builder.WriteString(fmt.Sprintf("graph %s\n", opts.Direction))
-
 	// Collect all node declarations
 	var nodes []string
 	var edges []string
@@ -93,6 +89,20 @@ func RenderL1(model *architect.ReferenceModel, opts RenderOptions) (*DiagramResu
 		}
 		nodes = append(nodes, fmt.Sprintf("    %s[\"%s\\nExternal System\"]", extID, label))
 	}
+
+	// Check node threshold for >15 node fallback
+	totalNodes := len(nodes)
+	if totalNodes > nodeThreshold {
+		builder.WriteString(fmt.Sprintf("%% WARNING: %d nodes, layout may be suboptimal\n", totalNodes))
+	}
+
+	// Header with securityLevel: 'strict'
+	theme := opts.Theme
+	if theme == "" {
+		theme = "default"
+	}
+	builder.WriteString(fmt.Sprintf("%%{init: {'theme':'%s', 'securityLevel':'strict'}}%%\n", theme))
+	builder.WriteString(fmt.Sprintf("graph %s\n", opts.Direction))
 
 	// Apply truncation if needed
 	truncated := false
@@ -179,10 +189,6 @@ func RenderL2(model *architect.ReferenceModel, opts RenderOptions) (*DiagramResu
 
 	var builder strings.Builder
 
-	// Header
-	builder.WriteString(fmt.Sprintf("%%{init: {'theme':'%s'}}%%\n", opts.Theme))
-	builder.WriteString(fmt.Sprintf("graph %s\n", opts.Direction))
-
 	// Collect all node declarations
 	var nodes []string
 	var edges []string
@@ -234,6 +240,20 @@ func RenderL2(model *architect.ReferenceModel, opts RenderOptions) (*DiagramResu
 		nodes = append(nodes, fmt.Sprintf("        %s[\"%s\"]", containerID, label))
 		nodeMap[containerID] = true
 	}
+
+	// Check node threshold for >15 node fallback
+	totalNodes := len(nodes)
+	if totalNodes > nodeThreshold {
+		builder.WriteString(fmt.Sprintf("%% WARNING: %d nodes, layout may be suboptimal\n", totalNodes))
+	}
+
+	// Header with securityLevel: 'strict'
+	theme := opts.Theme
+	if theme == "" {
+		theme = "default"
+	}
+	builder.WriteString(fmt.Sprintf("%%{init: {'theme':'%s', 'securityLevel':'strict'}}%%\n", theme))
+	builder.WriteString(fmt.Sprintf("graph %s\n", opts.Direction))
 
 	// Apply truncation if needed
 	truncated := false
@@ -373,10 +393,6 @@ func RenderL3(model *architect.ReferenceModel, containerID string, opts RenderOp
 
 	var builder strings.Builder
 
-	// Header
-	builder.WriteString(fmt.Sprintf("%%{init: {'theme':'%s'}}%%\n", opts.Theme))
-	builder.WriteString(fmt.Sprintf("graph %s\n", opts.Direction))
-
 	// Collect all node declarations
 	var nodes []string
 	var edges []string
@@ -397,6 +413,20 @@ func RenderL3(model *architect.ReferenceModel, containerID string, opts RenderOp
 		}
 		nodes = append(nodes, fmt.Sprintf("        %s[\"%s\"]", compID, label))
 	}
+
+	// Check node threshold for >15 node fallback
+	totalNodes := len(nodes)
+	if totalNodes > nodeThreshold {
+		builder.WriteString(fmt.Sprintf("%% WARNING: %d nodes, layout may be suboptimal\n", totalNodes))
+	}
+
+	// Header with securityLevel: 'strict'
+	theme := opts.Theme
+	if theme == "" {
+		theme = "default"
+	}
+	builder.WriteString(fmt.Sprintf("%%{init: {'theme':'%s', 'securityLevel':'strict'}}%%\n", theme))
+	builder.WriteString(fmt.Sprintf("graph %s\n", opts.Direction))
 
 	// Apply truncation if needed
 	truncated := false
