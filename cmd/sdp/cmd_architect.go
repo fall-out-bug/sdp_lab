@@ -322,12 +322,13 @@ func extractLanguageInfo(profile *architect.CodebaseProfile) architect.LanguageI
 		Distribution: make(map[string]float64),
 	}
 
-	// Count files by extension
+	// Count files by extension (strip leading dot from ext)
 	totalFiles := 0
 	langCounts := make(map[string]int)
 
 	for ext, count := range profile.FileTree.ExtCounts {
 		if count > 0 {
+			ext = strings.TrimPrefix(ext, ".")
 			langCounts[ext] = count
 			totalFiles += count
 		}
@@ -335,20 +336,31 @@ func extractLanguageInfo(profile *architect.CodebaseProfile) architect.LanguageI
 
 	// Map extensions to languages
 	langMap := map[string]string{
-		"go":   "go",
-		"py":   "python",
-		"js":   "javascript",
-		"ts":   "typescript",
-		"java": "java",
-		"rs":   "rust",
-		"rb":   "ruby",
-		"php":  "php",
-		"cs":   "c#",
-		"cpp":  "c++",
-		"c":    "c",
-		"cc":   "c++",
-		"h":    "c",
-		"hh":   "c++",
+		"go":     "go",
+		"py":     "python",
+		"js":     "javascript",
+		"ts":     "typescript",
+		"java":   "java",
+		"rs":     "rust",
+		"rb":     "ruby",
+		"php":    "php",
+		"cs":     "c#",
+		"cpp":    "c++",
+		"c":      "c",
+		"cc":     "c++",
+		"h":      "c",
+		"hh":     "c++",
+		"scala":  "scala",
+		"R":      "R",
+		"sql":    "sql",
+		"kt":     "kotlin",
+		"kts":    "kotlin",
+		"groovy": "groovy",
+		"sh":     "shell",
+		"yaml":   "yaml",
+		"yml":    "yaml",
+		"xml":    "xml",
+		"proto":  "protobuf",
 	}
 
 	seenLangs := make(map[string]bool)
