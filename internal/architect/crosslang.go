@@ -1,6 +1,7 @@
 package architect
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -292,8 +293,22 @@ func ContainerLanguage(profile *CodebaseProfile, containerName string) string {
 		}
 	}
 
-	// Additional fallback: check file extensions in the directory
-	for ext, count := range profile.FileTree.ExtCounts {
+	// Additional fallback: walk the container directory and count file extensions locally
+	extCount := make(map[string]int)
+	containerDir = filepath.Clean(containerDir)
+	filepath.Walk(containerDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		ext := strings.ToLower(filepath.Ext(path))
+		if ext != "" {
+			extCount[ext]++
+		}
+		return nil
+	})
+
+	// Determine language from local extension counts
+	for ext, count := range extCount {
 		if count == 0 {
 			continue
 		}
@@ -367,31 +382,32 @@ func isAdjacentPath(path1, path2 string) bool {
 	return false
 }
 
-// shareCommonAncestor checks if two paths share a common ancestor directory.
-// This is useful for monorepo structures where specs are in shared directories.
-func shareCommonAncestor(path1, path2 string) bool {
-	// Split paths into components
-	parts1 := strings.Split(filepath.Clean(path1), string(filepath.Separator))
-	parts2 := strings.Split(filepath.Clean(path2), string(filepath.Separator))
+// shareCommonAncestor returns true if two file paths belong to the same
+// logical container boundary. It uses a strict check: the paths must share
+// at least 2 directory levels (e.g. "services/orders/") or one must be
+// directly contained within the other's tree.
+func shareCommonAncestor(a, b string) bool {
+	// Normalize to forward slashes and split
+	pa := strings.Split(filepath.ToSlash(filepath.Clean(a)), "/")
+	pb := strings.Split(filepath.ToSlash(filepath.Clean(b)), "/")
 
-	// Find common prefix
-	minLen := len(parts1)
-	if len(parts2) < minLen {
-		minLen = len(parts2)
+	// Must share at least 2 prefix levels for "same container"
+	shared := 0
+	minLen := len(pa)
+	if len(pb) < minLen {
+		minLen = len(pb)
 	}
-
-	commonCount := 0
 	for i := 0; i < minLen; i++ {
-		if parts1[i] == parts2[i] && parts1[i] != "" {
-			commonCount++
+		if pa[i] == pb[i] {
+			shared++
 		} else {
 			break
 		}
 	}
 
-	// If they share at least 1 directory level, consider them related
-	// (e.g., "monorepo/services/orders" and "monorepo/api" share "monorepo")
-	return commonCount >= 1
+	// Need at least 2 shared levels (e.g. "services/orders")
+	// Exception: if both are at root level (shared=0 or 1), they don't share
+	return shared >= 2
 }
 
 // AddCrossLangEdges adds CrossLangDep relationships to the ReferenceModel as C4Relationships.

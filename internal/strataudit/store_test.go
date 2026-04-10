@@ -15,7 +15,7 @@ func setupTestStore(t *testing.T) *SQLiteStore {
 	if err != nil {
 		t.Fatalf("NewSQLiteStore: %v", err)
 	}
-	t.Cleanup(func() { store.Close() })
+	t.Cleanup(func() { _ = store.Close() })
 	return store
 }
 
@@ -47,10 +47,10 @@ func TestSQLiteStore_SaveEntitiesAndGetByLevel(t *testing.T) {
 	store := setupTestStore(t)
 	ctx := context.Background()
 
-	store.SaveLevels(ctx, []model.Level{
+	_ = store.SaveLevels(ctx, []model.Level{
 		{ID: "vision", Name: "Vision", Rank: 0},
 	})
-	store.SaveDocuments(ctx, []model.Document{
+	_ = store.SaveDocuments(ctx, []model.Document{
 		{ID: "d1", Path: "vis.md", LevelID: "vision", ContentHash: "abc", Content: "text"},
 	})
 
@@ -75,12 +75,12 @@ func TestSQLiteStore_SaveTracesAndGetForEntity(t *testing.T) {
 	store := setupTestStore(t)
 	ctx := context.Background()
 
-	store.SaveLevels(ctx, []model.Level{{ID: "l0", Name: "L0", Rank: 0}, {ID: "l1", Name: "L1", Rank: 1}})
-	store.SaveDocuments(ctx, []model.Document{
+	_ = store.SaveLevels(ctx, []model.Level{{ID: "l0", Name: "L0", Rank: 0}, {ID: "l1", Name: "L1", Rank: 1}})
+	_ = store.SaveDocuments(ctx, []model.Document{
 		{ID: "d1", Path: "a.md", LevelID: "l0", ContentHash: "a", Content: "a"},
 		{ID: "d2", Path: "b.md", LevelID: "l1", ContentHash: "b", Content: "b"},
 	})
-	store.SaveEntities(ctx, []model.Entity{
+	_ = store.SaveEntities(ctx, []model.Entity{
 		{ID: "e1", DocumentID: "d1", LevelID: "l0", Type: model.EntityGoal, Title: "G1"},
 		{ID: "e2", DocumentID: "d2", LevelID: "l1", Type: model.EntityTask, Title: "T1"},
 	})
@@ -128,11 +128,11 @@ func TestSQLiteStore_CascadeDelete(t *testing.T) {
 	store := setupTestStore(t)
 	ctx := context.Background()
 
-	store.SaveLevels(ctx, []model.Level{{ID: "l0", Name: "L0", Rank: 0}})
-	store.SaveDocuments(ctx, []model.Document{
+	_ = store.SaveLevels(ctx, []model.Level{{ID: "l0", Name: "L0", Rank: 0}})
+	_ = store.SaveDocuments(ctx, []model.Document{
 		{ID: "d1", Path: "vis.md", LevelID: "l0", ContentHash: "abc", Content: "text"},
 	})
-	store.SaveEntities(ctx, []model.Entity{
+	_ = store.SaveEntities(ctx, []model.Entity{
 		{ID: "e1", DocumentID: "d1", LevelID: "l0", Type: model.EntityGoal, Title: "G1"},
 	})
 
@@ -150,12 +150,12 @@ func TestSQLiteStore_Coverage(t *testing.T) {
 	store := setupTestStore(t)
 	ctx := context.Background()
 
-	store.SaveLevels(ctx, []model.Level{{ID: "l0", Name: "L0", Rank: 0}})
+	_ = store.SaveLevels(ctx, []model.Level{{ID: "l0", Name: "L0", Rank: 0}})
 
 	coverages := []model.Coverage{
 		{ID: "c1", LevelID: "l0", TotalEntities: 10, TracedEntities: 7, CoveragePct: 70},
 	}
-	store.SaveCoverage(ctx, coverages)
+	_ = store.SaveCoverage(ctx, coverages)
 
 	got, err := store.CoverageByLevel(ctx)
 	if err != nil {

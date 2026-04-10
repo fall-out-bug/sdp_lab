@@ -142,7 +142,9 @@ func processFile(ctx context.Context, cfg *Config, store *SQLiteStore, path stri
 	if existing != nil {
 		version = existing.Version + 1
 		// Cascade-delete old entities for updated document
-		store.DeleteEntitiesForDocument(ctx, existing.ID)
+		if err := store.DeleteEntitiesForDocument(ctx, existing.ID); err != nil {
+			return nil, statusUpdated, fmt.Errorf("delete entities for %s: %w", existing.ID, err)
+		}
 	}
 
 	docID := generateDocID(path)

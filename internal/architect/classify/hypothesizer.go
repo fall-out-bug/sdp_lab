@@ -2,24 +2,39 @@ package classify
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"sdp_dev/internal/architect"
 	"sdp_dev/internal/discovery"
 )
 
+// AuditEntry records a single LLM call for compliance.
+type AuditEntry struct {
+	Timestamp   string `json:"timestamp"`
+	CallType    string `json:"call_type"` // "style", "pattern", "risk"
+	Model       string `json:"model"`
+	InputHash   string `json:"input_hash"`
+	InputTokens int    `json:"input_tokens,omitempty"`
+	CostUSD     float64 `json:"cost_usd,omitempty"`
+	Success     bool   `json:"success"`
+	Error       string `json:"error,omitempty"`
+}
+
 // HypothesisResult holds all LLM-generated architecture analysis.
 type HypothesisResult struct {
-	StyleHypothesis  architect.StyleHypothesis  `json:"style_hypothesis"`
+	StyleHypothesis  architect.StyleHypothesis   `json:"style_hypothesis"`
 	Patterns         []architect.DetectedPattern `json:"patterns,omitempty"`
 	Risks            []architect.ArchRisk        `json:"risks,omitempty"`
 	TotalInputTokens int                         `json:"total_input_tokens"`
 	TotalCostUSD     float64                     `json:"total_cost_usd"`
+	AuditLog         []AuditEntry                `json:"audit_log,omitempty"`
 }
 
 // Hypothesizer runs LLM analysis on a CodebaseProfile.
@@ -64,38 +79,95 @@ func (h *Hypothesizer) Analyze(ctx context.Context, profile *architect.CodebaseP
 	for _, fn := range []func(context.Context, string) error{
 		func(ctx context.Context, profileJSON string) error {
 			styleHypothesis, inputTokens, cost, err := h.analyzeStyle(ctx, profileJSON)
+
+			// Create audit entry
+			audit := AuditEntry{
+				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				CallType:  "style",
+				Model:     h.model,
+				InputHash: sha256Hash(profileJSON),
+				Success:   err == nil,
+			}
+			if err != nil {
+				audit.Error = err.Error()
+			} else {
+				audit.InputTokens = inputTokens
+				audit.CostUSD = cost
+			}
+			mu.Lock()
+			result.AuditLog = append(result.AuditLog, audit)
+			mu.Unlock()
+
 			if err != nil {
 				return fmt.Errorf("style analysis: %w", err)
 			}
 			mu.Lock()
-			defer mu.Unlock()
 			result.StyleHypothesis = *styleHypothesis
 			result.TotalInputTokens += inputTokens
 			result.TotalCostUSD += cost
+			mu.Unlock()
 			return nil
 		},
 		func(ctx context.Context, profileJSON string) error {
 			patterns, inputTokens, cost, err := h.detectPatterns(ctx, profileJSON)
+
+			// Create audit entry
+			audit := AuditEntry{
+				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				CallType:  "pattern",
+				Model:     h.model,
+				InputHash: sha256Hash(profileJSON),
+				Success:   err == nil,
+			}
+			if err != nil {
+				audit.Error = err.Error()
+			} else {
+				audit.InputTokens = inputTokens
+				audit.CostUSD = cost
+			}
+			mu.Lock()
+			result.AuditLog = append(result.AuditLog, audit)
+			mu.Unlock()
+
 			if err != nil {
 				return fmt.Errorf("pattern detection: %w", err)
 			}
 			mu.Lock()
-			defer mu.Unlock()
 			result.Patterns = patterns
 			result.TotalInputTokens += inputTokens
 			result.TotalCostUSD += cost
+			mu.Unlock()
 			return nil
 		},
 		func(ctx context.Context, profileJSON string) error {
 			risks, inputTokens, cost, err := h.assessRisks(ctx, profileJSON)
+
+			// Create audit entry
+			audit := AuditEntry{
+				Timestamp: time.Now().UTC().Format(time.RFC3339),
+				CallType:  "risk",
+				Model:     h.model,
+				InputHash: sha256Hash(profileJSON),
+				Success:   err == nil,
+			}
+			if err != nil {
+				audit.Error = err.Error()
+			} else {
+				audit.InputTokens = inputTokens
+				audit.CostUSD = cost
+			}
+			mu.Lock()
+			result.AuditLog = append(result.AuditLog, audit)
+			mu.Unlock()
+
 			if err != nil {
 				return fmt.Errorf("risk assessment: %w", err)
 			}
 			mu.Lock()
-			defer mu.Unlock()
 			result.Risks = risks
 			result.TotalInputTokens += inputTokens
 			result.TotalCostUSD += cost
+			mu.Unlock()
 			return nil
 		},
 	} {
@@ -282,4 +354,11 @@ func parseRisksResponse(content string) ([]architect.ArchRisk, error) {
 	}
 
 	return result.Risks, nil
+}
+
+// sha256Hash returns the hexadecimal SHA-256 hash of a string.
+func sha256Hash(s string) string {
+	h := sha256.New()
+	h.Write([]byte(s))
+	return fmt.Sprintf("%x", h.Sum(nil))
 }

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -94,7 +95,7 @@ func (c *LLMClient) Chat(ctx context.Context, req LLMRequest) (*LLMResponse, err
 	if err != nil {
 		return nil, fmt.Errorf("llm request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -129,13 +130,16 @@ func (c *LLMClient) Chat(ctx context.Context, req LLMRequest) (*LLMResponse, err
 	}, nil
 }
 
-func (c *LLMClient) Embed(ctx context.Context, texts []string) ([][]float32, error) {
+func (c *LLMClient) Embed(ctx context.Context, texts []string, model string) ([][]float32, error) {
 	if err := c.limiter.Wait(ctx); err != nil {
 		return nil, fmt.Errorf("rate limit: %w", err)
 	}
 
+	if model == "" {
+		model = "openai/text-embedding-3-small"
+	}
 	body := map[string]interface{}{
-		"model": "openai/text-embedding-3-small",
+		"model": model,
 		"input": texts,
 	}
 	bodyJSON, _ := json.Marshal(body)
@@ -151,7 +155,7 @@ func (c *LLMClient) Embed(ctx context.Context, texts []string) ([][]float32, err
 	if err != nil {
 		return nil, fmt.Errorf("embed request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -174,19 +178,26 @@ func (c *LLMClient) Embed(ctx context.Context, texts []string) ([][]float32, err
 	return embs, nil
 }
 
-var llmCache = make(map[string]string)
+var (
+	llmCache   = make(map[string]string)
+	llmCacheMu sync.RWMutex
+)
 
 func (c *LLMClient) cacheKey(req LLMRequest) string {
 	h := sha256.New()
-	fmt.Fprintf(h, "%s|%s|%s|%f", req.Model, req.System, req.User, req.Temperature)
+	_, _ = fmt.Fprintf(h, "%s|%s|%s|%f", req.Model, req.System, req.User, req.Temperature)
 	return hex.EncodeToString(h.Sum(nil))
 }
 
 func (c *LLMClient) checkCache(key string) string {
+	llmCacheMu.RLock()
+	defer llmCacheMu.RUnlock()
 	return llmCache[key]
 }
 
 func (c *LLMClient) storeCache(key, value string) {
+	llmCacheMu.Lock()
+	defer llmCacheMu.Unlock()
 	llmCache[key] = value
 }
 

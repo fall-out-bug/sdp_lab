@@ -45,7 +45,7 @@ func TestLLMClient_Embed(t *testing.T) {
 	}
 
 	client := NewLLMClient(key, "https://openrouter.ai/api/v1")
-	embs, err := client.Embed(context.Background(), []string{"hello world", "test embedding"})
+	embs, err := client.Embed(context.Background(), []string{"hello world", "test embedding"}, "openai/text-embedding-3-small")
 	if err != nil {
 		t.Fatalf("Embed: %v", err)
 	}

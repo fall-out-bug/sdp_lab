@@ -195,3 +195,5 @@
 {"id":"int-a6d95d75","kind":"field_change","created_at":"2026-04-10T11:50:50.403947Z","actor":"Andrei","issue_id":"sdplab-pp3","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
 {"id":"int-979cf27c","kind":"field_change","created_at":"2026-04-10T11:50:50.427842Z","actor":"Andrei","issue_id":"sdplab-l7w","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
 {"id":"int-4f2ad90c","kind":"field_change","created_at":"2026-04-10T12:00:40.739046Z","actor":"Andrei","issue_id":"sdplab-a83","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
+{"id":"int-73a966e5","kind":"field_change","created_at":"2026-04-10T12:09:33.331693Z","actor":"Andrei","issue_id":"sdplab-ano","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}
+{"id":"int-fa6d4822","kind":"field_change","created_at":"2026-04-10T12:09:33.349554Z","actor":"Andrei","issue_id":"sdplab-ux7","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Closed"}}

@@ -60,19 +60,19 @@ h2 { font-size: 1.3rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--acce
 
 <div class="stats">
   <div class="stat ok"><div class="stat-label">Entities</div><div class="stat-value">`)
-	b.WriteString(fmt.Sprintf("%d", rpt.Summary.TotalEntities))
+	fmt.Fprintf(&b, "%d", rpt.Summary.TotalEntities)
 	b.WriteString(`</div></div>
   <div class="stat"><div class="stat-label">Findings</div><div class="stat-value">`)
-	b.WriteString(fmt.Sprintf("%d", rpt.Summary.TotalFindings))
+	fmt.Fprintf(&b, "%d", rpt.Summary.TotalFindings)
 	b.WriteString(`</div></div>
   <div class="stat critical"><div class="stat-label">Critical</div><div class="stat-value">`)
-	b.WriteString(fmt.Sprintf("%d", rpt.Summary.CriticalCount))
+	fmt.Fprintf(&b, "%d", rpt.Summary.CriticalCount)
 	b.WriteString(`</div></div>
   <div class="stat warning"><div class="stat-label">Warnings</div><div class="stat-value">`)
-	b.WriteString(fmt.Sprintf("%d", rpt.Summary.WarnCount))
+	fmt.Fprintf(&b, "%d", rpt.Summary.WarnCount)
 	b.WriteString(`</div></div>
   <div class="stat ok"><div class="stat-label">Avg Coverage</div><div class="stat-value">`)
-	b.WriteString(fmt.Sprintf("%.0f%%", rpt.Summary.AvgCoverage))
+	fmt.Fprintf(&b, "%.0f%%", rpt.Summary.AvgCoverage)
 	b.WriteString(`</div></div>
 </div>
 
@@ -87,8 +87,8 @@ h2 { font-size: 1.3rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--acce
 		} else if c.Pct < 70 {
 			cls = "warning"
 		}
-		b.WriteString(fmt.Sprintf(`  <div class="stat %s"><div class="stat-label">%s</div><div class="stat-value">%.0f%%</div><div style="font-size:0.8rem;color:var(--text-muted)">%d/%d traced</div></div>
-`, cls, html.EscapeString(c.Level), c.Pct, c.Traced, c.Total))
+		fmt.Fprintf(&b, `  <div class="stat %s"><div class="stat-label">%s</div><div class="stat-value">%.0f%%</div><div style="font-size:0.8rem;color:var(--text-muted)">%d/%d traced</div></div>
+`, cls, html.EscapeString(c.Level), c.Pct, c.Traced, c.Total)
 	}
 
 	b.WriteString(`</div>
@@ -112,7 +112,7 @@ h2 { font-size: 1.3rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--acce
 		} else if f.Confidence >= 0.4 {
 			tier = "medium"
 		}
-		b.WriteString(fmt.Sprintf(`<div class="finding severity-%s" data-type="%s">
+		fmt.Fprintf(&b, `<div class="finding severity-%s" data-type="%s">
   <span class="finding-type">%s</span>
   <div class="finding-title">%s</div>
   <div class="finding-desc">%s</div>
@@ -120,7 +120,7 @@ h2 { font-size: 1.3rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--acce
 </div>
 `, html.EscapeString(f.Severity), html.EscapeString(f.Type),
 			html.EscapeString(f.Type), html.EscapeString(f.Title),
-			html.EscapeString(f.Description), tier, f.Confidence*100))
+			html.EscapeString(f.Description), tier, f.Confidence*100)
 	}
 
 	b.WriteString(`</div>

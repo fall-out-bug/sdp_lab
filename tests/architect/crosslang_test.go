@@ -23,13 +23,13 @@ func TestDetectCrossLangDeps_EmptyProfile(t *testing.T) {
 }
 
 func TestDetectCrossLangDeps_SharedOpenAPI(t *testing.T) {
-	// Test with a monorepo structure where both services share a common parent
-	// and there's an API spec in that parent directory
+	// Test with a monorepo structure where both services are in the same
+	// logical container and share an API spec
 	profile := &architect.CodebaseProfile{
 		Specs: []architect.SpecArtifact{
 			{
 				Kind:    "openapi",
-				Path:    "monorepo/api/orders/openapi.yaml",
+				Path:    "services/orders/api/openapi.yaml",
 				Version: "3.1",
 			},
 		},
@@ -37,12 +37,12 @@ func TestDetectCrossLangDeps_SharedOpenAPI(t *testing.T) {
 			Containers: []architect.ContainerInfo{
 				{
 					Name:   "orders-service",
-					Source: "monorepo/services/orders/Dockerfile",
+					Source: "services/orders/backend/Dockerfile",
 					Type:   "service",
 				},
 				{
-					Name:   "frontend",
-					Source: "monorepo/services/frontend/Dockerfile",
+					Name:   "orders-frontend",
+					Source: "services/orders/frontend/Dockerfile",
 					Type:   "service",
 				},
 			},
@@ -50,11 +50,11 @@ func TestDetectCrossLangDeps_SharedOpenAPI(t *testing.T) {
 		Dependencies: architect.DependencyInfo{
 			Manifests: []architect.ManifestInfo{
 				{
-					Path:     "monorepo/services/orders/go.mod",
+					Path:     "services/orders/backend/go.mod",
 					Language: "go",
 				},
 				{
-					Path:     "monorepo/services/frontend/package.json",
+					Path:     "services/orders/frontend/package.json",
 					Language: "typescript",
 				},
 			},
@@ -63,8 +63,9 @@ func TestDetectCrossLangDeps_SharedOpenAPI(t *testing.T) {
 
 	result := architect.DetectCrossLangDeps(profile)
 
-	// With the common ancestor check, both containers should be detected
-	// as referencing the spec (they share "monorepo" as common ancestor)
+	// With the stricter common ancestor check (requires 2+ shared levels),
+	// both containers should be detected as referencing the spec
+	// (they share "services/orders" which is 2 levels)
 	if len(result.Dependencies) == 0 {
 		t.Fatal("expected at least 1 cross-lang dependency")
 	}
@@ -74,8 +75,8 @@ func TestDetectCrossLangDeps_SharedOpenAPI(t *testing.T) {
 	for _, dep := range result.Dependencies {
 		if dep.BridgeType == "openapi" {
 			found = true
-			if dep.BridgePath != "monorepo/api/orders/openapi.yaml" {
-				t.Errorf("expected bridge path 'monorepo/api/orders/openapi.yaml', got %q", dep.BridgePath)
+			if dep.BridgePath != "services/orders/api/openapi.yaml" {
+				t.Errorf("expected bridge path 'services/orders/api/openapi.yaml', got %q", dep.BridgePath)
 			}
 			if dep.Confidence != 1.0 {
 				t.Errorf("expected confidence 1.0, got %f", dep.Confidence)
@@ -571,61 +572,105 @@ func TestDetectCrossLangDeps_MultipleContainers(t *testing.T) {
 	}
 }
 
-func TestNormalizeLanguage(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"go", "go"},
-		{"golang", "go"},
-		{"Go", "go"},
-		{"GOLANG", "go"},
-		{"typescript", "typescript"},
-		{"ts", "typescript"},
-		{"TypeScript", "typescript"},
-		{"javascript", "javascript"},
-		{"js", "javascript"},
-		{"python", "python"},
-		{"py", "python"},
-		{"Python", "python"},
-		{"java", "java"},
-		{"kotlin", "java"},
-		{"rust", "rust"},
-		{"rs", "rust"},
-		{"c#", "c#"},
-		{"csharp", "c#"},
-		{"ruby", "ruby"},
-		{"php", "php"},
-		{"unknown", "unknown"},
-		{"  go  ", "go"},
+func TestDetectCrossLangDeps_StrictCommonAncestor(t *testing.T) {
+	// Test that shareCommonAncestor is strict enough to avoid false positives
+	// in monorepo scenarios where different services share a common parent dir
+	profile := &architect.CodebaseProfile{
+		Specs: []architect.SpecArtifact{
+			{
+				Kind:    "openapi",
+				Path:    "services/api/orders/openapi.yaml",
+				Version: "3.1",
+			},
+		},
+		Infra: architect.InfraInfo{
+			Containers: []architect.ContainerInfo{
+				{
+					Name:   "orders-service",
+					Source: "services/orders/Dockerfile",
+					Type:   "service",
+				},
+				{
+					Name:   "auth-service",
+					Source: "services/auth/Dockerfile",
+					Type:   "service",
+				},
+			},
+		},
+		Dependencies: architect.DependencyInfo{
+			Manifests: []architect.ManifestInfo{
+				{
+					Path:     "services/orders/go.mod",
+					Language: "go",
+				},
+				{
+					Path:     "services/auth/go.mod",
+					Language: "go",
+				},
+			},
+		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			// We can't directly test normalizeLanguage as it's not exported
-			// But we can test it indirectly through containerLanguage
-			profile := &architect.CodebaseProfile{
-				Infra: architect.InfraInfo{
-					Containers: []architect.ContainerInfo{
-						{
-							Name:   "test",
-							Source: "test/Dockerfile",
-							Type:   "service",
-						},
-					},
-				},
-				Dependencies: architect.DependencyInfo{
-					Manifests: []architect.ManifestInfo{
-						{
-							Path:     "test/go.mod",
-							Language: tt.input,
-						},
-					},
-				},
-			}
+	result := architect.DetectCrossLangDeps(profile)
 
-			_ = architect.ContainerLanguage(profile, "test")
-		})
+	// Should NOT have cross-lang dependencies since both are Go
+	// and the spec is not close enough to both containers (only shares "services")
+	for _, dep := range result.Dependencies {
+		if dep.FromLanguage == dep.ToLanguage {
+			t.Errorf("expected no cross-lang dep for same language, got %q -> %q", dep.FromLanguage, dep.ToLanguage)
+		}
+	}
+
+	// Test case where spec IS close enough (shares 2+ levels)
+	profile2 := &architect.CodebaseProfile{
+		Specs: []architect.SpecArtifact{
+			{
+				Kind:    "openapi",
+				Path:    "services/orders/api/openapi.yaml",
+				Version: "3.1",
+			},
+		},
+		Infra: architect.InfraInfo{
+			Containers: []architect.ContainerInfo{
+				{
+					Name:   "orders-api",
+					Source: "services/orders/api/Dockerfile",
+					Type:   "service",
+				},
+				{
+					Name:   "orders-worker",
+					Source: "services/orders/worker/Dockerfile",
+					Type:   "service",
+				},
+			},
+		},
+		Dependencies: architect.DependencyInfo{
+			Manifests: []architect.ManifestInfo{
+				{
+					Path:     "services/orders/api/go.mod",
+					Language: "go",
+				},
+				{
+					Path:     "services/orders/worker/package.json",
+					Language: "typescript",
+				},
+			},
+		},
+	}
+
+	result2 := architect.DetectCrossLangDeps(profile2)
+
+	// SHOULD have cross-lang dependencies since spec is close to both containers
+	// (shares "services/orders" which is 2 levels)
+	foundCrossLang := false
+	for _, dep := range result2.Dependencies {
+		if dep.FromLanguage != dep.ToLanguage {
+			foundCrossLang = true
+			break
+		}
+	}
+	if !foundCrossLang {
+		t.Error("expected cross-lang dep when spec shares 2+ directory levels with containers")
 	}
 }
 

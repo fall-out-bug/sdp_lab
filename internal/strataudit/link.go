@@ -235,7 +235,7 @@ func (s *SQLiteStore) DocumentsByLevel(ctx context.Context, levelID string) ([]m
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var docs []model.Document
 	for rows.Next() {
@@ -264,7 +264,7 @@ func (s *SQLiteStore) AllEntitiesWithEmbeddings(ctx context.Context) ([]model.En
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var entities []model.Entity
 	for rows.Next() {

@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
-
 	"sdp_dev/internal/strataudit/model"
 )
 
@@ -73,8 +71,6 @@ func extractFromDocument(ctx context.Context, cfg *Config, llm *LLMClient, doc m
 	content := doc.Content
 	chunks := ChunkContent(content, cfg.Thresholds.ChunkTokenLimit, cfg.Thresholds.ChunkOverlapTokens)
 
-	sanitized := SanitizeForPrompt(content)
-
 	var allEntities []model.Entity
 	seen := make(map[string]bool)
 
@@ -115,13 +111,11 @@ func extractFromDocument(ctx context.Context, cfg *Config, llm *LLMClient, doc m
 
 	// Generate embeddings for all entities
 	if len(allEntities) > 0 {
-		if err := generateEmbeddings(ctx, llm, allEntities); err != nil {
-			// Non-fatal: entities without embeddings still work, linking will skip them
+		if err := generateEmbeddings(ctx, cfg, llm, allEntities); err != nil {
 			_ = err
 		}
 	}
 
-	_ = sanitized
 	return allEntities, nil
 }
 
@@ -211,7 +205,7 @@ func entityID(docID, entityType, title string) string {
 	return fmt.Sprintf("ent_%x", h[:8])
 }
 
-func generateEmbeddings(ctx context.Context, llm *LLMClient, entities []model.Entity) error {
+func generateEmbeddings(ctx context.Context, cfg *Config, llm *LLMClient, entities []model.Entity) error {
 	texts := make([]string, len(entities))
 	for i, e := range entities {
 		texts[i] = e.Title + ". " + e.Description
@@ -219,7 +213,6 @@ func generateEmbeddings(ctx context.Context, llm *LLMClient, entities []model.En
 
 	// Batch in groups of 20 (embedding API limit)
 	const batchSize = 20
-	var mu sync.Mutex
 
 	for i := 0; i < len(texts); i += batchSize {
 		end := i + batchSize
@@ -227,19 +220,18 @@ func generateEmbeddings(ctx context.Context, llm *LLMClient, entities []model.En
 			end = len(texts)
 		}
 
-		embs, err := llm.Embed(ctx, texts[i:end])
+		embs, err := llm.Embed(ctx, texts[i:end], cfg.LLM.EmbeddingModel)
 		if err != nil {
 			return fmt.Errorf("embed batch %d: %w", i/batchSize, err)
 		}
 
-		mu.Lock()
 		for j, emb := range embs {
 			if i+j < len(entities) {
 				entities[i+j].Embedding = emb
 				entities[i+j].EmbeddingDims = len(emb)
+				entities[i+j].EmbeddingModel = cfg.LLM.EmbeddingModel
 			}
 		}
-		mu.Unlock()
 	}
 	return nil
 }

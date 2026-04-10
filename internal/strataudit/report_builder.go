@@ -52,9 +52,10 @@ func BuildReport(ctx context.Context, cfg *Config, store *SQLiteStore) (*report.
 				Title: f.Title, Description: f.Description,
 				EntityIDs: f.EntityIDs, Confidence: f.ConfidenceScore,
 			})
-			if f.Severity == model.SeverityCritical {
+			switch f.Severity {
+			case model.SeverityCritical:
 				crit++
-			} else if f.Severity == model.SeverityWarn {
+			case model.SeverityWarn:
 				warn++
 			}
 		}

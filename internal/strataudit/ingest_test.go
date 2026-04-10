@@ -11,13 +11,13 @@ func TestIngest_BasicFiles(t *testing.T) {
 	// Create temp project structure
 	dir := t.TempDir()
 	stratDir := filepath.Join(dir, "strategy")
-	os.MkdirAll(stratDir, 0755)
+	os.MkdirAll(stratDir, 0755) //nolint:errcheck
 
 	// Write test files
-	os.WriteFile(filepath.Join(stratDir, "vision-statement.md"), []byte("# Our Vision\nBecome the market leader in AI tools"), 0644)
-	os.WriteFile(filepath.Join(stratDir, "strategy-2026.md"), []byte("# Strategy\nExpand into Southeast Asian markets"), 0644)
-	os.WriteFile(filepath.Join(stratDir, "task-backlog.md"), []byte("# Tasks\n- Hire country manager\n- Set up office"), 0644)
-	os.WriteFile(filepath.Join(stratDir, "random.tmp"), []byte("temp file"), 0644) // should be excluded
+		os.WriteFile(filepath.Join(stratDir, "vision-statement.md"), []byte("# Our Vision\nBecome the market leader in AI tools"), 0644) //nolint:errcheck
+		os.WriteFile(filepath.Join(stratDir, "strategy-2026.md"), []byte("# Strategy\nExpand into Southeast Asian markets"), 0644) //nolint:errcheck
+		os.WriteFile(filepath.Join(stratDir, "task-backlog.md"), []byte("# Tasks\n- Hire country manager\n- Set up office"), 0644) //nolint:errcheck
+		os.WriteFile(filepath.Join(stratDir, "random.tmp"), []byte("temp file"), 0644) //nolint:errcheck
 
 	cfg := &Config{
 		Project: ProjectConfig{
@@ -37,7 +37,7 @@ func TestIngest_BasicFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer store.Close()
+	defer store.Close() //nolint:errcheck
 
 	result, err := Ingest(context.Background(), cfg, store)
 	if err != nil {
@@ -79,9 +79,9 @@ func TestIngest_BasicFiles(t *testing.T) {
 func TestIngest_Deduplication(t *testing.T) {
 	dir := t.TempDir()
 	stratDir := filepath.Join(dir, "strategy")
-	os.MkdirAll(stratDir, 0755)
+	os.MkdirAll(stratDir, 0755) //nolint:errcheck
 
-	os.WriteFile(filepath.Join(stratDir, "vision.md"), []byte("Be the leader"), 0644)
+	os.WriteFile(filepath.Join(stratDir, "vision.md"), []byte("Be the leader"), 0644) //nolint:errcheck
 
 	cfg := &Config{
 		Project: ProjectConfig{SourceDirs: []string{stratDir}},
@@ -91,7 +91,7 @@ func TestIngest_Deduplication(t *testing.T) {
 
 	dbPath := filepath.Join(dir, "test.db")
 	store, _ := NewSQLiteStore(dbPath)
-	defer store.Close()
+	defer store.Close() //nolint:errcheck
 
 	// First run
 	r1, _ := Ingest(context.Background(), cfg, store)
@@ -112,10 +112,10 @@ func TestIngest_Deduplication(t *testing.T) {
 func TestIngest_UpdateTriggersVersionBump(t *testing.T) {
 	dir := t.TempDir()
 	stratDir := filepath.Join(dir, "strategy")
-	os.MkdirAll(stratDir, 0755)
+	os.MkdirAll(stratDir, 0755) //nolint:errcheck
 
 	visionPath := filepath.Join(stratDir, "vision.md")
-	os.WriteFile(visionPath, []byte("Version 1"), 0644)
+	os.WriteFile(visionPath, []byte("Version 1"), 0644) //nolint:errcheck
 
 	cfg := &Config{
 		Project: ProjectConfig{SourceDirs: []string{stratDir}},
@@ -125,13 +125,14 @@ func TestIngest_UpdateTriggersVersionBump(t *testing.T) {
 
 	dbPath := filepath.Join(dir, "test.db")
 	store, _ := NewSQLiteStore(dbPath)
-	defer store.Close()
+	defer store.Close() //nolint:errcheck
 
 	// First run
-	Ingest(context.Background(), cfg, store)
+	// First run
+	_, _ = Ingest(context.Background(), cfg, store)
 
 	// Modify file
-	os.WriteFile(visionPath, []byte("Version 2 updated"), 0644)
+	os.WriteFile(visionPath, []byte("Version 2 updated"), 0644) //nolint:errcheck
 
 	// Second run
 	r2, _ := Ingest(context.Background(), cfg, store)
@@ -230,9 +231,9 @@ func TestSHA256Hash(t *testing.T) {
 func TestIngest_SkipEmptyFiles(t *testing.T) {
 	dir := t.TempDir()
 	stratDir := filepath.Join(dir, "strategy")
-	os.MkdirAll(stratDir, 0755)
+	os.MkdirAll(stratDir, 0755) //nolint:errcheck
 
-	os.WriteFile(filepath.Join(stratDir, "vision.md"), []byte("   \n\n  "), 0644)
+	os.WriteFile(filepath.Join(stratDir, "vision.md"), []byte("   \n\n  "), 0644) //nolint:errcheck
 
 	cfg := &Config{
 		Project: ProjectConfig{SourceDirs: []string{stratDir}},
@@ -242,7 +243,7 @@ func TestIngest_SkipEmptyFiles(t *testing.T) {
 
 	dbPath := filepath.Join(dir, "test.db")
 	store, _ := NewSQLiteStore(dbPath)
-	defer store.Close()
+	defer store.Close() //nolint:errcheck
 
 	result, _ := Ingest(context.Background(), cfg, store)
 	if result.New != 0 {
@@ -253,9 +254,9 @@ func TestIngest_SkipEmptyFiles(t *testing.T) {
 func TestIngest_SkipNoLevelMatch(t *testing.T) {
 	dir := t.TempDir()
 	stratDir := filepath.Join(dir, "strategy")
-	os.MkdirAll(stratDir, 0755)
+	os.MkdirAll(stratDir, 0755) //nolint:errcheck
 
-	os.WriteFile(filepath.Join(stratDir, "random.md"), []byte("Some content"), 0644)
+	os.WriteFile(filepath.Join(stratDir, "random.md"), []byte("Some content"), 0644) //nolint:errcheck
 
 	cfg := &Config{
 		Project: ProjectConfig{SourceDirs: []string{stratDir}},
@@ -265,7 +266,7 @@ func TestIngest_SkipNoLevelMatch(t *testing.T) {
 
 	dbPath := filepath.Join(dir, "test.db")
 	store, _ := NewSQLiteStore(dbPath)
-	defer store.Close()
+	defer store.Close() //nolint:errcheck
 
 	result, _ := Ingest(context.Background(), cfg, store)
 	if result.New != 0 {

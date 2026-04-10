@@ -82,7 +82,7 @@ func RunPipeline(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLMC
 
 func saveCheckpoint(ctx context.Context, store *SQLiteStore, stage, status string, count, count2 int) {
 	now := time.Now()
-	store.SavePipelineState(ctx, model.PipelineState{
+	_ = store.SavePipelineState(ctx, model.PipelineState{
 		ID:          fmt.Sprintf("ps_%s_%d", stage, now.UnixMilli()),
 		Stage:       stage,
 		Status:      status,

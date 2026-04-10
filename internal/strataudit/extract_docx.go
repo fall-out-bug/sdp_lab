@@ -23,7 +23,7 @@ func extractDOCXFromZIP(data []byte) (string, error) {
 				return "", fmt.Errorf("docx open document.xml: %w", err)
 			}
 			content, err := io.ReadAll(rc)
-			rc.Close()
+			_ = rc.Close()
 			if err != nil {
 				return "", fmt.Errorf("docx read: %w", err)
 			}

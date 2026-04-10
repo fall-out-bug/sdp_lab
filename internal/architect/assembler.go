@@ -8,6 +8,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -180,10 +181,12 @@ func (pa *ProfileAssembler) mergeFragments(fragments []*ProfileFragment) *Codeba
 					DepsCount: depInfo.DepCount,
 				})
 			}
-		}
-		for _, notable := range profile.Dependencies.NotableDeps {
-			if !seenNotableDeps[notable.Name] {
-				seenNotableDeps[notable.Name] = true
+			// Merge notable deps with dedup
+			for _, notable := range depInfo.NotableDeps {
+				if !seenNotableDeps[notable.Name] {
+					seenNotableDeps[notable.Name] = true
+					profile.Dependencies.NotableDeps = append(profile.Dependencies.NotableDeps, notable)
+				}
 			}
 		}
 
@@ -440,19 +443,12 @@ func (pa *ProfileAssembler) TierSummary(profile *CodebaseProfile) string {
 	return b.String()
 }
 
-// TimeNow returns the current time (extracted for testability).
+// TimeNow returns the current time in milliseconds (extracted for testability).
 var TimeNow = func() int64 {
-	return 0 // Will be set in init
+	return time.Now().UnixMilli()
 }
 
 // TimeSince returns milliseconds since a timestamp.
 func TimeSince(start int64) int64 {
-	// This is a placeholder; actual implementation would use time.Now()
-	return 0
-}
-
-func init() {
-	TimeNow = func() int64 {
-		return 0 // Placeholder for testing
-	}
+	return TimeNow() - start
 }

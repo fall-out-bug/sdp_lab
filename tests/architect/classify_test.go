@@ -401,6 +401,42 @@ func TestHypothesizerAnalyze_MockServer(t *testing.T) {
 	if result.TotalCostUSD != 0.003 {
 		t.Errorf("expected 0.003 total cost, got %f", result.TotalCostUSD)
 	}
+
+	// Verify audit log has 3 entries
+	if len(result.AuditLog) != 3 {
+		t.Errorf("expected 3 audit log entries, got %d", len(result.AuditLog))
+	} else {
+		// Verify each audit entry
+		callTypes := make(map[string]bool)
+		for i, entry := range result.AuditLog {
+			if !entry.Success {
+				t.Errorf("audit entry %d should be successful", i)
+			}
+			if entry.Error != "" {
+				t.Errorf("audit entry %d should have no error, got: %s", i, entry.Error)
+			}
+			if entry.Model != "test-model" {
+				t.Errorf("audit entry %d has wrong model: %s", i, entry.Model)
+			}
+			if entry.InputTokens != 1000 {
+				t.Errorf("audit entry %d has wrong input tokens: %d", i, entry.InputTokens)
+			}
+			if entry.CostUSD != 0.001 {
+				t.Errorf("audit entry %d has wrong cost: %f", i, entry.CostUSD)
+			}
+			if entry.Timestamp == "" {
+				t.Errorf("audit entry %d has empty timestamp", i)
+			}
+			if entry.InputHash == "" {
+				t.Errorf("audit entry %d has empty input hash", i)
+			}
+			callTypes[entry.CallType] = true
+		}
+		// Verify all three call types are present
+		if !callTypes["style"] || !callTypes["pattern"] || !callTypes["risk"] {
+			t.Errorf("audit log missing call types: got %v", callTypes)
+		}
+	}
 }
 
 // Helper functions to access private methods for testing.

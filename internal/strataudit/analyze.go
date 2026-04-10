@@ -37,40 +37,85 @@ func Analyze(ctx context.Context, cfg *Config, store *SQLiteStore) (*AnalyzeResu
 		upperEntities, _ := store.EntitiesByLevel(ctx, upper.ID, model.Page{Limit: 10000})
 		lowerEntities, _ := store.EntitiesByLevel(ctx, lower.ID, model.Page{Limit: 10000})
 
-		// Get traces between these levels
 		upperTraced := tracedEntityIDs(ctx, store, upper.ID)
 		lowerTraced := tracedEntityIDs(ctx, store, lower.ID)
 
 		// Detect gaps: upper-level entities with no traces to lower level
 		for _, e := range upperEntities {
 			if !upperTraced[e.ID] {
+				// Severity by rank: critical if rank <= 1, warn otherwise
+				sev := model.SeverityCritical
+				if upper.Rank > 1 {
+					sev = model.SeverityWarn
+				}
 				findingIdx++
 				allFindings = append(allFindings, model.Finding{
-					ID:          findingID("gap", findingIdx),
-					Type:        model.FindingGap,
-					Severity:    model.SeverityCritical,
-					EntityIDs:   []string{e.ID},
-					Title:       fmt.Sprintf("Gap: %q has no support from %s", e.Title, lower.Name),
-					Description: fmt.Sprintf("Entity %q at level %s has no traced contributions from level %s.", e.Title, upper.Name, lower.Name),
+					ID:            findingID("gap", findingIdx),
+					Type:          model.FindingGap,
+					Severity:      sev,
+					EntityIDs:     []string{e.ID},
+					Title:         fmt.Sprintf("Gap: %q has no support from %s", e.Title, lower.Name),
+					Description:   fmt.Sprintf("Entity %q at level %s (rank %d) has no traced contributions from level %s.", e.Title, upper.Name, upper.Rank, lower.Name),
 					Recommendation: fmt.Sprintf("Add operational entities at %s level that contribute to this goal.", lower.Name),
 				})
 			} else {
-				// Check for strong traces (high confidence)
+				// Check for strong traces and weak links
 				traces, _ := store.TracesForEntity(ctx, e.ID)
 				for _, tr := range traces {
-					if tr.Confidence >= 0.8 && tr.Relation == model.RelationContributesTo {
-						findingIdx++
+					if tr.Relation != model.RelationContributesTo {
+						continue
+					}
+					findingIdx++
+					if tr.Confidence >= 0.85 {
 						allFindings = append(allFindings, model.Finding{
-							ID:       findingID("alignment", findingIdx),
-							Type:     model.FindingAlignment,
-							Severity: model.SeverityInfo,
-							EntityIDs: []string{tr.SourceEntityID, tr.TargetEntityID},
-							Title:    fmt.Sprintf("Strong alignment: trace to %q", e.Title),
-							Description: fmt.Sprintf("Entity at %s level contributes to %q with %.0f%% confidence.", lower.Name, e.Title, tr.Confidence*100),
-							LLMScore: model.LLMScoreHigh,
+							ID:            findingID("strong_trace", findingIdx),
+							Type:          model.FindingStrongTrace,
+							Severity:      model.SeverityInfo,
+							EntityIDs:     []string{tr.SourceEntityID, tr.TargetEntityID},
+							Title:         fmt.Sprintf("Strong trace: %.0f%% confidence to %q", tr.Confidence*100, e.Title),
+							Description:   fmt.Sprintf("Entity contributes to %q with %.2f confidence.", e.Title, tr.Confidence),
+							LLMScore:      model.LLMScoreHigh,
 							ConfidenceScore: tr.Confidence,
 						})
-						break // one strong trace per entity
+					} else if tr.Confidence >= 0.8 {
+						allFindings = append(allFindings, model.Finding{
+							ID:            findingID("alignment", findingIdx),
+							Type:          model.FindingAlignment,
+							Severity:      model.SeverityInfo,
+							EntityIDs:     []string{tr.SourceEntityID, tr.TargetEntityID},
+							Title:         fmt.Sprintf("Alignment: trace to %q", e.Title),
+							Description:   fmt.Sprintf("Entity at %s level contributes to %q with %.0f%% confidence.", lower.Name, e.Title, tr.Confidence*100),
+							LLMScore:      model.LLMScoreHigh,
+							ConfidenceScore: tr.Confidence,
+						})
+					} else if tr.Confidence < cfg.Thresholds.TraceConfidence+0.1 {
+						allFindings = append(allFindings, model.Finding{
+							ID:            findingID("weak_link", findingIdx),
+							Type:          model.FindingWeakLink,
+							Severity:      model.SeverityWarn,
+							EntityIDs:     []string{tr.SourceEntityID, tr.TargetEntityID},
+							Title:         fmt.Sprintf("Weak link: %.0f%% confidence to %q", tr.Confidence*100, e.Title),
+							Description:   fmt.Sprintf("Trace from %s to %q has low confidence (%.2f). Verify manually.", lower.Name, e.Title, tr.Confidence),
+							LLMScore:      model.LLMScoreLow,
+							ConfidenceScore: tr.Confidence,
+						})
+					}
+					break // one trace summary per entity
+				}
+
+				// Check for ambiguous traces (multiple traces with close confidence)
+				if len(traces) >= 2 {
+					sorted := sortTracesByConfidence(traces)
+					if sorted[0].Confidence-sorted[1].Confidence < 0.15 {
+						findingIdx++
+						allFindings = append(allFindings, model.Finding{
+							ID:        findingID("ambiguous", findingIdx),
+							Type:      model.FindingAmbiguousTrace,
+							Severity:  model.SeverityWarn,
+							EntityIDs: []string{sorted[0].TargetEntityID, sorted[1].TargetEntityID},
+							Title:     fmt.Sprintf("Ambiguous trace: %q has multiple close candidates", e.Title),
+							Description: fmt.Sprintf("Top-2 confidence delta is %.2f (< 0.15). Cannot determine primary trace.", sorted[0].Confidence-sorted[1].Confidence),
+						})
 					}
 				}
 			}
@@ -81,40 +126,23 @@ func Analyze(ctx context.Context, cfg *Config, store *SQLiteStore) (*AnalyzeResu
 			if !lowerTraced[e.ID] {
 				findingIdx++
 				allFindings = append(allFindings, model.Finding{
-					ID:          findingID("orphan", findingIdx),
-					Type:        model.FindingOrphan,
-					Severity:    model.SeverityWarn,
-					EntityIDs:   []string{e.ID},
-					Title:       fmt.Sprintf("Orphan: %q has no link to %s", e.Title, upper.Name),
-					Description: fmt.Sprintf("Entity %q at level %s is not traced to any entity at level %s.", e.Title, lower.Name, upper.Name),
+					ID:            findingID("orphan", findingIdx),
+					Type:          model.FindingOrphan,
+					Severity:      model.SeverityWarn,
+					EntityIDs:     []string{e.ID},
+					Title:         fmt.Sprintf("Orphan: %q has no link to %s", e.Title, upper.Name),
+					Description:   fmt.Sprintf("Entity %q at level %s is not traced to any entity at level %s.", e.Title, lower.Name, upper.Name),
 					Recommendation: "Verify if this entity supports a strategic goal or remove/deprioritize it.",
 				})
 			}
 		}
 	}
 
-	// Detect unknown rationale: orphans without any source quote or description
-	for i := len(allFindings) - 1; i >= 0; i-- {
-		f := allFindings[i]
-		if f.Type == model.FindingOrphan && len(f.EntityIDs) > 0 {
-			entities, _ := store.EntitiesByLevel(ctx, "", model.Page{Limit: 1})
-			_ = entities
-			// Check entity source
-			for _, eid := range f.EntityIDs {
-				traces, _ := store.TracesForEntity(ctx, eid)
-				if len(traces) == 0 {
-					findingIdx++
-					allFindings = append(allFindings, model.Finding{
-						ID:        findingID("unknown_rationale", findingIdx),
-						Type:      model.FindingUnknownRationale,
-						Severity:  model.SeverityWarn,
-						EntityIDs: []string{eid},
-						Title:     fmt.Sprintf("Unknown rationale: purpose unclear"),
-						Description: "This entity has no traces to any level and its strategic purpose cannot be determined.",
-						Recommendation: "Document why this work is being done or remove it.",
-					})
-				}
-			}
+	// Compute confidence for all findings that need it
+	for i := range allFindings {
+		f := &allFindings[i]
+		if f.ConfidenceScore == 0 {
+			f.ComputeConfidence()
 		}
 	}
 
@@ -129,26 +157,26 @@ func Analyze(ctx context.Context, cfg *Config, store *SQLiteStore) (*AnalyzeResu
 		pct := float64(tracedCount) / float64(total) * 100
 
 		allFindings = append(allFindings, model.Finding{
-			ID:       findingID("coverage", int(total)),
-			Type:     model.FindingCoverage,
-			Severity: coverageSeverity(pct, cfg.Thresholds.CoverageWarn),
-			Title:    fmt.Sprintf("%s coverage: %.0f%% (%d/%d)", level.Name, pct, tracedCount, total),
-			Description: fmt.Sprintf("Level %s has %d entities, %d traced (%.1f%% coverage).", level.Name, total, tracedCount, pct),
+			ID:             findingID("coverage", int(total)),
+			Type:           model.FindingCoverage,
+			Severity:       coverageSeverity(pct, cfg.Thresholds.CoverageWarn),
+			Title:          fmt.Sprintf("%s coverage: %.0f%% (%d/%d)", level.Name, pct, tracedCount, total),
+			Description:    fmt.Sprintf("Level %s has %d entities, %d traced (%.1f%% coverage).", level.Name, total, tracedCount, pct),
 			ConfidenceScore: 1.0,
 		})
 
-		// Save coverage record
-		store.SaveCoverage(ctx, []model.Coverage{{
+		if err := store.SaveCoverage(ctx, []model.Coverage{{
 			ID:             fmt.Sprintf("cov_%s", level.ID),
 			LevelID:        level.ID,
 			TotalEntities:  int(total),
 			TracedEntities: int(tracedCount),
 			CoveragePct:    pct,
 			ComputedAt:     now,
-		}})
+		}}); err != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("save coverage %s: %w", level.ID, err))
+		}
 	}
 
-	// Save all findings
 	if len(allFindings) > 0 {
 		if err := store.SaveFindings(ctx, allFindings); err != nil {
 			return nil, fmt.Errorf("save findings: %w", err)
@@ -183,4 +211,17 @@ func coverageSeverity(pct, warnThreshold float64) model.Severity {
 
 func findingID(prefix string, idx int) string {
 	return fmt.Sprintf("%s_%d_%s", prefix, idx, sha256Hash([]byte(fmt.Sprintf("%s%d", prefix, idx)))[:6])
+}
+
+func sortTracesByConfidence(traces []model.Trace) []model.Trace {
+	sorted := make([]model.Trace, len(traces))
+	copy(sorted, traces)
+	for i := 0; i < len(sorted)-1; i++ {
+		for j := i + 1; j < len(sorted); j++ {
+			if sorted[j].Confidence > sorted[i].Confidence {
+				sorted[i], sorted[j] = sorted[j], sorted[i]
+			}
+		}
+	}
+	return sorted
 }

@@ -23,11 +23,11 @@ func NewSQLiteStore(dbPath string) (*SQLiteStore, error) {
 	}
 	s := &SQLiteStore{dbPath: dbPath, db: db}
 	if err := s.pragma(); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("pragma: %w", err)
 	}
 	if err := s.migrate(); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
 	return s, nil
@@ -58,13 +58,15 @@ func (s *SQLiteStore) migrate() error {
 		level_id TEXT NOT NULL REFERENCES levels(id), type TEXT NOT NULL, title TEXT NOT NULL,
 		description TEXT, source_quote TEXT, page_number INTEGER,
 		embedding BLOB, embedding_model TEXT, embedding_dims INTEGER,
-		extraction_model TEXT, metadata TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		extraction_model TEXT, metadata TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		CHECK (embedding IS NULL OR embedding_dims IS NOT NULL)
 	);
 	CREATE TABLE IF NOT EXISTS traces (
 		id TEXT PRIMARY KEY, source_entity_id TEXT NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
 		target_entity_id TEXT NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
 		relation TEXT NOT NULL, confidence REAL NOT NULL DEFAULT 0,
-		justification TEXT, direction TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		justification TEXT, direction TEXT NOT NULL CHECK (direction IN ('up','down','bidirectional')),
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE TABLE IF NOT EXISTS trace_candidates (
 		id TEXT PRIMARY KEY, source_entity_id TEXT NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
@@ -73,7 +75,8 @@ func (s *SQLiteStore) migrate() error {
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE TABLE IF NOT EXISTS findings (
-		id TEXT PRIMARY KEY, type TEXT NOT NULL, severity TEXT NOT NULL,
+		id TEXT PRIMARY KEY, type TEXT NOT NULL CHECK (type IN ('alignment','strong_trace','coverage','gap','orphan','unknown_rationale','ambiguous_trace','conflict','weak_link','stale','inferred_strategy','shadow_strategy')),
+		severity TEXT NOT NULL CHECK (severity IN ('info','warn','critical')),
 		entity_ids TEXT, title TEXT NOT NULL, description TEXT, recommendation TEXT,
 		suppressed BOOLEAN DEFAULT FALSE, llm_score TEXT,
 		evidence_quotes TEXT, evidence_verified BOOLEAN DEFAULT FALSE, evidence_count INTEGER DEFAULT 0,
@@ -108,8 +111,14 @@ func (s *SQLiteStore) migrate() error {
 	CREATE INDEX IF NOT EXISTS idx_traces_target ON traces(target_entity_id);
 	CREATE INDEX IF NOT EXISTS idx_traces_direction ON traces(direction);
 	CREATE INDEX IF NOT EXISTS idx_traces_relation_confidence ON traces(relation, confidence);
+	CREATE INDEX IF NOT EXISTS idx_traces_confidence ON traces(confidence);
 	CREATE INDEX IF NOT EXISTS idx_findings_type ON findings(type);
 	CREATE INDEX IF NOT EXISTS idx_findings_severity ON findings(severity);
+	CREATE INDEX IF NOT EXISTS idx_findings_suppressed ON findings(suppressed) WHERE suppressed = FALSE;
+	CREATE INDEX IF NOT EXISTS idx_documents_ingested ON documents(ingested_at);
+	CREATE INDEX IF NOT EXISTS idx_trace_candidates_source ON trace_candidates(source_entity_id);
+	CREATE INDEX IF NOT EXISTS idx_trace_candidates_verified ON trace_candidates(verified) WHERE verified = FALSE;
+	CREATE INDEX IF NOT EXISTS idx_llm_invocations_stage ON llm_invocations(stage);
 	CREATE INDEX IF NOT EXISTS idx_llm_cache_hash ON llm_cache(prompt_hash);
 	`
 	_, err := s.db.Exec(schema)
@@ -121,7 +130,7 @@ func (s *SQLiteStore) SaveLevels(ctx context.Context, levels []model.Level) erro
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	for _, l := range levels {
 		patterns, _ := json.Marshal(l.Patterns)
 		_, err := tx.ExecContext(ctx,
@@ -139,7 +148,7 @@ func (s *SQLiteStore) LoadLevels(ctx context.Context) ([]model.Level, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var levels []model.Level
 	for rows.Next() {
 		var l model.Level
@@ -148,7 +157,7 @@ func (s *SQLiteStore) LoadLevels(ctx context.Context) ([]model.Level, error) {
 			return nil, err
 		}
 		if patternsJSON.Valid {
-			json.Unmarshal([]byte(patternsJSON.String), &l.Patterns)
+			_ = json.Unmarshal([]byte(patternsJSON.String), &l.Patterns)
 		}
 		levels = append(levels, l)
 	}
@@ -176,10 +185,15 @@ func (s *SQLiteStore) SaveDocuments(ctx context.Context, docs []model.Document) 
 func (s *SQLiteStore) SaveEntities(ctx context.Context, entities []model.Entity) error {
 	for _, e := range entities {
 		meta, _ := json.Marshal(e.Metadata)
+		var embBlob interface{}
+		if len(e.Embedding) > 0 {
+			embData, _ := json.Marshal(e.Embedding)
+			embBlob = embData
+		}
 		_, err := s.db.ExecContext(ctx,
-			`INSERT OR REPLACE INTO entities (id, document_id, level_id, type, title, description, source_quote, page_number, extraction_model, metadata)
-			VALUES (?,?,?,?,?,?,?,?,?,?)`,
-			e.ID, e.DocumentID, e.LevelID, string(e.Type), e.Title, e.Description, e.SourceQuote, nilIfZero(e.PageNumber), e.ExtractionModel, string(meta))
+			`INSERT OR REPLACE INTO entities (id, document_id, level_id, type, title, description, source_quote, page_number, embedding, embedding_model, embedding_dims, extraction_model, metadata)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			e.ID, e.DocumentID, e.LevelID, string(e.Type), e.Title, e.Description, e.SourceQuote, nilIfZero(e.PageNumber), embBlob, e.EmbeddingModel, nilIfZero(e.EmbeddingDims), e.ExtractionModel, string(meta))
 		if err != nil {
 			return fmt.Errorf("save entity %s: %w", e.ID, err)
 		}
@@ -194,13 +208,14 @@ func (s *SQLiteStore) DeleteEntitiesForDocument(ctx context.Context, docID strin
 
 func (s *SQLiteStore) EntitiesByLevel(ctx context.Context, levelID string, page model.Page) ([]model.Entity, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, document_id, level_id, type, title, description, source_quote, extraction_model
+		`SELECT id, document_id, level_id, type, title, description, source_quote, extraction_model,
+		embedding, embedding_model, embedding_dims
 		FROM entities WHERE level_id = ? ORDER BY title LIMIT ? OFFSET ?`,
 		levelID, page.Limit, page.Offset)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	return scanEntities(rows)
 }
 
@@ -212,7 +227,7 @@ func (s *SQLiteStore) TracesForEntity(ctx context.Context, entityID string) ([]m
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var traces []model.Trace
 	for rows.Next() {
 		var t model.Trace
@@ -264,7 +279,7 @@ func (s *SQLiteStore) FindingsByType(ctx context.Context, ft model.FindingType, 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	return scanFindings(rows)
 }
 
@@ -286,7 +301,7 @@ func (s *SQLiteStore) CoverageByLevel(ctx context.Context) ([]model.Coverage, er
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var result []model.Coverage
 	for rows.Next() {
 		var c model.Coverage
@@ -339,7 +354,7 @@ func (s *SQLiteStore) DocumentByPath(ctx context.Context, path string) (*model.D
 		return nil, err
 	}
 	if meta.Valid {
-		json.Unmarshal([]byte(meta.String), &d.Metadata)
+		_ = json.Unmarshal([]byte(meta.String), &d.Metadata)
 	}
 	return &d, nil
 }
@@ -356,10 +371,22 @@ func scanEntities(rows *sql.Rows) ([]model.Entity, error) {
 	for rows.Next() {
 		var e model.Entity
 		var entityType string
-		if err := rows.Scan(&e.ID, &e.DocumentID, &e.LevelID, &entityType, &e.Title, &e.Description, &e.SourceQuote, &e.ExtractionModel); err != nil {
+		var embBlob []byte
+		var embModel sql.NullString
+		var embDims sql.NullInt64
+		if err := rows.Scan(&e.ID, &e.DocumentID, &e.LevelID, &entityType, &e.Title, &e.Description, &e.SourceQuote, &e.ExtractionModel, &embBlob, &embModel, &embDims); err != nil {
 			return nil, err
 		}
 		e.Type = model.EntityType(entityType)
+		if len(embBlob) > 0 {
+			_ = json.Unmarshal(embBlob, &e.Embedding)
+		}
+		if embModel.Valid {
+			e.EmbeddingModel = embModel.String
+		}
+		if embDims.Valid {
+			e.EmbeddingDims = int(embDims.Int64)
+		}
 		entities = append(entities, e)
 	}
 	return entities, rows.Err()
@@ -377,7 +404,7 @@ func scanFindings(rows *sql.Rows) ([]model.Finding, error) {
 		f.Type = model.FindingType(ftype)
 		f.Severity = model.Severity(severity)
 		if entityIDsJSON.Valid {
-			json.Unmarshal([]byte(entityIDsJSON.String), &f.EntityIDs)
+			_ = json.Unmarshal([]byte(entityIDsJSON.String), &f.EntityIDs)
 		}
 		findings = append(findings, f)
 	}
