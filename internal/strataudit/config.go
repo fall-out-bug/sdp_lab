@@ -46,13 +46,15 @@ type LLMConfig struct {
 }
 
 type ThresholdConfig struct {
-	Similarity         float64 `yaml:"similarity"`
-	TraceConfidence    float64 `yaml:"trace_confidence"`
-	CoverageWarn       float64 `yaml:"coverage_warn"`
-	StaleDays          int     `yaml:"stale_days"`
-	ChunkTokenLimit    int     `yaml:"chunk_token_limit"`
-	ChunkOverlapTokens int     `yaml:"chunk_overlap_tokens"`
-	EmitDistribution   bool    `yaml:"emit_distribution"`
+	Similarity            float64 `yaml:"similarity"`
+	TraceConfidence       float64 `yaml:"trace_confidence"`
+	AutoVerifySimilarity  float64 `yaml:"auto_verify_similarity"`
+	LLMVerifyBudget       int     `yaml:"llm_verify_budget"`
+	CoverageWarn          float64 `yaml:"coverage_warn"`
+	StaleDays             int     `yaml:"stale_days"`
+	ChunkTokenLimit       int     `yaml:"chunk_token_limit"`
+	ChunkOverlapTokens    int     `yaml:"chunk_overlap_tokens"`
+	EmitDistribution      bool    `yaml:"emit_distribution"`
 }
 
 type OutputConfig struct {
@@ -91,6 +93,12 @@ func (c *Config) setDefaults() {
 	}
 	if c.Thresholds.TraceConfidence == 0 {
 		c.Thresholds.TraceConfidence = 0.6
+	}
+	if c.Thresholds.AutoVerifySimilarity == 0 {
+		c.Thresholds.AutoVerifySimilarity = 0.85
+	}
+	if c.Thresholds.LLMVerifyBudget == 0 {
+		c.Thresholds.LLMVerifyBudget = 50
 	}
 	if c.Thresholds.CoverageWarn == 0 {
 		c.Thresholds.CoverageWarn = 70

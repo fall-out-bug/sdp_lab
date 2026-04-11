@@ -288,3 +288,67 @@ func TestWriteDistributionReport(t *testing.T) {
 		t.Errorf("TotalPairs = %d, want 100", parsed.LevelPairs[0].TotalPairs)
 	}
 }
+
+func TestCreateTraces_AutoVerify(t *testing.T) {
+	cfg := &Config{
+		Thresholds: ThresholdConfig{
+			AutoVerifySimilarity: 0.85,
+			TraceConfidence:      0.6,
+			LLMVerifyBudget:      50,
+		},
+		LLM: LLMConfig{Temperature: 0.0, Temperatures: map[string]float64{"verify": 0.0}},
+	}
+
+	candidates := []candidate{
+		{source: model.Entity{ID: "e1"}, target: model.Entity{ID: "e2"}, sim: 0.90},
+		{source: model.Entity{ID: "e3"}, target: model.Entity{ID: "e4"}, sim: 0.70},
+	}
+
+	traces := createTraces(context.Background(), cfg, nil, candidates, model.Level{ID: "l1"}, model.Level{ID: "l2"})
+
+	// sim=0.90 >= 0.85 → auto-verified; sim=0.70 with nil LLM → skipped
+	if len(traces) != 1 {
+		t.Fatalf("traces = %d, want 1", len(traces))
+	}
+	if traces[0].Confidence != 0.90 {
+		t.Errorf("confidence = %f, want 0.90", traces[0].Confidence)
+	}
+}
+
+func TestCreateTraces_BudgetExhaustion(t *testing.T) {
+	cfg := &Config{
+		Thresholds: ThresholdConfig{
+			AutoVerifySimilarity: 0.95,
+			TraceConfidence:      0.3,
+			LLMVerifyBudget:      0, // budget exhausted from start
+		},
+		LLM: LLMConfig{Temperature: 0.0},
+	}
+
+	candidates := []candidate{
+		{source: model.Entity{ID: "e1"}, target: model.Entity{ID: "e2"}, sim: 0.70},
+	}
+
+	// With budget=0, no LLM calls should happen, so nil LLM is fine
+	traces := createTraces(context.Background(), cfg, nil, candidates, model.Level{ID: "l1"}, model.Level{ID: "l2"})
+	if len(traces) != 0 {
+		t.Errorf("traces = %d, want 0 (budget exhausted)", len(traces))
+	}
+}
+
+func TestLLMVerifyResult_ParseJSON(t *testing.T) {
+	input := `{"related": true, "confidence": 0.9, "relation": "contributes_to"}`
+	var result llmVerifyResult
+	if err := json.Unmarshal([]byte(input), &result); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if !result.Related {
+		t.Error("expected related=true")
+	}
+	if result.Relation != "contributes_to" {
+		t.Errorf("relation = %q, want contributes_to", result.Relation)
+	}
+	if result.Confidence != 0.9 {
+		t.Errorf("confidence = %f, want 0.9", result.Confidence)
+	}
+}

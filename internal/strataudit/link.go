@@ -287,32 +287,102 @@ func cosineSimilarity(a, b []float32) float64 {
 }
 
 func createTraces(ctx context.Context, cfg *Config, llm *LLMClient, candidates []candidate, lowerLevel, upperLevel model.Level) []model.Trace {
-	threshold := cfg.Thresholds.TraceConfidence
+	autoThreshold := cfg.Thresholds.AutoVerifySimilarity
+	traceThreshold := cfg.Thresholds.TraceConfidence
+	budget := cfg.Thresholds.LLMVerifyBudget
 	var traces []model.Trace
+
+	var autoCount, llmCount int
 
 	for _, c := range candidates {
 		if ctx.Err() != nil {
 			return traces
 		}
 
-		// High similarity candidates get auto-verified
-		confidence := c.sim
-		justification := fmt.Sprintf("Embedding similarity: %.2f", c.sim)
-
-		if confidence >= threshold {
+		// Tier 1: similarity >= auto_verify_similarity → auto-verified
+		if c.sim >= autoThreshold {
 			traces = append(traces, model.Trace{
 				ID:              traceID(c.source.ID, c.target.ID),
 				SourceEntityID:  c.source.ID,
 				TargetEntityID:  c.target.ID,
 				Relation:        model.RelationContributesTo,
-				Confidence:      confidence,
-				Justification:   justification,
+				Confidence:      c.sim,
+				Justification:   fmt.Sprintf("Auto-verified (similarity: %.2f)", c.sim),
 				Direction:       model.DirectionUp,
 			})
+			autoCount++
+			continue
+		}
+
+		// Tier 2: similarity in [trace_confidence, auto_verify_similarity) → LLM verify
+		if c.sim >= traceThreshold && llm != nil && budget > 0 {
+			budget--
+			verified, relation, conf := llmVerifyPair(ctx, llm, cfg, c, lowerLevel, upperLevel)
+			if verified {
+				traces = append(traces, model.Trace{
+					ID:              traceID(c.source.ID, c.target.ID),
+					SourceEntityID:  c.source.ID,
+					TargetEntityID:  c.target.ID,
+					Relation:        relation,
+					Confidence:      conf,
+					Justification:   fmt.Sprintf("LLM-verified (similarity: %.2f)", c.sim),
+					Direction:       model.DirectionUp,
+				})
+				llmCount++
+			}
+			// Fail-closed: LLM verification failure = pair rejected
 		}
 	}
 
+	slog.Info("trace verification", "auto", autoCount, "llm", llmCount, "total", len(traces))
 	return traces
+}
+
+type llmVerifyResult struct {
+	Related     bool    `json:"related"`
+	Confidence  float64 `json:"confidence"`
+	Relation    string  `json:"relation"`
+}
+
+func llmVerifyPair(ctx context.Context, llm *LLMClient, cfg *Config, c candidate, lowerLevel, upperLevel model.Level) (bool, model.TraceRelation, float64) {
+	prompt := fmt.Sprintf(`Given two strategic entities:
+A: "%s" (%s) at %s level
+B: "%s" (%s) at %s level
+
+Is there a meaningful strategic relationship between them?
+Return JSON: {"related": bool, "confidence": 0.0-1.0, "relation": "contributes_to|enables|measures|decomposes_into|depends_on|none"}`,
+		c.source.Title, c.source.Type, lowerLevel.Name,
+		c.target.Title, c.target.Type, upperLevel.Name)
+
+	resp, err := llm.Chat(ctx, LLMRequest{
+		Model:       cfg.LLM.Model,
+		System:      "You are a strategy analyst. Respond with valid JSON only.",
+		User:        prompt,
+		MaxTokens:   200,
+		Temperature: cfg.TemperatureForStage("verify"),
+		JSONMode:    true,
+	})
+	if err != nil {
+		slog.Warn("LLM verify error", "err", err)
+		return false, model.RelationNone, 0
+	}
+
+	raw := ParseLLMJSON(resp.Content)
+	if raw == nil {
+		slog.Warn("LLM verify: invalid JSON", "content", resp.Content)
+		return false, model.RelationNone, 0
+	}
+
+	var result llmVerifyResult
+	if err := json.Unmarshal(raw, &result); err != nil {
+		slog.Warn("LLM verify: parse error", "err", err)
+		return false, model.RelationNone, 0
+	}
+
+	if !result.Related || result.Relation == "none" {
+		return false, model.RelationNone, 0
+	}
+	return true, model.TraceRelation(result.Relation), result.Confidence
 }
 
 func traceID(sourceID, targetID string) string {
