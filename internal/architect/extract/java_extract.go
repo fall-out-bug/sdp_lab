@@ -336,6 +336,23 @@ func (e *JavaExtractor) Extract(rootDir string) (*JavaExtractionResult, error) {
 		case isScalaFile(rel):
 			foundSource = true
 				scalaFiles++
+			// Quick scan for runtime coupling in Scala files.
+			if sf, sfErr := os.Open(path); sfErr == nil {
+				sc := bufio.NewScanner(sf)
+				for sc.Scan() {
+					sl := strings.TrimSpace(sc.Text())
+					if strings.Contains(sl, "io.grpc.") {
+						result.RuntimeCouplings = append(result.RuntimeCouplings, RuntimeCouplingSighting{
+							Type:     "grpc",
+							File:     rel,
+							Line:     0,
+							Evidence: sl,
+						})
+						break
+					}
+				}
+				sf.Close()
+			}
 			imports, annotations, pkgDecl, scanErr := scanScalaFile(path, rel)
 			if scanErr != nil {
 				return nil
