@@ -145,7 +145,7 @@ var (
 	reNettyRpcEnv   = regexp.MustCompile(`(?:NettyRpcEnv|RpcEnv\s*\.\s*create|TransportContext\s*\()`)
 	reGatewayServer = regexp.MustCompile(`GatewayServer\s*[\.(]`)
 	reRpcImport     = regexp.MustCompile(`org\.apache\.spark\.rpc\.`)
-	reGRPCImport    = regexp.MustCompile(`io\.grpc\.|io\.netty\.channel\.`)
+	reGRPCImport    = regexp.MustCompile(`io\.grpc\.`)
 
 	// Kotlin-specific patterns.
 	kotlinDataClassRe    = regexp.MustCompile(`^data\s+class\s+`)
