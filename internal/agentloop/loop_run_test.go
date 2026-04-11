@@ -52,10 +52,11 @@ func TestRun_noTools_emitsDone(t *testing.T) {
 }
 
 // TestRun_withTools_executesAndContinues: LLM calls 1 tool → tool executes → second LLM response → done.
+// Fix R1: StubGateway uses FIFO queue semantics — two AddResponse calls are consumed in order.
 func TestRun_withTools_executesAndContinues(t *testing.T) {
 	sg := NewStubGateway()
 
-	// First LLM call: requests a tool, then "done" (meaning this assistant turn ended)
+	// First Call: LLM requests a tool.
 	sg.AddResponse("gpt-4.1", []Event{
 		{Type: "tool_call", ToolCalls: []ToolCall{
 			{ID: "tc1", Name: "web_search", Arguments: json.RawMessage(`{"query":"competitors"}`)},
@@ -63,25 +64,11 @@ func TestRun_withTools_executesAndContinues(t *testing.T) {
 		{Type: "done"},
 	})
 
-	// Second LLM call (after tool result appended): final text response
-	// StubGateway returns its sequence every time Call is invoked for the same model,
-	// but here we need two different responses. Use a counter-based approach.
-	callCount := 0
-	sg2 := &countingGateway{
-		responses: [][]Event{
-			{
-				{Type: "tool_call", ToolCalls: []ToolCall{
-					{ID: "tc1", Name: "web_search", Arguments: json.RawMessage(`{"query":"competitors"}`)},
-				}},
-				{Type: "done"},
-			},
-			{
-				{Type: "text_delta", Delta: "Found 3 competitors."},
-				{Type: "done"},
-			},
-		},
-		callCount: &callCount,
-	}
+	// Second Call: LLM acknowledges tool result with final text.
+	sg.AddResponse("gpt-4.1", []Event{
+		{Type: "text_delta", Delta: "Found 3 competitors."},
+		{Type: "done"},
+	})
 
 	searchTool := Tool{
 		Name: "web_search",
@@ -92,7 +79,7 @@ func TestRun_withTools_executesAndContinues(t *testing.T) {
 
 	cfg := LoopConfig{
 		Model:   "gpt-4.1",
-		Gateway: sg2,
+		Gateway: sg,
 		Tools:   []Tool{searchTool},
 	}
 
@@ -104,7 +91,7 @@ func TestRun_withTools_executesAndContinues(t *testing.T) {
 	assert.Equal(t, "done", events[len(events)-1].Type, "last event must be 'done'")
 
 	// Should have called gateway twice (initial + after tool result).
-	assert.Equal(t, 2, callCount)
+	assert.Len(t, sg.Calls, 2, "Fix R1: StubGateway must record 2 calls (tool-call round + ack round)")
 
 	// Must have emitted tool_end event.
 	toolEndEvents := filterByType(events, "tool_end")
