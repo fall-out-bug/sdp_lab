@@ -1,0 +1,25 @@
+{
+  "ws_id": "00-108-03",
+  "feature_id": "F108",
+  "verdict": "PASS",
+  "commit": "7fc49bd",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": 90.6,
+    "coverage_threshold": 80,
+    "max_file_loc": 189,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {"ac": "livegw.New(apiKey, baseURL string) (*LiveGateway, error) — возвращает ошибку при пустом apiKey", "met": true, "evidence": "TestNew_rejectEmptyKey in internal/agentloop/livegw/livegw_test.go:14, New() in livegw.go:27"},
+    {"ac": "LiveGateway implements agentloop.ModelGateway (compile-time check)", "met": true, "evidence": "var _ agentloop.ModelGateway = (*LiveGateway)(nil) in livegw.go:131"},
+    {"ac": "IsAvailable(model string) bool — не делает сетевых вызовов; возвращает true если ключ установлен", "met": true, "evidence": "TestIsAvailable in livegw_test.go:26, IsAvailable() in livegw.go:44"},
+    {"ac": "Call() маппинг: text_delta → agentloop.Event, tool_call → Event{ToolCalls}, finish → turn_end + done, error → Event{Err}", "met": true, "evidence": "TestCall_textResponse at :31, TestCall_toolCall at :67, TestCall_errorEvent at :156; event mapping in livegw.go:63-91"},
+    {"ac": "cfg.Tools передаются в llmclient.ChatRequest.Tools", "met": true, "evidence": "TestCall_toolsPassedToRequest at :116, convertRequest() in livegw.go:97-109"},
+    {"ac": "go test ./internal/agentloop/livegw/... -race PASS с httptest.Server", "met": true, "evidence": "All 7 tests PASS with -race"},
+    {"ac": "go build ./... без ошибок", "met": true, "evidence": "go build ./... exits 0"}
+  ],
+  "existing_work_summary": "No pre-existing livegw package. agentloop types verified: Message{Role,Content}, ToolCall{ID,Name,Arguments(json.RawMessage)}, Tool{Name,Description,Schema}, Event{Type,Delta,ToolCalls,Err}, ModelGateway{Call,IsAvailable}. StubGateway already exists in gateway.go as test double."
+}
