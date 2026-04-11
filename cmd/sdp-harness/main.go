@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 
 	"sdp_dev/internal/agentloop"
+	"sdp_dev/internal/agentloop/livegw"
 )
 
 func main() {
@@ -156,10 +157,14 @@ func cmdRun(args []string) error {
 	defer store.Close()
 
 	// Build a minimal router with no real tools (MVP placeholder).
-	// Production use wires real tools and a live ModelGateway.
+	// LiveGateway connects to OpenRouter; requires OPENROUTER_API_KEY.
 	registry := agentloop.NewToolRegistry(nil)
-	gateway := agentloop.NewStubGateway()
-	router := agentloop.NewPhaseRouter(agentloop.DefaultPhaseMap, registry, gateway, nil)
+	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	gw, err := livegw.New(apiKey, "")
+	if err != nil {
+		return fmt.Errorf("create LiveGateway: %w\n(hint: set OPENROUTER_API_KEY env var)", err)
+	}
+	router := agentloop.NewPhaseRouter(agentloop.DefaultPhaseMap, registry, gw, nil)
 	gate := agentloop.NewGateEngine(nil, 0) // 0 → 5s default
 
 	// Try to restore an existing session; if not found, error (use `new` first).
