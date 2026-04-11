@@ -576,6 +576,18 @@ func (pa *ProfileAssembler) computeMetrics(profile *CodebaseProfile, fragments [
 
 	profile.Metrics.LanguagesCount = len(languageSet)
 
+	// Merge LanguageBreakdown from extractor fragments.
+	if profile.Metrics.LanguageBreakdown == nil {
+		profile.Metrics.LanguageBreakdown = make(map[string]int)
+	}
+	for _, frag := range fragments {
+		if frag.Metrics != nil && frag.Metrics.LanguageBreakdown != nil {
+			for ext, count := range frag.Metrics.LanguageBreakdown {
+				profile.Metrics.LanguageBreakdown[ext] += count
+			}
+		}
+	}
+
 	// Pull FileTree metrics if not already set
 	if profile.Metrics.TotalFiles == 0 && profile.FileTree.TotalFiles > 0 {
 		profile.Metrics.TotalFiles = profile.FileTree.TotalFiles

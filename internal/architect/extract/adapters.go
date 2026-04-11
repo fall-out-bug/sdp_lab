@@ -2,6 +2,7 @@ package extract
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sdp_dev/internal/architect"
@@ -493,14 +494,14 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 			Edges:            edges,
 		}
 
-		// Build module-aware prefix map for adaptive clustering.
-		modulePrefixMap := buildModulePrefixMap(r.Modules, r.ImportGraph.PackageImports)
+		// Build module directory map for directory-based clustering.
+		moduleDirMap := buildModuleDirMap(r.Modules)
 
 		packageDirToCluster := make(map[string]string, len(r.ImportGraph.PackageImports))
 		packageNameToCluster := make(map[string]string, len(r.ImportGraph.PackageImports))
 		clusterIndex := make(map[string]int)
 		for pkgDir := range r.ImportGraph.PackageImports {
-			clusterID := javaClusterID(pkgDir, modulePrefixMap)
+			clusterID := javaClusterID(pkgDir, moduleDirMap)
 			packageDirToCluster[pkgDir] = clusterID
 			if pkgName := javaPackageName(pkgDir); pkgName != "" {
 				packageNameToCluster[pkgName] = clusterID
@@ -522,7 +523,7 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 				continue
 			}
 			// Don't split module-derived clusters — they represent real boundaries.
-			if _, isModule := modulePrefixMap[importGraph.Clusters[i].ID]; isModule {
+			if _, isModule := moduleDirMap[importGraph.Clusters[i].ID]; isModule {
 				continue
 			}
 			// Split by increasing prefix depth (4 segments instead of 3).
@@ -589,18 +590,15 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 		frag.ImportGraph = importGraph
 
 			// Emit directed module dependency edges from import graph.
-			if modulePrefixMap != nil {
-				clusterToModule := make(map[string]string)
-				for prefix, slug := range modulePrefixMap {
+			if moduleDirMap != nil {
+					clusterToModule := make(map[string]string)
 					for _, c := range importGraph.Clusters {
 						for _, pkg := range c.Packages {
-							pkgName := javaPackageName(pkg)
-							if strings.HasPrefix(pkgName, prefix+".") || pkgName == prefix {
+							if slug := moduleForDir(pkg, moduleDirMap); slug != "" {
 								clusterToModule[c.ID] = slug
 							}
 						}
 					}
-				}
 				moduleEdgeSet := make(map[[2]string]bool)
 				for pkgDir, imports := range r.ImportGraph.PackageImports {
 					fromCluster := packageDirToCluster[pkgDir]
@@ -660,6 +658,7 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 
 	frag.Metrics = &architect.CodeMetrics{
 		LanguagesCount: 1,
+			LanguageBreakdown: buildLangBreakdownFromMetadata(r.Metadata),
 	}
 
 	// Convert Maven modules to ModuleBoundaries
@@ -676,19 +675,17 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 	return frag
 }
 
-func javaClusterID(pkgDir string, modulePrefixMap map[string]string) string {
+func javaClusterID(pkgDir string, moduleDirMap map[string]string) string {
+	// Check if this package belongs to a Maven module by directory path.
+	if moduleDirMap != nil {
+		if slug := moduleForDir(pkgDir, moduleDirMap); slug != "" {
+			return slug
+		}
+	}
+
 	pkgName := javaPackageName(pkgDir)
 	if pkgName == "" {
 		return "unnamed"
-	}
-
-	// Check if this package belongs to a Maven module.
-	if modulePrefixMap != nil {
-		for prefix, moduleCluster := range modulePrefixMap {
-			if strings.HasPrefix(pkgName, prefix+".") || pkgName == prefix {
-				return moduleCluster
-			}
-		}
 	}
 
 	clusterID := javaImportPrefix(pkgName, 3)
@@ -698,43 +695,42 @@ func javaClusterID(pkgDir string, modulePrefixMap map[string]string) string {
 	return clusterID
 }
 
-// buildModulePrefixMap maps Java package prefixes to module-derived cluster IDs.
-// For each Maven module (e.g. "sql/core"), it scans package directories to find
-// which Java packages live under that module, then maps the longest common prefix
-// to a slug like "spark-sql-core".
-func buildModulePrefixMap(modules []string, packageImports map[string][]string) map[string]string {
+// buildModuleDirMap maps normalized module directory paths to module slugs.
+// Unlike the old buildModulePrefixMap (which used Java package name prefixes),
+// this maps by filesystem directory path, which correctly distinguishes root-level
+// modules like "core", "streaming", "mllib" that all share the org.apache.spark prefix.
+func buildModuleDirMap(modules []string) map[string]string {
 	if len(modules) == 0 {
 		return nil
 	}
 
 	result := make(map[string]string)
 	for _, mod := range modules {
-		slug := moduleSlug(mod)
-		// Find Java packages that live under this module's source tree.
-		for pkgDir := range packageImports {
-			if !strings.Contains(filepath.ToSlash(pkgDir), filepath.ToSlash(mod)+"/") {
-				continue
-			}
-			pkgName := javaPackageName(pkgDir)
-			if pkgName == "" {
-				continue
-			}
-			// Use the shortest prefix (most general) for this module.
-			prefix := javaImportPrefix(pkgName, 3)
-			if prefix == "" {
-				prefix = pkgName
-			}
-			if existing, ok := result[prefix]; ok {
-				// Keep the longest matching prefix (most specific module).
-				if len(prefix) > len(existing) {
-					result[prefix] = slug
-				}
-				continue
-			}
-			result[prefix] = slug
+		normalized := filepath.ToSlash(strings.Trim(mod, "/"))
+		if normalized == "" {
+			continue
 		}
+		slug := moduleSlug(mod)
+		result[normalized] = slug
 	}
 	return result
+}
+
+// moduleForDir returns the module slug for a package directory by longest-prefix
+// matching against the module directory map.
+func moduleForDir(pkgDir string, moduleDirMap map[string]string) string {
+	normalized := filepath.ToSlash(filepath.Clean(pkgDir))
+	bestLen := 0
+	bestSlug := ""
+	for modPath, slug := range moduleDirMap {
+		if strings.Contains(normalized, modPath+"/") {
+			if len(modPath) > bestLen {
+				bestLen = len(modPath)
+				bestSlug = slug
+			}
+		}
+	}
+	return bestSlug
 }
 
 // moduleSlug converts a Maven module path like "sql/core" to a slug like "spark-sql-core".
@@ -789,4 +785,27 @@ func javaImportPrefix(imp string, n int) string {
 		n = len(parts)
 	}
 	return strings.Join(parts[:n], ".")
+}
+
+// buildLangBreakdownFromMetadata creates a language breakdown map from
+// the Java extraction result metadata (java_files, kotlin_files, scala_files).
+func buildLangBreakdownFromMetadata(metadata map[string]string) map[string]int {
+	result := make(map[string]int)
+	type mapping struct {
+		key string
+		ext string
+	}
+	for _, m := range []mapping{
+		{"java_files", ".java"},
+		{"kotlin_files", ".kt"},
+		{"scala_files", ".scala"},
+	} {
+		if v, ok := metadata[m.key]; ok {
+			var n int
+			if _, err := fmt.Sscanf(v, "%d", &n); err == nil && n > 0 {
+				result[m.ext] = n
+			}
+		}
+	}
+	return result
 }

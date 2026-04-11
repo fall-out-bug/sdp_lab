@@ -388,17 +388,23 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 	for _, mb := range profile.Infra.ModuleBoundaries {
 		for _, child := range mb.Children {
 			childName := filepath.Base(child)
+			// Use the full child path as display name to avoid basename collisions
+			// (e.g. "core" and "sql/core" both have basename "core").
+			displayName := childName
+			if strings.Contains(child, "/") {
+				displayName = filepath.ToSlash(child)
+			}
 			if childName == "" || childName == "." {
 				continue
 			}
-			if containerSeen[childName] {
+			if containerSeen[displayName] {
 				continue
 			}
-			containerSeen[childName] = true
+			containerSeen[displayName] = true
 			containerIdx++
 			model.Containers = append(model.Containers, C4Container{
-				ID:          pipelineSlug(childName),
-				Name:        childName,
+				ID:          pipelineSlug(displayName),
+				Name:        displayName,
 				Technology:  mb.BuildSystem,
 				Source:      mb.Path,
 				Description: mb.BuildSystem + " module: " + child,
@@ -434,18 +440,26 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 	for _, c := range model.Containers {
 		nameToID[c.Name] = c.ID
 	}
-	// Map module child paths to their slug form (matching adapters.moduleSlug output).
-	for _, mb := range profile.Infra.ModuleBoundaries {
-		for _, child := range mb.Children {
-			childName := filepath.Base(child)
-			if id, ok := nameToID[childName]; ok {
-				// moduleSlug equivalent: "spark-" + path parts joined by "-"
+		// Map each module child path to its slug and associate with container.
+		// For ambiguous basenames (e.g. "core" from both "core" and "sql/core"),
+		// use the container whose Description contains the full child path.
+		for _, mb := range profile.Infra.ModuleBoundaries {
+			for _, child := range mb.Children {
 				parts := strings.Split(filepath.ToSlash(child), "/")
 				slug := "spark-" + strings.Join(parts, "-")
-				nameToID[slug] = id
+				childName := filepath.Base(child)
+				if id, ok := nameToID[childName]; ok {
+					nameToID[slug] = id
+				}
+				// Also try matching by Description (contains full module path).
+				for _, c := range model.Containers {
+					if strings.Contains(c.Description, child) {
+						nameToID[slug] = c.ID
+						break
+					}
+				}
 			}
 		}
-	}
 	for _, edge := range profile.Edges {
 		if edge.Kind != EdgeSync {
 			continue
@@ -575,36 +589,66 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 		}
 	}
 
-	// Phantom container filtering: remove containers with no packages, no edges,
-	// not in Maven module list, and not Dockerfile-derived.
+	// Phantom container filtering: keep only containers that have real architectural
+	// significance. A container is kept if ANY of:
+	//   - Is a Maven/Gradle module (in module boundaries)
+	//   - Is a Dockerfile-derived container
+	//   - Has edges to/from it in the relationship graph
+	//   - Is a Python package cluster with internal cohesion (internal edges > 0)
+	//   - Has technology set (non-empty, meaning it was detected from a manifest)
 	containerEdgeCount := make(map[string]int)
 	for _, r := range model.Relationships {
 		containerEdgeCount[r.From]++
 		containerEdgeCount[r.To]++
 	}
-	clusterContainers := make(map[string]bool)
-	for _, cl := range profile.ImportGraph.Clusters {
-		for _, pkg := range cl.Packages {
-			for _, c := range model.Containers {
-				if strings.Contains(pkg, c.Name) || strings.Contains(c.Source, pkg) {
-					clusterContainers[c.ID] = true
+		mavenModuleSet := make(map[string]bool)
+		for _, b := range profile.Infra.ModuleBoundaries {
+			for _, child := range b.Children {
+				childName := filepath.Base(child)
+				mavenModuleSet[childName] = true
+				if strings.Contains(child, "/") {
+					mavenModuleSet[filepath.ToSlash(child)] = true
 				}
 			}
 		}
-	}
-	mavenModuleSet := make(map[string]bool)
-	for _, b := range profile.Infra.ModuleBoundaries {
-		for _, child := range b.Children {
-			mavenModuleSet[filepath.Base(child)] = true
+		// Build set of cluster IDs that represent real architectural boundaries.
+		// Only include clusters that correspond to actual Maven modules or are
+		// Python packages. Java clusters from adaptive splitting (org.apache.spark.*)
+		// are excluded because they overlap with Maven module containers.
+		significantClusters := make(map[string]bool)
+		// Build a set of module slugs that we already have as containers.
+		moduleSlugSet := make(map[string]bool)
+		for _, b := range profile.Infra.ModuleBoundaries {
+			for _, child := range b.Children {
+				slug := pipelineSlug(filepath.ToSlash(child))
+				if slug != "" {
+					moduleSlugSet[slug] = true
+				}
+			}
 		}
-	}
-	filtered := make([]C4Container, 0, len(model.Containers))
-	for _, c := range model.Containers {
-		isDockerfile := strings.Contains(strings.ToLower(c.Source), "dockerfile")
-		if clusterContainers[c.ID] || containerEdgeCount[c.ID] > 0 || isDockerfile || mavenModuleSet[c.Name] {
-			filtered = append(filtered, c)
+		for _, cl := range profile.ImportGraph.Clusters {
+			cid := fmt.Sprintf("cluster_%s", cl.ID)
+			isPython := strings.Contains(cl.ID, "pyspark") || strings.Contains(cl.ID, "python.")
+			// Include module-derived clusters (those whose ID matches a module slug).
+			isModuleCluster := moduleSlugSet[cl.ID]
+			if isPython || isModuleCluster {
+				significantClusters[cid] = true
+			}
 		}
-	}
+		filtered := make([]C4Container, 0, len(model.Containers))
+		for _, c := range model.Containers {
+			isDockerfile := strings.Contains(strings.ToLower(c.Source), "dockerfile")
+			hasTech := c.Technology != ""
+			_, isMavenMod := mavenModuleSet[c.Name]
+			_, isSignificant := significantClusters[c.ID]
+			_, hasEdges := containerEdgeCount[c.ID]
+			// Maven modules without edges are noise — only keep if they have
+			// connections or are a Dockerfile image.
+			keepMaven := isMavenMod && (hasEdges || isDockerfile)
+			if keepMaven || (!isMavenMod && (isDockerfile || hasEdges || hasTech || isSignificant)) {
+				filtered = append(filtered, c)
+			}
+		}
 	model.Containers = filtered
 
 	return model

@@ -254,6 +254,7 @@ func (e *JavaExtractor) Extract(rootDir string) (*JavaExtractionResult, error) {
 	// Source file counters.
 	javaFiles := 0
 	kotlinFiles := 0
+	scalaFiles := 0
 	foundSource := false
 
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
@@ -333,6 +334,7 @@ func (e *JavaExtractor) Extract(rootDir string) (*JavaExtractionResult, error) {
 
 		case isScalaFile(rel):
 			foundSource = true
+				scalaFiles++
 			imports, annotations, pkgDecl, scanErr := scanScalaFile(path, rel)
 			if scanErr != nil {
 				return nil
@@ -407,6 +409,9 @@ func (e *JavaExtractor) Extract(rootDir string) (*JavaExtractionResult, error) {
 	}
 	if javaFiles > 0 {
 		result.Metadata["java_files"] = fmt.Sprintf("%d", javaFiles)
+	}
+	if scalaFiles > 0 {
+		result.Metadata["scala_files"] = fmt.Sprintf("%d", scalaFiles)
 	}
 
 	// Detect frameworks from collected imports AND annotations.
