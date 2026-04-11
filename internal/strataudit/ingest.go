@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -23,7 +24,7 @@ func Ingest(ctx context.Context, cfg *Config, store *SQLiteStore) (*IngestResult
 	}
 
 	result := &IngestResult{}
-	levelMap := buildLevelMap(cfg.Levels)
+	sortedLevels := buildSortedLevels(cfg.Levels)
 	registry := NewExtractorRegistry(cfg)
 
 	for _, srcDir := range cfg.Project.SourceDirs {
@@ -64,7 +65,7 @@ func Ingest(ctx context.Context, cfg *Config, store *SQLiteStore) (*IngestResult
 				return nil
 			}
 
-			doc, status, err := processFile(ctx, cfg, store, path, levelMap, registry)
+			doc, status, err := processFile(ctx, cfg, store, path, sortedLevels, registry)
 			if err != nil {
 				result.Errors = append(result.Errors, fmt.Errorf("%s: %w", path, err))
 				return nil
@@ -107,7 +108,7 @@ type IngestResult struct {
 	Errors     []error
 }
 
-func processFile(ctx context.Context, cfg *Config, store *SQLiteStore, path string, levelMap map[string]LevelConfig, registry *ExtractorRegistry) (*model.Document, docStatus, error) {
+func processFile(ctx context.Context, cfg *Config, store *SQLiteStore, path string, sortedLevels []LevelConfig, registry *ExtractorRegistry) (*model.Document, docStatus, error) {
 	// Read file
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -140,7 +141,7 @@ func processFile(ctx context.Context, cfg *Config, store *SQLiteStore, path stri
 	}
 
 	// Classify level
-	levelID := classifyLevel(path, levelMap)
+	levelID := classifyLevel(path, sortedLevels)
 	if levelID == "" {
 		return nil, "", nil // no matching level
 	}
@@ -178,24 +179,43 @@ func processFile(ctx context.Context, cfg *Config, store *SQLiteStore, path stri
 }
 
 // classifyLevel matches file path against level glob patterns.
-func classifyLevel(path string, levelMap map[string]LevelConfig) string {
+// When multiple levels match, the one with the lowest rank wins (more strategic = higher priority).
+// Iteration is deterministic because levels are sorted by rank.
+func classifyLevel(path string, levels []LevelConfig) string {
 	base := filepath.Base(path)
-	for name, level := range levelMap {
+	matchedRank := -1
+	matchedName := ""
+
+	for _, level := range levels {
 		for _, pattern := range level.Patterns {
-			if matched, _ := filepath.Match(pattern, base); matched {
-				return name
+			matched := false
+			if m, _ := filepath.Match(pattern, base); m {
+				matched = true
+			} else if m, _ := filepath.Match(pattern, path); m {
+				matched = true
+			} else if m, _ := filepath.Match(strings.ToLower(pattern), strings.ToLower(base)); m {
+				matched = true
 			}
-			// Also try matching against full path for directory-based patterns
-			if matched, _ := filepath.Match(pattern, path); matched {
-				return name
-			}
-			// Try case-insensitive match
-			if matched, _ := filepath.Match(strings.ToLower(pattern), strings.ToLower(base)); matched {
-				return name
+			if matched {
+				if matchedRank == -1 || level.Rank < matchedRank {
+					matchedRank = level.Rank
+					matchedName = level.Name
+				}
+				break // one match per level is enough
 			}
 		}
 	}
-	return ""
+	return matchedName
+}
+
+// buildSortedLevels returns levels sorted by rank (ascending) for deterministic classification.
+func buildSortedLevels(levels []LevelConfig) []LevelConfig {
+	sorted := make([]LevelConfig, len(levels))
+	copy(sorted, levels)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].Rank < sorted[j].Rank
+	})
+	return sorted
 }
 
 // extractText dispatches to format-specific extractors.
@@ -274,14 +294,6 @@ func cfgToLevels(cfg *Config) []model.Level {
 		}
 	}
 	return levels
-}
-
-func buildLevelMap(levels []LevelConfig) map[string]LevelConfig {
-	m := make(map[string]LevelConfig, len(levels))
-	for _, l := range levels {
-		m[l.Name] = l
-	}
-	return m
 }
 
 func isExcluded(path string, patterns []string) bool {
