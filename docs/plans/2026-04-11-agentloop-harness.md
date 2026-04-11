@@ -364,6 +364,11 @@ func newPassGate() *GateEngine {
 
 // buildHarnessWithGateway creates a full Harness with a scripted StubGateway.
 // The gateway model for discover phase is "deepseek/deepseek-v3.2".
+//
+// Fix R2: if events is nil, no responses are pre-registered — call sg.AddResponse
+// or registerSignalResponses after this helper to set up the desired sequence.
+// With StubGateway's Fix R1 (FIFO queue), passing nil here avoids consuming a
+// "slot" before the test's own AddResponse calls.
 func buildHarnessWithGateway(t *testing.T, events []Event) (*Harness, *MemStore, *StubGateway) {
 	t.Helper()
 	ms := NewMemStore()
@@ -371,8 +376,11 @@ func buildHarnessWithGateway(t *testing.T, events []Event) (*Harness, *MemStore,
 	require.NoError(t, ms.Persist(session))
 
 	sg := NewStubGateway()
-	sg.AddResponse("deepseek/deepseek-v3.2", events)
-	sg.AddResponse("openai/gpt-4.1", events)
+	if events != nil {
+		// Fix R2: only pre-register when caller provides concrete events.
+		sg.AddResponse("deepseek/deepseek-v3.2", events)
+		sg.AddResponse("openai/gpt-4.1", events)
+	}
 
 	registry := NewToolRegistry(nil)
 	router := NewPhaseRouter(DefaultPhaseMap, registry, sg, nil)
@@ -394,15 +402,20 @@ func buildHarnessWithGateway(t *testing.T, events []Event) (*Harness, *MemStore,
 }
 
 // buildHarnessWithEscalatingGate creates a Harness whose GateEngine always escalates.
-func buildHarnessWithEscalatingGate(t *testing.T, events []Event) (*Harness, *MemStore) {
+// Fix R2: returns *StubGateway so callers can register signal responses after construction.
+// If events is nil, no responses are pre-registered (caller uses registerSignalResponses).
+func buildHarnessWithEscalatingGate(t *testing.T, events []Event) (*Harness, *MemStore, *StubGateway) {
 	t.Helper()
 	ms := NewMemStore()
 	session := &Session{ID: "sess-esc", Phase: RoleDiscover}
 	require.NoError(t, ms.Persist(session))
 
 	sg := NewStubGateway()
-	sg.AddResponse("deepseek/deepseek-v3.2", events)
-	sg.AddResponse("openai/gpt-4.1", events)
+	if events != nil {
+		// Fix R2: only pre-register when caller provides concrete events.
+		sg.AddResponse("deepseek/deepseek-v3.2", events)
+		sg.AddResponse("openai/gpt-4.1", events)
+	}
 
 	registry := NewToolRegistry(nil)
 	router := NewPhaseRouter(DefaultPhaseMap, registry, sg, nil)
@@ -419,7 +432,7 @@ func buildHarnessWithEscalatingGate(t *testing.T, events []Event) (*Harness, *Me
 		state:       hStateIdle,
 		ownerToken:  "",
 	}
-	return h, ms
+	return h, ms, sg
 }
 
 // alwaysPassEval is a GateEngine evalFn that always returns a passing report.
@@ -794,12 +807,15 @@ func (h *Harness) RunPhase(ctx context.Context, userPrompt, token string) error 
 			turnRecord.ToolCalls = append(turnRecord.ToolCalls, ev.ToolCalls...)
 		case "tool_end":
 			// Fix Y1: ev.ToolID correlates to original ToolCall.ID — required for API.
+			// Fix Y1: ev.ToolID correlates to original ToolCall.ID.
 			// Fix P4: ev.ToolErr preserved in TurnRecord.
+			// Fix R3/T1: ev.ToolArguments carries original call args (set by Run() from result.Arguments).
 			turnRecord.ToolResults = append(turnRecord.ToolResults, ToolResult{
-				ID:     ev.ToolID,
-				Name:   ev.ToolName,
-				Output: ev.ToolResult,
-				Err:    ev.ToolErr,
+				ID:        ev.ToolID,
+				Name:      ev.ToolName,
+				Arguments: ev.ToolArguments,
+				Output:    ev.ToolResult,
+				Err:       ev.ToolErr,
 			})
 		case "error":
 			return ev.Err

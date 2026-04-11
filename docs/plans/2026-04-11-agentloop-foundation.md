@@ -146,14 +146,15 @@ type LoopConfig struct {
 // ---- Event ----
 
 type Event struct {
-	Type       string     // "text_delta"|"tool_call"|"tool_end"|"turn_end"|"done"|"error"|"warn"|"human_gate"|"session_stopped"
-	Delta      string
-	ToolCalls  []ToolCall // Fix X2: "tool_call" event carries all parallel calls
-	ToolID     string     // Fix Y1: for "tool_end" — matches ToolCall.ID
-	ToolName   string
-	ToolResult string
-	ToolErr    error // Fix P4: tool failure preserved in event
-	Err        error // loop-level error
+	Type          string          // "text_delta"|"tool_call"|"tool_end"|"turn_end"|"done"|"error"|"warn"|"human_gate"|"session_stopped"
+	Delta         string
+	ToolCalls     []ToolCall      // Fix X2: "tool_call" event carries all parallel calls
+	ToolID        string          // Fix Y1: for "tool_end" — matches ToolCall.ID
+	ToolName      string
+	ToolResult    string
+	ToolErr       error           // Fix P4: tool failure preserved in event
+	ToolArguments json.RawMessage // Fix R3: original call args on "tool_end"; RunPhase uses this to populate ToolResult.Arguments (Fix T1)
+	Err           error           // loop-level error
 }
 
 // ---- PhaseConfig ----

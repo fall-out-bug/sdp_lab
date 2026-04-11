@@ -123,6 +123,44 @@ func TestStubGateway_addResponse_multipleModels(t *testing.T) {
 	}
 	assert.Equal(t, "from A", evA[0].Delta)
 }
+
+// TestStubGateway_addResponse_queueSemantics verifies FIFO queue: multiple AddResponse
+// calls for the same model are consumed in order. Fix R1: prevents response overwrite.
+func TestStubGateway_addResponse_queueSemantics(t *testing.T) {
+	sg := NewStubGateway()
+	sg.AddResponse("gpt-4.1", []Event{{Type: "text_delta", Delta: "round 1"}, {Type: "done"}})
+	sg.AddResponse("gpt-4.1", []Event{{Type: "text_delta", Delta: "round 2"}, {Type: "done"}})
+
+	cfg := LoopConfig{Model: "gpt-4.1"}
+
+	// First call → round 1.
+	ch1, err := sg.Call(context.Background(), nil, cfg)
+	require.NoError(t, err)
+	var evs1 []Event
+	for ev := range ch1 {
+		evs1 = append(evs1, ev)
+	}
+	assert.Equal(t, "round 1", evs1[0].Delta, "Fix R1: first AddResponse consumed first")
+
+	// Second call → round 2.
+	ch2, err := sg.Call(context.Background(), nil, cfg)
+	require.NoError(t, err)
+	var evs2 []Event
+	for ev := range ch2 {
+		evs2 = append(evs2, ev)
+	}
+	assert.Equal(t, "round 2", evs2[0].Delta, "Fix R1: second AddResponse consumed second")
+
+	// Third call → exhausted queue: safe fallback {done}.
+	ch3, err := sg.Call(context.Background(), nil, cfg)
+	require.NoError(t, err)
+	var evs3 []Event
+	for ev := range ch3 {
+		evs3 = append(evs3, ev)
+	}
+	require.Len(t, evs3, 1)
+	assert.Equal(t, "done", evs3[0].Type, "Fix R1: exhausted queue returns fallback {done}")
+}
 ```
 
 **Step 2: Run test, verify it fails**
@@ -156,44 +194,66 @@ type ModelCall struct {
 
 // StubGateway is an in-memory test double for ModelGateway.
 // Register scripted Event sequences with AddResponse; recorded calls are in Calls.
+//
+// Fix R1: StubGateway uses a FIFO queue per model (map[string][][]Event).
+// Calling AddResponse multiple times for the same model APPENDS to the queue.
+// Call() consumes responses in order; once the queue is exhausted, Call() returns
+// a safe fallback {done} sequence so multi-turn tests never block unexpectedly.
 type StubGateway struct {
-	responses map[string][]Event
+	responses map[string][][]Event // Fix R1: FIFO queue per model
+	callIdx   map[string]int       // Fix R1: next response index per model
 	Calls     []ModelCall
 }
 
 // NewStubGateway creates an initialized StubGateway.
 func NewStubGateway() *StubGateway {
 	return &StubGateway{
-		responses: make(map[string][]Event),
+		responses: make(map[string][][]Event),
+		callIdx:   make(map[string]int),
 	}
 }
 
-// AddResponse registers a scripted Event sequence for model.
-// Call() will emit these events in order, then close the channel.
-// Calling AddResponse multiple times for the same model overwrites the previous sequence.
+// AddResponse appends a scripted Event sequence to the queue for model.
+// Fix R1: successive Call() invocations consume responses in FIFO order.
+// For a single-turn test, call AddResponse once. For multi-turn (e.g. completion_signal),
+// call AddResponse once per expected gateway invocation in order.
 func (sg *StubGateway) AddResponse(model string, events []Event) {
-	sg.responses[model] = events
+	sg.responses[model] = append(sg.responses[model], events)
 }
 
-// IsAvailable returns true if model has a registered response sequence.
+// IsAvailable returns true if model has been registered via AddResponse (key exists in map).
+// A model stays "available" even after its queue is exhausted — the fallback {done}
+// ensures Call() never blocks. An unregistered model (key absent) returns false.
 func (sg *StubGateway) IsAvailable(model string) bool {
 	_, ok := sg.responses[model]
 	return ok
 }
 
-// Call records the invocation, then returns a channel that emits the scripted events.
-// Returns an error immediately if model has no registered response.
+// Call records the invocation, then returns the next scripted Event sequence from the queue.
+// Fix R1: responses consumed in FIFO order. If the queue is exhausted, returns a safe
+// fallback {done} sequence (covers acknowledgement turns after completion_signal).
+// Returns an error only if model was never registered — callers should check IsAvailable first.
 func (sg *StubGateway) Call(ctx context.Context, msgs []Message, cfg LoopConfig) (<-chan Event, error) {
-	events, ok := sg.responses[cfg.Model]
-	if !ok {
-		return nil, fmt.Errorf("StubGateway: unknown model %q — use AddResponse to register it", cfg.Model)
-	}
-
 	sg.Calls = append(sg.Calls, ModelCall{
 		Model:    cfg.Model,
 		Messages: msgs,
 		Config:   cfg,
 	})
+
+	queue, ok := sg.responses[cfg.Model]
+	if !ok {
+		return nil, fmt.Errorf("StubGateway: model %q never registered — call IsAvailable first", cfg.Model)
+	}
+
+	idx := sg.callIdx[cfg.Model]
+	var events []Event
+	if idx < len(queue) {
+		events = queue[idx]
+		sg.callIdx[cfg.Model]++
+	} else {
+		// Fix R1: queue exhausted — safe fallback for extra turns (e.g. acknowledgement).
+		events = []Event{{Type: "done"}}
+	}
 
 	ch := make(chan Event, len(events))
 	for _, ev := range events {
@@ -209,7 +269,7 @@ func (sg *StubGateway) Call(ctx context.Context, msgs []Message, cfg LoopConfig)
 ```
 go test ./internal/agentloop/... -run "TestModelGateway|TestStubGateway" -race -v
 ```
-Expected: PASS — all 6 gateway tests green.
+Expected: PASS — all 7 gateway tests green (includes Fix R1 queue-semantics test).
 
 **Step 5: Commit**
 
@@ -1079,12 +1139,15 @@ func Run(ctx context.Context, msgs []Message, cfg LoopConfig) (<-chan Event, err
 			// Emit tool_end events and build tool_result messages.
 			for _, result := range results {
 				// Fix Y1: ToolID = result.ID (matches original ToolCall.ID).
+				// Fix R3: ToolArguments carries original call args so RunPhase can
+				// populate ToolResult.Arguments in TurnRecord (Fix T1).
 				out <- Event{
-					Type:       "tool_end",
-					ToolID:     result.ID,
-					ToolName:   result.Name,
-					ToolResult: result.Output,
-					ToolErr:    result.Err,
+					Type:          "tool_end",
+					ToolID:        result.ID,
+					ToolName:      result.Name,
+					ToolResult:    result.Output,
+					ToolErr:       result.Err,
+					ToolArguments: result.Arguments,
 				}
 
 				// Check if this was the completion_signal tool.
