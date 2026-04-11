@@ -1,6 +1,6 @@
 # sdp_lab Roadmap — Agent Platform + Trust Lane
 
-> **Updated:** 2026-04-04
+> **Updated:** 2026-04-12
 > **Repo naming:** GitHub repo is `sdp_lab`; historical workstreams and bead IDs may still use `sdp_dev` as a legacy label for the same codebase
 > **Direction:** Reusable agent platform (`kernel`, `adapters`, `augmentation`, `evals`) with standards-based trust and evidence as a secondary lane
 > **Platform Reset:** [AGENT_PLATFORM_ROADMAP_2026-03-31.md](AGENT_PLATFORM_ROADMAP_2026-03-31.md) + [2026-03-31-platform-backlog-reset.md](../plans/2026-03-31-platform-backlog-reset.md)
@@ -31,6 +31,11 @@ Current planning priority is the platform reset lane:
 
 Trust, evidence, and enterprise governance remain in the roadmap.
 They are now the `trust lane`, not the whole product story.
+
+Analyst-facing evidence products also remain in scope.
+`F109` formalizes StratAudit as a trust-sensitive product lane: the report surface is
+not cosmetic HTML work, but the final slice on top of verified evidence, provenance,
+and multilingual source preservation.
 
 This lane is not an exclusive ready queue. `bd ready` remains the live source of executable work, and older ecosystem tasks can still coexist in Beads until they are explicitly triaged or deprioritized.
 
@@ -285,6 +290,7 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 - Active strategy and ecosystem ranges: `F059`..`F085`
 - Parked long-horizon ideas: `F086`..`F089`
 - Canonical alignment and platform reset lanes: `F090`..`F096`
+- Product truth, architect, and analyst backlog: `F097`..`F105`, `F109`
 
 ### Standards & Tools
 - [in-toto attestation](https://github.com/in-toto/attestation) — envelope format
@@ -372,6 +378,10 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 ### Phase 6B: Canonical SDP Workflow (In Progress)
 
 - **F090** — Canonical SDP Workflow and Orchestrator Alignment. Tighten SDP around one canonical loop (`feature -> workstream -> beads issue -> early draft PR -> review findings -> QA/UAT -> clean PR`) and align orchestrator runtime, verdict artifacts, and operator surfaces to that loop.
+
+### Phase Analyst: Evidence-Backed Strategy Audit (Planned)
+
+- **F109** — StratAudit v2 — evidence-backed report redesign (00-109-01 ... 00-109-08). Turn StratAudit into a verifiable strategy-audit product over messy multilingual corpora: extraction trust gate, source-preserving language policy, document/section/quote provenance, trace evidence contract, grouped findings, `report.v2.json`, and only then final HTML reformatting.
 
 
 ### Layer Rollout Matrix (Vision Alignment)

@@ -2,6 +2,7 @@
 
 **Date:** 2026-04-12
 **Status:** Proposed
+**Feature:** F109
 **Owner:** Андрей
 **Module:** `internal/strataudit`
 **CLI:** `cmd/sdp-strataudit`

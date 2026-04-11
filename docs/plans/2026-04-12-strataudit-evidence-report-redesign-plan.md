@@ -2,6 +2,7 @@
 
 **Date:** 2026-04-12
 **Status:** Proposed
+**Feature:** F109
 **Spec:** [2026-04-12-strataudit-evidence-report-redesign-design.md](2026-04-12-strataudit-evidence-report-redesign-design.md)
 **Goal:** довести StratAudit до состояния, где финальный пользовательский этап
 есть переформатирование отчёта поверх честного evidence contract, а не попытка
