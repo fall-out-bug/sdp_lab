@@ -1,3 +1,15 @@
+// Package executor provides the ServeBridge for dispatching agent work to an
+// external harness (opencode serve, Claude Code, Cursor).
+//
+// ServeBridge is NOT the same as agentloop.Harness — they serve different roles:
+//
+//   - ServeBridge: SDP delegates implementation to an EXTERNAL agent (opencode/Claude/Cursor).
+//     The external harness runs the code; SDP supervises and collects evidence.
+//
+//   - agentloop.Harness: SDP itself IS the agent, running its own internal LLM loop.
+//     Used for SDP's autonomous phases (discovery analysis, planning, review).
+//
+// Both components are in production after F108. They are not duplicates.
 package executor
 
 import (

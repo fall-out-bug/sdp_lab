@@ -1,3 +1,11 @@
+// Package agentloop implements SDP's internal LLM agent loop.
+// SDP uses this when it is itself the agent — running its own phases
+// (discovery shaping, architectural analysis, evidence review) through
+// a structured FSM with gates.
+//
+// This is distinct from internal/executor.ServeBridge, which dispatches
+// work to an EXTERNAL harness (Claude Code, Cursor, opencode serve).
+// See internal/executor/bridge_serve.go for that path.
 package agentloop
 
 import (
