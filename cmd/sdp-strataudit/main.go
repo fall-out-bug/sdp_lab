@@ -69,8 +69,7 @@ func runRun(args []string) {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
 	dir := fs.String("dir", ".", "project root directory")
 	configPath := fs.String("config", "strataudit.yaml", "config file name")
-	skipIngest := fs.Bool("skip-ingest", false, "skip ingest stage")
-	skipExtract := fs.Bool("skip-extract", false, "skip extract stage")
+	resume := fs.Bool("resume", false, "resume from last completed stage")
 	_ = fs.Parse(args)
 
 	cfgPath := filepath.Join(*dir, *configPath)
@@ -119,8 +118,7 @@ func runRun(args []string) {
 	fmt.Printf("Store: %s\n", dbPath)
 
 	result, err := strataudit.RunPipeline(ctx, cfg, store, llm, strataudit.PipelineOpts{
-		SkipIngest:  *skipIngest,
-		SkipExtract: *skipExtract,
+		Resume: *resume,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "pipeline error: %v\n", err)
