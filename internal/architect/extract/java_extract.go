@@ -120,10 +120,12 @@ var (
 	// Import patterns.
 	javaImportRe   = regexp.MustCompile(`^import\s+(static\s+)?([a-zA-Z0-9_.]+\*?);`)
 	kotlinImportRe = regexp.MustCompile(`^import\s+([a-zA-Z0-9_.]+)`)
+	scalaImportRe  = regexp.MustCompile(`^import\s+(.+)`)
 
 	// Java package declaration.
 	javaPackageRe   = regexp.MustCompile(`^package\s+([a-zA-Z0-9_.]+)\s*;`)
 	kotlinPackageRe = regexp.MustCompile(`^package\s+([a-zA-Z0-9_.]+)`)
+	scalaPackageRe  = regexp.MustCompile(`^package\s+([a-zA-Z0-9_.]+)`)
 
 	// Spring annotation patterns.
 	springAnnotRe = regexp.MustCompile(`@(RestController|Service|Repository|Component|Configuration|Entity|SpringBootApplication)`)
@@ -221,7 +223,7 @@ func (e *JavaExtractor) Name() string { return "java" }
 // identifying multi-module Maven/Gradle layouts.
 func (e *JavaExtractor) Extract(rootDir string) (*JavaExtractionResult, error) {
 	result := &JavaExtractionResult{
-		Language:         "java/kotlin",
+		Language:         "java/kotlin/scala",
 		ExtractionMethod: "regex",
 		AccuracyEstimate: 0.70,
 		ImportGraph: JavaImportGraph{
@@ -328,6 +330,26 @@ func (e *JavaExtractor) Extract(rootDir string) (*JavaExtractionResult, error) {
 
 			// Detect Kotlin-specific patterns.
 			detectKotlinPatterns(path, result)
+
+		case isScalaFile(rel):
+			foundSource = true
+			imports, annotations, pkgDecl, scanErr := scanScalaFile(path, rel)
+			if scanErr != nil {
+				return nil
+			}
+			pkgDir := filepath.Dir(rel)
+			result.ImportGraph.PackageImports[pkgDir] = append(
+				result.ImportGraph.PackageImports[pkgDir], imports...)
+			for _, a := range annotations {
+				allAnnotations[a.Annotation] = true
+				result.Annotations = append(result.Annotations, a)
+				if lombokAnnotationLabels[a.Annotation] != "" {
+					lombokAnnotations[a.Annotation] = true
+				}
+			}
+			if pkgDecl != "" {
+				recordRootPackage(result.PackageStructure, pkgDecl)
+			}
 
 		case filepath.Base(rel) == "pom.xml":
 			bs, parseErr := parsePomXML(path)
@@ -616,6 +638,150 @@ func scanKotlinFile(path, relPath string) ([]string, []AnnotationSighting, strin
 	}
 
 	return imports, annotations, packageDecl, scanner.Err()
+}
+
+// scanScalaFile performs full scanning of a Scala file: imports, annotations,
+// and package declaration.
+func scanScalaFile(path, relPath string) ([]string, []AnnotationSighting, string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	defer f.Close()
+
+	return scanScalaFromReader(f, relPath)
+}
+
+func scanScalaFromReader(f *os.File, relPath string) ([]string, []AnnotationSighting, string, error) {
+	var imports []string
+	var annotations []AnnotationSighting
+	var packageDecl string
+	var pendingImport string
+	lineNum := 0
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lineNum++
+		line := strings.TrimSpace(scanner.Text())
+
+		if pendingImport != "" {
+			pendingImport += " " + line
+			if strings.Contains(line, "}") {
+				imports = append(imports, expandScalaImports(pendingImport)...)
+				pendingImport = ""
+			}
+			continue
+		}
+
+		if strings.HasPrefix(line, "//") || strings.HasPrefix(line, "/*") || strings.HasPrefix(line, "*") {
+			continue
+		}
+
+		if m := scalaPackageRe.FindStringSubmatch(line); m != nil {
+			packageDecl = m[1]
+			continue
+		}
+
+		if m := scalaImportRe.FindStringSubmatch(line); m != nil {
+			body := strings.TrimSpace(m[1])
+			if strings.Contains(body, "{") && !strings.Contains(body, "}") {
+				pendingImport = body
+				continue
+			}
+			imports = append(imports, expandScalaImports(body)...)
+			continue
+		}
+
+		for _, match := range springAnnotRe.FindAllStringSubmatch(line, -1) {
+			annotations = append(annotations, AnnotationSighting{
+				Annotation: "@" + match[1],
+				File:       relPath,
+				LineNumber: lineNum,
+			})
+		}
+
+		if springBeanRe.MatchString(line) {
+			annotations = append(annotations, AnnotationSighting{
+				Annotation: "@Bean",
+				File:       relPath,
+				LineNumber: lineNum,
+			})
+		}
+	}
+
+	if pendingImport != "" {
+		imports = append(imports, expandScalaImports(pendingImport)...)
+	}
+
+	return imports, annotations, packageDecl, scanner.Err()
+}
+
+func expandScalaImports(body string) []string {
+	var imports []string
+	for _, part := range splitScalaImportParts(body) {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if strings.HasSuffix(part, "._") {
+			imports = append(imports, strings.TrimSuffix(part, "._")+".*")
+			continue
+		}
+
+		openIdx := strings.Index(part, "{")
+		closeIdx := strings.LastIndex(part, "}")
+		if openIdx >= 0 && closeIdx > openIdx {
+			prefix := strings.TrimSuffix(strings.TrimSpace(part[:openIdx]), ".")
+			for _, member := range splitScalaImportParts(part[openIdx+1 : closeIdx]) {
+				member = strings.TrimSpace(member)
+				if member == "" {
+					continue
+				}
+				if aliasIdx := strings.Index(member, "=>"); aliasIdx >= 0 {
+					member = strings.TrimSpace(member[:aliasIdx])
+				}
+				if member == "_" {
+					imports = append(imports, prefix+".*")
+					continue
+				}
+				imports = append(imports, prefix+"."+member)
+			}
+			continue
+		}
+
+		imports = append(imports, part)
+	}
+	return imports
+}
+
+func splitScalaImportParts(body string) []string {
+	var parts []string
+	var current strings.Builder
+	depth := 0
+
+	for _, r := range body {
+		switch r {
+		case '{':
+			depth++
+		case '}':
+			if depth > 0 {
+				depth--
+			}
+		case ',':
+			if depth == 0 {
+				parts = append(parts, current.String())
+				current.Reset()
+				continue
+			}
+		}
+		current.WriteRune(r)
+	}
+
+	if current.Len() > 0 {
+		parts = append(parts, current.String())
+	}
+
+	return parts
 }
 
 // ---------------------------------------------------------------------------
@@ -1101,6 +1267,10 @@ func isJavaFile(rel string) bool {
 
 func isKotlinFile(rel string) bool {
 	return strings.HasSuffix(rel, ".kt")
+}
+
+func isScalaFile(rel string) bool {
+	return strings.HasSuffix(rel, ".scala")
 }
 
 func dedup(ss []string) []string {

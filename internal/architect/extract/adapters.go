@@ -312,9 +312,9 @@ type JavaAdapter struct{}
 // Name returns the extractor identifier.
 func (JavaAdapter) Name() string { return "java" }
 
-// Extract analyzes the Java/Kotlin repository at repoRoot and returns a ProfileFragment.
+// Extract analyzes the Java/Kotlin/Scala repository at repoRoot and returns a ProfileFragment.
 func (JavaAdapter) Extract(ctx context.Context, repoRoot string) (*architect.ProfileFragment, error) {
-	// Check if this is a Java/Kotlin project by looking for common markers
+	// Check if this is a Java/Kotlin/Scala project by looking for common markers.
 	hasJavaMarkers := false
 	for _, marker := range []string{"pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts"} {
 		if _, err := os.Stat(filepath.Join(repoRoot, marker)); err == nil {
@@ -322,20 +322,20 @@ func (JavaAdapter) Extract(ctx context.Context, repoRoot string) (*architect.Pro
 			break
 		}
 	}
-	// Also check for any .java or .kt files
+	// Also check for any JVM source files.
 	if !hasJavaMarkers {
 		if err := filepath.Walk(repoRoot, func(path string, fi os.FileInfo, err error) error {
 			if err != nil || fi.IsDir() {
 				return nil
 			}
 			name := fi.Name()
-			if strings.HasSuffix(name, ".java") || strings.HasSuffix(name, ".kt") || strings.HasSuffix(name, ".kts") {
+			if strings.HasSuffix(name, ".java") || strings.HasSuffix(name, ".kt") || strings.HasSuffix(name, ".kts") || strings.HasSuffix(name, ".scala") {
 				hasJavaMarkers = true
 				return filepath.SkipDir // Found a Java/Kotlin file, stop walking
 			}
 			return nil
 		}); err == nil && hasJavaMarkers {
-			// Found Java/Kotlin files
+			// Found JVM source files.
 		}
 	}
 
@@ -474,7 +474,7 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 	frag := &architect.ProfileFragment{
 		Languages: []architect.LanguageInfo{{
 			Primary: "java",
-			All:     []string{"java", "kotlin"},
+			All:     []string{"java", "kotlin", "scala"},
 		}},
 	}
 
@@ -587,6 +587,47 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 		}
 
 		frag.ImportGraph = importGraph
+
+			// Emit directed module dependency edges from import graph.
+			if modulePrefixMap != nil {
+				clusterToModule := make(map[string]string)
+				for prefix, slug := range modulePrefixMap {
+					for _, c := range importGraph.Clusters {
+						for _, pkg := range c.Packages {
+							pkgName := javaPackageName(pkg)
+							if strings.HasPrefix(pkgName, prefix+".") || pkgName == prefix {
+								clusterToModule[c.ID] = slug
+							}
+						}
+					}
+				}
+				moduleEdgeSet := make(map[[2]string]bool)
+				for pkgDir, imports := range r.ImportGraph.PackageImports {
+					fromCluster := packageDirToCluster[pkgDir]
+					if fromCluster == "" {
+						continue
+					}
+					fromMod := clusterToModule[fromCluster]
+					for _, imp := range imports {
+						toCluster := javaImportTargetCluster(imp, packageNameToCluster)
+						if toCluster == "" || toCluster == fromCluster {
+							continue
+						}
+						toMod := clusterToModule[toCluster]
+						if toMod == "" || fromMod == "" || fromMod == toMod {
+							continue
+						}
+						moduleEdgeSet[[2]string{fromMod, toMod}] = true
+					}
+				}
+				for pair := range moduleEdgeSet {
+					frag.Edges = append(frag.Edges, architect.StructuralEdge{
+						Source: pair[0],
+						Target: pair[1],
+						Kind:   architect.EdgeSync,
+					})
+				}
+			}
 	}
 
 	for _, coupling := range r.RuntimeCouplings {
@@ -706,7 +747,7 @@ func moduleSlug(mod string) string {
 
 func javaPackageName(pkgDir string) string {
 	normalized := filepath.ToSlash(pkgDir)
-	for _, marker := range []string{"src/main/java/", "src/test/java/", "src/main/kotlin/", "src/test/kotlin/"} {
+	for _, marker := range []string{"src/main/java/", "src/test/java/", "src/main/kotlin/", "src/test/kotlin/", "src/main/scala/", "src/test/scala/"} {
 		if idx := strings.Index(normalized, marker); idx >= 0 {
 			normalized = normalized[idx+len(marker):]
 			break

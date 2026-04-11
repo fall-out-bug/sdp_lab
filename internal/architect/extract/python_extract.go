@@ -311,6 +311,89 @@ func (p *PythonExtractor) Extract(ctx context.Context, rootDir string) (*archite
 	return result, nil
 }
 
+func findPythonPackageRoot(rootDir string) string {
+	var packageDirs []string
+	var scan func(absDir, relDir string, depth int)
+	scan = func(absDir, relDir string, depth int) {
+		if depth >= 2 {
+			return
+		}
+		entries, err := os.ReadDir(absDir)
+		if err != nil {
+			return
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			if pythonSkipDirs[name] || strings.HasSuffix(name, ".egg-info") {
+				continue
+			}
+			rel := name
+			if relDir != "" {
+				rel = filepath.Join(relDir, name)
+			}
+			abs := filepath.Join(absDir, name)
+			if info, err := os.Stat(filepath.Join(abs, "__init__.py")); err == nil && !info.IsDir() {
+				packageDirs = append(packageDirs, filepath.ToSlash(rel))
+			}
+			scan(abs, rel, depth+1)
+		}
+	}
+	scan(rootDir, "", 0)
+	if len(packageDirs) == 0 {
+		return ""
+	}
+
+	sort.Slice(packageDirs, func(i, j int) bool {
+		depthI := strings.Count(packageDirs[i], "/")
+		depthJ := strings.Count(packageDirs[j], "/")
+		if depthI != depthJ {
+			return depthI < depthJ
+		}
+		return packageDirs[i] < packageDirs[j]
+	})
+
+	var topLevel []string
+	for _, pkg := range packageDirs {
+		nested := false
+		for _, parent := range topLevel {
+			if strings.HasPrefix(pkg, parent+"/") {
+				nested = true
+				break
+			}
+		}
+		if !nested {
+			topLevel = append(topLevel, pkg)
+		}
+	}
+
+	normalizeDir := func(path string) string {
+		path = filepath.ToSlash(path)
+		if path == "." {
+			return ""
+		}
+		return path
+	}
+	common := strings.Split(normalizeDir(filepath.Dir(topLevel[0])), "/")
+	if len(common) == 1 && common[0] == "" {
+		common = nil
+	}
+	for _, pkg := range topLevel[1:] {
+		parts := strings.Split(normalizeDir(filepath.Dir(pkg)), "/")
+		if len(parts) == 1 && parts[0] == "" {
+			parts = nil
+		}
+		n := 0
+		for n < len(common) && n < len(parts) && common[n] == parts[n] {
+			n++
+		}
+		common = common[:n]
+	}
+	return strings.Join(common, "/")
+}
+
 // BuildPythonImportGraph constructs the full import graph from extraction data.
 // This is called by the PythonAdapter after Extract completes.
 func (p *PythonExtractor) BuildPythonImportGraph(ctx context.Context, rootDir string) (*PythonImportGraph, error) {
@@ -320,6 +403,7 @@ func (p *PythonExtractor) BuildPythonImportGraph(ctx context.Context, rootDir st
 	var testDirs []string
 	var runtimeCouplings []RuntimeCoupling
 	fwMap := make(map[string]*DetectedPythonFW)
+	pkgPrefix := findPythonPackageRoot(rootDir)
 
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -362,7 +446,11 @@ func (p *PythonExtractor) BuildPythonImportGraph(ctx context.Context, rootDir st
 			}
 		}
 
-		modulePath := pyPathToModule(rel)
+		moduleRel := filepath.ToSlash(rel)
+		if pkgPrefix != "" {
+			moduleRel = strings.TrimPrefix(moduleRel, pkgPrefix+"/")
+		}
+		modulePath := pyPathToModule(moduleRel)
 		isTest := isPythonTestFile(rel)
 		isInit := info.Name() == "__init__.py"
 		cluster := pythonClusterFor(modulePath)
@@ -384,8 +472,8 @@ func (p *PythonExtractor) BuildPythonImportGraph(ctx context.Context, rootDir st
 				continue
 			}
 			// Normalize resolved module to match the module path convention.
-			// If modulePath = "python.pyspark.ml.base" and resolved = "pyspark.ml.base",
-			// the resolved path likely refers to the same root prefix.
+			// This handles both adding a missing source prefix and dropping a
+			// filesystem package root prefix that was stripped from modulePath.
 			resolved = normalizePythonModulePath(resolved, modulePath)
 			if imp.Kind == "relative" || isLikelyLocalModule(resolved, nodeMap) {
 				edge := PythonImportEdge{From: modulePath, To: resolved}
@@ -811,9 +899,9 @@ func classifyImportEnhanced(name string) pythonImportRecord {
 }
 
 // normalizePythonModulePath attempts to align a resolved import module path
-// with the convention used by the source module path. This handles cases like
-// Spark where PySpark lives in python/pyspark/ and pyPathToModule produces
-// "python.pyspark.ml.base" while Python import resolution gives "pyspark.ml.base".
+// with the convention used by the source module path. This handles both cases
+// where the source module needs a missing prefix added and where the resolved
+// path still carries a stripped filesystem package root prefix.
 func normalizePythonModulePath(resolved, sourceModulePath string) string {
 	// Already matches nodeMap convention — no change needed.
 	if resolved == sourceModulePath {
@@ -834,6 +922,27 @@ func normalizePythonModulePath(resolved, sourceModulePath string) string {
 		if part == resFirst && i > 0 {
 			prefix := strings.Join(srcParts[:i], ".")
 			return prefix + "." + resolved
+		}
+	}
+
+	// If the resolved path still includes an extra leading prefix, drop it once
+	// the source package root aligns with a later segment.
+	sourceBase := pythonClusterFor(sourceModulePath)
+	if sourceBase == "" {
+		sourceBase = sourceModulePath
+	}
+	sourceFirst := sourceModulePath
+	if idx := strings.Index(sourceModulePath, "."); idx > 0 {
+		sourceFirst = sourceModulePath[:idx]
+	}
+	resParts := strings.Split(resolved, ".")
+	for i, part := range resParts {
+		if part != sourceFirst || i == 0 {
+			continue
+		}
+		candidate := strings.Join(resParts[i:], ".")
+		if candidate == sourceModulePath || candidate == sourceBase || strings.HasPrefix(candidate, sourceBase+".") {
+			return candidate
 		}
 	}
 

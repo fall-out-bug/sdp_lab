@@ -427,56 +427,48 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 		}
 	}
 
-	// Add relationships from module boundaries (Maven/Gradle multi-module)
+	// Add relationships from directed module dependency edges (import-graph derived).
+	// EdgeSync sources use module slugs (e.g. "spark-sql-core" from module "sql/core").
+	// Build a mapping from module child paths to container IDs using the module boundary data.
 	nameToID := make(map[string]string)
 	for _, c := range model.Containers {
 		nameToID[c.Name] = c.ID
 	}
+	// Map module child paths to their slug form (matching adapters.moduleSlug output).
 	for _, mb := range profile.Infra.ModuleBoundaries {
-		if len(mb.Children) < 2 {
-			continue
-		}
-		for _, childA := range mb.Children {
-			relCount := 0
-			prefixA := parentPrefix(childA)
-			nameA := filepath.Base(childA)
-			idA := nameToID[nameA]
-			if idA == "" || prefixA == "" {
-				continue
-			}
-			for _, childB := range mb.Children {
-				if relCount >= 5 {
-					break
-				}
-				if childA == childB {
-					continue
-				}
-				if prefixB := parentPrefix(childB); prefixA != prefixB {
-					continue
-				}
-				nameB := filepath.Base(childB)
-				// Enforce DAG: only A→B where A < B lexicographically to prevent
-				// bidirectional edges. Maven modules form a DAG; circular deps are invalid.
-				if nameA >= nameB {
-					continue
-				}
-				idB := nameToID[nameB]
-				if idB == "" {
-					continue
-				}
-				model.Relationships = append(model.Relationships, C4Relationship{
-					From:        idA,
-					To:          idB,
-					Description: mb.BuildSystem + " module dependency",
-					Type:        "sync",
-				})
-				relCount++
+		for _, child := range mb.Children {
+			childName := filepath.Base(child)
+			if id, ok := nameToID[childName]; ok {
+				// moduleSlug equivalent: "spark-" + path parts joined by "-"
+				parts := strings.Split(filepath.ToSlash(child), "/")
+				slug := "spark-" + strings.Join(parts, "-")
+				nameToID[slug] = id
 			}
 		}
 	}
+	for _, edge := range profile.Edges {
+		if edge.Kind != EdgeSync {
+			continue
+		}
+		idA := nameToID[edge.Source]
+		idB := nameToID[edge.Target]
+		if idA == "" || idB == "" {
+			continue
+		}
+		model.Relationships = append(model.Relationships, C4Relationship{
+			From:        idA,
+			To:          idB,
+			Description: "maven module dependency",
+			Type:        "sync",
+		})
+	}
 
-	// Add import graph clusters as containers
+	// Add import graph clusters as containers (only substantial clusters:
+	// must have >1 package and at least some internal edges to avoid noise).
 	for _, cluster := range profile.ImportGraph.Clusters {
+		if len(cluster.Packages) <= 1 {
+			continue
+		}
 		containerID := fmt.Sprintf("cluster_%s", cluster.ID)
 		found := false
 		for _, c := range model.Containers {
@@ -536,7 +528,11 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 		model.ExternalSystems = filtered
 	}
 
-	// Add runtime coupling edges as relationships and external systems
+	// Add runtime coupling edges as relationships and external systems.
+	// Internal protocols (spark-rpc, py4j) are NOT added as external systems.
+	seenRuntimeEdges := make(map[string]bool)
+	internalProtocols := map[string]bool{"spark-rpc": true, "py4j": true}
+
 	for _, edge := range profile.Edges {
 		if edge.Kind != EdgeRuntimeBridge && edge.Kind != EdgeRPC {
 			continue
@@ -552,19 +548,23 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 		}
 
 		desc := edge.Protocol + " runtime coupling"
-		if fromID != "" {
-			model.Relationships = append(model.Relationships, C4Relationship{
-				From:        fromID,
-				To:          edge.Target,
-				Description: desc,
-				Type:        "runtime",
-				Contract:    edge.Method,
-			})
+		edgeKey := fromID + "->" + edge.Protocol
+		if !seenRuntimeEdges[edgeKey] {
+			seenRuntimeEdges[edgeKey] = true
+			if fromID != "" {
+				model.Relationships = append(model.Relationships, C4Relationship{
+					From:        fromID,
+					To:          edge.Protocol,
+					Description: desc,
+					Type:        "runtime",
+					Contract:    edge.Method,
+				})
+			}
 		}
 
-		// Add as external system if not already present
+		// Only add as external system if not an internal protocol
 		sysID := edge.Protocol
-		if !seenSystems[sysID] && edge.Protocol != "" {
+		if !internalProtocols[sysID] && !seenSystems[sysID] && edge.Protocol != "" {
 			model.ExternalSystems = append(model.ExternalSystems, ExternalSystem{
 				ID:          sysID,
 				Description: edge.Protocol + " runtime bridge",
@@ -574,6 +574,38 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 			seenSystems[sysID] = true
 		}
 	}
+
+	// Phantom container filtering: remove containers with no packages, no edges,
+	// not in Maven module list, and not Dockerfile-derived.
+	containerEdgeCount := make(map[string]int)
+	for _, r := range model.Relationships {
+		containerEdgeCount[r.From]++
+		containerEdgeCount[r.To]++
+	}
+	clusterContainers := make(map[string]bool)
+	for _, cl := range profile.ImportGraph.Clusters {
+		for _, pkg := range cl.Packages {
+			for _, c := range model.Containers {
+				if strings.Contains(pkg, c.Name) || strings.Contains(c.Source, pkg) {
+					clusterContainers[c.ID] = true
+				}
+			}
+		}
+	}
+	mavenModuleSet := make(map[string]bool)
+	for _, b := range profile.Infra.ModuleBoundaries {
+		for _, child := range b.Children {
+			mavenModuleSet[filepath.Base(child)] = true
+		}
+	}
+	filtered := make([]C4Container, 0, len(model.Containers))
+	for _, c := range model.Containers {
+		isDockerfile := strings.Contains(strings.ToLower(c.Source), "dockerfile")
+		if clusterContainers[c.ID] || containerEdgeCount[c.ID] > 0 || isDockerfile || mavenModuleSet[c.Name] {
+			filtered = append(filtered, c)
+		}
+	}
+	model.Containers = filtered
 
 	return model
 }

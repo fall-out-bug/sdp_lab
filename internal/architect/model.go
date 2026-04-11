@@ -52,6 +52,7 @@ const (
 	EdgeContains      EdgeKind = "contains"
 	EdgeRuntimeBridge EdgeKind = "runtime_bridge" // polyglot bridge (Py4J, JNI)
 	EdgeRPC           EdgeKind = "rpc"            // RPC framework (Netty RPC, gRPC internal)
+	EdgeSync          EdgeKind = "sync"           // directed module dependency (from import graph)
 )
 
 // ManifestDependency is a raw entry from a single manifest file.
