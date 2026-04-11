@@ -1,0 +1,27 @@
+{
+  "ws_id": "00-108-01",
+  "feature_id": "F108",
+  "verdict": "PASS",
+  "commit": "9aa2544",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": 85.0,
+    "coverage_threshold": 80,
+    "max_file_loc": 163,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {"ac": "llmclient.New(apiKey, baseURL) *Client — конструктор без ошибки; пустой ключ не паникует, но Chat/Stream возвращают ошибку", "met": true, "evidence": "TestNew_rejectEmptyKey in internal/llmclient/llmclient_test.go:176, TestStream_emptyKey at :184"},
+    {"ac": "Chat(ctx, ChatRequest) (*ChatResponse, error) — POST /chat/completions, возвращает Content, FinishReason, токены, стоимость", "met": true, "evidence": "TestChat_success in internal/llmclient/llmclient_test.go:15, Chat() in internal/llmclient/llmclient.go:89"},
+    {"ac": "Stream(ctx, ChatRequest) (<-chan StreamEvent, error) — SSE, канал закрывается по data: [DONE]", "met": true, "evidence": "TestStream_textDelta in internal/llmclient/llmclient_test.go:60, Stream() in internal/llmclient/sse.go:18"},
+    {"ac": "StreamEvent.Type ∈ {text_delta, tool_call, finish, error}", "met": true, "evidence": "StreamEvent struct in internal/llmclient/llmclient.go:64, all four types emitted in sse.go parseSSE()"},
+    {"ac": "tool_call chunks аккумулируются по index; при finish_reason == tool_calls эмитируется финализированный ToolCallChunk", "met": true, "evidence": "TestStream_toolCall in internal/llmclient/llmclient_test.go:95, toolCallAcc accumulation in sse.go:72-86"},
+    {"ac": "Если провайдер вернул пустой tool call ID — генерируется UUID", "met": true, "evidence": "TestStream_toolCallEmptyID_getsUUID in internal/llmclient/llmclient_test.go:136, uuid.NewString() in sse.go:91"},
+    {"ac": "go test ./internal/llmclient/... -race PASS с httptest.Server", "met": true, "evidence": "All 9 tests PASS with -race flag"},
+    {"ac": "go vet ./internal/llmclient/... чистый", "met": true, "evidence": "go vet reports 0 errors"},
+    {"ac": "Ни один другой пакет не делает прямых HTTP-вызовов к /chat/completions", "met": true, "evidence": "Scope: new package creation, migration is WS-02; no new direct HTTP calls added"}
+  ],
+  "existing_work_summary": "No pre-existing llmclient package. Three packages (discovery, architect, strataudit) make direct HTTP calls to /chat/completions — migration to llmclient is WS-02 scope."
+}
