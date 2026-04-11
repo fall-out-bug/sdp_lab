@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strings"
 	"sdp_dev/internal/strataudit/model"
 )
@@ -79,6 +80,14 @@ func ExtractEntities(ctx context.Context, cfg *Config, store *SQLiteStore, llm *
 func extractFromDocument(ctx context.Context, cfg *Config, llm *LLMClient, doc model.Document, level model.Level) ([]model.Entity, error) {
 	content := doc.Content
 	chunks := ChunkContent(content, cfg.Thresholds.ChunkTokenLimit, cfg.Thresholds.ChunkOverlapTokens)
+
+	// Cap chunks for large documents
+	maxChunks := cfg.Thresholds.MaxChunksPerDocument
+	if maxChunks > 0 && len(chunks) > maxChunks {
+		original := len(chunks)
+		chunks = sampleChunks(chunks, maxChunks)
+		slog.Warn("chunk sampling applied", "doc", filepath.Base(doc.Path), "original", original, "sampled", len(chunks))
+	}
 
 	var allEntities []model.Entity
 	seen := make(map[string]bool)
@@ -243,4 +252,23 @@ func generateEmbeddings(ctx context.Context, cfg *Config, llm *LLMClient, entiti
 		}
 	}
 	return nil
+}
+
+// sampleChunks reduces chunks to maxCount using uniform sampling (first + last + evenly spaced middle).
+func sampleChunks(chunks []string, maxCount int) []string {
+	if len(chunks) <= maxCount {
+		return chunks
+	}
+	result := make([]string, 0, maxCount)
+	result = append(result, chunks[0]) // always first
+	step := float64(len(chunks)-2) / float64(maxCount-2)
+	for i := 1; i < maxCount-1; i++ {
+		idx := 1 + int(float64(i)*step)
+		if idx >= len(chunks)-1 {
+			idx = len(chunks) - 2
+		}
+		result = append(result, chunks[idx])
+	}
+	result = append(result, chunks[len(chunks)-1]) // always last
+	return result
 }
