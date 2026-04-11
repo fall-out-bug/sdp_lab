@@ -492,7 +492,7 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 		model.Relationships = append(model.Relationships, C4Relationship{
 			From:        idA,
 			To:          idB,
-			Description: "maven module dependency",
+			Description: "declared module dependency",
 			Type:        "sync",
 		})
 	}

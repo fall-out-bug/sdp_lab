@@ -23,6 +23,8 @@ type JavaExtractionResult struct {
 	ImportGraph      JavaImportGraph           `json:"import_graph"`
 	Frameworks       []JavaFramework           `json:"frameworks"`
 	BuildSystem      *BuildSystem              `json:"build_system,omitempty"`
+	PomProperties    map[string]string          `json:"pom_properties,omitempty"`
+	SubmoduleDeps    []SubmoduleBuildDeps      `json:"submodule_deps,omitempty"`
 	Modules          []string                  `json:"modules,omitempty"`
 	SpringEndpoints  []SpringEndpoint          `json:"spring_endpoints,omitempty"`
 	Annotations      []AnnotationSighting      `json:"annotations,omitempty"`
@@ -58,6 +60,16 @@ type JavaDependency struct {
 	Group    string `json:"group"`
 	Artifact string `json:"artifact"`
 	Scope    string `json:"scope,omitempty"`
+}
+
+// SubmoduleBuildDeps captures dependencies declared in a single submodule's
+// build descriptor (pom.xml or build.gradle), preserving the association
+// between the submodule path and its declared dependencies.
+type SubmoduleBuildDeps struct {
+	ModuleDir    string           `json:"module_dir"`              // e.g. "streaming", "sql/core"
+	ArtifactID   string           `json:"artifact_id,omitempty"`   // e.g. "spark-core_2.13"
+	Dependencies []JavaDependency `json:"dependencies"`
+	BuildType    string           `json:"build_type"` // "maven" | "gradle"
 }
 
 // SpringEndpoint represents a detected Spring MVC REST endpoint.
@@ -245,6 +257,29 @@ func (e *JavaExtractor) Extract(rootDir string) (*JavaExtractionResult, error) {
 		result.Metadata["gradle_multi_project"] = "true"
 	}
 
+	// Pre-scan: extract properties from root pom.xml for Maven property resolution.
+	// Child pom.xml files use ${scala.binary.version} etc. which must be resolved.
+	if rootPomData, err := os.ReadFile(filepath.Join(rootDir, "pom.xml")); err == nil {
+		result.PomProperties = extractPomProperties(string(rootPomData))
+	} else {
+		// Root pom.xml might be in a version subdirectory (e.g. spark-3.5.7/pom.xml).
+		if entries, readErr := os.ReadDir(rootDir); readErr == nil {
+			for _, entry := range entries {
+				if !entry.IsDir() {
+					continue
+				}
+				candidate := filepath.Join(rootDir, entry.Name(), "pom.xml")
+				if data, err := os.ReadFile(candidate); err == nil {
+					props := extractPomProperties(string(data))
+					if len(props) > 0 {
+						result.PomProperties = props
+						break
+					}
+				}
+			}
+		}
+	}
+
 	// Collect unique class-level RequestMapping values for endpoint prefixing.
 	classLevelMappings := make(map[string]string)  // file -> prefix path
 	classLevelMappingLines := make(map[string]int) // file -> line number of class-level mapping
@@ -372,7 +407,7 @@ func (e *JavaExtractor) Extract(rootDir string) (*JavaExtractionResult, error) {
 			}
 
 		case filepath.Base(rel) == "pom.xml":
-			bs, parseErr := parsePomXML(path)
+			bs, artifactID, parseErr := parsePomXMLWithMeta(path)
 			if parseErr == nil && bs != nil {
 				if result.BuildSystem == nil {
 					result.BuildSystem = bs
@@ -380,6 +415,35 @@ func (e *JavaExtractor) Extract(rootDir string) (*JavaExtractionResult, error) {
 				} else {
 					result.BuildSystem.Dependencies = append(
 						result.BuildSystem.Dependencies, bs.Dependencies...)
+				}
+				// Store per-submodule dependencies with path context.
+				moduleDir := filepath.Dir(rel)
+				if moduleDir == "." {
+					moduleDir = ""
+				}
+				// Resolve properties in dependencies using inherited root properties.
+				resolvedDeps := make([]JavaDependency, len(bs.Dependencies))
+				for i, dep := range bs.Dependencies {
+					dep.Artifact = resolvePomProperties(dep.Artifact, result.PomProperties)
+					dep.Group = resolvePomProperties(dep.Group, result.PomProperties)
+					resolvedDeps[i] = dep
+				}
+				resolvedArtifactID := resolvePomProperties(artifactID, result.PomProperties)
+				result.SubmoduleDeps = append(result.SubmoduleDeps, SubmoduleBuildDeps{
+					ModuleDir:    filepath.ToSlash(moduleDir),
+					ArtifactID:   resolvedArtifactID,
+					Dependencies: resolvedDeps,
+					BuildType:    "maven",
+				})
+				// Root pom.xml: inherit its properties for child modules.
+				if moduleDir == "" {
+					if result.PomProperties == nil {
+						result.PomProperties = make(map[string]string)
+					}
+					data, _ := os.ReadFile(path)
+					for k, v := range extractPomProperties(string(data)) {
+						result.PomProperties[k] = v
+					}
 				}
 			}
 			// Check for multi-module Maven project.
@@ -1041,26 +1105,70 @@ func joinPaths(prefix, suffix string) string {
 // pom.xml parsing (regex-based, no XML library)
 // ---------------------------------------------------------------------------
 
-func parsePomXML(path string) (*BuildSystem, error) {
+// pomPropertyRe extracts Maven property definitions like <scala.binary.version>2.13</scala.binary.version>.
+var pomPropertyRe = regexp.MustCompile(`<(?:[a-zA-Z0-9._-]+)>([a-zA-Z0-9._-]+)</(?:[a-zA-Z0-9._-]+)>`)
+var pomPropertyTagRe = regexp.MustCompile(`<([a-zA-Z][a-zA-Z0-9._-]*)>([^<]+)</[a-zA-Z0-9._-]+>`)
+
+// extractPomProperties extracts property definitions from the <properties> section of a pom.xml.
+func extractPomProperties(content string) map[string]string {
+	props := make(map[string]string)
+	// Find <properties> block.
+	startIdx := strings.Index(content, "<properties>")
+	if startIdx < 0 {
+		return props
+	}
+	endIdx := strings.Index(content[startIdx:], "</properties>")
+	if endIdx < 0 {
+		return props
+	}
+	propsBlock := content[startIdx : startIdx+endIdx]
+	for _, m := range pomPropertyTagRe.FindAllStringSubmatch(propsBlock, -1) {
+		if len(m) >= 3 {
+			props[m[1]] = m[2]
+		}
+	}
+	return props
+}
+
+// resolvePomProperties replaces ${property.name} placeholders in a string using
+// the provided property map. Unknown properties are left as-is.
+func resolvePomProperties(s string, props map[string]string) string {
+	if len(props) == 0 {
+		return s
+	}
+	for name, value := range props {
+		if value != "" {
+			s = strings.ReplaceAll(s, "${"+name+"}", value)
+		}
+	}
+	return s
+}
+
+// parsePomXMLWithMeta reads a pom.xml file and returns both the parsed
+// dependencies and the submodule's own artifactId. It reads the file once.
+func parsePomXMLWithMeta(path string) (*BuildSystem, string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	content := string(data)
+	props := extractPomProperties(content)
+	bs := parsePomXMLContent(content, props)
+	artifactID := extractPomArtifactID(content)
+	return bs, artifactID, nil
+}
 
+// parsePomXMLContent parses Maven dependencies from a pom.xml content string.
+func parsePomXMLContent(content string, props map[string]string) *BuildSystem {
 	blocks := pomDepBlockRe.FindAllStringSubmatch(content, -1)
-	if len(blocks) == 0 {
-		return &BuildSystem{Type: "maven"}, nil
-	}
-
 	bs := &BuildSystem{Type: "maven"}
 	for _, block := range blocks {
 		dep := JavaDependency{}
 		if m := pomGroupRe.FindStringSubmatch(block[1]); m != nil {
-			dep.Group = m[1]
+			dep.Group = resolvePomProperties(m[1], props)
 		}
 		if m := pomArtifactRe.FindStringSubmatch(block[1]); m != nil {
-			dep.Artifact = m[1]
+			dep.Artifact = resolvePomProperties(m[1], props)
 		}
 		if m := pomScopeRe.FindStringSubmatch(block[1]); m != nil {
 			dep.Scope = m[1]
@@ -1069,7 +1177,39 @@ func parsePomXML(path string) (*BuildSystem, error) {
 			bs.Dependencies = append(bs.Dependencies, dep)
 		}
 	}
-	return bs, nil
+	return bs
+}
+
+// parsePomXML reads a pom.xml file and returns parsed dependencies.
+func parsePomXML(path string) (*BuildSystem, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	props := extractPomProperties(string(data))
+	return parsePomXMLContent(string(data), props), nil
+}
+
+// pomTopArtifactIDRe matches the first <artifactId> element in pom.xml content.
+var pomTopArtifactIDRe = regexp.MustCompile(`(?s)<artifactId>\s*(.*?)\s*</artifactId>`)
+
+// pomParentBlockRe matches the <parent>...</parent> block in pom.xml.
+var pomParentBlockRe = regexp.MustCompile(`(?s)<parent>.*?</parent>`)
+
+// extractPomArtifactID returns the first top-level <artifactId> from pom.xml
+// content, which is the submodule's own artifactId (not a dependency's or parent's).
+func extractPomArtifactID(content string) string {
+	searchZone := content
+	if idx := strings.Index(content, "<dependencies>"); idx > 0 {
+		searchZone = content[:idx]
+	}
+	// Strip <parent>...</parent> to avoid matching the parent's artifactId.
+	searchZone = pomParentBlockRe.ReplaceAllString(searchZone, "")
+	m := pomTopArtifactIDRe.FindStringSubmatch(searchZone)
+	if len(m) >= 2 {
+		return m[1]
+	}
+	return ""
 }
 
 func parseModules(path string) []string {

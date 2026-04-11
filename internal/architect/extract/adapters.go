@@ -589,10 +589,44 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 
 		frag.ImportGraph = importGraph
 
-			// Emit directed module dependency edges from import graph.
-			// Use weighted edges to resolve bidirectional conflicts:
-			// if both A→B and B→A exist, keep only the stronger direction.
-			if moduleDirMap != nil {
+				// Priority 1: declared-dependency EdgeSync edges (source of truth).
+				// These come from submodule pom.xml/build.gradle <dependency> declarations.
+				var declaredEdges []architect.StructuralEdge
+				if len(r.SubmoduleDeps) > 0 && len(r.Modules) > 0 {
+					artifactToModule := buildArtifactToModuleMap(r.SubmoduleDeps, r.Modules)
+					for _, sd := range r.SubmoduleDeps {
+						if sd.ModuleDir == "" {
+							continue // skip root pom.xml
+						}
+						sourceSlug := resolveModuleFromDir(sd.ModuleDir, artifactToModule)
+						if sourceSlug == "" {
+							continue
+						}
+						for _, dep := range sd.Dependencies {
+							if !mavenScopeIncluded[dep.Scope] {
+								continue
+							}
+							targetSlug := resolveModuleFromArtifact(dep.Artifact, artifactToModule)
+							if targetSlug == "" || targetSlug == sourceSlug {
+								continue
+							}
+							declaredEdges = append(declaredEdges, architect.StructuralEdge{
+								Source:     sourceSlug,
+								Target:     targetSlug,
+								Kind:       architect.EdgeSync,
+								Weight:     1,
+								Confidence: 0.95,
+							})
+						}
+					}
+					declaredEdges = dedupStructuralEdges(declaredEdges)
+				}
+
+			if len(declaredEdges) > 0 {
+				// Use declared dependencies as source of truth.
+				frag.Edges = append(frag.Edges, declaredEdges...)
+			} else if moduleDirMap != nil {
+				// Fallback: import-graph-derived edges when no build descriptors found.
 				clusterToModule := make(map[string]string)
 				for _, c := range importGraph.Clusters {
 					for _, pkg := range c.Packages {
@@ -827,6 +861,144 @@ func buildLangBreakdownFromMetadata(metadata map[string]string) map[string]int {
 			if _, err := fmt.Sscanf(v, "%d", &n); err == nil && n > 0 {
 				result[m.ext] = n
 			}
+		}
+	}
+	return result
+}
+
+// ---------------------------------------------------------------------------
+// Build-system declared dependency helpers
+// ---------------------------------------------------------------------------
+
+// mavenScopeIncluded defines which Maven dependency scopes are included in
+// inter-module EdgeSync edges. Compile and runtime scopes represent actual
+// module coupling; test/provided/system scopes are excluded.
+var mavenScopeIncluded = map[string]bool{
+	"":        true, // default scope = compile
+	"compile": true,
+	"runtime": true,
+}
+
+// buildArtifactToModuleMap creates a mapping from Maven artifactId to module
+// slug, using the SubmoduleBuildDeps entries as the authoritative source.
+// The modules list (from pom.xml <modules>) is used to derive clean slugs
+// that match the container IDs produced by the pipeline, even when the repo
+// is nested inside a version subdirectory (e.g. spark-3.5.7/).
+func buildArtifactToModuleMap(submoduleDeps []SubmoduleBuildDeps, modules []string) map[string]string {
+	if len(submoduleDeps) == 0 || len(modules) == 0 {
+		return nil
+	}
+
+	// Build clean module path → clean slug from the canonical modules list.
+	cleanSlugs := make(map[string]string, len(modules))
+	for _, mod := range modules {
+		normalized := filepath.ToSlash(strings.Trim(mod, "/"))
+		if normalized == "" {
+			continue
+		}
+		cleanSlugs[normalized] = moduleSlug(normalized)
+	}
+
+	// For each submodule dep entry, resolve its ModuleDir to a clean slug
+	// by suffix-matching against the canonical module paths.
+	result := make(map[string]string)
+	for _, sd := range submoduleDeps {
+		if sd.ModuleDir == "" {
+			continue
+		}
+		moduleDirNorm := filepath.ToSlash(sd.ModuleDir)
+
+		// Find matching clean module path by suffix.
+		slug := ""
+		for cleanPath, cleanSlug := range cleanSlugs {
+			if moduleDirNorm == cleanPath || strings.HasSuffix(moduleDirNorm, "/"+cleanPath) {
+				slug = cleanSlug
+				break
+			}
+		}
+		if slug == "" {
+			slug = moduleSlug(sd.ModuleDir) // fallback
+		}
+
+		// Map the module directory path directly.
+		result[sd.ModuleDir] = slug
+		// Map the artifactId if available.
+		if sd.ArtifactID != "" {
+			result[sd.ArtifactID] = slug
+			// Also map the normalized form (without Scala version suffix).
+			normalized := normalizeArtifactID(sd.ArtifactID)
+			result[normalized] = slug
+		}
+	}
+	return result
+}
+
+// normalizeArtifactID strips Scala version suffixes and common Maven classifiers
+// from an artifactId. For example: "spark-core_2.13" -> "spark-core".
+func normalizeArtifactID(artifactID string) string {
+	// Strip Scala version suffixes like _2.13, _2.12, _2.11
+	if idx := strings.LastIndex(artifactID, "_"); idx > 0 {
+		suffix := artifactID[idx+1:]
+		// Check if suffix looks like a Scala version (2.N)
+		if len(suffix) > 0 && suffix[0] == '2' && strings.Contains(suffix, ".") {
+			artifactID = artifactID[:idx]
+		}
+	}
+	return artifactID
+}
+
+// resolveModuleFromDir resolves a filesystem module directory path to its
+// clean module slug by looking it up in the artifactToModule map.
+func resolveModuleFromDir(moduleDir string, artifactToModule map[string]string) string {
+	if moduleDir == "" || artifactToModule == nil {
+		return ""
+	}
+	if slug, ok := artifactToModule[moduleDir]; ok {
+		return slug
+	}
+	// Try normalized path.
+	normalized := filepath.ToSlash(moduleDir)
+	if slug, ok := artifactToModule[normalized]; ok {
+		return slug
+	}
+	return ""
+}
+
+// resolveModuleFromArtifact attempts to map a Maven artifactId to a module
+// slug using the artifactToModule map, with multiple matching strategies.
+func resolveModuleFromArtifact(artifact string, artifactToModule map[string]string) string {
+	if artifact == "" || artifactToModule == nil {
+		return ""
+	}
+	// Direct match.
+	if slug, ok := artifactToModule[artifact]; ok {
+		return slug
+	}
+	// Normalized match (strip Scala version).
+	normalized := normalizeArtifactID(artifact)
+	if slug, ok := artifactToModule[normalized]; ok {
+		return slug
+	}
+	// Suffix-based fallback: check if any key is a suffix of the artifact.
+	for key, slug := range artifactToModule {
+		if len(key) > 0 && len(key) < len(normalized) {
+			if strings.HasSuffix(normalized, key) {
+				return slug
+			}
+		}
+	}
+	return ""
+}
+
+// dedupStructuralEdges deduplicates edges by (source, target, kind) tuple.
+func dedupStructuralEdges(edges []architect.StructuralEdge) []architect.StructuralEdge {
+	seen := make(map[string]bool, len(edges))
+	result := make([]architect.StructuralEdge, 0, len(edges))
+	for _, e := range edges {
+		key := e.Source + "->" + e.Target + ":" + string(e.Kind)
+		if !seen[key] {
+			seen[key] = true
+			result = append(result, e)
 		}
 	}
 	return result
