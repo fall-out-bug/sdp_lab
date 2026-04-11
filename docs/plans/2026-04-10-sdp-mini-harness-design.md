@@ -1,7 +1,7 @@
 # SDP Mini-Harness Design
 
-**Date:** 2026-04-10 (rev 10 — post council round 9 verification)
-**Status:** Draft v10 — round 9 fixes applied (ContextManager wiring + hStateStopped + RestoreHarness beforeToolCall)
+**Date:** 2026-04-10 (rev 11 — post council round 10 — first 5/5 OpenRouter quorum)
+**Status:** Draft v11 — round 10 fixes applied (stopped state durability + ContextManager wiring + runID restoration)
 **Discovery verdict:** PIVOT (narrow control-plane first, then expand)
 
 ---
@@ -327,11 +327,20 @@ func (r *PhaseRouter) RecoveryPhase(current Role) Role {
     return cfg.RecoveryNext[0]
 }
 
+// PhaseRouter содержит конфигурацию фаз, registry и опциональный ContextManager.
+// Fix W2 (v11): contextManager поле добавлено. nil = passthrough (MVP).
+// Устанавливается при создании: NewPhaseRouter(..., cm ContextManager).
+type PhaseRouter struct {
+    phaseMap       map[Role]PhaseConfig
+    registry       *ToolRegistry
+    gateway        ModelGateway
+    contextManager ContextManager // Fix W2 (v11): wired into LoopConfig.ContextManager
+}
+
 // BuildLoopConfig собирает LoopConfig для фазы, включая completion signal tool.
 // Fix R2-2: принимает *completionFlag, передаёт в makeCompletionSignalTool closure.
 // Fix U2 (v9): BeforeToolCall теперь принимается явным параметром.
-//   Harness передаёт свой pre-execution hook (напр., rate-limit, arg validation).
-//   nil = нет pre-validation кроме allowlist (допустимо для MVP).
+// Fix W2 (v11): ContextManager берётся из r.contextManager (nil = passthrough).
 func (r *PhaseRouter) BuildLoopConfig(phase Role, acc *EvidenceAccumulator, flag *completionFlag, before func(name string, args json.RawMessage) error) (LoopConfig, error) {
     model, err := r.ResolveModel(phase)
     if err != nil {
@@ -345,8 +354,9 @@ func (r *PhaseRouter) BuildLoopConfig(phase Role, acc *EvidenceAccumulator, flag
         Model:          model,
         SystemPrompt:   cfg.SystemPrompt,
         Tools:          tools,
-        BeforeToolCall: before,         // Fix U2 (v9): wired explicitly
+        BeforeToolCall: before,              // Fix U2 (v9): wired explicitly
         AfterToolCall:  acc.OnToolResult,
+        ContextManager: r.contextManager,    // Fix W2 (v11): wired from router
     }, nil
 }
 ```
@@ -924,6 +934,10 @@ type SessionStore interface {
 // SessionStore.Persist не нужен при каждом переходе (Phase.derive from PhaseRecord history).
 // Fix S2 (v8): ownerToken передаётся явно — без него validateToken всегда passes после restart.
 // Fix V2 (v10): beforeToolCall передаётся явно — иначе после restart hook теряется (nil).
+// Fix W1 (v11): проверяет PhaseRecord.NextPhase=="" → hStateStopped (дурабельный терминальный state).
+//   session.Phase после RecoverSession = последний NextPhase. Если он пустой — сессия была остановлена.
+// Fix W3 (v11): h.runID = uint64(len(session.turnRecords)) → продолжает с нового, уникального runID.
+//   Если pending decision присутствует — runID берётся из него (как раньше, PendingDecision.RunID уже был последним).
 func RestoreHarness(
     sessionID, ownerToken string,
     store SessionStore,
@@ -941,9 +955,17 @@ func RestoreHarness(
         router:         router,
         gate:           gate,
         accumulator:    NewEvidenceAccumulator(),
-        state:          hStateIdle, // default
+        state:          hStateIdle, // default; overridden below
         ownerToken:     ownerToken,     // Fix S2: restore token so validateToken works
         beforeToolCall: beforeToolCall, // Fix V2: restore hook so BeforeToolCall works after restart
+        runID:          uint64(len(session.turnRecords)), // Fix W3: start after existing records
+    }
+    // Fix W1 (v11): проверяем terminal state — session.Phase == "" означает Stop() был вызван.
+    // RecoverSession загружает PhaseRecords; последний NextPhase="" → session.Phase="".
+    // NOTE: session.Phase="" при отсутствии PhaseRecords (новая сессия) не достигается,
+    //       т.к. NewSession инициализирует Phase=RoleDiscover, первый record создаётся при первом transitionTo.
+    if session.Phase == "" && len(session.turnRecords) > 0 {
+        return nil, fmt.Errorf("session %s was terminated by Stop() — cannot restore", sessionID)
     }
     // Проверяем pending decision — возможно, сессия остановилась на awaiting_human
     pending, err := store.LoadDecision(sessionID)
@@ -952,7 +974,7 @@ func RestoreHarness(
     }
     if pending != nil {
         h.state = hStateAwaitingHuman
-        h.runID = pending.RunID
+        h.runID = pending.RunID // Fix W3: PendingDecision carries exact runID for this gate decision
     }
     return h, nil
 }
@@ -1194,20 +1216,26 @@ CLI: `sdp run "задача"` → TUI в stdout → фазы → гейты → 
 
 ---
 
+## Фиксы Round 10 (v10→v11) — 5/5 OpenRouter + architect = FULL QUORUM (первый раз)
+
+| ID | Роль | Проблема | Фикс |
+|----|------|---------|------|
+| W1 | Philosopher CRITICAL + Pragmatist+Engineer DOMAIN_VETO | RestoreHarness всегда устанавливает hStateIdle, игнорирует NextPhase="" → остановленная сессия возвращается к hStateIdle после restart, RunPhase снова вызываем | RestoreHarness: если session.Phase=="" И есть turnRecords → return error "session was terminated by Stop()" вместо hStateIdle |
+| W2 | Technician HIGH | ContextManager не wired в BuildLoopConfig — LoopConfig.ContextManager всегда nil → Trim() никогда не вызывается | PhaseRouter struct добавлен contextManager ContextManager поле; BuildLoopConfig sets LoopConfig.ContextManager = r.contextManager |
+| W3 | Philosopher HIGH + Engineer MEDIUM | runID сбрасывается в 0 при RestoreHarness → TurnRecord.ID коллизии (формат "sessionID:runID") | h.runID = uint64(len(session.turnRecords)) в RestoreHarness; PendingDecision.RunID берётся из pending если есть |
+
+---
+
 ## ✅ Convergence Declaration
 
-**Round 9 status (v10 — текущая):**
-- Quorum 5/6 (architect + critic + technician + pragmatist + engineer)
-- U1+U2 фиксы: CORRECT (Technician + Pragmatist)
-- Critic: hStateStopped отсутствует → V1 исправлен в v10
-- Technician: beforeToolCall не в RestoreHarness → V2 исправлен в v10
-- Engineer: ContextManager.Trim() не вызывается в Run() → V3 исправлен в v10 (документация pseudo-code)
-- Pragmatist: CONVERGENCE READY, 2 minor issues (WAL semantics + terminal record context)
-- Technician: CONVERGENCE READY
-- V4 (pragmatist MEDIUM — terminal PhaseRecord без PendingDecision context): документация только, не баг
-- V5 (pragmatist LOW — PersistEvent errors): телеметрия, не canonical — приемлемо для MVP
+**Round 10 status (v11 — текущая):**
+- FIRST FULL QUORUM: 5/5 OpenRouter + architect (кimi при 12000 max_tokens откликнулся!)
+- V1-V3 фиксы: в основном CORRECT, но...
+- W1 CRITICAL (философ+прагматик+инженер DOMAIN_VETO): V1 неполный — RestoreHarness не проверял NextPhase="" → исправлен в v11
+- W2 HIGH (технарь): ContextManager wiring в BuildLoopConfig отсутствовал → исправлен в v11  
+- W3 HIGH (философ) + MEDIUM (инженер): runID не восстанавливался → исправлен в v11
 
-**9 раундов итераций, 42 issue-фиксов:**
+**10 раундов итераций, 45 issue-фиксов:**
 | Batch | Issues | All Fixed |
 |-------|--------|-----------|
 | I1-I7 | 7 | ✅ |
@@ -1219,6 +1247,7 @@ CLI: `sdp run "задача"` → TUI в stdout → фазы → гейты → 
 | S1-S2 | 2 | ✅ |
 | U1-U2 | 2 | ✅ |
 | V1-V3 | 3 | ✅ |
+| W1-W3 | 3 | ✅ |
 
-**v10 готов к Round 10 финальной верификации с расширенным max_tokens для философа и инженера.**  
-После Round 10 CONVERGED → implementation: Loop → PhaseRouter → Harness → GateEngine → SessionStore(BoltDB) → CLI `sdp run "задача"`.
+**v11 готов к Round 11 финальной верификации.**  
+После Round 11 CONVERGED → implementation: Loop → PhaseRouter → Harness → GateEngine → SessionStore(BoltDB) → CLI `sdp run "задача"`.
