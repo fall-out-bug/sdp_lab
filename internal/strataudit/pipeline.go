@@ -3,6 +3,7 @@ package strataudit
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"sdp_dev/internal/strataudit/model"
@@ -18,34 +19,69 @@ type PipelineResult struct {
 	Duration time.Duration
 }
 
+// PipelineOpts controls pipeline execution.
+type PipelineOpts struct {
+	Resume bool // auto-skip stages with "completed" checkpoint
+}
+
+// isStageCompleted checks if a pipeline stage has a completed checkpoint.
+func isStageCompleted(ctx context.Context, store *SQLiteStore, stage string) bool {
+	state, err := store.LoadPipelineState(ctx, stage)
+	if err != nil || state == nil {
+		return false
+	}
+	return state.Status == "completed"
+}
+
 // RunPipeline executes the full StratAudit pipeline: ingest → extract → link → analyze → report.
-func RunPipeline(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLMClient) (*PipelineResult, error) {
+func RunPipeline(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLMClient, opts PipelineOpts) (*PipelineResult, error) {
 	start := time.Now()
 	result := &PipelineResult{}
 
 	// Stage 1: Ingest
-	ingestResult, err := Ingest(ctx, cfg, store)
-	if err != nil {
-		return nil, fmt.Errorf("ingest stage: %w", err)
+	if opts.Resume && isStageCompleted(ctx, store, "ingest") {
+		slog.Info("pipeline: resume — skipping ingest")
+		result.Ingest = &IngestResult{}
+	} else {
+		slog.Info("pipeline: starting ingest")
+		ingestResult, err := Ingest(ctx, cfg, store)
+		if err != nil {
+			return nil, fmt.Errorf("ingest stage: %w", err)
+		}
+		result.Ingest = ingestResult
+		saveCheckpoint(ctx, store, "ingest", stageStatus(ingestResult.Errors), ingestResult.New, ingestResult.Updated)
+		slog.Info("pipeline: ingest done", "new", ingestResult.New, "updated", ingestResult.Updated, "unchanged", ingestResult.Unchanged, "errors", len(ingestResult.Errors))
 	}
-	result.Ingest = ingestResult
-	saveCheckpoint(ctx, store, "ingest", stageStatus(ingestResult.Errors), ingestResult.New, ingestResult.Updated)
 
 	// Stage 2: Extract
-	extractResult, err := ExtractEntities(ctx, cfg, store, llm)
-	if err != nil {
-		return nil, fmt.Errorf("extract stage: %w", err)
+	if opts.Resume && isStageCompleted(ctx, store, "extract") {
+		slog.Info("pipeline: resume — skipping extract")
+		result.Extract = &ExtractResult{}
+	} else {
+		slog.Info("pipeline: starting extract")
+		extractResult, err := ExtractEntities(ctx, cfg, store, llm)
+		if err != nil {
+			return nil, fmt.Errorf("extract stage: %w", err)
+		}
+		result.Extract = extractResult
+		saveCheckpoint(ctx, store, "extract", stageStatus(extractResult.Errors), extractResult.EntitiesExtracted, extractResult.Documents)
+		slog.Info("pipeline: extract done", "entities", extractResult.EntitiesExtracted, "docs", extractResult.Documents, "errors", len(extractResult.Errors))
 	}
-	result.Extract = extractResult
-	saveCheckpoint(ctx, store, "extract", stageStatus(extractResult.Errors), extractResult.EntitiesExtracted, extractResult.Documents)
 
 	// Stage 3: Link
-	linkResult, err := LinkEntities(ctx, cfg, store, llm)
-	if err != nil {
-		return nil, fmt.Errorf("link stage: %w", err)
+	if opts.Resume && isStageCompleted(ctx, store, "link") {
+		slog.Info("pipeline: resume — skipping link")
+		result.Link = &LinkResult{}
+	} else {
+		slog.Info("pipeline: starting link")
+		linkResult, err := LinkEntities(ctx, cfg, store, llm)
+		if err != nil {
+			return nil, fmt.Errorf("link stage: %w", err)
+		}
+		result.Link = linkResult
+		saveCheckpoint(ctx, store, "link", stageStatus(linkResult.Errors), linkResult.TracesCreated, linkResult.CandidatesGenerated)
+		slog.Info("pipeline: link done", "traces", linkResult.TracesCreated, "candidates", linkResult.CandidatesGenerated, "pairs", linkResult.Pairs, "errors", len(linkResult.Errors))
 	}
-	result.Link = linkResult
-	saveCheckpoint(ctx, store, "link", stageStatus(linkResult.Errors), linkResult.TracesCreated, linkResult.CandidatesGenerated)
 
 	// Stage 4: Analyze
 	analyzeResult, err := Analyze(ctx, cfg, store)

@@ -1,8 +1,14 @@
 package strataudit
 
 import (
+	"context"
+	"encoding/json"
 	"math"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"sdp_dev/internal/strataudit/model"
 )
 
 func TestCosineSimilarity(t *testing.T) {
@@ -77,5 +83,272 @@ func TestCandidateID_Deterministic(t *testing.T) {
 	id2 := candidateID("e1", "e2")
 	if id1 != id2 {
 		t.Error("candidateID should be deterministic")
+	}
+}
+
+func TestComputeStats(t *testing.T) {
+	tests := []struct {
+		name               string
+		scores             []float64
+		threshold          float64
+		wantAbove          int
+		wantMin            float64
+		wantMax            float64
+		wantRecommendation bool
+	}{
+		{
+			name:               "basic distribution",
+			scores:             []float64{0.1, 0.3, 0.5, 0.7, 0.9},
+			threshold:          0.5,
+			wantAbove:          3,
+			wantMin:            0.1,
+			wantMax:            0.9,
+			wantRecommendation: false,
+		},
+		{
+			name:               "all below threshold",
+			scores:             []float64{0.1, 0.2, 0.3},
+			threshold:          0.8,
+			wantAbove:          0,
+			wantMin:            0.1,
+			wantMax:            0.3,
+			wantRecommendation: true,
+		},
+		{
+			name:               "all above threshold",
+			scores:             []float64{0.8, 0.9, 1.0},
+			threshold:          0.5,
+			wantAbove:          3,
+			wantMin:            0.8,
+			wantMax:            1.0,
+			wantRecommendation: false,
+		},
+		{
+			name:               "single score",
+			scores:             []float64{0.5},
+			threshold:          0.5,
+			wantAbove:          1,
+			wantMin:            0.5,
+			wantMax:            0.5,
+			wantRecommendation: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stats := computeStats(tt.scores, tt.threshold, 5, 5)
+			if stats.AboveThreshold != tt.wantAbove {
+				t.Errorf("AboveThreshold = %d, want %d", stats.AboveThreshold, tt.wantAbove)
+			}
+			if math.Abs(stats.Min-tt.wantMin) > 0.001 {
+				t.Errorf("Min = %f, want %f", stats.Min, tt.wantMin)
+			}
+			if math.Abs(stats.Max-tt.wantMax) > 0.001 {
+				t.Errorf("Max = %f, want %f", stats.Max, tt.wantMax)
+			}
+			gotRec := stats.Recommendation != ""
+			if gotRec != tt.wantRecommendation {
+				t.Errorf("Recommendation = %q, want empty=%v", stats.Recommendation, !tt.wantRecommendation)
+			}
+			histTotal := 0
+			for _, b := range stats.Histogram {
+				histTotal += b.Count
+			}
+			if histTotal != len(tt.scores) {
+				t.Errorf("histogram total = %d, want %d", histTotal, len(tt.scores))
+			}
+			if stats.TotalPairs != len(tt.scores) {
+				t.Errorf("TotalPairs = %d, want %d", stats.TotalPairs, len(tt.scores))
+			}
+		})
+	}
+}
+
+func TestComputeStats_Median(t *testing.T) {
+	stats := computeStats([]float64{0.1, 0.5, 0.9}, 0.5, 3, 3)
+	if math.Abs(stats.Median-0.5) > 0.001 {
+		t.Errorf("Median (odd) = %f, want 0.5", stats.Median)
+	}
+
+	stats = computeStats([]float64{0.1, 0.3, 0.7, 0.9}, 0.5, 4, 4)
+	if math.Abs(stats.Median-0.5) > 0.001 {
+		t.Errorf("Median (even) = %f, want 0.5", stats.Median)
+	}
+}
+
+func TestComputeStats_Histogram(t *testing.T) {
+	scores := []float64{0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95}
+	stats := computeStats(scores, 0.5, 10, 10)
+	for i, b := range stats.Histogram {
+		if b.Count != 1 {
+			t.Errorf("histogram bucket %d count = %d, want 1", i, b.Count)
+		}
+	}
+}
+
+func TestComputeSimilarity_WithDistribution(t *testing.T) {
+	cfg := &Config{
+		Thresholds: ThresholdConfig{
+			Similarity:       0.5,
+			EmitDistribution: true,
+		},
+	}
+
+	lower := []model.Entity{
+		{ID: "e1", Embedding: []float32{1.0, 0.0, 0.0}},
+		{ID: "e2", Embedding: []float32{0.0, 1.0, 0.0}},
+	}
+	upper := []model.Entity{
+		{ID: "e3", Embedding: []float32{0.9, 0.1, 0.0}},
+		{ID: "e4", Embedding: []float32{0.0, 0.0, 1.0}},
+	}
+
+	candidates, stats := computeSimilarity(context.Background(), cfg, lower, upper)
+
+	if stats == nil {
+		t.Fatal("expected stats when EmitDistribution=true")
+	}
+	if stats.TotalPairs != 4 {
+		t.Errorf("TotalPairs = %d, want 4", stats.TotalPairs)
+	}
+	if stats.AboveThreshold < 1 {
+		t.Errorf("AboveThreshold = %d, want >= 1", stats.AboveThreshold)
+	}
+	if len(candidates) < 1 {
+		t.Errorf("candidates = %d, want >= 1", len(candidates))
+	}
+}
+
+func TestComputeSimilarity_WithoutDistribution(t *testing.T) {
+	cfg := &Config{
+		Thresholds: ThresholdConfig{
+			Similarity:       0.5,
+			EmitDistribution: false,
+		},
+	}
+
+	lower := []model.Entity{
+		{ID: "e1", Embedding: []float32{1.0, 0.0}},
+	}
+	upper := []model.Entity{
+		{ID: "e2", Embedding: []float32{0.9, 0.1}},
+	}
+
+	_, stats := computeSimilarity(context.Background(), cfg, lower, upper)
+
+	if stats != nil {
+		t.Error("expected nil stats when EmitDistribution=false")
+	}
+}
+
+func TestWriteDistributionReport(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &Config{
+		Output:     OutputConfig{Dir: tmpDir},
+		Thresholds: ThresholdConfig{Similarity: 0.5},
+	}
+
+	report := DistributionReport{
+		RunID:       "run_test",
+		GeneratedAt: "2026-04-11T12:00:00Z",
+		Threshold:   0.5,
+		LevelPairs: []LevelPairStats{
+			{
+				LevelPair:      "task -> initiative",
+				TotalPairs:     100,
+				AboveThreshold: 5,
+				Min:            0.1,
+				Max:            0.95,
+				Mean:           0.45,
+				Median:         0.42,
+				P95:            0.88,
+			},
+		},
+	}
+
+	writeDistributionReport(cfg, report)
+
+	path := filepath.Join(tmpDir, "similarity_distribution.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read distribution file: %v", err)
+	}
+
+	var parsed DistributionReport
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		t.Fatalf("parse distribution JSON: %v", err)
+	}
+	if parsed.RunID != "run_test" {
+		t.Errorf("RunID = %q, want 'run_test'", parsed.RunID)
+	}
+	if len(parsed.LevelPairs) != 1 {
+		t.Errorf("LevelPairs count = %d, want 1", len(parsed.LevelPairs))
+	}
+	if parsed.LevelPairs[0].TotalPairs != 100 {
+		t.Errorf("TotalPairs = %d, want 100", parsed.LevelPairs[0].TotalPairs)
+	}
+}
+
+func TestCreateTraces_AutoVerify(t *testing.T) {
+	cfg := &Config{
+		Thresholds: ThresholdConfig{
+			AutoVerifySimilarity: 0.85,
+			TraceConfidence:      0.6,
+			LLMVerifyBudget:      50,
+		},
+		LLM: LLMConfig{Temperature: 0.0, Temperatures: map[string]float64{"verify": 0.0}},
+	}
+
+	candidates := []candidate{
+		{source: model.Entity{ID: "e1"}, target: model.Entity{ID: "e2"}, sim: 0.90},
+		{source: model.Entity{ID: "e3"}, target: model.Entity{ID: "e4"}, sim: 0.70},
+	}
+
+	traces := createTraces(context.Background(), cfg, nil, candidates, model.Level{ID: "l1"}, model.Level{ID: "l2"})
+
+	// sim=0.90 >= 0.85 → auto-verified; sim=0.70 with nil LLM → skipped
+	if len(traces) != 1 {
+		t.Fatalf("traces = %d, want 1", len(traces))
+	}
+	if traces[0].Confidence != 0.90 {
+		t.Errorf("confidence = %f, want 0.90", traces[0].Confidence)
+	}
+}
+
+func TestCreateTraces_BudgetExhaustion(t *testing.T) {
+	cfg := &Config{
+		Thresholds: ThresholdConfig{
+			AutoVerifySimilarity: 0.95,
+			TraceConfidence:      0.3,
+			LLMVerifyBudget:      0, // budget exhausted from start
+		},
+		LLM: LLMConfig{Temperature: 0.0},
+	}
+
+	candidates := []candidate{
+		{source: model.Entity{ID: "e1"}, target: model.Entity{ID: "e2"}, sim: 0.70},
+	}
+
+	// With budget=0, no LLM calls should happen, so nil LLM is fine
+	traces := createTraces(context.Background(), cfg, nil, candidates, model.Level{ID: "l1"}, model.Level{ID: "l2"})
+	if len(traces) != 0 {
+		t.Errorf("traces = %d, want 0 (budget exhausted)", len(traces))
+	}
+}
+
+func TestLLMVerifyResult_ParseJSON(t *testing.T) {
+	input := `{"related": true, "confidence": 0.9, "relation": "contributes_to"}`
+	var result llmVerifyResult
+	if err := json.Unmarshal([]byte(input), &result); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if !result.Related {
+		t.Error("expected related=true")
+	}
+	if result.Relation != "contributes_to" {
+		t.Errorf("relation = %q, want contributes_to", result.Relation)
+	}
+	if result.Confidence != 0.9 {
+		t.Errorf("confidence = %f, want 0.9", result.Confidence)
 	}
 }

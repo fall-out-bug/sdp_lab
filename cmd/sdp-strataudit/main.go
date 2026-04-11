@@ -69,6 +69,7 @@ func runRun(args []string) {
 	fs := flag.NewFlagSet("run", flag.ExitOnError)
 	dir := fs.String("dir", ".", "project root directory")
 	configPath := fs.String("config", "strataudit.yaml", "config file name")
+	resume := fs.Bool("resume", false, "resume from last completed stage")
 	_ = fs.Parse(args)
 
 	cfgPath := filepath.Join(*dir, *configPath)
@@ -82,13 +83,21 @@ func runRun(args []string) {
 		os.Exit(1)
 	}
 
+	// Resolve output dir as absolute path relative to --dir
+	absDir, err := filepath.Abs(*dir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error resolving dir: %v\n", err)
+		os.Exit(1)
+	}
+	cfg.Output.Dir = filepath.Join(absDir, cfg.Output.Dir)
+
 	apiKey := os.Getenv("OPENROUTER_API_KEY")
 	if apiKey == "" {
 		fmt.Fprintln(os.Stderr, "error: OPENROUTER_API_KEY not set")
 		os.Exit(1)
 	}
 
-	dbPath := filepath.Join(*dir, cfg.Output.Dir, "strataudit.db")
+	dbPath := filepath.Join(cfg.Output.Dir, "strataudit.db")
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "error creating output dir: %v\n", err)
 		os.Exit(1)
@@ -108,7 +117,9 @@ func runRun(args []string) {
 	fmt.Printf("StratAudit config loaded: %d levels, %d source dirs\n", len(cfg.Levels), len(cfg.Project.SourceDirs))
 	fmt.Printf("Store: %s\n", dbPath)
 
-	result, err := strataudit.RunPipeline(ctx, cfg, store, llm)
+	result, err := strataudit.RunPipeline(ctx, cfg, store, llm, strataudit.PipelineOpts{
+		Resume: *resume,
+	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "pipeline error: %v\n", err)
 		os.Exit(1)

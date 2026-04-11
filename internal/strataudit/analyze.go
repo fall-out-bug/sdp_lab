@@ -8,6 +8,92 @@ import (
 	"sdp_dev/internal/strataudit/model"
 )
 
+type findingTpl struct{ Title, Desc, Rec string }
+
+var findingTemplates = map[string]map[string]findingTpl{
+	"gap": {
+		"ru": {
+			Title: "Разрыв: %q не имеет поддержки от уровня %s",
+			Desc:  "Сущность %q на уровне %s (ранг %d) не имеет трассированных связей с уровнем %s.",
+			Rec:   "Добавить операционные сущности на уровне %s, которые поддерживают эту цель.",
+		},
+		"en": {
+			Title: "Gap: %q has no support from %s",
+			Desc:  "Entity %q at level %s (rank %d) has no traced contributions from level %s.",
+			Rec:   "Add operational entities at %s level that contribute to this goal.",
+		},
+	},
+	"orphan": {
+		"ru": {
+			Title: "Сирота: %q не связана с уровнем %s",
+			Desc:  "Сущность %q на уровне %s не трассирована ни к одной сущности уровня %s.",
+			Rec:   "Проверить, поддерживает ли эта сущность стратегическую цель, или удалить/снизить приоритет.",
+		},
+		"en": {
+			Title: "Orphan: %q has no link to %s",
+			Desc:  "Entity %q at level %s is not traced to any entity at level %s.",
+			Rec:   "Verify if this entity supports a strategic goal or remove/deprioritize it.",
+		},
+	},
+	"strong_trace": {
+		"ru": {
+			Title: "Сильная связь: %.0f%% уверенность к %q",
+			Desc:  "Сущность вносит вклад в %q с уверенностью %.2f.",
+		},
+		"en": {
+			Title: "Strong trace: %.0f%% confidence to %q",
+			Desc:  "Entity contributes to %q with %.2f confidence.",
+		},
+	},
+	"alignment": {
+		"ru": {
+			Title: "Выравнивание: связь с %q",
+			Desc:  "Сущность уровня %s вносит вклад в %q с уверенностью %.0f%%.",
+		},
+		"en": {
+			Title: "Alignment: trace to %q",
+			Desc:  "Entity at %s level contributes to %q with %.0f%% confidence.",
+		},
+	},
+	"weak_link": {
+		"ru": {
+			Title: "Слабая связь: %.0f%% уверенность к %q",
+			Desc:  "Связь от %s к %q имеет низкую уверенность (%.2f). Требуется ручная проверка.",
+		},
+		"en": {
+			Title: "Weak link: %.0f%% confidence to %q",
+			Desc:  "Trace from %s to %q has low confidence (%.2f). Verify manually.",
+		},
+	},
+	"ambiguous": {
+		"ru": {
+			Title: "Неоднозначная связь: %q имеет несколько близких кандидатов",
+			Desc:  "Разница Top-2 уверенности %.2f (< 0.15). Невозможно определить основную связь.",
+		},
+		"en": {
+			Title: "Ambiguous trace: %q has multiple close candidates",
+			Desc:  "Top-2 confidence delta is %.2f (< 0.15). Cannot determine primary trace.",
+		},
+	},
+	"coverage": {
+		"ru": {
+			Title: "Покрытие уровня %s: %.0f%% (%d/%d)",
+			Desc:  "Уровень %s: %d сущностей, %d трассировано (%.1f%% покрытия).",
+		},
+		"en": {
+			Title: "%s coverage: %.0f%% (%d/%d)",
+			Desc:  "Level %s has %d entities, %d traced (%.1f%% coverage).",
+		},
+	},
+}
+
+func tpl(lang, findingType string) findingTpl {
+	if t, ok := findingTemplates[findingType][lang]; ok {
+		return t
+	}
+	return findingTemplates[findingType]["en"]
+}
+
 // AnalyzeResult holds analysis statistics.
 type AnalyzeResult struct {
 	Findings int
@@ -29,6 +115,7 @@ func Analyze(ctx context.Context, cfg *Config, store *SQLiteStore) (*AnalyzeResu
 
 	var allFindings []model.Finding
 	findingIdx := 0
+	lang := cfg.Output.Lang
 
 	for i := 0; i < len(levels)-1; i++ {
 		upper := levels[i]
@@ -43,23 +130,22 @@ func Analyze(ctx context.Context, cfg *Config, store *SQLiteStore) (*AnalyzeResu
 		// Detect gaps: upper-level entities with no traces to lower level
 		for _, e := range upperEntities {
 			if !upperTraced[e.ID] {
-				// Severity by rank: critical if rank <= 1, warn otherwise
 				sev := model.SeverityCritical
 				if upper.Rank > 1 {
 					sev = model.SeverityWarn
 				}
 				findingIdx++
+				t := tpl(lang, "gap")
 				allFindings = append(allFindings, model.Finding{
-					ID:            findingID("gap", findingIdx),
-					Type:          model.FindingGap,
-					Severity:      sev,
-					EntityIDs:     []string{e.ID},
-					Title:         fmt.Sprintf("Gap: %q has no support from %s", e.Title, lower.Name),
-					Description:   fmt.Sprintf("Entity %q at level %s (rank %d) has no traced contributions from level %s.", e.Title, upper.Name, upper.Rank, lower.Name),
-					Recommendation: fmt.Sprintf("Add operational entities at %s level that contribute to this goal.", lower.Name),
+					ID:             findingID("gap", findingIdx),
+					Type:           model.FindingGap,
+					Severity:       sev,
+					EntityIDs:      []string{e.ID},
+					Title:          fmt.Sprintf(t.Title, e.Title, lower.Name),
+					Description:    fmt.Sprintf(t.Desc, e.Title, upper.Name, upper.Rank, lower.Name),
+					Recommendation: fmt.Sprintf(t.Rec, lower.Name),
 				})
 			} else {
-				// Check for strong traces and weak links
 				traces, _ := store.TracesForEntity(ctx, e.ID)
 				for _, tr := range traces {
 					if tr.Relation != model.RelationContributesTo {
@@ -67,72 +153,77 @@ func Analyze(ctx context.Context, cfg *Config, store *SQLiteStore) (*AnalyzeResu
 					}
 					findingIdx++
 					if tr.Confidence >= 0.85 {
+						t := tpl(lang, "strong_trace")
 						allFindings = append(allFindings, model.Finding{
-							ID:            findingID("strong_trace", findingIdx),
-							Type:          model.FindingStrongTrace,
-							Severity:      model.SeverityInfo,
-							EntityIDs:     []string{tr.SourceEntityID, tr.TargetEntityID},
-							Title:         fmt.Sprintf("Strong trace: %.0f%% confidence to %q", tr.Confidence*100, e.Title),
-							Description:   fmt.Sprintf("Entity contributes to %q with %.2f confidence.", e.Title, tr.Confidence),
-							LLMScore:      model.LLMScoreHigh,
+							ID:             findingID("strong_trace", findingIdx),
+							Type:           model.FindingStrongTrace,
+							Severity:       model.SeverityInfo,
+							EntityIDs:      []string{tr.SourceEntityID, tr.TargetEntityID},
+							Title:          fmt.Sprintf(t.Title, tr.Confidence*100, e.Title),
+							Description:    fmt.Sprintf(t.Desc, e.Title, tr.Confidence),
+							LLMScore:       model.LLMScoreHigh,
 							ConfidenceScore: tr.Confidence,
 						})
 					} else if tr.Confidence >= 0.8 {
+						t := tpl(lang, "alignment")
 						allFindings = append(allFindings, model.Finding{
-							ID:            findingID("alignment", findingIdx),
-							Type:          model.FindingAlignment,
-							Severity:      model.SeverityInfo,
-							EntityIDs:     []string{tr.SourceEntityID, tr.TargetEntityID},
-							Title:         fmt.Sprintf("Alignment: trace to %q", e.Title),
-							Description:   fmt.Sprintf("Entity at %s level contributes to %q with %.0f%% confidence.", lower.Name, e.Title, tr.Confidence*100),
-							LLMScore:      model.LLMScoreHigh,
+							ID:             findingID("alignment", findingIdx),
+							Type:           model.FindingAlignment,
+							Severity:       model.SeverityInfo,
+							EntityIDs:      []string{tr.SourceEntityID, tr.TargetEntityID},
+							Title:          fmt.Sprintf(t.Title, e.Title),
+							Description:    fmt.Sprintf(t.Desc, lower.Name, e.Title, tr.Confidence*100),
+							LLMScore:       model.LLMScoreHigh,
 							ConfidenceScore: tr.Confidence,
 						})
 					} else if tr.Confidence < cfg.Thresholds.TraceConfidence+0.1 {
+						t := tpl(lang, "weak_link")
 						allFindings = append(allFindings, model.Finding{
-							ID:            findingID("weak_link", findingIdx),
-							Type:          model.FindingWeakLink,
-							Severity:      model.SeverityWarn,
-							EntityIDs:     []string{tr.SourceEntityID, tr.TargetEntityID},
-							Title:         fmt.Sprintf("Weak link: %.0f%% confidence to %q", tr.Confidence*100, e.Title),
-							Description:   fmt.Sprintf("Trace from %s to %q has low confidence (%.2f). Verify manually.", lower.Name, e.Title, tr.Confidence),
-							LLMScore:      model.LLMScoreLow,
+							ID:             findingID("weak_link", findingIdx),
+							Type:           model.FindingWeakLink,
+							Severity:       model.SeverityWarn,
+							EntityIDs:      []string{tr.SourceEntityID, tr.TargetEntityID},
+							Title:          fmt.Sprintf(t.Title, tr.Confidence*100, e.Title),
+							Description:    fmt.Sprintf(t.Desc, lower.Name, e.Title, tr.Confidence),
+							LLMScore:       model.LLMScoreLow,
 							ConfidenceScore: tr.Confidence,
 						})
 					}
-					break // one trace summary per entity
+					break
 				}
 
-				// Check for ambiguous traces (multiple traces with close confidence)
+				// Check for ambiguous traces
 				if len(traces) >= 2 {
 					sorted := sortTracesByConfidence(traces)
 					if sorted[0].Confidence-sorted[1].Confidence < 0.15 {
 						findingIdx++
+						t := tpl(lang, "ambiguous")
 						allFindings = append(allFindings, model.Finding{
-							ID:        findingID("ambiguous", findingIdx),
-							Type:      model.FindingAmbiguousTrace,
-							Severity:  model.SeverityWarn,
-							EntityIDs: []string{sorted[0].TargetEntityID, sorted[1].TargetEntityID},
-							Title:     fmt.Sprintf("Ambiguous trace: %q has multiple close candidates", e.Title),
-							Description: fmt.Sprintf("Top-2 confidence delta is %.2f (< 0.15). Cannot determine primary trace.", sorted[0].Confidence-sorted[1].Confidence),
+							ID:          findingID("ambiguous", findingIdx),
+							Type:        model.FindingAmbiguousTrace,
+							Severity:    model.SeverityWarn,
+							EntityIDs:   []string{sorted[0].TargetEntityID, sorted[1].TargetEntityID},
+							Title:       fmt.Sprintf(t.Title, e.Title),
+							Description: fmt.Sprintf(t.Desc, sorted[0].Confidence-sorted[1].Confidence),
 						})
 					}
 				}
 			}
 		}
 
-		// Detect orphans: lower-level entities with no traces to upper level
+		// Detect orphans
 		for _, e := range lowerEntities {
 			if !lowerTraced[e.ID] {
 				findingIdx++
+				t := tpl(lang, "orphan")
 				allFindings = append(allFindings, model.Finding{
-					ID:            findingID("orphan", findingIdx),
-					Type:          model.FindingOrphan,
-					Severity:      model.SeverityWarn,
-					EntityIDs:     []string{e.ID},
-					Title:         fmt.Sprintf("Orphan: %q has no link to %s", e.Title, upper.Name),
-					Description:   fmt.Sprintf("Entity %q at level %s is not traced to any entity at level %s.", e.Title, lower.Name, upper.Name),
-					Recommendation: "Verify if this entity supports a strategic goal or remove/deprioritize it.",
+					ID:             findingID("orphan", findingIdx),
+					Type:           model.FindingOrphan,
+					Severity:       model.SeverityWarn,
+					EntityIDs:      []string{e.ID},
+					Title:          fmt.Sprintf(t.Title, e.Title, upper.Name),
+					Description:    fmt.Sprintf(t.Desc, e.Title, lower.Name, upper.Name),
+					Recommendation: t.Rec,
 				})
 			}
 		}
@@ -160,8 +251,8 @@ func Analyze(ctx context.Context, cfg *Config, store *SQLiteStore) (*AnalyzeResu
 			ID:             findingID("coverage_"+level.ID, 0),
 			Type:           model.FindingCoverage,
 			Severity:       coverageSeverity(pct, cfg.Thresholds.CoverageWarn),
-			Title:          fmt.Sprintf("%s coverage: %.0f%% (%d/%d)", level.Name, pct, tracedCount, total),
-			Description:    fmt.Sprintf("Level %s has %d entities, %d traced (%.1f%% coverage).", level.Name, total, tracedCount, pct),
+			Title:          fmt.Sprintf(tpl(lang, "coverage").Title, level.Name, pct, tracedCount, total),
+			Description:    fmt.Sprintf(tpl(lang, "coverage").Desc, level.Name, total, tracedCount, pct),
 			ConfidenceScore: 1.0,
 		})
 

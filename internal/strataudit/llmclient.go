@@ -131,6 +131,31 @@ func (c *LLMClient) Chat(ctx context.Context, req LLMRequest) (*LLMResponse, err
 	}, nil
 }
 
+// extractFinalAnswer extracts the final answer from reasoning model output.
+// Looks for <answer>...</answer> tags first, then falls back to the last
+// non-empty paragraph.
+func extractFinalAnswer(reasoning string) string {
+	// Try <answer>...</answer> tag
+	re := regexp.MustCompile(`(?s)<answer>(.*?)</answer>`)
+	if matches := re.FindStringSubmatch(reasoning); len(matches) > 1 {
+		trimmed := strings.TrimSpace(matches[1])
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+
+	// Fallback: last non-empty paragraph (split by double newline)
+	paragraphs := strings.Split(reasoning, "\n\n")
+	for i := len(paragraphs) - 1; i >= 0; i-- {
+		p := strings.TrimSpace(paragraphs[i])
+		if p != "" {
+			return p
+		}
+	}
+
+	return reasoning
+}
+
 func (c *LLMClient) Embed(ctx context.Context, texts []string, model string) ([][]float32, error) {
 	if err := c.limiter.Wait(ctx); err != nil {
 		return nil, fmt.Errorf("rate limit: %w", err)

@@ -66,5 +66,25 @@ func BuildReport(ctx context.Context, cfg *Config, store *SQLiteStore) (*report.
 		CriticalCount: crit, WarnCount: warn, AvgCoverage: avgCov,
 	}
 
+	// Load entities per level
+	for _, l := range levels {
+		entities, _ := store.EntitiesByLevel(ctx, l.ID, model.Page{Limit: 10000})
+		for _, e := range entities {
+			rpt.Entities = append(rpt.Entities, report.EntityReport{
+				ID: e.ID, Type: string(e.Type), Title: e.Title,
+				Description: e.Description, LevelID: e.LevelID, DocumentID: e.DocumentID,
+			})
+		}
+	}
+
+	// Load all traces
+	traces, _ := store.AllTraces(ctx)
+	for _, t := range traces {
+		rpt.Traces = append(rpt.Traces, report.TraceReport{
+			ID: t.ID, SourceEntityID: t.SourceEntityID, TargetEntityID: t.TargetEntityID,
+			Relation: string(t.Relation), Confidence: t.Confidence, Justification: t.Justification,
+		})
+	}
+
 	return rpt, nil
 }

@@ -239,6 +239,25 @@ func (s *SQLiteStore) TracesForEntity(ctx context.Context, entityID string) ([]m
 	return traces, rows.Err()
 }
 
+func (s *SQLiteStore) AllTraces(ctx context.Context) ([]model.Trace, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, source_entity_id, target_entity_id, relation, confidence, justification, direction
+		FROM traces ORDER BY confidence DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var traces []model.Trace
+	for rows.Next() {
+		var t model.Trace
+		if err := rows.Scan(&t.ID, &t.SourceEntityID, &t.TargetEntityID, &t.Relation, &t.Confidence, &t.Justification, &t.Direction); err != nil {
+			return nil, err
+		}
+		traces = append(traces, t)
+	}
+	return traces, rows.Err()
+}
+
 func (s *SQLiteStore) SaveTraces(ctx context.Context, traces []model.Trace) error {
 	for _, t := range traces {
 		_, err := s.db.ExecContext(ctx,
