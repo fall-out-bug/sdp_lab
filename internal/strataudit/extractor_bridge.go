@@ -80,10 +80,13 @@ func (b *BridgeExtractor) CanHandle(ext string) bool {
 }
 
 func (b *BridgeExtractor) Extract(ctx context.Context, path string, _ []byte) (string, error) {
-	// Sanitize path: only use basename
-	base := filepath.Base(path)
-	if base == "." || base == "/" || strings.Contains(base, "..") {
-		return "", fmt.Errorf("bridge: invalid path %q", path)
+	// Sanitize: only use full path if it exists, skip path traversal
+	evalPath := path
+	if evaled, err := filepath.EvalSymlinks(path); err == nil {
+		evalPath = evaled
+	}
+	if !filepath.IsAbs(evalPath) {
+		return "", fmt.Errorf("bridge: expected absolute path, got %q", path)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, b.timeout)
