@@ -1,7 +1,7 @@
 # SDP Mini-Harness Design
 
-**Date:** 2026-04-10 (rev 9 — post council round 8 verification)
-**Status:** Draft v9 — round 8 fixes applied (Stop durable-first + BeforeToolCall wiring)
+**Date:** 2026-04-10 (rev 10 — post council round 9 verification)
+**Status:** Draft v10 — round 9 fixes applied (ContextManager wiring + hStateStopped + RestoreHarness beforeToolCall)
 **Discovery verdict:** PIVOT (narrow control-plane first, then expand)
 
 ---
@@ -111,6 +111,20 @@ type Event struct {
 
 // Run — stateless: выполняет ровно один phase-turn до completion_signal или ошибки.
 // НЕ управляет переходами фаз — это делает Harness поверх.
+// Fix V3 (v10): перед каждым LLM call вызывает cfg.ContextManager.Trim() если не nil.
+//   Если nil → msgs передаются без изменений (passthrough, допустимо для MVP/short sessions).
+//   Trim вызывается внутри цикла, ПОСЛЕ добавления assistant message (чтобы trimming учитывал
+//   все messages текущего turn, включая tool results).
+//
+// Loop pseudo-code:
+//   for {
+//     if cfg.ContextManager != nil {
+//       msgs, err = cfg.ContextManager.Trim(msgs, cfg.Model, cfg.MaxTokens)
+//       if err != nil { close(ch, err); return }
+//     }
+//     resp, err := llm.Call(ctx, msgs, cfg)  // → Event{type:"llm_chunk"|"tool_call"|"done"}
+//     // ... execute tools, append messages, check completion_signal ...
+//   }
 func Run(ctx context.Context, msgs []Message, cfg LoopConfig) (<-chan Event, error)
 ```
 
@@ -488,11 +502,14 @@ Harness — единственный владелец Phase state. Loop — stat
 
 ```go
 // Fix N1: Phase execution FSM — предотвращает конкурентные вызовы RunPhase/ApproveGate/Rollback.
+// Fix V1 (v10): добавлен hStateStopped — после Stop() RunPhase/ApproveGate/Rollback всегда fail.
+//   Без этого state=hStateIdle после Stop() → RunPhase мог быть вызван снова.
 type harnessState int
 const (
     hStateIdle          harnessState = iota // готов к следующему prompt
     hStateRunning                           // Loop активен
     hStateAwaitingHuman                     // gate escalated, ждём Decision Owner
+    hStateStopped                           // Fix V1 (v10): терминальный — Stop() был вызван
 )
 
 type Harness struct {
@@ -747,7 +764,7 @@ func (h *Harness) Stop(ctx context.Context, token string) error {
             }
         }
     }
-    h.state = hStateIdle
+    h.state = hStateStopped // Fix V1 (v10): terminal state, not hStateIdle — prevents reuse
     h.session.EmitEvent(Event{Type: "session_stopped"})
     return nil
 }
@@ -906,19 +923,27 @@ type SessionStore interface {
 // Fix D1 (v7): Session.Phase определяется из последнего PhaseRecord.NextPhase при recovery —
 // SessionStore.Persist не нужен при каждом переходе (Phase.derive from PhaseRecord history).
 // Fix S2 (v8): ownerToken передаётся явно — без него validateToken всегда passes после restart.
-func RestoreHarness(sessionID, ownerToken string, store SessionStore, router *PhaseRouter, gate *GateEngine) (*Harness, error) {
+// Fix V2 (v10): beforeToolCall передаётся явно — иначе после restart hook теряется (nil).
+func RestoreHarness(
+    sessionID, ownerToken string,
+    store SessionStore,
+    router *PhaseRouter,
+    gate *GateEngine,
+    beforeToolCall func(name string, args json.RawMessage) error, // nil = no-op
+) (*Harness, error) {
     session, err := RecoverSession(sessionID, store)
     if err != nil {
         return nil, err
     }
     h := &Harness{
-        session:     session,
-        store:       store,
-        router:      router,
-        gate:        gate,
-        accumulator: NewEvidenceAccumulator(),
-        state:       hStateIdle, // default
-        ownerToken:  ownerToken, // Fix S2 (v8): restore token so validateToken works after restart
+        session:        session,
+        store:          store,
+        router:         router,
+        gate:           gate,
+        accumulator:    NewEvidenceAccumulator(),
+        state:          hStateIdle, // default
+        ownerToken:     ownerToken,     // Fix S2: restore token so validateToken works
+        beforeToolCall: beforeToolCall, // Fix V2: restore hook so BeforeToolCall works after restart
     }
     // Проверяем pending decision — возможно, сессия остановилась на awaiting_human
     pending, err := store.LoadDecision(sessionID)
@@ -1159,18 +1184,30 @@ CLI: `sdp run "задача"` → TUI в stdout → фазы → гейты → 
 
 ---
 
+## Фиксы Round 9 (v9→v10) — 5/6 quorum (critic+technician+pragmatist+engineer+architect)
+
+| ID | Роль | Проблема | Фикс |
+|----|------|---------|------|
+| V1 | Critic HIGH | После Stop() state=hStateIdle → RunPhase/ApproveGate/Rollback могут быть вызваны снова | Добавлен hStateStopped = терминальный FSM state; Stop() устанавливает h.state=hStateStopped; RunPhase guard (state!=hStateIdle) автоматически отклоняет hStateStopped |
+| V2 | Technician MEDIUM | beforeToolCall не передаётся в RestoreHarness → после restart hook теряется (nil), BeforeToolCall не вызывается | RestoreHarness добавлен параметр beforeToolCall func(...) error; h.beforeToolCall восстанавливается |
+| V3 | Engineer HIGH | ContextManager.Trim() определён в интерфейсе но никогда не вызывается в Run() → token overflow при длинных сессиях | Задокументировано в Run() pseudo-code: перед каждым LLM call проверяет cfg.ContextManager != nil; если да — вызывает Trim(); nil = passthrough для MVP |
+
+---
+
 ## ✅ Convergence Declaration
 
-**Round 8 status (v9 — текущая):**
-- Quorum 4/6 (architect + critic + technician + pragmatist)
-- S1+S2 фиксы: CORRECT (Technician + Pragmatist)
-- Critic: S1 INCOMPLETE — Stop() нарушает durable-first (ошибка persist игнорировалась) → U1 исправлен в v9
-- Technician: BeforeToolCall не wired в BuildLoopConfig → U2 исправлен в v9
-- Pragmatist: CONVERGENCE READY, нет новых issues
-- Technician: CONVERGENCE READY (U1/U2 minor)
-- U3 duplicate-decision (technician LOW): false alarm — FSM guards RunPhase, только один раз
+**Round 9 status (v10 — текущая):**
+- Quorum 5/6 (architect + critic + technician + pragmatist + engineer)
+- U1+U2 фиксы: CORRECT (Technician + Pragmatist)
+- Critic: hStateStopped отсутствует → V1 исправлен в v10
+- Technician: beforeToolCall не в RestoreHarness → V2 исправлен в v10
+- Engineer: ContextManager.Trim() не вызывается в Run() → V3 исправлен в v10 (документация pseudo-code)
+- Pragmatist: CONVERGENCE READY, 2 minor issues (WAL semantics + terminal record context)
+- Technician: CONVERGENCE READY
+- V4 (pragmatist MEDIUM — terminal PhaseRecord без PendingDecision context): документация только, не баг
+- V5 (pragmatist LOW — PersistEvent errors): телеметрия, не canonical — приемлемо для MVP
 
-**8 раундов итераций, 39 issue-фиксов:**
+**9 раундов итераций, 42 issue-фиксов:**
 | Batch | Issues | All Fixed |
 |-------|--------|-----------|
 | I1-I7 | 7 | ✅ |
@@ -1181,6 +1218,7 @@ CLI: `sdp run "задача"` → TUI в stdout → фазы → гейты → 
 | A1-A6, D1, T1 | 8 | ✅ |
 | S1-S2 | 2 | ✅ |
 | U1-U2 | 2 | ✅ |
+| V1-V3 | 3 | ✅ |
 
-**v9 готов к Round 9 финальной верификации.**  
-После Round 9 CONVERGED → implementation: Loop → PhaseRouter → Harness → GateEngine → SessionStore(BoltDB) → CLI `sdp run "задача"`.
+**v10 готов к Round 10 финальной верификации с расширенным max_tokens для философа и инженера.**  
+После Round 10 CONVERGED → implementation: Loop → PhaseRouter → Harness → GateEngine → SessionStore(BoltDB) → CLI `sdp run "задача"`.
