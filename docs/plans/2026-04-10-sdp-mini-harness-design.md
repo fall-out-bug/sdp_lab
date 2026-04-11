@@ -1,7 +1,7 @@
 # SDP Mini-Harness Design
 
-**Date:** 2026-04-10 (rev 3 — post council round 2)
-**Status:** Draft v3 — council round 2 fixes applied
+**Date:** 2026-04-10 (rev 6 — post council round 5, CONVERGED)
+**Status:** ✅ Converged — ready for implementation
 **Discovery verdict:** PIVOT (narrow control-plane first, then expand)
 
 ---
@@ -79,6 +79,15 @@ type Tool struct {
     Execute     func(ctx context.Context, id string, args json.RawMessage) (string, error)
 }
 
+// Fix N5: AfterToolCall signature unified to carry full ToolResult (success AND error).
+// Accumulator now receives failure evidence too, not just successes.
+type ToolResult struct {
+    ID     string
+    Name   string
+    Output string
+    Err    error
+}
+
 type LoopConfig struct {
     Model          string           // задаётся PhaseRouter — не меняется в runtime (I2)
     SystemPrompt   string
@@ -86,16 +95,17 @@ type LoopConfig struct {
     MaxTokens      int
     TurnTimeout    time.Duration    // timeout на один LLM call (I-timeout)
     BeforeToolCall func(name string, args json.RawMessage) error  // pre-hook, может отклонить
-    AfterToolCall  func(name, result string) error                // post-hook для EvidenceAccumulator
+    AfterToolCall  func(result ToolResult) error                  // Fix N5: полный ToolResult, не (name,str)
     ContextManager ContextManager  // sliding window (I6)
 }
 
 type Event struct {
-    Type    string  // "text_delta"|"tool_start"|"tool_end"|"turn_end"|"done"|"error"
-    Delta   string
-    ToolName string
+    Type       string  // "text_delta"|"tool_start"|"tool_end"|"turn_end"|"done"|"error"|"warn"
+    Delta      string
+    ToolName   string
     ToolResult string
-    Err     error
+    ToolErr    error   // Fix P4 (v5): tool failure в "tool_end" event → TurnRecord сохраняет Err
+    Err        error   // loop-level error
 }
 
 // Run — stateless: выполняет ровно один phase-turn до completion_signal или ошибки.
@@ -105,7 +115,10 @@ func Run(ctx context.Context, msgs []Message, cfg LoopConfig) (<-chan Event, err
 
 **Tool execution (I11 — Go goroutines):**
 ```go
-// Параллельное выполнение tool calls из одного assistant message:
+// Параллельное выполнение tool calls из одного assistant message.
+// Fix N5 (v5 simplification): AfterToolCall вызывается СИНХРОННО после каждого tool.
+// Это устраняет race с Snapshot — нет отдельного WaitGroup и нет двух несвязанных счётчиков.
+// EvidenceAccumulator операции быстры (mutex+append) — async overhead не нужен.
 func executeCalls(ctx context.Context, calls []ToolCall, tools []Tool, cfg LoopConfig) []ToolResult {
     var wg sync.WaitGroup
     results := make([]ToolResult, len(calls))
@@ -113,19 +126,23 @@ func executeCalls(ctx context.Context, calls []ToolCall, tools []Tool, cfg LoopC
         wg.Add(1)
         go func(i int, call ToolCall) {
             defer wg.Done()
-            // enforce tool allowlist (I3)
             tool, ok := findTool(tools, call.Name)
             if !ok {
-                results[i] = ToolResult{ID: call.ID, Error: "tool not in phase allowlist"}
-                return
+                results[i] = ToolResult{ID: call.ID, Name: call.Name, Err: fmt.Errorf("tool not in phase allowlist")}
+            } else {
+                tctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+                defer cancel()
+                out, err := tool.Execute(tctx, call.ID, call.Arguments)
+                results[i] = ToolResult{ID: call.ID, Name: call.Name, Output: out, Err: err}
             }
-            tctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-            defer cancel()
-            out, err := tool.Execute(tctx, call.ID, call.Arguments)
-            results[i] = ToolResult{ID: call.ID, Output: out, Err: err}
+            // Synchronous AfterToolCall — called within this goroutine, before wg.Done().
+            // By the time wg.Wait() returns, all callbacks are complete. No separate WG needed.
+            if cfg.AfterToolCall != nil {
+                cfg.AfterToolCall(results[i])
+            }
         }(i, call)
     }
-    wg.Wait()
+    wg.Wait() // все tool executions И callbacks завершены
     return results
 }
 ```
@@ -196,41 +213,44 @@ type PhaseConfig struct {
     MinOutputTokens int
 }
 
+// Fix N6: completion_signal УДАЛЁН из всех Tools allowlists.
+// BuildLoopConfig добавляет его неявно — ToolRegistry никогда не содержит completion_signal.
+// Это предотвращает дублирование: tool регистрируется ровно один раз на phase-run.
 var DefaultPhaseMap = map[Role]PhaseConfig{
     RoleDiscover: {
         Models:          []string{"deepseek/deepseek-v3.2", "openai/gpt-4.1"},
-        Tools:           []string{"web_search", "read_file", "bd_search", "completion_signal"},
+        Tools:           []string{"web_search", "read_file", "bd_search"}, // no completion_signal (N6)
         AllowedNext:     []Role{RolePlan},
-        RecoveryNext:    []Role{RoleDiscover}, // повтор discover при недостаточном output
-        GateRequired:    true,                 // lightweight gate: MinOutputTokens (I14 fix)
+        RecoveryNext:    []Role{RoleDiscover},
+        GateRequired:    true,
         MinOutputTokens: 200,
     },
     RolePlan: {
         Models:       []string{"openai/gpt-4.1", "anthropic/claude-opus-4-5"},
-        Tools:        []string{"read_file", "glob", "bd_create", "completion_signal"},
+        Tools:        []string{"read_file", "glob", "bd_create"}, // no completion_signal (N6)
         AllowedNext:  []Role{RoleBuild},
         RecoveryNext: []Role{RoleDiscover, RolePlan},
         GateRequired: true,
     },
     RoleBuild: {
         Models:       []string{"anthropic/claude-sonnet-4-6", "openai/gpt-4.1"},
-        Tools:        []string{"read_file", "edit_file", "bash", "glob", "completion_signal"},
+        Tools:        []string{"read_file", "edit_file", "bash", "glob"}, // no completion_signal (N6)
         AllowedNext:  []Role{RoleReview},
         RecoveryNext: []Role{RolePlan, RoleBuild},
         GateRequired: true,
     },
     RoleReview: {
-        Models:       []string{"openai/gpt-4.1", "deepseek/deepseek-v3.2"}, // намеренно другой первый выбор
-        Tools:        []string{"read_file", "grep", "bd_comment", "completion_signal"},
+        Models:       []string{"openai/gpt-4.1", "deepseek/deepseek-v3.2"},
+        Tools:        []string{"read_file", "grep", "bd_comment"}, // no completion_signal (N6)
         AllowedNext:  []Role{RoleEval, RoleBuild},
         RecoveryNext: []Role{RoleBuild},
         GateRequired: true,
     },
     RoleEval: {
         Models:       []string{"anthropic/claude-sonnet-4-6", "openai/gpt-4.1"},
-        Tools:        []string{"bash", "read_file", "completion_signal"},
-        AllowedNext:  []Role{},           // финальная фаза
-        RecoveryNext: []Role{RoleBuild},  // eval провалился → назад в build (I5 fix)
+        Tools:        []string{"bash", "read_file"}, // no completion_signal (N6)
+        AllowedNext:  []Role{},
+        RecoveryNext: []Role{RoleBuild},
         GateRequired: true,
     },
 }
@@ -307,28 +327,43 @@ type EvidenceAccumulator struct {
     mu       sync.Mutex
     evidence []string
     claims   []harness.Claim
-    quality  map[string]bool
+    quality  map[string]bool // Fix Q2 (v6): инициализируется в NewEvidenceAccumulator
+    // Fix P5 (v5): callbackWg удалён — AfterToolCall теперь синхронный в executeCalls
 }
 
-// OnToolResult вызывается Harness'ом через AfterToolCall hook после каждого tool.
-// Структурированный extractor — не LLM-summarization.
-func (ea *EvidenceAccumulator) OnToolResult(toolName, result string, err error) {
-    ea.mu.Lock()
-    defer ea.mu.Unlock()
-    if err != nil {
-        return // ошибка tool = не evidence
-    }
-    switch toolName {
-    case "bash":
-        // если exit code 0 и output содержит "PASS" / тест-репорт → quality["test"] = true
-        ea.quality["test"] = extractTestPass(result)
-    case "edit_file":
-        ea.evidence = append(ea.evidence, "file_modified:"+extractFilePath(result))
-    case "bd_create":
-        ea.evidence = append(ea.evidence, "card_created:"+extractCardID(result))
-    // ... per-tool extractors
+// Fix Q2 (v6): конструктор инициализирует quality map — нет nil map panic в OnToolResult.
+func NewEvidenceAccumulator() *EvidenceAccumulator {
+    return &EvidenceAccumulator{
+        quality: make(map[string]bool),
     }
 }
+
+// OnToolResult вызывается через AfterToolCall hook после каждого tool.
+// Fix N5: принимает полный ToolResult (включая Err) — подпись совпадает с AfterToolCallFn.
+// Структурированный extractor — не LLM-summarization.
+func (ea *EvidenceAccumulator) OnToolResult(r ToolResult) error {
+    ea.mu.Lock()
+    defer ea.mu.Unlock()
+    if r.Err != nil {
+        // Tool failure: записываем как отрицательное evidence, не игнорируем
+        ea.evidence = append(ea.evidence, fmt.Sprintf("tool_error:%s:%s", r.Name, r.Err.Error()))
+        return nil
+    }
+    switch r.Name {
+    case "bash":
+        // exit code 0 + "PASS" / тест-репорт → quality["test"] = true
+        ea.quality["test"] = extractTestPass(r.Output)
+    case "edit_file":
+        ea.evidence = append(ea.evidence, "file_modified:"+extractFilePath(r.Output))
+    case "bd_create":
+        ea.evidence = append(ea.evidence, "card_created:"+extractCardID(r.Output))
+    // ... per-tool extractors
+    }
+    return nil
+}
+
+// Fix P5 (v5): WaitCallbacks и TrackCallback удалены.
+// AfterToolCall синхронный → к моменту Snapshot() все callbacks гарантированно завершены.
 
 func (ea *EvidenceAccumulator) Snapshot(phase Role) PhaseSnapshot {
     ea.mu.Lock()
@@ -365,7 +400,15 @@ func (g *GateEngine) Evaluate(ctx context.Context, snap PhaseSnapshot) GateResul
     defer cancel()
 
     ch := make(chan harness.ComplianceReport, 1)
-    go func() { ch <- harness.EvaluateCompliance(g.contract, snap.toHarness()) }()
+    // Fix N4: горутина учитывает cancellation — не висит вечно после timeout.
+    // harness.EvaluateCompliance должен принимать ctx и завершаться при ctx.Done().
+    go func() {
+        report := harness.EvaluateCompliance(evalCtx, g.contract, snap.toHarness())
+        select {
+        case ch <- report:
+        case <-evalCtx.Done(): // timeout сработал пока мы считали — просто уходим
+        }
+    }()
 
     select {
     case report := <-ch:
@@ -412,35 +455,77 @@ gate_block → Harness эмитит Event{Type: "human_gate", GateResults: ...}
 Harness — единственный владелец Phase state. Loop — stateless. Разделение явное.
 
 ```go
+// Fix N1: Phase execution FSM — предотвращает конкурентные вызовы RunPhase/ApproveGate/Rollback.
+type harnessState int
+const (
+    hStateIdle          harnessState = iota // готов к следующему prompt
+    hStateRunning                           // Loop активен
+    hStateAwaitingHuman                     // gate escalated, ждём Decision Owner
+)
+
 type Harness struct {
     session     *Session
-    store       SessionStore    // persistence
+    store       SessionStore
     router      *PhaseRouter
     gate        *GateEngine
     accumulator *EvidenceAccumulator
-    mu          sync.Mutex     // защита от concurrent surface access (I10)
-    ownerToken  string         // только Surface с этим токеном может писать промпты
+    mu          sync.Mutex     // защита phase state, FSM state
+    ownerToken  string
+    state       harnessState   // Fix N1: FSM состояние
+    runID       uint64         // Fix N1: монотонный счётчик per RunPhase
 }
 
 // completionFlag — разделяемый флаг между closure CompletionSignalTool и RunPhase.
-// Fix R2-2: флаг теперь явно передаётся в Execute-closure, а не читается из local var.
 type completionFlag struct {
     mu       sync.Mutex
     signaled bool
     summary  string
 }
 
-// RunPhase выполняет один phase-цикл: запускает Loop, ждёт completion_signal,
-// проверяет gate, решает о переходе. Harness вызывает TransitionTo — не Loop, не агент.
+// Fix N2: PendingDecision — персистируется при escalation.
+// ApproveGate/Rollback требуют decisionID — нет pending = нет перехода.
+type PendingDecision struct {
+    DecisionID     string
+    RunID          uint64
+    Phase          Role
+    GateResult     GateResult
+    AllowedActions []string // "approve" | "rollback" | "stop"
+}
+
+// RunPhase выполняет один phase-цикл.
 //
-// Fix R2-1: h.mu НЕ держится во время event loop — только вокруг state read/write.
-// Loop goroutines вызывают AfterToolCall без блокировки h.mu → нет deadlock.
+// Fix N1: проверяет FSM state → отвергает конкурентный вызов.
+// Fix R2-1: h.mu НЕ держится во время event loop.
 func (h *Harness) RunPhase(ctx context.Context, userPrompt string) error {
-    // --- 1. Читаем state под lock, отпускаем до запуска Loop ---
+    // --- 1. FSM check + state read под lock ---
     h.mu.Lock()
+    if h.state != hStateIdle {
+        h.mu.Unlock()
+        return fmt.Errorf("harness busy: state=%d (expected idle)", h.state)
+    }
+    h.state = hStateRunning
+    h.runID++
+    currentRunID := h.runID
     phase := h.session.Phase
-    msgs := append(h.session.Messages(), Message{Role: "user", Content: userPrompt})
+
+    // Fix N3: msgs строятся из TurnRecords — не из in-memory buffer
+    msgs := h.session.MessagesFromTurnRecords()
+    msgs = append(msgs, Message{Role: "user", Content: userPrompt})
     h.mu.Unlock()
+
+    // Fix P3 (v5): явный defer для сброса FSM state на happy path и error path.
+    // Проверяем state==hStateRunning — НЕ сбрасываем если уже hStateAwaitingHuman.
+    // Комментарий: escalation path устанавливает hStateAwaitingHuman ПОД mutex ПЕРЕД return,
+    // поэтому к моменту defer h.state != hStateRunning — reset не происходит. Это корректно.
+    defer func() {
+        h.mu.Lock()
+        if h.runID == currentRunID && h.state == hStateRunning {
+            // Non-escalation exit (error or no completion_signal) → back to idle
+            h.state = hStateIdle
+        }
+        // If state == hStateAwaitingHuman: set by escalation path under lock → do NOT reset
+        h.mu.Unlock()
+    }()
 
     // Fix R2-2: completion flag передаётся в tool closure явно
     flag := &completionFlag{}
@@ -449,30 +534,61 @@ func (h *Harness) RunPhase(ctx context.Context, userPrompt string) error {
         return err
     }
 
-    // --- 2. Запускаем Loop БЕЗ h.mu — Loop goroutines могут звонить обратно ---
+    // --- 2. Запускаем Loop БЕЗ h.mu ---
     events, err := Run(ctx, msgs, cfg)
     if err != nil {
         return err
     }
 
+    // Fix Q1 (v6): ID уникален → нет дублей в SessionStore при retry
+    turnRecord := TurnRecord{
+        ID:        fmt.Sprintf("%s:%d", h.session.ID, currentRunID),
+        Phase:     phase,
+        UserMsg:   Message{Role: "user", Content: userPrompt},
+        CreatedAt: time.Now(),
+    }
+
     for ev := range events {
-        // WAL: persist каждый event без h.mu (store имеет свой lock)
         h.store.PersistEvent(h.session.ID, ev)
-        if ev.Type == "error" {
+        // Fix N3: собираем turn record для canonical conversation log
+        switch ev.Type {
+        case "text_delta":
+            turnRecord.AssistantText += ev.Delta
+        case "tool_end":
+            // Fix P4 (v5): ev.ToolErr сохраняется в TurnRecord → canonical log полон
+            turnRecord.ToolResults = append(turnRecord.ToolResults, ToolResult{
+                Name:   ev.ToolName,
+                Output: ev.ToolResult,
+                Err:    ev.ToolErr,
+            })
+        case "error":
             return ev.Err
         }
     }
 
-    // --- 3. Проверяем флаг завершения (set из tool Execute closure) ---
+    // Fix N3: persist canonical TurnRecord ДО gate check
+    if err := h.store.PersistTurnRecord(h.session.ID, turnRecord); err != nil {
+        return fmt.Errorf("persist turn record: %w", err)
+    }
+    // Fix P5 (v5): WaitCallbacks() удалён — AfterToolCall синхронный в executeCalls,
+    // все callbacks завершены к моменту drain events channel (wg.Wait() внутри executeCalls)
+
+    // --- 3. Проверяем флаг завершения ---
     flag.mu.Lock()
     signaled := flag.signaled
+    summary := flag.summary
     flag.mu.Unlock()
 
     if !signaled {
         return nil // агент не завершил фазу — ждём следующего промпта
     }
 
-    // --- 4. Gate check и transition под h.mu ---
+    // Fix N7: предупреждаем о пустом summary (не блокируем)
+    if summary == "" {
+        h.store.PersistEvent(h.session.ID, Event{Type: "warn", Delta: "completion_signal: empty summary"})
+    }
+
+    // --- 4. Gate check ---
     snap := h.accumulator.Snapshot(phase)
     result := h.gate.Evaluate(ctx, snap)
 
@@ -481,34 +597,68 @@ func (h *Harness) RunPhase(ctx context.Context, userPrompt string) error {
     h.store.PersistGateResult(h.session.ID, result)
 
     if result.Escalated {
-        // Fix R2-5: gate block → escalate; ApproveGate/Rollback придут через SurfaceEvent
-        h.session.EmitEvent(Event{Type: "human_gate", Err: fmt.Errorf("%v", result.Report.GateResults)})
-        return nil // ждём Decision Owner
+        // Fix N2: персистируем PendingDecision — ApproveGate/Rollback потребуют decisionID
+        decision := PendingDecision{
+            DecisionID:     fmt.Sprintf("%s-run%d", h.session.ID, currentRunID),
+            RunID:          currentRunID,
+            Phase:          phase,
+            GateResult:     result,
+            AllowedActions: []string{"approve", "rollback", "stop"},
+        }
+        h.store.PersistDecision(h.session.ID, decision)
+        h.state = hStateAwaitingHuman // Fix N1: FSM → ждём человека
+        h.session.EmitEvent(Event{Type: "human_gate", Delta: decision.DecisionID})
+        return nil
     }
 
-    // Переход: Harness вызывает TransitionTo — не агент (I1)
-    // Fix R2-4: NextPhase() теперь определён на PhaseRouter
     return h.transitionTo(phase, h.router.NextPhase(phase), false)
 }
 
-// ApproveGate вызывается из Surface при SurfaceEvent{Type:"approve_gate"} — Decision Owner override.
-func (h *Harness) ApproveGate(ctx context.Context) error {
+// ApproveGate — Decision Owner одобряет gate.
+// Fix P1 (v5): ClearDecision вызывается ПОСЛЕ transitionTo.
+// Если transitionTo падает — state остаётся awaiting_human, decision цел → safe retry.
+func (h *Harness) ApproveGate(ctx context.Context, decisionID string) error {
     h.mu.Lock()
     defer h.mu.Unlock()
+    if h.state != hStateAwaitingHuman {
+        return fmt.Errorf("no pending gate decision (state=%d)", h.state)
+    }
+    if err := h.store.ValidateDecision(h.session.ID, decisionID); err != nil {
+        return fmt.Errorf("invalid decisionID: %w", err)
+    }
     phase := h.session.Phase
-    return h.transitionTo(phase, h.router.NextPhase(phase), false)
+    // Fix P1: transition FIRST — только после успеха очищаем decision
+    if err := h.transitionTo(phase, h.router.NextPhase(phase), false); err != nil {
+        return err // state=awaiting_human, decision intact — caller can retry
+    }
+    h.state = hStateIdle
+    h.store.ClearDecision(h.session.ID, decisionID)
+    return nil
 }
 
-// Rollback вызывается из Surface при SurfaceEvent{Type:"rollback"} — отправляет в RecoveryNext.
-func (h *Harness) Rollback(ctx context.Context) error {
+// Rollback — Decision Owner откатывает к RecoveryNext.
+// Fix P1 (v5): аналогично ApproveGate — ClearDecision после успешного transitionTo.
+func (h *Harness) Rollback(ctx context.Context, decisionID string) error {
     h.mu.Lock()
     defer h.mu.Unlock()
+    if h.state != hStateAwaitingHuman {
+        return fmt.Errorf("no pending gate decision (state=%d)", h.state)
+    }
+    if err := h.store.ValidateDecision(h.session.ID, decisionID); err != nil {
+        return fmt.Errorf("invalid decisionID: %w", err)
+    }
     phase := h.session.Phase
-    return h.transitionTo(phase, h.router.RecoveryPhase(phase), true)
+    if err := h.transitionTo(phase, h.router.RecoveryPhase(phase), true); err != nil {
+        return err // state=awaiting_human, decision intact — caller can retry
+    }
+    h.state = hStateIdle
+    h.store.ClearDecision(h.session.ID, decisionID)
+    return nil
 }
 
-// transitionTo — INTERNAL ONLY. NOT A TOOL. Единственный способ сменить фазу.
-// Fix R2-5: recovery=true валидирует против RecoveryNext, recovery=false против AllowedNext.
+// transitionTo — INTERNAL ONLY. Fix R2-5 + Fix P2 (v5).
+// Fix P2: PersistPhaseRecord вызывается ПЕРЕД мутацией in-memory state.
+// Если persist падает → session.Phase и accumulator не тронуты → safe retry.
 func (h *Harness) transitionTo(current, next Role, recovery bool) error {
     cfg := h.router.phaseMap[current]
     var allowed []Role
@@ -520,15 +670,19 @@ func (h *Harness) transitionTo(current, next Role, recovery bool) error {
     if !slices.Contains(allowed, next) {
         return fmt.Errorf("transition %s→%s not allowed (recovery=%v)", current, next, recovery)
     }
-    // Снимок делаем ДО Reset
     snapshot := h.accumulator.Snapshot(current)
-    h.session.Phase = next
-    h.accumulator.Reset()
-    h.store.PersistPhaseRecord(h.session.ID, PhaseRecord{
+    // Fix P2: persist FIRST — in-memory not touched yet
+    if err := h.store.PersistPhaseRecord(h.session.ID, PhaseRecord{
         Phase:    current,
         EndedAt:  time.Now(),
         Snapshot: snapshot,
-    })
+        NextPhase: next, // записываем next для idempotent recovery
+    }); err != nil {
+        return fmt.Errorf("persist phase record: %w", err)
+    }
+    // Mutate in-memory ONLY after durable commit
+    h.session.Phase = next
+    h.accumulator.Reset()
     return nil
 }
 ```
@@ -540,24 +694,58 @@ func (h *Harness) transitionTo(current, next Role, recovery bool) error {
 **Файл:** `internal/agentloop/session.go`
 
 ```go
+// Fix N3: TurnRecord — каноническая запись одного turn.
+// Session.Messages() строится из TurnRecords, не из in-memory buffer.
+// Events — вторичная телеметрия; TurnRecords — source of truth для replay.
+type TurnRecord struct {
+    ID            string       // Fix Q1 (v6): формат "sessionID:runID:turnIndex", уникален в SessionStore
+    Phase         Role
+    UserMsg       Message
+    AssistantText string       // накопленные text_delta
+    ToolResults   []ToolResult
+    CreatedAt     time.Time
+}
+
 // Session — pure data, без Loop (I8 — circular dependency eliminated)
 type Session struct {
-    ID       string                 // = beads card ID
-    Branch   string
-    Phase    Role
-    Contract *harness.TaskContract  // загружается из beads card description (I12)
-    History  []PhaseRecord
-    events   []Event               // in-memory buffer текущей фазы
+    ID          string                 // = beads card ID
+    Branch      string
+    Phase       Role
+    Contract    *harness.TaskContract  // загружается из beads card description (I12)
+    History     []PhaseRecord
+    events      []Event               // in-memory buffer текущей фазы (телеметрия; эфемерно)
+    // Q3 (v6): events намеренно НЕ восстанавливаются при Recover — это вторичная телеметрия.
+    // После restart события не стримятся (Surface видит это как новую сессию). Acceptable for MVP.
+    turnRecords []TurnRecord          // Fix N3: canonical conversation log (восстанавливается в RecoverSession)
+}
+
+// MessagesFromTurnRecords строит []Message из persisted TurnRecords.
+// Заменяет Messages() — нет расхождения WAL и in-memory.
+func (s *Session) MessagesFromTurnRecords() []Message {
+    var out []Message
+    for _, tr := range s.turnRecords {
+        out = append(out, tr.UserMsg)
+        if tr.AssistantText != "" {
+            out = append(out, Message{Role: "assistant", Content: tr.AssistantText})
+        }
+        for _, r := range tr.ToolResults {
+            out = append(out, Message{
+                Role:       "tool_result",
+                Content:    r.Output,
+                ToolCallID: r.ID,
+            })
+        }
+    }
+    return out
 }
 
 // Contract provenance (I12): генерируется из beads card при создании сессии
-// sdp contract gen <card-id> → TaskContract → сохраняется в Session
 func NewSession(cardID string, store SessionStore) (*Session, error) {
     card, err := loadBeadsCard(cardID)
     if err != nil {
         return nil, err
     }
-    contract, err := generateContract(card) // LLM-assisted из description
+    contract, err := generateContract(card)
     if err != nil {
         return nil, err
     }
@@ -570,8 +758,26 @@ func NewSession(cardID string, store SessionStore) (*Session, error) {
     return s, store.Persist(s)
 }
 
+// RecoverSession восстанавливает Session из store, включая TurnRecords.
+// Fix P3-N3 (v5, architect): Recover() ОБЯЗАН загружать TurnRecords — без этого
+// MessagesFromTurnRecords() вернёт пустой slice и context после restart потеряется.
+func RecoverSession(sessionID string, store SessionStore) (*Session, error) {
+    s, err := store.Recover(sessionID)
+    if err != nil {
+        return nil, err
+    }
+    // Загружаем canonical conversation log
+    turns, err := store.LoadTurnRecords(sessionID)
+    if err != nil {
+        return nil, fmt.Errorf("load turn records: %w", err)
+    }
+    s.turnRecords = turns // unexported field — RecoverSession в том же пакете
+    return s, nil
+}
+
 type PhaseRecord struct {
     Phase     Role
+    NextPhase Role      // Fix P2 (v5): записывается при persist, используется для idempotent recovery
     StartedAt time.Time
     EndedAt   time.Time
     Snapshot  PhaseSnapshot
@@ -581,10 +787,19 @@ type PhaseRecord struct {
 // SessionStore — interface, реализация: BoltDB (embedded, zero-config, ACID)
 type SessionStore interface {
     Persist(s *Session) error
-    PersistEvent(sessionID string, ev Event) error     // WAL после каждого turn
+    PersistEvent(sessionID string, ev Event) error         // телеметрия
     PersistGateResult(sessionID string, r GateResult) error
     PersistPhaseRecord(sessionID string, r PhaseRecord) error
     Recover(sessionID string) (*Session, error)
+
+    // Fix N3: canonical conversation log
+    PersistTurnRecord(sessionID string, r TurnRecord) error
+    LoadTurnRecords(sessionID string) ([]TurnRecord, error)
+
+    // Fix N2: PendingDecision lifecycle
+    PersistDecision(sessionID string, d PendingDecision) error
+    ValidateDecision(sessionID, decisionID string) error   // вернуть ошибку если нет/уже обработан
+    ClearDecision(sessionID, decisionID string) error      // атомарно при переходе
 }
 ```
 
@@ -740,3 +955,59 @@ CLI: `sdp run "задача"` → TUI в stdout → фазы → гейты → 
 | R2-3 | GateEngine timeout = automatic pass → безопасность | Timeout → Escalated=true + GateWarn violation, не Blocked=false тихо |
 | R2-4 | router.NextPhase() не определён, Harness вызывает несуществующий метод | Добавлены NextPhase() и RecoveryPhase() на PhaseRouter |
 | R2-5 | transitionTo не знает о RecoveryNext, нет wiring для recovery path | transitionTo(current, next, recovery bool) — валидирует против правильного списка; ApproveGate/Rollback на Harness |
+
+---
+
+## Фиксы Round 3 (v3→v4)
+
+| ID | Проблема | Фикс |
+|----|---------|------|
+| N1 | Нет phase execution FSM — RunPhase/ApproveGate/Rollback могут конкурентно менять state | harnessState FSM (idle/running/awaiting_human) + runID; каждый метод проверяет state |
+| N2 | PendingDecision не персистируется — ApproveGate/Rollback без guard | PersistDecision → ValidateDecision(decisionID) → ClearDecision атомарно; ApproveGate/Rollback требуют decisionID |
+| N3 | Conversation не canonical source of truth — msgs из in-memory buffer | TurnRecord{UserMsg, AssistantText, ToolResults}; Session.MessagesFromTurnRecords(); SessionStore.PersistTurnRecord() |
+| N4 | EvaluateCompliance goroutine не отменяется при timeout | Горутина select {case ch <- ...; case <-evalCtx.Done()} — уходит если timeout уже сработал |
+| N5 | AfterToolCall signature mismatch + race с Snapshot | AfterToolCall func(ToolResult) error; EvidenceAccumulator.callbackWg; WaitCallbacks() перед Snapshot |
+| N6 | completion_signal дублируется (в allowlist + в BuildLoopConfig) | Удалён из всех PhaseConfig.Tools; только BuildLoopConfig добавляет его неявно |
+| N7 | completionFlag.summary может быть пустым без предупреждения | После чтения flag: if summary == "" → persist warn event; не блокируем gate |
+
+---
+
+## Фиксы Round 4 (v4→v5)
+
+| ID | Проблема | Фикс |
+|----|---------|------|
+| P1 | ClearDecision вызывается ДО transitionTo → если transition падает, decision потеряна | ApproveGate/Rollback: transitionTo() первым; ClearDecision только после успеха; при ошибке state остаётся awaiting_human |
+| P2 | transitionTo мутирует in-memory ДО PersistPhaseRecord → разрыв при сбое | transitionTo: PersistPhaseRecord(NextPhase в записи) первым; session.Phase и accumulator.Reset() только после успешного persist |
+| P3 | Двойной lock pattern в RunPhase сложен для рассуждения о FSM | Добавлен явный комментарий к defer объясняющий почему hStateAwaitingHuman не перезаписывается |
+| P4 | "tool_end" Event не несёт ToolErr → TurnRecord теряет информацию о сбоях tool | Добавлено поле ToolErr error в Event; RunPhase сохраняет ev.ToolErr в TurnRecord.ToolResults |
+| P5 | callbackWg wiring broken — два несвязанных WaitGroup (executeCalls local + accumulator.callbackWg) | AfterToolCall сделан синхронным в executeCalls goroutine; callbackWg/WaitCallbacks/TrackCallback удалены |
+
+---
+
+## Фиксы Round 5 (v5→v6) — финальные
+
+| ID | Проблема | Фикс |
+|----|---------|------|
+| Q1 | TurnRecord.ID не присваивался перед PersistTurnRecord → дубли при retry | ID = fmt.Sprintf("%s:%d", sessionID, runID); Phase и CreatedAt заполняются при создании |
+| Q2 | EvidenceAccumulator.quality — nil map → panic при ea.quality["test"] = ... | NewEvidenceAccumulator() конструктор с make(map[string]bool) |
+| Q3 | events slice не восстанавливается при RecoverSession | Задокументировано: events эфемерны (вторичная телеметрия), не требуют восстановления. Acceptable for MVP |
+
+---
+
+## ✅ Convergence Declaration
+
+**Round 5 convergence check:**
+- Technician: все P-фиксы CORRECT, 3 мелких Q-issues → исправлены в v6
+- Architect: все P-фиксы CORRECT или INCOMPLETE из-за неполных сниппетов в промпте (не реальные баги)
+- Новых CRITICAL/HIGH issues не найдено в Round 5
+
+**5 раундов итераций, 27 issue-фиксов:**
+| Batch | Issues | All Fixed |
+|-------|--------|-----------|
+| I1-I7 | 7 | ✅ |
+| R2-1..5 | 5 | ✅ |
+| N1-N7 | 7 | ✅ |
+| P1-P5 | 5 | ✅ |
+| Q1-Q3 | 3 | ✅ |
+
+**Spec готов к implementation.** Начинать с MVP Phase 1: Loop + Harness + GateEngine + PhaseRouter + SessionStore(BoltDB), CLI `sdp run "задача"`.
