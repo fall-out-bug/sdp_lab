@@ -8,11 +8,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"golang.org/x/time/rate"
 )
@@ -133,7 +135,10 @@ func (c *LLMClient) Chat(ctx context.Context, req LLMRequest) (*LLMResponse, err
 
 	var result struct {
 		Choices []struct {
-			Message struct{ Content string } `json:"message"`
+			Message struct {
+				Content   *string `json:"content"`
+				Reasoning *string `json:"reasoning"`
+			} `json:"message"`
 		} `json:"choices"`
 		Usage struct {
 			PromptTokens     int `json:"prompt_tokens"`
@@ -145,7 +150,24 @@ func (c *LLMClient) Chat(ctx context.Context, req LLMRequest) (*LLMResponse, err
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
 
-	content := result.Choices[0].Message.Content
+	if len(result.Choices) == 0 {
+		return nil, fmt.Errorf("llm: no choices in response")
+	}
+
+	content := ""
+	if result.Choices[0].Message.Content != nil {
+		content = *result.Choices[0].Message.Content
+	}
+	if content == "" && result.Choices[0].Message.Reasoning != nil {
+		r := *result.Choices[0].Message.Reasoning
+		if utf8.RuneCountInString(r) >= 50 {
+			content = extractFinalAnswer(r)
+			slog.Warn("llm: used reasoning fallback", "model", result.Model, "reasoning_len", len(r))
+		}
+	}
+	if content == "" {
+		return nil, fmt.Errorf("llm: empty content and reasoning in response")
+	}
 	duration := time.Since(start).Milliseconds()
 
 	c.storeCache(cacheKey, content)
@@ -157,6 +179,31 @@ func (c *LLMClient) Chat(ctx context.Context, req LLMRequest) (*LLMResponse, err
 		Model:      result.Model,
 		DurationMs: duration,
 	}, nil
+}
+
+// extractFinalAnswer extracts the final answer from reasoning model output.
+// Looks for <answer>...</answer> tags first, then falls back to the last
+// non-empty paragraph.
+func extractFinalAnswer(reasoning string) string {
+	// Try <answer>...</answer> tag
+	re := regexp.MustCompile(`(?s)<answer>(.*?)</answer>`)
+	if matches := re.FindStringSubmatch(reasoning); len(matches) > 1 {
+		trimmed := strings.TrimSpace(matches[1])
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+
+	// Fallback: last non-empty paragraph (split by double newline)
+	paragraphs := strings.Split(reasoning, "\n\n")
+	for i := len(paragraphs) - 1; i >= 0; i-- {
+		p := strings.TrimSpace(paragraphs[i])
+		if p != "" {
+			return p
+		}
+	}
+
+	return reasoning
 }
 
 func (c *LLMClient) Embed(ctx context.Context, texts []string, model string) ([][]float32, error) {
