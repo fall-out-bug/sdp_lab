@@ -1,7 +1,7 @@
 # SDP Mini-Harness Design
 
-**Date:** 2026-04-10 (rev 8 — post council round 7 verification)
-**Status:** Draft v8 — round 7 fixes applied (Stop orphan + RestoreHarness ownerToken)
+**Date:** 2026-04-10 (rev 9 — post council round 8 verification)
+**Status:** Draft v9 — round 8 fixes applied (Stop durable-first + BeforeToolCall wiring)
 **Discovery verdict:** PIVOT (narrow control-plane first, then expand)
 
 ---
@@ -315,7 +315,10 @@ func (r *PhaseRouter) RecoveryPhase(current Role) Role {
 
 // BuildLoopConfig собирает LoopConfig для фазы, включая completion signal tool.
 // Fix R2-2: принимает *completionFlag, передаёт в makeCompletionSignalTool closure.
-func (r *PhaseRouter) BuildLoopConfig(phase Role, acc *EvidenceAccumulator, flag *completionFlag) (LoopConfig, error) {
+// Fix U2 (v9): BeforeToolCall теперь принимается явным параметром.
+//   Harness передаёт свой pre-execution hook (напр., rate-limit, arg validation).
+//   nil = нет pre-validation кроме allowlist (допустимо для MVP).
+func (r *PhaseRouter) BuildLoopConfig(phase Role, acc *EvidenceAccumulator, flag *completionFlag, before func(name string, args json.RawMessage) error) (LoopConfig, error) {
     model, err := r.ResolveModel(phase)
     if err != nil {
         return LoopConfig{}, err
@@ -325,10 +328,11 @@ func (r *PhaseRouter) BuildLoopConfig(phase Role, acc *EvidenceAccumulator, flag
     // Добавляем completion_signal с захваченным flag
     tools = append(tools, makeCompletionSignalTool(flag))
     return LoopConfig{
-        Model:         model,
-        SystemPrompt:  cfg.SystemPrompt,
-        Tools:         tools,
-        AfterToolCall: acc.OnToolResult,
+        Model:          model,
+        SystemPrompt:   cfg.SystemPrompt,
+        Tools:          tools,
+        BeforeToolCall: before,         // Fix U2 (v9): wired explicitly
+        AfterToolCall:  acc.OnToolResult,
     }, nil
 }
 ```
@@ -492,15 +496,16 @@ const (
 )
 
 type Harness struct {
-    session     *Session
-    store       SessionStore
-    router      *PhaseRouter
-    gate        *GateEngine
-    accumulator *EvidenceAccumulator
-    mu          sync.Mutex     // защита phase state, FSM state
-    ownerToken  string
-    state       harnessState   // Fix N1: FSM состояние
-    runID       uint64         // Fix N1: монотонный счётчик per RunPhase
+    session         *Session
+    store           SessionStore
+    router          *PhaseRouter
+    gate            *GateEngine
+    accumulator     *EvidenceAccumulator
+    mu              sync.Mutex     // защита phase state, FSM state
+    ownerToken      string
+    state           harnessState   // Fix N1: FSM состояние
+    runID           uint64         // Fix N1: монотонный счётчик per RunPhase
+    beforeToolCall  func(name string, args json.RawMessage) error // Fix U2 (v9): optional pre-hook; nil = no-op
 }
 
 // completionFlag — разделяемый флаг между closure CompletionSignalTool и RunPhase.
@@ -570,7 +575,8 @@ func (h *Harness) RunPhase(ctx context.Context, userPrompt, token string) error 
 
     // Fix R2-2: completion flag передаётся в tool closure явно
     flag := &completionFlag{}
-    cfg, err := h.router.BuildLoopConfig(phase, h.accumulator, flag)
+    // Fix U2 (v9): BeforeToolCall передаётся явно; nil = только allowlist guard для MVP
+    cfg, err := h.router.BuildLoopConfig(phase, h.accumulator, flag, h.beforeToolCall)
     if err != nil {
         return err
     }
@@ -704,8 +710,11 @@ func (h *Harness) Rollback(ctx context.Context, decisionID, token string) error 
 
 /// Stop — Decision Owner завершает сессию. Fix A3 (v7): реализует "stop" из AllowedActions.
 // Сессия помечается как terminated. RunPhase/ApproveGate/Rollback после Stop вернут ошибку.
-// Fix S1 (v8): если state=awaiting_human, очищаем PendingDecision перед завершением,
-// иначе RestoreHarness найдёт orphaned decision и ошибочно восстановит awaiting_human.
+// Fix S1 (v8): если state=awaiting_human, очищаем PendingDecision перед завершением.
+// Fix U1 (v9): durable-first — PersistPhaseRecord ПЕРВЫМ; ошибка → return, ничего не меняем.
+//   Порядок: persist terminal record → clear decision → mutate state.
+//   Если ClearDecision падает после успешного persist: при следующем RestoreHarness
+//   RecoverSession найдёт NextPhase="", Stop() можно вызвать снова (idempotent).
 func (h *Harness) Stop(ctx context.Context, token string) error {
     if err := h.validateToken(token); err != nil {
         return err
@@ -715,7 +724,18 @@ func (h *Harness) Stop(ctx context.Context, token string) error {
     if h.state == hStateRunning {
         return fmt.Errorf("phase in progress; cancel ctx first to stop")
     }
+    // Fix U1 (v9): durable-first — persist terminal record BEFORE clearing decision or mutating state
+    if err := h.store.PersistPhaseRecord(h.session.ID, PhaseRecord{
+        Phase:    h.session.Phase,
+        NextPhase: "", // пусто = терминальный stop
+        EndedAt:  time.Now(),
+        Snapshot: h.accumulator.Snapshot(h.session.Phase),
+    }); err != nil {
+        return fmt.Errorf("persist terminal record: %w", err)
+    }
     // Fix S1 (v8): очищаем pending decision если state=awaiting_human
+    // Runs after terminal record is persisted — if ClearDecision fails, terminal record
+    // already exists; next RestoreHarness will detect NextPhase="" and can retry Stop().
     if h.state == hStateAwaitingHuman {
         pending, err := h.store.LoadDecision(h.session.ID)
         if err != nil {
@@ -727,12 +747,6 @@ func (h *Harness) Stop(ctx context.Context, token string) error {
             }
         }
     }
-    h.store.PersistPhaseRecord(h.session.ID, PhaseRecord{
-        Phase:    h.session.Phase,
-        NextPhase: "", // пусто = терминальный stop (не ошибка перехода)
-        EndedAt:  time.Now(),
-        Snapshot: h.accumulator.Snapshot(h.session.Phase),
-    })
     h.state = hStateIdle
     h.session.EmitEvent(Event{Type: "session_stopped"})
     return nil
@@ -1136,19 +1150,27 @@ CLI: `sdp run "задача"` → TUI в stdout → фазы → гейты → 
 
 ---
 
+## Фиксы Round 8 (v8→v9) — 4/6 quorum (critic+technician+pragmatist+architect)
+
+| ID | Роль | Проблема | Фикс |
+|----|------|---------|------|
+| U1 | Critic INCOMPLETE→CRITICAL | Stop() очищала PendingDecision ДО PersistPhaseRecord и игнорировала ошибку persist — нарушение durable-first; если persist упал, decision потеряна без terminal record | Stop(): PersistPhaseRecord ПЕРВЫМ (error propagated); ClearDecision только после успешного persist |
+| U2 | Technician MEDIUM | BeforeToolCall не передаётся в BuildLoopConfig — cfg.BeforeToolCall всегда nil, pre-hook никогда не вызывается | BuildLoopConfig принимает before func(name string, args json.RawMessage) error явно; Harness.beforeToolCall поле добавлено; RunPhase передаёт h.beforeToolCall |
+
+---
+
 ## ✅ Convergence Declaration
 
-**Round 7 status (v8 — текущая):**
-- Quorum 5/6 (architect + critic + technician + pragmatist + engineer)
-- Все 8 R6-фиксов: CORRECT (единогласно)
-- 2 новых issues (S1 CRITICAL + S2 HIGH), оба исправлены в v8
-- S1: Stop() в awaiting_human state не очищала PendingDecision → orphaned restart
-- S2: RestoreHarness без ownerToken → validateToken всегда passes после restart
-- S3 (technician concern): false alarm — PendingDecision уже персистируется в handleGateResult()
+**Round 8 status (v9 — текущая):**
+- Quorum 4/6 (architect + critic + technician + pragmatist)
+- S1+S2 фиксы: CORRECT (Technician + Pragmatist)
+- Critic: S1 INCOMPLETE — Stop() нарушает durable-first (ошибка persist игнорировалась) → U1 исправлен в v9
+- Technician: BeforeToolCall не wired в BuildLoopConfig → U2 исправлен в v9
 - Pragmatist: CONVERGENCE READY, нет новых issues
-- Technician: CONVERGENCE READY (S1/S2 minor — может быть в коде)
+- Technician: CONVERGENCE READY (U1/U2 minor)
+- U3 duplicate-decision (technician LOW): false alarm — FSM guards RunPhase, только один раз
 
-**7 раундов итераций, 37 issue-фиксов:**
+**8 раундов итераций, 39 issue-фиксов:**
 | Batch | Issues | All Fixed |
 |-------|--------|-----------|
 | I1-I7 | 7 | ✅ |
@@ -1158,6 +1180,7 @@ CLI: `sdp run "задача"` → TUI в stdout → фазы → гейты → 
 | Q1-Q3 | 3 | ✅ |
 | A1-A6, D1, T1 | 8 | ✅ |
 | S1-S2 | 2 | ✅ |
+| U1-U2 | 2 | ✅ |
 
-**v8 готов к Round 8 финальной верификации.**  
-После Round 8 CONVERGED → implementation: Loop → PhaseRouter → Harness → GateEngine → SessionStore(BoltDB) → CLI `sdp run "задача"`.
+**v9 готов к Round 9 финальной верификации.**  
+После Round 9 CONVERGED → implementation: Loop → PhaseRouter → Harness → GateEngine → SessionStore(BoltDB) → CLI `sdp run "задача"`.
