@@ -1451,14 +1451,13 @@ func (st *SQLiteStore) PersistTurnRecord(sessionID string, r TurnRecord) error {
 	if err != nil {
 		return fmt.Errorf("encode tool results: %w", err)
 	}
+	// Fix R5: plain INSERT — no ON CONFLICT. turn_records is an append-only canonical log.
+	// Duplicate IDs (same session_id + id) are a bug in runID generation and must surface
+	// as a UNIQUE constraint error, not be silently swallowed by an upsert.
 	_, err = st.db.Exec(
 		`INSERT INTO turn_records
 		 (id, session_id, phase, user_role, user_content, assistant_text, tool_calls, tool_results, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT(session_id, id) DO UPDATE SET
-		   assistant_text=excluded.assistant_text,
-		   tool_calls=excluded.tool_calls,
-		   tool_results=excluded.tool_results`,
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		r.ID, sessionID, string(r.Phase),
 		r.UserMsg.Role, r.UserMsg.Content,
 		r.AssistantText, tcJSON, trJSON,

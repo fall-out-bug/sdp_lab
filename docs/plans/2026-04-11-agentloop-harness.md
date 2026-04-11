@@ -345,22 +345,9 @@ Append to `internal/agentloop/harness_test.go`:
 ```go
 // ---- RunPhase helpers ----
 
-// StubGate is a GateEngine replacement for RunPhase tests that always passes or escalates.
-type StubGate struct {
-	escalate bool
-}
-
-func newPassGate() *GateEngine {
-	// Uses a real GateEngine with a contract that always passes (no requirements).
-	ge := NewGateEngine(&minimalHarnessContract, 5*time.Second)
-	ge.evalFn = func(contract interface{ dummy() }, snap interface{ dummy() }) interface{ dummy() } {
-		// We cannot call the real function signature here due to type constraints.
-		// Instead, override evalFn directly.
-		return nil
-	}
-	// Override with a pass-always function.
-	return ge
-}
+// Fix R4: StubGate and newPassGate() removed — they were dead code with a broken evalFn
+// lambda (wrong type: interface{ dummy() } instead of *harness.TaskContract).
+// GateEngine is configured directly in buildHarnessWithGateway via gate.evalFn = alwaysPassEval.
 
 // buildHarnessWithGateway creates a full Harness with a scripted StubGateway.
 // The gateway model for discover phase is "deepseek/deepseek-v3.2".
@@ -1940,7 +1927,9 @@ Expected: zero compilation errors, all tests pass (Tasks 1–15 combined), no ra
 
 All of `harness.go` and `harness_test.go` import `sdp_dev/internal/harness` using the default package name `harness`. Since the Harness struct is in `package agentloop` (not `package harness`), there is no naming conflict. Reference types as `harness.TaskContract`, `harness.ComplianceReport`, etc.
 
-The test helper functions `alwaysPassEvalFn` / `alwaysEscalateEvalFn` must have the exact signature expected by `GateEngine.evalFn`:
+The test helper functions `alwaysPassEval` / `alwaysEscalateEval` (used in Task 12 helpers)
+and `alwaysPassEvalFn` / `alwaysEscalateEvalFn` (used in Tasks 13–14 helpers) must have the
+exact signature expected by `GateEngine.evalFn`:
 
 ```go
 func(contract *harness.TaskContract, snap *harness.TaskSnapshot) harness.ComplianceReport
@@ -1952,7 +1941,7 @@ func(contract *harness.TaskContract, snap *harness.TaskSnapshot) harness.Complia
 
 ### 3. `tool.Execute` context type
 
-The foundation plan (Task 1) used `interface{}` as a placeholder for `context.Context` in `Tool.Execute`. Before `harness.go` compiles, this must be corrected to `context.Context` in `types.go`. The worker plan (Task 7) notes this same requirement.
+`Tool.Execute` uses `context.Context` (Fix F1 applied in Task 1). `types.go` already imports `"context"`. No correction needed — this note is for historical context only.
 
 ### 4. `t.Context()` availability
 
@@ -1964,9 +1953,19 @@ The foundation plan (Task 1) used `interface{}` as a placeholder for `context.Co
 
 ### 6. RunPhase + completion_signal wiring
 
-`BuildLoopConfig` appends `makeCompletionSignalTool(flag)` to the tool slice. When the gateway scripts a `tool_end` event with `ToolName="completion_signal"`, `Run()` sets `flag.signaled = true` inside the tool's `Execute` closure (called by `executeCalls`). `RunPhase` reads `flag.signaled` after draining the event channel. The gateway in harness tests must script the `tool_end` event — not just the `tool_call` event — because `Run()` calls `executeCalls` which drives the actual `Execute` function.
+`BuildLoopConfig` appends `makeCompletionSignalTool(flag)` to the tool slice.
+The signal detection flow (Fix H2):
 
-For harness tests using `StubGateway` (which returns pre-scripted events rather than actually calling tools), the signal detection happens through the `tool_end` event being processed by `Run()`'s event draining loop, which checks `result.Name == "completion_signal"` in the `executeCalls` results. To trigger `flag.signaled`, the `completion_signal` tool must actually be executed — meaning it must be in `cfg.Tools` (added by `BuildLoopConfig`) and the `tool_call` event must include it as a call target. The `StubGateway` emits tool events but `Run()` still calls `executeCalls` with the scripted `tool_call` events. This means `flag.signaled` IS set correctly when `completion_signal` appears in `ev.ToolCalls` from a scripted `tool_call` event.
+1. Gateway (Round 1) scripts: `{tool_call: [completion_signal]}, {done}`
+2. `Run()` receives the `tool_call` event → calls `executeCalls([completion_signal])`.
+3. `executeCalls` finds `completion_signal` in `cfg.Tools`, calls `Execute()` — sets `flag.signaled = true`.
+4. `Run()` emits `{tool_end, ToolID: "sig1", ToolName: "completion_signal"}` on output channel.
+5. `Run()` loops back → calls Gateway again (Round 2): `{text_delta: "phase complete"}, {done}`.
+6. `Run()` closes the output channel.
+7. `RunPhase` drains events, then reads `flag.signaled == true` → proceeds to gate check.
+
+**The gateway must NOT script `tool_end` events** — those are produced by `Run()` after `executeCalls`.
+Use `registerSignalResponses(sg, model)` which scripts only Round 1 and Round 2 correctly.
 
 ### 7. CLI MVP limitations
 
