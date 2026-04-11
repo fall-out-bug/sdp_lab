@@ -590,16 +590,18 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 		frag.ImportGraph = importGraph
 
 			// Emit directed module dependency edges from import graph.
+			// Use weighted edges to resolve bidirectional conflicts:
+			// if both A→B and B→A exist, keep only the stronger direction.
 			if moduleDirMap != nil {
-					clusterToModule := make(map[string]string)
-					for _, c := range importGraph.Clusters {
-						for _, pkg := range c.Packages {
-							if slug := moduleForDir(pkg, moduleDirMap); slug != "" {
-								clusterToModule[c.ID] = slug
-							}
+				clusterToModule := make(map[string]string)
+				for _, c := range importGraph.Clusters {
+					for _, pkg := range c.Packages {
+						if slug := moduleForDir(pkg, moduleDirMap); slug != "" {
+							clusterToModule[c.ID] = slug
 						}
 					}
-				moduleEdgeSet := make(map[[2]string]bool)
+				}
+				moduleEdgeWeight := make(map[[2]string]int)
 				for pkgDir, imports := range r.ImportGraph.PackageImports {
 					fromCluster := packageDirToCluster[pkgDir]
 					if fromCluster == "" {
@@ -615,14 +617,29 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 						if toMod == "" || fromMod == "" || fromMod == toMod {
 							continue
 						}
-						moduleEdgeSet[[2]string{fromMod, toMod}] = true
+						moduleEdgeWeight[[2]string{fromMod, toMod}]++
 					}
 				}
-				for pair := range moduleEdgeSet {
+				// Resolve bidirectional edges: keep only the stronger direction.
+				seen := make(map[string]bool)
+				for pair, weight := range moduleEdgeWeight {
+					reverse := [2]string{pair[1], pair[0]}
+					reverseWeight := moduleEdgeWeight[reverse]
+					key := pair[0] + "->" + pair[1]
+					revKey := reverse[0] + "->" + reverse[1]
+					if seen[key] || seen[revKey] {
+						continue
+					}
+					if reverseWeight > weight {
+						seen[revKey] = true
+						continue
+					}
+					seen[key] = true
 					frag.Edges = append(frag.Edges, architect.StructuralEdge{
 						Source: pair[0],
 						Target: pair[1],
 						Kind:   architect.EdgeSync,
+						Weight: weight,
 					})
 				}
 			}
@@ -631,13 +648,18 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 	for _, coupling := range r.RuntimeCouplings {
 		kind := architect.EdgeRPC
 		protocol := "spark-rpc"
+		target := "spark-runtime"
 		if coupling.Type == "py4j_gateway" {
 			kind = architect.EdgeRuntimeBridge
 			protocol = "py4j"
+		} else if coupling.Type == "grpc" {
+			kind = architect.EdgeRPC
+			protocol = "grpc"
+			target = "spark-connect"
 		}
 		frag.Edges = append(frag.Edges, architect.StructuralEdge{
 			Source:     coupling.File,
-			Target:     "spark-runtime",
+			Target:     target,
 			Kind:       kind,
 			Protocol:   protocol,
 			Confidence: 0.8,

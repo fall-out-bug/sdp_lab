@@ -565,7 +565,7 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 	// Add runtime coupling edges as relationships and external systems.
 	// Internal protocols (spark-rpc, py4j) are NOT added as external systems.
 	seenRuntimeEdges := make(map[string]bool)
-	internalProtocols := map[string]bool{"spark-rpc": true, "py4j": true}
+	internalProtocols := map[string]bool{"spark-rpc": true, "py4j": true, "spark-connect": true, "spark": true, "grpc": true}
 
 	for _, edge := range profile.Edges {
 		if edge.Kind != EdgeRuntimeBridge && edge.Kind != EdgeRPC {
@@ -662,9 +662,9 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 			_, isMavenMod := mavenModuleSet[c.Name]
 			_, isSignificant := significantClusters[c.ID]
 			_, hasEdges := containerEdgeCount[c.ID]
-			// Maven modules without edges are noise — only keep if they have
-			// connections or are a Dockerfile image.
-			keepMaven := isMavenMod && (hasEdges || isDockerfile)
+			// Maven modules always pass — they represent real architectural
+			// boundaries from the build system, even without detected edges.
+			keepMaven := isMavenMod
 			if keepMaven || (!isMavenMod && (isDockerfile || hasEdges || hasTech || isSignificant)) {
 				filtered = append(filtered, c)
 			}

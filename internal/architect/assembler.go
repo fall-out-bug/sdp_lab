@@ -576,7 +576,7 @@ func (pa *ProfileAssembler) computeMetrics(profile *CodebaseProfile, fragments [
 
 	profile.Metrics.LanguagesCount = len(languageSet)
 
-	// Merge LanguageBreakdown from extractor fragments.
+	// Merge LanguageBreakdown from extractor fragments + FileTree extension counts.
 	if profile.Metrics.LanguageBreakdown == nil {
 		profile.Metrics.LanguageBreakdown = make(map[string]int)
 	}
@@ -584,6 +584,26 @@ func (pa *ProfileAssembler) computeMetrics(profile *CodebaseProfile, fragments [
 		if frag.Metrics != nil && frag.Metrics.LanguageBreakdown != nil {
 			for ext, count := range frag.Metrics.LanguageBreakdown {
 				profile.Metrics.LanguageBreakdown[ext] += count
+			}
+		}
+	}
+	// Supplement with FileTree extension counts for languages not covered by extractors.
+	extToLang := map[string]string{
+		".py": "python", ".R": "r", ".r": "r", ".sql": "sql",
+		".java": "java", ".scala": "scala", ".kt": "kotlin",
+		".go": "go", ".rs": "rust", ".ts": "typescript", ".js": "javascript",
+		".rb": "ruby", ".php": "php", ".c": "c", ".cpp": "cpp",
+		".cs": "csharp", ".swift": "swift", ".sh": "shell", ".yaml": "yaml",
+	}
+	for ext, count := range profile.FileTree.ExtCounts {
+		extNorm := strings.ToLower(ext)
+		if len(extNorm) > 0 && extNorm[0] != '.' {
+			extNorm = "." + extNorm
+		}
+		if extToLang[extNorm] != "" {
+			// Only add if not already present from extractor fragments.
+			if _, exists := profile.Metrics.LanguageBreakdown[extNorm]; !exists {
+				profile.Metrics.LanguageBreakdown[extNorm] = count
 			}
 		}
 	}
