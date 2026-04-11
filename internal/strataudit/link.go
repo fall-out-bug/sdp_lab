@@ -5,8 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"math"
+	"os"
+	"path/filepath"
+	"sort"
 	"sync"
+	"time"
 
 	"sdp_dev/internal/strataudit/model"
 )
@@ -57,6 +62,7 @@ func LinkEntities(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLM
 	entitiesByLevel := groupByLevel(withEmbeddings)
 
 	// For each adjacent level pair, compute similarity
+	var distStats []LevelPairStats
 	for i := 0; i < len(levels)-1; i++ {
 		lower := entitiesByLevel[levels[i+1].ID] // lower rank = more operational
 		upper := entitiesByLevel[levels[i].ID]   // higher rank = more strategic
@@ -65,8 +71,13 @@ func LinkEntities(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLM
 			continue
 		}
 
-		candidates := computeSimilarity(ctx, cfg, lower, upper)
+		candidates, stats := computeSimilarity(ctx, cfg, lower, upper)
 		result.CandidatesGenerated += len(candidates)
+
+		if stats != nil {
+			stats.LevelPair = levels[i+1].Name + " -> " + levels[i].Name
+			distStats = append(distStats, *stats)
+		}
 
 		// Save candidates
 		if len(candidates) > 0 {
@@ -89,7 +100,32 @@ func LinkEntities(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLM
 		result.Pairs++
 	}
 
+	// Write similarity distribution JSON
+	if cfg.Thresholds.EmitDistribution && len(distStats) > 0 {
+		report := DistributionReport{
+			RunID:       fmt.Sprintf("run_%d", time.Now().UnixMilli()),
+			GeneratedAt: time.Now().Format(time.RFC3339),
+			Threshold:   cfg.Thresholds.Similarity,
+			LevelPairs:  distStats,
+		}
+		writeDistributionReport(cfg, report)
+	}
+
 	return result, nil
+}
+
+func writeDistributionReport(cfg *Config, report DistributionReport) {
+	path := filepath.Join(cfg.Output.Dir, "similarity_distribution.json")
+	data, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		slog.Warn("similarity distribution: marshal error", "err", err)
+		return
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		slog.Warn("similarity distribution: write error", "path", path, "err", err)
+		return
+	}
+	slog.Info("similarity distribution written", "path", path, "level_pairs", len(report.LevelPairs))
 }
 
 type candidate struct {
@@ -98,9 +134,39 @@ type candidate struct {
 	sim     float64
 }
 
-func computeSimilarity(ctx context.Context, cfg *Config, lower, upper []model.Entity) []candidate {
+// SimilarityBucket is one bucket in the similarity histogram.
+type SimilarityBucket struct {
+	Range string `json:"range"`
+	Count int    `json:"count"`
+}
+
+// LevelPairStats holds similarity statistics for one level pair.
+type LevelPairStats struct {
+	LevelPair      string            `json:"level_pair"`
+	TotalPairs     int               `json:"total_pairs"`
+	AboveThreshold int               `json:"above_threshold"`
+	Min            float64           `json:"min"`
+	Max            float64           `json:"max"`
+	Mean           float64           `json:"mean"`
+	Median         float64           `json:"median"`
+	P95            float64           `json:"p95"`
+	Histogram      []SimilarityBucket `json:"histogram"`
+	Recommendation string            `json:"recommendation,omitempty"`
+}
+
+// DistributionReport is the top-level similarity diagnostics file.
+type DistributionReport struct {
+	RunID         string           `json:"run_id"`
+	GeneratedAt   string           `json:"generated_at"`
+	Threshold     float64          `json:"threshold"`
+	LevelPairs    []LevelPairStats `json:"level_pairs"`
+}
+
+func computeSimilarity(ctx context.Context, cfg *Config, lower, upper []model.Entity) ([]candidate, *LevelPairStats) {
 	threshold := cfg.Thresholds.Similarity
+	emitDist := cfg.Thresholds.EmitDistribution
 	var candidates []candidate
+	var allScores []float64
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -111,7 +177,7 @@ func computeSimilarity(ctx context.Context, cfg *Config, lower, upper []model.En
 	for _, src := range lower {
 		for _, tgt := range upper {
 			if ctx.Err() != nil {
-				return candidates
+				return candidates, nil
 			}
 
 			wg.Add(1)
@@ -121,17 +187,82 @@ func computeSimilarity(ctx context.Context, cfg *Config, lower, upper []model.En
 				defer func() { <-sem }()
 
 				sim := cosineSimilarity(s.Embedding, t.Embedding)
-				if sim >= threshold {
-					mu.Lock()
-					candidates = append(candidates, candidate{source: s, target: t, sim: sim})
-					mu.Unlock()
+				mu.Lock()
+				if emitDist {
+					allScores = append(allScores, sim)
 				}
+				if sim >= threshold {
+					candidates = append(candidates, candidate{source: s, target: t, sim: sim})
+				}
+				mu.Unlock()
 			}(src, tgt)
 		}
 	}
 	wg.Wait()
 
-	return candidates
+	var stats *LevelPairStats
+	if emitDist && len(allScores) > 0 {
+		stats = computeStats(allScores, threshold, len(lower), len(upper))
+	}
+	return candidates, stats
+}
+
+func computeStats(scores []float64, threshold float64, lowerCount, upperCount int) *LevelPairStats {
+	sort.Float64s(scores)
+	n := len(scores)
+
+	sum := 0.0
+	for _, s := range scores {
+		sum += s
+	}
+	mean := sum / float64(n)
+
+	median := scores[n/2]
+	if n%2 == 0 {
+		median = (scores[n/2-1] + scores[n/2]) / 2
+	}
+
+	p95Idx := int(float64(n) * 0.95)
+	if p95Idx >= n {
+		p95Idx = n - 1
+	}
+
+	aboveThreshold := 0
+	for _, s := range scores {
+		if s >= threshold {
+			aboveThreshold++
+		}
+	}
+
+	// Build histogram with 10 buckets: [0.0, 0.1), [0.1, 0.2), ..., [0.9, 1.0]
+	histogram := make([]SimilarityBucket, 10)
+	for i := range histogram {
+		histogram[i].Range = fmt.Sprintf("%.1f-%.1f", float64(i)*0.1, float64(i+1)*0.1)
+	}
+	for _, s := range scores {
+		bucket := int(s * 10)
+		if bucket >= 10 {
+			bucket = 9
+		}
+		histogram[bucket].Count++
+	}
+
+	rec := ""
+	if float64(aboveThreshold) < float64(n)*0.02 {
+		rec = "threshold_may_be_too_high"
+	}
+
+	return &LevelPairStats{
+		TotalPairs:     n,
+		AboveThreshold: aboveThreshold,
+		Min:            scores[0],
+		Max:            scores[n-1],
+		Mean:           mean,
+		Median:         median,
+		P95:            scores[p95Idx],
+		Histogram:      histogram,
+		Recommendation: rec,
+	}
 }
 
 func cosineSimilarity(a, b []float32) float64 {

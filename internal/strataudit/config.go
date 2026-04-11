@@ -52,6 +52,7 @@ type ThresholdConfig struct {
 	StaleDays          int     `yaml:"stale_days"`
 	ChunkTokenLimit    int     `yaml:"chunk_token_limit"`
 	ChunkOverlapTokens int     `yaml:"chunk_overlap_tokens"`
+	EmitDistribution   bool    `yaml:"emit_distribution"`
 }
 
 type OutputConfig struct {
@@ -108,6 +109,9 @@ func (c *Config) setDefaults() {
 	}
 	if c.Output.Dir == "" {
 		c.Output.Dir = ".strataudit"
+	}
+	if !c.Thresholds.EmitDistribution {
+		c.Thresholds.EmitDistribution = true
 	}
 	if len(c.Output.Formats) == 0 {
 		c.Output.Formats = []string{"html", "json"}
