@@ -3,7 +3,8 @@ package agentloop
 import "fmt"
 
 // SessionStore defines persistence for sessions, turns, phases, decisions, and events.
-// SQLite implementation is in store_sqlite.go; MemStore fake is in store_mem_test.go.
+// SQLite implementation is in store_sqlite.go. MemStore is defined below (not in _test.go,
+// so all internal test files in package agentloop can access it without a _test suffix).
 type SessionStore interface {
 	// Session lifecycle
 	Persist(s *Session) error
