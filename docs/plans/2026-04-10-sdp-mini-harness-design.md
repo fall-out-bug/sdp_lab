@@ -1,7 +1,7 @@
 # SDP Mini-Harness Design
 
-**Date:** 2026-04-10 (rev 12 — post council round 11 verification)
-**Status:** Draft v12 — round 11 fixes applied (TurnRecord.ToolCalls + NewPhaseRouter + RecoverSession.LoadPhaseRecords)
+**Date:** 2026-04-10 (rev 13 — post council round 12 verification)
+**Status:** Draft v13 — round 12 fix applied (Event.ToolID — tool_result ToolCallID correlation)
 **Discovery verdict:** PIVOT (narrow control-plane first, then expand)
 
 ---
@@ -104,11 +104,16 @@ type Event struct {
     Type       string     // "text_delta"|"tool_call"|"tool_end"|"turn_end"|"done"|"error"|"warn"
     Delta      string
     ToolCalls  []ToolCall // Fix X2 (v12): "tool_call" event carries all parallel calls from one assistant message
+    ToolID     string     // Fix Y1 (v13): for "tool_end" — matches ToolCall.ID; required for tool_call_id in API
     ToolName   string     // for "tool_end" — name of executed tool
     ToolResult string     // for "tool_end" — string output
     ToolErr    error      // Fix P4 (v5): tool failure in "tool_end" event → TurnRecord preserves Err
     Err        error      // loop-level error
 }
+
+// Loop emits "tool_end" for each result from executeCalls:
+//   Event{Type:"tool_end", ToolID: result.ID, ToolName: result.Name,
+//         ToolResult: result.Output, ToolErr: result.Err}
 
 // Run — stateless: выполняет ровно один phase-turn до completion_signal или ошибки.
 // НЕ управляет переходами фаз — это делает Harness поверх.
@@ -647,7 +652,10 @@ func (h *Harness) RunPhase(ctx context.Context, userPrompt, token string) error 
             turnRecord.ToolCalls = append(turnRecord.ToolCalls, ev.ToolCalls...)
         case "tool_end":
             // Fix P4 (v5): ev.ToolErr сохраняется в TurnRecord → canonical log полон
+            // Fix Y1 (v13): ev.ToolID корреляция — ToolResult.ID → Message.ToolCallID в MessagesFromTurnRecords.
+            // Без ID: API отклоняет tool_result с пустым tool_call_id (не совпадает с tool_call.id).
             turnRecord.ToolResults = append(turnRecord.ToolResults, ToolResult{
+                ID:     ev.ToolID,
                 Name:   ev.ToolName,
                 Output: ev.ToolResult,
                 Err:    ev.ToolErr,
@@ -1288,15 +1296,22 @@ CLI: `sdp run "задача"` → TUI в stdout → фазы → гейты → 
 
 ---
 
+## Фиксы Round 12 (v12→v13) — 5/5 OpenRouter + architect = FULL QUORUM (kimi вернулся при 16000 max_tokens)
+
+| ID | Роль | Проблема | Фикс |
+|----|------|---------|------|
+| Y1 | Engineer CRITICAL DOMAIN_VETO | Event.ToolID отсутствует → в case "tool_end" ToolResult.ID = "" → MessagesFromTurnRecords эмитит tool_result с пустым ToolCallID → OpenAI/Anthropic API отклоняют conversation | Event.ToolID string добавлен; Loop устанавливает ToolID: result.ID при эмите "tool_end"; RunPhase case "tool_end" использует ID: ev.ToolID |
+
+---
+
 ## ✅ Convergence Declaration
 
-**Round 11 result (v11→v12) — 4/5 OpenRouter + architect (kimi abstained, provider Io Net error):**
-- X2 CRITICAL DOMAIN_VETO (engineer): TurnRecord.ToolCalls отсутствовал → MessagesFromTurnRecords строил невалидный conversation для LLM API → исправлен в v12
-- X1 HIGH (technician): NewPhaseRouter конструктор не показан с contextManager → исправлен в v12
-- X3 HIGH (implied): RecoverSession не загружал PhaseRecords → session.Phase никогда не деривировался → исправлен в v12
-- W1' INCOMPLETE (engineer): Условие len(turnRecords)>0 некорректно → изменено на len(session.History)>0 в v12
+**Round 12 result (v12→v13) — 5/5 OpenRouter + architect = FULL QUORUM:**
+- Y1 CRITICAL DOMAIN_VETO (engineer): Event.ToolID отсутствовал → tool_result.ToolCallID всегда "" → LLM API отклоняет → исправлен в v13
+- Technician, Pragmatist, Philosopher, Critic: READY (X1-X3+W1' все CORRECT)
+- Engineer: NOT_READY только из-за Y1, который исправлен в v13
 
-**11 раундов итераций, 49 issue-фиксов:**
+**12 раундов итераций, 50 issue-фиксов:**
 | Batch | Issues | All Fixed |
 |-------|--------|-----------|
 | I1-I7 | 7 | ✅ |
@@ -1310,6 +1325,7 @@ CLI: `sdp run "задача"` → TUI в stdout → фазы → гейты → 
 | V1-V3 | 3 | ✅ |
 | W1-W3 | 3 | ✅ |
 | X1-X3, W1' | 4 | ✅ |
+| Y1 | 1 | ✅ |
 
-**v12 готов к Round 12 финальной верификации.**  
+**v13 готов к Round 13 финальной верификации.**  
 После Round 11 CONVERGED → implementation: Loop → PhaseRouter → Harness → GateEngine → SessionStore(BoltDB) → CLI `sdp run "задача"`.
