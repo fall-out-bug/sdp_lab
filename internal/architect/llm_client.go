@@ -178,10 +178,14 @@ func (c *LLMClient) doRequest(ctx context.Context, body []byte) (_ string, usage
 	}
 
 	if resp.StatusCode >= 500 {
-		return "", TokenUsage{}, &retriableError{err: fmt.Errorf("server error %d: %s", resp.StatusCode, truncate(string(respBody), 200))}
+		bodyPreview := truncate(string(respBody), 200)
+		bodyPreview = scrubSecretsJSON(bodyPreview)
+		return "", TokenUsage{}, &retriableError{err: fmt.Errorf("server error %d: %s", resp.StatusCode, bodyPreview)}
 	}
 	if resp.StatusCode >= 400 {
-		return "", TokenUsage{}, fmt.Errorf("client error %d: %s", resp.StatusCode, truncate(string(respBody), 200))
+		bodyPreview := truncate(string(respBody), 200)
+		bodyPreview = scrubSecretsJSON(bodyPreview)
+		return "", TokenUsage{}, fmt.Errorf("client error %d: %s", resp.StatusCode, bodyPreview)
 	}
 
 	var chatResp chatResponse
@@ -261,16 +265,22 @@ func truncate(s string, maxLen int) string {
 	return string(runes[:maxLen]) + "..."
 }
 
+// defaultSecurityFilter is the package-level singleton used by scrubSecretsJSON
+// to avoid creating a new SecurityFilter on every call.
+var defaultSecurityFilter *SecurityFilter
+
+func init() {
+	defaultSecurityFilter = NewSecurityFilter()
+}
+
 // scrubSecretsJSON removes detected secret patterns from a string while
 // preserving JSON structural characters. It scrubs values only, never keys.
 // This is used for LLM output sanitization.
 func scrubSecretsJSON(content string) string {
-	sf := NewSecurityFilter()
-
 	// JSON-aware scrubbing: scan for secrets and replace only the matched
 	// regions, preserving JSON structure around them.
 	result := content
-	matches := sf.ScanForSecrets(content)
+	matches := defaultSecurityFilter.ScanForSecrets(content)
 	// Replace from end to preserve positions.
 	for i := len(matches) - 1; i >= 0; i-- {
 		m := matches[i]

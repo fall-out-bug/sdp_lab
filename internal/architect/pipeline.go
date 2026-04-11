@@ -143,7 +143,11 @@ func (p *Pipeline) Run(ctx context.Context) (*PipelineResult, error) {
 
 	// Stage 3: Security filter
 	p.progress(StageFilter, "Applying security filter...", nil)
-	_ = p.secFilter.Sanitize(profile) // used if enrichment is enabled
+	_, secretsFound := p.secFilter.Sanitize(profile)
+	if secretsFound.Count > 0 {
+		p.progress(StageFilter, fmt.Sprintf("Security filter: %d secrets redacted (types: %v)",
+			secretsFound.Count, secretsFound.Types), nil)
+	}
 
 	// Stage 4: LLM enrichment (optional)
 	if p.config.AllowExternalLLM && !p.config.NoLLM {

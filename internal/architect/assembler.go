@@ -50,16 +50,17 @@ const (
 // Higher number = higher precedence (wins on conflicts for scalar fields).
 // Aligned with spec Section 4 merge order.
 var extractorPriority = map[string]int{
-	"filetree":   1,  // FileTreeAnalyzer
-	"deps":       2,  // DependencyManifestParser
-	"specs":      3,  // SpecInventoryScanner
-	"infra":      4,  // InfraExtractor
-	"go":         5,  // Go adapter
-	"python":     6,  // Python adapter
-	"java":       7,  // Java adapter
-	"typescript": 8,  // TypeScript adapter
-	"sql":        9,  // SQL extractor
-	"generated":  10, // GeneratedCodeDetector
+	"filetree":    1,  // FileTreeExtractor
+	"deps":        2,  // DependencyManifestParser
+	"specs":       3,  // SpecInventoryScanner
+	"infra":       4,  // InfraExtractor
+	"go":          5,  // GoAdapter
+	"python":      6,  // PythonAdapter
+	"java":        7,  // JavaAdapter
+	"typescript":  8,  // TypeScriptAdapter
+	"git_history": 9,  // GitHistoryExtractor
+	"sql":         10, // SQLExtractor
+	"generated":   11, // GeneratedCodeDetector
 }
 
 // defaultExtractorPriority is used when an extractor name is not in the map.

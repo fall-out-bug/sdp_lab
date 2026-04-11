@@ -244,6 +244,9 @@ func RenderL2(model *architect.ReferenceModel, opts RenderOptions) (*DiagramResu
 		containerID := sanitizeID("container_" + container.ID)
 		containerIDs[container.ID] = containerID
 		label := container.Name
+		if container.Confidence < confidenceHigh {
+			label = confidenceMarker(container.Confidence) + label
+		}
 		if container.Technology != "" {
 			label += fmt.Sprintf("\\n%s", container.Technology)
 		}
@@ -450,7 +453,11 @@ func RenderL3(model *architect.ReferenceModel, containerID string, opts RenderOp
 	}
 
 	// Write container subgraph with components
-	builder.WriteString(fmt.Sprintf("    subgraph %s [%s", containerSanitizedID, container.Name))
+	containerLabel := container.Name
+	if container.Confidence < confidenceHigh {
+		containerLabel = confidenceMarker(container.Confidence) + containerLabel
+	}
+	builder.WriteString(fmt.Sprintf("    subgraph %s [%s", containerSanitizedID, containerLabel))
 	if container.Technology != "" {
 		builder.WriteString(fmt.Sprintf("\\n%s", container.Technology))
 	}

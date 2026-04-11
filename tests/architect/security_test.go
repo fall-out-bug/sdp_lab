@@ -128,7 +128,7 @@ func TestSanitize_RedactsSecrets(t *testing.T) {
 		Summary: "Project with -----BEGIN RSA PRIVATE KEY----- embedded",
 	}
 
-	sanitized := sf.Sanitize(profile)
+	sanitized, secrets := sf.Sanitize(profile)
 
 	// Secrets must be replaced.
 	assert.Contains(t, sanitized.Files["config.yaml"], "[REDACTED_aws_key]")
@@ -139,6 +139,10 @@ func TestSanitize_RedactsSecrets(t *testing.T) {
 
 	assert.Contains(t, sanitized.Summary, "[REDACTED_private_key]")
 	assert.NotContains(t, sanitized.Summary, "-----BEGIN RSA PRIVATE KEY-----")
+
+	// SecretsFound must report redactions.
+	assert.True(t, secrets.Redacted)
+	assert.Greater(t, secrets.Count, 0)
 
 	// Non-secret content preserved.
 	assert.Contains(t, sanitized.Files["config.yaml"], "other: value")
@@ -160,7 +164,7 @@ func TestSanitize_PreservesStructure(t *testing.T) {
 		Summary: "A simple project",
 	}
 
-	sanitized := sf.Sanitize(profile)
+	sanitized, _ := sf.Sanitize(profile)
 
 	// Structure must be identical.
 	assert.Equal(t, profile.Name, sanitized.Name)
@@ -187,7 +191,7 @@ func TestSanitize_ScrubsUserPaths(t *testing.T) {
 		Summary: "Built from /Users/admin/src/project",
 	}
 
-	sanitized := sf.Sanitize(profile)
+	sanitized, _ := sf.Sanitize(profile)
 
 	// Check file content.
 	for _, content := range sanitized.Files {
@@ -221,7 +225,7 @@ func TestSanitize_HashesInternalPackages(t *testing.T) {
 		Summary: "Uses com.company.core.Engine",
 	}
 
-	sanitized := sf.Sanitize(profile)
+	sanitized, _ := sf.Sanitize(profile)
 
 	// Internal packages must be hashed.
 	assert.NotContains(t, sanitized.Files["App.java"], "com.acme")

@@ -34,6 +34,7 @@ type C4Container struct {
 	HumanDescription string        `json:"human_description,omitempty"` // filled by team
 	Source           string        `json:"source,omitempty"`
 	Deploy           string        `json:"deploy,omitempty"`
+	Confidence       float64       `json:"confidence,omitempty"`
 	Components       []C4Component `json:"components,omitempty"`
 }
 

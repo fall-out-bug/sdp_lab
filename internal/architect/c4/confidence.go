@@ -15,7 +15,7 @@ func scoreModel(model *architect.ReferenceModel, profile *architect.CodebaseProf
 	for i := range model.Containers {
 		c := &model.Containers[i]
 		cScore := containerConfidence(c)
-		_ = cScore // stored implicitly via markers
+		c.Confidence = cScore
 
 		// Score components.
 		for j := range c.Components {

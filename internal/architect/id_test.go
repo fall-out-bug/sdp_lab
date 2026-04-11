@@ -160,6 +160,143 @@ func TestContentHashSuffix(t *testing.T) {
 	}
 }
 
+func TestIDExternalDepFormat(t *testing.T) {
+	// npm dependency
+	id, err := JoinID("ext", "npm", "lodash")
+	if err != nil {
+		t.Fatalf("JoinID ext/npm/lodash: %v", err)
+	}
+	got, err := SplitID(id)
+	if err != nil {
+		t.Fatalf("SplitID: %v", err)
+	}
+	want := []string{"ext", "npm", "lodash"}
+	if !equalStrings(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	// maven dependency with colon in coordinate
+	id2, err := JoinID("ext", "maven", "org.springframework:spring-core")
+	if err != nil {
+		t.Fatalf("JoinID ext/maven/...: %v", err)
+	}
+	got2, err := SplitID(id2)
+	if err != nil {
+		t.Fatalf("SplitID: %v", err)
+	}
+	want2 := []string{"ext", "maven", "org.springframework:spring-core"}
+	if !equalStrings(got2, want2) {
+		t.Errorf("got %v, want %v", got2, want2)
+	}
+}
+
+func TestIDContainerFormat(t *testing.T) {
+	id, err := JoinID("container", "api-server")
+	if err != nil {
+		t.Fatalf("JoinID container/api-server: %v", err)
+	}
+	got, err := SplitID(id)
+	if err != nil {
+		t.Fatalf("SplitID: %v", err)
+	}
+	want := []string{"container", "api-server"}
+	if !equalStrings(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestIDHashDisambiguation(t *testing.T) {
+	// Different inputs produce different suffixes
+	s1 := ContentHashSuffix(`{"name":"alpha"}`)
+	s2 := ContentHashSuffix(`{"name":"beta"}`)
+	if s1 == s2 {
+		t.Errorf("different inputs should produce different suffixes, got %s for both", s1)
+	}
+
+	// Same input is deterministic
+	s3 := ContentHashSuffix(`{"name":"alpha"}`)
+	if s1 != s3 {
+		t.Errorf("same input should produce same suffix: %q != %q", s1, s3)
+	}
+}
+
+func TestIDNormalizeIdempotent(t *testing.T) {
+	cases := []struct {
+		name string
+		segs []string
+	}{
+		{"ext npm", []string{"ext", "npm", "lodash"}},
+		{"container", []string{"container", "api-server"}},
+		{"go module", []string{"go", "internal/arch", "arch"}},
+		{"maven coord", []string{"ext", "maven", "org.springframework:spring-core"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			id, err := JoinID(tc.segs...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			norm, err := NormalizeID(id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if norm != id {
+				t.Errorf("NormalizeID(%q) = %q, want %q", id, norm, id)
+			}
+		})
+	}
+
+	// Round-trip with %00-encoded segments: normalize should decode %00 back
+	// to \x00 and then re-encode to %00, remaining idempotent.
+	segWithNull := "path\x00has\x00nulls"
+	id, err := JoinID("go", segWithNull, "mod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	norm, err := NormalizeID(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if norm != id {
+		t.Errorf("NormalizeID round-trip with %%00 segments: got %q, want %q", norm, id)
+	}
+}
+
+func TestIDSegmentWithPercent00(t *testing.T) {
+	// JoinID encodes actual \x00 as %00. SplitID decodes %00 back to \x00.
+	// This means literal %00 text in a segment is indistinguishable from an
+	// encoded null byte after JoinID — both produce the same wire form.
+	// This is a documented limitation: %00 is a reserved encoding in IDs.
+
+	// A segment with an actual null byte round-trips correctly.
+	segNull := "foo\x00bar"
+	id, err := JoinID("go", segNull, "mod")
+	if err != nil {
+		t.Fatalf("JoinID: %v", err)
+	}
+	got, err := SplitID(id)
+	if err != nil {
+		t.Fatalf("SplitID: %v", err)
+	}
+	if got[1] != segNull {
+		t.Errorf("null byte segment round-trip: got %q, want %q", got[1], segNull)
+	}
+
+	// A segment containing literal %00 text produces the SAME wire form
+	// as a segment containing \x00, because JoinID does not double-encode.
+	// Both map to the same canonical representation: %00 in the joined ID.
+	segLiteral := "foo%00bar"
+	id2, err := JoinID("go", segLiteral, "mod")
+	if err != nil {
+		t.Fatalf("JoinID: %v", err)
+	}
+	// The joined IDs are identical because JoinID writes %00 for \x00 and
+	// leaves literal %00 text untouched, producing the same byte sequence.
+	if id != id2 {
+		t.Errorf("literal %%00 and \\x00 should produce identical IDs:\n  %q\n  %q", id, id2)
+	}
+}
+
 func equalStrings(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

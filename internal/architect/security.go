@@ -42,6 +42,9 @@ type SecurityFilter struct {
 
 // NewSecurityFilter returns a SecurityFilter with common secret patterns.
 func NewSecurityFilter() *SecurityFilter {
+	// TODO(Phase 2): Embed gitleaks ruleset as compiled Go regexps from embedded
+	// gitleaks.toml config. Current Phase 1 approach uses 9 hardcoded patterns
+	// plus HighEntropyCheck as catch-all. See spec Section 2.
 	return &SecurityFilter{
 		patterns: []secretPattern{
 			{re: regexp.MustCompile(`AKIA[0-9A-Z]{16}`), typ: "aws_key", length: 20},
@@ -94,12 +97,44 @@ var reWindowsUserPath = regexp.MustCompile(`C:\\Users\\[^\\]+`)
 var reInternalPkg = regexp.MustCompile(`\bcom\.\w+(?:\.\w+)+`)
 
 // Sanitize removes secrets and PII from a CodebaseProfile.
-// Returns a sanitized copy safe for LLM consumption.
+// Returns a sanitized copy safe for LLM consumption and a SecretsFound report.
 // All string fields are scrubbed; structural data (counts, metrics) pass through.
-func (sf *SecurityFilter) Sanitize(profile *CodebaseProfile) *CodebaseProfile {
+func (sf *SecurityFilter) Sanitize(profile *CodebaseProfile) (*CodebaseProfile, *SecretsFound) {
 	result := &CodebaseProfile{
 		Name:    profile.Name,
 		Summary: sf.sanitizeString(profile.Summary),
+	}
+
+	secrets := &SecretsFound{Redacted: true}
+	typeSet := make(map[string]bool)
+
+	// Helper to scan and count secret matches.
+	countSecrets := func(s string) {
+		for _, m := range sf.ScanForSecrets(s) {
+			secrets.Count++
+			typeSet[m.Type] = true
+		}
+	}
+
+	// Scan original profile fields for secrets before sanitization.
+	countSecrets(profile.Summary)
+	for _, tl := range profile.FileTree.TopLevel {
+		countSecrets(tl)
+	}
+	for _, m := range profile.Dependencies.Manifests {
+		countSecrets(m.Path)
+	}
+	for _, f := range profile.Files {
+		countSecrets(f)
+	}
+	for k, v := range profile.Metadata {
+		countSecrets(k)
+		countSecrets(v)
+	}
+
+	// Collect unique types.
+	for t := range typeSet {
+		secrets.Types = append(secrets.Types, t)
 	}
 
 	// --- FileTree (top-level names may contain user paths) ---
@@ -157,7 +192,7 @@ func (sf *SecurityFilter) Sanitize(profile *CodebaseProfile) *CodebaseProfile {
 		}
 	}
 
-	return result
+	return result, secrets
 }
 
 // --- Sanitize helpers ---
