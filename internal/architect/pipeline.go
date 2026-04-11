@@ -179,6 +179,11 @@ func (p *Pipeline) Run(ctx context.Context) (*PipelineResult, error) {
 	p.progress(StageModel, fmt.Sprintf("Model: %d containers, %d relationships",
 		len(refModel.Containers), len(refModel.Relationships)), nil)
 
+		// Update container count to reflect the actual reference model
+		// (assembler only counts Dockerfile containers, but the model includes
+		// Maven modules, import clusters, etc.).
+		profile.Metrics.ContainersDetected = len(refModel.Containers)
+
 	// Build report
 	report := &ArchitectureReport{
 		Version:           "1.0.0",
@@ -327,15 +332,30 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 	// Infer actors from context
 	isLibrary := false
 	for _, spec := range profile.Specs {
-		if spec.Kind == "openapi" || spec.Kind == "graphql" || spec.Kind == "protobuf" {
+		if spec.Kind == "openapi" || spec.Kind == "graphql" || spec.Kind == "protobuf" ||
+			spec.Kind == "thrift" || spec.Kind == "connect_proto" {
 			isLibrary = true
 			break
+		}
+	}
+	// Also detect frameworks/libraries: Maven modules + no web framework signals
+	// a library rather than a deployable service.
+	if !isLibrary && len(profile.Infra.ModuleBoundaries) > 0 {
+		hasWebFramework := false
+		for _, dep := range profile.Dependencies.NotableDeps {
+			if dep.Signal == "web_framework" {
+				hasWebFramework = true
+				break
+			}
+		}
+		if !hasWebFramework {
+			isLibrary = true
 		}
 	}
 	if isLibrary {
 		model.Actors = append(model.Actors, Actor{
 			ID:          "developer",
-			Description: "Developer using this library/API",
+			Description: "Developer using this library/framework",
 		})
 	}
 
@@ -733,7 +753,8 @@ func (r *PipelineResult) ToMermaid() string {
 }
 
 // inferSystemName attempts to determine the project name from multiple sources.
-// It tries, in order: metadata, pom.xml <name>, README.md first heading, directory basename.
+// It tries, in order: metadata, README.md heading, pom.xml <artifactId>,
+// pom.xml <name>, directory basename.
 func inferSystemName(profile *CodebaseProfile, repoRoot string) string {
 	// 1. Check metadata
 	if profile.Metadata != nil {
@@ -742,7 +763,30 @@ func inferSystemName(profile *CodebaseProfile, repoRoot string) string {
 		}
 	}
 
-	// 2. Check pom.xml <name> from manifest paths
+	// 2. Check README.md first heading (usually the best human-readable name)
+	if repoRoot != "" {
+		if name := extractReadmeTitle(filepath.Join(repoRoot, "README.md")); name != "" {
+			return name
+		}
+	}
+
+	// 3. Check pom.xml <artifactId> (prefer over <name> which is often verbose
+	// like "Spark Project Parent POM" rather than "spark-parent").
+	for _, m := range profile.Dependencies.Manifests {
+		if strings.HasSuffix(m.Path, "pom.xml") {
+			fullPath := filepath.Join(repoRoot, m.Path)
+			if name := extractPomField(fullPath, "artifactId"); name != "" {
+				return name
+			}
+		}
+	}
+	if repoRoot != "" {
+		if name := extractPomField(filepath.Join(repoRoot, "pom.xml"), "artifactId"); name != "" {
+			return name
+		}
+	}
+
+	// 4. Check pom.xml <name> as fallback
 	for _, m := range profile.Dependencies.Manifests {
 		if strings.HasSuffix(m.Path, "pom.xml") {
 			fullPath := filepath.Join(repoRoot, m.Path)
@@ -751,21 +795,13 @@ func inferSystemName(profile *CodebaseProfile, repoRoot string) string {
 			}
 		}
 	}
-	// Also try root pom.xml
 	if repoRoot != "" {
 		if name := extractPomName(filepath.Join(repoRoot, "pom.xml")); name != "" {
 			return name
 		}
 	}
 
-	// 3. Check README.md first heading
-	if repoRoot != "" {
-		if name := extractReadmeTitle(filepath.Join(repoRoot, "README.md")); name != "" {
-			return name
-		}
-	}
-
-	// 4. Directory basename
+	// 5. Directory basename
 	if repoRoot != "" {
 		base := filepath.Base(repoRoot)
 		if base != "" && base != "." && base != "/" {
@@ -788,6 +824,24 @@ func extractPomName(path string) string {
 		return ""
 	}
 	matches := pomNameRe.FindSubmatch(data)
+	if len(matches) >= 2 {
+		return strings.TrimSpace(string(matches[1]))
+	}
+	return ""
+}
+
+// pomFieldRe extracts a top-level XML element by name from pom.xml.
+var pomFieldRe = regexp.MustCompile(`(?s)<([a-zA-Z-]+)>\s*(.*?)\s*</(?:[a-zA-Z-]+)>`)
+
+// extractPomField reads a pom.xml file and returns the first top-level
+// element matching the given tag name (e.g. "artifactId").
+func extractPomField(path, tag string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	pattern := regexp.MustCompile(`(?s)<` + regexp.QuoteMeta(tag) + `>\s*(.*?)\s*</` + regexp.QuoteMeta(tag) + `>`)
+	matches := pattern.FindSubmatch(data)
 	if len(matches) >= 2 {
 		return strings.TrimSpace(string(matches[1]))
 	}
