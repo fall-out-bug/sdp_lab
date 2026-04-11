@@ -60,6 +60,7 @@ type ThresholdConfig struct {
 type OutputConfig struct {
 	Dir     string   `yaml:"dir"`
 	Formats []string `yaml:"formats"`
+	Lang    string   `yaml:"lang"`
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -117,6 +118,9 @@ func (c *Config) setDefaults() {
 	}
 	if c.Output.Dir == "" {
 		c.Output.Dir = ".strataudit"
+	}
+	if c.Output.Lang == "" {
+		c.Output.Lang = "ru"
 	}
 	if !c.Thresholds.EmitDistribution {
 		c.Thresholds.EmitDistribution = true
