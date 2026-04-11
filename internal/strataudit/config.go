@@ -56,6 +56,8 @@ type ThresholdConfig struct {
 	ChunkTokenLimit       int     `yaml:"chunk_token_limit"`
 	ChunkOverlapTokens    int     `yaml:"chunk_overlap_tokens"`
 	EmitDistribution      bool    `yaml:"emit_distribution"`
+	MaxChunksPerDocument  int     `yaml:"max_chunks_per_document"`
+	AdaptiveSimilarity    bool    `yaml:"adaptive_similarity"`
 }
 
 type OutputConfig struct {
@@ -113,6 +115,9 @@ func (c *Config) setDefaults() {
 	}
 	if c.Thresholds.ChunkOverlapTokens == 0 {
 		c.Thresholds.ChunkOverlapTokens = 500
+	}
+	if c.Thresholds.MaxChunksPerDocument == 0 {
+		c.Thresholds.MaxChunksPerDocument = 100
 	}
 	if c.LLM.EmbeddingDims == 0 {
 		c.LLM.EmbeddingDims = 1536

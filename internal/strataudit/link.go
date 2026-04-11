@@ -163,22 +163,27 @@ type DistributionReport struct {
 	LevelPairs    []LevelPairStats `json:"level_pairs"`
 }
 
+type scoredPair struct {
+	src, tgt model.Entity
+	sim      float64
+}
+
 func computeSimilarity(ctx context.Context, cfg *Config, lower, upper []model.Entity) ([]candidate, *LevelPairStats) {
 	threshold := cfg.Thresholds.Similarity
-	emitDist := cfg.Thresholds.EmitDistribution
-	var candidates []candidate
-	var allScores []float64
+	adaptive := cfg.Thresholds.AdaptiveSimilarity
+	emitDist := cfg.Thresholds.EmitDistribution || adaptive
+
+	var pairs []scoredPair
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	// Parallel computation with semaphore
 	sem := make(chan struct{}, 8)
 
 	for _, src := range lower {
 		for _, tgt := range upper {
 			if ctx.Err() != nil {
-				return candidates, nil
+				return nil, nil
 			}
 
 			wg.Add(1)
@@ -189,21 +194,64 @@ func computeSimilarity(ctx context.Context, cfg *Config, lower, upper []model.En
 
 				sim := cosineSimilarity(s.Embedding, t.Embedding)
 				mu.Lock()
-				if emitDist {
-					allScores = append(allScores, sim)
-				}
-				if sim >= threshold {
-					candidates = append(candidates, candidate{source: s, target: t, sim: sim})
-				}
+				pairs = append(pairs, scoredPair{src: s, tgt: t, sim: sim})
 				mu.Unlock()
 			}(src, tgt)
 		}
 	}
 	wg.Wait()
 
+	if len(pairs) == 0 {
+		return nil, nil
+	}
+
+	// Extract scores for stats
+	allScores := make([]float64, len(pairs))
+	for i, p := range pairs {
+		allScores[i] = p.sim
+	}
+
+	// Compute effective threshold (adaptive)
+	effectiveThreshold := threshold
+	if adaptive {
+		sort.Float64s(allScores)
+		p95Idx := int(float64(len(allScores)) * 0.95)
+		if p95Idx >= len(allScores) {
+			p95Idx = len(allScores) - 1
+		}
+		p95 := allScores[p95Idx]
+		aboveOriginal := 0
+		for _, s := range allScores {
+			if s >= threshold {
+				aboveOriginal++
+			}
+		}
+		ratio := float64(aboveOriginal) / float64(len(allScores))
+		if ratio < 0.02 && p95 > 0.2 {
+			effectiveThreshold = p95
+			if effectiveThreshold > threshold {
+				effectiveThreshold = threshold
+			}
+			slog.Info("adaptive threshold applied",
+				"original", threshold,
+				"effective", effectiveThreshold,
+				"p95", p95,
+				"above_original_pct", fmt.Sprintf("%.1f%%", ratio*100),
+				"total_pairs", len(allScores))
+		}
+	}
+
+	// Filter candidates by effective threshold
+	var candidates []candidate
+	for _, p := range pairs {
+		if p.sim >= effectiveThreshold {
+			candidates = append(candidates, candidate{source: p.src, target: p.tgt, sim: p.sim})
+		}
+	}
+
 	var stats *LevelPairStats
 	if emitDist && len(allScores) > 0 {
-		stats = computeStats(allScores, threshold, len(lower), len(upper))
+		stats = computeStats(allScores, effectiveThreshold, len(lower), len(upper))
 	}
 	return candidates, stats
 }
