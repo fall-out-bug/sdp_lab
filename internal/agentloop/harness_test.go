@@ -2,6 +2,8 @@ package agentloop
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -875,6 +877,19 @@ func TestRestoreHarness_stoppedSession_returnsError(t *testing.T) {
 		"Fix W1/W1': RestoreHarness must error when len(History)>0 and session.Phase==''")
 	assert.Contains(t, err.Error(), "terminated",
 		"error message must mention the session was terminated by Stop()")
+	assert.True(t, errors.Is(err, ErrHarnessTerminated),
+		"error must wrap ErrHarnessTerminated for errors.Is() detection")
+}
+
+// TestErrHarnessTerminated_isSentinel verifies the exported sentinel can be used with errors.Is.
+func TestErrHarnessTerminated_isSentinel(t *testing.T) {
+	if ErrHarnessTerminated == nil {
+		t.Fatal("ErrHarnessTerminated is nil — must be errors.New(...)")
+	}
+	wrapped := fmt.Errorf("restore: %w", ErrHarnessTerminated)
+	if !errors.Is(wrapped, ErrHarnessTerminated) {
+		t.Error("errors.Is failed — ErrHarnessTerminated must be wrappable with %w")
+	}
 }
 
 // TestRestoreHarness_noPhaseRecords_notStopped: a brand-new session with no PhaseRecords

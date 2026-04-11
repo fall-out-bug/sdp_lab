@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+// ErrHarnessTerminated is returned by RestoreHarness when the session was
+// stopped via Stop() and cannot be resumed. Callers must use errors.Is() to
+// detect this condition — never compare error strings directly.
+var ErrHarnessTerminated = errors.New("harness: session was terminated")
+
 // errInjectFailure is a sentinel error used by test fakes.
 var errInjectFailure = errors.New("injected store failure")
 
@@ -360,7 +365,7 @@ func RestoreHarness(
 	// len(History)>0 means at least one transition happened; Phase=="" means the last was Stop().
 	// len(History)==0 means no transitions — new session, Phase=RoleDiscover from Persist.
 	if len(session.History) > 0 && session.Phase == "" {
-		return nil, fmt.Errorf("session %s was terminated by Stop() — cannot restore", sessionID)
+		return nil, fmt.Errorf("session %s: %w", sessionID, ErrHarnessTerminated)
 	}
 
 	// Fix A1 (v7): check for pending decision — may need to restore awaiting_human state.
