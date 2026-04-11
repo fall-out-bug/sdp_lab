@@ -1,7 +1,7 @@
 # SDP Mini-Harness Design
 
-**Date:** 2026-04-10 (rev 14 — post council round 13 verification)
-**Status:** Draft v14 — round 13 fix applied (MessagesFromTurnRecords: tool error content propagation)
+**Date:** 2026-04-10 (rev 14 — FINAL: council convergence achieved Round 14)
+**Status:** ✅ CONVERGED v14 — 14 rounds, 51 issues, unanimous 5/5 READY (+ architect)
 **Discovery verdict:** PIVOT (narrow control-plane first, then expand)
 
 ---
@@ -1344,5 +1344,20 @@ CLI: `sdp run "задача"` → TUI в stdout → фазы → гейты → 
 | Y1 | 1 | ✅ |
 | Z1 | 1 | ✅ |
 
-**v14 готов к Round 14 финальной верификации.**  
+---
+
+## 🏁 FINAL CONVERGENCE — Round 14 (v14)
+
+**5/5 OpenRouter READY + architect = FULL UNANIMOUS QUORUM (6/6)**
+
+| Model | Vote | Notes |
+|-------|------|-------|
+| Architect (codex-rescue) | READY | — |
+| Critic (gemini-3.1-pro-preview) | ✅ READY | "Architecture is robust and ready for MVP" |
+| Technician (deepseek-v3.2) | ✅ READY | 1 medium suggestion (Arguments in tool_result — not blocking) |
+| Philosopher (kimi-k2.5) | ✅ READY | "Specification is coherent, complete for the MVP scope" |
+| Pragmatist (minimax-m2.7) | ✅ READY | "Implementation can proceed" |
+| Engineer (mimo-v2-pro) | ✅ READY | Verified all critical paths; "structurally complete" |
+
+**Total: 51 issues across 14 rounds, all fixed. Spec is implementation-ready.**  
 После Round 11 CONVERGED → implementation: Loop → PhaseRouter → Harness → GateEngine → SessionStore(BoltDB) → CLI `sdp run "задача"`.
