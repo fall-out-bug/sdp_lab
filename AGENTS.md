@@ -2,6 +2,20 @@
 
 > **Sync:** Sync only genuinely shared agent conventions (placement, "продолжай", command tree) to `sdp/CLAUDE.md`. Repo topology, branch policy, beads workflow, and private-lab process stay local to `sdp_lab`. See [docs/plans/2026-02-25-agents-claude-sync-rules.md](docs/plans/2026-02-25-agents-claude-sync-rules.md).
 
+## Что такое SDP
+
+SDP — AI-управляемая платформа полного цикла разработки (PDLC + SDLC).
+Пользователь подаёт идею → Discovery агенты исследуют и шейпят → Delivery агенты
+реализуют через структурированные фазы и gates → фича задеплоена с доказательствами.
+
+Две первоклассные фазы:
+- **Discovery**: `sdp discover` / `sdp architect` / `llm-council` → spec + scope decision
+- **Delivery**: `agentloop` FSM (Discover→Plan→Build→Review→Eval) → PR + evidence
+
+Полный vision: [VISION.md](VISION.md)  
+Архитектура: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)  
+Фазы: [docs/phases/DISCOVERY.md](docs/phases/DISCOVERY.md) · [docs/phases/DELIVERY.md](docs/phases/DELIVERY.md)
+
 ## Start Here
 
 Use these entrypoints before diving into older plans or runbooks:
@@ -19,6 +33,7 @@ If you enter this repo cold, answer these before doing real work:
 2. Is the user asking for platform work, or for "use SDP in my project" onboarding?
 3. Which single `feature`, `workstream`, or `beads issue` owns this task?
 4. Which doc is canonical for this question, instead of a historical plan?
+5. Is this a Discovery-задача (исследование, council, spec) или Delivery-задача (реализация)?
 
 Minimum first pass:
 
@@ -27,6 +42,7 @@ Minimum first pass:
 3. if this is execution work, run `scripts/beads_transport.sh fetch` and `bd ready --json`
 4. if the request is about greenfield or brownfield SDP adoption, stop reading private-lab process docs and jump to [sdp/docs/QUICKSTART.md](sdp/docs/QUICKSTART.md)
 5. if the path starts with `sdp/`, read [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md) before editing anything
+6. прочитай [VISION.md](VISION.md) чтобы понять контекст системы
 
 ## Project Structure
 
@@ -345,6 +361,23 @@ sdp-doc-sync --mode check --strict        # Treat docs drift as errors
 sdp-doc-sync --mode changelog             # Update docs/CHANGELOG.md from latest commit range
 sdp-doc-sync --mode changelog --since HEAD~3..HEAD
 ```
+
+## Execution Kernel: agentloop
+
+`internal/agentloop` — FSM для Delivery фазы. Phases: Discover → Plan → Build → Review → Eval.
+Запускается через `sdp-harness new/run`. Gates принудительны — FSM не переходит без прохождения gate.
+Production gateway (F106): подключается через `agentloop.ModelGateway` → LiveGateway → OpenRouter.
+
+Статус: логика завершена; нет production callers до завершения F106 (WS-01: LiveGateway).
+
+Reference: [docs/phases/DELIVERY.md](docs/phases/DELIVERY.md)
+
+### llm-council skill
+
+`skills/llm-council.md` — multi-model deliberation для ключевых решений в Discovery и при архитектурных выборах.
+
+Вызывать когда: архитектурное решение, риск-анализ, валидация spec, ADR требует deliberation.  
+Результат включает minority reports — не игнорировать несогласных моделей.
 
 ## Continuous Background Agents
 
