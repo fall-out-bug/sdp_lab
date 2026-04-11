@@ -1,246 +1,208 @@
-# SDP Mini-Harness — Руководство по использованию
+# SDP Mini-Harness (agentloop) — Справка
 
-`internal/agentloop` — Go-пакет и CLI для запуска AI-сессий разработки с персистентным FSM-состоянием.
-Сессия разбита на **фазы** (discover → plan → build → review → eval). После каждой фазы — **gate**:
-автоматическая проверка качества. При провале gate управление передаётся человеку.
+## Место в SDP Pipeline
+
+`internal/agentloop` — это **execution kernel** SDP: многофазный agentic loop с
+персистентным FSM-состоянием, заменяющий одиночный `opencode`-вызов в `ExecutorBridge`.
+
+```
+sdp dispatch next --execute
+        │
+        ▼
+  ExecutorBridge.DispatchAndRun()
+        │
+        │  СЕЙЧАС: orchestrate.LLMInvoker → opencode subprocess
+        │  ЦЕЛЬ:   agentloop.RestoreHarness → h.RunPhase() per phase
+        │
+        ▼
+  executor-results/   ←── outcome + evidence
+        │
+        ▼
+  sdp orchestrate once  (auto-ingest)
+```
+
+**Вместо одного prompt → opencode**, harness прогоняет карточку через полный цикл:
+
+```
+Beads card (ready)
+  │
+  ▼ dispatcher строит userPrompt из objective + acceptance criteria
+  │
+  ├─ [discover] research phase  ──gate──► pass/escalate
+  ├─ [plan]     beads task creation ──gate──► pass/escalate
+  ├─ [build]    TDD implementation  ──gate──► pass/escalate
+  ├─ [review]   code review         ──gate──► pass/escalate
+  └─ [eval]     final verification  ──gate──► done / human escalation
+```
 
 ---
 
-## Быстрый старт
+## Статус интеграции
 
-### 1. Собрать бинарь
+| Компонент | Статус |
+|-----------|--------|
+| `internal/agentloop` — ядро (Loop, Harness, GateEngine, PhaseRouter) | ✅ реализован, 128 тестов |
+| `cmd/sdp-harness` — standalone MVP CLI | ✅ реализован |
+| `ExecutorBridge` → `agentloop` wiring | ⬜ не реализован (OpenCode сейчас) |
+| `sdp dispatch next --execute` → harness | ⬜ не реализован |
+| Evidence → `.sdp/evidence/<card-id>.json` | ⬜ не реализован |
+
+**Для production использования нужно:** реализовать wiring в `ExecutorBridge.DispatchAndRun()`
+(заменить `LLMInvoker.Invoke` → `agentloop.RestoreHarness` + `h.RunPhase`).
+
+---
+
+## Standalone MVP: sdp-harness CLI
+
+До интеграции с `sdp dispatch` — CLI для ручного запуска harness на карточке.
+
+### Сборка
 
 ```bash
-cd /path/to/sdp_lab
 go build -o sdp-harness ./cmd/sdp-harness/
 ```
 
-### 2. Создать сессию
+### Полный цикл вручную
 
 ```bash
-sdp-harness new --session=my-feature-001
-# session "my-feature-001" created at /Users/<you>/.sdp/my-feature-001.db
-```
+# 1. Найти готовую карточку в beads
+bd show sdplab-XYZ   # прочитать objective + acceptance criteria
 
-### 3. Запустить первую фазу
+# 2. Создать harness-сессию (ID = card ID)
+sdp-harness new --session=sdplab-XYZ
 
-```bash
+# 3. Запустить discover (prompt = objective карточки)
 sdp-harness run \
-  --session=my-feature-001 \
-  --prompt="Исследуй конкурентов в пространстве AI coding assistants"
-# phase turn complete for session "my-feature-001"
+  --session=sdplab-XYZ \
+  --prompt="$(bd show sdplab-XYZ --field=description)"
+
+# 4. Продолжать run до eval фазы (каждый run — один turn,
+#    автоматический переход фаз через completion_signal + gate)
+sdp-harness run --session=sdplab-XYZ --prompt="Continue"
+
+# 5. Если gate escalated — увидишь: human_gate <decisionID>
+#    Решить через Go API (ApproveGate / Rollback / Stop)
 ```
 
-### 4. Продолжить следующую фазу
+Сессия персистируется в `$SDP_DATA_DIR/<id>.db` (default: `$HOME/.sdp/sdplab-XYZ.db`).
+После падения процесса — просто перезапустить `sdp-harness run` с тем же session ID.
 
-```bash
-sdp-harness run \
-  --session=my-feature-001 \
-  --prompt="Составь план реализации фичи X на основе найденных конкурентов"
+### CLI Reference
+
+```
+sdp-harness new  --session=<id>
+sdp-harness run  --session=<id> --prompt="<text>" [--token=<tok>]
+
+Env: SDP_DATA_DIR   (default: $HOME/.sdp)
 ```
 
-Сессия сохраняется между запусками. Процесс может упасть — перезапустить можно тем же `run`.
+| Флаг | Команда | Описание |
+|------|---------|----------|
+| `--session` | оба | ID сессии = ID beads-карточки (строка) |
+| `--prompt` | run | Контекст для этого turn (objective, acceptance criteria) |
+| `--token` | run | Owner token (если сессия была создана с токеном) |
 
 ---
 
-## CLI Reference
+## Интеграция с ExecutorBridge (целевое состояние)
 
-### `sdp-harness new`
+Чтобы `sdp dispatch next --execute` использовал harness, нужно обновить
+`internal/executor/bridge.go`:
 
-Создаёт новую сессию.
+```go
+// DispatchAndRun — ТЕКУЩАЯ реализация вызывает opencode.
+// ЦЕЛЬ: заменить LLMInvoker.Invoke() → agentloop Harness.
+func (b *ExecutorBridge) DispatchAndRun(ctx context.Context, projectID, cardID string) (*ExecutorResultPacket, error) {
+    packet, _ := b.Store.LoadExecutionPacket(projectID, cardID)
+    card, _    := b.Store.LoadCard(projectID, cardID)
 
+    // 1. Создать/восстановить harness-сессию для этой карточки
+    dbPath := filepath.Join(b.ProjectRoot, ".sdp", "sessions", cardID+".db")
+    store, _ := agentloop.NewSQLiteStore(dbPath)
+
+    registry := agentloop.NewToolRegistry(buildSDPTools(b.ProjectRoot)) // bash, read_file, edit_file, glob, bd_*
+    gateway  := buildOpenRouterGateway(os.Getenv("OPENROUTER_API_KEY"))
+    router   := agentloop.NewPhaseRouter(agentloop.DefaultPhaseMap, registry, gateway, nil)
+    gate     := agentloop.NewGateEngine(buildContract(card), 0)
+
+    h, _ := agentloop.RestoreHarness(cardID, "", store, router, gate, nil)
+
+    // 2. Сформировать prompt из пакета (objective + acceptance criteria)
+    prompt := buildPromptFromPacket(packet, card)
+
+    // 3. Запустить один phase turn
+    if err := h.RunPhase(ctx, prompt, ""); err != nil {
+        return &ExecutorResultPacket{Status: "failed", Error: err.Error()}, nil
+    }
+
+    // 4. Вернуть результат
+    return &ExecutorResultPacket{Status: "completed", CardID: cardID}, nil
+}
 ```
-sdp-harness new --session=<id>
-```
-
-| Флаг | Обязателен | Описание |
-|------|-----------|----------|
-| `--session` | ✓ | Уникальный ID сессии (строка) |
-
-Создаёт файл `$SDP_DATA_DIR/<id>.db` (SQLite, WAL mode).
-Если файл уже существует — ошибка.
-
----
-
-### `sdp-harness run`
-
-Запускает один turn текущей фазы.
-
-```
-sdp-harness run --session=<id> --prompt="<text>" [--token=<tok>]
-```
-
-| Флаг | Обязателен | Описание |
-|------|-----------|----------|
-| `--session` | ✓ | ID сессии (должна существовать) |
-| `--prompt` | ✓ | Пользовательский запрос для этого turn |
-| `--token` | — | Owner token (нужен только если сессия была создана с токеном) |
-
-**Поведение:**
-- Восстанавливает сессию из SQLite
-- Строит сообщения из истории turn'ов
-- Запускает `Loop.Run()` (LLM → инструменты → loop)
-- Если агент вызвал `completion_signal` → проверяет gate
-- Если gate passed → переходит к следующей фазе
-- Если gate escalated → выводит `human_gate` событие с `DecisionID`
-- Если gate ещё не вызван → ждёт следующего `run`
-
----
-
-### Переменные окружения
-
-| Переменная | По умолчанию | Описание |
-|------------|-------------|----------|
-| `SDP_DATA_DIR` | `$HOME/.sdp` | Директория для `.db` файлов сессий |
-
----
-
-## Жизненный цикл сессии
-
-```
-new
- │
- ▼
- [discover] ──run──► agent works ──completion_signal──► gate
-                                                          │
-                                                    passed │ escalated
-                                                          │    │
-                                                          ▼    ▼
-                                                       [plan]  human_gate
-                                                          │    (ApproveGate / Rollback)
-                                                         ...
-                                                          ▼
-                                                       [eval] ──► done
-```
-
-### FSM-состояния Harness
-
-| Состояние | Описание | Что разрешено |
-|-----------|----------|--------------|
-| `idle` | Готов к следующему prompt | `run` |
-| `running` | Loop.Run активен | Ничего (конкурентные `run` возвращают ошибку) |
-| `awaiting_human` | Gate escalated, ждёт решения | `ApproveGate` / `Rollback` / `Stop` (через Go API) |
-| `stopped` | Терминальное состояние | Ничего (RestoreHarness вернёт ошибку) |
 
 ---
 
 ## Фазы и модели
 
-| Фаза | Модели (в порядке приоритета) | Доступные инструменты | Gate |
-|------|------------------------------|----------------------|------|
-| `discover` | deepseek/deepseek-v3.2, openai/gpt-4.1 | web_search, read_file, bd_search | ✓ |
-| `plan` | openai/gpt-4.1, anthropic/claude-opus-4-5 | read_file, glob, bd_create | ✓ |
-| `build` | anthropic/claude-sonnet-4-6, openai/gpt-4.1 | read_file, edit_file, bash, glob | ✓ |
-| `review` | openai/gpt-4.1, deepseek/deepseek-v3.2 | read_file, grep, bd_comment | ✓ |
-| `eval` | anthropic/claude-sonnet-4-6, openai/gpt-4.1 | bash, read_file | ✓ |
+| Фаза | Модели (приоритет) | Инструменты | SDP операции |
+|------|-------------------|-------------|-------------|
+| `discover` | deepseek-v3.2, gpt-4.1 | web_search, read_file, bd_search | `bd search`, поиск аналогов |
+| `plan` | gpt-4.1, claude-opus-4-5 | read_file, glob, bd_create | `bd create` sub-tasks |
+| `build` | claude-sonnet-4-6, gpt-4.1 | read_file, edit_file, bash, glob | TDD, `git commit`, `go test` |
+| `review` | gpt-4.1, deepseek-v3.2 | read_file, grep, bd_comment | `bd comment` findings |
+| `eval` | claude-sonnet-4-6, gpt-4.1 | bash, read_file | `go test -race`, `go vet` |
 
-`completion_signal` добавляется **автоматически** в каждую фазу — его не нужно включать в `PhaseConfig.Tools`.
+`completion_signal` добавляется автоматически в каждую фазу — не включать в `PhaseConfig.Tools`.
 
 ---
 
-## Работа с Gate Escalation (Go API)
+## Gate Escalation и Human-in-the-Loop
 
-Когда gate escalated, CLI выводит событие типа `human_gate` с полем `Delta = "<decisionID>"`.
-Дальнейшее управление — через Go API:
+При провале gate → событие `human_gate` с `DecisionID`. Три варианта действий:
 
 ```go
-// Восстановить harness
 store, _ := agentloop.NewSQLiteStore(dbPath)
-router := agentloop.NewPhaseRouter(agentloop.DefaultPhaseMap, registry, gateway, nil)
-gate := agentloop.NewGateEngine(nil, 0)
-h, _ := agentloop.RestoreHarness(sessionID, token, store, router, gate, nil)
+// ... восстановить router, gate ...
+h, _ := agentloop.RestoreHarness(cardID, token, store, router, gate, nil)
 
-// Одобрить переход в следующую фазу
-err := h.ApproveGate(ctx, decisionID, token)
+// Одобрить — перейти в следующую фазу
+h.ApproveGate(ctx, decisionID, token)
 
-// Откатиться к предыдущей фазе (RecoveryNext)
-err := h.Rollback(ctx, decisionID, token)
+// Откатиться — вернуться в RecoveryNext фазу
+h.Rollback(ctx, decisionID, token)
 
-// Завершить сессию насовсем
-err := h.Stop(ctx, token)
+// Завершить — закрыть сессию (и закрыть карточку)
+h.Stop(ctx, token)
 ```
 
-`decisionID` имеет формат `"<sessionID>-run<N>"` — виден в событии `human_gate.Delta`.
+`decisionID` виден в событии `human_gate.Delta`, формат: `"<sessionID>-run<N>"`.
 
 ---
 
-## Подключение реальных инструментов и LLM Gateway
+## EvidenceAccumulator — автоматический сбор proof
 
-MVP-режим CLI использует `StubGateway` (без реального LLM). Для production:
+Gate не верит самоотчётам агента. Доказательства — только из tool results:
 
-```go
-// 1. Реализовать ModelGateway
-type MyGateway struct{}
-func (g *MyGateway) IsAvailable(model string) bool { ... }
-func (g *MyGateway) Call(ctx context.Context, msgs []agentloop.Message, cfg agentloop.LoopConfig) (<-chan agentloop.Event, error) { ... }
+| Tool | Evidence |
+|------|----------|
+| `bash` с PASS в выводе | `quality["test"] = true` |
+| `bash` с FAIL в выводе | `quality["test"] = false` |
+| `edit_file` | `"file_modified:<path>"` |
+| `bd_create` | `"card_created:<id>"` |
+| любой tool → ошибка | `"tool_error:<name>:<err>"` |
 
-// 2. Зарегистрировать инструменты
-tools := []agentloop.Tool{
-    {
-        Name: "bash",
-        Execute: func(ctx context.Context, id string, args json.RawMessage) (string, error) {
-            // выполнить bash команду
-        },
-    },
-    // ... остальные инструменты
-}
-registry := agentloop.NewToolRegistry(tools)
-
-// 3. Собрать router с реальным gateway
-gateway := &MyGateway{}
-router := agentloop.NewPhaseRouter(agentloop.DefaultPhaseMap, registry, gateway, nil)
-
-// 4. Запустить RunPhase напрямую (без CLI)
-h, _ := agentloop.RestoreHarness(sessionID, token, store, router, gate, nil)
-err := h.RunPhase(ctx, userPrompt, token)
-```
+Evidence сбрасывается при каждом `transitionTo` (переход фазы).
 
 ---
 
-## Восстановление после сбоя
+## FSM-состояния Harness
 
-Сессия сохраняется в SQLite после каждого turn. Если процесс упал:
-
-```bash
-# Просто перезапустить с тем же session ID
-sdp-harness run --session=my-feature-001 --prompt="..."
-```
-
-`RestoreHarness` автоматически:
-- Восстанавливает историю turn'ов из `turn_records`
-- Восстанавливает текущую фазу из последнего `phase_records.next_phase`
-- Если был pending gate → устанавливает состояние `awaiting_human`
-- Если сессия была остановлена через `Stop()` → возвращает ошибку
-
----
-
-## Структура данных
-
-SQLite-файл `$SDP_DATA_DIR/<sessionID>.db`:
-
-| Таблица | Содержимое |
-|---------|-----------|
-| `sessions` | Один ряд: ID, начальная фаза (`discover`) |
-| `turn_records` | Append-only лог каждого `RunPhase` (сообщения, tool calls, tool results) |
-| `phase_records` | Лог переходов между фазами (current → next, snapshot evidence) |
-| `decisions` | Максимум один pending decision на сессию |
-| `events` | Все Event объекты (text_delta, tool_end, error, warn, ...) |
-| `gate_results` | ComplianceReport за каждую gate проверку |
-
----
-
-## EvidenceAccumulator — автоматический сбор доказательств
-
-Gate не верит самоотчётам агента. Доказательства собираются из результатов инструментов:
-
-| Инструмент | Что собирается |
-|-----------|---------------|
-| `bash` | `quality["test"] = true/false` (по наличию PASS/FAIL в выводе) |
-| `edit_file` | `evidence: "file_modified:<path>"` |
-| `bd_create` | `evidence: "card_created:<id>"` |
-| Любой (ошибка) | `evidence: "tool_error:<name>:<err>"` |
-
-Evidence сбрасывается при каждом переходе фазы (`transitionTo` вызывает `accumulator.Reset()`).
+| Состояние | Что разрешено |
+|-----------|--------------|
+| `idle` | RunPhase — новый turn |
+| `running` | ничего (конкурентный run → ошибка) |
+| `awaiting_human` | ApproveGate / Rollback / Stop |
+| `stopped` | ничего (RestoreHarness → ошибка) |
 
 ---
 
@@ -248,9 +210,8 @@ Evidence сбрасывается при каждом переходе фазы 
 
 | Ошибка | Причина | Решение |
 |--------|---------|---------|
-| `"no subcommand given"` | Запущен без subcommand | `sdp-harness new ...` или `sdp-harness run ...` |
-| `"restore session: ..."` | Сессия не найдена | Сначала `sdp-harness new --session=<id>` |
-| `"harness busy: state=1"` | Параллельный `run` | Дождаться завершения предыдущего |
-| `"harness busy: state=2"` | Gate escalated | Вызвать `ApproveGate` или `Rollback` через Go API |
-| `"session was terminated"` | `Stop()` вызван | Создать новую сессию |
-| `"no available model for phase"` | Gateway не знает модель | Проверить `IsAvailable()` в gateway реализации |
+| `"restore session: not found"` | Сессия не существует | `sdp-harness new --session=<id>` |
+| `"harness busy: state=1"` | Параллельный run | Дождаться завершения |
+| `"harness busy: state=2"` | Gate escalated | ApproveGate / Rollback через Go API |
+| `"session was terminated"` | Stop() вызван | Создать новую сессию |
+| `"no available model"` | Gateway не знает модель | Проверить IsAvailable() |
