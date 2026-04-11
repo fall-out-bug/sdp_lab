@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -339,9 +340,22 @@ func createTraces(ctx context.Context, cfg *Config, llm *LLMClient, candidates [
 }
 
 type llmVerifyResult struct {
-	Related     bool    `json:"related"`
-	Confidence  float64 `json:"confidence"`
-	Relation    string  `json:"relation"`
+	Related     jsonBool  `json:"related"`
+	Confidence  float64   `json:"confidence"`
+	Relation    string    `json:"relation"`
+}
+
+// jsonBool handles both bool and string ("true"/"false") JSON values.
+type jsonBool bool
+
+func (b *jsonBool) UnmarshalJSON(data []byte) error {
+	s := strings.TrimSpace(string(data))
+	if s == `"true"` || s == `true` {
+		*b = true
+		return nil
+	}
+	*b = false
+	return nil
 }
 
 func llmVerifyPair(ctx context.Context, llm *LLMClient, cfg *Config, c candidate, lowerLevel, upperLevel model.Level) (bool, model.TraceRelation, float64) {
@@ -379,7 +393,7 @@ Return JSON: {"related": bool, "confidence": 0.0-1.0, "relation": "contributes_t
 		return false, model.RelationNone, 0
 	}
 
-	if !result.Related || result.Relation == "none" {
+	if !bool(result.Related) || result.Relation == "none" {
 		return false, model.RelationNone, 0
 	}
 	return true, model.TraceRelation(result.Relation), result.Confidence

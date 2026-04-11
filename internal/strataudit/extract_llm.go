@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sdp_dev/internal/strataudit/model"
 )
@@ -53,6 +54,7 @@ func ExtractEntities(ctx context.Context, cfg *Config, store *SQLiteStore, llm *
 			if count > 0 {
 				continue
 			}
+			slog.Info("extract: processing document", "doc", doc.Path, "level", level.ID)
 
 			entities, err := extractFromDocument(ctx, cfg, llm, doc, level)
 			if err != nil {
