@@ -161,6 +161,55 @@ func createTraces(ctx, cfg, llm *LLMClient, candidates, lowerLevel, upperLevel) 
 
 ---
 
+### FIX-08: Нативная конвертация документов (Extractor interface)
+
+**Файл:** `internal/strataudit/ingest.go`, новый `internal/strataudit/extractor.go`, `extract_pptx.go`
+**Приоритет:** P1 (повышен с P2 по результатам ревью)
+**Трудоёмкость:** 4-6ч (урезанный scope — только interface + PPTX)
+
+**Проблема:** Конвертация документов — полностью вне пайплайна. Пользователь вручную запускает Python-скрипт (`/tmp/strataudit-convert/convert.py`) для конвертации `.pptx`, `.doc` и других форматов в `.txt`. Только после этого запускает StratAudit. Это violates end-to-end pipeline principle.
+
+Go-пайплайн поддерживает только `.txt/.md/.pdf/.docx`. Остальные форматы (`.pptx`, `.doc`, `.xls`, `.xlsx`, `.rtf`, `.odt`) — молча пропускаются через `isSupportedExt()`.
+
+**Требование (вариант B — interface abstraction, council recommendation):**
+
+1. **Extractor interface** (`extractor.go`):
+   ```go
+   type Extractor interface {
+       CanHandle(ext string) bool
+       Extract(ctx context.Context, path string, data []byte) (string, error)
+   }
+   ```
+
+2. **Go-реализации** (существующие, обёрнутые в interface):
+   - `TextExtractor`: `.txt`, `.md`, `.markdown`
+   - `PDFExtractor`: `.pdf` (ledongthuc/pdf)
+   - `DOCXExtractor`: `.docx` (ZIP/XML парсинг)
+
+3. **Bridge-реализация** — вызов внешнего конвертера:
+   - `BridgeExtractor`: вызывает `exec.Command("textutil", ...)` на macOS или `libreoffice --headless` на Linux
+   - Поддержка: `.pptx`, `.doc`, `.rtf`, `.xls`, `.xlsx`
+   - Sanitize filename от command injection (Critic warning из council)
+   - Fallback: если внешний инструмент не найден — warning + skip, не fatal
+
+4. **Конфиг:**
+   ```yaml
+   extractors:
+     external_command: "textutil"  # или "libreoffice"
+     use_external: ["pptx", "doc", "rtf", "xls", "xlsx"]
+   ```
+
+5. **Интеграция:** `ingest.go` использует `ExtractorRegistry` вместо прямого switch в `extractText()`
+
+6. **Логирование:** `"Extracted %s (%d bytes) via %s extractor"` — видно, какой экстрактор сработал
+
+**Приёмка:**
+- `sdp-strataudit run --dir /path/with/pptx` — конвертирует и извлекает текст без Python-скриптов
+- `report.json` содержит entities из PPTX-документов
+- Если `textutil` не установлен — warning, не fatal
+
+---
+
 ## P2 — Следующая итерация
 
 ### FIX-06: Полный набор документов
@@ -196,31 +245,6 @@ func createTraces(ctx, cfg, llm *LLMClient, candidates, lowerLevel, upperLevel) 
 4. Интерактив: клик по узлу → подсветить traces
 
 **Приёмка:** В HTML-отчёте есть `<div class="mermaid">` с рабочим графом.
-
----
-
-### FIX-08: Форматный охват документов
-
-**Приоритет:** P2
-**Трудоёмкость:** 16-20ч
-**Зависимость:** После стабилизации основного пайплайна
-
-**Проблема:** Поддерживаются только `.txt/.md/.pdf/.docx`. Legacy `.doc` и `.pptx` — нет. Текущая конвертация через Python-скрипты вне пайплайна.
-
-**Требование (вариант A — Go-native):**
-1. Добавить `extract_pptx.go` с использованием `github.com/unidoc/unioffice`
-2. Legacy `.doc` — конвертация через `textutil` (macOS) или unsupported с warning
-3. Расширить `isSupportedExt()` в `ingest.go`
-
-**Требование (вариант B — interface abstraction):**
-1. `Extractor` интерфейс: `CanHandle(ext string) bool` / `Extract(data []byte) (string, error)`
-2. Go-реализация: txt/md/pdf/docx
-3. Bridge-реализация: вызов внешнего конвертера через `exec.Command` (textutil/libreoffice)
-4. Конфиг: `extractors.use_external: ["pptx", "doc"]`
-
-**Council recommendation:** Вариант B (Philosopher + Pragmatist). Python/внешние инструменты зрелее для документов. Унификация через интерфейс, а не язык.
-
-**Приёмка:** `sdp-strataudit run` на директории с `.pptx` файлами не падает, а извлекает текст.
 
 ---
 
@@ -262,12 +286,12 @@ FIX-01 (reasoning fallback)  ──┐
 FIX-02 (outputDir)            ──┤─ P0: ship now (~4h)
 FIX-03 (LLM link verify)      ──┘
          │
-FIX-04 (JSON entities+traces) ─── P1: before next run (~3h)
-FIX-05 (русификация)          ─── P1: next iteration (~2h)
+FIX-04 (JSON entities+traces) ──┐
+FIX-05 (русификация)           ──┤─ P1: before next run (~8h)
+FIX-08 (Extractor interface)   ──┘
          │
 FIX-06 (полный набор docs)    ─── P2: validate pipeline
 FIX-07 (Mermaid diagram)      ─── P2: after FIX-04
-FIX-08 (format coverage)      ─── P2: after stabilization
 ```
 
-**Итого P0+P1:** ~9h engineering time.
+**Итого P0+P1:** ~12h engineering time.
