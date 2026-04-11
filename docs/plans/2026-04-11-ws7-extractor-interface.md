@@ -1,7 +1,7 @@
 # WS-7: FIX-08 — Extractor interface + BridgeExtractor
 
-**Статус:** PENDING
-**Приоритет:** P1
+**Статус:** APPROVED (Council R2 consensus, 6/6 SUPPORT)
+**Приоритет:** P1 (v1.1.0, Slice 4)
 **Трудоёмкость:** 4-6ч
 **Зависимости:** WS-1 (council consensus)
 
@@ -64,10 +64,13 @@ func (b *BridgeExtractor) Extract(ctx context.Context, path string, data []byte)
 }
 ```
 
-Sanitize от command injection:
-- `filepath.Base(path)` — только имя файла, без пути
+Sanitize от command injection (Council R2 corrections):
+- `filepath.EvalSymlinks()` → `filepath.Base()` — сначала resolve symlinks (Critic: TOCTOU)
 - Временный файл в `os.TempDir()`
-- Проверить что путь не содержит `..` или `|` или `;`
+- **Таймаут: 180с** (Council: не 60с — большие PPTX могут занимать 120с)
+- `exec.CommandContext` — auto-kill процесса при таймауте (Go 1.20+)
+- Startup probe: `exec.LookPath` — warn, don't fail (нет PDF = нет нужен pdftotext)
+- Config: `extract.timeout_seconds: 180`
 
 ### 4. Конфиг
 ```go

@@ -1,9 +1,9 @@
 # WS-2: FIX-01 — Reasoning fallback в LLM клиенте
 
-**Статус:** PENDING
-**Приоритет:** P0
+**Статус:** APPROVED (Council R1+R2 consensus)
+**Приоритет:** P0 (v1.0.1, Slice 1)
 **Трудоёмкость:** 1-2ч
-**Зависимости:** WS-1 (council consensus)
+**Зависимости:** нет
 
 ## Проблема
 `llmclient.go:134-148` — response struct десериализует только `Content`. Reasoning-модели (deepseek-v3.2-speciale, deepseek-r1) возвращают `content: null`, текст — в `reasoning`. Пайплайн получает пустую строку.
@@ -15,15 +15,15 @@
 
 ## Изменения
 
-### 1. Response struct (llmclient.go:134-143)
+### 1. Response struct (llmclient.go:134-143) — Council correction: *string для обоих полей
 ```go
 // Было:
 Message struct{ Content string } `json:"message"`
 
-// Стало:
+// Стало (Council: оба поля *string — JSON null возможен для обоих):
 Message struct {
     Content   *string `json:"content"`
-    Reasoning string  `json:"reasoning,omitempty"`
+    Reasoning *string `json:"reasoning"`
 } `json:"message"`
 ```
 
@@ -40,17 +40,23 @@ content := ""
 if result.Choices[0].Message.Content != nil {
     content = *result.Choices[0].Message.Content
 }
-if content == "" && result.Choices[0].Message.Reasoning != "" {
-    content = extractFinalAnswer(result.Choices[0].Message.Reasoning)
+// Council: минимальная длина 50 символов перед fallback
+if content == "" && result.Choices[0].Message.Reasoning != nil {
+    r := *result.Choices[0].Message.Reasoning
+    if len(r) >= 50 {
+        content = extractFinalAnswer(r)
+    }
 }
+// Council: slog.Warn при fallback, не Info
 if content == "" {
     return nil, fmt.Errorf("llm: empty content and reasoning in response")
 }
 ```
 
-### 3. extractFinalAnswer() — новая функция
+### 3. extractFinalAnswer() — Council correction: последний непустой параграф, не "80%"
 - Ищет `<answer>...</answer>` блок в reasoning — берёт содержимое
-- Если тегов нет — берёт последние 80% reasoning текста (reasoning модели часто начинаются с chain-of-thought)
+- Если тегов нет — берёт **последний непустой параграф** (Council: не "80% текста" — это fragile)
+- Council: проверить что `<answer>` extraction не создаёт injection surface
 - Sanitize: убрать trailing whitespace
 
 ### 4. Конфиг (config.go)

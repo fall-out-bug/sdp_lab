@@ -1,6 +1,6 @@
 # WS-3: FIX-02 — Абсолютный путь outputDir
 
-**Статус:** PENDING
+**Статус:** APPROVED (Council R2)
 **Приоритет:** P0
 **Трудоёмкость:** 0.5ч
 **Зависимости:** WS-1 (council consensus)
