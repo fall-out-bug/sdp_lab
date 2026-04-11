@@ -51,7 +51,7 @@ type PipelineResult struct {
 	ReferenceModel *ReferenceModel     `json:"reference_model,omitempty"`
 	Duration       time.Duration       `json:"duration"`
 	Errors         []ExtractorError    `json:"errors,omitempty"`
-	Diagrams       []DiagramResult    `json:"diagrams,omitempty"`
+	Diagrams       []DiagramResult     `json:"diagrams,omitempty"`
 }
 
 // DiagramResult holds a rendered C4 diagram.
@@ -255,6 +255,49 @@ func (p *Pipeline) runEnrichment(ctx context.Context, profile *CodebaseProfile) 
 	return &result
 }
 
+func pipelineSlug(name string) string {
+	s := strings.ToLower(name)
+	s = strings.NewReplacer(" ", "-", "_", "-", "/", "-", ".", "-").Replace(s)
+
+	var b strings.Builder
+	lastHyphen := false
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z':
+			b.WriteRune(r)
+			lastHyphen = false
+		case r >= '0' && r <= '9':
+			b.WriteRune(r)
+			lastHyphen = false
+		case r == '-':
+			if !lastHyphen {
+				b.WriteRune(r)
+				lastHyphen = true
+			}
+		}
+	}
+
+	slug := strings.Trim(b.String(), "-")
+	if slug == "" {
+		return "unnamed"
+	}
+	return slug
+}
+
+func parentPrefix(path string) string {
+	normalized := strings.Trim(filepath.ToSlash(filepath.Clean(path)), "/")
+	if normalized == "" || normalized == "." {
+		return ""
+	}
+
+	for _, part := range strings.Split(normalized, "/") {
+		if part != "" && part != "." {
+			return part
+		}
+	}
+	return ""
+}
+
 // BuildReferenceModelFromProfile creates a C4 ReferenceModel from a profile.
 // This is exported so the CLI layer can call it without importing the c4 package.
 func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
@@ -298,6 +341,7 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 
 	// Convert infrastructure containers to C4 containers (skip CI-only images)
 	containerIdx := 0
+	seenNames := make(map[string]int)
 	for _, infraContainer := range profile.Infra.Containers {
 		if isCIPipelineContainer(infraContainer) {
 			continue
@@ -312,6 +356,27 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 		if infraContainer.Image != "" {
 			c4Container.Technology = infraContainer.Image
 		}
+
+		baseName := c4Container.Name
+		baseCount := seenNames[baseName]
+		if baseCount > 0 {
+			suffix := strings.TrimSuffix(filepath.Base(infraContainer.Source), filepath.Ext(infraContainer.Source))
+			if suffix == "" || strings.EqualFold(suffix, "Dockerfile") || pipelineSlug(suffix) == pipelineSlug(baseName) {
+				suffix = fmt.Sprintf("%d", baseCount+1)
+			}
+			candidateName := fmt.Sprintf("%s-%s", baseName, suffix)
+			if seenNames[candidateName] > 0 {
+				suffix = fmt.Sprintf("%d", baseCount+1)
+				candidateName = fmt.Sprintf("%s-%s", baseName, suffix)
+			}
+			c4Container.Name = candidateName
+			c4Container.ID = fmt.Sprintf("%s-%s", c4Container.ID, pipelineSlug(suffix))
+		}
+		seenNames[baseName] = baseCount + 1
+		if c4Container.Name != baseName {
+			seenNames[c4Container.Name]++
+		}
+
 		model.Containers = append(model.Containers, c4Container)
 	}
 
@@ -332,7 +397,7 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 			containerSeen[childName] = true
 			containerIdx++
 			model.Containers = append(model.Containers, C4Container{
-				ID:          fmt.Sprintf("module_%d", containerIdx),
+				ID:          pipelineSlug(childName),
 				Name:        childName,
 				Technology:  mb.BuildSystem,
 				Source:      mb.Path,
@@ -363,22 +428,30 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 	}
 
 	// Add relationships from module boundaries (Maven/Gradle multi-module)
+	nameToID := make(map[string]string)
+	for _, c := range model.Containers {
+		nameToID[c.Name] = c.ID
+	}
 	for _, mb := range profile.Infra.ModuleBoundaries {
 		if len(mb.Children) < 2 {
 			continue
 		}
-		nameToID := make(map[string]string)
-		for _, c := range model.Containers {
-			nameToID[c.Name] = c.ID
-		}
 		for _, childA := range mb.Children {
+			relCount := 0
+			prefixA := parentPrefix(childA)
 			nameA := filepath.Base(childA)
 			idA := nameToID[nameA]
-			if idA == "" {
+			if idA == "" || prefixA == "" {
 				continue
 			}
 			for _, childB := range mb.Children {
+				if relCount >= 5 {
+					break
+				}
 				if childA == childB {
+					continue
+				}
+				if prefixB := parentPrefix(childB); prefixA != prefixB {
 					continue
 				}
 				nameB := filepath.Base(childB)
@@ -392,6 +465,7 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 					Description: mb.BuildSystem + " module dependency",
 					Type:        "sync",
 				})
+				relCount++
 			}
 		}
 	}
@@ -424,7 +498,7 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 		"hadoop": "distributed filesystem", "hdfs": "distributed filesystem",
 		"yarn": "cluster manager", "mesos": "cluster manager",
 		"zookeeper": "coordination service",
-		"hive": "data warehouse", "spark": "data processing",
+		"hive":      "data warehouse", "spark": "data processing",
 		"flink": "stream processing", "storm": "stream processing",
 		"cassandra": "database", "presto": "query engine", "trino": "query engine",
 		"kubernetes": "container orchestration", "minio": "object storage",
@@ -444,6 +518,17 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 				seenSystems[sysPrefix] = true
 			}
 		}
+	}
+	if model.System.Name != "" && len(model.ExternalSystems) > 0 {
+		systemName := strings.ToLower(model.System.Name)
+		filtered := make([]ExternalSystem, 0, len(model.ExternalSystems))
+		for _, ext := range model.ExternalSystems {
+			if strings.Contains(systemName, strings.ToLower(ext.ID)) {
+				continue
+			}
+			filtered = append(filtered, ext)
+		}
+		model.ExternalSystems = filtered
 	}
 
 	return model

@@ -42,8 +42,8 @@ type TierLevel int
 
 const (
 	Tier1 TierLevel = iota + 1 // ~2K tokens: system overview
-	Tier2                       // ~5-15K tokens: per-container detail
-	Tier3                       // on-demand: source code snippets
+	Tier2                      // ~5-15K tokens: per-container detail
+	Tier3                      // on-demand: source code snippets
 )
 
 // extractorPriority maps extractor names to merge precedence.
@@ -238,13 +238,13 @@ func (pa *ProfileAssembler) mergeFragments(fragments []priorityFragment) *Codeba
 			Services:     make([]ServiceDep, 0),
 			Resources:    make([]ResourceInfo, 0),
 		},
-		Specs:        make([]SpecArtifact, 0),
-		SQLAnalysis:  nil,
-		GitAnalysis:  nil,
-		Metrics:      CodeMetrics{},
-		Files:        make(map[string]string),
-		Metadata:     make(map[string]string),
-		Summary:      "",
+		Specs:       make([]SpecArtifact, 0),
+		SQLAnalysis: nil,
+		GitAnalysis: nil,
+		Metrics:     CodeMetrics{},
+		Files:       make(map[string]string),
+		Metadata:    make(map[string]string),
+		Summary:     "",
 	}
 
 	// Track unique values for deduplication (legacy fields)
@@ -543,6 +543,34 @@ func (pa *ProfileAssembler) computeMetrics(profile *CodebaseProfile, fragments [
 				}
 				profile.Metadata["primary_language"] = primaryLang
 			}
+		}
+	}
+
+	if profile.Metadata == nil {
+		profile.Metadata = make(map[string]string)
+	}
+	if profile.Metadata["primary_language"] == "" && len(profile.FileTree.ExtCounts) > 0 {
+		langCounts := make(map[string]int)
+		for ext, count := range profile.FileTree.ExtCounts {
+			extLower := strings.ToLower(ext)
+			if len(extLower) > 0 && extLower[0] != '.' {
+				extLower = "." + extLower
+			}
+			if lang, ok := extToLanguage[extLower]; ok {
+				langCounts[lang] += count
+			}
+		}
+
+		primaryLang := ""
+		primaryCount := 0
+		for lang, cnt := range langCounts {
+			if cnt > primaryCount {
+				primaryLang = lang
+				primaryCount = cnt
+			}
+		}
+		if primaryLang != "" {
+			profile.Metadata["primary_language"] = primaryLang
 		}
 	}
 

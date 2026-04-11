@@ -4,8 +4,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"sdp_dev/internal/architect"
+	"strings"
 )
 
 // ---------------------------------------------------------------------------
@@ -356,39 +356,39 @@ func (TypeScriptAdapter) Extract(ctx context.Context, repoRoot string) (*archite
 
 // depSignals maps dependency name patterns to architectural signals.
 var depSignals = map[string]string{
-	"kafka":            "event_driven",
-	"confluent-kafka":  "event_driven",
-	"fastapi":          "web_framework",
-	"flask":            "web_framework",
-	"django":           "web_framework",
-	"grpc":             "rpc",
-	"grpcio":           "rpc",
-	"protobuf":         "rpc",
-	"celery":           "task_queue",
-	"rq":               "task_queue",
-	"redis":            "cache",
-	"memcached":        "cache",
-	"sqlalchemy":       "orm",
-	"pandas":           "data_processing",
-	"numpy":            "data_processing",
-	"pyarrow":          "data_processing",
-	"pydantic":         "validation",
-	"pytest":           "testing",
-	"requests":         "http_client",
-	"httpx":            "http_client",
-	"aiohttp":          "async_http",
-	"uvicorn":          "asgi_server",
-	"gunicorn":         "wsgi_server",
-	"boto3":            "cloud_aws",
-	"botocore":         "cloud_aws",
-	"azure":            "cloud_azure",
-	"google-cloud":     "cloud_gcp",
-	"tensorflow":       "ml_framework",
-	"torch":            "ml_framework",
-	"scikit-learn":     "ml_framework",
-	"django-rest":      "api_framework",
+	"kafka":               "event_driven",
+	"confluent-kafka":     "event_driven",
+	"fastapi":             "web_framework",
+	"flask":               "web_framework",
+	"django":              "web_framework",
+	"grpc":                "rpc",
+	"grpcio":              "rpc",
+	"protobuf":            "rpc",
+	"celery":              "task_queue",
+	"rq":                  "task_queue",
+	"redis":               "cache",
+	"memcached":           "cache",
+	"sqlalchemy":          "orm",
+	"pandas":              "data_processing",
+	"numpy":               "data_processing",
+	"pyarrow":             "data_processing",
+	"pydantic":            "validation",
+	"pytest":              "testing",
+	"requests":            "http_client",
+	"httpx":               "http_client",
+	"aiohttp":             "async_http",
+	"uvicorn":             "asgi_server",
+	"gunicorn":            "wsgi_server",
+	"boto3":               "cloud_aws",
+	"botocore":            "cloud_aws",
+	"azure":               "cloud_azure",
+	"google-cloud":        "cloud_gcp",
+	"tensorflow":          "ml_framework",
+	"torch":               "ml_framework",
+	"scikit-learn":        "ml_framework",
+	"django-rest":         "api_framework",
 	"djangorestframework": "api_framework",
-	"flask-restful":    "api_framework",
+	"flask-restful":       "api_framework",
 }
 
 // detectDepSignal infers architectural signal from dependency name.
@@ -469,12 +469,57 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 			nodes++
 			edges += len(imports)
 		}
-		frag.ImportGraph = &architect.ImportGraph{
+		importGraph := &architect.ImportGraph{
 			ExtractionMethod: r.ExtractionMethod,
 			AccuracyEstimate: r.AccuracyEstimate,
 			Nodes:            nodes,
 			Edges:            edges,
 		}
+
+		packageDirToCluster := make(map[string]string, len(r.ImportGraph.PackageImports))
+		packageNameToCluster := make(map[string]string, len(r.ImportGraph.PackageImports))
+		clusterIndex := make(map[string]int)
+		for pkgDir := range r.ImportGraph.PackageImports {
+			clusterID := javaClusterID(pkgDir)
+			packageDirToCluster[pkgDir] = clusterID
+			if pkgName := javaPackageName(pkgDir); pkgName != "" {
+				packageNameToCluster[pkgName] = clusterID
+			}
+			if _, ok := clusterIndex[clusterID]; !ok {
+				importGraph.Clusters = append(importGraph.Clusters, architect.ImportCluster{
+					ID: clusterID,
+				})
+				clusterIndex[clusterID] = len(importGraph.Clusters) - 1
+			}
+			idx := clusterIndex[clusterID]
+			importGraph.Clusters[idx].Packages = append(importGraph.Clusters[idx].Packages, pkgDir)
+		}
+
+		for pkgDir, imports := range r.ImportGraph.PackageImports {
+			fromCluster := packageDirToCluster[pkgDir]
+			if fromCluster == "" {
+				continue
+			}
+			idx := clusterIndex[fromCluster]
+			for _, imp := range imports {
+				targetCluster := javaImportTargetCluster(imp, packageNameToCluster)
+				if targetCluster == "" {
+					importGraph.Clusters[idx].ExternalEdges++
+					continue
+				}
+				if _, ok := clusterIndex[targetCluster]; !ok {
+					importGraph.Clusters[idx].ExternalEdges++
+					continue
+				}
+				if targetCluster == fromCluster {
+					importGraph.Clusters[idx].InternalEdges++
+				} else {
+					importGraph.Clusters[idx].ExternalEdges++
+				}
+			}
+		}
+
+		frag.ImportGraph = importGraph
 	}
 
 	// Convert BuildSystem.Dependencies → DependencyInfo
@@ -507,6 +552,51 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 	return frag
 }
 
+func javaClusterID(pkgDir string) string {
+	pkgName := javaPackageName(pkgDir)
+	if pkgName == "" {
+		return "unnamed"
+	}
+
+	clusterID := javaImportPrefix(pkgName, 3)
+	if clusterID == "" {
+		return pkgName
+	}
+	return clusterID
+}
+
+func javaPackageName(pkgDir string) string {
+	normalized := filepath.ToSlash(pkgDir)
+	for _, marker := range []string{"src/main/java/", "src/test/java/", "src/main/kotlin/", "src/test/kotlin/"} {
+		if idx := strings.Index(normalized, marker); idx >= 0 {
+			normalized = normalized[idx+len(marker):]
+			break
+		}
+	}
+
+	normalized = strings.Trim(normalized, "/")
+	if normalized == "" || normalized == "." {
+		return ""
+	}
+	return strings.ReplaceAll(normalized, "/", ".")
+}
+
+func javaImportTargetCluster(imp string, packageNameToCluster map[string]string) string {
+	imp = strings.TrimSuffix(imp, ".*")
+	imp = strings.TrimSuffix(imp, "*")
+
+	for imp != "" {
+		if clusterID, ok := packageNameToCluster[imp]; ok {
+			return clusterID
+		}
+		lastDot := strings.LastIndex(imp, ".")
+		if lastDot < 0 {
+			break
+		}
+		imp = imp[:lastDot]
+	}
+	return ""
+}
 
 // javaImportPrefix extracts the first n segments from a Java import path.
 // For example "org.apache.spark.sql.DataFrame" with n=3 returns "org.apache.spark".
