@@ -1,7 +1,7 @@
 # SDP Mini-Harness Design
 
-**Date:** 2026-04-10 (rev 11 — post council round 10 — first 5/5 OpenRouter quorum)
-**Status:** Draft v11 — round 10 fixes applied (stopped state durability + ContextManager wiring + runID restoration)
+**Date:** 2026-04-10 (rev 12 — post council round 11 verification)
+**Status:** Draft v12 — round 11 fixes applied (TurnRecord.ToolCalls + NewPhaseRouter + RecoverSession.LoadPhaseRecords)
 **Discovery verdict:** PIVOT (narrow control-plane first, then expand)
 
 ---
@@ -101,12 +101,13 @@ type LoopConfig struct {
 }
 
 type Event struct {
-    Type       string  // "text_delta"|"tool_start"|"tool_end"|"turn_end"|"done"|"error"|"warn"
+    Type       string     // "text_delta"|"tool_call"|"tool_end"|"turn_end"|"done"|"error"|"warn"
     Delta      string
-    ToolName   string
-    ToolResult string
-    ToolErr    error   // Fix P4 (v5): tool failure в "tool_end" event → TurnRecord сохраняет Err
-    Err        error   // loop-level error
+    ToolCalls  []ToolCall // Fix X2 (v12): "tool_call" event carries all parallel calls from one assistant message
+    ToolName   string     // for "tool_end" — name of executed tool
+    ToolResult string     // for "tool_end" — string output
+    ToolErr    error      // Fix P4 (v5): tool failure in "tool_end" event → TurnRecord preserves Err
+    Err        error      // loop-level error
 }
 
 // Run — stateless: выполняет ровно один phase-turn до completion_signal или ошибки.
@@ -329,12 +330,22 @@ func (r *PhaseRouter) RecoveryPhase(current Role) Role {
 
 // PhaseRouter содержит конфигурацию фаз, registry и опциональный ContextManager.
 // Fix W2 (v11): contextManager поле добавлено. nil = passthrough (MVP).
-// Устанавливается при создании: NewPhaseRouter(..., cm ContextManager).
+// Fix X1 (v12): конструктор явно принимает ContextManager.
 type PhaseRouter struct {
     phaseMap       map[Role]PhaseConfig
     registry       *ToolRegistry
     gateway        ModelGateway
     contextManager ContextManager // Fix W2 (v11): wired into LoopConfig.ContextManager
+}
+
+// NewPhaseRouter создаёт PhaseRouter. cm может быть nil (passthrough для MVP).
+func NewPhaseRouter(
+    phaseMap map[Role]PhaseConfig,
+    registry *ToolRegistry,
+    gateway ModelGateway,
+    cm ContextManager, // Fix X1 (v12): явный параметр, nil = passthrough
+) *PhaseRouter {
+    return &PhaseRouter{phaseMap: phaseMap, registry: registry, gateway: gateway, contextManager: cm}
 }
 
 // BuildLoopConfig собирает LoopConfig для фазы, включая completion signal tool.
@@ -628,6 +639,12 @@ func (h *Harness) RunPhase(ctx context.Context, userPrompt, token string) error 
         switch ev.Type {
         case "text_delta":
             turnRecord.AssistantText += ev.Delta
+        case "tool_call":
+            // Fix X2 (v12): сохраняем tool calls из assistant message.
+            // Без них MessagesFromTurnRecords создаёт tool_result без предшествующего tool_call →
+            // OpenAI/Anthropic API отклоняют conversation как невалидный.
+            // ev.ToolCalls содержит все параллельные вызовы одного assistant message.
+            turnRecord.ToolCalls = append(turnRecord.ToolCalls, ev.ToolCalls...)
         case "tool_end":
             // Fix P4 (v5): ev.ToolErr сохраняется в TurnRecord → canonical log полон
             turnRecord.ToolResults = append(turnRecord.ToolResults, ToolResult{
@@ -820,12 +837,17 @@ func (h *Harness) transitionTo(current, next Role, recovery bool) error {
 // Fix N3: TurnRecord — каноническая запись одного turn.
 // Session.Messages() строится из TurnRecords, не из in-memory buffer.
 // Events — вторичная телеметрия; TurnRecords — source of truth для replay.
+// Fix X2 (v12): добавлен ToolCalls []ToolCall — без него MessagesFromTurnRecords строит
+//   assistant message без tool_calls поля, что нарушает контракт LLM API (OpenAI/Anthropic
+//   требуют tool_calls в assistant message перед соответствующими tool_result messages).
+//   RunPhase накапливает ToolCalls из "tool_call" событий (ev.ToolCalls от Loop).
 type TurnRecord struct {
-    ID            string       // Fix Q1 (v6): формат "sessionID:runID:turnIndex", уникален в SessionStore
+    ID            string       // Fix Q1 (v6): формат "sessionID:runID", уникален в SessionStore
     Phase         Role
     UserMsg       Message
     AssistantText string       // накопленные text_delta
-    ToolResults   []ToolResult
+    ToolCalls     []ToolCall   // Fix X2 (v12): tool calls из assistant message — нужны для replay
+    ToolResults   []ToolResult // выходы выполненных tool calls (в том же порядке что ToolCalls)
     CreatedAt     time.Time
 }
 
@@ -844,12 +866,20 @@ type Session struct {
 
 // MessagesFromTurnRecords строит []Message из persisted TurnRecords.
 // Заменяет Messages() — нет расхождения WAL и in-memory.
+// Fix X2 (v12): assistant message включает ToolCalls — обязательно для OpenAI/Anthropic API.
+//   Tool results без предшествующих tool calls = невалидный conversation → API rejection.
 func (s *Session) MessagesFromTurnRecords() []Message {
     var out []Message
     for _, tr := range s.turnRecords {
         out = append(out, tr.UserMsg)
-        if tr.AssistantText != "" {
-            out = append(out, Message{Role: "assistant", Content: tr.AssistantText})
+        // Один assistant message: text + tool_calls (если были вызовы).
+        // LLM API требует один assistant message с обоими полями вместе.
+        if tr.AssistantText != "" || len(tr.ToolCalls) > 0 {
+            out = append(out, Message{
+                Role:      "assistant",
+                Content:   tr.AssistantText,  // может быть "" если только tool calls
+                ToolCalls: tr.ToolCalls,       // Fix X2: включаем tool calls для API корректности
+            })
         }
         for _, r := range tr.ToolResults {
             out = append(out, Message{
@@ -881,13 +911,28 @@ func NewSession(cardID string, store SessionStore) (*Session, error) {
     return s, store.Persist(s)
 }
 
-// RecoverSession восстанавливает Session из store, включая TurnRecords.
+// RecoverSession восстанавливает Session из store, включая TurnRecords и PhaseHistory.
 // Fix P3-N3 (v5, architect): Recover() ОБЯЗАН загружать TurnRecords — без этого
 // MessagesFromTurnRecords() вернёт пустой slice и context после restart потеряется.
+// Fix X3 (v12): также загружает PhaseRecords и деривирует session.Phase из последнего NextPhase.
+//   Без этого D1 ("Session.Phase деривируется из PhaseRecord.NextPhase при recovery") не работает:
+//   store.Recover() возвращает начальный Phase=RoleDiscover (из Persist при создании).
+//   После загрузки PhaseRecords: s.Phase = последний PhaseRecord.NextPhase.
+//   Если последний NextPhase="" → сессия была остановлена (RestoreHarness вернёт ошибку).
 func RecoverSession(sessionID string, store SessionStore) (*Session, error) {
     s, err := store.Recover(sessionID)
     if err != nil {
         return nil, err
+    }
+    // Загружаем PhaseRecords для деривации session.Phase (Fix X3)
+    phases, err := store.LoadPhaseRecords(sessionID)
+    if err != nil {
+        return nil, fmt.Errorf("load phase records: %w", err)
+    }
+    s.History = phases
+    if len(phases) > 0 {
+        // session.Phase = последний NextPhase (="" если Stop() был вызван)
+        s.Phase = phases[len(phases)-1].NextPhase
     }
     // Загружаем canonical conversation log
     turns, err := store.LoadTurnRecords(sessionID)
@@ -918,6 +963,11 @@ type SessionStore interface {
     // Fix N3: canonical conversation log
     PersistTurnRecord(sessionID string, r TurnRecord) error
     LoadTurnRecords(sessionID string) ([]TurnRecord, error)
+
+    // Fix X3 (v12): PhaseRecord history — нужен для деривации session.Phase при recovery.
+    //   RecoverSession вызывает LoadPhaseRecords; последний NextPhase = текущая Phase.
+    //   "" = сессия была остановлена (Stop() вызван).
+    LoadPhaseRecords(sessionID string) ([]PhaseRecord, error)
 
     // Fix N2: PendingDecision lifecycle
     PersistDecision(sessionID string, d PendingDecision) error
@@ -960,11 +1010,12 @@ func RestoreHarness(
         beforeToolCall: beforeToolCall, // Fix V2: restore hook so BeforeToolCall works after restart
         runID:          uint64(len(session.turnRecords)), // Fix W3: start after existing records
     }
-    // Fix W1 (v11): проверяем terminal state — session.Phase == "" означает Stop() был вызван.
-    // RecoverSession загружает PhaseRecords; последний NextPhase="" → session.Phase="".
-    // NOTE: session.Phase="" при отсутствии PhaseRecords (новая сессия) не достигается,
-    //       т.к. NewSession инициализирует Phase=RoleDiscover, первый record создаётся при первом transitionTo.
-    if session.Phase == "" && len(session.turnRecords) > 0 {
+    // Fix W1 (v11) + Fix X3 (v12): проверяем terminal state.
+    // session.Phase деривируется RecoverSession из последнего PhaseRecord.NextPhase.
+    // Если len(phases)>0 && Phase=="" → последний NextPhase="" → Stop() был вызван → нельзя reuse.
+    // Если len(phases)==0 → новая сессия без transitions → Phase=RoleDiscover (от Persist) → не "".
+    // Поэтому проверяем len(session.History) > 0 && session.Phase == "":
+    if len(session.History) > 0 && session.Phase == "" {
         return nil, fmt.Errorf("session %s was terminated by Stop() — cannot restore", sessionID)
     }
     // Проверяем pending decision — возможно, сессия остановилась на awaiting_human
@@ -1220,22 +1271,32 @@ CLI: `sdp run "задача"` → TUI в stdout → фазы → гейты → 
 
 | ID | Роль | Проблема | Фикс |
 |----|------|---------|------|
-| W1 | Philosopher CRITICAL + Pragmatist+Engineer DOMAIN_VETO | RestoreHarness всегда устанавливает hStateIdle, игнорирует NextPhase="" → остановленная сессия возвращается к hStateIdle после restart, RunPhase снова вызываем | RestoreHarness: если session.Phase=="" И есть turnRecords → return error "session was terminated by Stop()" вместо hStateIdle |
+| W1 | Philosopher CRITICAL + Pragmatist+Engineer DOMAIN_VETO | RestoreHarness всегда устанавливает hStateIdle, игнорирует NextPhase="" → остановленная сессия возвращается к hStateIdle после restart, RunPhase снова вызываем | RestoreHarness: если session.Phase=="" И есть PhaseRecords → return error "session was terminated by Stop()" вместо hStateIdle |
 | W2 | Technician HIGH | ContextManager не wired в BuildLoopConfig — LoopConfig.ContextManager всегда nil → Trim() никогда не вызывается | PhaseRouter struct добавлен contextManager ContextManager поле; BuildLoopConfig sets LoopConfig.ContextManager = r.contextManager |
 | W3 | Philosopher HIGH + Engineer MEDIUM | runID сбрасывается в 0 при RestoreHarness → TurnRecord.ID коллизии (формат "sessionID:runID") | h.runID = uint64(len(session.turnRecords)) в RestoreHarness; PendingDecision.RunID берётся из pending если есть |
 
 ---
 
+## Фиксы Round 11 (v11→v12) — 5/6 quorum (critic+technician+pragmatist+engineer+architect)
+
+| ID | Роль | Проблема | Фикс |
+|----|------|---------|------|
+| X1 | Technician HIGH | NewPhaseRouter конструктор не показан с contextManager параметром → поле остаётся nil у caller'ов | NewPhaseRouter(phaseMap, registry, gateway, cm ContextManager) конструктор добавлен явно |
+| X2 | Engineer CRITICAL DOMAIN_VETO | TurnRecord.ToolCalls отсутствует — MessagesFromTurnRecords строит conversation без tool_calls поля в assistant message → OpenAI/Anthropic API отклоняют как невалидный | TurnRecord.ToolCalls []ToolCall добавлен; Event.ToolCalls []ToolCall для "tool_call" event; RunPhase накапливает ToolCalls; MessagesFromTurnRecords включает их в assistant message |
+| X3 | Technician (implied by W2/W1) | RecoverSession не загружает PhaseRecords → session.Phase не деривируется из истории → W1 fix неработоспособен | SessionStore.LoadPhaseRecords() добавлен; RecoverSession загружает PhaseRecords, устанавливает s.History и s.Phase из последнего NextPhase |
+| W1' | Engineer INCOMPLETE | Условие len(turnRecords)>0 некорректно исключает остановку сессии без turns | Изменено на len(session.History)>0 — проверяет phase transitions, не turn count |
+
+---
+
 ## ✅ Convergence Declaration
 
-**Round 10 status (v11 — текущая):**
-- FIRST FULL QUORUM: 5/5 OpenRouter + architect (кimi при 12000 max_tokens откликнулся!)
-- V1-V3 фиксы: в основном CORRECT, но...
-- W1 CRITICAL (философ+прагматик+инженер DOMAIN_VETO): V1 неполный — RestoreHarness не проверял NextPhase="" → исправлен в v11
-- W2 HIGH (технарь): ContextManager wiring в BuildLoopConfig отсутствовал → исправлен в v11  
-- W3 HIGH (философ) + MEDIUM (инженер): runID не восстанавливался → исправлен в v11
+**Round 11 result (v11→v12) — 4/5 OpenRouter + architect (kimi abstained, provider Io Net error):**
+- X2 CRITICAL DOMAIN_VETO (engineer): TurnRecord.ToolCalls отсутствовал → MessagesFromTurnRecords строил невалидный conversation для LLM API → исправлен в v12
+- X1 HIGH (technician): NewPhaseRouter конструктор не показан с contextManager → исправлен в v12
+- X3 HIGH (implied): RecoverSession не загружал PhaseRecords → session.Phase никогда не деривировался → исправлен в v12
+- W1' INCOMPLETE (engineer): Условие len(turnRecords)>0 некорректно → изменено на len(session.History)>0 в v12
 
-**10 раундов итераций, 45 issue-фиксов:**
+**11 раундов итераций, 49 issue-фиксов:**
 | Batch | Issues | All Fixed |
 |-------|--------|-----------|
 | I1-I7 | 7 | ✅ |
@@ -1248,6 +1309,7 @@ CLI: `sdp run "задача"` → TUI в stdout → фазы → гейты → 
 | U1-U2 | 2 | ✅ |
 | V1-V3 | 3 | ✅ |
 | W1-W3 | 3 | ✅ |
+| X1-X3, W1' | 4 | ✅ |
 
-**v11 готов к Round 11 финальной верификации.**  
+**v12 готов к Round 12 финальной верификации.**  
 После Round 11 CONVERGED → implementation: Loop → PhaseRouter → Harness → GateEngine → SessionStore(BoltDB) → CLI `sdp run "задача"`.
