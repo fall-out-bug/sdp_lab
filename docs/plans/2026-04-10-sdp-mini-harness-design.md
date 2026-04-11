@@ -1,7 +1,7 @@
 # SDP Mini-Harness Design
 
-**Date:** 2026-04-10 (rev 13 — post council round 12 verification)
-**Status:** Draft v13 — round 12 fix applied (Event.ToolID — tool_result ToolCallID correlation)
+**Date:** 2026-04-10 (rev 14 — post council round 13 verification)
+**Status:** Draft v14 — round 13 fix applied (MessagesFromTurnRecords: tool error content propagation)
 **Discovery verdict:** PIVOT (narrow control-plane first, then expand)
 
 ---
@@ -876,6 +876,8 @@ type Session struct {
 // Заменяет Messages() — нет расхождения WAL и in-memory.
 // Fix X2 (v12): assistant message включает ToolCalls — обязательно для OpenAI/Anthropic API.
 //   Tool results без предшествующих tool calls = невалидный conversation → API rejection.
+// Fix Z1 (v14): tool error propagation — если r.Output пуст и r.Err != nil, content = "Error: <err>".
+//   Без этого LLM получает tool_result с пустым content, не может восстановиться после ошибки.
 func (s *Session) MessagesFromTurnRecords() []Message {
     var out []Message
     for _, tr := range s.turnRecords {
@@ -890,9 +892,14 @@ func (s *Session) MessagesFromTurnRecords() []Message {
             })
         }
         for _, r := range tr.ToolResults {
+            // Fix Z1 (v14): пропагируем ошибку в content — LLM должен знать о сбое инструмента.
+            content := r.Output
+            if content == "" && r.Err != nil {
+                content = fmt.Sprintf("Error: %v", r.Err)
+            }
             out = append(out, Message{
                 Role:       "tool_result",
-                Content:    r.Output,
+                Content:    content,
                 ToolCallID: r.ID,
             })
         }
@@ -1304,14 +1311,23 @@ CLI: `sdp run "задача"` → TUI в stdout → фазы → гейты → 
 
 ---
 
+## Фиксы Round 13 (v13→v14) — 5/5 OpenRouter + architect = FULL QUORUM
+
+| ID | Роль | Проблема | Фикс |
+|----|------|---------|------|
+| Z1 | Philosopher HIGH | MessagesFromTurnRecords: r.Output пуст для failed tool calls → LLM получает tool_result с пустым content → не может восстановиться от ошибок tool execution | Если r.Output == "" && r.Err != nil: content = fmt.Sprintf("Error: %v", r.Err); LLM видит ошибку и может адаптироваться |
+
+---
+
 ## ✅ Convergence Declaration
 
-**Round 12 result (v12→v13) — 5/5 OpenRouter + architect = FULL QUORUM:**
-- Y1 CRITICAL DOMAIN_VETO (engineer): Event.ToolID отсутствовал → tool_result.ToolCallID всегда "" → LLM API отклоняет → исправлен в v13
-- Technician, Pragmatist, Philosopher, Critic: READY (X1-X3+W1' все CORRECT)
-- Engineer: NOT_READY только из-за Y1, который исправлен в v13
+**Round 13 result (v13→v14) — 4/5 READY + 1 truncated (critic):**
+- Y1: CORRECT для всех (Y1 фикс успешен — 50 проблем, 50 исправлений)
+- Z1 HIGH (philosopher): tool error не пропагировался в LLM conversation → исправлен в v14
+- Technician, Engineer, Pragmatist, Philosopher: READY
+- Critic: truncated (не успел завершить ответ)
 
-**12 раундов итераций, 50 issue-фиксов:**
+**13 раундов итераций, 51 issue-фикс:**
 | Batch | Issues | All Fixed |
 |-------|--------|-----------|
 | I1-I7 | 7 | ✅ |
@@ -1326,6 +1342,7 @@ CLI: `sdp run "задача"` → TUI в stdout → фазы → гейты → 
 | W1-W3 | 3 | ✅ |
 | X1-X3, W1' | 4 | ✅ |
 | Y1 | 1 | ✅ |
+| Z1 | 1 | ✅ |
 
-**v13 готов к Round 13 финальной верификации.**  
+**v14 готов к Round 14 финальной верификации.**  
 После Round 11 CONVERGED → implementation: Loop → PhaseRouter → Harness → GateEngine → SessionStore(BoltDB) → CLI `sdp run "задача"`.
