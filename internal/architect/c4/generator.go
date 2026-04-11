@@ -486,16 +486,23 @@ func isCIContainer(ci architect.ContainerInfo) bool {
 	src := strings.ToLower(ci.Source)
 	name := strings.ToLower(ci.Name)
 
-	// Source path indicates CI.
-	ciPathPatterns := []string{".github/", ".ci/", "ci/", ".circleci/", ".gitlab/", "dev/docker/"}
+	// Source path indicates CI/test infrastructure.
+	ciPathPatterns := []string{
+		".github/", ".ci/", "ci/", ".circleci/", ".gitlab/",
+		"dev/docker/", "dev/spark-test-image/",
+		"-test-image/", "test/docker/", "testing/",
+	}
 	for _, p := range ciPathPatterns {
 		if strings.Contains(src, p) {
 			return true
 		}
 	}
 
-	// Known CI purpose names.
-	ciNames := []string{"lint", "test", "docs", "binder", "check", "build", "coverage"}
+	// Known CI/test purpose names (exact or prefix match).
+	ciNames := []string{
+		"lint", "test", "docs", "binder", "check", "build",
+		"coverage", "python", "pypy",
+	}
 	for _, ciName := range ciNames {
 		if name == ciName || strings.HasPrefix(name, ciName+"-") {
 			return true

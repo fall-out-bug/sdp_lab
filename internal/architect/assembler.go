@@ -318,6 +318,7 @@ func (pa *ProfileAssembler) mergeFragments(fragments []priorityFragment) *Codeba
 			}
 			profile.Infra.Services = append(profile.Infra.Services, frag.Infra.Services...)
 			profile.Infra.Resources = append(profile.Infra.Resources, frag.Infra.Resources...)
+			profile.Infra.ModuleBoundaries = append(profile.Infra.ModuleBoundaries, frag.Infra.ModuleBoundaries...)
 		}
 
 		// Specs: deduplicate by path

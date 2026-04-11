@@ -296,10 +296,15 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 		})
 	}
 
-	// Convert infrastructure containers to C4 containers
-	for i, infraContainer := range profile.Infra.Containers {
+	// Convert infrastructure containers to C4 containers (skip CI-only images)
+	containerIdx := 0
+	for _, infraContainer := range profile.Infra.Containers {
+		if isCIPipelineContainer(infraContainer) {
+			continue
+		}
+		containerIdx++
 		c4Container := C4Container{
-			ID:         fmt.Sprintf("container_%d", i+1),
+			ID:         fmt.Sprintf("container_%d", containerIdx),
 			Name:       infraContainer.Name,
 			Technology: infraContainer.Type,
 			Source:     infraContainer.Source,
@@ -308,6 +313,32 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 			c4Container.Technology = infraContainer.Image
 		}
 		model.Containers = append(model.Containers, c4Container)
+	}
+
+	// Add Maven/Gradle module boundaries as containers
+	containerSeen := make(map[string]bool)
+	for _, c := range model.Containers {
+		containerSeen[c.Name] = true
+	}
+	for _, mb := range profile.Infra.ModuleBoundaries {
+		for _, child := range mb.Children {
+			childName := filepath.Base(child)
+			if childName == "" || childName == "." {
+				continue
+			}
+			if containerSeen[childName] {
+				continue
+			}
+			containerSeen[childName] = true
+			containerIdx++
+			model.Containers = append(model.Containers, C4Container{
+				ID:          fmt.Sprintf("module_%d", containerIdx),
+				Name:        childName,
+				Technology:  mb.BuildSystem,
+				Source:      mb.Path,
+				Description: mb.BuildSystem + " module: " + child,
+			})
+		}
 	}
 
 	// Add relationships from service dependencies
@@ -328,6 +359,40 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 				Description: "depends on",
 				Type:        "sync",
 			})
+		}
+	}
+
+	// Add relationships from module boundaries (Maven/Gradle multi-module)
+	for _, mb := range profile.Infra.ModuleBoundaries {
+		if len(mb.Children) < 2 {
+			continue
+		}
+		nameToID := make(map[string]string)
+		for _, c := range model.Containers {
+			nameToID[c.Name] = c.ID
+		}
+		for _, childA := range mb.Children {
+			nameA := filepath.Base(childA)
+			idA := nameToID[nameA]
+			if idA == "" {
+				continue
+			}
+			for _, childB := range mb.Children {
+				if childA == childB {
+					continue
+				}
+				nameB := filepath.Base(childB)
+				idB := nameToID[nameB]
+				if idB == "" {
+					continue
+				}
+				model.Relationships = append(model.Relationships, C4Relationship{
+					From:        idA,
+					To:          idB,
+					Description: mb.BuildSystem + " module dependency",
+					Type:        "sync",
+				})
+			}
 		}
 	}
 
@@ -540,4 +605,34 @@ func extractReadmeTitle(path string) string {
 		}
 	}
 	return ""
+}
+
+// isCIPipelineContainer returns true if the container appears to be a CI/build-time
+// image rather than a runtime deploy unit.
+func isCIPipelineContainer(ci ContainerInfo) bool {
+	src := strings.ToLower(ci.Source)
+	name := strings.ToLower(ci.Name)
+
+	ciPaths := []string{
+		".github/", ".ci/", "ci/", ".circleci/", ".gitlab/",
+		"dev/docker/", "dev/spark-test-image/",
+		"-test-image/", "test/docker/", "testing/",
+	}
+	for _, p := range ciPaths {
+		if strings.Contains(src, p) {
+			return true
+		}
+	}
+
+	ciNames := []string{
+		"lint", "test", "docs", "binder", "check", "build",
+		"coverage", "python", "pypy",
+	}
+	for _, ciName := range ciNames {
+		if name == ciName || strings.HasPrefix(name, ciName+"-") {
+			return true
+		}
+	}
+
+	return false
 }
