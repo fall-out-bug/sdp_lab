@@ -20,6 +20,14 @@ var skipDirs = map[string]bool{
 	".sdp":        true,
 }
 
+// buildArtifactExtensions lists file extensions for generated/binary artifacts
+// that should be excluded from file statistics.
+var buildArtifactExtensions = map[string]bool{
+	".bin": true, ".crc": true, ".out": true, ".explain": true,
+	".zip": true, ".jar": true, ".class": true, ".o": true,
+	".pyc": true, ".pyo": true, ".egg": true, ".whl": true,
+}
+
 // namingPatterns maps directory/file name substrings to architectural pattern
 // labels.  Plural forms are included so that e.g. "entities" matches "entity".
 var namingPatterns = map[string]string{
@@ -134,8 +142,14 @@ func (FileTreeExtractor) Extract(ctx context.Context, repoRoot string) (*archite
 
 		totalFiles++
 
-		// Extension counts - keep the dot (e.g., ".scala", ".java")
+		// Skip build artifacts and binary output from extension counts.
+		// These inflate file statistics without representing source code.
 		ext := filepath.Ext(d.Name())
+		if buildArtifactExtensions[strings.ToLower(ext)] {
+			return nil
+		}
+
+		// Extension counts - keep the dot (e.g., ".scala", ".java")
 		if ext != "" {
 			extCounts[ext]++
 		}

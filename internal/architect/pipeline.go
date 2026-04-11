@@ -455,6 +455,11 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 					continue
 				}
 				nameB := filepath.Base(childB)
+				// Enforce DAG: only A→B where A < B lexicographically to prevent
+				// bidirectional edges. Maven modules form a DAG; circular deps are invalid.
+				if nameA >= nameB {
+					continue
+				}
 				idB := nameToID[nameB]
 				if idB == "" {
 					continue
@@ -529,6 +534,45 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 			filtered = append(filtered, ext)
 		}
 		model.ExternalSystems = filtered
+	}
+
+	// Add runtime coupling edges as relationships and external systems
+	for _, edge := range profile.Edges {
+		if edge.Kind != EdgeRuntimeBridge && edge.Kind != EdgeRPC {
+			continue
+		}
+
+		// Map source file to container
+		fromID := ""
+		for _, c := range model.Containers {
+			if strings.Contains(edge.Source, c.Name) || strings.Contains(c.Source, edge.Source) {
+				fromID = c.ID
+				break
+			}
+		}
+
+		desc := edge.Protocol + " runtime coupling"
+		if fromID != "" {
+			model.Relationships = append(model.Relationships, C4Relationship{
+				From:        fromID,
+				To:          edge.Target,
+				Description: desc,
+				Type:        "runtime",
+				Contract:    edge.Method,
+			})
+		}
+
+		// Add as external system if not already present
+		sysID := edge.Protocol
+		if !seenSystems[sysID] && edge.Protocol != "" {
+			model.ExternalSystems = append(model.ExternalSystems, ExternalSystem{
+				ID:          sysID,
+				Description: edge.Protocol + " runtime bridge",
+				Technology:  edge.Protocol,
+				Evidence:    edge.Path + ": " + edge.Method,
+			})
+			seenSystems[sysID] = true
+		}
 	}
 
 	return model

@@ -262,6 +262,23 @@ func (PythonAdapter) Extract(ctx context.Context, repoRoot string) (*architect.P
 
 		frag.ImportGraph = ig
 
+		for _, coupling := range graph.RuntimeCouplings {
+			kind := architect.EdgeRuntimeBridge
+			protocol := "py4j"
+			target := "jvm"
+			if coupling.Type == "spark_context" {
+				kind = architect.EdgeRPC
+				protocol = "spark"
+			}
+			frag.Edges = append(frag.Edges, architect.StructuralEdge{
+				Source:     coupling.File,
+				Target:     target,
+				Kind:       kind,
+				Protocol:   protocol,
+				Confidence: 0.85,
+			})
+		}
+
 		// Surface frameworks from the graph.
 		if len(graph.Frameworks) > 0 {
 			fwDepInfo := architect.DependencyInfo{
@@ -476,11 +493,14 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 			Edges:            edges,
 		}
 
+		// Build module-aware prefix map for adaptive clustering.
+		modulePrefixMap := buildModulePrefixMap(r.Modules, r.ImportGraph.PackageImports)
+
 		packageDirToCluster := make(map[string]string, len(r.ImportGraph.PackageImports))
 		packageNameToCluster := make(map[string]string, len(r.ImportGraph.PackageImports))
 		clusterIndex := make(map[string]int)
 		for pkgDir := range r.ImportGraph.PackageImports {
-			clusterID := javaClusterID(pkgDir)
+			clusterID := javaClusterID(pkgDir, modulePrefixMap)
 			packageDirToCluster[pkgDir] = clusterID
 			if pkgName := javaPackageName(pkgDir); pkgName != "" {
 				packageNameToCluster[pkgName] = clusterID
@@ -493,6 +513,53 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 			}
 			idx := clusterIndex[clusterID]
 			importGraph.Clusters[idx].Packages = append(importGraph.Clusters[idx].Packages, pkgDir)
+		}
+
+		// Adaptive refinement: split oversized non-module clusters (>50 packages).
+		const maxClusterSize = 50
+		for i := 0; i < len(importGraph.Clusters); i++ {
+			if len(importGraph.Clusters[i].Packages) <= maxClusterSize {
+				continue
+			}
+			// Don't split module-derived clusters — they represent real boundaries.
+			if _, isModule := modulePrefixMap[importGraph.Clusters[i].ID]; isModule {
+				continue
+			}
+			// Split by increasing prefix depth (4 segments instead of 3).
+			splitClusters := make(map[string]*architect.ImportCluster)
+			for _, pkg := range importGraph.Clusters[i].Packages {
+				pkgName := javaPackageName(pkg)
+				newID := javaImportPrefix(pkgName, 4)
+				if newID == "" || newID == importGraph.Clusters[i].ID {
+					newID = pkgName // Full package as cluster
+				}
+				if _, ok := splitClusters[newID]; !ok {
+					splitClusters[newID] = &architect.ImportCluster{ID: newID}
+				}
+				splitClusters[newID].Packages = append(splitClusters[newID].Packages, pkg)
+				packageDirToCluster[pkg] = newID
+				if pkgName != "" {
+					packageNameToCluster[pkgName] = newID
+				}
+			}
+			// Replace oversized cluster with split results.
+			replacement := make([]architect.ImportCluster, 0, len(importGraph.Clusters)-1+len(splitClusters))
+			for j, c := range importGraph.Clusters {
+				if j == i {
+					for _, sc := range splitClusters {
+						replacement = append(replacement, *sc)
+					}
+					continue
+				}
+				replacement = append(replacement, c)
+			}
+			importGraph.Clusters = replacement
+			// Rebuild clusterIndex.
+			clusterIndex = make(map[string]int, len(importGraph.Clusters))
+			for j, c := range importGraph.Clusters {
+				clusterIndex[c.ID] = j
+			}
+			i-- // recheck current index
 		}
 
 		for pkgDir, imports := range r.ImportGraph.PackageImports {
@@ -520,6 +587,22 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 		}
 
 		frag.ImportGraph = importGraph
+	}
+
+	for _, coupling := range r.RuntimeCouplings {
+		kind := architect.EdgeRPC
+		protocol := "spark-rpc"
+		if coupling.Type == "py4j_gateway" {
+			kind = architect.EdgeRuntimeBridge
+			protocol = "py4j"
+		}
+		frag.Edges = append(frag.Edges, architect.StructuralEdge{
+			Source:     coupling.File,
+			Target:     "spark-runtime",
+			Kind:       kind,
+			Protocol:   protocol,
+			Confidence: 0.8,
+		})
 	}
 
 	// Convert BuildSystem.Dependencies → DependencyInfo
@@ -552,10 +635,19 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 	return frag
 }
 
-func javaClusterID(pkgDir string) string {
+func javaClusterID(pkgDir string, modulePrefixMap map[string]string) string {
 	pkgName := javaPackageName(pkgDir)
 	if pkgName == "" {
 		return "unnamed"
+	}
+
+	// Check if this package belongs to a Maven module.
+	if modulePrefixMap != nil {
+		for prefix, moduleCluster := range modulePrefixMap {
+			if strings.HasPrefix(pkgName, prefix+".") || pkgName == prefix {
+				return moduleCluster
+			}
+		}
 	}
 
 	clusterID := javaImportPrefix(pkgName, 3)
@@ -563,6 +655,53 @@ func javaClusterID(pkgDir string) string {
 		return pkgName
 	}
 	return clusterID
+}
+
+// buildModulePrefixMap maps Java package prefixes to module-derived cluster IDs.
+// For each Maven module (e.g. "sql/core"), it scans package directories to find
+// which Java packages live under that module, then maps the longest common prefix
+// to a slug like "spark-sql-core".
+func buildModulePrefixMap(modules []string, packageImports map[string][]string) map[string]string {
+	if len(modules) == 0 {
+		return nil
+	}
+
+	result := make(map[string]string)
+	for _, mod := range modules {
+		slug := moduleSlug(mod)
+		// Find Java packages that live under this module's source tree.
+		for pkgDir := range packageImports {
+			if !strings.Contains(filepath.ToSlash(pkgDir), filepath.ToSlash(mod)+"/") {
+				continue
+			}
+			pkgName := javaPackageName(pkgDir)
+			if pkgName == "" {
+				continue
+			}
+			// Use the shortest prefix (most general) for this module.
+			prefix := javaImportPrefix(pkgName, 3)
+			if prefix == "" {
+				prefix = pkgName
+			}
+			if existing, ok := result[prefix]; ok {
+				// Keep the longest matching prefix (most specific module).
+				if len(prefix) > len(existing) {
+					result[prefix] = slug
+				}
+				continue
+			}
+			result[prefix] = slug
+		}
+	}
+	return result
+}
+
+// moduleSlug converts a Maven module path like "sql/core" to a slug like "spark-sql-core".
+func moduleSlug(mod string) string {
+	s := filepath.ToSlash(mod)
+	s = strings.TrimPrefix(s, "/")
+	parts := strings.Split(s, "/")
+	return "spark-" + strings.Join(parts, "-")
 }
 
 func javaPackageName(pkgDir string) string {

@@ -19,17 +19,18 @@ import (
 
 // JavaExtractionResult is the output of the JavaExtractor.
 type JavaExtractionResult struct {
-	Language         string              `json:"language"`
-	ImportGraph      JavaImportGraph     `json:"import_graph"`
-	Frameworks       []JavaFramework     `json:"frameworks"`
-	BuildSystem      *BuildSystem        `json:"build_system,omitempty"`
-	Modules          []string            `json:"modules,omitempty"`
-	SpringEndpoints  []SpringEndpoint    `json:"spring_endpoints,omitempty"`
-	Annotations      []AnnotationSighting `json:"annotations,omitempty"`
-	PackageStructure *PackageStructure   `json:"package_structure,omitempty"`
-	ExtractionMethod string              `json:"extraction_method"`
-	AccuracyEstimate float64             `json:"accuracy_estimate"`
-	Metadata         map[string]string   `json:"metadata,omitempty"`
+	Language         string                    `json:"language"`
+	ImportGraph      JavaImportGraph           `json:"import_graph"`
+	Frameworks       []JavaFramework           `json:"frameworks"`
+	BuildSystem      *BuildSystem              `json:"build_system,omitempty"`
+	Modules          []string                  `json:"modules,omitempty"`
+	SpringEndpoints  []SpringEndpoint          `json:"spring_endpoints,omitempty"`
+	Annotations      []AnnotationSighting      `json:"annotations,omitempty"`
+	RuntimeCouplings []RuntimeCouplingSighting `json:"runtime_couplings,omitempty"`
+	PackageStructure *PackageStructure         `json:"package_structure,omitempty"`
+	ExtractionMethod string                    `json:"extraction_method"`
+	AccuracyEstimate float64                   `json:"accuracy_estimate"`
+	Metadata         map[string]string         `json:"metadata,omitempty"`
 }
 
 // JavaImportGraph groups imports by the package directory in which they appear.
@@ -74,14 +75,22 @@ type AnnotationSighting struct {
 	LineNumber int    `json:"line_number,omitempty"`
 }
 
+// RuntimeCouplingSighting records a Java runtime bridge or RPC signal.
+type RuntimeCouplingSighting struct {
+	Type     string `json:"type"`
+	File     string `json:"file"`
+	Line     int    `json:"line"`
+	Evidence string `json:"evidence"`
+}
+
 // PackageStructure describes the detected Maven/Gradle source layout.
 type PackageStructure struct {
-	SourceDirs    []string `json:"source_dirs"`     // detected source directories
-	TestDirs      []string `json:"test_dirs"`       // detected test directories
-	HasKotlin     bool     `json:"has_kotlin"`      // src/main/kotlin detected
-	RootPackages  []string `json:"root_packages"`   // top-level Java packages (e.g. "com.example")
-	BuildTool     string   `json:"build_tool"`      // "maven", "gradle", or ""
-	MultiModule   bool     `json:"multi_module"`    // multi-module project detected
+	SourceDirs   []string `json:"source_dirs"`   // detected source directories
+	TestDirs     []string `json:"test_dirs"`     // detected test directories
+	HasKotlin    bool     `json:"has_kotlin"`    // src/main/kotlin detected
+	RootPackages []string `json:"root_packages"` // top-level Java packages (e.g. "com.example")
+	BuildTool    string   `json:"build_tool"`    // "maven", "gradle", or ""
+	MultiModule  bool     `json:"multi_module"`  // multi-module project detected
 }
 
 // ---------------------------------------------------------------------------
@@ -113,7 +122,7 @@ var (
 	kotlinImportRe = regexp.MustCompile(`^import\s+([a-zA-Z0-9_.]+)`)
 
 	// Java package declaration.
-	javaPackageRe = regexp.MustCompile(`^package\s+([a-zA-Z0-9_.]+)\s*;`)
+	javaPackageRe   = regexp.MustCompile(`^package\s+([a-zA-Z0-9_.]+)\s*;`)
 	kotlinPackageRe = regexp.MustCompile(`^package\s+([a-zA-Z0-9_.]+)`)
 
 	// Spring annotation patterns.
@@ -121,16 +130,19 @@ var (
 	springBeanRe  = regexp.MustCompile(`@Bean`)
 
 	// Spring endpoint annotations.
-	requestMappingRe = regexp.MustCompile(`@RequestMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
-	getMappingRe     = regexp.MustCompile(`@GetMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
-	postMappingRe    = regexp.MustCompile(`@PostMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
-	putMappingRe     = regexp.MustCompile(`@PutMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
-	deleteMappingRe  = regexp.MustCompile(`@DeleteMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
-	patchMappingRe   = regexp.MustCompile(`@PatchMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
+	requestMappingRe    = regexp.MustCompile(`@RequestMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
+	getMappingRe        = regexp.MustCompile(`@GetMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
+	postMappingRe       = regexp.MustCompile(`@PostMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
+	putMappingRe        = regexp.MustCompile(`@PutMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
+	deleteMappingRe     = regexp.MustCompile(`@DeleteMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
+	patchMappingRe      = regexp.MustCompile(`@PatchMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
 	classLevelMappingRe = regexp.MustCompile(`@RequestMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
 
 	// Lombok annotations.
-	lombokAnnotRe = regexp.MustCompile(`@(Data|Builder|Getter|Setter|AllArgsConstructor|NoArgsConstructor|RequiredArgsConstructor|Value|With|Slf4j|Log|Log4j2|Cleanup|Synchronized|SneakyThrows|CustomLog)`)
+	lombokAnnotRe   = regexp.MustCompile(`@(Data|Builder|Getter|Setter|AllArgsConstructor|NoArgsConstructor|RequiredArgsConstructor|Value|With|Slf4j|Log|Log4j2|Cleanup|Synchronized|SneakyThrows|CustomLog)`)
+	reNettyRpcEnv   = regexp.MustCompile(`(?:NettyRpcEnv|RpcEnv\s*\.\s*create|TransportContext\s*\()`)
+	reGatewayServer = regexp.MustCompile(`GatewayServer\s*[\.(]`)
+	reRpcImport     = regexp.MustCompile(`org\.apache\.spark\.rpc\.`)
 
 	// Kotlin-specific patterns.
 	kotlinDataClassRe    = regexp.MustCompile(`^data\s+class\s+`)
@@ -151,7 +163,7 @@ var (
 			`['"]([a-zA-Z0-9._-]+):([a-zA-Z0-9._-]+)(?::([a-zA-Z0-9._-]+))?['"]\)?`)
 
 	// Gradle settings include patterns.
-	gradleIncludeRe      = regexp.MustCompile(`include\s*\(\s*['"]([^'"]+)['"]`)
+	gradleIncludeRe       = regexp.MustCompile(`include\s*\(\s*['"]([^'"]+)['"]`)
 	gradleIncludeSingleRe = regexp.MustCompile(`include\s+['"]([^'"]+)['"]`)
 
 	// Known source directory patterns (Maven/Gradle standard layout).
@@ -231,7 +243,7 @@ func (e *JavaExtractor) Extract(rootDir string) (*JavaExtractionResult, error) {
 	}
 
 	// Collect unique class-level RequestMapping values for endpoint prefixing.
-	classLevelMappings := make(map[string]string) // file -> prefix path
+	classLevelMappings := make(map[string]string)  // file -> prefix path
 	classLevelMappingLines := make(map[string]int) // file -> line number of class-level mapping
 	// Collect all annotations for framework detection.
 	allAnnotations := make(map[string]bool)
@@ -264,7 +276,7 @@ func (e *JavaExtractor) Extract(rootDir string) (*JavaExtractionResult, error) {
 		case isJavaFile(rel):
 			foundSource = true
 			javaFiles++
-			imports, annotations, pkgDecl, scanErr := scanJavaFile(path, rel)
+			imports, annotations, pkgDecl, scanErr := scanJavaFile(path, rel, &result.RuntimeCouplings)
 			if scanErr != nil {
 				return nil
 			}
@@ -424,23 +436,27 @@ func scanJavaImports(path string) ([]string, error) {
 
 // scanJavaFile performs full scanning of a Java file: imports, annotations,
 // and package declaration.
-func scanJavaFile(path, relPath string) ([]string, []AnnotationSighting, string, error) {
+func scanJavaFile(path, relPath string, runtimeCouplings ...*[]RuntimeCouplingSighting) ([]string, []AnnotationSighting, string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, nil, "", err
 	}
 	defer f.Close()
 
-	return scanJavaFromReader(f, relPath)
+	return scanJavaFromReader(f, relPath, runtimeCouplings...)
 }
 
 // scanJavaFromReader reads from a bufio-ready reader and extracts imports,
 // annotations, and the package declaration.
-func scanJavaFromReader(f *os.File, relPath string) ([]string, []AnnotationSighting, string, error) {
+func scanJavaFromReader(f *os.File, relPath string, runtimeCouplings ...*[]RuntimeCouplingSighting) ([]string, []AnnotationSighting, string, error) {
 	var imports []string
 	var annotations []AnnotationSighting
 	var packageDecl string
 	lineNum := 0
+	var couplingSink *[]RuntimeCouplingSighting
+	if len(runtimeCouplings) > 0 {
+		couplingSink = runtimeCouplings[0]
+	}
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -450,6 +466,33 @@ func scanJavaFromReader(f *os.File, relPath string) ([]string, []AnnotationSight
 		// Skip comments.
 		if strings.HasPrefix(line, "//") || strings.HasPrefix(line, "/*") || strings.HasPrefix(line, "*") {
 			continue
+		}
+
+		if couplingSink != nil {
+			if reNettyRpcEnv.MatchString(line) {
+				*couplingSink = append(*couplingSink, RuntimeCouplingSighting{
+					Type:     "netty_rpc",
+					File:     relPath,
+					Line:     lineNum,
+					Evidence: line,
+				})
+			}
+			if reGatewayServer.MatchString(line) {
+				*couplingSink = append(*couplingSink, RuntimeCouplingSighting{
+					Type:     "py4j_gateway",
+					File:     relPath,
+					Line:     lineNum,
+					Evidence: line,
+				})
+			}
+			if reRpcImport.MatchString(line) {
+				*couplingSink = append(*couplingSink, RuntimeCouplingSighting{
+					Type:     "spark_rpc",
+					File:     relPath,
+					Line:     lineNum,
+					Evidence: line,
+				})
+			}
 		}
 
 		// Package declaration.
@@ -981,16 +1024,16 @@ func detectSpringEvidence(imports map[string]bool, annotations map[string]bool) 
 
 	// Evidence from import paths.
 	springImportPrefixes := map[string]string{
-		"org.springframework.web.bind.annotation":                    "@RestController",
-		"org.springframework.stereotype.Service":                     "@Service",
-		"org.springframework.stereotype.Repository":                  "@Repository",
-		"org.springframework.stereotype.Component":                   "@Component",
-		"org.springframework.context.annotation.Configuration":        "@Configuration",
+		"org.springframework.web.bind.annotation":                      "@RestController",
+		"org.springframework.stereotype.Service":                       "@Service",
+		"org.springframework.stereotype.Repository":                    "@Repository",
+		"org.springframework.stereotype.Component":                     "@Component",
+		"org.springframework.context.annotation.Configuration":         "@Configuration",
 		"org.springframework.boot.autoconfigure.SpringBootApplication": "@SpringBootApplication",
-		"org.springframework.boot.SpringApplication":                 "@SpringBootApplication",
-		"org.springframework.context.annotation.Bean":                "@Bean",
-		"javax.persistence.Entity":                                   "@Entity",
-		"jakarta.persistence.Entity":                                 "@Entity",
+		"org.springframework.boot.SpringApplication":                   "@SpringBootApplication",
+		"org.springframework.context.annotation.Bean":                  "@Bean",
+		"javax.persistence.Entity":                                     "@Entity",
+		"jakarta.persistence.Entity":                                   "@Entity",
 	}
 
 	for imp := range imports {
@@ -1029,9 +1072,9 @@ func detectHibernateEvidence(imports map[string]bool) []string {
 	seen := make(map[string]bool)
 
 	hibernatePatterns := map[string]string{
-		"org.hibernate":         "Hibernate session/entity imports",
-		"javax.persistence":     "JPA persistence annotations",
-		"jakarta.persistence":   "Jakarta persistence annotations",
+		"org.hibernate":                "Hibernate session/entity imports",
+		"javax.persistence":            "JPA persistence annotations",
+		"jakarta.persistence":          "Jakarta persistence annotations",
 		"org.springframework.data.jpa": "Spring Data JPA",
 	}
 

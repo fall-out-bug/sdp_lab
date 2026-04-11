@@ -44,12 +44,14 @@ type C4Container struct {
 type EdgeKind string
 
 const (
-	EdgeImport     EdgeKind = "import"
-	EdgeCall       EdgeKind = "call"
-	EdgeImplements EdgeKind = "implements"
-	EdgePersistsTo EdgeKind = "persists_to"
-	EdgeExposes    EdgeKind = "exposes"
-	EdgeContains   EdgeKind = "contains"
+	EdgeImport        EdgeKind = "import"
+	EdgeCall          EdgeKind = "call"
+	EdgeImplements    EdgeKind = "implements"
+	EdgePersistsTo    EdgeKind = "persists_to"
+	EdgeExposes       EdgeKind = "exposes"
+	EdgeContains      EdgeKind = "contains"
+	EdgeRuntimeBridge EdgeKind = "runtime_bridge" // polyglot bridge (Py4J, JNI)
+	EdgeRPC           EdgeKind = "rpc"            // RPC framework (Netty RPC, gRPC internal)
 )
 
 // ManifestDependency is a raw entry from a single manifest file.
@@ -213,13 +215,13 @@ const (
 
 // ReferenceModel is a C4-oriented architecture model of the repository.
 type ReferenceModel struct {
-	Version         string            `json:"version"`
-	State           ModelState        `json:"state"`
-	GeneratedAt     string            `json:"generated_at,omitempty"`
-	AnalyzedCommit  string            `json:"analyzed_commit,omitempty"`
-	System          SystemInfo        `json:"system"`
-	Actors          []Actor           `json:"actors,omitempty"`
-	ExternalSystems []ExternalSystem  `json:"external_systems,omitempty"`
-	Containers      []C4Container     `json:"containers,omitempty"`
-	Relationships   []C4Relationship  `json:"relationships,omitempty"`
+	Version         string           `json:"version"`
+	State           ModelState       `json:"state"`
+	GeneratedAt     string           `json:"generated_at,omitempty"`
+	AnalyzedCommit  string           `json:"analyzed_commit,omitempty"`
+	System          SystemInfo       `json:"system"`
+	Actors          []Actor          `json:"actors,omitempty"`
+	ExternalSystems []ExternalSystem `json:"external_systems,omitempty"`
+	Containers      []C4Container    `json:"containers,omitempty"`
+	Relationships   []C4Relationship `json:"relationships,omitempty"`
 }
