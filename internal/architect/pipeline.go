@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -141,6 +144,11 @@ func (p *Pipeline) Run(ctx context.Context) (*PipelineResult, error) {
 	p.progress(StageAssemble, fmt.Sprintf("Assembled profile: %d files, %d LOC",
 		profile.Metrics.TotalFiles, profile.Metrics.TotalLOC), nil)
 
+	// Infer system name from repoRoot (with access to filesystem).
+	if profile.Name == "" {
+		profile.Name = inferSystemName(profile, p.config.RepoRoot)
+	}
+
 	// Stage 3: Security filter
 	p.progress(StageFilter, "Applying security filter...", nil)
 	_, secretsFound := p.secFilter.Sanitize(profile)
@@ -250,6 +258,12 @@ func (p *Pipeline) runEnrichment(ctx context.Context, profile *CodebaseProfile) 
 // BuildReferenceModelFromProfile creates a C4 ReferenceModel from a profile.
 // This is exported so the CLI layer can call it without importing the c4 package.
 func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
+	// Infer system name if not already set on the profile.
+	if profile.Name == "" {
+		// repoRoot is not available here; use metadata or manifest-based heuristics.
+		profile.Name = inferSystemName(profile, "")
+	}
+
 	model := &ReferenceModel{
 		Version:     "1.0.0",
 		State:       ModelObserved,
@@ -342,6 +356,14 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 		"redis": "cache", "postgres": "database", "mysql": "database",
 		"mongodb": "database", "elasticsearch": "search engine",
 		"s3": "object storage", "dynamodb": "database",
+		"hadoop": "distributed filesystem", "hdfs": "distributed filesystem",
+		"yarn": "cluster manager", "mesos": "cluster manager",
+		"zookeeper": "coordination service",
+		"hive": "data warehouse", "spark": "data processing",
+		"flink": "stream processing", "storm": "stream processing",
+		"cassandra": "database", "presto": "query engine", "trino": "query engine",
+		"kubernetes": "container orchestration", "minio": "object storage",
+		"airflow": "workflow orchestration",
 	}
 	seenSystems := make(map[string]bool)
 	for _, dep := range profile.Dependencies.NotableDeps {
@@ -438,4 +460,84 @@ func (r *PipelineResult) ToMermaid() string {
 		fmt.Fprintf(&b, "%% %s\n%s\n\n", d.Level, d.MermaidCode)
 	}
 	return b.String()
+}
+
+// inferSystemName attempts to determine the project name from multiple sources.
+// It tries, in order: metadata, pom.xml <name>, README.md first heading, directory basename.
+func inferSystemName(profile *CodebaseProfile, repoRoot string) string {
+	// 1. Check metadata
+	if profile.Metadata != nil {
+		if name := strings.TrimSpace(profile.Metadata["project_name"]); name != "" {
+			return name
+		}
+	}
+
+	// 2. Check pom.xml <name> from manifest paths
+	for _, m := range profile.Dependencies.Manifests {
+		if strings.HasSuffix(m.Path, "pom.xml") {
+			fullPath := filepath.Join(repoRoot, m.Path)
+			if name := extractPomName(fullPath); name != "" {
+				return name
+			}
+		}
+	}
+	// Also try root pom.xml
+	if repoRoot != "" {
+		if name := extractPomName(filepath.Join(repoRoot, "pom.xml")); name != "" {
+			return name
+		}
+	}
+
+	// 3. Check README.md first heading
+	if repoRoot != "" {
+		if name := extractReadmeTitle(filepath.Join(repoRoot, "README.md")); name != "" {
+			return name
+		}
+	}
+
+	// 4. Directory basename
+	if repoRoot != "" {
+		base := filepath.Base(repoRoot)
+		if base != "" && base != "." && base != "/" {
+			return base
+		}
+	}
+
+	return "unknown-system"
+}
+
+// pomNameRe extracts the content of the first top-level <name>...</name> in a pom.xml.
+// We match non-greedily and take only the first occurrence to avoid picking up names
+// from dependency/dependencyManagement blocks.
+var pomNameRe = regexp.MustCompile(`(?s)<name>\s*(.*?)\s*</name>`)
+
+// extractPomName reads a pom.xml file and returns the first <name> value.
+func extractPomName(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	matches := pomNameRe.FindSubmatch(data)
+	if len(matches) >= 2 {
+		return strings.TrimSpace(string(matches[1]))
+	}
+	return ""
+}
+
+// extractReadmeTitle reads a README file and returns the first Markdown heading text.
+func extractReadmeTitle(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		trimmed := strings.TrimLeft(line, " \t")
+		if strings.HasPrefix(trimmed, "# ") {
+			title := strings.TrimSpace(strings.TrimPrefix(trimmed, "# "))
+			if title != "" {
+				return title
+			}
+		}
+	}
+	return ""
 }

@@ -130,6 +130,11 @@ func detectContainers(profile *architect.CodebaseProfile) []architect.C4Containe
 	// Priority 1: Dockerfile services (from infra extractor).
 	if profile.Infra.Containers != nil {
 		for _, ci := range profile.Infra.Containers {
+			// Skip CI-only containers.
+			if isCIContainer(ci) {
+				continue
+			}
+
 			cType := "service"
 			tech := ""
 			if ci.Image != "" {
@@ -473,6 +478,31 @@ func detectActorsAndExternals(profile *architect.CodebaseProfile, model *archite
 	}
 
 	return actors, externals
+}
+
+// isCIContainer returns true if the container appears to be a CI/build-time
+// image rather than a runtime deploy unit.
+func isCIContainer(ci architect.ContainerInfo) bool {
+	src := strings.ToLower(ci.Source)
+	name := strings.ToLower(ci.Name)
+
+	// Source path indicates CI.
+	ciPathPatterns := []string{".github/", ".ci/", "ci/", ".circleci/", ".gitlab/", "dev/docker/"}
+	for _, p := range ciPathPatterns {
+		if strings.Contains(src, p) {
+			return true
+		}
+	}
+
+	// Known CI purpose names.
+	ciNames := []string{"lint", "test", "docs", "binder", "check", "build", "coverage"}
+	for _, ciName := range ciNames {
+		if name == ciName || strings.HasPrefix(name, ciName+"-") {
+			return true
+		}
+	}
+
+	return false
 }
 
 // containsAny checks if s contains any of the substrings.

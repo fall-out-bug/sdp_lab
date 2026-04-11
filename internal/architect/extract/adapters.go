@@ -493,6 +493,30 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 		LanguagesCount: 1,
 	}
 
+	// Convert Maven modules to ModuleBoundaries
+	if len(r.Modules) > 0 {
+		for _, mod := range r.Modules {
+			frag.Boundaries = append(frag.Boundaries, architect.ModuleBoundary{
+				Name:       mod,
+				Pattern:    mod + "/**",
+				EntryFiles: []string{mod + "/pom.xml"},
+			})
+		}
+	}
+
 	return frag
 }
 
+
+// javaImportPrefix extracts the first n segments from a Java import path.
+// For example "org.apache.spark.sql.DataFrame" with n=3 returns "org.apache.spark".
+func javaImportPrefix(imp string, n int) string {
+	imp = strings.TrimSuffix(imp, ".*")
+	imp = strings.TrimSuffix(imp, "*")
+
+	parts := strings.Split(imp, ".")
+	if len(parts) < n {
+		n = len(parts)
+	}
+	return strings.Join(parts[:n], ".")
+}

@@ -18,21 +18,21 @@ import (
 // ExtractorConfig controls concurrency and timeout behaviour for the assembler.
 // All fields have sensible defaults; a zero-value ExtractorConfig is valid.
 type ExtractorConfig struct {
-	MaxExtractorTimeout time.Duration // per-extractor deadline (default 30s)
+	MaxExtractorTimeout time.Duration // per-extractor deadline (default 120s)
 	MaxConcurrency      int           // max goroutines for extractor group (default runtime.NumCPU())
-	MaxTotalTime        time.Duration // overall assembly deadline (default 5m)
+	MaxTotalTime        time.Duration // overall assembly deadline (default 10m)
 }
 
 // defaults fills zero-valued fields with spec Section 7.4 defaults.
 func (c ExtractorConfig) defaults() ExtractorConfig {
 	if c.MaxExtractorTimeout == 0 {
-		c.MaxExtractorTimeout = 30 * time.Second
+		c.MaxExtractorTimeout = 120 * time.Second
 	}
 	if c.MaxConcurrency == 0 {
 		c.MaxConcurrency = runtime.NumCPU()
 	}
 	if c.MaxTotalTime == 0 {
-		c.MaxTotalTime = 5 * time.Minute
+		c.MaxTotalTime = 10 * time.Minute
 	}
 	return c
 }
@@ -487,6 +487,15 @@ func mergeStringSlices(a, b []string) []string {
 	return result
 }
 
+// extToLanguage maps file extensions to language names.
+var extToLanguage = map[string]string{
+	".java": "Java", ".kt": "Kotlin", ".scala": "Scala", ".py": "Python",
+	".go": "Go", ".js": "JavaScript", ".ts": "TypeScript", ".tsx": "TypeScript",
+	".rs": "Rust", ".rb": "Ruby", ".php": "PHP", ".cs": "C#", ".cpp": "C++",
+	".c": "C", ".swift": "Swift", ".m": "Objective-C", ".sh": "Shell",
+	".sql": "SQL", ".r": "R", ".lua": "Lua",
+}
+
 // computeMetrics calculates aggregate metrics from fragments.
 func (pa *ProfileAssembler) computeMetrics(profile *CodebaseProfile, fragments []*ProfileFragment) {
 	// Count languages
@@ -501,6 +510,41 @@ func (pa *ProfileAssembler) computeMetrics(profile *CodebaseProfile, fragments [
 			}
 		}
 	}
+
+	// Fallback: infer languages from ExtCounts when language adapters timed out
+	// or failed to produce language information.
+	if len(languageSet) == 0 && len(profile.FileTree.ExtCounts) > 0 {
+		langCounts := make(map[string]int)
+		for ext, count := range profile.FileTree.ExtCounts {
+			extLower := strings.ToLower(ext)
+			// Ensure ext starts with a dot for matching.
+			if len(extLower) > 0 && extLower[0] != '.' {
+				extLower = "." + extLower
+			}
+			if lang, ok := extToLanguage[extLower]; ok {
+				langCounts[lang] += count
+				languageSet[lang] = true
+			}
+		}
+		// Store primary language in metadata.
+		if len(langCounts) > 0 {
+			primaryLang := ""
+			primaryCount := 0
+			for lang, cnt := range langCounts {
+				if cnt > primaryCount {
+					primaryLang = lang
+					primaryCount = cnt
+				}
+			}
+			if primaryLang != "" {
+				if profile.Metadata == nil {
+					profile.Metadata = make(map[string]string)
+				}
+				profile.Metadata["primary_language"] = primaryLang
+			}
+		}
+	}
+
 	profile.Metrics.LanguagesCount = len(languageSet)
 
 	// Pull FileTree metrics if not already set

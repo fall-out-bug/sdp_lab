@@ -2,6 +2,7 @@ package c4
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"sdp_dev/internal/architect"
@@ -39,7 +40,54 @@ func inferRelationships(profile *architect.CodebaseProfile, model *architect.Ref
 		})
 	}
 
-	// From import graph clusters (cross-container imports).
+	// From module boundaries (Maven/Gradle multi-module projects).
+	// When a module boundary has children, create relationships between them.
+	for _, mb := range profile.Infra.ModuleBoundaries {
+		if len(mb.Children) < 2 {
+			continue
+		}
+		// Each child module relates to sibling modules
+		for i, childA := range mb.Children {
+			nameA := filepath.Base(childA)
+			idA := containerID(nameA)
+			// Verify idA is actually a container
+			foundA := false
+			for _, c := range model.Containers {
+				if c.ID == idA {
+					foundA = true
+					break
+				}
+			}
+			if !foundA {
+				continue
+			}
+			for j, childB := range mb.Children {
+				if i == j {
+					continue
+				}
+				nameB := filepath.Base(childB)
+				idB := containerID(nameB)
+				foundB := false
+				for _, c := range model.Containers {
+					if c.ID == idB {
+						foundB = true
+						break
+					}
+				}
+				if !foundB {
+					continue
+				}
+				add(architect.C4Relationship{
+					From:        idA,
+					To:          idB,
+					Description: mb.BuildSystem + " module dependency",
+					Type:        "sync",
+				})
+			}
+		}
+	}
+
+		// From import graph clusters (cross-container imports).
 	if profile.ImportGraph.Clusters != nil {
 		containerForPackage := buildPackageToContainerMap(profile, model)
 

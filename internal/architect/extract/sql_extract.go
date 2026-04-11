@@ -171,6 +171,11 @@ func (e *SQLExtractor) Extract(ctx context.Context, root string) (*architect.Pro
 		rel, _ := filepath.Rel(root, path)
 
 		if sqlExtensions[ext] {
+			// Skip test fixtures.
+			if isTestPath(rel) {
+				return nil
+			}
+
 			data, readErr := os.ReadFile(path)
 			if readErr != nil {
 				return nil
@@ -730,6 +735,30 @@ func domainName(tables []string) string {
 // ---------------------------------------------------------------------------
 // Utilities
 // ---------------------------------------------------------------------------
+
+// isTestPath returns true if the path looks like a test fixture or test directory.
+func isTestPath(rel string) bool {
+	lower := strings.ToLower(rel)
+	testPatterns := []string{
+		"/test/", "/tests/", "/__tests__/",
+		"/fixtures/", "/fixture/",
+		"/testdata/", "/test_data/",
+		"/mock/", "/mocks/",
+		"/src/test/",
+		"test_",
+	}
+	for _, p := range testPatterns {
+		if strings.Contains(lower, p) {
+			return true
+		}
+	}
+	// Also check filename patterns.
+	base := strings.ToLower(filepath.Base(rel))
+	if strings.HasPrefix(base, "test_") || strings.HasSuffix(base, "_test.sql") {
+		return true
+	}
+	return false
+}
 
 // splitTrimmed splits on commas and trims whitespace and quotes from each part.
 func splitTrimmed(s string) []string {
