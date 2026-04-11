@@ -144,19 +144,8 @@ import (
 	"fmt"
 )
 
-// ModelGateway abstracts LLM provider calls. Run() uses this to stream events.
-// Production implementations wrap OpenRouter / Anthropic / OpenAI SDKs.
-// Tests use StubGateway.
-type ModelGateway interface {
-	// Call initiates a streaming LLM request and returns a channel of Events.
-	// The channel is closed when the response is complete (after "done" event) or on error.
-	// cfg.Model determines which model to call.
-	Call(ctx context.Context, msgs []Message, cfg LoopConfig) (<-chan Event, error)
-
-	// IsAvailable returns true if the given model name can be routed.
-	// PhaseRouter uses this to pick the first available model from PhaseConfig.Models.
-	IsAvailable(model string) bool
-}
+// NOTE: ModelGateway interface is defined in types.go (Task 1). gateway.go only provides
+// StubGateway (the test double) and ModelCall. Fix W1: interface defined once, not duplicated.
 
 // ModelCall records a single Call() invocation for test assertions.
 type ModelCall struct {
@@ -623,23 +612,7 @@ func makeCompletionSignalTool(flag *completionFlag) Tool {
 // (LoopConfig is passed to StubGateway.Call; the field is ignored by StubGateway).
 ```
 
-> **Implementation note:** `LoopConfig` currently lives in `types.go` (Task 1). The `Gateway ModelGateway` field must be added to it now. Update `types.go` before writing `loop.go`:
-
-In `internal/agentloop/types.go`, add `Gateway ModelGateway` to `LoopConfig`:
-
-```go
-type LoopConfig struct {
-    Model          string
-    SystemPrompt   string
-    Tools          []Tool
-    MaxTokens      int
-    TurnTimeout    time.Duration
-    BeforeToolCall func(name string, args json.RawMessage) error
-    AfterToolCall  func(result ToolResult) error
-    ContextManager ContextManager
-    Gateway        ModelGateway // used by Run() to make LLM calls
-}
-```
+> **Note:** `Gateway ModelGateway` is already in `LoopConfig` from Task 1 (types.go). No types.go update needed here. Fix W1: Gateway field defined once in foundation, not duplicated.
 
 **Step 4: Verify passes**
 

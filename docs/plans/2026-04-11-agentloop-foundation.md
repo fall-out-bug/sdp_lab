@@ -61,6 +61,7 @@ Create `internal/agentloop/types.go`:
 package agentloop
 
 import (
+	"context"
 	"encoding/json"
 	"sync"
 	"time"
@@ -101,7 +102,7 @@ type Tool struct {
 	Description string
 	Schema      json.RawMessage
 	Sandboxed   bool
-	Execute     func(ctx interface{}, id string, args json.RawMessage) (string, error)
+	Execute     func(ctx context.Context, id string, args json.RawMessage) (string, error) // Fix F1: context.Context, not interface{}
 }
 
 // ToolResult is the full outcome of one tool execution (success or error).
@@ -121,6 +122,15 @@ type ContextManager interface {
 	Trim(messages []Message, model string, maxTokens int) ([]Message, error)
 }
 
+// ModelGateway abstracts LLM API calls. Fix F2: defined here so LoopConfig.Gateway compiles.
+// StubGateway (test double) is in gateway.go (Task 6).
+type ModelGateway interface {
+	// Call returns a channel of Events for one LLM request. Channel closes after "done" or "error".
+	Call(ctx context.Context, msgs []Message, cfg LoopConfig) (<-chan Event, error)
+	// IsAvailable returns true if the model is reachable (used by PhaseRouter.ResolveModel).
+	IsAvailable(model string) bool
+}
+
 type LoopConfig struct {
 	Model          string
 	SystemPrompt   string
@@ -130,6 +140,7 @@ type LoopConfig struct {
 	BeforeToolCall func(name string, args json.RawMessage) error
 	AfterToolCall  func(result ToolResult) error
 	ContextManager ContextManager // nil = passthrough (MVP)
+	Gateway        ModelGateway   // Fix F2: required by Run() — set by BuildLoopConfig
 }
 
 // ---- Event ----
@@ -1966,12 +1977,10 @@ Expected: zero compilation errors, all tests pass, no race detector warnings.
 
 ## Notes for the implementer
 
-1. **Tool.Execute signature change**: `types.go` uses `interface{}` as the context parameter type to avoid importing `context` in a types-only file. When `loop.go` is implemented (Task 6+), change it to `context.Context` — or import `context` directly in `types.go`.
+1. **Tool.Execute uses `context.Context`**: `types.go` imports `"context"` and defines `Execute func(ctx context.Context, ...)`. This is correct and required — loop.go (Task 7+) passes `context.Context` directly. No interface{} placeholder needed.
 
 2. **harness.EvaluateCompliance does NOT take context**: the real signature is `EvaluateCompliance(contract *TaskContract, snapshot *TaskSnapshot) ComplianceReport`. The design spec shows a context parameter that was never implemented. GateEngine (future task) wraps the call in a goroutine with `context.WithTimeout` and uses `select` on the result channel and `evalCtx.Done()` — exactly as shown in the design spec's GateEngine code.
 
 3. **MemStore is in `store.go`, not `store_mem_test.go`**: the spec request said `store_mem_test.go`, but MemStore is needed by `session_test.go` (Task 3) which is also in the internal `agentloop` package. Placing it in `store.go` (non-test file) keeps it accessible from all test files in the package. It adds no binary weight since it's only ever instantiated in tests.
 
 4. **SQLite CGO requirement**: `go-sqlite3` requires CGO. If CI uses `CGO_ENABLED=0`, add a build tag guard or use a pure-Go SQLite driver (`modernc.org/sqlite`). For local macOS development with Xcode CLT, the default `CGO_ENABLED=1` works.
-
-5. **Tool.Execute context type**: correct this to `context.Context` and import `"context"` when `loop.go` is added. For Task 1 (types-only), `interface{}` avoids a spurious import; it is a temporary placeholder.

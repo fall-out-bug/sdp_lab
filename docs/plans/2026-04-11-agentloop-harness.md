@@ -423,24 +423,37 @@ func buildHarnessWithEscalatingGate(t *testing.T, events []Event) (*Harness, *Me
 }
 
 // alwaysPassEval is a GateEngine evalFn that always returns a passing report.
-func alwaysPassEval(contract *harnessHarness.TaskContract, snap *harnessHarness.TaskSnapshot) harnessHarness.ComplianceReport {
-	return harnessHarness.ComplianceReport{Blocked: false}
+func alwaysPassEval(contract *harness.TaskContract, snap *harness.TaskSnapshot) harness.ComplianceReport {
+	return harness.ComplianceReport{Blocked: false}
 }
 
 // alwaysEscalateEval returns a blocked report (triggers escalation).
-func alwaysEscalateEval(contract *harnessHarness.TaskContract, snap *harnessHarness.TaskSnapshot) harnessHarness.ComplianceReport {
-	return harnessHarness.ComplianceReport{Blocked: true}
+func alwaysEscalateEval(contract *harness.TaskContract, snap *harness.TaskSnapshot) harness.ComplianceReport {
+	return harness.ComplianceReport{Blocked: true}
 }
 
-// signalEvents returns a scripted event sequence where the agent calls completion_signal.
-func signalEvents() []Event {
-	return []Event{
+// registerSignalResponses wires a StubGateway with two scripted responses for the
+// "agent calls completion_signal" scenario. Fix H2: tool_end events are NOT scripted here —
+// Run() generates them after calling executeCalls. The gateway only scripts tool_call + done.
+//
+// Round 1 (LLM decides to call completion_signal):
+//   {tool_call: [completion_signal]}, {done}
+// → Run() sees tool_call → executeCalls → completion_signal.Execute() sets flag.signaled=true
+// → Run() emits {tool_end} on output channel → loops back to gateway
+// Round 2 (LLM acknowledges tool result, ends turn):
+//   {text_delta: "phase complete"}, {done}
+// → Run() emits text_delta + done, closes channel
+func registerSignalResponses(sg *StubGateway, model string) {
+	sg.AddResponse(model, []Event{
 		{Type: "tool_call", ToolCalls: []ToolCall{
 			{ID: "sig1", Name: "completion_signal", Arguments: []byte(`{"summary":"phase complete"}`)},
 		}},
-		{Type: "tool_end", ToolID: "sig1", ToolName: "completion_signal", ToolResult: "completion noted — harness will evaluate gate"},
 		{Type: "done"},
-	}
+	})
+	sg.AddResponse(model, []Event{
+		{Type: "text_delta", Delta: "phase complete"},
+		{Type: "done"},
+	})
 }
 
 // ---- RunPhase tests ----
@@ -534,17 +547,19 @@ func TestRunPhase_noCompletionSignal_remainsIdle(t *testing.T) {
 
 // TestRunPhase_turnRecord_hasToolCalls: Fix X2 — "tool_call" events populate TurnRecord.ToolCalls.
 func TestRunPhase_turnRecord_hasToolCalls(t *testing.T) {
-	// Gateway emits tool_call event with two parallel calls.
-	twoToolCallEvents := []Event{
+	// Fix H2: gateway scripts tool_call + done only. Run() generates tool_end after executeCalls.
+	// Round 1: LLM calls two tools.
+	// Round 2: LLM acknowledges tool results, says done.
+	h, ms, sg := buildHarnessWithGateway(t, nil)
+	sg.AddResponse("deepseek/deepseek-v3.2", []Event{
 		{Type: "tool_call", ToolCalls: []ToolCall{
 			{ID: "tc1", Name: "web_search", Arguments: []byte(`{"query":"foo"}`)},
 			{ID: "tc2", Name: "read_file", Arguments: []byte(`{"path":"bar"}`)},
 		}},
-		{Type: "tool_end", ToolID: "tc1", ToolName: "web_search", ToolResult: "result1"},
-		{Type: "tool_end", ToolID: "tc2", ToolName: "read_file", ToolResult: "content"},
 		{Type: "done"},
-	}
-	h, ms, _ := buildHarnessWithGateway(t, twoToolCallEvents)
+	})
+	sg.AddResponse("deepseek/deepseek-v3.2", []Event{{Type: "done"}}) // round 2: no more tools
+	sg.AddResponse("openai/gpt-4.1", []Event{{Type: "done"}})
 
 	_ = h.RunPhase(t.Context(), "search stuff", "")
 
@@ -557,17 +572,19 @@ func TestRunPhase_turnRecord_hasToolCalls(t *testing.T) {
 	assert.Equal(t, "tc2", turns[0].ToolCalls[1].ID)
 }
 
-// TestRunPhase_turnRecord_toolID: Fix Y1 — "tool_end" events carry ToolID →
+// TestRunPhase_turnRecord_toolID: Fix Y1 — tool_end events emitted by Run() carry ToolID →
 // TurnRecord.ToolResults[].ID is populated (not empty string).
 func TestRunPhase_turnRecord_toolID(t *testing.T) {
-	toolIDEvents := []Event{
+	// Fix H2: gateway only scripts tool_call+done. Run() emits tool_end with ToolID=call.ID.
+	h, ms, sg := buildHarnessWithGateway(t, nil)
+	sg.AddResponse("deepseek/deepseek-v3.2", []Event{
 		{Type: "tool_call", ToolCalls: []ToolCall{
 			{ID: "specific-id-99", Name: "web_search", Arguments: []byte(`{}`)},
 		}},
-		{Type: "tool_end", ToolID: "specific-id-99", ToolName: "web_search", ToolResult: "found"},
 		{Type: "done"},
-	}
-	h, ms, _ := buildHarnessWithGateway(t, toolIDEvents)
+	})
+	sg.AddResponse("deepseek/deepseek-v3.2", []Event{{Type: "done"}}) // round 2
+	sg.AddResponse("openai/gpt-4.1", []Event{{Type: "done"}})
 
 	_ = h.RunPhase(t.Context(), "find it", "")
 
@@ -594,20 +611,20 @@ func TestRunPhase_turnRecord_persistedBeforeGate(t *testing.T) {
 	require.NoError(t, ms.Persist(session))
 
 	sg := NewStubGateway()
-	// Script: completion_signal called → agent done.
-	sg.AddResponse("deepseek/deepseek-v3.2", signalEventsForGateway())
-	sg.AddResponse("openai/gpt-4.1", signalEventsForGateway())
+	// Script: completion_signal called → agent done. Fix H2: no tool_end in gateway responses.
+	registerSignalResponses(sg, "deepseek/deepseek-v3.2")
+	registerSignalResponses(sg, "openai/gpt-4.1")
 
 	registry := NewToolRegistry(nil)
 	router := NewPhaseRouter(DefaultPhaseMap, registry, sg, nil)
 
 	turnPersistedBeforeGate := false
 	gate := NewGateEngine(nil, 5*time.Second)
-	gate.evalFn = func(contract *harnessPackage.TaskContract, snap *harnessPackage.TaskSnapshot) harnessPackage.ComplianceReport {
+	gate.evalFn = func(contract *harness.TaskContract, snap *harness.TaskSnapshot) harness.ComplianceReport {
 		// Check if TurnRecord was already persisted at gate evaluation time.
 		turns, _ := ms.LoadTurnRecords("sess-n3")
 		turnPersistedBeforeGate = len(turns) > 0
-		return harnessPackage.ComplianceReport{Blocked: false}
+		return harness.ComplianceReport{Blocked: false}
 	}
 
 	h := &Harness{
@@ -624,26 +641,16 @@ func TestRunPhase_turnRecord_persistedBeforeGate(t *testing.T) {
 		"Fix N3: TurnRecord must be persisted BEFORE gate evaluation")
 }
 
-// signalEventsForGateway produces events that include a completion_signal tool_end
-// (as if Run() already executed the tool internally). RunPhase reads the flag from
-// the completion_signal tool's closure — we must ensure the flag is set.
-// For harness_test we use a gateway that emits the full tool lifecycle.
-func signalEventsForGateway() []Event {
-	return []Event{
-		{Type: "tool_call", ToolCalls: []ToolCall{
-			{ID: "sig1", Name: "completion_signal", Arguments: []byte(`{"summary":"done"}`)},
-		}},
-		{Type: "tool_end", ToolID: "sig1", ToolName: "completion_signal",
-			ToolResult: "completion noted — harness will evaluate gate"},
-		{Type: "text_delta", Delta: "phase complete"},
-		{Type: "done"},
-	}
-}
+// signalEventsForGateway is deprecated — use registerSignalResponses(sg, model) instead.
+// Kept for reference only. Fix H2: gateway must NOT emit tool_end; Run() generates those.
 
 // TestRunPhase_completionSignal_gatePass_transitions: happy path — completion_signal called,
 // gate passes → transitionTo(discover→plan), state=idle.
 func TestRunPhase_completionSignal_gatePass_transitions(t *testing.T) {
-	h, ms, _ := buildHarnessWithGateway(t, signalEventsForGateway())
+	h, ms, sg := buildHarnessWithGateway(t, nil) // nil = we'll register manually
+	registerSignalResponses(sg, "deepseek/deepseek-v3.2")
+	registerSignalResponses(sg, "openai/gpt-4.1")
+	_ = ms
 
 	err := h.RunPhase(t.Context(), "do the work", "")
 	require.NoError(t, err)
@@ -668,7 +675,9 @@ func TestRunPhase_completionSignal_gatePass_transitions(t *testing.T) {
 // TestRunPhase_escalation_setsAwaitingHuman: gate escalates → state=awaiting_human,
 // PendingDecision persisted, human_gate event emitted.
 func TestRunPhase_escalation_setsAwaitingHuman(t *testing.T) {
-	h, ms := buildHarnessWithEscalatingGate(t, signalEventsForGateway())
+	h, ms, sg := buildHarnessWithEscalatingGate(t, nil)
+	registerSignalResponses(sg, "deepseek/deepseek-v3.2")
+	registerSignalResponses(sg, "openai/gpt-4.1")
 
 	err := h.RunPhase(t.Context(), "do the work", "")
 	require.NoError(t, err)
@@ -688,7 +697,7 @@ func TestRunPhase_escalation_setsAwaitingHuman(t *testing.T) {
 }
 ```
 
-> **Implementation note on imports:** The test file references `harnessHarness` and `harnessPackage` as aliases for `sdp_dev/internal/harness`. In the actual file, use a single import alias `"sdp_dev/internal/harness"` and reference types as `harness.TaskContract`, `harness.TaskSnapshot`, `harness.ComplianceReport`. The pseudocode above is simplified for readability — see Step 3 for the actual import in `harness.go`.
+> **Import note:** Use `import "sdp_dev/internal/harness"` and reference types as `harness.TaskContract`, `harness.TaskSnapshot`, `harness.ComplianceReport`. All `harnessHarness`/`harnessPackage` aliases have been removed from this spec (Fix H1).
 
 **Step 2: Run test, verify it fails**
 
