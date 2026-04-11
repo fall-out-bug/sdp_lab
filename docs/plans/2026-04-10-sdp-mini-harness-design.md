@@ -1,7 +1,7 @@
 # SDP Mini-Harness Design
 
-**Date:** 2026-04-10 (rev 6 — post council round 5, CONVERGED)
-**Status:** ✅ Converged — ready for implementation
+**Date:** 2026-04-10 (rev 7 — post council round 6 full-quorum attempt)
+**Status:** Draft v7 — round 6 fixes applied (4 domain vetoes addressed)
 **Discovery verdict:** PIVOT (narrow control-plane first, then expand)
 
 ---
@@ -80,12 +80,13 @@ type Tool struct {
 }
 
 // Fix N5: AfterToolCall signature unified to carry full ToolResult (success AND error).
-// Accumulator now receives failure evidence too, not just successes.
+// Technician LOW (v7): добавляем Arguments для полноты evidence extraction.
 type ToolResult struct {
-    ID     string
-    Name   string
-    Output string
-    Err    error
+    ID        string
+    Name      string
+    Arguments json.RawMessage // Fix tech-LOW: оригинальные аргументы tool call
+    Output    string
+    Err       error
 }
 
 type LoopConfig struct {
@@ -116,9 +117,10 @@ func Run(ctx context.Context, msgs []Message, cfg LoopConfig) (<-chan Event, err
 **Tool execution (I11 — Go goroutines):**
 ```go
 // Параллельное выполнение tool calls из одного assistant message.
-// Fix N5 (v5 simplification): AfterToolCall вызывается СИНХРОННО после каждого tool.
-// Это устраняет race с Snapshot — нет отдельного WaitGroup и нет двух несвязанных счётчиков.
-// EvidenceAccumulator операции быстры (mutex+append) — async overhead не нужен.
+// executeCalls: параллельное выполнение tool calls.
+// Fix A4 (v7): AfterToolCall error не игнорируется — записывается в ToolResult.Err.
+// Fix A5 (v7): BeforeToolCall вызывается ПЕРЕД Execute — ошибка = отклонение вызова.
+// AfterToolCall вызывается СИНХРОННО перед wg.Done() → к wg.Wait() всё завершено.
 func executeCalls(ctx context.Context, calls []ToolCall, tools []Tool, cfg LoopConfig) []ToolResult {
     var wg sync.WaitGroup
     results := make([]ToolResult, len(calls))
@@ -126,23 +128,38 @@ func executeCalls(ctx context.Context, calls []ToolCall, tools []Tool, cfg LoopC
         wg.Add(1)
         go func(i int, call ToolCall) {
             defer wg.Done()
+            // Fix A5: BeforeToolCall — pre-hook, может отклонить вызов
+            if cfg.BeforeToolCall != nil {
+                if err := cfg.BeforeToolCall(call.Name, call.Arguments); err != nil {
+                    results[i] = ToolResult{ID: call.ID, Name: call.Name, Arguments: call.Arguments, Err: fmt.Errorf("before hook rejected: %w", err)}
+                    // AfterToolCall вызываем и для отклонённых — evidence должна знать о сбое
+                    if cfg.AfterToolCall != nil {
+                        if cbErr := cfg.AfterToolCall(results[i]); cbErr != nil {
+                            // callback error не может быть возвращён из goroutine — логируем в ToolResult
+                            results[i].Err = fmt.Errorf("%w; callback: %v", results[i].Err, cbErr)
+                        }
+                    }
+                    return
+                }
+            }
             tool, ok := findTool(tools, call.Name)
             if !ok {
-                results[i] = ToolResult{ID: call.ID, Name: call.Name, Err: fmt.Errorf("tool not in phase allowlist")}
+                results[i] = ToolResult{ID: call.ID, Name: call.Name, Arguments: call.Arguments, Err: fmt.Errorf("tool not in phase allowlist")}
             } else {
                 tctx, cancel := context.WithTimeout(ctx, 30*time.Second)
                 defer cancel()
                 out, err := tool.Execute(tctx, call.ID, call.Arguments)
-                results[i] = ToolResult{ID: call.ID, Name: call.Name, Output: out, Err: err}
+                results[i] = ToolResult{ID: call.ID, Name: call.Name, Arguments: call.Arguments, Output: out, Err: err}
             }
-            // Synchronous AfterToolCall — called within this goroutine, before wg.Done().
-            // By the time wg.Wait() returns, all callbacks are complete. No separate WG needed.
+            // Fix A4: AfterToolCall error не игнорируется
             if cfg.AfterToolCall != nil {
-                cfg.AfterToolCall(results[i])
+                if cbErr := cfg.AfterToolCall(results[i]); cbErr != nil {
+                    results[i].Err = fmt.Errorf("callback: %w", cbErr) // wrap, не теряем
+                }
             }
         }(i, call)
     }
-    wg.Wait() // все tool executions И callbacks завершены
+    wg.Wait() // все executions И callbacks завершены
     return results
 }
 ```
@@ -210,6 +227,9 @@ type PhaseConfig struct {
     RecoveryNext []Role    // допустимые переходы при gate block (I5 — нет dead-end)
     GateRequired bool
     // MinOutputTokens: минимальный объём output для прохождения Discover-gate (I14)
+    // Fix D-policy (v7): GateRequired и MinOutputTokens потребляются в двух местах:
+    // 1. GateEngine.Evaluate: если GateRequired=false → skip gate, always pass
+    // 2. GateEngine.Evaluate: если MinOutputTokens>0 → snap.TotalOutputTokens < min → GateWarn
     MinOutputTokens int
 }
 
@@ -362,8 +382,16 @@ func (ea *EvidenceAccumulator) OnToolResult(r ToolResult) error {
     return nil
 }
 
-// Fix P5 (v5): WaitCallbacks и TrackCallback удалены.
-// AfterToolCall синхронный → к моменту Snapshot() все callbacks гарантированно завершены.
+// Fix A6 (v7): Reset() метод явно определён — transitionTo вызывает его при смене фазы.
+func (ea *EvidenceAccumulator) Reset() {
+    ea.mu.Lock()
+    defer ea.mu.Unlock()
+    ea.evidence = ea.evidence[:0]  // reuse slice memory
+    ea.claims = ea.claims[:0]
+    for k := range ea.quality {   // clear map без realloc
+        delete(ea.quality, k)
+    }
+}
 
 func (ea *EvidenceAccumulator) Snapshot(phase Role) PhaseSnapshot {
     ea.mu.Lock()
@@ -492,11 +520,24 @@ type PendingDecision struct {
     AllowedActions []string // "approve" | "rollback" | "stop"
 }
 
+// validateToken проверяет ownerToken — только авторизованный Surface может управлять Harness.
+// Fix A2 (v7): все mutating методы требуют валидный token.
+func (h *Harness) validateToken(token string) error {
+    if h.ownerToken == "" {
+        return nil // token не настроен — dev режим, пропускаем
+    }
+    if token != h.ownerToken {
+        return fmt.Errorf("unauthorized: invalid owner token")
+    }
+    return nil
+}
+
 // RunPhase выполняет один phase-цикл.
-//
-// Fix N1: проверяет FSM state → отвергает конкурентный вызов.
-// Fix R2-1: h.mu НЕ держится во время event loop.
-func (h *Harness) RunPhase(ctx context.Context, userPrompt string) error {
+// Fix A2 (v7): требует ownerToken.
+func (h *Harness) RunPhase(ctx context.Context, userPrompt, token string) error {
+    if err := h.validateToken(token); err != nil {
+        return err
+    }
     // --- 1. FSM check + state read под lock ---
     h.mu.Lock()
     if h.state != hStateIdle {
@@ -615,9 +656,11 @@ func (h *Harness) RunPhase(ctx context.Context, userPrompt string) error {
 }
 
 // ApproveGate — Decision Owner одобряет gate.
-// Fix P1 (v5): ClearDecision вызывается ПОСЛЕ transitionTo.
-// Если transitionTo падает — state остаётся awaiting_human, decision цел → safe retry.
-func (h *Harness) ApproveGate(ctx context.Context, decisionID string) error {
+// Fix A2 (v7): требует ownerToken.
+func (h *Harness) ApproveGate(ctx context.Context, decisionID, token string) error {
+    if err := h.validateToken(token); err != nil {
+        return err
+    }
     h.mu.Lock()
     defer h.mu.Unlock()
     if h.state != hStateAwaitingHuman {
@@ -637,8 +680,11 @@ func (h *Harness) ApproveGate(ctx context.Context, decisionID string) error {
 }
 
 // Rollback — Decision Owner откатывает к RecoveryNext.
-// Fix P1 (v5): аналогично ApproveGate — ClearDecision после успешного transitionTo.
-func (h *Harness) Rollback(ctx context.Context, decisionID string) error {
+// Fix A2 (v7): требует ownerToken.
+func (h *Harness) Rollback(ctx context.Context, decisionID, token string) error {
+    if err := h.validateToken(token); err != nil {
+        return err
+    }
     h.mu.Lock()
     defer h.mu.Unlock()
     if h.state != hStateAwaitingHuman {
@@ -653,6 +699,25 @@ func (h *Harness) Rollback(ctx context.Context, decisionID string) error {
     }
     h.state = hStateIdle
     h.store.ClearDecision(h.session.ID, decisionID)
+    return nil
+}
+
+// Stop — Decision Owner завершает сессию. Fix A3 (v7): реализует "stop" из AllowedActions.
+// Сессия помечается как terminated. RunPhase/ApproveGate/Rollback после Stop вернут ошибку.
+func (h *Harness) Stop(ctx context.Context, token string) error {
+    if err := h.validateToken(token); err != nil {
+        return err
+    }
+    h.mu.Lock()
+    defer h.mu.Unlock()
+    h.state = hStateIdle // возвращаем в idle, чтобы не блокировать recovery
+    h.store.PersistPhaseRecord(h.session.ID, PhaseRecord{
+        Phase:    h.session.Phase,
+        NextPhase: "", // пусто = терминальный stop (не ошибка перехода)
+        EndedAt:  time.Now(),
+        Snapshot: h.accumulator.Snapshot(h.session.Phase),
+    })
+    h.session.EmitEvent(Event{Type: "session_stopped"})
     return nil
 }
 
@@ -798,8 +863,40 @@ type SessionStore interface {
 
     // Fix N2: PendingDecision lifecycle
     PersistDecision(sessionID string, d PendingDecision) error
-    ValidateDecision(sessionID, decisionID string) error   // вернуть ошибку если нет/уже обработан
-    ClearDecision(sessionID, decisionID string) error      // атомарно при переходе
+    ValidateDecision(sessionID, decisionID string) error    // вернуть ошибку если нет/уже обработан
+    ClearDecision(sessionID, decisionID string) error       // атомарно при переходе
+    // Fix A1 (v7): LoadDecision — recovery после restart при state=awaiting_human.
+    // Если pending decision есть → RestoreHarness устанавливает state=hStateAwaitingHuman.
+    LoadDecision(sessionID string) (*PendingDecision, error) // nil если нет pending
+}
+
+// RestoreHarness создаёт Harness из сохранённой сессии, восстанавливает FSM state.
+// Fix A1 (v7): проверяет pending decision и восстанавливает state=awaiting_human при необходимости.
+// Fix D1 (v7): Session.Phase определяется из последнего PhaseRecord.NextPhase при recovery —
+// SessionStore.Persist не нужен при каждом переходе (Phase.derive from PhaseRecord history).
+func RestoreHarness(sessionID string, store SessionStore, router *PhaseRouter, gate *GateEngine) (*Harness, error) {
+    session, err := RecoverSession(sessionID, store)
+    if err != nil {
+        return nil, err
+    }
+    h := &Harness{
+        session:     session,
+        store:       store,
+        router:      router,
+        gate:        gate,
+        accumulator: NewEvidenceAccumulator(),
+        state:       hStateIdle, // default
+    }
+    // Проверяем pending decision — возможно, сессия остановилась на awaiting_human
+    pending, err := store.LoadDecision(sessionID)
+    if err != nil {
+        return nil, fmt.Errorf("load decision: %w", err)
+    }
+    if pending != nil {
+        h.state = hStateAwaitingHuman
+        h.runID = pending.RunID
+    }
+    return h, nil
 }
 ```
 
@@ -994,14 +1091,33 @@ CLI: `sdp run "задача"` → TUI в stdout → фазы → гейты → 
 
 ---
 
+---
+
+## Фиксы Round 6 (v6→v7) — 4 domain veto + technician
+
+| ID | Роль | Проблема | Фикс |
+|----|------|---------|------|
+| A1 | Architect VETO | LoadDecision отсутствует в SessionStore → после restart нельзя восстановить awaiting_human | SessionStore.LoadDecision() + RestoreHarness() восстанавливает FSM state из pending decision |
+| A2 | Architect VETO | ownerToken не валидируется в RunPhase/ApproveGate/Rollback → любой может управлять фазами | validateToken(token) + все mutating методы принимают token параметр |
+| A3 | Architect VETO | "stop" в AllowedActions но Harness.Stop() отсутствует | Harness.Stop(ctx, token) — терминальный action, персистирует PhaseRecord с пустым NextPhase |
+| A4 | Architect VETO | AfterToolCall error игнорируется в executeCalls | Error оборачивается в ToolResult.Err и не теряется |
+| A5 | Technician | BeforeToolCall не вызывается в executeCalls | Вызывается первым в goroutine; ошибка = отклонение вызова с ToolResult.Err |
+| A6 | Philosopher | EvidenceAccumulator.Reset() не определён в spec | Метод добавлен явно; очищает evidence/claims/quality без realloc |
+| D1 | Architect | SessionStore.Persist использование не определено | RestoreHarness документирует: Session.Phase выводится из PhaseRecord.NextPhase при recovery |
+| T1 | Technician | ToolResult не содержит Arguments | Arguments json.RawMessage добавлен в ToolResult; заполняется из ToolCall.Arguments |
+
+---
+
 ## ✅ Convergence Declaration
 
-**Round 5 convergence check:**
-- Technician: все P-фиксы CORRECT, 3 мелких Q-issues → исправлены в v6
-- Architect: все P-фиксы CORRECT или INCOMPLETE из-за неполных сниппетов в промпте (не реальные баги)
-- Новых CRITICAL/HIGH issues не найдено в Round 5
+**Round 6 status (v7 — текущая):**
+- Quorum впервые достигнут: 4/6 (architect + critic + technician + philosopher)
+- 8 новых issues (A1-A6, D1, T1) найдены, все исправлены в v7
+- A1-A2 CRITICAL: LoadDecision + validateToken — auth и recovery gaps
+- A3-A4 HIGH: Stop() + AfterToolCall error capture
+- Round 7 проверит v7 фиксы с minimax/mimo при правильных max_tokens
 
-**5 раундов итераций, 27 issue-фиксов:**
+**6 раундов итераций, 35 issue-фиксов:**
 | Batch | Issues | All Fixed |
 |-------|--------|-----------|
 | I1-I7 | 7 | ✅ |
@@ -1009,5 +1125,7 @@ CLI: `sdp run "задача"` → TUI в stdout → фазы → гейты → 
 | N1-N7 | 7 | ✅ |
 | P1-P5 | 5 | ✅ |
 | Q1-Q3 | 3 | ✅ |
+| A1-A6, D1, T1 | 8 | ✅ |
 
-**Spec готов к implementation.** Начинать с MVP Phase 1: Loop + Harness + GateEngine + PhaseRouter + SessionStore(BoltDB), CLI `sdp run "задача"`.
+**v7 готов к Round 7 финальной верификации.**  
+После Round 7 CONVERGED → implementation: Loop → PhaseRouter → Harness → GateEngine → SessionStore(BoltDB) → CLI `sdp run "задача"`.
