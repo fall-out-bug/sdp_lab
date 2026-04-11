@@ -2,6 +2,8 @@ package architect
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -112,13 +114,15 @@ func (e *SecureEnricher) EnrichNodes(ctx context.Context, nodes []EnrichmentInpu
 }
 
 // enrichOne runs the full security pipeline for a single node.
-// Each invocation uses fresh crypto/rand delimiters (per-request isolation).
+// Each invocation uses fresh crypto/rand delimiters (per-request isolation)
+// and a unique requestID for idempotency tracking.
 //
 // Correct pipeline order per spec:
 //   INPUT:  ScrubSecrets -> SanitizeForLLM(no delim) -> WrapForLLM -> SanitizeForLLM(with delim) -> API call
 //   OUTPUT: ScrubSecrets(json-aware) -> strip fences -> JSON parse -> SanitizeField per field -> result
 func (e *SecureEnricher) enrichOne(ctx context.Context, node EnrichmentInput) (LLMEnrichment, TokenUsage, *EnrichmentError) {
 	nodeID := node.NodeID
+	requestID := generateRequestID()
 
 	// --- Stage 1: Scrub secrets from input (plain-string mode) ---
 	scrubbed, _, _ := ScrubSecrets(node.Content)
@@ -140,7 +144,9 @@ func (e *SecureEnricher) enrichOne(ctx context.Context, node EnrichmentInput) (L
 	wrapped = SanitizeForLLM(wrapped, delim)
 
 	// --- Stage 5: API call ---
-	content, usage, err := e.client.Complete(ctx, systemPromptArchitecture, wrapped)
+	// Build system prompt with per-request idempotency metadata.
+	sysPrompt := fmt.Sprintf("%s\n\nRequest-ID: %s", systemPromptArchitecture, requestID)
+	content, usage, err := e.client.Complete(ctx, sysPrompt, wrapped)
 	if err != nil {
 		return LLMEnrichment{}, TokenUsage{}, &EnrichmentError{
 			NodeID: nodeID, Stage: "api", Retriable: true,
@@ -244,4 +250,12 @@ func stripMarkdownFences(s string) string {
 		s = s[:len(s)-3]
 	}
 	return strings.TrimSpace(s)
+}
+
+// generateRequestID creates a random 32-character hex string using crypto/rand
+// for per-request idempotency tracking.
+func generateRequestID() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return hex.EncodeToString(b)
 }

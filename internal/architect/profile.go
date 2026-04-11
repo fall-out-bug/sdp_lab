@@ -1,7 +1,11 @@
 package architect
 
 // ProfileFragment is a partial contribution from one extractor.
+// Extractors populate both legacy fields (Languages, Dependencies, etc.) and
+// the canonical data-model fields below (Modules, Edges, APISurfaces, etc.).
+// The assembler merges canonical fields using priority-based precedence.
 type ProfileFragment struct {
+	// Legacy fields — populated by existing extractors.
 	Languages      []LanguageInfo     `json:"languages,omitempty"`
 	Dependencies   []DependencyInfo   `json:"dependencies,omitempty"`
 	ImportGraph    *ImportGraph       `json:"import_graph,omitempty"`
@@ -13,6 +17,17 @@ type ProfileFragment struct {
 	Metrics        *CodeMetrics       `json:"metrics,omitempty"`
 	InfraArtifacts []string           `json:"infra_artifacts,omitempty"`
 	Generated      []GeneratedFile    `json:"generated,omitempty"`
+
+	// Canonical data-model fields — populated by extractors that emit typed
+	// model objects. Higher-priority extractors win on conflicts during merge.
+	Modules      []Module                `json:"modules,omitempty"`
+	Edges        []StructuralEdge        `json:"edges,omitempty"`
+	APISurfaces  []APISurface            `json:"api_surfaces,omitempty"`
+	Boundaries   []ModuleBoundary        `json:"boundaries,omitempty"`
+	Layers       []LayerAssignment       `json:"layers,omitempty"`
+	Correlations []DependencyCorrelation `json:",omitempty"`
+	Containers   []C4Container           `json:",omitempty"`
+	Components   []C4Component           `json:",omitempty"`
 }
 
 // CodebaseProfile is the assembled structural snapshot of a repository.
@@ -31,6 +46,17 @@ type CodebaseProfile struct {
 	Files        map[string]string `json:"files,omitempty"`
 	Metadata     map[string]string `json:"metadata,omitempty"`
 	Summary      string            `json:"summary,omitempty"`
+	Enrichment   map[string]LLMEnrichment `json:"enrichment,omitempty"` // keyed by node/edge ID
+
+	// Canonical data-model fields — populated by priority-based assembler merge.
+	Modules      []Module                `json:"modules,omitempty"`
+	Edges        []StructuralEdge        `json:"edges,omitempty"`
+	APISurfaces  []APISurface            `json:"api_surfaces,omitempty"`
+	Boundaries   []ModuleBoundary        `json:"boundaries,omitempty"`
+	Layers       []LayerAssignment       `json:"layers,omitempty"`
+	Correlations []DependencyCorrelation `json:",omitempty"`
+	Containers   []C4Container           `json:",omitempty"`
+	Components   []C4Component           `json:",omitempty"`
 }
 
 // FileTreeInfo describes the directory structure of the repository.

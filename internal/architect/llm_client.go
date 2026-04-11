@@ -206,8 +206,8 @@ func (c *LLMClient) doRequest(ctx context.Context, body []byte) (_ string, usage
 func (c *LLMClient) backoffDelay(attempt int) time.Duration {
 	base := float64(c.cfg.Retry.BaseDelay)
 	delay := base * math.Pow(2, float64(attempt-1))
-	// Add jitter: randomize between 0.5x and 1.5x.
-	jitter := 0.5 + rand.Float64() //nolint:gosec // no crypto need for jitter
+	// Add jitter: randomize between 0.8x and 1.2x (±20% per spec).
+	jitter := 0.8 + 0.4*rand.Float64() //nolint:gosec // no crypto need for jitter
 	delay *= jitter
 	max := float64(c.cfg.Retry.MaxDelay)
 	if delay > max {

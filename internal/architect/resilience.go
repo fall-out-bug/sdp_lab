@@ -2,6 +2,7 @@ package architect
 
 import (
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -23,11 +24,14 @@ func NewRetryConfig() RetryConfig {
 
 // CircuitBreaker tracks per-provider failures and prevents calls when open.
 type CircuitBreaker struct {
+	mu               sync.Mutex
 	Failures         int           // consecutive failures
 	FailureThreshold int           // default: 5
 	CooldownPeriod   time.Duration // default: 30s
 	LastFailure      time.Time
 	State            string // "closed", "open", "half-open"
+	HalfOpenMax      int    // max concurrent probes in half-open state, default: 1
+	halfOpenProbes   int
 }
 
 // NewCircuitBreaker returns a CircuitBreaker with sensible defaults in closed state.
@@ -38,6 +42,8 @@ func NewCircuitBreaker() *CircuitBreaker {
 		CooldownPeriod:   30 * time.Second,
 		LastFailure:      time.Time{},
 		State:            "closed",
+		HalfOpenMax:      1,
+		halfOpenProbes:   0,
 	}
 }
 
@@ -47,16 +53,23 @@ func NewCircuitBreaker() *CircuitBreaker {
 // at which point the breaker transitions to "half-open" and allows one request.
 // In "half-open" state, one request is allowed to probe the service.
 func (cb *CircuitBreaker) Allow() bool {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
 	switch cb.State {
 	case "closed":
 		return true
 	case "open":
 		if time.Since(cb.LastFailure) >= cb.CooldownPeriod {
 			cb.State = "half-open"
+			cb.halfOpenProbes = 0
 			return true
 		}
 		return false
 	case "half-open":
+		if cb.halfOpenProbes >= cb.HalfOpenMax {
+			return false
+		}
+		cb.halfOpenProbes++
 		return true
 	default:
 		return true
@@ -65,15 +78,21 @@ func (cb *CircuitBreaker) Allow() bool {
 
 // RecordSuccess resets the failure count and transitions back to closed.
 func (cb *CircuitBreaker) RecordSuccess() {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
 	cb.Failures = 0
 	cb.State = "closed"
+	cb.halfOpenProbes = 0
 }
 
 // RecordFailure increments the failure count. If the threshold is reached,
 // the breaker transitions to "open" state.
 func (cb *CircuitBreaker) RecordFailure() {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
 	cb.Failures++
 	cb.LastFailure = time.Now()
+	cb.halfOpenProbes = 0
 	if cb.Failures >= cb.FailureThreshold {
 		cb.State = "open"
 	}

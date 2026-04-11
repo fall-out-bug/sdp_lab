@@ -84,9 +84,55 @@ func TestRoundTrip(t *testing.T) {
 }
 
 func TestIDNullByteInSegment(t *testing.T) {
-	_, err := JoinID("go", "path\x00injection", "name")
-	if err == nil {
-		t.Error("expected error for null byte in segment")
+	// Null bytes within segments are encoded as %00, not rejected.
+	id, err := JoinID("go", "path\x00injection", "name")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got, err := SplitID(id)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"go", "path\x00injection", "name"}
+	if !equalStrings(got, want) {
+		t.Errorf("round trip with null byte: got %v, want %v", got, want)
+	}
+}
+
+func TestIDPercent00RoundTrip(t *testing.T) {
+	// A segment containing literal %00 text is NOT treated specially on join
+	// (only actual \x00 is encoded). On split, literal %00 in the joined ID
+	// from an original \x00 is decoded back. Round-trip is idempotent.
+	segments := []string{"go", "has\x00null\x00here", "mod"}
+	id, err := JoinID(segments...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The joined ID should not contain literal \x00 within segments,
+	// only as delimiters.
+	parts := strings.Split(id, "\x00")
+	if len(parts) != 3 {
+		t.Fatalf("expected 3 parts, got %d", len(parts))
+	}
+	if strings.ContainsRune(parts[1], 0) {
+		t.Error("segment should not contain literal null byte after encoding")
+	}
+
+	got, err := SplitID(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !equalStrings(got, segments) {
+		t.Errorf("round trip: got %v, want %v", got, segments)
+	}
+
+	// NormalizeID should also be idempotent
+	norm, err := NormalizeID(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if norm != id {
+		t.Errorf("NormalizeID() = %q, want %q", norm, id)
 	}
 }
 

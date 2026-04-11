@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -44,6 +45,40 @@ const (
 	Tier2                       // ~5-15K tokens: per-container detail
 	Tier3                       // on-demand: source code snippets
 )
+
+// extractorPriority maps extractor names to merge precedence.
+// Higher number = higher precedence (wins on conflicts for scalar fields).
+// Aligned with spec Section 4 merge order.
+var extractorPriority = map[string]int{
+	"filetree":   1,  // FileTreeAnalyzer
+	"deps":       2,  // DependencyManifestParser
+	"specs":      3,  // SpecInventoryScanner
+	"infra":      4,  // InfraExtractor
+	"go":         5,  // Go adapter
+	"python":     6,  // Python adapter
+	"java":       7,  // Java adapter
+	"typescript": 8,  // TypeScript adapter
+	"sql":        9,  // SQL extractor
+	"generated":  10, // GeneratedCodeDetector
+}
+
+// defaultExtractorPriority is used when an extractor name is not in the map.
+const defaultExtractorPriority = 0
+
+// extractorPriorityOf returns the precedence for the given extractor name.
+func extractorPriorityOf(name string) int {
+	if p, ok := extractorPriority[name]; ok {
+		return p
+	}
+	return defaultExtractorPriority
+}
+
+// priorityFragment pairs a fragment with its extractor priority for merge ordering.
+type priorityFragment struct {
+	fragment *ProfileFragment
+	priority int
+	name     string
+}
 
 // ProfileAssembler collects fragments from extractors and merges them into
 // a CodebaseProfile suitable for LLM consumption.
@@ -124,15 +159,26 @@ func (pa *ProfileAssembler) Assemble(ctx context.Context, repoRoot string) (*Cod
 		return nil, fmt.Errorf("extractor group failed: %w", err)
 	}
 
-	// Filter out nil fragments
-	validFragments := make([]*ProfileFragment, 0, len(fragments))
-	for _, frag := range fragments {
+	// Filter out nil fragments and pair with priorities.
+	priorityFragments := make([]priorityFragment, 0, len(fragments))
+	for i, frag := range fragments {
 		if frag != nil {
-			validFragments = append(validFragments, frag)
+			name := pa.extractors[i].Name()
+			priorityFragments = append(priorityFragments, priorityFragment{
+				fragment: frag,
+				priority: extractorPriorityOf(name),
+				name:     name,
+			})
 		}
 	}
 
-	profile := pa.mergeFragments(validFragments)
+	profile := pa.mergeFragments(priorityFragments)
+
+	// Build validFragments for computeMetrics (only non-nil).
+	validFragments := make([]*ProfileFragment, 0, len(priorityFragments))
+	for _, pf := range priorityFragments {
+		validFragments = append(validFragments, pf.fragment)
+	}
 
 	// Compute aggregate metrics
 	pa.computeMetrics(profile, validFragments)
@@ -165,8 +211,12 @@ func (pa *ProfileAssembler) Assemble(ctx context.Context, repoRoot string) (*Cod
 	return profile, nil
 }
 
-// mergeFragments combines multiple fragments into a single CodebaseProfile.
-func (pa *ProfileAssembler) mergeFragments(fragments []*ProfileFragment) *CodebaseProfile {
+// mergeFragments combines multiple priority-tagged fragments into a single CodebaseProfile.
+// Legacy fields use simple first-non-nil or append-dedup semantics.
+// Canonical data-model fields (Modules, Edges, APISurfaces, Boundaries, Layers)
+// are merged using priority-based precedence: higher priority wins on scalar
+// conflicts, slice fields are merged and deduplicated.
+func (pa *ProfileAssembler) mergeFragments(fragments []priorityFragment) *CodebaseProfile {
 	profile := &CodebaseProfile{
 		FileTree: FileTreeInfo{
 			ExtCounts: make(map[string]int),
@@ -180,12 +230,12 @@ func (pa *ProfileAssembler) mergeFragments(fragments []*ProfileFragment) *Codeba
 			CircularDependencies: make([]CircularDep, 0),
 		},
 		Infra: InfraInfo{
-			Containers:     make([]ContainerInfo, 0),
-			Deployment:     DeploymentInfo{},
-			BaseImages:     make([]string, 0),
-			ExposedPorts:   make([]string, 0),
-			Services:       make([]ServiceDep, 0),
-			Resources:      make([]ResourceInfo, 0),
+			Containers:   make([]ContainerInfo, 0),
+			Deployment:   DeploymentInfo{},
+			BaseImages:   make([]string, 0),
+			ExposedPorts: make([]string, 0),
+			Services:     make([]ServiceDep, 0),
+			Resources:    make([]ResourceInfo, 0),
 		},
 		Specs:        make([]SpecArtifact, 0),
 		SQLAnalysis:  nil,
@@ -196,13 +246,14 @@ func (pa *ProfileAssembler) mergeFragments(fragments []*ProfileFragment) *Codeba
 		Summary:      "",
 	}
 
-	// Track unique values for deduplication
+	// Track unique values for deduplication (legacy fields)
 	seenNotableDeps := make(map[string]bool)
 	seenBaseImages := make(map[string]bool)
 	seenPorts := make(map[string]bool)
 	seenSpecs := make(map[string]bool)
 
-	for _, frag := range fragments {
+	for _, pf := range fragments {
+		frag := pf.fragment
 		if frag == nil {
 			continue
 		}
@@ -215,14 +266,12 @@ func (pa *ProfileAssembler) mergeFragments(fragments []*ProfileFragment) *Codeba
 		// Dependencies: aggregate manifests and notable deps
 		for _, depInfo := range frag.Dependencies {
 			if depInfo.File != "" {
-				// Single manifest info
 				profile.Dependencies.Manifests = append(profile.Dependencies.Manifests, ManifestInfo{
 					Path:      depInfo.File,
 					Language:  depInfo.Language,
 					DepsCount: depInfo.DepCount,
 				})
 			}
-			// Merge notable deps with dedup
 			for _, notable := range depInfo.NotableDeps {
 				if !seenNotableDeps[notable.Name] {
 					seenNotableDeps[notable.Name] = true
@@ -305,7 +354,136 @@ func (pa *ProfileAssembler) mergeFragments(fragments []*ProfileFragment) *Codeba
 		profile.Metrics.GeneratedExcluded += len(frag.Generated)
 	}
 
+	// --- Priority-based merge for canonical data-model fields ---
+	// Sort fragments by priority (ascending) so that higher priority values
+	// overwrite lower priority ones when iterating the sorted slice.
+	sorted := make([]priorityFragment, len(fragments))
+	copy(sorted, fragments)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		return sorted[i].priority < sorted[j].priority
+	})
+
+	// Modules: union by ID, highest priority wins on conflict.
+	modulesByID := make(map[string]Module)
+	modulesPrio := make(map[string]int)
+	for _, pf := range sorted {
+		for _, m := range pf.fragment.Modules {
+			if existingPrio, ok := modulesPrio[m.ID]; !ok || pf.priority > existingPrio {
+				modulesByID[m.ID] = m
+				modulesPrio[m.ID] = pf.priority
+			}
+		}
+	}
+	profile.Modules = make([]Module, 0, len(modulesByID))
+	for _, m := range modulesByID {
+		profile.Modules = append(profile.Modules, m)
+	}
+
+	// Edges: union by (source, target, kind, protocol), increment weight, keep higher confidence.
+	type edgeKey struct {
+		Source, Target, Kind, Protocol string
+	}
+	edgesByKey := make(map[edgeKey]StructuralEdge)
+	for _, pf := range sorted {
+		for _, e := range pf.fragment.Edges {
+			key := edgeKey{e.Source, e.Target, string(e.Kind), e.Protocol}
+			existing, ok := edgesByKey[key]
+			if !ok {
+				edgesByKey[key] = e
+			} else {
+				existing.Weight += e.Weight
+				if e.Confidence > existing.Confidence {
+					existing.Confidence = e.Confidence
+				}
+				edgesByKey[key] = existing
+			}
+		}
+	}
+	profile.Edges = make([]StructuralEdge, 0, len(edgesByKey))
+	for _, e := range edgesByKey {
+		profile.Edges = append(profile.Edges, e)
+	}
+
+	// APISurfaces: union by (path, method), highest priority wins.
+	type apiSurfKey struct {
+		Path, Method string
+	}
+	apiByPath := make(map[apiSurfKey]APISurface)
+	apiPriority := make(map[apiSurfKey]int)
+	for _, pf := range sorted {
+		for _, a := range pf.fragment.APISurfaces {
+			key := apiSurfKey{a.Path, a.Method}
+			if _, ok := apiByPath[key]; !ok || pf.priority > apiPriority[key] {
+				apiByPath[key] = a
+				apiPriority[key] = pf.priority
+			}
+		}
+	}
+	profile.APISurfaces = make([]APISurface, 0, len(apiByPath))
+	for _, a := range apiByPath {
+		profile.APISurfaces = append(profile.APISurfaces, a)
+	}
+
+	// Boundaries: union by name, merge entry_files and public_interfaces.
+	boundaryMap := make(map[string]ModuleBoundary)
+	boundaryPrio := make(map[string]int)
+	for _, pf := range sorted {
+		for _, b := range pf.fragment.Boundaries {
+			existing, ok := boundaryMap[b.Name]
+			if !ok {
+				boundaryMap[b.Name] = b
+				boundaryPrio[b.Name] = pf.priority
+			} else {
+				existing.EntryFiles = mergeStringSlices(existing.EntryFiles, b.EntryFiles)
+				existing.PublicInterfaces = mergeStringSlices(existing.PublicInterfaces, b.PublicInterfaces)
+				if pf.priority > boundaryPrio[b.Name] {
+					existing.Pattern = b.Pattern
+					boundaryPrio[b.Name] = pf.priority
+				}
+				boundaryMap[b.Name] = existing
+			}
+		}
+	}
+	profile.Boundaries = make([]ModuleBoundary, 0, len(boundaryMap))
+	for _, b := range boundaryMap {
+		profile.Boundaries = append(profile.Boundaries, b)
+	}
+
+	// Layers: union by layer name, keep highest confidence per layer.
+	layerMap := make(map[string]LayerAssignment)
+	for _, pf := range sorted {
+		for _, l := range pf.fragment.Layers {
+			existing, ok := layerMap[l.Layer]
+			if !ok || l.Confidence > existing.Confidence {
+				layerMap[l.Layer] = l
+			}
+		}
+	}
+	profile.Layers = make([]LayerAssignment, 0, len(layerMap))
+	for _, l := range layerMap {
+		profile.Layers = append(profile.Layers, l)
+	}
+
 	return profile
+}
+
+// mergeStringSlices returns the union of two string slices, deduplicated.
+func mergeStringSlices(a, b []string) []string {
+	seen := make(map[string]bool, len(a)+len(b))
+	result := make([]string, 0, len(a)+len(b))
+	for _, s := range a {
+		if !seen[s] {
+			seen[s] = true
+			result = append(result, s)
+		}
+	}
+	for _, s := range b {
+		if !seen[s] {
+			seen[s] = true
+			result = append(result, s)
+		}
+	}
+	return result
 }
 
 // computeMetrics calculates aggregate metrics from fragments.
@@ -346,7 +524,7 @@ func (pa *ProfileAssembler) computeMetrics(profile *CodebaseProfile, fragments [
 }
 
 // applyTierFilter filters the profile based on tier level.
-// Tier1 (~2K tokens): system overview — containers, languages, external deps, spec inventory.
+// Tier1 (~2K tokens): system overview -- containers, languages, external deps, spec inventory.
 // Tier2 (~5-15K tokens): full detail without source code.
 // Tier3: include everything (source code on demand).
 func (pa *ProfileAssembler) applyTierFilter(profile *CodebaseProfile) {

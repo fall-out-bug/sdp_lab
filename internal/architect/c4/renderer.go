@@ -47,6 +47,11 @@ type DiagramResult struct {
 	Truncated   bool // true if MaxNodes caused truncation
 }
 
+// SECURITY: Per spec Section 4, the rendered Mermaid diagram MUST be placed inside
+// a sandboxed <iframe sandbox="allow-scripts"> (no allow-same-origin) when
+// displayed in a browser. This function produces raw Mermaid code — the caller
+// is responsible for iframe sandboxing at the UI layer.
+//
 // RenderL1 renders a System Context diagram (Level 1).
 func RenderL1(model *architect.ReferenceModel, opts RenderOptions) (*DiagramResult, error) {
 	if opts.Direction == "" {
@@ -181,6 +186,11 @@ func RenderL1(model *architect.ReferenceModel, opts RenderOptions) (*DiagramResu
 	}, nil
 }
 
+// SECURITY: Per spec Section 4, the rendered Mermaid diagram MUST be placed inside
+// a sandboxed <iframe sandbox="allow-scripts"> (no allow-same-origin) when
+// displayed in a browser. This function produces raw Mermaid code — the caller
+// is responsible for iframe sandboxing at the UI layer.
+//
 // RenderL2 renders a Container diagram (Level 2).
 func RenderL2(model *architect.ReferenceModel, opts RenderOptions) (*DiagramResult, error) {
 	if opts.Direction == "" {
@@ -368,6 +378,11 @@ func RenderL2(model *architect.ReferenceModel, opts RenderOptions) (*DiagramResu
 	}, nil
 }
 
+// SECURITY: Per spec Section 4, the rendered Mermaid diagram MUST be placed inside
+// a sandboxed <iframe sandbox="allow-scripts"> (no allow-same-origin) when
+// displayed in a browser. This function produces raw Mermaid code — the caller
+// is responsible for iframe sandboxing at the UI layer.
+//
 // RenderL3 renders a Component diagram for a specific container (Level 3).
 func RenderL3(model *architect.ReferenceModel, containerID string, opts RenderOptions) (*DiagramResult, error) {
 	if containerID == "" {

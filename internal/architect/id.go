@@ -25,15 +25,13 @@ func JoinID(segments ...string) (string, error) {
 		if seg == "" {
 			return "", fmt.Errorf("id: segment %d is empty", i)
 		}
-		if strings.ContainsRune(seg, nullByte) {
-			return "", fmt.Errorf("id: segment %d contains null byte — encode it first", i)
-		}
-		encoded[i] = seg
+		encoded[i] = strings.ReplaceAll(seg, "\x00", "%00")
 	}
 	return strings.Join(encoded, string(nullByte)), nil
 }
 
 // SplitID splits a deterministic ID into its segments.
+// Decodes %00 back to \x00 within each segment.
 // Returns an error if the ID format is invalid.
 // Idempotent: JoinID(SplitID(id)) == id for well-formed IDs.
 func SplitID(id string) ([]string, error) {
@@ -45,8 +43,7 @@ func SplitID(id string) ([]string, error) {
 		if seg == "" {
 			return nil, fmt.Errorf("id: empty segment at position %d", i)
 		}
-		_ = i
-		_ = seg
+		segments[i] = strings.ReplaceAll(seg, "%00", "\x00")
 	}
 	return segments, nil
 }

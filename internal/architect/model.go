@@ -15,6 +15,9 @@ type ExternalSystem struct {
 }
 
 // C4Component represents a component within a container (C4 Level 3).
+// Used by the C4 generation/rendering code. The canonical data model type is
+// Component; use ComponentToC4 to bridge between them. See the conversion
+// function below for the field mapping rationale.
 type C4Component struct {
 	ID          string  `json:"id"`
 	Path        string  `json:"path"`
@@ -165,6 +168,19 @@ type LayerAssignment struct {
 	Directories  []string `json:"directories"`   // ["internal/handlers", "api/"]
 	FilePatterns []string `json:"file_patterns"` // ["*_handler.go", "*_controller.py"]
 	Confidence   float64  `json:"confidence"`
+}
+
+// ComponentToC4 converts a canonical Component into a C4Component used by
+// the C4 rendering code. The spec defines type C4Component = Component (type
+// alias), but the existing C4 generation code depends on the separate
+// C4Component struct with its own field layout, so we bridge via conversion.
+func ComponentToC4(c Component) C4Component {
+	return C4Component{
+		ID:          c.ID,
+		Path:        c.Path,
+		Description: c.Name,
+		Confidence:  c.Confidence,
+	}
 }
 
 // --- End Data Model types ---
