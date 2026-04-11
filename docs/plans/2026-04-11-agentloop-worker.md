@@ -526,6 +526,27 @@ func TestExecuteCalls_afterCallbackError_onRejected(t *testing.T) {
 	assert.Contains(t, errMsg, "before hook rejected")
 	assert.Contains(t, errMsg, "callback")
 }
+
+// TestExecuteCalls_afterCallbackError_onToolFailure: Fix R6 — when tool.Execute fails AND
+// AfterToolCall also fails, BOTH errors must appear in ToolResult.Err (neither overwritten).
+func TestExecuteCalls_afterCallbackError_onToolFailure(t *testing.T) {
+	tools := []Tool{makeTool("bash", "", errors.New("exec failed"))}
+	calls := []ToolCall{{ID: "tc1", Name: "bash", Arguments: json.RawMessage(`{}`)}}
+
+	cfg := LoopConfig{
+		AfterToolCall: func(r ToolResult) error {
+			return fmt.Errorf("callback also failed")
+		},
+	}
+
+	results := executeCalls(context.Background(), calls, tools, cfg)
+	require.Len(t, results, 1)
+	require.Error(t, results[0].Err)
+	// Fix R6: original tool error must NOT be lost.
+	errMsg := results[0].Err.Error()
+	assert.Contains(t, errMsg, "exec failed", "Fix R6: tool.Execute error must be preserved")
+	assert.Contains(t, errMsg, "callback", "Fix R6: callback error must also be present")
+}
 ```
 
 **Step 2: Run test, verify it fails**
@@ -621,10 +642,16 @@ func executeCalls(ctx context.Context, calls []ToolCall, tools []Tool, cfg LoopC
 				}
 			}
 
-			// Fix A4: AfterToolCall error is NOT ignored.
+			// Fix A4+R6: AfterToolCall error is NOT ignored.
+			// If tool.Execute also failed, BOTH errors are preserved — neither is dropped.
 			if cfg.AfterToolCall != nil {
 				if cbErr := cfg.AfterToolCall(results[i]); cbErr != nil {
-					results[i].Err = fmt.Errorf("callback: %w", cbErr)
+					if results[i].Err != nil {
+						// Wrap both: tool error + callback error.
+						results[i].Err = fmt.Errorf("%w; callback: %v", results[i].Err, cbErr)
+					} else {
+						results[i].Err = fmt.Errorf("callback: %w", cbErr)
+					}
 				}
 			}
 		}(i, call)
@@ -2103,13 +2130,13 @@ Expected: zero compilation errors, all tests pass (Tasks 1–10 combined), no ra
 
 1. **EvaluateCompliance has no context parameter.** The real signature is `EvaluateCompliance(contract *TaskContract, snapshot *TaskSnapshot) ComplianceReport`. The design spec shows a `ctx` parameter that does not exist in the implementation. GateEngine wraps it in a goroutine and uses `select` on the result channel and `evalCtx.Done()`.
 
-2. **Tool.Execute context type fix.** The foundation plan (Task 1) used `interface{}` for the context parameter in `Tool.Execute` to avoid importing `context` in a types-only file. This must be corrected to `context.Context` with `import "context"` in `types.go` before Task 7 compiles.
+2. **Tool.Execute context type.** `types.go` (Task 1) uses `context.Context` in `Tool.Execute` — Fix F1 applied. `import "context"` is in `types.go`.
 
-3. **Gateway in LoopConfig.** The design spec's `Run()` signature shows `func Run(ctx, msgs, cfg LoopConfig)`. Gateway is added as a field `Gateway ModelGateway` to `LoopConfig` in Task 7 so that `Run()` can call the LLM without additional parameters. This is consistent with the spec discussion ("must be in cfg or passed separately — add Gateway ModelGateway to LoopConfig").
+3. **Gateway in LoopConfig.** `Gateway ModelGateway` field is in `LoopConfig` (Task 1, Fix F2). `BuildLoopConfig` wires `r.gateway` into the field so `Run()` can call the LLM.
 
 4. **completionFlag is package-private.** It is defined in `types.go` (Task 1) and used in both `loop.go` (makeCompletionSignalTool) and `harness.go` (RunPhase). Tests in the `agentloop` package (internal tests without `_test` suffix) can reference it directly.
 
-5. **StubGateway returns the same sequence every Call.** For tests requiring different responses on successive calls, use `countingGateway` (defined in `loop_run_test.go`). This test helper is in the internal test package and not exported.
+5. **StubGateway uses FIFO queue semantics (Fix R1).** Multiple `AddResponse` calls for the same model are queued; successive `Call()` invocations consume in order. When the queue is exhausted, `Call()` returns a `{done}` fallback. For tests needing different responses on each call, use `AddResponse` multiple times (preferred) or `countingGateway` (defined in `loop_run_test.go`) for indexed access.
 
 6. **GateEngine.evalFn is injectable for tests.** The `evalFn` field allows tests to inject slow/blocking evaluation functions to trigger the timeout circuit breaker without actually waiting 5 seconds. This pattern is acceptable for test-only field access since gate tests are internal package tests.
 
