@@ -1,7 +1,7 @@
 # SDP Mini-Harness Design
 
-**Date:** 2026-04-10 (rev 7 — post council round 6 full-quorum attempt)
-**Status:** Draft v7 — round 6 fixes applied (4 domain vetoes addressed)
+**Date:** 2026-04-10 (rev 8 — post council round 7 verification)
+**Status:** Draft v8 — round 7 fixes applied (Stop orphan + RestoreHarness ownerToken)
 **Discovery verdict:** PIVOT (narrow control-plane first, then expand)
 
 ---
@@ -702,21 +702,38 @@ func (h *Harness) Rollback(ctx context.Context, decisionID, token string) error 
     return nil
 }
 
-// Stop — Decision Owner завершает сессию. Fix A3 (v7): реализует "stop" из AllowedActions.
+/// Stop — Decision Owner завершает сессию. Fix A3 (v7): реализует "stop" из AllowedActions.
 // Сессия помечается как terminated. RunPhase/ApproveGate/Rollback после Stop вернут ошибку.
+// Fix S1 (v8): если state=awaiting_human, очищаем PendingDecision перед завершением,
+// иначе RestoreHarness найдёт orphaned decision и ошибочно восстановит awaiting_human.
 func (h *Harness) Stop(ctx context.Context, token string) error {
     if err := h.validateToken(token); err != nil {
         return err
     }
     h.mu.Lock()
     defer h.mu.Unlock()
-    h.state = hStateIdle // возвращаем в idle, чтобы не блокировать recovery
+    if h.state == hStateRunning {
+        return fmt.Errorf("phase in progress; cancel ctx first to stop")
+    }
+    // Fix S1 (v8): очищаем pending decision если state=awaiting_human
+    if h.state == hStateAwaitingHuman {
+        pending, err := h.store.LoadDecision(h.session.ID)
+        if err != nil {
+            return fmt.Errorf("load decision for stop: %w", err)
+        }
+        if pending != nil {
+            if err := h.store.ClearDecision(h.session.ID, pending.DecisionID); err != nil {
+                return fmt.Errorf("clear decision for stop: %w", err)
+            }
+        }
+    }
     h.store.PersistPhaseRecord(h.session.ID, PhaseRecord{
         Phase:    h.session.Phase,
         NextPhase: "", // пусто = терминальный stop (не ошибка перехода)
         EndedAt:  time.Now(),
         Snapshot: h.accumulator.Snapshot(h.session.Phase),
     })
+    h.state = hStateIdle
     h.session.EmitEvent(Event{Type: "session_stopped"})
     return nil
 }
@@ -874,7 +891,8 @@ type SessionStore interface {
 // Fix A1 (v7): проверяет pending decision и восстанавливает state=awaiting_human при необходимости.
 // Fix D1 (v7): Session.Phase определяется из последнего PhaseRecord.NextPhase при recovery —
 // SessionStore.Persist не нужен при каждом переходе (Phase.derive from PhaseRecord history).
-func RestoreHarness(sessionID string, store SessionStore, router *PhaseRouter, gate *GateEngine) (*Harness, error) {
+// Fix S2 (v8): ownerToken передаётся явно — без него validateToken всегда passes после restart.
+func RestoreHarness(sessionID, ownerToken string, store SessionStore, router *PhaseRouter, gate *GateEngine) (*Harness, error) {
     session, err := RecoverSession(sessionID, store)
     if err != nil {
         return nil, err
@@ -886,6 +904,7 @@ func RestoreHarness(sessionID string, store SessionStore, router *PhaseRouter, g
         gate:        gate,
         accumulator: NewEvidenceAccumulator(),
         state:       hStateIdle, // default
+        ownerToken:  ownerToken, // Fix S2 (v8): restore token so validateToken works after restart
     }
     // Проверяем pending decision — возможно, сессия остановилась на awaiting_human
     pending, err := store.LoadDecision(sessionID)
@@ -1108,16 +1127,28 @@ CLI: `sdp run "задача"` → TUI в stdout → фазы → гейты → 
 
 ---
 
+## Фиксы Round 7 (v7→v8) — 5/6 quorum (critic+technician+pragmatist+engineer+architect)
+
+| ID | Роль | Проблема | Фикс |
+|----|------|---------|------|
+| S1 | Critic CRITICAL | Stop() в state=awaiting_human не очищает PendingDecision → orphaned decision на следующем запуске; RestoreHarness ошибочно восстановит awaiting_human | Stop() проверяет state: если awaiting_human → LoadDecision → ClearDecision перед PersistPhaseRecord |
+| S2 | Technician HIGH + Engineer MEDIUM | RestoreHarness не принимает ownerToken → после restart h.ownerToken пустой, validateToken всегда passes | RestoreHarness(sessionID, ownerToken string, ...) — добавлен параметр ownerToken; h.ownerToken = ownerToken |
+
+---
+
 ## ✅ Convergence Declaration
 
-**Round 6 status (v7 — текущая):**
-- Quorum впервые достигнут: 4/6 (architect + critic + technician + philosopher)
-- 8 новых issues (A1-A6, D1, T1) найдены, все исправлены в v7
-- A1-A2 CRITICAL: LoadDecision + validateToken — auth и recovery gaps
-- A3-A4 HIGH: Stop() + AfterToolCall error capture
-- Round 7 проверит v7 фиксы с minimax/mimo при правильных max_tokens
+**Round 7 status (v8 — текущая):**
+- Quorum 5/6 (architect + critic + technician + pragmatist + engineer)
+- Все 8 R6-фиксов: CORRECT (единогласно)
+- 2 новых issues (S1 CRITICAL + S2 HIGH), оба исправлены в v8
+- S1: Stop() в awaiting_human state не очищала PendingDecision → orphaned restart
+- S2: RestoreHarness без ownerToken → validateToken всегда passes после restart
+- S3 (technician concern): false alarm — PendingDecision уже персистируется в handleGateResult()
+- Pragmatist: CONVERGENCE READY, нет новых issues
+- Technician: CONVERGENCE READY (S1/S2 minor — может быть в коде)
 
-**6 раундов итераций, 35 issue-фиксов:**
+**7 раундов итераций, 37 issue-фиксов:**
 | Batch | Issues | All Fixed |
 |-------|--------|-----------|
 | I1-I7 | 7 | ✅ |
@@ -1126,6 +1157,7 @@ CLI: `sdp run "задача"` → TUI в stdout → фазы → гейты → 
 | P1-P5 | 5 | ✅ |
 | Q1-Q3 | 3 | ✅ |
 | A1-A6, D1, T1 | 8 | ✅ |
+| S1-S2 | 2 | ✅ |
 
-**v7 готов к Round 7 финальной верификации.**  
-После Round 7 CONVERGED → implementation: Loop → PhaseRouter → Harness → GateEngine → SessionStore(BoltDB) → CLI `sdp run "задача"`.
+**v8 готов к Round 8 финальной верификации.**  
+После Round 8 CONVERGED → implementation: Loop → PhaseRouter → Harness → GateEngine → SessionStore(BoltDB) → CLI `sdp run "задача"`.
