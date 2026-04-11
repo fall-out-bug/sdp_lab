@@ -24,6 +24,7 @@ func Ingest(ctx context.Context, cfg *Config, store *SQLiteStore) (*IngestResult
 
 	result := &IngestResult{}
 	levelMap := buildLevelMap(cfg.Levels)
+	registry := NewExtractorRegistry(cfg)
 
 	for _, srcDir := range cfg.Project.SourceDirs {
 		absDir, err := filepath.Abs(srcDir)
@@ -44,7 +45,7 @@ func Ingest(ctx context.Context, cfg *Config, store *SQLiteStore) (*IngestResult
 			if isExcluded(path, cfg.Project.Exclude) {
 				return nil
 			}
-			if !isSupportedExt(path) {
+			if !registry.CanHandle(filepath.Ext(path)) {
 				return nil
 			}
 
@@ -63,7 +64,7 @@ func Ingest(ctx context.Context, cfg *Config, store *SQLiteStore) (*IngestResult
 				return nil
 			}
 
-			doc, status, err := processFile(ctx, cfg, store, path, levelMap)
+			doc, status, err := processFile(ctx, cfg, store, path, levelMap, registry)
 			if err != nil {
 				result.Errors = append(result.Errors, fmt.Errorf("%s: %w", path, err))
 				return nil
@@ -106,7 +107,7 @@ type IngestResult struct {
 	Errors     []error
 }
 
-func processFile(ctx context.Context, cfg *Config, store *SQLiteStore, path string, levelMap map[string]LevelConfig) (*model.Document, docStatus, error) {
+func processFile(ctx context.Context, cfg *Config, store *SQLiteStore, path string, levelMap map[string]LevelConfig, registry *ExtractorRegistry) (*model.Document, docStatus, error) {
 	// Read file
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -116,8 +117,8 @@ func processFile(ctx context.Context, cfg *Config, store *SQLiteStore, path stri
 	// Compute content hash
 	contentHash := sha256Hash(data)
 
-	// Extract text
-	content, err := extractText(path, data)
+	// Extract text via registry
+	content, err := registry.Extract(ctx, path, data)
 	if err != nil {
 		return nil, "", fmt.Errorf("extract text: %w", err)
 	}

@@ -16,6 +16,7 @@ type Config struct {
 	LLM         LLMConfig       `yaml:"llm"`
 	Thresholds  ThresholdConfig `yaml:"thresholds"`
 	Output      OutputConfig    `yaml:"output"`
+	Extractors  ExtractorsConfig `yaml:"extractors"`
 }
 
 type ProjectConfig struct {
