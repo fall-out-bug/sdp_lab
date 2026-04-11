@@ -131,13 +131,13 @@ func TestSanitize_RedactsSecrets(t *testing.T) {
 	sanitized := sf.Sanitize(profile)
 
 	// Secrets must be replaced.
-	assert.Contains(t, sanitized.Files["config.yaml"], "[REDACTED:aws_key]")
+	assert.Contains(t, sanitized.Files["config.yaml"], "[REDACTED_aws_key]")
 	assert.NotContains(t, sanitized.Files["config.yaml"], "AKIAIOSFODNN7EXAMPLE")
 
-	assert.Contains(t, sanitized.Metadata["token"], "[REDACTED:github_token]")
+	assert.Contains(t, sanitized.Metadata["token"], "[REDACTED_github_token]")
 	assert.NotContains(t, sanitized.Metadata["token"], "ghp_")
 
-	assert.Contains(t, sanitized.Summary, "[REDACTED:private_key]")
+	assert.Contains(t, sanitized.Summary, "[REDACTED_private_key]")
 	assert.NotContains(t, sanitized.Summary, "-----BEGIN RSA PRIVATE KEY-----")
 
 	// Non-secret content preserved.

@@ -113,35 +113,34 @@ func (e *SecureEnricher) EnrichNodes(ctx context.Context, nodes []EnrichmentInpu
 
 // enrichOne runs the full security pipeline for a single node.
 // Each invocation uses fresh crypto/rand delimiters (per-request isolation).
+//
+// Correct pipeline order per spec:
+//   INPUT:  ScrubSecrets -> SanitizeForLLM(no delim) -> WrapForLLM -> SanitizeForLLM(with delim) -> API call
+//   OUTPUT: ScrubSecrets(json-aware) -> strip fences -> JSON parse -> SanitizeField per field -> result
 func (e *SecureEnricher) enrichOne(ctx context.Context, node EnrichmentInput) (LLMEnrichment, TokenUsage, *EnrichmentError) {
 	nodeID := node.NodeID
 
-	// --- Stage 1: Scrub secrets from input ---
-	scrubbed := ScrubSecrets(node.Content, false)
+	// --- Stage 1: Scrub secrets from input (plain-string mode) ---
+	scrubbed, _, _ := ScrubSecrets(node.Content)
 
-	// --- Stage 2: Sanitize for LLM (strip role injection) ---
-	// Generate a fresh delimiter for this request (per-request isolation).
-	delim, _, err := WrapForLLM(scrubbed)
+	// --- Stage 2: Sanitize for LLM — strip role injection patterns ---
+	// Delimiter not known yet, pass empty string.
+	sanitized := SanitizeForLLM(scrubbed, "")
+
+	// --- Stage 3: Wrap with random delimiters ---
+	delim, wrapped, err := WrapForLLM(sanitized)
 	if err != nil {
 		return LLMEnrichment{}, TokenUsage{}, &EnrichmentError{
 			NodeID: nodeID, Stage: "wrap", Retriable: false,
 			Err: fmt.Errorf("delimiter generation: %w", err),
 		}
 	}
-	sanitized := SanitizeForLLM(scrubbed, delim)
 
-	// Re-wrap with the sanitized content.
-	_, finalWrapped, err := WrapForLLM(sanitized)
-	if err != nil {
-		return LLMEnrichment{}, TokenUsage{}, &EnrichmentError{
-			NodeID: nodeID, Stage: "wrap", Retriable: false,
-			Err: fmt.Errorf("re-wrap: %w", err),
-		}
-	}
+	// --- Stage 4: Strip delimiter if it somehow appears in the wrapped content ---
+	wrapped = SanitizeForLLM(wrapped, delim)
 
-	// --- Stage 3: API call ---
-	userPrompt := finalWrapped
-	content, _, err := e.client.Complete(ctx, systemPromptArchitecture, userPrompt)
+	// --- Stage 5: API call ---
+	content, usage, err := e.client.Complete(ctx, systemPromptArchitecture, wrapped)
 	if err != nil {
 		return LLMEnrichment{}, TokenUsage{}, &EnrichmentError{
 			NodeID: nodeID, Stage: "api", Retriable: true,
@@ -149,13 +148,13 @@ func (e *SecureEnricher) enrichOne(ctx context.Context, node EnrichmentInput) (L
 		}
 	}
 
-	// --- Stage 4: Scrub secrets from output (JSON-aware) ---
-	scrubbedOutput := ScrubSecrets(content, true)
+	// --- Stage 6: Scrub secrets from output (JSON-aware) ---
+	scrubbedOutput := scrubSecretsJSON(content)
 
-	// --- Stage 5: Strip markdown fences defensively ---
+	// --- Stage 7: Strip markdown fences defensively ---
 	cleaned := stripMarkdownFences(scrubbedOutput)
 
-	// --- Stage 6: Validate and parse JSON ---
+	// --- Stage 8: Validate and parse JSON ---
 	if !json.Valid([]byte(cleaned)) {
 		return LLMEnrichment{}, TokenUsage{}, &EnrichmentError{
 			NodeID: nodeID, Stage: "validate", Retriable: false,
@@ -171,7 +170,7 @@ func (e *SecureEnricher) enrichOne(ctx context.Context, node EnrichmentInput) (L
 		}
 	}
 
-	// --- Stage 7: Extract fields and sanitize each one ---
+	// --- Stage 9: Extract fields and sanitize each one ---
 	enrich := LLMEnrichment{}
 	if v, ok := raw["description"]; ok {
 		var s string
@@ -182,11 +181,11 @@ func (e *SecureEnricher) enrichOne(ctx context.Context, node EnrichmentInput) (L
 	if v, ok := raw["technology_tags"]; ok {
 		var tags []string
 		if err := json.Unmarshal(v, &tags); err == nil {
-			sanitized := make([]string, 0, len(tags))
+			sanitizedTags := make([]string, 0, len(tags))
 			for _, t := range tags {
-				sanitized = append(sanitized, SanitizeField(t))
+				sanitizedTags = append(sanitizedTags, SanitizeField(t))
 			}
-			enrich.TechnologyTags = sanitized
+			enrich.TechnologyTags = sanitizedTags
 		}
 	}
 	if v, ok := raw["business_purpose"]; ok {
@@ -202,7 +201,7 @@ func (e *SecureEnricher) enrichOne(ctx context.Context, node EnrichmentInput) (L
 		}
 	}
 
-	return enrich, TokenUsage{}, nil
+	return enrich, usage, nil
 }
 
 // systemPromptArchitecture instructs the LLM to return strict JSON for

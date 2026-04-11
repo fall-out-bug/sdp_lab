@@ -261,14 +261,11 @@ func truncate(s string, maxLen int) string {
 	return string(runes[:maxLen]) + "..."
 }
 
-// ScrubSecrets removes detected secret patterns from a plain string.
-// If jsonAware is true, it preserves JSON structural characters and only
-// scrubs values, not keys. This is used for LLM output sanitization.
-func ScrubSecrets(content string, jsonAware bool) string {
+// scrubSecretsJSON removes detected secret patterns from a string while
+// preserving JSON structural characters. It scrubs values only, never keys.
+// This is used for LLM output sanitization.
+func scrubSecretsJSON(content string) string {
 	sf := NewSecurityFilter()
-	if !jsonAware {
-		return sf.sanitizeString(content)
-	}
 
 	// JSON-aware scrubbing: scan for secrets and replace only the matched
 	// regions, preserving JSON structure around them.
@@ -277,7 +274,7 @@ func ScrubSecrets(content string, jsonAware bool) string {
 	// Replace from end to preserve positions.
 	for i := len(matches) - 1; i >= 0; i-- {
 		m := matches[i]
-		result = result[:m.Position] + "[REDACTED:" + m.Type + "]" + result[m.Position+m.Length:]
+		result = result[:m.Position] + "[REDACTED_" + m.Type + "]" + result[m.Position+m.Length:]
 	}
 	return result
 }

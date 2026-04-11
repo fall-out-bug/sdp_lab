@@ -77,9 +77,11 @@ func TestAssembler_MergeFragments(t *testing.T) {
 	}
 
 	assembler := architect.NewProfileAssembler(architect.Tier2,
-		mockExtractor{name: "frag1", fragment: frag1},
-		mockExtractor{name: "frag2", fragment: frag2},
-		mockExtractor{name: "frag3", fragment: frag3},
+		[]architect.Extractor{
+			mockExtractor{name: "frag1", fragment: frag1},
+			mockExtractor{name: "frag2", fragment: frag2},
+			mockExtractor{name: "frag3", fragment: frag3},
+		},
 	)
 
 	ctx := context.Background()
@@ -134,7 +136,7 @@ func TestAssembler_TokenEstimation(t *testing.T) {
 	}
 
 	assembler := architect.NewProfileAssembler(architect.Tier2,
-		mockExtractor{name: "test", fragment: frag},
+		[]architect.Extractor{mockExtractor{name: "test", fragment: frag}},
 	)
 
 	ctx := context.Background()
@@ -164,7 +166,7 @@ func TestAssembler_ContentHashDeterministic(t *testing.T) {
 	}
 
 	assembler1 := architect.NewProfileAssembler(architect.Tier2,
-		mockExtractor{name: "test", fragment: frag},
+		[]architect.Extractor{mockExtractor{name: "test", fragment: frag}},
 	)
 	ctx := context.Background()
 	profile1, err := assembler1.Assemble(ctx, "/tmp/test")
@@ -174,7 +176,7 @@ func TestAssembler_ContentHashDeterministic(t *testing.T) {
 	hash1 := assembler1.ContentHash(profile1)
 
 	assembler2 := architect.NewProfileAssembler(architect.Tier2,
-		mockExtractor{name: "test", fragment: frag},
+		[]architect.Extractor{mockExtractor{name: "test", fragment: frag}},
 	)
 	profile2, err := assembler2.Assemble(ctx, "/tmp/test")
 	if err != nil {
@@ -205,7 +207,7 @@ func TestAssembler_TierFiltering(t *testing.T) {
 
 	// Test Tier1 (summary only)
 	assembler1 := architect.NewProfileAssembler(architect.Tier1,
-		mockExtractor{name: "test", fragment: frag},
+		[]architect.Extractor{mockExtractor{name: "test", fragment: frag}},
 	)
 	ctx := context.Background()
 	profile1, err := assembler1.Assemble(ctx, "/tmp/test")
@@ -222,7 +224,7 @@ func TestAssembler_TierFiltering(t *testing.T) {
 
 	// Test Tier2 (full detail)
 	assembler2 := architect.NewProfileAssembler(architect.Tier2,
-		mockExtractor{name: "test", fragment: frag},
+		[]architect.Extractor{mockExtractor{name: "test", fragment: frag}},
 	)
 	profile2, err := assembler2.Assemble(ctx, "/tmp/test")
 	if err != nil {
@@ -242,9 +244,11 @@ func TestAssembler_ErrorCollection(t *testing.T) {
 	}
 
 	assembler := architect.NewProfileAssembler(architect.Tier2,
-		mockExtractor{name: "good", fragment: frag},
-		mockExtractor{name: "bad", fragment: nil, fail: true},
-		mockExtractor{name: "also-good", fragment: frag},
+		[]architect.Extractor{
+			mockExtractor{name: "good", fragment: frag},
+			mockExtractor{name: "bad", fragment: nil, fail: true},
+			mockExtractor{name: "also-good", fragment: frag},
+		},
 	)
 
 	ctx := context.Background()
@@ -298,7 +302,7 @@ func TestAssembler_TierSummary(t *testing.T) {
 	}
 
 	assembler := architect.NewProfileAssembler(architect.Tier1,
-		mockExtractor{name: "test", fragment: frag},
+		[]architect.Extractor{mockExtractor{name: "test", fragment: frag}},
 	)
 	ctx := context.Background()
 	profile, err := assembler.Assemble(ctx, "/tmp/test")
@@ -381,7 +385,7 @@ func TestAssembler_Assemble(t *testing.T) {
 	}
 
 	assembler := architect.NewProfileAssembler(architect.Tier2,
-		mockExtractor{name: "test", fragment: frag},
+		[]architect.Extractor{mockExtractor{name: "test", fragment: frag}},
 	)
 
 	ctx := context.Background()

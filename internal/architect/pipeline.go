@@ -189,7 +189,7 @@ func (p *Pipeline) Run(ctx context.Context) (*PipelineResult, error) {
 
 // runExtractors runs all configured extractors and collects fragments.
 func (p *Pipeline) runExtractors(ctx context.Context) (*CodebaseProfile, []ExtractorTiming, []ExtractorError) {
-	assembler := NewProfileAssembler(p.config.Tier, p.extractors...)
+	assembler := NewProfileAssembler(p.config.Tier, p.extractors)
 	profile, err := assembler.Assemble(ctx, p.config.RepoRoot)
 	if err != nil {
 		return nil, nil, []ExtractorError{{Extractor: "assembler", Err: err}}

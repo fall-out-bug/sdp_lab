@@ -32,3 +32,29 @@ func SanitizeField(value string) string {
 	htmlBytes := markdown.ToHTML([]byte(value), p, renderer)
 	return string(sanitizePolicy.SanitizeBytes(htmlBytes))
 }
+
+// SanitizeOutput recursively walks a parsed JSON structure (map[string]interface{},
+// []interface{}, string, etc.) and applies SanitizeField to every string value.
+// This is the output-side counterpart to the input-side SanitizeForLLM.
+// It MUST operate on parsed JSON, never on raw JSON strings.
+func SanitizeOutput(parsed interface{}) interface{} {
+	switch v := parsed.(type) {
+	case map[string]interface{}:
+		result := make(map[string]interface{}, len(v))
+		for key, val := range v {
+			result[key] = SanitizeOutput(val)
+		}
+		return result
+	case []interface{}:
+		result := make([]interface{}, len(v))
+		for i, elem := range v {
+			result[i] = SanitizeOutput(elem)
+		}
+		return result
+	case string:
+		return SanitizeField(v)
+	default:
+		// Numbers, bools, nil — return as-is.
+		return v
+	}
+}

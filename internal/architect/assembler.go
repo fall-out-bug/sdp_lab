@@ -6,12 +6,35 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 )
+
+// ExtractorConfig controls concurrency and timeout behaviour for the assembler.
+// All fields have sensible defaults; a zero-value ExtractorConfig is valid.
+type ExtractorConfig struct {
+	MaxExtractorTimeout time.Duration // per-extractor deadline (default 30s)
+	MaxConcurrency      int           // max goroutines for extractor group (default runtime.NumCPU())
+	MaxTotalTime        time.Duration // overall assembly deadline (default 5m)
+}
+
+// defaults fills zero-valued fields with spec Section 7.4 defaults.
+func (c ExtractorConfig) defaults() ExtractorConfig {
+	if c.MaxExtractorTimeout == 0 {
+		c.MaxExtractorTimeout = 30 * time.Second
+	}
+	if c.MaxConcurrency == 0 {
+		c.MaxConcurrency = runtime.NumCPU()
+	}
+	if c.MaxTotalTime == 0 {
+		c.MaxTotalTime = 5 * time.Minute
+	}
+	return c
+}
 
 // TierLevel controls how much detail to include in the assembled profile.
 type TierLevel int
@@ -27,6 +50,7 @@ const (
 type ProfileAssembler struct {
 	extractors []Extractor
 	tier       TierLevel
+	config     ExtractorConfig
 	errors     []ExtractorError
 	mu         sync.Mutex
 }
@@ -38,10 +62,18 @@ type ExtractorError struct {
 }
 
 // NewProfileAssembler creates an assembler with the given extractors and tier.
-func NewProfileAssembler(tier TierLevel, extractors ...Extractor) *ProfileAssembler {
+// An optional ExtractorConfig can be provided; a zero-value config uses defaults.
+func NewProfileAssembler(tier TierLevel, extractors []Extractor, cfg ...ExtractorConfig) *ProfileAssembler {
+	var c ExtractorConfig
+	if len(cfg) > 0 {
+		c = cfg[0]
+	}
+	c = c.defaults()
+
 	return &ProfileAssembler{
 		extractors: extractors,
 		tier:       tier,
+		config:     c,
 		errors:     make([]ExtractorError, 0),
 	}
 }
@@ -52,15 +84,24 @@ func (pa *ProfileAssembler) Assemble(ctx context.Context, repoRoot string) (*Cod
 	startTime := TimeNow()
 	log.Printf("[assembler] starting assembly with %d extractors at tier %d", len(pa.extractors), pa.tier)
 
+	// Apply overall assembly timeout from config.
+	totalCtx, totalCancel := context.WithTimeout(ctx, pa.config.MaxTotalTime)
+	defer totalCancel()
+
 	fragments := make([]*ProfileFragment, len(pa.extractors))
-	g, gctx := errgroup.WithContext(ctx)
+	g, gctx := errgroup.WithContext(totalCtx)
+	g.SetLimit(pa.config.MaxConcurrency)
 
 	// Run extractors concurrently.
 	for i, ext := range pa.extractors {
 		i, ext := i, ext
 		g.Go(func() error {
+			// Per-extractor timeout.
+			extCtx, cancel := context.WithTimeout(gctx, pa.config.MaxExtractorTimeout)
+			defer cancel()
+
 			log.Printf("[assembler] running extractor: %s", ext.Name())
-			frag, err := ext.Extract(gctx, repoRoot)
+			frag, err := ext.Extract(extCtx, repoRoot)
 			if err != nil {
 				// Non-fatal: record error and continue
 				pa.mu.Lock()

@@ -1,8 +1,18 @@
 package architect
 
 import (
+	"bytes"
+	"fmt"
+	"io"
+	"math"
+	"os"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
+	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
 // SecretMatch represents a detected secret in content.
@@ -39,6 +49,11 @@ func NewSecurityFilter() *SecurityFilter {
 			{re: regexp.MustCompile(`-----BEGIN (RSA |EC )?PRIVATE KEY-----`), typ: "private_key"},
 			{re: regexp.MustCompile(`sk-[0-9a-zA-Z]{48}`), typ: "openai_key"},
 			{re: regexp.MustCompile(`(?i)(password|passwd)\s*[:=]\s*"[^"]+"`), typ: "password_assignment"},
+			// C1: Additional secret patterns per security spec.
+			{re: regexp.MustCompile(`sk_live_[0-9a-zA-Z]{24,}`), typ: "stripe_live_key"},
+			{re: regexp.MustCompile(`eyJ[A-Za-z0-9-_]{20,}\.eyJ[A-Za-z0-9-_]{20,}`), typ: "jwt_token"},
+			{re: regexp.MustCompile(`xox[baprs]-[0-9]{10,}-[0-9]{10,}-[0-9a-zA-Z]{24,}`), typ: "slack_token"},
+			{re: regexp.MustCompile(`//[^/@\s]+:[^/@\s]+@`), typ: "connection_string_credentials"},
 		},
 		AllowExternalLLM: false,
 	}
@@ -69,8 +84,11 @@ func (sf *SecurityFilter) ScanForSecrets(content string) []SecretMatch {
 	return matches
 }
 
-// reUserPath matches /Users/<username>/ paths.
+// reUserPath matches /Users/<username>/ paths (macOS).
 var reUserPath = regexp.MustCompile(`/Users/[^/]+/`)
+
+// reWindowsUserPath matches C:\Users\<username>\ paths (Windows).
+var reWindowsUserPath = regexp.MustCompile(`C:\\Users\\[^\\]+`)
 
 // reInternalPkg matches Java-style internal package names (com.xxx.yyy...).
 var reInternalPkg = regexp.MustCompile(`\bcom\.\w+(?:\.\w+)+`)
@@ -237,14 +255,17 @@ func (sf *SecurityFilter) sanitizeString(s string) string {
 	// 1. Redact secrets.
 	for _, p := range sf.patterns {
 		s = p.re.ReplaceAllStringFunc(s, func(match string) string {
-			return "[REDACTED:" + p.typ + "]"
+			return "[REDACTED_" + p.typ + "]"
 		})
 	}
 
-	// 2. Scrub user paths.
+	// 2. Scrub user paths (macOS).
 	s = reUserPath.ReplaceAllString(s, "/Users/[REDACTED]/")
 
-	// 3. Hash internal package names.
+	// 3. Scrub Windows user paths.
+	s = reWindowsUserPath.ReplaceAllString(s, `C:\Users\[REDACTED]`)
+
+	// 4. Hash internal package names.
 	s = reInternalPkg.ReplaceAllStringFunc(s, func(match string) string {
 		parts := strings.Split(match, ".")
 		if len(parts) < 3 {
@@ -263,3 +284,232 @@ type SecretsFound struct {
 	Types    []string `json:"types,omitempty"`
 	Redacted bool     `json:"redacted"`
 }
+
+// ---------------------------------------------------------------------------
+// C5: Canonical ScrubSecrets (spec signature)
+// ---------------------------------------------------------------------------
+
+// ScrubSecrets applies regex-based secret redaction using the compiled patterns
+// from SecurityFilter. It returns the scrubbed text, a count of redactions per
+// secret type, and any error.
+//
+// This is the canonical entry point used by the enrichment pipeline.
+func ScrubSecrets(text string) (scrubbed string, redactionCounts map[string]int, err error) {
+	sf := NewSecurityFilter()
+	redactionCounts = make(map[string]int)
+
+	// Apply each pattern and count redactions.
+	for _, p := range sf.patterns {
+		newText := p.re.ReplaceAllStringFunc(text, func(match string) string {
+			redactionCounts[p.typ]++
+			return "[REDACTED_" + p.typ + "]"
+		})
+		text = newText
+	}
+
+	// Scrub user paths (macOS).
+	macMatches := reUserPath.FindAllString(text, -1)
+	if len(macMatches) > 0 {
+		redactionCounts["user_path"] += len(macMatches)
+		text = reUserPath.ReplaceAllString(text, "/Users/[REDACTED]/")
+	}
+
+	// Scrub user paths (Windows).
+	winMatches := reWindowsUserPath.FindAllString(text, -1)
+	if len(winMatches) > 0 {
+		redactionCounts["windows_user_path"] += len(winMatches)
+		text = reWindowsUserPath.ReplaceAllString(text, `C:\Users\[REDACTED]`)
+	}
+
+	return text, redactionCounts, nil
+}
+
+// ---------------------------------------------------------------------------
+// C4: HighEntropyCheck — Shannon entropy detection
+// ---------------------------------------------------------------------------
+
+// highEntropyAllowlist contains exact full-string regex patterns for strings
+// that are high-entropy but are known non-secrets (integrity hashes, UUIDs, etc.).
+// Each pattern uses full anchors (^...$).
+var highEntropyAllowlist = []*regexp.Regexp{
+	regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`),           // UUID
+	regexp.MustCompile(`^sha(256|384|512)-[A-Za-z0-9+/=]+$`),                                          // integrity hash (SRI)
+	regexp.MustCompile(`^[0-9a-f]{64}$`),                                                               // SHA256 hex
+	regexp.MustCompile(`^[0-9a-f]{128}$`),                                                              // SHA512 hex
+	regexp.MustCompile(`^[0-9a-f]{32}$`),                                                               // MD5 hex
+}
+
+// HighEntropyCheck flags strings with Shannon entropy > 4.5 and length >= 20
+// that don't match known non-secret patterns.
+//
+// Allowlist uses EXACT regex patterns only — no broad category allowances:
+//   - UUID: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+//   - Integrity hashes: ^sha(256|384|512)-[A-Za-z0-9+/=]+$
+//   - SHA256 hex: ^[0-9a-f]{64}$
+//   - SHA512 hex: ^[0-9a-f]{128}$
+//   - MD5 hex: ^[0-9a-f]{32}$
+//
+// Each allowlisted pattern is matched as a full-string anchor (^...$).
+func HighEntropyCheck(s string, context string) bool {
+	if len(s) < 20 {
+		return false
+	}
+
+	// Check allowlist first.
+	for _, pattern := range highEntropyAllowlist {
+		if pattern.MatchString(s) {
+			return false
+		}
+	}
+
+	// Compute Shannon entropy.
+	entropy := shannonEntropy(s)
+	if entropy > 4.5 {
+		return true
+	}
+
+	_ = context // context reserved for future use (e.g. contextual allowlisting)
+	return false
+}
+
+// shannonEntropy computes the Shannon entropy of a string in bits per character.
+func shannonEntropy(s string) float64 {
+	if len(s) == 0 {
+		return 0
+	}
+
+	freq := make(map[rune]float64)
+	for _, r := range s {
+		freq[r]++
+	}
+
+	length := float64(len(s))
+	var entropy float64
+	for _, count := range freq {
+		p := count / length
+		if p > 0 {
+			entropy -= p * math.Log2(p)
+		}
+	}
+
+	return entropy
+}
+
+// ---------------------------------------------------------------------------
+// C3: ValidatePath and ValidatedFile — TOCTOU-safe path validation
+// ---------------------------------------------------------------------------
+
+// ValidatedFile wraps an open file descriptor after path validation.
+// Exposes only Read, Seek, Close — no path-based operations.
+// Implements io.ReadSeekCloser.
+type ValidatedFile struct {
+	fd int
+}
+
+// Read reads up to len(p) bytes from the validated file.
+func (f *ValidatedFile) Read(p []byte) (n int, err error) {
+	return unix.Read(f.fd, p)
+}
+
+// Seek sets the offset for the next Read on the validated file.
+func (f *ValidatedFile) Seek(offset int64, whence int) (int64, error) {
+	return unix.Seek(f.fd, offset, whence)
+}
+
+// Close closes the underlying file descriptor and clears the finalizer.
+func (f *ValidatedFile) Close() error {
+	runtime.SetFinalizer(f, nil)
+	return unix.Close(f.fd)
+}
+
+// ValidatePath ensures the resolved path is within repoRoot using TOCTOU-safe
+// openat() with O_NOFOLLOW. It returns an io.ReadSeekCloser — callers can only
+// Read/Seek/Close, no path operations.
+//
+// Platform support:
+//   - Linux: unix.Openat with O_NOFOLLOW, /proc/self/fd for realpath
+//   - macOS: unix.Openat with O_NOFOLLOW, fcntl F_GETPATH for realpath
+//   - Windows: NOT SUPPORTED — returns error.
+//
+// Cleanup: callers MUST defer Close(). runtime.SetFinalizer is a backup only.
+func ValidatePath(rawPath, repoRoot string) (io.ReadSeekCloser, error) {
+	if runtime.GOOS == "windows" {
+		return nil, fmt.Errorf("ValidatePath: Windows is not supported")
+	}
+
+	// Step 1: Open the repo root directory to obtain a dirfd (anchored).
+	rootFd, err := unix.Open(repoRoot, unix.O_RDONLY|unix.O_DIRECTORY, 0)
+	if err != nil {
+		return nil, fmt.Errorf("ValidatePath: open repo root %q: %w", repoRoot, err)
+	}
+	defer unix.Close(rootFd)
+
+	// Step 2: Clean the relative path.
+	relPath := filepath.Clean(rawPath)
+	// Reject absolute paths — must be relative to repoRoot.
+	if filepath.IsAbs(relPath) {
+		return nil, fmt.Errorf("ValidatePath: path %q is absolute; must be relative to repo root", rawPath)
+	}
+	// Reject path traversal attempts.
+	if strings.HasPrefix(relPath, "..") {
+		return nil, fmt.Errorf("ValidatePath: path %q escapes repo root", rawPath)
+	}
+
+	// Step 3: Open the file relative to rootFd with O_NOFOLLOW.
+	fd, err := unix.Openat(rootFd, relPath, unix.O_RDONLY|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, fmt.Errorf("ValidatePath: open %q relative to %q: %w", rawPath, repoRoot, err)
+	}
+
+	// Step 4: Get the real path from the open fd.
+	var realPath string
+	switch runtime.GOOS {
+	case "linux":
+		linkPath := fmt.Sprintf("/proc/self/fd/%d", fd)
+		realPath, err = os.Readlink(linkPath)
+		if err != nil {
+			unix.Close(fd)
+			return nil, fmt.Errorf("ValidatePath: readlink /proc/self/fd/%d: %w", fd, err)
+		}
+	case "darwin":
+		// macOS: use F_GETPATH via fcntl.
+		// Allocate a buffer for the path (MAXPATHLEN = 1024 on macOS).
+		buf := make([]byte, 1024)
+		_, _, errno := unix.Syscall(unix.SYS_FCNTL, uintptr(fd), unix.F_GETPATH, uintptr(unsafe.Pointer(&buf[0])))
+		if errno != 0 {
+			unix.Close(fd)
+			return nil, fmt.Errorf("ValidatePath: fcntl F_GETPATH fd=%d: %w", fd, errno)
+		}
+		// Buffer is a C string; find the null terminator.
+		n := bytes.IndexByte(buf, 0)
+		if n < 0 {
+			n = len(buf)
+		}
+		realPath = string(buf[:n])
+	default:
+		unix.Close(fd)
+		return nil, fmt.Errorf("ValidatePath: unsupported OS %q", runtime.GOOS)
+	}
+
+	// Step 5: Resolve the repo root.
+	rootResolved, err := filepath.EvalSymlinks(filepath.Clean(repoRoot))
+	if err != nil {
+		unix.Close(fd)
+		return nil, fmt.Errorf("ValidatePath: resolve repo root %q: %w", repoRoot, err)
+	}
+
+	// Step 6: Verify the real path is within the resolved repo root.
+	if !strings.HasPrefix(realPath, rootResolved+string(filepath.Separator)) && realPath != rootResolved {
+		unix.Close(fd)
+		return nil, fmt.Errorf("ValidatePath: path %q resolves to %q which is outside repo root %q", rawPath, realPath, rootResolved)
+	}
+
+	// Step 7: Return the ValidatedFile wrapper.
+	vf := &ValidatedFile{fd: fd}
+	runtime.SetFinalizer(vf, func(f *ValidatedFile) {
+		unix.Close(f.fd)
+	})
+
+	return vf, nil
+}
+
