@@ -1,6 +1,6 @@
 # Agent Instructions
 
-> **Sync:** Sync only genuinely shared agent conventions (placement, "продолжай", command tree) to `sdp/CLAUDE.md`. Repo topology, branch policy, beads workflow, and private-lab process stay local to `sdp_lab`. See [docs/plans/2026-02-25-agents-claude-sync-rules.md](docs/plans/2026-02-25-agents-claude-sync-rules.md).
+> **Sync:** Sync only genuinely shared agent conventions (placement, "продолжай", command tree) to `sdp/CLAUDE.md`. Repo topology, branch policy, beads workflow, and private-lab process stay local to `sdp_lab`. See [docs/archive/plans/2026-02-25-agents-claude-sync-rules.md](docs/archive/plans/2026-02-25-agents-claude-sync-rules.md).
 
 ## Что такое SDP
 
@@ -78,7 +78,7 @@ This project has **two repos** with different roles:
 
 **Scope:** sdp_lab only — do not sync repo-specific rules to sdp/CLAUDE.md (sdp stays generic).
 
-**Source:** [docs/plans/2026-02-25-agent-protocol-improvement-proposal.md](docs/plans/2026-02-25-agent-protocol-improvement-proposal.md)
+**Source:** [docs/archive/plans/2026-02-25-agent-protocol-improvement-proposal.md](docs/archive/plans/2026-02-25-agent-protocol-improvement-proposal.md)
 
 | Rule | Do | Don't |
 |------|-----|-------|
@@ -119,7 +119,7 @@ scripts/beads_transport.sh export  # Publish Beads state after work
 
 **Base branch:** `main`. Feature branches branch from `main`; PRs target `main`. This repo does not use a living `dev` branch.
 
-Canonical design reference: [docs/plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md](docs/plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md)
+Canonical design reference: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/phases/DELIVERY.md](docs/phases/DELIVERY.md)
 
 ### Step 1: Shape `feature`
 
