@@ -22,7 +22,7 @@
 
 ## Architect — `gpt-5.4` via `codex-rescue`
 
-**Verdict:** CONDITIONAL ACCEPT  
+**Verdict:** CONDITIONAL ACCEPT
 **Domain veto:** NO
 
 Main points:
@@ -45,7 +45,7 @@ Key question:
 
 ## Critic — `google/gemini-3.1-pro-preview`
 
-**Verdict:** REJECT IN CURRENT FORM  
+**Verdict:** REJECT IN CURRENT FORM
 **Domain veto:** YES
 
 Main points:
@@ -65,7 +65,7 @@ Key question:
 
 ## Technician — `deepseek/deepseek-v3.2`
 
-**Verdict:** technically feasible, high migration cost, underspecified runtime  
+**Verdict:** technically feasible, high migration cost, underspecified runtime
 **Domain veto:** NO
 
 Main points:
@@ -87,7 +87,7 @@ Key question:
 
 ## Philosopher — `moonshotai/kimi-k2.5`
 
-**Verdict:** REJECT  
+**Verdict:** REJECT
 **Protocol veto authority:** none for this role
 
 Main points:
@@ -108,7 +108,7 @@ Key question:
 
 ## Pragmatist — `minimax/minimax-m2.7`
 
-**Verdict:** Option B is over-engineered for the stated problem  
+**Verdict:** Option B is over-engineered for the stated problem
 **Protocol veto authority:** none for this role
 
 Main points:
@@ -134,7 +134,7 @@ Key question:
 
 ## Engineer — `xiaomi/mimo-v2-pro`
 
-**Verdict:** REJECT  
+**Verdict:** REJECT
 **Domain veto:** YES
 
 Main points:
