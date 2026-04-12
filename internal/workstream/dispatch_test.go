@@ -10,6 +10,7 @@ import (
 
 func TestAcquireExecutionClaimReleasesOnRevalidationFailure(t *testing.T) {
 	root := seedDispatchProject(t)
+	observer := &recordingDispatchObserver{}
 	runner := &fakeRunner{
 		outputs: map[string][]byte{
 			"bd show sdplab-62nw --json": []byte(`[
@@ -26,7 +27,7 @@ func TestAcquireExecutionClaimReleasesOnRevalidationFailure(t *testing.T) {
 	}
 	adapter := &ShellBeadsRuntimeAdapter{ProjectRoot: root, Runner: newSequencedRunner(runner), BDPath: "bd"}
 
-	_, err := AcquireExecutionClaim(context.Background(), root, "F110", "00-110-01", DefaultCompileOptions(), adapter)
+	_, err := AcquireExecutionClaim(context.Background(), root, "F110", "00-110-01", DefaultCompileOptions(), adapter, observer)
 	if err == nil {
 		t.Fatal("expected revalidation failure, got nil")
 	}
@@ -37,11 +38,18 @@ func TestAcquireExecutionClaimReleasesOnRevalidationFailure(t *testing.T) {
 	if dispatchErr.Code != "dispatch_aborted_revalidation" {
 		t.Fatalf("code = %q, want dispatch_aborted_revalidation", dispatchErr.Code)
 	}
+	if observer.counters[DispatchAttemptTotal] != 1 {
+		t.Fatalf("attempt counter = %d, want 1", observer.counters[DispatchAttemptTotal])
+	}
+	if observer.counters[DispatchAbortedRevalidationTotal] != 1 {
+		t.Fatalf("abort counter = %d, want 1", observer.counters[DispatchAbortedRevalidationTotal])
+	}
 	assertCallSeen(t, runner.calls, "COMB:bd update sdplab-62nw --status open -a  --json")
 }
 
 func TestRevalidateExecutionClaimRejectsChangedActiveIssue(t *testing.T) {
 	root := seedDispatchProjectWithFinding(t)
+	observer := &recordingDispatchObserver{}
 	runner := &fakeRunner{
 		outputs: map[string][]byte{
 			"bd show sdplab-62nw sdplab-finding --json": []byte(`[
@@ -52,7 +60,7 @@ func TestRevalidateExecutionClaimRejectsChangedActiveIssue(t *testing.T) {
 	}
 	adapter := &ShellBeadsRuntimeAdapter{ProjectRoot: root, Runner: runner, BDPath: "bd"}
 
-	_, err := RevalidateExecutionClaim(context.Background(), root, "F110", "00-110-01", "sdplab-62nw", DefaultCompileOptions(), adapter)
+	_, err := RevalidateExecutionClaim(context.Background(), root, "F110", "00-110-01", "sdplab-62nw", DefaultCompileOptions(), adapter, observer)
 	if err == nil {
 		t.Fatal("expected active issue change error, got nil")
 	}
@@ -65,6 +73,9 @@ func TestRevalidateExecutionClaimRejectsChangedActiveIssue(t *testing.T) {
 	}
 	if dispatchErr.IssueID != "sdplab-finding" {
 		t.Fatalf("issue = %q, want sdplab-finding", dispatchErr.IssueID)
+	}
+	if len(observer.diagnostics) != 1 || observer.diagnostics[0].Code != "active_issue_changed" {
+		t.Fatalf("diagnostics = %+v, want active_issue_changed", observer.diagnostics)
 	}
 }
 
@@ -79,7 +90,7 @@ func TestRevalidateExecutionClaimSuccess(t *testing.T) {
 	}
 	adapter := &ShellBeadsRuntimeAdapter{ProjectRoot: root, Runner: runner, BDPath: "bd"}
 
-	lease, err := RevalidateExecutionClaim(context.Background(), root, "F110", "00-110-01", "sdplab-62nw", DefaultCompileOptions(), adapter)
+	lease, err := RevalidateExecutionClaim(context.Background(), root, "F110", "00-110-01", "sdplab-62nw", DefaultCompileOptions(), adapter, nil)
 	if err != nil {
 		t.Fatalf("RevalidateExecutionClaim: %v", err)
 	}
@@ -88,6 +99,35 @@ func TestRevalidateExecutionClaimSuccess(t *testing.T) {
 	}
 	if lease.Target.Workstream.WSID != "00-110-01" {
 		t.Fatalf("ws = %q, want 00-110-01", lease.Target.Workstream.WSID)
+	}
+}
+
+func TestAcquireExecutionClaimCountsBeadsQueryFailure(t *testing.T) {
+	root := seedDispatchProject(t)
+	observer := &recordingDispatchObserver{}
+	runner := &fakeRunner{
+		outputErrs: map[string]error{
+			"bd show sdplab-62nw --json": errors.New("transport down"),
+		},
+	}
+	adapter := &ShellBeadsRuntimeAdapter{ProjectRoot: root, Runner: runner, BDPath: "bd"}
+
+	_, err := AcquireExecutionClaim(context.Background(), root, "F110", "00-110-01", DefaultCompileOptions(), adapter, observer)
+	if err == nil {
+		t.Fatal("expected query failure, got nil")
+	}
+	var queryErr *RuntimeQueryError
+	if !errors.As(err, &queryErr) {
+		t.Fatalf("expected RuntimeQueryError, got %T", err)
+	}
+	if observer.counters[DispatchAttemptTotal] != 1 {
+		t.Fatalf("attempt counter = %d, want 1", observer.counters[DispatchAttemptTotal])
+	}
+	if observer.counters[DispatchBeadsQueryFailedTotal] != 1 {
+		t.Fatalf("query failure counter = %d, want 1", observer.counters[DispatchBeadsQueryFailedTotal])
+	}
+	if len(observer.diagnostics) != 1 || observer.diagnostics[0].Code != "beads_query_failed" {
+		t.Fatalf("diagnostics = %+v, want beads_query_failed", observer.diagnostics)
 	}
 }
 
@@ -238,4 +278,20 @@ func joinArgs(args []string) string {
 
 func itoa(v int) string {
 	return strconv.Itoa(v)
+}
+
+type recordingDispatchObserver struct {
+	counters    map[string]int
+	diagnostics []DispatchDiagnostic
+}
+
+func (r *recordingDispatchObserver) IncrementCounter(name string) {
+	if r.counters == nil {
+		r.counters = map[string]int{}
+	}
+	r.counters[name]++
+}
+
+func (r *recordingDispatchObserver) RecordDiagnostic(diag DispatchDiagnostic) {
+	r.diagnostics = append(r.diagnostics, diag)
 }

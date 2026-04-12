@@ -149,9 +149,12 @@ type failingPhaseStore struct {
 	inner *MemStore
 }
 
-func (f *failingPhaseStore) Persist(s *Session) error                    { return f.inner.Persist(s) }
-func (f *failingPhaseStore) Recover(id string) (*Session, error)         { return f.inner.Recover(id) }
-func (f *failingPhaseStore) PersistEvent(id string, ev Event) error      { return f.inner.PersistEvent(id, ev) }
+func (f *failingPhaseStore) Persist(s *Session) error            { return f.inner.Persist(s) }
+func (f *failingPhaseStore) Recover(id string) (*Session, error) { return f.inner.Recover(id) }
+func (f *failingPhaseStore) PersistEvent(id string, ev Event) error {
+	return f.inner.PersistEvent(id, ev)
+}
+func (f *failingPhaseStore) LoadEvents(id string) ([]Event, error) { return f.inner.LoadEvents(id) }
 func (f *failingPhaseStore) PersistGateResult(id string, r GateResult) error {
 	return f.inner.PersistGateResult(id, r)
 }
@@ -173,7 +176,9 @@ func (f *failingPhaseStore) PersistDecision(id string, d PendingDecision) error 
 func (f *failingPhaseStore) ValidateDecision(id, did string) error {
 	return f.inner.ValidateDecision(id, did)
 }
-func (f *failingPhaseStore) ClearDecision(id, did string) error { return f.inner.ClearDecision(id, did) }
+func (f *failingPhaseStore) ClearDecision(id, did string) error {
+	return f.inner.ClearDecision(id, did)
+}
 func (f *failingPhaseStore) LoadDecision(id string) (*PendingDecision, error) {
 	return f.inner.LoadDecision(id)
 }

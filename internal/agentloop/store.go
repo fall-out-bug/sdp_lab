@@ -12,6 +12,7 @@ type SessionStore interface {
 
 	// Telemetry
 	PersistEvent(sessionID string, ev Event) error
+	LoadEvents(sessionID string) ([]Event, error)
 	PersistGateResult(sessionID string, r GateResult) error
 
 	// Canonical conversation log (Fix N3)
@@ -72,6 +73,10 @@ func (m *MemStore) Recover(sessionID string) (*Session, error) {
 func (m *MemStore) PersistEvent(sessionID string, ev Event) error {
 	m.events[sessionID] = append(m.events[sessionID], ev)
 	return nil
+}
+
+func (m *MemStore) LoadEvents(sessionID string) ([]Event, error) {
+	return append([]Event(nil), m.events[sessionID]...), nil
 }
 
 func (m *MemStore) PersistGateResult(sessionID string, r GateResult) error {

@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +12,7 @@ import (
 	"testing"
 
 	"sdp_dev/internal/agentloop"
+	"sdp_dev/internal/workstream"
 )
 
 // TestCmdNew_createSession verifies that cmdNew creates a session DB file.
@@ -37,6 +40,28 @@ func TestCmdNew_createSession(t *testing.T) {
 	dbFile := filepath.Join(dir, "test-session-123.db")
 	if _, err := os.Stat(dbFile); err != nil {
 		t.Fatalf("DB file not created: %v", err)
+	}
+
+	store, err := agentloop.NewSQLiteStore(dbFile)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	defer store.Close()
+	events, err := store.LoadEvents("test-session-123")
+	if err != nil {
+		t.Fatalf("load events: %v", err)
+	}
+	if len(events) < 2 {
+		t.Fatalf("expected dispatch events, got %+v", events)
+	}
+	if events[0].Type != "dispatch_metric" || events[0].Code != workstream.DispatchAttemptTotal {
+		t.Fatalf("first event = %+v, want dispatch attempt metric", events[0])
+	}
+	if events[1].Type != "dispatch_metric" || events[1].Code != workstream.DispatchSuccessTotal {
+		t.Fatalf("second event = %+v, want dispatch success metric", events[1])
+	}
+	if events[2].Type != "dispatch_diagnostic" || events[2].Code != "dispatch_success" {
+		t.Fatalf("third event = %+v, want dispatch success diagnostic", events[2])
 	}
 }
 
@@ -194,6 +219,102 @@ func TestCmdRelease_clearsClaim(t *testing.T) {
 	}
 	if session.ClaimedIssueID != "" {
 		t.Fatalf("ClaimedIssueID = %q, want empty", session.ClaimedIssueID)
+	}
+}
+
+func TestCmdEvents_printsStructuredDispatchEvents(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SDP_DATA_DIR", dir)
+	t.Setenv("SDP_HARNESS_BD_PATH", installFakeBD(t, fakeBDIssue{
+		ID:        "sdplab-62nw",
+		Status:    "open",
+		Priority:  2,
+		CreatedAt: "2026-04-12T15:25:25Z",
+	}))
+	projectRoot := makeBoundHarnessProject(t)
+
+	if err := cmdNew([]string{
+		"--session=events-test",
+		"--project-root=" + projectRoot,
+		"--feature=F110",
+		"--ws=00-110-01",
+	}); err != nil {
+		t.Fatalf("cmdNew: %v", err)
+	}
+
+	origStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	os.Stdout = w
+	defer func() { os.Stdout = origStdout }()
+
+	if err := cmdEvents([]string{"--session=events-test"}); err != nil {
+		t.Fatalf("cmdEvents: %v", err)
+	}
+	_ = w.Close()
+	payload, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("read pipe: %v", err)
+	}
+
+	var events []agentloop.Event
+	if err := json.Unmarshal(payload, &events); err != nil {
+		t.Fatalf("unmarshal events: %v\n%s", err, payload)
+	}
+	if len(events) == 0 || events[0].Code != workstream.DispatchAttemptTotal {
+		t.Fatalf("events = %+v, want dispatch attempt metric first", events)
+	}
+}
+
+func TestCmdNew_queryFailurePersistsStructuredDiagnostic(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SDP_DATA_DIR", dir)
+	t.Setenv("SDP_HARNESS_BD_PATH", installFakeBD(t))
+	projectRoot := makeBoundHarnessProject(t)
+
+	origStderr := os.Stderr
+	readErr, writeErr, pipeErr := os.Pipe()
+	if pipeErr != nil {
+		t.Fatalf("os.Pipe: %v", pipeErr)
+	}
+	os.Stderr = writeErr
+	defer func() { os.Stderr = origStderr }()
+
+	err := cmdNew([]string{
+		"--session=query-fail-test",
+		"--project-root=" + projectRoot,
+		"--feature=F110",
+		"--ws=00-110-01",
+	})
+	_ = writeErr.Close()
+	if err == nil {
+		t.Fatal("expected cmdNew failure, got nil")
+	}
+	stderrPayload, readPipeErr := io.ReadAll(readErr)
+	if readPipeErr != nil {
+		t.Fatalf("read stderr pipe: %v", readPipeErr)
+	}
+	if !strings.Contains(string(stderrPayload), `"code":"beads_query_failed"`) {
+		t.Fatalf("stderr = %s, want structured beads_query_failed diagnostic", stderrPayload)
+	}
+
+	store, openErr := agentloop.NewSQLiteStore(filepath.Join(dir, "query-fail-test.db"))
+	if openErr != nil {
+		t.Fatalf("open store: %v", openErr)
+	}
+	defer store.Close()
+	events, loadErr := store.LoadEvents("query-fail-test")
+	if loadErr != nil {
+		t.Fatalf("load events: %v", loadErr)
+	}
+	if len(events) < 2 {
+		t.Fatalf("events = %+v, want attempt metric and failure diagnostic", events)
+	}
+	last := events[len(events)-1]
+	if last.Type != "dispatch_diagnostic" || last.Code != "beads_query_failed" {
+		t.Fatalf("last event = %+v, want beads_query_failed diagnostic", last)
 	}
 }
 

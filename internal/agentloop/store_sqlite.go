@@ -270,6 +270,34 @@ func (st *SQLiteStore) PersistEvent(sessionID string, ev Event) error {
 	return err
 }
 
+func (st *SQLiteStore) LoadEvents(sessionID string) ([]Event, error) {
+	rows, err := st.db.Query(
+		`SELECT payload FROM events WHERE session_id = ? ORDER BY id ASC`,
+		sessionID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query events: %w", err)
+	}
+	defer rows.Close()
+
+	var events []Event
+	for rows.Next() {
+		var payload string
+		if err := rows.Scan(&payload); err != nil {
+			return nil, fmt.Errorf("scan event: %w", err)
+		}
+		var ev Event
+		if err := json.Unmarshal([]byte(payload), &ev); err != nil {
+			return nil, fmt.Errorf("decode event: %w", err)
+		}
+		events = append(events, ev)
+	}
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("iterate events: %w", rows.Err())
+	}
+	return events, nil
+}
+
 func (st *SQLiteStore) PersistGateResult(sessionID string, r GateResult) error {
 	payload, err := json.Marshal(r)
 	if err != nil {

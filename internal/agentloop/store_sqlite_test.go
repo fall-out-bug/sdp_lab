@@ -243,9 +243,22 @@ func TestSQLiteStore_PersistEvent(t *testing.T) {
 	defer st.Close()
 
 	require.NoError(t, st.Persist(&Session{ID: "sess", Phase: RoleDiscover}))
-	require.NoError(t, st.PersistEvent("sess", Event{Type: "text_delta", Delta: "hello"}))
+	require.NoError(t, st.PersistEvent("sess", Event{
+		Type:   "dispatch_metric",
+		Code:   "dispatch_attempt_total",
+		Count:  1,
+		Fields: map[string]string{"total": "1"},
+		Delta:  "hello",
+	}))
 	require.NoError(t, st.PersistEvent("sess", Event{Type: "done"}))
-	// No assertion beyond no-error — events are telemetry, not recovered.
+
+	events, err := st.LoadEvents("sess")
+	require.NoError(t, err)
+	require.Len(t, events, 2)
+	assert.Equal(t, "dispatch_metric", events[0].Type)
+	assert.Equal(t, "dispatch_attempt_total", events[0].Code)
+	assert.Equal(t, 1, events[0].Count)
+	assert.Equal(t, "1", events[0].Fields["total"])
 }
 
 func TestSQLiteStore_PersistGateResult(t *testing.T) {

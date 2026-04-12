@@ -17,10 +17,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"sdp_dev/internal/agentloop"
@@ -50,6 +52,8 @@ func run(args []string) error {
 		return cmdRun(args[1:])
 	case "release":
 		return cmdRelease(args[1:])
+	case "events":
+		return cmdEvents(args[1:])
 	case "--help", "-h", "help":
 		printUsage()
 		return nil
@@ -68,6 +72,7 @@ Subcommands:
                                                           Create a new session bound to one executable leaf
   run           --session=<id> --prompt="<text>"         Run one phase turn for a bound leaf session
   release       --session=<id>                           Release the claim held by a bound session
+  events        --session=<id>                           Print persisted structured events for one session
 
 Environment:
   SDP_DATA_DIR         Directory for session DB files (default: $HOME/.sdp)
@@ -165,8 +170,9 @@ func cmdNew(args []string) error {
 	}
 	defer store.Close()
 
+	observer := newDispatchEventObserver(*sessionID, store, os.Stderr)
 	adapter := runtimeAdapterForRoot(root)
-	lease, err := workstream.AcquireExecutionClaim(context.Background(), root, *featureID, *wsID, workstream.DefaultCompileOptions(), adapter)
+	lease, err := workstream.AcquireExecutionClaim(context.Background(), root, *featureID, *wsID, workstream.DefaultCompileOptions(), adapter, observer)
 	if err != nil {
 		return fmt.Errorf("acquire execution claim: %w\n(hint: run 'sdp-harness compile-lock --project-root=%s' after updating normalized workstreams)", err, root)
 	}
@@ -178,7 +184,7 @@ func cmdNew(args []string) error {
 		ClaimedIssueID: lease.ClaimedIssueID,
 	}, store)
 	if err != nil {
-		if releaseErr := workstream.ReleaseExecutionClaim(context.Background(), adapter, lease); releaseErr != nil {
+		if releaseErr := workstream.ReleaseExecutionClaim(context.Background(), adapter, lease, observer); releaseErr != nil {
 			return fmt.Errorf("create session: %w (claim release failed: %v)", err, releaseErr)
 		}
 		return fmt.Errorf("create session: %w", err)
@@ -224,6 +230,7 @@ func cmdRun(args []string) error {
 	if err != nil {
 		return fmt.Errorf("recover session %q: %w\n(hint: use 'sdp-harness new --session=%s --project-root=<root> --feature=<FXXX> --ws=<id>' to create it)", *sessionID, err, *sessionID)
 	}
+	observer := newDispatchEventObserver(*sessionID, store, os.Stderr)
 	if session.ProjectRoot == "" || session.FeatureID == "" || session.WSID == "" {
 		return fmt.Errorf("session %q is not bound to a leaf workstream; recreate it with --project-root, --feature, and --ws", *sessionID)
 	}
@@ -233,7 +240,7 @@ func cmdRun(args []string) error {
 	if session.ClaimedIssueID == "" {
 		return fmt.Errorf("session %q has no claimed issue; create a fresh bound session", *sessionID)
 	}
-	if _, err := workstream.RevalidateExecutionClaim(context.Background(), session.ProjectRoot, session.FeatureID, session.WSID, session.ClaimedIssueID, workstream.DefaultCompileOptions(), runtimeAdapterForRoot(session.ProjectRoot)); err != nil {
+	if _, err := workstream.RevalidateExecutionClaim(context.Background(), session.ProjectRoot, session.FeatureID, session.WSID, session.ClaimedIssueID, workstream.DefaultCompileOptions(), runtimeAdapterForRoot(session.ProjectRoot), observer); err != nil {
 		return fmt.Errorf("revalidate execution claim: %w", err)
 	}
 
@@ -290,13 +297,21 @@ func cmdRelease(args []string) error {
 	if err != nil {
 		return fmt.Errorf("recover session %q: %w", *sessionID, err)
 	}
+	observer := newDispatchEventObserver(*sessionID, store, os.Stderr)
 	if session.ProjectRoot == "" || session.FeatureID == "" || session.WSID == "" {
 		return fmt.Errorf("session %q is not bound to a leaf workstream", *sessionID)
 	}
 	if session.ClaimedIssueID == "" {
 		return fmt.Errorf("session %q has no claimed issue to release", *sessionID)
 	}
-	if err := runtimeAdapterForRoot(session.ProjectRoot).ReleaseClaim(context.Background(), session.ClaimedIssueID); err != nil {
+	lease := workstream.DispatchLease{
+		Target: workstream.ExecutionTarget{
+			Feature:    workstream.FeatureLock{FeatureID: session.FeatureID},
+			Workstream: workstream.WorkstreamLock{WSID: session.WSID},
+		},
+		ClaimedIssueID: session.ClaimedIssueID,
+	}
+	if err := workstream.ReleaseExecutionClaim(context.Background(), runtimeAdapterForRoot(session.ProjectRoot), lease, observer); err != nil {
 		return fmt.Errorf("release execution claim: %w", err)
 	}
 	session.ClaimedIssueID = ""
@@ -305,6 +320,40 @@ func cmdRelease(args []string) error {
 	}
 
 	fmt.Printf("released claim for session %q\n", *sessionID)
+	return nil
+}
+
+func cmdEvents(args []string) error {
+	fs := flag.NewFlagSet("events", flag.ContinueOnError)
+	sessionID := fs.String("session", "", "Session ID (required)")
+	fs.SetOutput(os.Stderr)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *sessionID == "" {
+		fs.Usage()
+		return fmt.Errorf("--session is required")
+	}
+
+	path, err := dbPath(*sessionID)
+	if err != nil {
+		return err
+	}
+	store, err := agentloop.NewSQLiteStore(path)
+	if err != nil {
+		return fmt.Errorf("open store at %s: %w", path, err)
+	}
+	defer store.Close()
+
+	events, err := store.LoadEvents(*sessionID)
+	if err != nil {
+		return fmt.Errorf("load events: %w", err)
+	}
+	payload, err := json.MarshalIndent(events, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal events: %w", err)
+	}
+	fmt.Printf("%s\n", payload)
 	return nil
 }
 
@@ -332,4 +381,84 @@ func summarizeIssues(issues []workstream.ValidationIssue) string {
 		parts = append(parts, fmt.Sprintf("%d more", len(issues)-limit))
 	}
 	return strings.Join(parts, "; ")
+}
+
+type dispatchEventObserver struct {
+	sessionID string
+	store     agentloop.SessionStore
+	stderr    *os.File
+	counters  map[string]int
+}
+
+func newDispatchEventObserver(sessionID string, store agentloop.SessionStore, stderr *os.File) *dispatchEventObserver {
+	return &dispatchEventObserver{
+		sessionID: sessionID,
+		store:     store,
+		stderr:    stderr,
+		counters:  map[string]int{},
+	}
+}
+
+func (o *dispatchEventObserver) IncrementCounter(name string) {
+	o.counters[name]++
+	_ = o.store.PersistEvent(o.sessionID, agentloop.Event{
+		Type:  "dispatch_metric",
+		Code:  name,
+		Count: 1,
+		Fields: map[string]string{
+			"total": strconv.Itoa(o.counters[name]),
+		},
+	})
+}
+
+func (o *dispatchEventObserver) RecordDiagnostic(diag workstream.DispatchDiagnostic) {
+	fields := map[string]string{}
+	for k, v := range diag.Fields {
+		fields[k] = v
+	}
+	if diag.FeatureID != "" {
+		fields["feature_id"] = diag.FeatureID
+	}
+	if diag.LeafWSID != "" {
+		fields["leaf_ws_id"] = diag.LeafWSID
+	}
+	if diag.IssueID != "" {
+		fields["issue_id"] = diag.IssueID
+	}
+	if diag.Reason != "" {
+		fields["reason"] = diag.Reason
+	}
+	if len(diag.Conflicts) > 0 {
+		fields["conflicts"] = strings.Join(diag.Conflicts, ",")
+	}
+	_ = o.store.PersistEvent(o.sessionID, agentloop.Event{
+		Type:   "dispatch_diagnostic",
+		Code:   diag.Code,
+		Fields: fields,
+	})
+
+	if o.stderr == nil || diag.Code == "dispatch_success" || diag.Code == "dispatch_claim_released" {
+		return
+	}
+	payload := map[string]any{
+		"type":       "dispatch_diagnostic",
+		"code":       diag.Code,
+		"feature_id": diag.FeatureID,
+		"leaf_ws_id": diag.LeafWSID,
+	}
+	if diag.IssueID != "" {
+		payload["issue_id"] = diag.IssueID
+	}
+	if diag.Reason != "" {
+		payload["reason"] = diag.Reason
+	}
+	if len(diag.Conflicts) > 0 {
+		payload["conflicts"] = diag.Conflicts
+	}
+	if len(diag.Fields) > 0 {
+		payload["fields"] = diag.Fields
+	}
+	if raw, err := json.Marshal(payload); err == nil {
+		fmt.Fprintln(o.stderr, string(raw))
+	}
 }

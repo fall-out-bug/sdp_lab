@@ -24,7 +24,7 @@ const (
 // ---- Message / ToolCall / Tool / ToolResult ----
 
 type Message struct {
-	Role       string     // "user" | "assistant" | "tool_result"
+	Role       string // "user" | "assistant" | "tool_result"
 	Content    string
 	ToolCalls  []ToolCall // Fix X2: assistant messages carry tool calls
 	ToolCallID string     // Fix Y1: correlates tool_result to tool_call
@@ -86,10 +86,13 @@ type LoopConfig struct {
 // ---- Event ----
 
 type Event struct {
-	Type          string          // "text_delta"|"tool_call"|"tool_end"|"turn_end"|"done"|"error"|"warn"|"human_gate"|"session_stopped"
+	Type          string // "text_delta"|"tool_call"|"tool_end"|"turn_end"|"done"|"error"|"warn"|"human_gate"|"session_stopped"
+	Code          string `json:"code,omitempty"`
 	Delta         string
-	ToolCalls     []ToolCall      // Fix X2: "tool_call" event carries all parallel calls
-	ToolID        string          // Fix Y1: for "tool_end" — matches ToolCall.ID
+	Count         int               `json:"count,omitempty"`
+	Fields        map[string]string `json:"fields,omitempty"`
+	ToolCalls     []ToolCall        // Fix X2: "tool_call" event carries all parallel calls
+	ToolID        string            // Fix Y1: for "tool_end" — matches ToolCall.ID
 	ToolName      string
 	ToolResult    string
 	ToolErr       error           // Fix P4: tool failure preserved in event
@@ -149,10 +152,10 @@ func (ps PhaseSnapshot) toHarness() *harness.TaskSnapshot {
 type harnessState int
 
 const (
-	hStateIdle         harnessState = iota // ready for next prompt
-	hStateRunning                          // Loop active
-	hStateAwaitingHuman                    // gate escalated
-	hStateStopped                          // Fix V1: terminal — Stop() called
+	hStateIdle          harnessState = iota // ready for next prompt
+	hStateRunning                           // Loop active
+	hStateAwaitingHuman                     // gate escalated
+	hStateStopped                           // Fix V1: terminal — Stop() called
 )
 
 // ---- completionFlag ----

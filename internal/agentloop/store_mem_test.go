@@ -95,3 +95,22 @@ func TestMemStore_Decision_lifecycle(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, got2)
 }
+
+func TestMemStore_PersistAndLoadEvents(t *testing.T) {
+	ms := NewMemStore()
+	require.NoError(t, ms.Persist(&Session{ID: "sess"}))
+	require.NoError(t, ms.PersistEvent("sess", Event{
+		Type:   "dispatch_metric",
+		Code:   "dispatch_attempt_total",
+		Count:  1,
+		Fields: map[string]string{"total": "1"},
+	}))
+
+	events, err := ms.LoadEvents("sess")
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	require.Equal(t, "dispatch_metric", events[0].Type)
+	require.Equal(t, "dispatch_attempt_total", events[0].Code)
+	require.Equal(t, 1, events[0].Count)
+	require.Equal(t, "1", events[0].Fields["total"])
+}
