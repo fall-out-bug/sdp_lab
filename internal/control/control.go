@@ -64,6 +64,7 @@ type FeatureCard struct {
 	Links                   []string               `yaml:"links,omitempty" json:"links,omitempty"`
 	OpenQuestions           []string               `yaml:"open_questions,omitempty" json:"open_questions,omitempty"`
 	AcceptanceShape         []string               `yaml:"acceptance_shape,omitempty" json:"acceptance_shape,omitempty"`
+	DiscoveryDir            string                 `yaml:"discovery_dir,omitempty" json:"discovery_dir,omitempty"`
 	RecommendedNext         string                 `yaml:"recommended_next_step,omitempty" json:"recommended_next_step,omitempty"`
 	IntakeArtifact          []string               `yaml:"intake_artifact,omitempty" json:"intake_artifact,omitempty"`
 	LinkedBeadsIDs          []string               `yaml:"linked_beads_ids,omitempty" json:"linked_beads_ids,omitempty"`

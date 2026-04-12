@@ -150,9 +150,9 @@ func TestIngest_UpdateTriggersVersionBump(t *testing.T) {
 }
 
 func TestClassifyLevel(t *testing.T) {
-	levelMap := map[string]LevelConfig{
-		"vision":   {Name: "vision", Rank: 0, Patterns: []string{"*vision*", "*mission*"}},
-		"strategy": {Name: "strategy", Rank: 1, Patterns: []string{"*strategy*"}},
+	levels := []LevelConfig{
+		{Name: "vision", Rank: 0, Patterns: []string{"*vision*", "*mission*"}},
+		{Name: "strategy", Rank: 1, Patterns: []string{"*strategy*"}},
 	}
 
 	tests := []struct {
@@ -165,9 +165,58 @@ func TestClassifyLevel(t *testing.T) {
 		{"plans/random.md", ""},
 	}
 	for _, tt := range tests {
-		got := classifyLevel(tt.path, levelMap)
+		got := classifyLevel(tt.path, levels)
 		if got != tt.want {
 			t.Errorf("classifyLevel(%q) = %q, want %q", tt.path, got, tt.want)
+		}
+	}
+}
+
+func TestClassifyLevel_Deterministic_LowestRankWins(t *testing.T) {
+	levels := []LevelConfig{
+		{Name: "strategy", Rank: 0, Patterns: []string{"*стратег*"}},
+		{Name: "architecture", Rank: 1, Patterns: []string{"*HLD*", "*Архитекту*"}},
+		{Name: "design", Rank: 2, Patterns: []string{"*LLD*", "*ТЗ*"}},
+		{Name: "implementation", Rank: 3, Patterns: []string{"*API*", "*Подключ*", "*Платеж*СКМ*", "*Смена*счета*"}},
+	}
+
+	tests := []struct {
+		path string
+		want string
+	}{
+		// Implementation patterns
+		{"API+→+Digital+back+→+Платежи.doc", "implementation"},
+		{"Подключение+СБП.doc", "implementation"},
+		{"Платежи+СКМ.doc", "implementation"},
+		{"Смена+основного+счета.doc", "implementation"},
+		// Design patterns
+		{"LLD-MBK-106+Online+платежи.doc", "design"},
+		{"ТЗ+для+МП.doc", "design"},
+		// Architecture patterns
+		{"Архитектура+решения.doc", "architecture"},
+		{"[HLD-DPT-006]+Накопительный.doc", "architecture"},
+		// Strategy
+		{"Стратегия+развития.doc", "strategy"},
+		// Unmatched
+		{"random.doc", ""},
+		// Multi-match: LLD file with API keyword → design wins (lower rank)
+		{"LLD-MBK-132+API+интеграция.doc", "design"},
+	}
+
+	for _, tt := range tests {
+		got := classifyLevel(tt.path, levels)
+		if got != tt.want {
+			t.Errorf("classifyLevel(%q) = %q, want %q", tt.path, got, tt.want)
+		}
+	}
+
+	// Determinism: run 10 times, must get same results
+	for i := 0; i < 10; i++ {
+		for _, tt := range tests {
+			got := classifyLevel(tt.path, levels)
+			if got != tt.want {
+				t.Fatalf("determinism check failed on iteration %d: classifyLevel(%q) = %q, want %q", i, tt.path, got, tt.want)
+			}
 		}
 	}
 }

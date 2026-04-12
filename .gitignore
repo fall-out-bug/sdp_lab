@@ -76,3 +76,6 @@ ORIG_HEAD
 # Additional build artifacts
 sdp_bin
 sdp-beads-bridge
+
+# Main CLI binary (rebuilt from source)
+/sdp

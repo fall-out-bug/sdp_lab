@@ -51,7 +51,7 @@ type PipelineResult struct {
 	ReferenceModel *ReferenceModel     `json:"reference_model,omitempty"`
 	Duration       time.Duration       `json:"duration"`
 	Errors         []ExtractorError    `json:"errors,omitempty"`
-	Diagrams       []DiagramResult    `json:"diagrams,omitempty"`
+	Diagrams       []DiagramResult     `json:"diagrams,omitempty"`
 }
 
 // DiagramResult holds a rendered C4 diagram.
@@ -179,6 +179,11 @@ func (p *Pipeline) Run(ctx context.Context) (*PipelineResult, error) {
 	p.progress(StageModel, fmt.Sprintf("Model: %d containers, %d relationships",
 		len(refModel.Containers), len(refModel.Relationships)), nil)
 
+		// Update container count to reflect the actual reference model
+		// (assembler only counts Dockerfile containers, but the model includes
+		// Maven modules, import clusters, etc.).
+		profile.Metrics.ContainersDetected = len(refModel.Containers)
+
 	// Build report
 	report := &ArchitectureReport{
 		Version:           "1.0.0",
@@ -255,6 +260,49 @@ func (p *Pipeline) runEnrichment(ctx context.Context, profile *CodebaseProfile) 
 	return &result
 }
 
+func pipelineSlug(name string) string {
+	s := strings.ToLower(name)
+	s = strings.NewReplacer(" ", "-", "_", "-", "/", "-", ".", "-").Replace(s)
+
+	var b strings.Builder
+	lastHyphen := false
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z':
+			b.WriteRune(r)
+			lastHyphen = false
+		case r >= '0' && r <= '9':
+			b.WriteRune(r)
+			lastHyphen = false
+		case r == '-':
+			if !lastHyphen {
+				b.WriteRune(r)
+				lastHyphen = true
+			}
+		}
+	}
+
+	slug := strings.Trim(b.String(), "-")
+	if slug == "" {
+		return "unnamed"
+	}
+	return slug
+}
+
+func parentPrefix(path string) string {
+	normalized := strings.Trim(filepath.ToSlash(filepath.Clean(path)), "/")
+	if normalized == "" || normalized == "." {
+		return ""
+	}
+
+	for _, part := range strings.Split(normalized, "/") {
+		if part != "" && part != "." {
+			return part
+		}
+	}
+	return ""
+}
+
 // BuildReferenceModelFromProfile creates a C4 ReferenceModel from a profile.
 // This is exported so the CLI layer can call it without importing the c4 package.
 func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
@@ -284,20 +332,36 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 	// Infer actors from context
 	isLibrary := false
 	for _, spec := range profile.Specs {
-		if spec.Kind == "openapi" || spec.Kind == "graphql" || spec.Kind == "protobuf" {
+		if spec.Kind == "openapi" || spec.Kind == "graphql" || spec.Kind == "protobuf" ||
+			spec.Kind == "thrift" || spec.Kind == "connect_proto" {
 			isLibrary = true
 			break
+		}
+	}
+	// Also detect frameworks/libraries: Maven modules + no web framework signals
+	// a library rather than a deployable service.
+	if !isLibrary && len(profile.Infra.ModuleBoundaries) > 0 {
+		hasWebFramework := false
+		for _, dep := range profile.Dependencies.NotableDeps {
+			if dep.Signal == "web_framework" {
+				hasWebFramework = true
+				break
+			}
+		}
+		if !hasWebFramework {
+			isLibrary = true
 		}
 	}
 	if isLibrary {
 		model.Actors = append(model.Actors, Actor{
 			ID:          "developer",
-			Description: "Developer using this library/API",
+			Description: "Developer using this library/framework",
 		})
 	}
 
 	// Convert infrastructure containers to C4 containers (skip CI-only images)
 	containerIdx := 0
+	seenNames := make(map[string]int)
 	for _, infraContainer := range profile.Infra.Containers {
 		if isCIPipelineContainer(infraContainer) {
 			continue
@@ -312,6 +376,27 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 		if infraContainer.Image != "" {
 			c4Container.Technology = infraContainer.Image
 		}
+
+		baseName := c4Container.Name
+		baseCount := seenNames[baseName]
+		if baseCount > 0 {
+			suffix := strings.TrimSuffix(filepath.Base(infraContainer.Source), filepath.Ext(infraContainer.Source))
+			if suffix == "" || strings.EqualFold(suffix, "Dockerfile") || pipelineSlug(suffix) == pipelineSlug(baseName) {
+				suffix = fmt.Sprintf("%d", baseCount+1)
+			}
+			candidateName := fmt.Sprintf("%s-%s", baseName, suffix)
+			if seenNames[candidateName] > 0 {
+				suffix = fmt.Sprintf("%d", baseCount+1)
+				candidateName = fmt.Sprintf("%s-%s", baseName, suffix)
+			}
+			c4Container.Name = candidateName
+			c4Container.ID = fmt.Sprintf("%s-%s", c4Container.ID, pipelineSlug(suffix))
+		}
+		seenNames[baseName] = baseCount + 1
+		if c4Container.Name != baseName {
+			seenNames[c4Container.Name]++
+		}
+
 		model.Containers = append(model.Containers, c4Container)
 	}
 
@@ -323,17 +408,23 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 	for _, mb := range profile.Infra.ModuleBoundaries {
 		for _, child := range mb.Children {
 			childName := filepath.Base(child)
+			// Use the full child path as display name to avoid basename collisions
+			// (e.g. "core" and "sql/core" both have basename "core").
+			displayName := childName
+			if strings.Contains(child, "/") {
+				displayName = filepath.ToSlash(child)
+			}
 			if childName == "" || childName == "." {
 				continue
 			}
-			if containerSeen[childName] {
+			if containerSeen[displayName] {
 				continue
 			}
-			containerSeen[childName] = true
+			containerSeen[displayName] = true
 			containerIdx++
 			model.Containers = append(model.Containers, C4Container{
-				ID:          fmt.Sprintf("module_%d", containerIdx),
-				Name:        childName,
+				ID:          pipelineSlug(displayName),
+				Name:        displayName,
 				Technology:  mb.BuildSystem,
 				Source:      mb.Path,
 				Description: mb.BuildSystem + " module: " + child,
@@ -362,42 +453,56 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 		}
 	}
 
-	// Add relationships from module boundaries (Maven/Gradle multi-module)
-	for _, mb := range profile.Infra.ModuleBoundaries {
-		if len(mb.Children) < 2 {
+	// Add relationships from directed module dependency edges (import-graph derived).
+	// EdgeSync sources use module slugs (e.g. "spark-sql-core" from module "sql/core").
+	// Build a mapping from module child paths to container IDs using the module boundary data.
+	nameToID := make(map[string]string)
+	for _, c := range model.Containers {
+		nameToID[c.Name] = c.ID
+	}
+		// Map each module child path to its slug and associate with container.
+		// For ambiguous basenames (e.g. "core" from both "core" and "sql/core"),
+		// use the container whose Description contains the full child path.
+		for _, mb := range profile.Infra.ModuleBoundaries {
+			for _, child := range mb.Children {
+				parts := strings.Split(filepath.ToSlash(child), "/")
+				slug := "spark-" + strings.Join(parts, "-")
+				childName := filepath.Base(child)
+				if id, ok := nameToID[childName]; ok {
+					nameToID[slug] = id
+				}
+				// Also try matching by Description (contains full module path).
+				for _, c := range model.Containers {
+					if strings.Contains(c.Description, child) {
+						nameToID[slug] = c.ID
+						break
+					}
+				}
+			}
+		}
+	for _, edge := range profile.Edges {
+		if edge.Kind != EdgeSync {
 			continue
 		}
-		nameToID := make(map[string]string)
-		for _, c := range model.Containers {
-			nameToID[c.Name] = c.ID
+		idA := nameToID[edge.Source]
+		idB := nameToID[edge.Target]
+		if idA == "" || idB == "" {
+			continue
 		}
-		for _, childA := range mb.Children {
-			nameA := filepath.Base(childA)
-			idA := nameToID[nameA]
-			if idA == "" {
-				continue
-			}
-			for _, childB := range mb.Children {
-				if childA == childB {
-					continue
-				}
-				nameB := filepath.Base(childB)
-				idB := nameToID[nameB]
-				if idB == "" {
-					continue
-				}
-				model.Relationships = append(model.Relationships, C4Relationship{
-					From:        idA,
-					To:          idB,
-					Description: mb.BuildSystem + " module dependency",
-					Type:        "sync",
-				})
-			}
-		}
+		model.Relationships = append(model.Relationships, C4Relationship{
+			From:        idA,
+			To:          idB,
+			Description: "declared module dependency",
+			Type:        "sync",
+		})
 	}
 
-	// Add import graph clusters as containers
+	// Add import graph clusters as containers (only substantial clusters:
+	// must have >1 package and at least some internal edges to avoid noise).
 	for _, cluster := range profile.ImportGraph.Clusters {
+		if len(cluster.Packages) <= 1 {
+			continue
+		}
 		containerID := fmt.Sprintf("cluster_%s", cluster.ID)
 		found := false
 		for _, c := range model.Containers {
@@ -424,7 +529,7 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 		"hadoop": "distributed filesystem", "hdfs": "distributed filesystem",
 		"yarn": "cluster manager", "mesos": "cluster manager",
 		"zookeeper": "coordination service",
-		"hive": "data warehouse", "spark": "data processing",
+		"hive":      "data warehouse", "spark": "data processing",
 		"flink": "stream processing", "storm": "stream processing",
 		"cassandra": "database", "presto": "query engine", "trino": "query engine",
 		"kubernetes": "container orchestration", "minio": "object storage",
@@ -445,6 +550,126 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 			}
 		}
 	}
+	if model.System.Name != "" && len(model.ExternalSystems) > 0 {
+		systemName := strings.ToLower(model.System.Name)
+		filtered := make([]ExternalSystem, 0, len(model.ExternalSystems))
+		for _, ext := range model.ExternalSystems {
+			if strings.Contains(systemName, strings.ToLower(ext.ID)) {
+				continue
+			}
+			filtered = append(filtered, ext)
+		}
+		model.ExternalSystems = filtered
+	}
+
+	// Add runtime coupling edges as relationships and external systems.
+	// Internal protocols (spark-rpc, py4j) are NOT added as external systems.
+	seenRuntimeEdges := make(map[string]bool)
+	internalProtocols := map[string]bool{"spark-rpc": true, "py4j": true, "spark-connect": true, "spark": true, "grpc": true}
+
+	for _, edge := range profile.Edges {
+		if edge.Kind != EdgeRuntimeBridge && edge.Kind != EdgeRPC {
+			continue
+		}
+
+		// Map source file to container
+		fromID := ""
+		for _, c := range model.Containers {
+			if strings.Contains(edge.Source, c.Name) || strings.Contains(c.Source, edge.Source) {
+				fromID = c.ID
+				break
+			}
+		}
+
+		desc := edge.Protocol + " runtime coupling"
+		edgeKey := fromID + "->" + edge.Protocol
+		if !seenRuntimeEdges[edgeKey] {
+			seenRuntimeEdges[edgeKey] = true
+			if fromID != "" {
+				model.Relationships = append(model.Relationships, C4Relationship{
+					From:        fromID,
+					To:          edge.Protocol,
+					Description: desc,
+					Type:        "runtime",
+					Contract:    edge.Method,
+				})
+			}
+		}
+
+		// Only add as external system if not an internal protocol
+		sysID := edge.Protocol
+		if !internalProtocols[sysID] && !seenSystems[sysID] && edge.Protocol != "" {
+			model.ExternalSystems = append(model.ExternalSystems, ExternalSystem{
+				ID:          sysID,
+				Description: edge.Protocol + " runtime bridge",
+				Technology:  edge.Protocol,
+				Evidence:    edge.Path + ": " + edge.Method,
+			})
+			seenSystems[sysID] = true
+		}
+	}
+
+	// Phantom container filtering: keep only containers that have real architectural
+	// significance. A container is kept if ANY of:
+	//   - Is a Maven/Gradle module (in module boundaries)
+	//   - Is a Dockerfile-derived container
+	//   - Has edges to/from it in the relationship graph
+	//   - Is a Python package cluster with internal cohesion (internal edges > 0)
+	//   - Has technology set (non-empty, meaning it was detected from a manifest)
+	containerEdgeCount := make(map[string]int)
+	for _, r := range model.Relationships {
+		containerEdgeCount[r.From]++
+		containerEdgeCount[r.To]++
+	}
+		mavenModuleSet := make(map[string]bool)
+		for _, b := range profile.Infra.ModuleBoundaries {
+			for _, child := range b.Children {
+				childName := filepath.Base(child)
+				mavenModuleSet[childName] = true
+				if strings.Contains(child, "/") {
+					mavenModuleSet[filepath.ToSlash(child)] = true
+				}
+			}
+		}
+		// Build set of cluster IDs that represent real architectural boundaries.
+		// Only include clusters that correspond to actual Maven modules or are
+		// Python packages. Java clusters from adaptive splitting (org.apache.spark.*)
+		// are excluded because they overlap with Maven module containers.
+		significantClusters := make(map[string]bool)
+		// Build a set of module slugs that we already have as containers.
+		moduleSlugSet := make(map[string]bool)
+		for _, b := range profile.Infra.ModuleBoundaries {
+			for _, child := range b.Children {
+				slug := pipelineSlug(filepath.ToSlash(child))
+				if slug != "" {
+					moduleSlugSet[slug] = true
+				}
+			}
+		}
+		for _, cl := range profile.ImportGraph.Clusters {
+			cid := fmt.Sprintf("cluster_%s", cl.ID)
+			isPython := strings.Contains(cl.ID, "pyspark") || strings.Contains(cl.ID, "python.")
+			// Include module-derived clusters (those whose ID matches a module slug).
+			isModuleCluster := moduleSlugSet[cl.ID]
+			if isPython || isModuleCluster {
+				significantClusters[cid] = true
+			}
+		}
+		filtered := make([]C4Container, 0, len(model.Containers))
+		for _, c := range model.Containers {
+			isDockerfile := strings.Contains(strings.ToLower(c.Source), "dockerfile")
+			hasTech := c.Technology != ""
+			_, isMavenMod := mavenModuleSet[c.Name]
+			_, isSignificant := significantClusters[c.ID]
+			_, hasEdges := containerEdgeCount[c.ID]
+			// Maven modules always pass — they represent real architectural
+			// boundaries from the build system, even without detected edges.
+			keepMaven := isMavenMod
+			if keepMaven || (!isMavenMod && (isDockerfile || hasEdges || hasTech || isSignificant)) {
+				filtered = append(filtered, c)
+			}
+		}
+	model.Containers = filtered
 
 	return model
 }
@@ -528,7 +753,8 @@ func (r *PipelineResult) ToMermaid() string {
 }
 
 // inferSystemName attempts to determine the project name from multiple sources.
-// It tries, in order: metadata, pom.xml <name>, README.md first heading, directory basename.
+// It tries, in order: metadata, README.md heading, pom.xml <artifactId>,
+// pom.xml <name>, directory basename.
 func inferSystemName(profile *CodebaseProfile, repoRoot string) string {
 	// 1. Check metadata
 	if profile.Metadata != nil {
@@ -537,7 +763,30 @@ func inferSystemName(profile *CodebaseProfile, repoRoot string) string {
 		}
 	}
 
-	// 2. Check pom.xml <name> from manifest paths
+	// 2. Check README.md first heading (usually the best human-readable name)
+	if repoRoot != "" {
+		if name := extractReadmeTitle(filepath.Join(repoRoot, "README.md")); name != "" {
+			return name
+		}
+	}
+
+	// 3. Check pom.xml <artifactId> (prefer over <name> which is often verbose
+	// like "Spark Project Parent POM" rather than "spark-parent").
+	for _, m := range profile.Dependencies.Manifests {
+		if strings.HasSuffix(m.Path, "pom.xml") {
+			fullPath := filepath.Join(repoRoot, m.Path)
+			if name := extractPomField(fullPath, "artifactId"); name != "" {
+				return name
+			}
+		}
+	}
+	if repoRoot != "" {
+		if name := extractPomField(filepath.Join(repoRoot, "pom.xml"), "artifactId"); name != "" {
+			return name
+		}
+	}
+
+	// 4. Check pom.xml <name> as fallback
 	for _, m := range profile.Dependencies.Manifests {
 		if strings.HasSuffix(m.Path, "pom.xml") {
 			fullPath := filepath.Join(repoRoot, m.Path)
@@ -546,21 +795,13 @@ func inferSystemName(profile *CodebaseProfile, repoRoot string) string {
 			}
 		}
 	}
-	// Also try root pom.xml
 	if repoRoot != "" {
 		if name := extractPomName(filepath.Join(repoRoot, "pom.xml")); name != "" {
 			return name
 		}
 	}
 
-	// 3. Check README.md first heading
-	if repoRoot != "" {
-		if name := extractReadmeTitle(filepath.Join(repoRoot, "README.md")); name != "" {
-			return name
-		}
-	}
-
-	// 4. Directory basename
+	// 5. Directory basename
 	if repoRoot != "" {
 		base := filepath.Base(repoRoot)
 		if base != "" && base != "." && base != "/" {
@@ -583,6 +824,24 @@ func extractPomName(path string) string {
 		return ""
 	}
 	matches := pomNameRe.FindSubmatch(data)
+	if len(matches) >= 2 {
+		return strings.TrimSpace(string(matches[1]))
+	}
+	return ""
+}
+
+// pomFieldRe extracts a top-level XML element by name from pom.xml.
+var pomFieldRe = regexp.MustCompile(`(?s)<([a-zA-Z-]+)>\s*(.*?)\s*</(?:[a-zA-Z-]+)>`)
+
+// extractPomField reads a pom.xml file and returns the first top-level
+// element matching the given tag name (e.g. "artifactId").
+func extractPomField(path, tag string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	pattern := regexp.MustCompile(`(?s)<` + regexp.QuoteMeta(tag) + `>\s*(.*?)\s*</` + regexp.QuoteMeta(tag) + `>`)
+	matches := pattern.FindSubmatch(data)
 	if len(matches) >= 2 {
 		return strings.TrimSpace(string(matches[1]))
 	}

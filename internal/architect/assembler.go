@@ -42,8 +42,8 @@ type TierLevel int
 
 const (
 	Tier1 TierLevel = iota + 1 // ~2K tokens: system overview
-	Tier2                       // ~5-15K tokens: per-container detail
-	Tier3                       // on-demand: source code snippets
+	Tier2                      // ~5-15K tokens: per-container detail
+	Tier3                      // on-demand: source code snippets
 )
 
 // extractorPriority maps extractor names to merge precedence.
@@ -238,13 +238,13 @@ func (pa *ProfileAssembler) mergeFragments(fragments []priorityFragment) *Codeba
 			Services:     make([]ServiceDep, 0),
 			Resources:    make([]ResourceInfo, 0),
 		},
-		Specs:        make([]SpecArtifact, 0),
-		SQLAnalysis:  nil,
-		GitAnalysis:  nil,
-		Metrics:      CodeMetrics{},
-		Files:        make(map[string]string),
-		Metadata:     make(map[string]string),
-		Summary:      "",
+		Specs:       make([]SpecArtifact, 0),
+		SQLAnalysis: nil,
+		GitAnalysis: nil,
+		Metrics:     CodeMetrics{},
+		Files:       make(map[string]string),
+		Metadata:    make(map[string]string),
+		Summary:     "",
 	}
 
 	// Track unique values for deduplication (legacy fields)
@@ -546,7 +546,67 @@ func (pa *ProfileAssembler) computeMetrics(profile *CodebaseProfile, fragments [
 		}
 	}
 
+	if profile.Metadata == nil {
+		profile.Metadata = make(map[string]string)
+	}
+	if profile.Metadata["primary_language"] == "" && len(profile.FileTree.ExtCounts) > 0 {
+		langCounts := make(map[string]int)
+		for ext, count := range profile.FileTree.ExtCounts {
+			extLower := strings.ToLower(ext)
+			if len(extLower) > 0 && extLower[0] != '.' {
+				extLower = "." + extLower
+			}
+			if lang, ok := extToLanguage[extLower]; ok {
+				langCounts[lang] += count
+			}
+		}
+
+		primaryLang := ""
+		primaryCount := 0
+		for lang, cnt := range langCounts {
+			if cnt > primaryCount {
+				primaryLang = lang
+				primaryCount = cnt
+			}
+		}
+		if primaryLang != "" {
+			profile.Metadata["primary_language"] = primaryLang
+		}
+	}
+
 	profile.Metrics.LanguagesCount = len(languageSet)
+
+	// Merge LanguageBreakdown from extractor fragments + FileTree extension counts.
+	if profile.Metrics.LanguageBreakdown == nil {
+		profile.Metrics.LanguageBreakdown = make(map[string]int)
+	}
+	for _, frag := range fragments {
+		if frag.Metrics != nil && frag.Metrics.LanguageBreakdown != nil {
+			for ext, count := range frag.Metrics.LanguageBreakdown {
+				profile.Metrics.LanguageBreakdown[ext] += count
+			}
+		}
+	}
+	// Supplement with FileTree extension counts for languages not covered by extractors.
+	extToLang := map[string]string{
+		".py": "python", ".R": "r", ".r": "r", ".sql": "sql",
+		".java": "java", ".scala": "scala", ".kt": "kotlin",
+		".go": "go", ".rs": "rust", ".ts": "typescript", ".js": "javascript",
+		".rb": "ruby", ".php": "php", ".c": "c", ".cpp": "cpp",
+		".cs": "csharp", ".swift": "swift", ".sh": "shell", ".yaml": "yaml",
+	}
+	for ext, count := range profile.FileTree.ExtCounts {
+		extNorm := strings.ToLower(ext)
+		if len(extNorm) > 0 && extNorm[0] != '.' {
+			extNorm = "." + extNorm
+		}
+		if extToLang[extNorm] != "" {
+			// Only add if not already present from extractor fragments.
+			if _, exists := profile.Metrics.LanguageBreakdown[extNorm]; !exists {
+				profile.Metrics.LanguageBreakdown[extNorm] = count
+			}
+		}
+	}
 
 	// Pull FileTree metrics if not already set
 	if profile.Metrics.TotalFiles == 0 && profile.FileTree.TotalFiles > 0 {

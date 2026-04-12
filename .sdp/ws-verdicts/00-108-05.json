@@ -1,0 +1,25 @@
+{
+  "ws_id": "00-108-05",
+  "feature_id": "F108",
+  "verdict": "PASS",
+  "commit": "ab128ea",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": null,
+    "coverage_threshold": 80,
+    "max_file_loc": null,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {"ac": "cmd/sdp-harness/main.go не содержит NewStubGateway (кроме тестов)", "met": true, "evidence": "grep confirms: no NewStubGateway in cmd/ outside test files"},
+    {"ac": "cmdRun читает OPENROUTER_API_KEY из env; если пустой — возвращает ошибку с упоминанием API key", "met": true, "evidence": "TestCmdRun_noAPIKey in main_integration_test.go:39, livegw.New() in main.go:163"},
+    {"ac": "TestCmdNew_createSession — новая сессия создаётся, DB-файл существует", "met": true, "evidence": "TestCmdNew_createSession in main_integration_test.go:18"},
+    {"ac": "TestCmdRun_noAPIKey — пустой ключ → ошибка (не panic, не silent stub)", "met": true, "evidence": "TestCmdRun_noAPIKey in main_integration_test.go:35"},
+    {"ac": "TestCmdRun_terminatedSession — errors.Is(err, ErrHarnessTerminated) returns true", "met": true, "evidence": "TestCmdRun_terminatedSession in main_integration_test.go:55"},
+    {"ac": "go test ./cmd/sdp-harness/... -race PASS", "met": true, "evidence": "All 8 tests PASS with -race"},
+    {"ac": "go build ./cmd/sdp-harness/ — бинарь компилируется", "met": true, "evidence": "go build exits 0"}
+  ],
+  "existing_work_summary": "cmd/sdp-harness/main.go used NewStubGateway() at line 161 for gateway. Existing tests in main_test.go use subprocess-based testing (build binary, run CLI). Stop() takes (ctx, token) args, not (). cmdNew/cmdRun are unexported functions in package main."
+}

@@ -1,18 +1,49 @@
-# SDP: Structured Development Protocol
+# SDP: Software Development Platform
+
+> **Обновлено 2026-04-11:** AI PDLC+SDLC positioning. Два фрейминга сосуществовали — этот документ отражает актуальный.
+
+## Суть
+
+SDP — AI-управляемая платформа полного цикла разработки.
+От идеи до задеплоенной фичи через структурированные Discovery и Delivery фазы с AI-агентами.
+
+**Discovery:** исследование, шейпинг, scope decision → `sdp discover` → validated spec  
+**Delivery:** реализация, review, gate enforcement → `agentloop` → задеплоенный код с доказательствами
+
+SDP — не просто CI/CD. Не просто governance. Не просто агентский раннер.  
+SDP — дисциплина: правильная идея, реализованная правильно, с доказательствами того, что это так.
 
 ## The Question
 
 You have AI agents writing code. Maybe one agent, maybe a swarm. They produce PRs. Some PRs are good. Some are terrible. Most are somewhere in between.
 
-Now ask: **"Show me proof that this PR was planned, tested, reviewed by a separate agent, and stayed within its declared scope."**
+But before that: **"Is this even the right thing to build?"**
 
-No tool in the OpenCode ecosystem answers this. The ecosystem has orchestration (Vibe Kanban, Swarm Tools), policy enforcement (Cupcake), session management (micode, oh-my-opencode), parallel execution — dozens of solutions for running agents. Zero solutions for *proving what agents did*.
+And after: **"Show me proof that this PR was planned, tested, reviewed by a separate agent, and stayed within its declared scope."**
 
-That gap is what SDP is about.
+SDP answers both questions: Discovery for the first, Delivery for the second.
 
 ## What Exists Today
 
-SDP is a protocol and evidence layer for AI agent workflows. One developer, daily use, 18 releases, actively forming.
+SDP — AI PDLC + SDLC платформа. Один разработчик, daily use, активно формируется.
+
+### Discovery Layer
+
+```
+sdp discover "идея"  →  Frame → Hypothesize → Scan → Validate  →  GO / PIVOT / KILL
+```
+
+4-phase LLM pipeline. Production. Вызывает OpenRouter. Артефакты в `docs/discovery/`.
+Опционально: `sdp architect analyze` (brownfield), `llm-council` (архитектурные решения).
+
+### Delivery Layer
+
+```
+workstream → sdp-harness → agentloop FSM → gates → evidence → PR
+```
+
+Phase FSM: Discover → Plan → Build → Review → Eval. GateEngine + EvidenceAccumulator.
+Production (логика), нужен LiveGateway F106 для real LLM calls.
 
 ### The Protocol
 
@@ -70,7 +101,7 @@ Issue → kubeopencode Task CRD → agent runs → adapter projects evidence →
 
 ## Where SDP Fits in the Ecosystem
 
-SDP is not a platform. It's a layer. It composes with the tools you already use.
+SDP — платформа, не просто слой. Но она компонуется с тем, что уже используется.
 
 | You Need | Use | SDP Adds |
 |----------|-----|----------|

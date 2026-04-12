@@ -19,17 +19,20 @@ import (
 
 // JavaExtractionResult is the output of the JavaExtractor.
 type JavaExtractionResult struct {
-	Language         string              `json:"language"`
-	ImportGraph      JavaImportGraph     `json:"import_graph"`
-	Frameworks       []JavaFramework     `json:"frameworks"`
-	BuildSystem      *BuildSystem        `json:"build_system,omitempty"`
-	Modules          []string            `json:"modules,omitempty"`
-	SpringEndpoints  []SpringEndpoint    `json:"spring_endpoints,omitempty"`
-	Annotations      []AnnotationSighting `json:"annotations,omitempty"`
-	PackageStructure *PackageStructure   `json:"package_structure,omitempty"`
-	ExtractionMethod string              `json:"extraction_method"`
-	AccuracyEstimate float64             `json:"accuracy_estimate"`
-	Metadata         map[string]string   `json:"metadata,omitempty"`
+	Language         string                    `json:"language"`
+	ImportGraph      JavaImportGraph           `json:"import_graph"`
+	Frameworks       []JavaFramework           `json:"frameworks"`
+	BuildSystem      *BuildSystem              `json:"build_system,omitempty"`
+	PomProperties    map[string]string          `json:"pom_properties,omitempty"`
+	SubmoduleDeps    []SubmoduleBuildDeps      `json:"submodule_deps,omitempty"`
+	Modules          []string                  `json:"modules,omitempty"`
+	SpringEndpoints  []SpringEndpoint          `json:"spring_endpoints,omitempty"`
+	Annotations      []AnnotationSighting      `json:"annotations,omitempty"`
+	RuntimeCouplings []RuntimeCouplingSighting `json:"runtime_couplings,omitempty"`
+	PackageStructure *PackageStructure         `json:"package_structure,omitempty"`
+	ExtractionMethod string                    `json:"extraction_method"`
+	AccuracyEstimate float64                   `json:"accuracy_estimate"`
+	Metadata         map[string]string         `json:"metadata,omitempty"`
 }
 
 // JavaImportGraph groups imports by the package directory in which they appear.
@@ -59,6 +62,16 @@ type JavaDependency struct {
 	Scope    string `json:"scope,omitempty"`
 }
 
+// SubmoduleBuildDeps captures dependencies declared in a single submodule's
+// build descriptor (pom.xml or build.gradle), preserving the association
+// between the submodule path and its declared dependencies.
+type SubmoduleBuildDeps struct {
+	ModuleDir    string           `json:"module_dir"`              // e.g. "streaming", "sql/core"
+	ArtifactID   string           `json:"artifact_id,omitempty"`   // e.g. "spark-core_2.13"
+	Dependencies []JavaDependency `json:"dependencies"`
+	BuildType    string           `json:"build_type"` // "maven" | "gradle"
+}
+
 // SpringEndpoint represents a detected Spring MVC REST endpoint.
 type SpringEndpoint struct {
 	HTTPMethod string `json:"http_method"` // GET, POST, PUT, DELETE, PATCH
@@ -74,14 +87,22 @@ type AnnotationSighting struct {
 	LineNumber int    `json:"line_number,omitempty"`
 }
 
+// RuntimeCouplingSighting records a Java runtime bridge or RPC signal.
+type RuntimeCouplingSighting struct {
+	Type     string `json:"type"`
+	File     string `json:"file"`
+	Line     int    `json:"line"`
+	Evidence string `json:"evidence"`
+}
+
 // PackageStructure describes the detected Maven/Gradle source layout.
 type PackageStructure struct {
-	SourceDirs    []string `json:"source_dirs"`     // detected source directories
-	TestDirs      []string `json:"test_dirs"`       // detected test directories
-	HasKotlin     bool     `json:"has_kotlin"`      // src/main/kotlin detected
-	RootPackages  []string `json:"root_packages"`   // top-level Java packages (e.g. "com.example")
-	BuildTool     string   `json:"build_tool"`      // "maven", "gradle", or ""
-	MultiModule   bool     `json:"multi_module"`    // multi-module project detected
+	SourceDirs   []string `json:"source_dirs"`   // detected source directories
+	TestDirs     []string `json:"test_dirs"`     // detected test directories
+	HasKotlin    bool     `json:"has_kotlin"`    // src/main/kotlin detected
+	RootPackages []string `json:"root_packages"` // top-level Java packages (e.g. "com.example")
+	BuildTool    string   `json:"build_tool"`    // "maven", "gradle", or ""
+	MultiModule  bool     `json:"multi_module"`  // multi-module project detected
 }
 
 // ---------------------------------------------------------------------------
@@ -111,26 +132,32 @@ var (
 	// Import patterns.
 	javaImportRe   = regexp.MustCompile(`^import\s+(static\s+)?([a-zA-Z0-9_.]+\*?);`)
 	kotlinImportRe = regexp.MustCompile(`^import\s+([a-zA-Z0-9_.]+)`)
+	scalaImportRe  = regexp.MustCompile(`^import\s+(.+)`)
 
 	// Java package declaration.
-	javaPackageRe = regexp.MustCompile(`^package\s+([a-zA-Z0-9_.]+)\s*;`)
+	javaPackageRe   = regexp.MustCompile(`^package\s+([a-zA-Z0-9_.]+)\s*;`)
 	kotlinPackageRe = regexp.MustCompile(`^package\s+([a-zA-Z0-9_.]+)`)
+	scalaPackageRe  = regexp.MustCompile(`^package\s+([a-zA-Z0-9_.]+)`)
 
 	// Spring annotation patterns.
 	springAnnotRe = regexp.MustCompile(`@(RestController|Service|Repository|Component|Configuration|Entity|SpringBootApplication)`)
 	springBeanRe  = regexp.MustCompile(`@Bean`)
 
 	// Spring endpoint annotations.
-	requestMappingRe = regexp.MustCompile(`@RequestMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
-	getMappingRe     = regexp.MustCompile(`@GetMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
-	postMappingRe    = regexp.MustCompile(`@PostMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
-	putMappingRe     = regexp.MustCompile(`@PutMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
-	deleteMappingRe  = regexp.MustCompile(`@DeleteMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
-	patchMappingRe   = regexp.MustCompile(`@PatchMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
+	requestMappingRe    = regexp.MustCompile(`@RequestMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
+	getMappingRe        = regexp.MustCompile(`@GetMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
+	postMappingRe       = regexp.MustCompile(`@PostMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
+	putMappingRe        = regexp.MustCompile(`@PutMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
+	deleteMappingRe     = regexp.MustCompile(`@DeleteMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
+	patchMappingRe      = regexp.MustCompile(`@PatchMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
 	classLevelMappingRe = regexp.MustCompile(`@RequestMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
 
 	// Lombok annotations.
-	lombokAnnotRe = regexp.MustCompile(`@(Data|Builder|Getter|Setter|AllArgsConstructor|NoArgsConstructor|RequiredArgsConstructor|Value|With|Slf4j|Log|Log4j2|Cleanup|Synchronized|SneakyThrows|CustomLog)`)
+	lombokAnnotRe   = regexp.MustCompile(`@(Data|Builder|Getter|Setter|AllArgsConstructor|NoArgsConstructor|RequiredArgsConstructor|Value|With|Slf4j|Log|Log4j2|Cleanup|Synchronized|SneakyThrows|CustomLog)`)
+	reNettyRpcEnv   = regexp.MustCompile(`(?:NettyRpcEnv|RpcEnv\s*\.\s*create|TransportContext\s*\()`)
+	reGatewayServer = regexp.MustCompile(`GatewayServer\s*[\.(]`)
+	reRpcImport     = regexp.MustCompile(`org\.apache\.spark\.rpc\.`)
+	reGRPCImport    = regexp.MustCompile(`io\.grpc\.`)
 
 	// Kotlin-specific patterns.
 	kotlinDataClassRe    = regexp.MustCompile(`^data\s+class\s+`)
@@ -151,7 +178,7 @@ var (
 			`['"]([a-zA-Z0-9._-]+):([a-zA-Z0-9._-]+)(?::([a-zA-Z0-9._-]+))?['"]\)?`)
 
 	// Gradle settings include patterns.
-	gradleIncludeRe      = regexp.MustCompile(`include\s*\(\s*['"]([^'"]+)['"]`)
+	gradleIncludeRe       = regexp.MustCompile(`include\s*\(\s*['"]([^'"]+)['"]`)
 	gradleIncludeSingleRe = regexp.MustCompile(`include\s+['"]([^'"]+)['"]`)
 
 	// Known source directory patterns (Maven/Gradle standard layout).
@@ -209,7 +236,7 @@ func (e *JavaExtractor) Name() string { return "java" }
 // identifying multi-module Maven/Gradle layouts.
 func (e *JavaExtractor) Extract(rootDir string) (*JavaExtractionResult, error) {
 	result := &JavaExtractionResult{
-		Language:         "java/kotlin",
+		Language:         "java/kotlin/scala",
 		ExtractionMethod: "regex",
 		AccuracyEstimate: 0.70,
 		ImportGraph: JavaImportGraph{
@@ -230,8 +257,31 @@ func (e *JavaExtractor) Extract(rootDir string) (*JavaExtractionResult, error) {
 		result.Metadata["gradle_multi_project"] = "true"
 	}
 
+	// Pre-scan: extract properties from root pom.xml for Maven property resolution.
+	// Child pom.xml files use ${scala.binary.version} etc. which must be resolved.
+	if rootPomData, err := os.ReadFile(filepath.Join(rootDir, "pom.xml")); err == nil {
+		result.PomProperties = extractPomProperties(string(rootPomData))
+	} else {
+		// Root pom.xml might be in a version subdirectory (e.g. spark-3.5.7/pom.xml).
+		if entries, readErr := os.ReadDir(rootDir); readErr == nil {
+			for _, entry := range entries {
+				if !entry.IsDir() {
+					continue
+				}
+				candidate := filepath.Join(rootDir, entry.Name(), "pom.xml")
+				if data, err := os.ReadFile(candidate); err == nil {
+					props := extractPomProperties(string(data))
+					if len(props) > 0 {
+						result.PomProperties = props
+						break
+					}
+				}
+			}
+		}
+	}
+
 	// Collect unique class-level RequestMapping values for endpoint prefixing.
-	classLevelMappings := make(map[string]string) // file -> prefix path
+	classLevelMappings := make(map[string]string)  // file -> prefix path
 	classLevelMappingLines := make(map[string]int) // file -> line number of class-level mapping
 	// Collect all annotations for framework detection.
 	allAnnotations := make(map[string]bool)
@@ -240,6 +290,7 @@ func (e *JavaExtractor) Extract(rootDir string) (*JavaExtractionResult, error) {
 	// Source file counters.
 	javaFiles := 0
 	kotlinFiles := 0
+	scalaFiles := 0
 	foundSource := false
 
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
@@ -264,7 +315,7 @@ func (e *JavaExtractor) Extract(rootDir string) (*JavaExtractionResult, error) {
 		case isJavaFile(rel):
 			foundSource = true
 			javaFiles++
-			imports, annotations, pkgDecl, scanErr := scanJavaFile(path, rel)
+			imports, annotations, pkgDecl, scanErr := scanJavaFile(path, rel, &result.RuntimeCouplings)
 			if scanErr != nil {
 				return nil
 			}
@@ -317,8 +368,46 @@ func (e *JavaExtractor) Extract(rootDir string) (*JavaExtractionResult, error) {
 			// Detect Kotlin-specific patterns.
 			detectKotlinPatterns(path, result)
 
+		case isScalaFile(rel):
+			foundSource = true
+				scalaFiles++
+			// Quick scan for runtime coupling in Scala files.
+			if sf, sfErr := os.Open(path); sfErr == nil {
+				sc := bufio.NewScanner(sf)
+				for sc.Scan() {
+					sl := strings.TrimSpace(sc.Text())
+					if strings.Contains(sl, "io.grpc.") {
+						result.RuntimeCouplings = append(result.RuntimeCouplings, RuntimeCouplingSighting{
+							Type:     "grpc",
+							File:     rel,
+							Line:     0,
+							Evidence: sl,
+						})
+						break
+					}
+				}
+				sf.Close()
+			}
+			imports, annotations, pkgDecl, scanErr := scanScalaFile(path, rel)
+			if scanErr != nil {
+				return nil
+			}
+			pkgDir := filepath.Dir(rel)
+			result.ImportGraph.PackageImports[pkgDir] = append(
+				result.ImportGraph.PackageImports[pkgDir], imports...)
+			for _, a := range annotations {
+				allAnnotations[a.Annotation] = true
+				result.Annotations = append(result.Annotations, a)
+				if lombokAnnotationLabels[a.Annotation] != "" {
+					lombokAnnotations[a.Annotation] = true
+				}
+			}
+			if pkgDecl != "" {
+				recordRootPackage(result.PackageStructure, pkgDecl)
+			}
+
 		case filepath.Base(rel) == "pom.xml":
-			bs, parseErr := parsePomXML(path)
+			bs, artifactID, parseErr := parsePomXMLWithMeta(path)
 			if parseErr == nil && bs != nil {
 				if result.BuildSystem == nil {
 					result.BuildSystem = bs
@@ -326,6 +415,35 @@ func (e *JavaExtractor) Extract(rootDir string) (*JavaExtractionResult, error) {
 				} else {
 					result.BuildSystem.Dependencies = append(
 						result.BuildSystem.Dependencies, bs.Dependencies...)
+				}
+				// Store per-submodule dependencies with path context.
+				moduleDir := filepath.Dir(rel)
+				if moduleDir == "." {
+					moduleDir = ""
+				}
+				// Resolve properties in dependencies using inherited root properties.
+				resolvedDeps := make([]JavaDependency, len(bs.Dependencies))
+				for i, dep := range bs.Dependencies {
+					dep.Artifact = resolvePomProperties(dep.Artifact, result.PomProperties)
+					dep.Group = resolvePomProperties(dep.Group, result.PomProperties)
+					resolvedDeps[i] = dep
+				}
+				resolvedArtifactID := resolvePomProperties(artifactID, result.PomProperties)
+				result.SubmoduleDeps = append(result.SubmoduleDeps, SubmoduleBuildDeps{
+					ModuleDir:    filepath.ToSlash(moduleDir),
+					ArtifactID:   resolvedArtifactID,
+					Dependencies: resolvedDeps,
+					BuildType:    "maven",
+				})
+				// Root pom.xml: inherit its properties for child modules.
+				if moduleDir == "" {
+					if result.PomProperties == nil {
+						result.PomProperties = make(map[string]string)
+					}
+					data, _ := os.ReadFile(path)
+					for k, v := range extractPomProperties(string(data)) {
+						result.PomProperties[k] = v
+					}
 				}
 			}
 			// Check for multi-module Maven project.
@@ -373,6 +491,9 @@ func (e *JavaExtractor) Extract(rootDir string) (*JavaExtractionResult, error) {
 	}
 	if javaFiles > 0 {
 		result.Metadata["java_files"] = fmt.Sprintf("%d", javaFiles)
+	}
+	if scalaFiles > 0 {
+		result.Metadata["scala_files"] = fmt.Sprintf("%d", scalaFiles)
 	}
 
 	// Detect frameworks from collected imports AND annotations.
@@ -424,23 +545,27 @@ func scanJavaImports(path string) ([]string, error) {
 
 // scanJavaFile performs full scanning of a Java file: imports, annotations,
 // and package declaration.
-func scanJavaFile(path, relPath string) ([]string, []AnnotationSighting, string, error) {
+func scanJavaFile(path, relPath string, runtimeCouplings ...*[]RuntimeCouplingSighting) ([]string, []AnnotationSighting, string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, nil, "", err
 	}
 	defer f.Close()
 
-	return scanJavaFromReader(f, relPath)
+	return scanJavaFromReader(f, relPath, runtimeCouplings...)
 }
 
 // scanJavaFromReader reads from a bufio-ready reader and extracts imports,
 // annotations, and the package declaration.
-func scanJavaFromReader(f *os.File, relPath string) ([]string, []AnnotationSighting, string, error) {
+func scanJavaFromReader(f *os.File, relPath string, runtimeCouplings ...*[]RuntimeCouplingSighting) ([]string, []AnnotationSighting, string, error) {
 	var imports []string
 	var annotations []AnnotationSighting
 	var packageDecl string
 	lineNum := 0
+	var couplingSink *[]RuntimeCouplingSighting
+	if len(runtimeCouplings) > 0 {
+		couplingSink = runtimeCouplings[0]
+	}
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -450,6 +575,41 @@ func scanJavaFromReader(f *os.File, relPath string) ([]string, []AnnotationSight
 		// Skip comments.
 		if strings.HasPrefix(line, "//") || strings.HasPrefix(line, "/*") || strings.HasPrefix(line, "*") {
 			continue
+		}
+
+		if couplingSink != nil {
+			if reNettyRpcEnv.MatchString(line) {
+				*couplingSink = append(*couplingSink, RuntimeCouplingSighting{
+					Type:     "netty_rpc",
+					File:     relPath,
+					Line:     lineNum,
+					Evidence: line,
+				})
+			}
+			if reGatewayServer.MatchString(line) {
+				*couplingSink = append(*couplingSink, RuntimeCouplingSighting{
+					Type:     "py4j_gateway",
+					File:     relPath,
+					Line:     lineNum,
+					Evidence: line,
+				})
+			}
+			if reRpcImport.MatchString(line) {
+				*couplingSink = append(*couplingSink, RuntimeCouplingSighting{
+					Type:     "spark_rpc",
+					File:     relPath,
+					Line:     lineNum,
+					Evidence: line,
+				})
+			}
+				if reGRPCImport.MatchString(line) {
+					*couplingSink = append(*couplingSink, RuntimeCouplingSighting{
+						Type:     "grpc",
+						File:     relPath,
+						Line:     lineNum,
+						Evidence: line,
+					})
+				}
 		}
 
 		// Package declaration.
@@ -573,6 +733,150 @@ func scanKotlinFile(path, relPath string) ([]string, []AnnotationSighting, strin
 	}
 
 	return imports, annotations, packageDecl, scanner.Err()
+}
+
+// scanScalaFile performs full scanning of a Scala file: imports, annotations,
+// and package declaration.
+func scanScalaFile(path, relPath string) ([]string, []AnnotationSighting, string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, nil, "", err
+	}
+	defer f.Close()
+
+	return scanScalaFromReader(f, relPath)
+}
+
+func scanScalaFromReader(f *os.File, relPath string) ([]string, []AnnotationSighting, string, error) {
+	var imports []string
+	var annotations []AnnotationSighting
+	var packageDecl string
+	var pendingImport string
+	lineNum := 0
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		lineNum++
+		line := strings.TrimSpace(scanner.Text())
+
+		if pendingImport != "" {
+			pendingImport += " " + line
+			if strings.Contains(line, "}") {
+				imports = append(imports, expandScalaImports(pendingImport)...)
+				pendingImport = ""
+			}
+			continue
+		}
+
+		if strings.HasPrefix(line, "//") || strings.HasPrefix(line, "/*") || strings.HasPrefix(line, "*") {
+			continue
+		}
+
+		if m := scalaPackageRe.FindStringSubmatch(line); m != nil {
+			packageDecl = m[1]
+			continue
+		}
+
+		if m := scalaImportRe.FindStringSubmatch(line); m != nil {
+			body := strings.TrimSpace(m[1])
+			if strings.Contains(body, "{") && !strings.Contains(body, "}") {
+				pendingImport = body
+				continue
+			}
+			imports = append(imports, expandScalaImports(body)...)
+			continue
+		}
+
+		for _, match := range springAnnotRe.FindAllStringSubmatch(line, -1) {
+			annotations = append(annotations, AnnotationSighting{
+				Annotation: "@" + match[1],
+				File:       relPath,
+				LineNumber: lineNum,
+			})
+		}
+
+		if springBeanRe.MatchString(line) {
+			annotations = append(annotations, AnnotationSighting{
+				Annotation: "@Bean",
+				File:       relPath,
+				LineNumber: lineNum,
+			})
+		}
+	}
+
+	if pendingImport != "" {
+		imports = append(imports, expandScalaImports(pendingImport)...)
+	}
+
+	return imports, annotations, packageDecl, scanner.Err()
+}
+
+func expandScalaImports(body string) []string {
+	var imports []string
+	for _, part := range splitScalaImportParts(body) {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if strings.HasSuffix(part, "._") {
+			imports = append(imports, strings.TrimSuffix(part, "._")+".*")
+			continue
+		}
+
+		openIdx := strings.Index(part, "{")
+		closeIdx := strings.LastIndex(part, "}")
+		if openIdx >= 0 && closeIdx > openIdx {
+			prefix := strings.TrimSuffix(strings.TrimSpace(part[:openIdx]), ".")
+			for _, member := range splitScalaImportParts(part[openIdx+1 : closeIdx]) {
+				member = strings.TrimSpace(member)
+				if member == "" {
+					continue
+				}
+				if aliasIdx := strings.Index(member, "=>"); aliasIdx >= 0 {
+					member = strings.TrimSpace(member[:aliasIdx])
+				}
+				if member == "_" {
+					imports = append(imports, prefix+".*")
+					continue
+				}
+				imports = append(imports, prefix+"."+member)
+			}
+			continue
+		}
+
+		imports = append(imports, part)
+	}
+	return imports
+}
+
+func splitScalaImportParts(body string) []string {
+	var parts []string
+	var current strings.Builder
+	depth := 0
+
+	for _, r := range body {
+		switch r {
+		case '{':
+			depth++
+		case '}':
+			if depth > 0 {
+				depth--
+			}
+		case ',':
+			if depth == 0 {
+				parts = append(parts, current.String())
+				current.Reset()
+				continue
+			}
+		}
+		current.WriteRune(r)
+	}
+
+	if current.Len() > 0 {
+		parts = append(parts, current.String())
+	}
+
+	return parts
 }
 
 // ---------------------------------------------------------------------------
@@ -801,26 +1105,70 @@ func joinPaths(prefix, suffix string) string {
 // pom.xml parsing (regex-based, no XML library)
 // ---------------------------------------------------------------------------
 
-func parsePomXML(path string) (*BuildSystem, error) {
+// pomPropertyRe extracts Maven property definitions like <scala.binary.version>2.13</scala.binary.version>.
+var pomPropertyRe = regexp.MustCompile(`<(?:[a-zA-Z0-9._-]+)>([a-zA-Z0-9._-]+)</(?:[a-zA-Z0-9._-]+)>`)
+var pomPropertyTagRe = regexp.MustCompile(`<([a-zA-Z][a-zA-Z0-9._-]*)>([^<]+)</[a-zA-Z0-9._-]+>`)
+
+// extractPomProperties extracts property definitions from the <properties> section of a pom.xml.
+func extractPomProperties(content string) map[string]string {
+	props := make(map[string]string)
+	// Find <properties> block.
+	startIdx := strings.Index(content, "<properties>")
+	if startIdx < 0 {
+		return props
+	}
+	endIdx := strings.Index(content[startIdx:], "</properties>")
+	if endIdx < 0 {
+		return props
+	}
+	propsBlock := content[startIdx : startIdx+endIdx]
+	for _, m := range pomPropertyTagRe.FindAllStringSubmatch(propsBlock, -1) {
+		if len(m) >= 3 {
+			props[m[1]] = m[2]
+		}
+	}
+	return props
+}
+
+// resolvePomProperties replaces ${property.name} placeholders in a string using
+// the provided property map. Unknown properties are left as-is.
+func resolvePomProperties(s string, props map[string]string) string {
+	if len(props) == 0 {
+		return s
+	}
+	for name, value := range props {
+		if value != "" {
+			s = strings.ReplaceAll(s, "${"+name+"}", value)
+		}
+	}
+	return s
+}
+
+// parsePomXMLWithMeta reads a pom.xml file and returns both the parsed
+// dependencies and the submodule's own artifactId. It reads the file once.
+func parsePomXMLWithMeta(path string) (*BuildSystem, string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	content := string(data)
+	props := extractPomProperties(content)
+	bs := parsePomXMLContent(content, props)
+	artifactID := extractPomArtifactID(content)
+	return bs, artifactID, nil
+}
 
+// parsePomXMLContent parses Maven dependencies from a pom.xml content string.
+func parsePomXMLContent(content string, props map[string]string) *BuildSystem {
 	blocks := pomDepBlockRe.FindAllStringSubmatch(content, -1)
-	if len(blocks) == 0 {
-		return &BuildSystem{Type: "maven"}, nil
-	}
-
 	bs := &BuildSystem{Type: "maven"}
 	for _, block := range blocks {
 		dep := JavaDependency{}
 		if m := pomGroupRe.FindStringSubmatch(block[1]); m != nil {
-			dep.Group = m[1]
+			dep.Group = resolvePomProperties(m[1], props)
 		}
 		if m := pomArtifactRe.FindStringSubmatch(block[1]); m != nil {
-			dep.Artifact = m[1]
+			dep.Artifact = resolvePomProperties(m[1], props)
 		}
 		if m := pomScopeRe.FindStringSubmatch(block[1]); m != nil {
 			dep.Scope = m[1]
@@ -829,7 +1177,39 @@ func parsePomXML(path string) (*BuildSystem, error) {
 			bs.Dependencies = append(bs.Dependencies, dep)
 		}
 	}
-	return bs, nil
+	return bs
+}
+
+// parsePomXML reads a pom.xml file and returns parsed dependencies.
+func parsePomXML(path string) (*BuildSystem, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	props := extractPomProperties(string(data))
+	return parsePomXMLContent(string(data), props), nil
+}
+
+// pomTopArtifactIDRe matches the first <artifactId> element in pom.xml content.
+var pomTopArtifactIDRe = regexp.MustCompile(`(?s)<artifactId>\s*(.*?)\s*</artifactId>`)
+
+// pomParentBlockRe matches the <parent>...</parent> block in pom.xml.
+var pomParentBlockRe = regexp.MustCompile(`(?s)<parent>.*?</parent>`)
+
+// extractPomArtifactID returns the first top-level <artifactId> from pom.xml
+// content, which is the submodule's own artifactId (not a dependency's or parent's).
+func extractPomArtifactID(content string) string {
+	searchZone := content
+	if idx := strings.Index(content, "<dependencies>"); idx > 0 {
+		searchZone = content[:idx]
+	}
+	// Strip <parent>...</parent> to avoid matching the parent's artifactId.
+	searchZone = pomParentBlockRe.ReplaceAllString(searchZone, "")
+	m := pomTopArtifactIDRe.FindStringSubmatch(searchZone)
+	if len(m) >= 2 {
+		return m[1]
+	}
+	return ""
 }
 
 func parseModules(path string) []string {
@@ -981,16 +1361,16 @@ func detectSpringEvidence(imports map[string]bool, annotations map[string]bool) 
 
 	// Evidence from import paths.
 	springImportPrefixes := map[string]string{
-		"org.springframework.web.bind.annotation":                    "@RestController",
-		"org.springframework.stereotype.Service":                     "@Service",
-		"org.springframework.stereotype.Repository":                  "@Repository",
-		"org.springframework.stereotype.Component":                   "@Component",
-		"org.springframework.context.annotation.Configuration":        "@Configuration",
+		"org.springframework.web.bind.annotation":                      "@RestController",
+		"org.springframework.stereotype.Service":                       "@Service",
+		"org.springframework.stereotype.Repository":                    "@Repository",
+		"org.springframework.stereotype.Component":                     "@Component",
+		"org.springframework.context.annotation.Configuration":         "@Configuration",
 		"org.springframework.boot.autoconfigure.SpringBootApplication": "@SpringBootApplication",
-		"org.springframework.boot.SpringApplication":                 "@SpringBootApplication",
-		"org.springframework.context.annotation.Bean":                "@Bean",
-		"javax.persistence.Entity":                                   "@Entity",
-		"jakarta.persistence.Entity":                                 "@Entity",
+		"org.springframework.boot.SpringApplication":                   "@SpringBootApplication",
+		"org.springframework.context.annotation.Bean":                  "@Bean",
+		"javax.persistence.Entity":                                     "@Entity",
+		"jakarta.persistence.Entity":                                   "@Entity",
 	}
 
 	for imp := range imports {
@@ -1029,9 +1409,9 @@ func detectHibernateEvidence(imports map[string]bool) []string {
 	seen := make(map[string]bool)
 
 	hibernatePatterns := map[string]string{
-		"org.hibernate":         "Hibernate session/entity imports",
-		"javax.persistence":     "JPA persistence annotations",
-		"jakarta.persistence":   "Jakarta persistence annotations",
+		"org.hibernate":                "Hibernate session/entity imports",
+		"javax.persistence":            "JPA persistence annotations",
+		"jakarta.persistence":          "Jakarta persistence annotations",
 		"org.springframework.data.jpa": "Spring Data JPA",
 	}
 
@@ -1058,6 +1438,10 @@ func isJavaFile(rel string) bool {
 
 func isKotlinFile(rel string) bool {
 	return strings.HasSuffix(rel, ".kt")
+}
+
+func isScalaFile(rel string) bool {
+	return strings.HasSuffix(rel, ".scala")
 }
 
 func dedup(ss []string) []string {

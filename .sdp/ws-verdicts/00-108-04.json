@@ -1,0 +1,24 @@
+{
+  "ws_id": "00-108-04",
+  "feature_id": "F108",
+  "verdict": "PASS",
+  "commit": "119c433",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": null,
+    "coverage_threshold": 80,
+    "max_file_loc": null,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {"ac": "var ErrHarnessTerminated = errors.New(\"harness: session was terminated\") — экспортировано, на уровне пакета", "met": true, "evidence": "ErrHarnessTerminated in internal/agentloop/harness.go:16"},
+    {"ac": "RestoreHarness оборачивает через %w: fmt.Errorf(\"session %s: %w\", sessionID, ErrHarnessTerminated)", "met": true, "evidence": "harness.go:366: fmt.Errorf(\"session %s: %w\", sessionID, ErrHarnessTerminated)"},
+    {"ac": "errors.Is(err, agentloop.ErrHarnessTerminated) возвращает true для обёрнутой ошибки", "met": true, "evidence": "TestErrHarnessTerminated_isSentinel in harness_test.go:883, errors.Is check in harness_test.go:879"},
+    {"ac": "grep -rn terminated.*by Stop|was terminated → пусто (кроме sentinel и комментариев)", "met": true, "evidence": "grep confirms: only sentinel definition and comments remain; string-formatted error removed"},
+    {"ac": "go test ./internal/agentloop/... -run TestErrHarnessTerminated -v PASS", "met": true, "evidence": "TestErrHarnessTerminated_isSentinel PASS"},
+    {"ac": "go build ./... без ошибок", "met": true, "evidence": "go build ./... exits 0"}
+  ],
+  "existing_work_summary": "harness.go had string-formatted error at line 363: fmt.Errorf(\"session %s was terminated by Stop() — cannot restore\"). Existing sentinel pattern at line 14 (errInjectFailure). harness_test.go:877 did string comparison with assert.Contains. No callers outside agentloop/ used string comparison for terminated."
+}

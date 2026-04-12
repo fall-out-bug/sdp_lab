@@ -1,99 +1,31 @@
 package discovery
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-	"time"
+
+	"sdp_dev/internal/llmclient"
 )
 
-type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
+// Message is re-exported from llmclient for backward compatibility within this package.
+type Message = llmclient.Message
 
-type ChatRequest struct {
-	Model       string    `json:"model"`
-	Messages    []Message `json:"messages"`
-	MaxTokens   int       `json:"max_tokens"`
-	Temperature float64   `json:"temperature"`
-}
+// ChatRequest is re-exported from llmclient for backward compatibility within this package.
+type ChatRequest = llmclient.ChatRequest
 
-type ChatResponse struct {
-	Content      string
-	InputTokens  int
-	OutputTokens int
-	CostUSD      float64
-	FinishReason string
-}
+// ChatResponse is re-exported from llmclient for backward compatibility within this package.
+type ChatResponse = llmclient.ChatResponse
 
+// LLMClient wraps llmclient.Client. Use NewLLMClient to construct.
 type LLMClient struct {
-	apiKey  string
-	baseURL string
-	http    *http.Client
+	c *llmclient.Client
 }
 
+// NewLLMClient constructs an LLMClient backed by the shared llmclient package.
 func NewLLMClient(apiKey, baseURL string) *LLMClient {
-	return &LLMClient{
-		apiKey:  apiKey,
-		baseURL: baseURL,
-		http:    &http.Client{Timeout: 120 * time.Second},
-	}
+	return &LLMClient{c: llmclient.New(apiKey, baseURL)}
 }
 
-func (c *LLMClient) Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error) {
-	body, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("marshal: %w", err)
-	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.baseURL+"/chat/completions", bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("new request: %w", err)
-	}
-	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("HTTP-Referer", "https://github.com/sdp-lab")
-	httpReq.Header.Set("X-Title", "SDP Discovery")
-
-	resp, err := c.http.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("http: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	raw, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("read response body: %w", err)
-		}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status %d: %s", resp.StatusCode, raw)
-	}
-
-	var out struct {
-		Choices []struct {
-			Message      Message `json:"message"`
-			FinishReason string  `json:"finish_reason"`
-		} `json:"choices"`
-		Usage struct {
-			PromptTokens     int     `json:"prompt_tokens"`
-			CompletionTokens int     `json:"completion_tokens"`
-			Cost             float64 `json:"cost"`
-		} `json:"usage"`
-	}
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
-	}
-	if len(out.Choices) == 0 {
-		return nil, fmt.Errorf("no choices in response")
-	}
-	return &ChatResponse{
-		Content:      out.Choices[0].Message.Content,
-		FinishReason: out.Choices[0].FinishReason,
-		InputTokens:  out.Usage.PromptTokens,
-		OutputTokens: out.Usage.CompletionTokens,
-		CostUSD:      out.Usage.Cost,
-	}, nil
+// Chat delegates to the underlying llmclient.Client.Chat.
+func (l *LLMClient) Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error) {
+	return l.c.Chat(ctx, req)
 }

@@ -74,15 +74,16 @@ type ArchRisk struct {
 
 // CodeMetrics holds quantitative metrics about the codebase.
 type CodeMetrics struct {
-	TotalFiles          int     `json:"total_files"`
-	TotalLOC            int     `json:"total_loc"`
-	TestRatio           float64 `json:"test_ratio"`
-	LanguagesCount      int     `json:"languages_count"`
-	ContainersDetected  int     `json:"containers_detected"`
-	ComponentsDetected  int     `json:"components_detected"`
-	ContractsDiscovered int     `json:"contracts_discovered"`
-	ContractsMissing    int     `json:"contracts_missing_estimated"`
-	GeneratedExcluded   int     `json:"generated_files_excluded"`
+	TotalFiles          int                `json:"total_files"`
+	TotalLOC            int                `json:"total_loc"`
+	TestRatio           float64            `json:"test_ratio"`
+	LanguagesCount      int                `json:"languages_count"`
+	ContainersDetected  int                `json:"containers_detected"`
+	ComponentsDetected  int                `json:"components_detected"`
+	ContractsDiscovered int                `json:"contracts_discovered"`
+	ContractsMissing    int                `json:"contracts_missing_estimated"`
+	GeneratedExcluded   int                `json:"generated_files_excluded"`
+	LanguageBreakdown   map[string]int     `json:"language_breakdown,omitempty"` // ext -> file count (e.g. ".scala": 1823)
 }
 
 // LanguageInfo describes the language distribution of a repository.

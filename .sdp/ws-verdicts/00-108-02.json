@@ -1,0 +1,25 @@
+{
+  "ws_id": "00-108-02",
+  "feature_id": "F108",
+  "verdict": "PASS",
+  "commit": "eeb0042",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": null,
+    "coverage_threshold": 80,
+    "max_file_loc": 274,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {"ac": "internal/discovery/llm.go использует llmclient.New() под капотом", "met": true, "evidence": "LLMClient wraps *llmclient.Client in internal/discovery/llm.go:17"},
+    {"ac": "discovery.Message, discovery.ChatRequest, discovery.ChatResponse — type aliases из llmclient", "met": true, "evidence": "type aliases in internal/discovery/llm.go:10-16"},
+    {"ac": "internal/architect/llm_client.go делегирует HTTP в llmclient.New(); retry wrapper сохранён", "met": true, "evidence": "callLLM() uses c.inner.Chat() in internal/architect/llm_client.go:100, retry loop preserved at :79-95"},
+    {"ac": "internal/strataudit/llmclient.go делегирует HTTP в llmclient.New(); cache и rate limiter сохранены", "met": true, "evidence": "c.inner.Chat() in internal/strataudit/llmclient.go:84, cache at :175-195, rate limiter at :66"},
+    {"ac": "grep -rn chat/completions internal/ outside llmclient → пусто", "met": true, "evidence": "grep confirms: no chat/completions outside internal/llmclient/. Only openrouter.ai default URL constants remain."},
+    {"ac": "go build ./... успешен", "met": true, "evidence": "go build ./... exits 0"},
+    {"ac": "go test ./internal/discovery/... ./internal/architect/... ./internal/strataudit/... -race PASS", "met": true, "evidence": "All packages PASS with -race"}
+  ],
+  "existing_work_summary": "Three packages had direct HTTP to /chat/completions: discovery/llm.go (99 LOC, simple Chat), architect/llm_client.go (291 LOC, retry+circuit breaker), strataudit/llmclient.go (303 LOC, cache+rate limiter+Embed). All callers in discovery/*_test.go, architect/classify/hypothesizer.go, tests/architect/classify_test.go, cmd/sdp-strataudit/main.go verified for compat."
+}

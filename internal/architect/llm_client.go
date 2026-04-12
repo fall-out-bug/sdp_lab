@@ -1,17 +1,15 @@
 package architect
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"math"
 	"math/rand/v2"
-	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"sdp_dev/internal/llmclient"
 )
 
 // LLMConfig holds configuration for the LLM HTTP client.
@@ -49,45 +47,17 @@ func DefaultLLMConfig() LLMConfig {
 	}
 }
 
-// chatRequest is the JSON body sent to /v1/chat/completions.
-// No tool use / function calling parameters are included.
-type chatRequest struct {
-	Model       string        `json:"model"`
-	Messages    []chatMessage `json:"messages"`
-	MaxTokens   int           `json:"max_tokens,omitempty"`
-	Temperature float64       `json:"temperature,omitempty"`
-}
-
-// chatMessage is a single message in the chat request.
-type chatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-// chatResponse is the restricted JSON schema expected from the API.
-// Unknown fields are silently discarded (no strict schema enforcement
-// on extra fields, but we only read known fields).
-type chatResponse struct {
-	ID      string `json:"id,omitempty"`
-	Choices []struct {
-		Index   int `json:"index,omitempty"`
-		Message struct {
-			Role    string `json:"role,omitempty"`
-			Content string `json:"content"`
-		} `json:"message"`
-		FinishReason string `json:"finish_reason,omitempty"`
-	} `json:"choices"`
-	Usage struct {
-		PromptTokens     int `json:"prompt_tokens,omitempty"`
-		CompletionTokens int `json:"completion_tokens,omitempty"`
-		TotalTokens      int `json:"total_tokens,omitempty"`
-	} `json:"usage,omitempty"`
+// TokenUsage tracks token consumption from a single API call.
+type TokenUsage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
 }
 
 // LLMClient is an HTTP client for OpenAI-compatible chat completion APIs.
 type LLMClient struct {
 	cfg    LLMConfig
-	http   *http.Client
+	inner  *llmclient.Client
 	filter *SecurityFilter
 	cb     *CircuitBreaker
 }
@@ -96,7 +66,7 @@ type LLMClient struct {
 func NewLLMClient(cfg LLMConfig, sf *SecurityFilter) *LLMClient {
 	return &LLMClient{
 		cfg:    cfg,
-		http:   &http.Client{Timeout: cfg.Timeout},
+		inner:  llmclient.New(cfg.APIKey, cfg.BaseURL),
 		filter: sf,
 		cb:     NewCircuitBreaker(),
 	}
@@ -109,19 +79,14 @@ func (c *LLMClient) Complete(ctx context.Context, systemPrompt, userPrompt strin
 		return "", TokenUsage{}, fmt.Errorf("llm: circuit breaker open for provider %s", c.cfg.BaseURL)
 	}
 
-	reqBody := chatRequest{
+	req := llmclient.ChatRequest{
 		Model: c.cfg.Model,
-		Messages: []chatMessage{
+		Messages: []llmclient.Message{
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: userPrompt},
 		},
 		MaxTokens:   c.cfg.MaxTokens,
 		Temperature: 0.2, // low temperature for deterministic structured output
-	}
-
-	body, err := json.Marshal(reqBody)
-	if err != nil {
-		return "", TokenUsage{}, fmt.Errorf("llm: marshal request: %w", err)
 	}
 
 	var lastErr error
@@ -135,7 +100,7 @@ func (c *LLMClient) Complete(ctx context.Context, systemPrompt, userPrompt strin
 			}
 		}
 
-		content, usage, err = c.doRequest(ctx, body)
+		content, usage, err = c.callLLM(ctx, req)
 		if err == nil {
 			c.cb.RecordSuccess()
 			return content, usage, nil
@@ -153,57 +118,30 @@ func (c *LLMClient) Complete(ctx context.Context, systemPrompt, userPrompt strin
 	return "", TokenUsage{}, fmt.Errorf("llm: %d retries exhausted: %w", c.cfg.Retry.MaxRetries, lastErr)
 }
 
-// doRequest executes a single HTTP request to the completions endpoint.
-func (c *LLMClient) doRequest(ctx context.Context, body []byte) (_ string, usage TokenUsage, _ error) {
-	url := strings.TrimRight(c.cfg.BaseURL, "/") + "/chat/completions"
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+// callLLM delegates the HTTP call to llmclient.Client.Chat and classifies errors.
+func (c *LLMClient) callLLM(ctx context.Context, req llmclient.ChatRequest) (_ string, usage TokenUsage, _ error) {
+	resp, err := c.inner.Chat(ctx, req)
 	if err != nil {
-		return "", TokenUsage{}, fmt.Errorf("llm: create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if c.cfg.APIKey != "" {
-		req.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
-	}
-
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return "", TokenUsage{}, &retriableError{err: fmt.Errorf("http do: %w", err)}
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 1 MB max
-	if err != nil {
-		return "", TokenUsage{}, &retriableError{err: fmt.Errorf("read body: %w", err)}
+		errStr := err.Error()
+		// Network errors and 5xx server errors are retriable.
+		if strings.Contains(errStr, "http:") {
+			return "", TokenUsage{}, &retriableError{err: err}
+		}
+		// Status 5xx from llmclient: "status 500: ..."
+		if strings.Contains(errStr, "status 5") {
+			scrubbed := scrubSecretsJSON(truncate(errStr, 200))
+			return "", TokenUsage{}, &retriableError{err: fmt.Errorf("server error: %s", scrubbed)}
+		}
+		// 4xx and other errors are not retriable.
+		scrubbed := scrubSecretsJSON(truncate(errStr, 200))
+		return "", TokenUsage{}, fmt.Errorf("client error: %s", scrubbed)
 	}
 
-	if resp.StatusCode >= 500 {
-		bodyPreview := truncate(string(respBody), 200)
-		bodyPreview = scrubSecretsJSON(bodyPreview)
-		return "", TokenUsage{}, &retriableError{err: fmt.Errorf("server error %d: %s", resp.StatusCode, bodyPreview)}
-	}
-	if resp.StatusCode >= 400 {
-		bodyPreview := truncate(string(respBody), 200)
-		bodyPreview = scrubSecretsJSON(bodyPreview)
-		return "", TokenUsage{}, fmt.Errorf("client error %d: %s", resp.StatusCode, bodyPreview)
-	}
-
-	var chatResp chatResponse
-	if err := json.Unmarshal(respBody, &chatResp); err != nil {
-		return "", TokenUsage{}, fmt.Errorf("llm: decode response: %w", err)
-	}
-
-	if len(chatResp.Choices) == 0 {
-		return "", TokenUsage{}, fmt.Errorf("llm: empty choices in response")
-	}
-
-	usage = TokenUsage{
-		PromptTokens:     chatResp.Usage.PromptTokens,
-		CompletionTokens: chatResp.Usage.CompletionTokens,
-		TotalTokens:      chatResp.Usage.TotalTokens,
-	}
-
-	return chatResp.Choices[0].Message.Content, usage, nil
+	return resp.Content, TokenUsage{
+		PromptTokens:     resp.InputTokens,
+		CompletionTokens: resp.OutputTokens,
+		TotalTokens:      resp.InputTokens + resp.OutputTokens,
+	}, nil
 }
 
 // backoffDelay computes an exponential backoff with jitter.
@@ -218,13 +156,6 @@ func (c *LLMClient) backoffDelay(attempt int) time.Duration {
 		delay = max
 	}
 	return time.Duration(delay)
-}
-
-// TokenUsage tracks token consumption from a single API call.
-type TokenUsage struct {
-	PromptTokens     int `json:"prompt_tokens"`
-	CompletionTokens int `json:"completion_tokens"`
-	TotalTokens      int `json:"total_tokens"`
 }
 
 // retriableError wraps errors that should trigger a retry.

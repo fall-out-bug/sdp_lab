@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"sdp_dev/internal/llmclient"
+
 	"golang.org/x/time/rate"
 )
 
@@ -36,16 +38,18 @@ type LLMResponse struct {
 }
 
 type LLMClient struct {
-	apiKey    string
-	baseURL   string
-	http      *http.Client
-	limiter   *rate.Limiter
+	inner      *llmclient.Client
+	apiKey     string
+	baseURL    string
+	http       *http.Client // used only for Embed()
+	limiter    *rate.Limiter
 	maxRetries int
 	retryDelay time.Duration
 }
 
 func NewLLMClient(apiKey, baseURL string) *LLMClient {
 	return &LLMClient{
+		inner:      llmclient.New(apiKey, strings.TrimRight(baseURL, "/")),
 		apiKey:     apiKey,
 		baseURL:    strings.TrimRight(baseURL, "/"),
 		http:       &http.Client{Timeout: 120 * time.Second},
@@ -76,25 +80,20 @@ func (c *LLMClient) Chat(ctx context.Context, req LLMRequest) (*LLMResponse, err
 
 	start := time.Now()
 
-	messages := []map[string]string{}
+	msgs := []llmclient.Message{}
 	if req.System != "" {
-		messages = append(messages, map[string]string{"role": "system", "content": req.System})
+		msgs = append(msgs, llmclient.Message{Role: "system", Content: req.System})
 	}
-	messages = append(messages, map[string]string{"role": "user", "content": req.User})
+	msgs = append(msgs, llmclient.Message{Role: "user", Content: req.User})
 
-	body := map[string]interface{}{
-		"model":       req.Model,
-		"messages":    messages,
-		"max_tokens":  req.MaxTokens,
-		"temperature": req.Temperature,
-	}
-	if req.JSONMode {
-		body["response_format"] = map[string]string{"type": "json_object"}
+	llmReq := llmclient.ChatRequest{
+		Model:       req.Model,
+		Messages:    msgs,
+		MaxTokens:   req.MaxTokens,
+		Temperature: req.Temperature,
 	}
 
-	bodyJSON, _ := json.Marshal(body)
-
-	var resp *http.Response
+	var resp *llmclient.ChatResponse
 	var lastErr error
 	for attempt := 0; attempt <= c.maxRetries; attempt++ {
 		if attempt > 0 {
@@ -104,59 +103,57 @@ func (c *LLMClient) Chat(ctx context.Context, req LLMRequest) (*LLMResponse, err
 				return nil, ctx.Err()
 			}
 		}
-		httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/chat/completions", bytes.NewReader(bodyJSON))
-		if err != nil {
-			return nil, err
-		}
-		httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
-		httpReq.Header.Set("Content-Type", "application/json")
-
-		resp, lastErr = c.http.Do(httpReq)
-		if lastErr != nil {
-			continue
-		}
-		if resp.StatusCode == 200 {
+		var err error
+		resp, err = c.inner.Chat(ctx, llmReq)
+		if err == nil {
 			break
 		}
-		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
-			b, _ := io.ReadAll(resp.Body)
-			_ = resp.Body.Close()
-			return nil, fmt.Errorf("llm status %d: %s", resp.StatusCode, string(b))
+		lastErr = err
+		// 4xx errors are not retriable
+		if strings.Contains(err.Error(), "status 4") {
+			return nil, err
 		}
-		_ = resp.Body.Close()
-		lastErr = fmt.Errorf("llm status %d", resp.StatusCode)
 	}
 	if lastErr != nil {
 		return nil, fmt.Errorf("llm request after %d retries: %w", c.maxRetries, lastErr)
 	}
-	defer func() { _ = resp.Body.Close() }()
 
-	var result struct {
-		Choices []struct {
-			Message struct{ Content string } `json:"message"`
-		} `json:"choices"`
-		Usage struct {
-			PromptTokens     int `json:"prompt_tokens"`
-			CompletionTokens int `json:"completion_tokens"`
-		} `json:"usage"`
-		Model string `json:"model"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
-	}
-
-	content := result.Choices[0].Message.Content
+	content := resp.Content
 	duration := time.Since(start).Milliseconds()
 
 	c.storeCache(cacheKey, content)
 
 	return &LLMResponse{
 		Content:    content,
-		TokensIn:   result.Usage.PromptTokens,
-		TokensOut:  result.Usage.CompletionTokens,
-		Model:      result.Model,
+		TokensIn:   resp.InputTokens,
+		TokensOut:  resp.OutputTokens,
 		DurationMs: duration,
 	}, nil
+}
+
+// extractFinalAnswer extracts the final answer from reasoning model output.
+// Looks for <answer>...</answer> tags first, then falls back to the last
+// non-empty paragraph.
+func extractFinalAnswer(reasoning string) string {
+	// Try <answer>...</answer> tag
+	re := regexp.MustCompile(`(?s)<answer>(.*?)</answer>`)
+	if matches := re.FindStringSubmatch(reasoning); len(matches) > 1 {
+		trimmed := strings.TrimSpace(matches[1])
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+
+	// Fallback: last non-empty paragraph (split by double newline)
+	paragraphs := strings.Split(reasoning, "\n\n")
+	for i := len(paragraphs) - 1; i >= 0; i-- {
+		p := strings.TrimSpace(paragraphs[i])
+		if p != "" {
+			return p
+		}
+	}
+
+	return reasoning
 }
 
 func (c *LLMClient) Embed(ctx context.Context, texts []string, model string) ([][]float32, error) {

@@ -16,6 +16,7 @@ type Config struct {
 	LLM         LLMConfig       `yaml:"llm"`
 	Thresholds  ThresholdConfig `yaml:"thresholds"`
 	Output      OutputConfig    `yaml:"output"`
+	Extractors  ExtractorsConfig `yaml:"extractors"`
 }
 
 type ProjectConfig struct {
@@ -46,17 +47,23 @@ type LLMConfig struct {
 }
 
 type ThresholdConfig struct {
-	Similarity         float64 `yaml:"similarity"`
-	TraceConfidence    float64 `yaml:"trace_confidence"`
-	CoverageWarn       float64 `yaml:"coverage_warn"`
-	StaleDays          int     `yaml:"stale_days"`
-	ChunkTokenLimit    int     `yaml:"chunk_token_limit"`
-	ChunkOverlapTokens int     `yaml:"chunk_overlap_tokens"`
+	Similarity            float64 `yaml:"similarity"`
+	TraceConfidence       float64 `yaml:"trace_confidence"`
+	AutoVerifySimilarity  float64 `yaml:"auto_verify_similarity"`
+	LLMVerifyBudget       int     `yaml:"llm_verify_budget"`
+	CoverageWarn          float64 `yaml:"coverage_warn"`
+	StaleDays             int     `yaml:"stale_days"`
+	ChunkTokenLimit       int     `yaml:"chunk_token_limit"`
+	ChunkOverlapTokens    int     `yaml:"chunk_overlap_tokens"`
+	EmitDistribution      bool    `yaml:"emit_distribution"`
+	MaxChunksPerDocument  int     `yaml:"max_chunks_per_document"`
+	AdaptiveSimilarity    bool    `yaml:"adaptive_similarity"`
 }
 
 type OutputConfig struct {
 	Dir     string   `yaml:"dir"`
 	Formats []string `yaml:"formats"`
+	Lang    string   `yaml:"lang"`
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -91,6 +98,12 @@ func (c *Config) setDefaults() {
 	if c.Thresholds.TraceConfidence == 0 {
 		c.Thresholds.TraceConfidence = 0.6
 	}
+	if c.Thresholds.AutoVerifySimilarity == 0 {
+		c.Thresholds.AutoVerifySimilarity = 0.85
+	}
+	if c.Thresholds.LLMVerifyBudget == 0 {
+		c.Thresholds.LLMVerifyBudget = 50
+	}
 	if c.Thresholds.CoverageWarn == 0 {
 		c.Thresholds.CoverageWarn = 70
 	}
@@ -103,11 +116,20 @@ func (c *Config) setDefaults() {
 	if c.Thresholds.ChunkOverlapTokens == 0 {
 		c.Thresholds.ChunkOverlapTokens = 500
 	}
+	if c.Thresholds.MaxChunksPerDocument == 0 {
+		c.Thresholds.MaxChunksPerDocument = 100
+	}
 	if c.LLM.EmbeddingDims == 0 {
 		c.LLM.EmbeddingDims = 1536
 	}
 	if c.Output.Dir == "" {
 		c.Output.Dir = ".strataudit"
+	}
+	if c.Output.Lang == "" {
+		c.Output.Lang = "ru"
+	}
+	if !c.Thresholds.EmitDistribution {
+		c.Thresholds.EmitDistribution = true
 	}
 	if len(c.Output.Formats) == 0 {
 		c.Output.Formats = []string{"html", "json"}

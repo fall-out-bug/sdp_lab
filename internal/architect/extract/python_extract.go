@@ -29,13 +29,13 @@ var pythonStdlib = map[string]bool{
 	"hashlib": true, "heapq": true, "hmac": true, "html": true, "http": true,
 	"imaplib": true, "importlib": true, "inspect": true, "io": true,
 	"ipaddress": true, "itertools": true,
-	"json": true,
-	"keyword": true,
+	"json":      true,
+	"keyword":   true,
 	"linecache": true, "locale": true, "logging": true, "lzma": true,
 	"mailbox": true, "math": true, "mimetypes": true, "mmap": true,
 	"multiprocessing": true,
-	"numbers": true,
-	"operator": true, "optparse": true, "os": true,
+	"numbers":         true,
+	"operator":        true, "optparse": true, "os": true,
 	"pathlib": true, "pdb": true, "pickle": true, "pkgutil": true,
 	"platform": true, "plistlib": true, "poplib": true, "posixpath": true,
 	"pprint": true, "profile": true, "pstats": true, "pty": true,
@@ -54,7 +54,7 @@ var pythonStdlib = map[string]bool{
 	"trace": true, "traceback": true, "tracemalloc": true, "tty": true,
 	"types": true, "typing": true,
 	"unicodedata": true, "unittest": true, "urllib": true, "uuid": true,
-	"venv": true,
+	"venv":     true,
 	"warnings": true, "wave": true, "weakref": true, "webbrowser": true,
 	"xml": true, "xmlrpc": true,
 	"zipfile": true, "zipimport": true, "zlib": true,
@@ -82,13 +82,13 @@ var pythonSkipDirs = map[string]bool{
 
 // pythonTestDirNames identifies directories likely to hold test files.
 var pythonTestDirNames = map[string]bool{
-	"tests":        true,
-	"test":         true,
-	"spec":         true,
-	"specs":        true,
-	"_tests":       true,
-	"_test":        true,
-	"testing":      true,
+	"tests":   true,
+	"test":    true,
+	"spec":    true,
+	"specs":   true,
+	"_tests":  true,
+	"_test":   true,
+	"testing": true,
 }
 
 var (
@@ -96,17 +96,20 @@ var (
 	reFromImport     = regexp.MustCompile(`^from\s+(\S+)\s+import\s+(\S+)`)
 
 	// Framework detection patterns.
-	reFlaskApp      = regexp.MustCompile(`(?:app|application)\s*=\s*Flask\s*\(`)
-	reFlaskRoute    = regexp.MustCompile(`@(?:\w+)\.route\s*\(`)
+	reFlaskApp       = regexp.MustCompile(`(?:app|application)\s*=\s*Flask\s*\(`)
+	reFlaskRoute     = regexp.MustCompile(`@(?:\w+)\.route\s*\(`)
 	reFlaskBlueprint = regexp.MustCompile(`Blueprint\s*\(`)
-	reFastAPIDecor  = regexp.MustCompile(`@(?:\w+)\.(get|post|put|delete|patch|api_route)\s*\(`)
-	reFastAPIApp    = regexp.MustCompile(`(?:app|application)\s*=\s*FastAPI\s*\(`)
-	reFastAPIRouter = regexp.MustCompile(`APIRouter\s*\(`)
-	reDjangoApps    = regexp.MustCompile(`INSTALLED_APPS\s*=`)
-	reDjangoURLs    = regexp.MustCompile(`urlpatterns\s*=`)
-	reDjangoModel   = regexp.MustCompile(`class\s+\w+\s*\(\s*(?:models\.)?Model\s*\)`)
-	reDjangoConfig  = regexp.MustCompile(`class\s+\w+Config\s*\(\s*(?:apps\.)?AppConfig\s*\)`)
-	reCeleryApp     = regexp.MustCompile(`(?:celery|app)\s*=\s*Celery\s*\(`)
+	reFastAPIDecor   = regexp.MustCompile(`@(?:\w+)\.(get|post|put|delete|patch|api_route)\s*\(`)
+	reFastAPIApp     = regexp.MustCompile(`(?:app|application)\s*=\s*FastAPI\s*\(`)
+	reFastAPIRouter  = regexp.MustCompile(`APIRouter\s*\(`)
+	reDjangoApps     = regexp.MustCompile(`INSTALLED_APPS\s*=`)
+	reDjangoURLs     = regexp.MustCompile(`urlpatterns\s*=`)
+	reDjangoModel    = regexp.MustCompile(`class\s+\w+\s*\(\s*(?:models\.)?Model\s*\)`)
+	reDjangoConfig   = regexp.MustCompile(`class\s+\w+Config\s*\(\s*(?:apps\.)?AppConfig\s*\)`)
+	reCeleryApp      = regexp.MustCompile(`(?:celery|app)\s*=\s*Celery\s*\(`)
+	rePy4JGateway    = regexp.MustCompile(`(?:launch_gateway|JavaGateway\s*\(|_gateway\s*=\s*JavaGateway)`)
+	reSparkContext   = regexp.MustCompile(`(?:SparkContext\s*\(|SparkSession\.builder)`)
+	rePy4JImport     = regexp.MustCompile(`(?:import\s+py4j|from\s+py4j\s+import)`)
 
 	// requirements.txt line: package==version or package>=version etc.
 	reRequirement = regexp.MustCompile(`^([A-Za-z0-9][A-Za-z0-9._-]*)`)
@@ -145,21 +148,30 @@ type PythonImportEdge struct {
 
 // PythonImportGraph is the result of running PythonExtractor against a Python project.
 type PythonImportGraph struct {
-	Nodes            []PythonModuleNode  `json:"nodes"`
-	Edges            []PythonImportEdge  `json:"edges"`
-	Clusters         []string            `json:"clusters"`
-	TestDirs         []string            `json:"test_dirs,omitempty"`
-	Frameworks       []DetectedPythonFW  `json:"frameworks,omitempty"`
-	ExtractionMethod string              `json:"extraction_method"`
-	AccuracyEstimate float64             `json:"accuracy_estimate"`
+	Nodes            []PythonModuleNode `json:"nodes"`
+	Edges            []PythonImportEdge `json:"edges"`
+	Clusters         []string           `json:"clusters"`
+	TestDirs         []string           `json:"test_dirs,omitempty"`
+	Frameworks       []DetectedPythonFW `json:"frameworks,omitempty"`
+	RuntimeCouplings []RuntimeCoupling  `json:"runtime_couplings,omitempty"`
+	ExtractionMethod string             `json:"extraction_method"`
+	AccuracyEstimate float64            `json:"accuracy_estimate"`
 }
 
 // DetectedPythonFW records a Python framework detected from source analysis.
 type DetectedPythonFW struct {
-	Name       string  `json:"name"`
-	Confidence float64 `json:"confidence"`
-	Evidence   string  `json:"evidence"`
+	Name       string   `json:"name"`
+	Confidence float64  `json:"confidence"`
+	Evidence   string   `json:"evidence"`
 	Files      []string `json:"files,omitempty"`
+}
+
+// RuntimeCoupling records a Python runtime bridge or RPC signal.
+type RuntimeCoupling struct {
+	Type     string `json:"type"`
+	Target   string `json:"target"`
+	File     string `json:"file"`
+	Evidence string `json:"evidence"`
 }
 
 // PythonExtractor implements architect.Extractor for Python projects using regex.
@@ -299,6 +311,89 @@ func (p *PythonExtractor) Extract(ctx context.Context, rootDir string) (*archite
 	return result, nil
 }
 
+func findPythonPackageRoot(rootDir string) string {
+	var packageDirs []string
+	var scan func(absDir, relDir string, depth int)
+	scan = func(absDir, relDir string, depth int) {
+		if depth >= 2 {
+			return
+		}
+		entries, err := os.ReadDir(absDir)
+		if err != nil {
+			return
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			if pythonSkipDirs[name] || strings.HasSuffix(name, ".egg-info") {
+				continue
+			}
+			rel := name
+			if relDir != "" {
+				rel = filepath.Join(relDir, name)
+			}
+			abs := filepath.Join(absDir, name)
+			if info, err := os.Stat(filepath.Join(abs, "__init__.py")); err == nil && !info.IsDir() {
+				packageDirs = append(packageDirs, filepath.ToSlash(rel))
+			}
+			scan(abs, rel, depth+1)
+		}
+	}
+	scan(rootDir, "", 0)
+	if len(packageDirs) == 0 {
+		return ""
+	}
+
+	sort.Slice(packageDirs, func(i, j int) bool {
+		depthI := strings.Count(packageDirs[i], "/")
+		depthJ := strings.Count(packageDirs[j], "/")
+		if depthI != depthJ {
+			return depthI < depthJ
+		}
+		return packageDirs[i] < packageDirs[j]
+	})
+
+	var topLevel []string
+	for _, pkg := range packageDirs {
+		nested := false
+		for _, parent := range topLevel {
+			if strings.HasPrefix(pkg, parent+"/") {
+				nested = true
+				break
+			}
+		}
+		if !nested {
+			topLevel = append(topLevel, pkg)
+		}
+	}
+
+	normalizeDir := func(path string) string {
+		path = filepath.ToSlash(path)
+		if path == "." {
+			return ""
+		}
+		return path
+	}
+	common := strings.Split(normalizeDir(filepath.Dir(topLevel[0])), "/")
+	if len(common) == 1 && common[0] == "" {
+		common = nil
+	}
+	for _, pkg := range topLevel[1:] {
+		parts := strings.Split(normalizeDir(filepath.Dir(pkg)), "/")
+		if len(parts) == 1 && parts[0] == "" {
+			parts = nil
+		}
+		n := 0
+		for n < len(common) && n < len(parts) && common[n] == parts[n] {
+			n++
+		}
+		common = common[:n]
+	}
+	return strings.Join(common, "/")
+}
+
 // BuildPythonImportGraph constructs the full import graph from extraction data.
 // This is called by the PythonAdapter after Extract completes.
 func (p *PythonExtractor) BuildPythonImportGraph(ctx context.Context, rootDir string) (*PythonImportGraph, error) {
@@ -306,7 +401,9 @@ func (p *PythonExtractor) BuildPythonImportGraph(ctx context.Context, rootDir st
 	edgeSet := make(map[PythonImportEdge]bool)
 	clusterSet := make(map[string]bool)
 	var testDirs []string
+	var runtimeCouplings []RuntimeCoupling
 	fwMap := make(map[string]*DetectedPythonFW)
+	pkgPrefix := findPythonPackageRoot(rootDir)
 
 	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -343,8 +440,17 @@ func (p *PythonExtractor) BuildPythonImportGraph(ctx context.Context, rootDir st
 
 		// Parse this Python file for imports and framework signals.
 		_, fws, fileImports, _ := parsePythonFileEnhanced(path, rel)
+		if content, readErr := os.ReadFile(path); readErr == nil {
+			for _, line := range strings.Split(string(content), "\n") {
+				runtimeCouplings = append(runtimeCouplings, detectRuntimeCoupling(strings.TrimSpace(line), rel)...)
+			}
+		}
 
-		modulePath := pyPathToModule(rel)
+		moduleRel := filepath.ToSlash(rel)
+		if pkgPrefix != "" {
+			moduleRel = strings.TrimPrefix(moduleRel, pkgPrefix+"/")
+		}
+		modulePath := pyPathToModule(moduleRel)
 		isTest := isPythonTestFile(rel)
 		isInit := info.Name() == "__init__.py"
 		cluster := pythonClusterFor(modulePath)
@@ -365,6 +471,10 @@ func (p *PythonExtractor) BuildPythonImportGraph(ctx context.Context, rootDir st
 			if resolved == "" {
 				continue
 			}
+			// Normalize resolved module to match the module path convention.
+			// This handles both adding a missing source prefix and dropping a
+			// filesystem package root prefix that was stripped from modulePath.
+			resolved = normalizePythonModulePath(resolved, modulePath)
 			if imp.Kind == "relative" || isLikelyLocalModule(resolved, nodeMap) {
 				edge := PythonImportEdge{From: modulePath, To: resolved}
 				if !edgeSet[edge] {
@@ -447,7 +557,17 @@ func (p *PythonExtractor) BuildPythonImportGraph(ctx context.Context, rootDir st
 	}
 	sort.Strings(validTestDirs)
 
-	return &PythonImportGraph{
+	sort.Slice(runtimeCouplings, func(i, j int) bool {
+		if runtimeCouplings[i].File != runtimeCouplings[j].File {
+			return runtimeCouplings[i].File < runtimeCouplings[j].File
+		}
+		if runtimeCouplings[i].Type != runtimeCouplings[j].Type {
+			return runtimeCouplings[i].Type < runtimeCouplings[j].Type
+		}
+		return runtimeCouplings[i].Evidence < runtimeCouplings[j].Evidence
+	})
+
+	result := &PythonImportGraph{
 		Nodes:            nodes,
 		Edges:            edges,
 		Clusters:         clusters,
@@ -455,7 +575,42 @@ func (p *PythonExtractor) BuildPythonImportGraph(ctx context.Context, rootDir st
 		Frameworks:       fws,
 		ExtractionMethod: "regex",
 		AccuracyEstimate: 0.55,
-	}, nil
+	}
+	result.RuntimeCouplings = runtimeCouplings
+	return result, nil
+}
+
+func detectRuntimeCoupling(trimmed, relPath string) []RuntimeCoupling {
+	if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+		return nil
+	}
+
+	var couplings []RuntimeCoupling
+	if rePy4JGateway.MatchString(trimmed) {
+		couplings = append(couplings, RuntimeCoupling{
+			Type:     "py4j_gateway",
+			Target:   "jvm",
+			File:     relPath,
+			Evidence: trimmed,
+		})
+	}
+	if reSparkContext.MatchString(trimmed) {
+		couplings = append(couplings, RuntimeCoupling{
+			Type:     "spark_context",
+			Target:   "jvm",
+			File:     relPath,
+			Evidence: trimmed,
+		})
+	}
+	if rePy4JImport.MatchString(trimmed) {
+		couplings = append(couplings, RuntimeCoupling{
+			Type:     "py4j_import",
+			Target:   "jvm",
+			File:     relPath,
+			Evidence: trimmed,
+		})
+	}
+	return couplings
 }
 
 // ---------------------------------------------------------------------------
@@ -741,6 +896,57 @@ func classifyImportEnhanced(name string) pythonImportRecord {
 		Kind:           kind,
 		ResolvedModule: name,
 	}
+}
+
+// normalizePythonModulePath attempts to align a resolved import module path
+// with the convention used by the source module path. This handles both cases
+// where the source module needs a missing prefix added and where the resolved
+// path still carries a stripped filesystem package root prefix.
+func normalizePythonModulePath(resolved, sourceModulePath string) string {
+	// Already matches nodeMap convention — no change needed.
+	if resolved == sourceModulePath {
+		return resolved
+	}
+
+	// Extract the first segment of the resolved path (e.g. "pyspark" from "pyspark.ml.base").
+	resFirst := resolved
+	if idx := strings.Index(resolved, "."); idx > 0 {
+		resFirst = resolved[:idx]
+	}
+
+	// If the resolved path's first segment matches a later segment in the source path,
+	// prepend the source prefix. E.g. resolved="pyspark.ml.base", source="python.pyspark.ml.base"
+	// → "pyspark" matches source[1] → prepend "python.".
+	srcParts := strings.Split(sourceModulePath, ".")
+	for i, part := range srcParts {
+		if part == resFirst && i > 0 {
+			prefix := strings.Join(srcParts[:i], ".")
+			return prefix + "." + resolved
+		}
+	}
+
+	// If the resolved path still includes an extra leading prefix, drop it once
+	// the source package root aligns with a later segment.
+	sourceBase := pythonClusterFor(sourceModulePath)
+	if sourceBase == "" {
+		sourceBase = sourceModulePath
+	}
+	sourceFirst := sourceModulePath
+	if idx := strings.Index(sourceModulePath, "."); idx > 0 {
+		sourceFirst = sourceModulePath[:idx]
+	}
+	resParts := strings.Split(resolved, ".")
+	for i, part := range resParts {
+		if part != sourceFirst || i == 0 {
+			continue
+		}
+		candidate := strings.Join(resParts[i:], ".")
+		if candidate == sourceModulePath || candidate == sourceBase || strings.HasPrefix(candidate, sourceBase+".") {
+			return candidate
+		}
+	}
+
+	return resolved
 }
 
 // isLikelyLocalModule checks whether a resolved module path is likely a

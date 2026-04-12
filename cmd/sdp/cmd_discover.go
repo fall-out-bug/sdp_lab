@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"sdp_dev/internal/control"
 	"sdp_dev/internal/discovery"
 )
 
@@ -213,6 +214,35 @@ func runDiscover(args []string) {
 	} else {
 		fmt.Printf("   created: %s\n", issueID)
 	}
+
+	// On GO verdict: create FeatureCard and workstream stub
+	if validation != nil && validation.FinalVerdict == discovery.VerdictGO {
+		fmt.Printf("\nCreating FeatureCard...\n")
+		slug := strings.ToLower(strings.ReplaceAll(idea, " ", "-"))
+		projectRoot := filepath.Dir(filepath.Dir(absOut))
+		store, storeErr := control.Open(projectRoot)
+		if storeErr != nil {
+			fmt.Fprintf(os.Stderr, "   warning: could not open control store: %v\n", storeErr)
+		} else {
+			card, cardErr := createFeatureCard(store, "sdp", slug, frame, hypothesis, absOut)
+			if cardErr != nil {
+				fmt.Fprintf(os.Stderr, "   warning: could not create feature card: %v\n", cardErr)
+			} else {
+				fmt.Printf("   feature card: %s\n", card.ID)
+			}
+		}
+
+		fmt.Printf("\nCreating workstream stub...\n")
+		wsDir := filepath.Join(projectRoot, "docs/workstreams/backlog")
+		wsID := "00-NEW-01"
+		featureID := "FNEW"
+		wsPath, wsErr := createWorkstreamStub(wsDir, wsID, featureID, frame, hypothesis, absOut)
+		if wsErr != nil {
+			fmt.Fprintf(os.Stderr, "   warning: could not create workstream stub: %v\n", wsErr)
+		} else {
+			fmt.Printf("   workstream stub: %s\n", wsPath)
+		}
+	}
 }
 
 // buildDiscoveryDescription constructs the beads issue description for a discovery run.
@@ -308,4 +338,101 @@ func createDiscoveryIssue(
 		return "", fmt.Errorf("bd create: %w: %s", err, out)
 	}
 	return string(out), nil
+}
+
+// createFeatureCard creates a control.FeatureCard from Discovery phase outputs.
+// Called only on GO verdict. Returns the saved card with its assigned ID.
+func createFeatureCard(
+	store *control.Store,
+	projectID, slug string,
+	frame *discovery.FrameResult,
+	hyp *discovery.HypothesisResult,
+	discoveryDir string,
+) (*control.FeatureCard, error) {
+	card, err := store.CreateCard(projectID, slug, frame.ProblemStatement)
+	if err != nil {
+		return nil, fmt.Errorf("create feature card: %w", err)
+	}
+	card.NormalizedIntent = frame.ProblemStatement
+	card.DiscoveryDir = discoveryDir
+	card.Status = "shaping"
+	card.ScopeIn = []string{frame.Scope}
+	if hyp != nil {
+		card.AcceptanceShape = hyp.Requirements
+	}
+	if err := store.SaveCard(card); err != nil {
+		return nil, fmt.Errorf("save feature card: %w", err)
+	}
+	return card, nil
+}
+
+// createWorkstreamStub writes a backlog workstream file for the first delivery step.
+// Returns the path of the created file.
+func createWorkstreamStub(
+	wsDir, wsID, featureID string,
+	frame *discovery.FrameResult,
+	hyp *discovery.HypothesisResult,
+	discoveryDir string,
+) (string, error) {
+	if err := os.MkdirAll(wsDir, 0o755); err != nil {
+		return "", fmt.Errorf("create ws dir: %w", err)
+	}
+
+	var acLines strings.Builder
+	if hyp != nil {
+		for _, r := range hyp.Requirements {
+			fmt.Fprintf(&acLines, "- [ ] %s\n", r)
+		}
+	}
+	if acLines.Len() == 0 {
+		acLines.WriteString("- [ ] (to be defined in planning phase)\n")
+	}
+
+	content := fmt.Sprintf(`---
+ws_id: %s
+feature_id: %s
+status: backlog
+priority: P2
+size: M
+depends_on: []
+---
+
+# %s: Delivery — Phase 1
+
+Feature: %s
+
+## Goal
+
+%s
+
+## Beads
+
+_(issue will be created when workstream is claimed)_
+
+## Acceptance Criteria
+
+%s
+## Out of Scope
+
+%s
+
+## Discovery Reference
+
+Artifacts: %s/
+
+## Implementation Notes
+
+Read Discovery artifacts before planning. Start with the frame and hypothesis docs.
+`, wsID, featureID, wsID, featureID,
+		frame.ProblemStatement,
+		acLines.String(),
+		frame.Scope,
+		discoveryDir,
+	)
+
+	path := filepath.Join(wsDir, wsID+".md")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		return "", fmt.Errorf("write workstream stub: %w", err)
+	}
+	return path, nil
 }

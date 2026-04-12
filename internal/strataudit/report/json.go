@@ -11,9 +11,29 @@ import (
 type AuditReport struct {
 	Project  string           `json:"project"`
 	Levels   []LevelReport    `json:"levels"`
+	Entities []EntityReport   `json:"entities,omitempty"`
+	Traces   []TraceReport    `json:"traces,omitempty"`
 	Findings []FindingReport  `json:"findings"`
 	Coverage []CoverageReport `json:"coverage"`
 	Summary  SummaryReport    `json:"summary"`
+}
+
+type EntityReport struct {
+	ID          string `json:"id"`
+	Type        string `json:"type"`
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+	LevelID     string `json:"level_id"`
+	DocumentID  string `json:"document_id"`
+}
+
+type TraceReport struct {
+	ID             string  `json:"id"`
+	SourceEntityID string  `json:"source_entity_id"`
+	TargetEntityID string  `json:"target_entity_id"`
+	Relation       string  `json:"relation"`
+	Confidence     float64 `json:"confidence"`
+	Justification  string  `json:"justification"`
 }
 
 type LevelReport struct {

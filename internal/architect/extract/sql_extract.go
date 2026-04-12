@@ -737,26 +737,45 @@ func domainName(tables []string) string {
 // ---------------------------------------------------------------------------
 
 // isTestPath returns true if the path looks like a test fixture or test directory.
+// It uses a two-pass approach: first check explicit test directories, then check
+// filename patterns. Paths under /src/test/resources/ are test fixtures and skipped,
+// but paths under /src/test/ that contain actual SQL DDL are kept for analysis.
 func isTestPath(rel string) bool {
 	lower := strings.ToLower(rel)
-	testPatterns := []string{
-		"/test/", "/tests/", "/__tests__/",
+
+	// Skip generated output and binary-like artifacts in any path.
+	skipExts := []string{".out", ".explain", ".crc", ".bin", ".zip", ".jar"}
+	for _, ext := range skipExts {
+		if strings.HasSuffix(lower, ext) {
+			return true
+		}
+	}
+
+	// Hard skip: known fixture/resource directories.
+	fixturePatterns := []string{
 		"/fixtures/", "/fixture/",
 		"/testdata/", "/test_data/",
 		"/mock/", "/mocks/",
-		"/src/test/",
-		"test_",
+		"/__tests__/",
+		"/src/test/resources/",
 	}
-	for _, p := range testPatterns {
+	for _, p := range fixturePatterns {
 		if strings.Contains(lower, p) {
 			return true
 		}
 	}
-	// Also check filename patterns.
+
+	// For /test/ and /tests/: only skip if it's a top-level test directory
+	// (e.g. "project/test/") but not if it's "sql/core/src/test/resources/".
+	// We already handled /src/test/resources/ above.
+	// Keep files under /src/test/ that may contain DDL (common in Java/Scala projects).
+
+	// Filename patterns.
 	base := strings.ToLower(filepath.Base(rel))
 	if strings.HasPrefix(base, "test_") || strings.HasSuffix(base, "_test.sql") {
 		return true
 	}
+
 	return false
 }
 

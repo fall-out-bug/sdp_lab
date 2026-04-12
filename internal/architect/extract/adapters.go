@@ -2,10 +2,11 @@ package extract
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"sdp_dev/internal/architect"
+	"strings"
 )
 
 // ---------------------------------------------------------------------------
@@ -262,6 +263,23 @@ func (PythonAdapter) Extract(ctx context.Context, repoRoot string) (*architect.P
 
 		frag.ImportGraph = ig
 
+		for _, coupling := range graph.RuntimeCouplings {
+			kind := architect.EdgeRuntimeBridge
+			protocol := "py4j"
+			target := "jvm"
+			if coupling.Type == "spark_context" {
+				kind = architect.EdgeRPC
+				protocol = "spark"
+			}
+			frag.Edges = append(frag.Edges, architect.StructuralEdge{
+				Source:     coupling.File,
+				Target:     target,
+				Kind:       kind,
+				Protocol:   protocol,
+				Confidence: 0.85,
+			})
+		}
+
 		// Surface frameworks from the graph.
 		if len(graph.Frameworks) > 0 {
 			fwDepInfo := architect.DependencyInfo{
@@ -295,9 +313,9 @@ type JavaAdapter struct{}
 // Name returns the extractor identifier.
 func (JavaAdapter) Name() string { return "java" }
 
-// Extract analyzes the Java/Kotlin repository at repoRoot and returns a ProfileFragment.
+// Extract analyzes the Java/Kotlin/Scala repository at repoRoot and returns a ProfileFragment.
 func (JavaAdapter) Extract(ctx context.Context, repoRoot string) (*architect.ProfileFragment, error) {
-	// Check if this is a Java/Kotlin project by looking for common markers
+	// Check if this is a Java/Kotlin/Scala project by looking for common markers.
 	hasJavaMarkers := false
 	for _, marker := range []string{"pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts"} {
 		if _, err := os.Stat(filepath.Join(repoRoot, marker)); err == nil {
@@ -305,20 +323,20 @@ func (JavaAdapter) Extract(ctx context.Context, repoRoot string) (*architect.Pro
 			break
 		}
 	}
-	// Also check for any .java or .kt files
+	// Also check for any JVM source files.
 	if !hasJavaMarkers {
 		if err := filepath.Walk(repoRoot, func(path string, fi os.FileInfo, err error) error {
 			if err != nil || fi.IsDir() {
 				return nil
 			}
 			name := fi.Name()
-			if strings.HasSuffix(name, ".java") || strings.HasSuffix(name, ".kt") || strings.HasSuffix(name, ".kts") {
+			if strings.HasSuffix(name, ".java") || strings.HasSuffix(name, ".kt") || strings.HasSuffix(name, ".kts") || strings.HasSuffix(name, ".scala") {
 				hasJavaMarkers = true
 				return filepath.SkipDir // Found a Java/Kotlin file, stop walking
 			}
 			return nil
 		}); err == nil && hasJavaMarkers {
-			// Found Java/Kotlin files
+			// Found JVM source files.
 		}
 	}
 
@@ -356,39 +374,39 @@ func (TypeScriptAdapter) Extract(ctx context.Context, repoRoot string) (*archite
 
 // depSignals maps dependency name patterns to architectural signals.
 var depSignals = map[string]string{
-	"kafka":            "event_driven",
-	"confluent-kafka":  "event_driven",
-	"fastapi":          "web_framework",
-	"flask":            "web_framework",
-	"django":           "web_framework",
-	"grpc":             "rpc",
-	"grpcio":           "rpc",
-	"protobuf":         "rpc",
-	"celery":           "task_queue",
-	"rq":               "task_queue",
-	"redis":            "cache",
-	"memcached":        "cache",
-	"sqlalchemy":       "orm",
-	"pandas":           "data_processing",
-	"numpy":            "data_processing",
-	"pyarrow":          "data_processing",
-	"pydantic":         "validation",
-	"pytest":           "testing",
-	"requests":         "http_client",
-	"httpx":            "http_client",
-	"aiohttp":          "async_http",
-	"uvicorn":          "asgi_server",
-	"gunicorn":         "wsgi_server",
-	"boto3":            "cloud_aws",
-	"botocore":         "cloud_aws",
-	"azure":            "cloud_azure",
-	"google-cloud":     "cloud_gcp",
-	"tensorflow":       "ml_framework",
-	"torch":            "ml_framework",
-	"scikit-learn":     "ml_framework",
-	"django-rest":      "api_framework",
+	"kafka":               "event_driven",
+	"confluent-kafka":     "event_driven",
+	"fastapi":             "web_framework",
+	"flask":               "web_framework",
+	"django":              "web_framework",
+	"grpc":                "rpc",
+	"grpcio":              "rpc",
+	"protobuf":            "rpc",
+	"celery":              "task_queue",
+	"rq":                  "task_queue",
+	"redis":               "cache",
+	"memcached":           "cache",
+	"sqlalchemy":          "orm",
+	"pandas":              "data_processing",
+	"numpy":               "data_processing",
+	"pyarrow":             "data_processing",
+	"pydantic":            "validation",
+	"pytest":              "testing",
+	"requests":            "http_client",
+	"httpx":               "http_client",
+	"aiohttp":             "async_http",
+	"uvicorn":             "asgi_server",
+	"gunicorn":            "wsgi_server",
+	"boto3":               "cloud_aws",
+	"botocore":            "cloud_aws",
+	"azure":               "cloud_azure",
+	"google-cloud":        "cloud_gcp",
+	"tensorflow":          "ml_framework",
+	"torch":               "ml_framework",
+	"scikit-learn":        "ml_framework",
+	"django-rest":         "api_framework",
 	"djangorestframework": "api_framework",
-	"flask-restful":    "api_framework",
+	"flask-restful":       "api_framework",
 }
 
 // detectDepSignal infers architectural signal from dependency name.
@@ -457,7 +475,7 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 	frag := &architect.ProfileFragment{
 		Languages: []architect.LanguageInfo{{
 			Primary: "java",
-			All:     []string{"java", "kotlin"},
+			All:     []string{"java", "kotlin", "scala"},
 		}},
 	}
 
@@ -469,12 +487,217 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 			nodes++
 			edges += len(imports)
 		}
-		frag.ImportGraph = &architect.ImportGraph{
+		importGraph := &architect.ImportGraph{
 			ExtractionMethod: r.ExtractionMethod,
 			AccuracyEstimate: r.AccuracyEstimate,
 			Nodes:            nodes,
 			Edges:            edges,
 		}
+
+		// Build module directory map for directory-based clustering.
+		moduleDirMap := buildModuleDirMap(r.Modules)
+
+		packageDirToCluster := make(map[string]string, len(r.ImportGraph.PackageImports))
+		packageNameToCluster := make(map[string]string, len(r.ImportGraph.PackageImports))
+		clusterIndex := make(map[string]int)
+		for pkgDir := range r.ImportGraph.PackageImports {
+			clusterID := javaClusterID(pkgDir, moduleDirMap)
+			packageDirToCluster[pkgDir] = clusterID
+			if pkgName := javaPackageName(pkgDir); pkgName != "" {
+				packageNameToCluster[pkgName] = clusterID
+			}
+			if _, ok := clusterIndex[clusterID]; !ok {
+				importGraph.Clusters = append(importGraph.Clusters, architect.ImportCluster{
+					ID: clusterID,
+				})
+				clusterIndex[clusterID] = len(importGraph.Clusters) - 1
+			}
+			idx := clusterIndex[clusterID]
+			importGraph.Clusters[idx].Packages = append(importGraph.Clusters[idx].Packages, pkgDir)
+		}
+
+		// Adaptive refinement: split oversized non-module clusters (>50 packages).
+		const maxClusterSize = 50
+		for i := 0; i < len(importGraph.Clusters); i++ {
+			if len(importGraph.Clusters[i].Packages) <= maxClusterSize {
+				continue
+			}
+			// Don't split module-derived clusters — they represent real boundaries.
+			if _, isModule := moduleDirMap[importGraph.Clusters[i].ID]; isModule {
+				continue
+			}
+			// Split by increasing prefix depth (4 segments instead of 3).
+			splitClusters := make(map[string]*architect.ImportCluster)
+			for _, pkg := range importGraph.Clusters[i].Packages {
+				pkgName := javaPackageName(pkg)
+				newID := javaImportPrefix(pkgName, 4)
+				if newID == "" || newID == importGraph.Clusters[i].ID {
+					newID = pkgName // Full package as cluster
+				}
+				if _, ok := splitClusters[newID]; !ok {
+					splitClusters[newID] = &architect.ImportCluster{ID: newID}
+				}
+				splitClusters[newID].Packages = append(splitClusters[newID].Packages, pkg)
+				packageDirToCluster[pkg] = newID
+				if pkgName != "" {
+					packageNameToCluster[pkgName] = newID
+				}
+			}
+			// Replace oversized cluster with split results.
+			replacement := make([]architect.ImportCluster, 0, len(importGraph.Clusters)-1+len(splitClusters))
+			for j, c := range importGraph.Clusters {
+				if j == i {
+					for _, sc := range splitClusters {
+						replacement = append(replacement, *sc)
+					}
+					continue
+				}
+				replacement = append(replacement, c)
+			}
+			importGraph.Clusters = replacement
+			// Rebuild clusterIndex.
+			clusterIndex = make(map[string]int, len(importGraph.Clusters))
+			for j, c := range importGraph.Clusters {
+				clusterIndex[c.ID] = j
+			}
+			i-- // recheck current index
+		}
+
+		for pkgDir, imports := range r.ImportGraph.PackageImports {
+			fromCluster := packageDirToCluster[pkgDir]
+			if fromCluster == "" {
+				continue
+			}
+			idx := clusterIndex[fromCluster]
+			for _, imp := range imports {
+				targetCluster := javaImportTargetCluster(imp, packageNameToCluster)
+				if targetCluster == "" {
+					importGraph.Clusters[idx].ExternalEdges++
+					continue
+				}
+				if _, ok := clusterIndex[targetCluster]; !ok {
+					importGraph.Clusters[idx].ExternalEdges++
+					continue
+				}
+				if targetCluster == fromCluster {
+					importGraph.Clusters[idx].InternalEdges++
+				} else {
+					importGraph.Clusters[idx].ExternalEdges++
+				}
+			}
+		}
+
+		frag.ImportGraph = importGraph
+
+				// Priority 1: declared-dependency EdgeSync edges (source of truth).
+				// These come from submodule pom.xml/build.gradle <dependency> declarations.
+				var declaredEdges []architect.StructuralEdge
+				if len(r.SubmoduleDeps) > 0 && len(r.Modules) > 0 {
+					artifactToModule := buildArtifactToModuleMap(r.SubmoduleDeps, r.Modules)
+					for _, sd := range r.SubmoduleDeps {
+						if sd.ModuleDir == "" {
+							continue // skip root pom.xml
+						}
+						sourceSlug := resolveModuleFromDir(sd.ModuleDir, artifactToModule)
+						if sourceSlug == "" {
+							continue
+						}
+						for _, dep := range sd.Dependencies {
+							if !mavenScopeIncluded[dep.Scope] {
+								continue
+							}
+							targetSlug := resolveModuleFromArtifact(dep.Artifact, artifactToModule)
+							if targetSlug == "" || targetSlug == sourceSlug {
+								continue
+							}
+							declaredEdges = append(declaredEdges, architect.StructuralEdge{
+								Source:     sourceSlug,
+								Target:     targetSlug,
+								Kind:       architect.EdgeSync,
+								Weight:     1,
+								Confidence: 0.95,
+							})
+						}
+					}
+					declaredEdges = dedupStructuralEdges(declaredEdges)
+				}
+
+			if len(declaredEdges) > 0 {
+				// Use declared dependencies as source of truth.
+				frag.Edges = append(frag.Edges, declaredEdges...)
+			} else if moduleDirMap != nil {
+				// Fallback: import-graph-derived edges when no build descriptors found.
+				clusterToModule := make(map[string]string)
+				for _, c := range importGraph.Clusters {
+					for _, pkg := range c.Packages {
+						if slug := moduleForDir(pkg, moduleDirMap); slug != "" {
+							clusterToModule[c.ID] = slug
+						}
+					}
+				}
+				moduleEdgeWeight := make(map[[2]string]int)
+				for pkgDir, imports := range r.ImportGraph.PackageImports {
+					fromCluster := packageDirToCluster[pkgDir]
+					if fromCluster == "" {
+						continue
+					}
+					fromMod := clusterToModule[fromCluster]
+					for _, imp := range imports {
+						toCluster := javaImportTargetCluster(imp, packageNameToCluster)
+						if toCluster == "" || toCluster == fromCluster {
+							continue
+						}
+						toMod := clusterToModule[toCluster]
+						if toMod == "" || fromMod == "" || fromMod == toMod {
+							continue
+						}
+						moduleEdgeWeight[[2]string{fromMod, toMod}]++
+					}
+				}
+				// Resolve bidirectional edges: keep only the stronger direction.
+				seen := make(map[string]bool)
+				for pair, weight := range moduleEdgeWeight {
+					reverse := [2]string{pair[1], pair[0]}
+					reverseWeight := moduleEdgeWeight[reverse]
+					key := pair[0] + "->" + pair[1]
+					revKey := reverse[0] + "->" + reverse[1]
+					if seen[key] || seen[revKey] {
+						continue
+					}
+					if reverseWeight > weight {
+						seen[revKey] = true
+						continue
+					}
+					seen[key] = true
+					frag.Edges = append(frag.Edges, architect.StructuralEdge{
+						Source: pair[0],
+						Target: pair[1],
+						Kind:   architect.EdgeSync,
+						Weight: weight,
+					})
+				}
+			}
+	}
+
+	for _, coupling := range r.RuntimeCouplings {
+		kind := architect.EdgeRPC
+		protocol := "spark-rpc"
+		target := "spark-runtime"
+		if coupling.Type == "py4j_gateway" {
+			kind = architect.EdgeRuntimeBridge
+			protocol = "py4j"
+		} else if coupling.Type == "grpc" {
+			kind = architect.EdgeRPC
+			protocol = "grpc"
+			target = "spark-connect"
+		}
+		frag.Edges = append(frag.Edges, architect.StructuralEdge{
+			Source:     coupling.File,
+			Target:     target,
+			Kind:       kind,
+			Protocol:   protocol,
+			Confidence: 0.8,
+		})
 	}
 
 	// Convert BuildSystem.Dependencies → DependencyInfo
@@ -491,6 +714,7 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 
 	frag.Metrics = &architect.CodeMetrics{
 		LanguagesCount: 1,
+			LanguageBreakdown: buildLangBreakdownFromMetadata(r.Metadata),
 	}
 
 	// Convert Maven modules to ModuleBoundaries
@@ -507,6 +731,104 @@ func convertJavaResult(r *JavaExtractionResult) *architect.ProfileFragment {
 	return frag
 }
 
+func javaClusterID(pkgDir string, moduleDirMap map[string]string) string {
+	// Check if this package belongs to a Maven module by directory path.
+	if moduleDirMap != nil {
+		if slug := moduleForDir(pkgDir, moduleDirMap); slug != "" {
+			return slug
+		}
+	}
+
+	pkgName := javaPackageName(pkgDir)
+	if pkgName == "" {
+		return "unnamed"
+	}
+
+	clusterID := javaImportPrefix(pkgName, 3)
+	if clusterID == "" {
+		return pkgName
+	}
+	return clusterID
+}
+
+// buildModuleDirMap maps normalized module directory paths to module slugs.
+// Unlike the old buildModulePrefixMap (which used Java package name prefixes),
+// this maps by filesystem directory path, which correctly distinguishes root-level
+// modules like "core", "streaming", "mllib" that all share the org.apache.spark prefix.
+func buildModuleDirMap(modules []string) map[string]string {
+	if len(modules) == 0 {
+		return nil
+	}
+
+	result := make(map[string]string)
+	for _, mod := range modules {
+		normalized := filepath.ToSlash(strings.Trim(mod, "/"))
+		if normalized == "" {
+			continue
+		}
+		slug := moduleSlug(mod)
+		result[normalized] = slug
+	}
+	return result
+}
+
+// moduleForDir returns the module slug for a package directory by longest-prefix
+// matching against the module directory map.
+func moduleForDir(pkgDir string, moduleDirMap map[string]string) string {
+	normalized := filepath.ToSlash(filepath.Clean(pkgDir))
+	bestLen := 0
+	bestSlug := ""
+	for modPath, slug := range moduleDirMap {
+		if strings.Contains(normalized, modPath+"/") {
+			if len(modPath) > bestLen {
+				bestLen = len(modPath)
+				bestSlug = slug
+			}
+		}
+	}
+	return bestSlug
+}
+
+// moduleSlug converts a Maven module path like "sql/core" to a slug like "spark-sql-core".
+func moduleSlug(mod string) string {
+	s := filepath.ToSlash(mod)
+	s = strings.TrimPrefix(s, "/")
+	parts := strings.Split(s, "/")
+	return "spark-" + strings.Join(parts, "-")
+}
+
+func javaPackageName(pkgDir string) string {
+	normalized := filepath.ToSlash(pkgDir)
+	for _, marker := range []string{"src/main/java/", "src/test/java/", "src/main/kotlin/", "src/test/kotlin/", "src/main/scala/", "src/test/scala/"} {
+		if idx := strings.Index(normalized, marker); idx >= 0 {
+			normalized = normalized[idx+len(marker):]
+			break
+		}
+	}
+
+	normalized = strings.Trim(normalized, "/")
+	if normalized == "" || normalized == "." {
+		return ""
+	}
+	return strings.ReplaceAll(normalized, "/", ".")
+}
+
+func javaImportTargetCluster(imp string, packageNameToCluster map[string]string) string {
+	imp = strings.TrimSuffix(imp, ".*")
+	imp = strings.TrimSuffix(imp, "*")
+
+	for imp != "" {
+		if clusterID, ok := packageNameToCluster[imp]; ok {
+			return clusterID
+		}
+		lastDot := strings.LastIndex(imp, ".")
+		if lastDot < 0 {
+			break
+		}
+		imp = imp[:lastDot]
+	}
+	return ""
+}
 
 // javaImportPrefix extracts the first n segments from a Java import path.
 // For example "org.apache.spark.sql.DataFrame" with n=3 returns "org.apache.spark".
@@ -519,4 +841,165 @@ func javaImportPrefix(imp string, n int) string {
 		n = len(parts)
 	}
 	return strings.Join(parts[:n], ".")
+}
+
+// buildLangBreakdownFromMetadata creates a language breakdown map from
+// the Java extraction result metadata (java_files, kotlin_files, scala_files).
+func buildLangBreakdownFromMetadata(metadata map[string]string) map[string]int {
+	result := make(map[string]int)
+	type mapping struct {
+		key string
+		ext string
+	}
+	for _, m := range []mapping{
+		{"java_files", ".java"},
+		{"kotlin_files", ".kt"},
+		{"scala_files", ".scala"},
+	} {
+		if v, ok := metadata[m.key]; ok {
+			var n int
+			if _, err := fmt.Sscanf(v, "%d", &n); err == nil && n > 0 {
+				result[m.ext] = n
+			}
+		}
+	}
+	return result
+}
+
+// ---------------------------------------------------------------------------
+// Build-system declared dependency helpers
+// ---------------------------------------------------------------------------
+
+// mavenScopeIncluded defines which Maven dependency scopes are included in
+// inter-module EdgeSync edges. Compile and runtime scopes represent actual
+// module coupling; test/provided/system scopes are excluded.
+var mavenScopeIncluded = map[string]bool{
+	"":        true, // default scope = compile
+	"compile": true,
+	"runtime": true,
+}
+
+// buildArtifactToModuleMap creates a mapping from Maven artifactId to module
+// slug, using the SubmoduleBuildDeps entries as the authoritative source.
+// The modules list (from pom.xml <modules>) is used to derive clean slugs
+// that match the container IDs produced by the pipeline, even when the repo
+// is nested inside a version subdirectory (e.g. spark-3.5.7/).
+func buildArtifactToModuleMap(submoduleDeps []SubmoduleBuildDeps, modules []string) map[string]string {
+	if len(submoduleDeps) == 0 || len(modules) == 0 {
+		return nil
+	}
+
+	// Build clean module path → clean slug from the canonical modules list.
+	cleanSlugs := make(map[string]string, len(modules))
+	for _, mod := range modules {
+		normalized := filepath.ToSlash(strings.Trim(mod, "/"))
+		if normalized == "" {
+			continue
+		}
+		cleanSlugs[normalized] = moduleSlug(normalized)
+	}
+
+	// For each submodule dep entry, resolve its ModuleDir to a clean slug
+	// by suffix-matching against the canonical module paths.
+	result := make(map[string]string)
+	for _, sd := range submoduleDeps {
+		if sd.ModuleDir == "" {
+			continue
+		}
+		moduleDirNorm := filepath.ToSlash(sd.ModuleDir)
+
+		// Find matching clean module path by suffix.
+		slug := ""
+		for cleanPath, cleanSlug := range cleanSlugs {
+			if moduleDirNorm == cleanPath || strings.HasSuffix(moduleDirNorm, "/"+cleanPath) {
+				slug = cleanSlug
+				break
+			}
+		}
+		if slug == "" {
+			slug = moduleSlug(sd.ModuleDir) // fallback
+		}
+
+		// Map the module directory path directly.
+		result[sd.ModuleDir] = slug
+		// Map the artifactId if available.
+		if sd.ArtifactID != "" {
+			result[sd.ArtifactID] = slug
+			// Also map the normalized form (without Scala version suffix).
+			normalized := normalizeArtifactID(sd.ArtifactID)
+			result[normalized] = slug
+		}
+	}
+	return result
+}
+
+// normalizeArtifactID strips Scala version suffixes and common Maven classifiers
+// from an artifactId. For example: "spark-core_2.13" -> "spark-core".
+func normalizeArtifactID(artifactID string) string {
+	// Strip Scala version suffixes like _2.13, _2.12, _2.11
+	if idx := strings.LastIndex(artifactID, "_"); idx > 0 {
+		suffix := artifactID[idx+1:]
+		// Check if suffix looks like a Scala version (2.N)
+		if len(suffix) > 0 && suffix[0] == '2' && strings.Contains(suffix, ".") {
+			artifactID = artifactID[:idx]
+		}
+	}
+	return artifactID
+}
+
+// resolveModuleFromDir resolves a filesystem module directory path to its
+// clean module slug by looking it up in the artifactToModule map.
+func resolveModuleFromDir(moduleDir string, artifactToModule map[string]string) string {
+	if moduleDir == "" || artifactToModule == nil {
+		return ""
+	}
+	if slug, ok := artifactToModule[moduleDir]; ok {
+		return slug
+	}
+	// Try normalized path.
+	normalized := filepath.ToSlash(moduleDir)
+	if slug, ok := artifactToModule[normalized]; ok {
+		return slug
+	}
+	return ""
+}
+
+// resolveModuleFromArtifact attempts to map a Maven artifactId to a module
+// slug using the artifactToModule map, with multiple matching strategies.
+func resolveModuleFromArtifact(artifact string, artifactToModule map[string]string) string {
+	if artifact == "" || artifactToModule == nil {
+		return ""
+	}
+	// Direct match.
+	if slug, ok := artifactToModule[artifact]; ok {
+		return slug
+	}
+	// Normalized match (strip Scala version).
+	normalized := normalizeArtifactID(artifact)
+	if slug, ok := artifactToModule[normalized]; ok {
+		return slug
+	}
+	// Suffix-based fallback: check if any key is a suffix of the artifact.
+	for key, slug := range artifactToModule {
+		if len(key) > 0 && len(key) < len(normalized) {
+			if strings.HasSuffix(normalized, key) {
+				return slug
+			}
+		}
+	}
+	return ""
+}
+
+// dedupStructuralEdges deduplicates edges by (source, target, kind) tuple.
+func dedupStructuralEdges(edges []architect.StructuralEdge) []architect.StructuralEdge {
+	seen := make(map[string]bool, len(edges))
+	result := make([]architect.StructuralEdge, 0, len(edges))
+	for _, e := range edges {
+		key := e.Source + "->" + e.Target + ":" + string(e.Kind)
+		if !seen[key] {
+			seen[key] = true
+			result = append(result, e)
+		}
+	}
+	return result
 }

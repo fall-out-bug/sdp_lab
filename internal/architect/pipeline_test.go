@@ -152,7 +152,7 @@ func TestBuildReferenceModelFromProfile(t *testing.T) {
 		},
 		ImportGraph: ImportGraph{
 			Clusters: []ImportCluster{
-				{ID: "api", Packages: []string{"api/handlers", "api/routes"}},
+				{ID: "python.api", Packages: []string{"api/handlers", "api/routes"}, InternalEdges: 5},
 			},
 		},
 		Dependencies: DependencyInfo{
@@ -374,8 +374,8 @@ func TestBuildReferenceModelWithImportClusters(t *testing.T) {
 		Name: "clustered-repo",
 		ImportGraph: ImportGraph{
 			Clusters: []ImportCluster{
-				{ID: "auth", Packages: []string{"auth/jwt", "auth/oauth"}, InternalEdges: 5, ExternalEdges: 2},
-				{ID: "api", Packages: []string{"api/handlers", "api/middleware"}, InternalEdges: 8, ExternalEdges: 3},
+				{ID: "python.auth", Packages: []string{"auth/jwt", "auth/oauth"}, InternalEdges: 5, ExternalEdges: 2},
+				{ID: "python.api", Packages: []string{"api/handlers", "api/middleware"}, InternalEdges: 8, ExternalEdges: 3},
 			},
 		},
 	}
@@ -385,7 +385,7 @@ func TestBuildReferenceModelWithImportClusters(t *testing.T) {
 	// Should have cluster containers
 	found := 0
 	for _, c := range model.Containers {
-		if c.ID == "cluster_auth" || c.ID == "cluster_api" {
+		if c.ID == "cluster_python.auth" || c.ID == "cluster_python.api" {
 			found++
 		}
 	}
