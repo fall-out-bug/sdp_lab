@@ -29,6 +29,8 @@ func runArchitect(args []string) {
 		runArchitectC4(args[1:])
 	case "eval":
 		runArchitectEval(args[1:])
+	case "render":
+		runArchitectRender(args[1:])
 	case "contracts":
 		fmt.Fprintln(os.Stderr, "sdp architect contracts: not implemented yet (Phase B)")
 	case "conform":
@@ -851,6 +853,7 @@ func architectUsage() {
 	fmt.Fprintln(os.Stderr, "  analyze <repo-path>           Full architecture analysis pipeline")
 	fmt.Fprintln(os.Stderr, "  c4 <repo-path>                Generate C4 diagrams")
 	fmt.Fprintln(os.Stderr, "  eval <repo-path>              Run evaluation against ground truth")
+	fmt.Fprintln(os.Stderr, "  render <report.md>            Render markdown report to interactive HTML")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Analyze flags:")
 	fmt.Fprintln(os.Stderr, "  --allow-external-llm          Enable cloud LLM enrichment")
@@ -862,6 +865,10 @@ func architectUsage() {
 	fmt.Fprintln(os.Stderr, "  --timeout <duration>          Total session timeout (default: 5m)")
 	fmt.Fprintln(os.Stderr, "  -o, --output <path>           Output file path (default: stdout)")
 	fmt.Fprintln(os.Stderr, "  -v, --verbose                 Show per-extractor timing")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Render flags:")
+	fmt.Fprintln(os.Stderr, "  -o, --output <path>           Output HTML path (default: same name .html)")
+	fmt.Fprintln(os.Stderr, "  --open                        Open in browser after rendering")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "C4 flags:")
 	fmt.Fprintln(os.Stderr, "  --level <1|2|3>               C4 diagram level (default: all)")
