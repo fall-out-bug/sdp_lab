@@ -84,13 +84,17 @@ func TestSQLiteStore_SaveEntities_PersistsTrustFields(t *testing.T) {
 
 	entities := []model.Entity{
 		{
-			ID:           "e1",
-			DocumentID:   "d1",
-			LevelID:      "vision",
-			Type:         model.EntityGoal,
-			Title:        "Global expansion",
-			TrustGrade:   model.TrustGradeVerified,
-			QualityFlags: []string{"quote_verified"},
+			ID:                  "e1",
+			DocumentID:          "d1",
+			LevelID:             "vision",
+			Type:                model.EntityGoal,
+			Title:               "Глобальная экспансия",
+			Description:         "Описание для отчёта",
+			TitleOriginal:       "Глобальная экспансия",
+			DescriptionOriginal: "Описание для отчёта",
+			Lang:                "ru",
+			TrustGrade:          model.TrustGradeVerified,
+			QualityFlags:        []string{"quote_verified"},
 		},
 	}
 	if err := store.SaveEntities(ctx, entities); err != nil {
@@ -106,6 +110,15 @@ func TestSQLiteStore_SaveEntities_PersistsTrustFields(t *testing.T) {
 	}
 	if got[0].TrustGrade != model.TrustGradeVerified {
 		t.Fatalf("TrustGrade = %q, want %q", got[0].TrustGrade, model.TrustGradeVerified)
+	}
+	if got[0].TitleOriginal != "Глобальная экспансия" {
+		t.Fatalf("TitleOriginal = %q", got[0].TitleOriginal)
+	}
+	if got[0].DescriptionOriginal != "Описание для отчёта" {
+		t.Fatalf("DescriptionOriginal = %q", got[0].DescriptionOriginal)
+	}
+	if got[0].Lang != "ru" {
+		t.Fatalf("Lang = %q, want ru", got[0].Lang)
 	}
 	if len(got[0].QualityFlags) != 1 || got[0].QualityFlags[0] != "quote_verified" {
 		t.Fatalf("QualityFlags = %+v, want [quote_verified]", got[0].QualityFlags)

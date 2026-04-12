@@ -72,7 +72,9 @@ func BuildReport(ctx context.Context, cfg *Config, store *SQLiteStore) (*report.
 		for _, e := range entities {
 			rpt.Entities = append(rpt.Entities, report.EntityReport{
 				ID: e.ID, Type: string(e.Type), Title: e.Title,
-				Description: e.Description, LevelID: e.LevelID, DocumentID: e.DocumentID,
+				Description: e.Description, TitleOriginal: e.TitleOriginal,
+				DescriptionOriginal: e.DescriptionOriginal, Lang: e.Lang,
+				LanguageMismatch: e.LanguageMismatch, LevelID: e.LevelID, DocumentID: e.DocumentID,
 			})
 		}
 	}

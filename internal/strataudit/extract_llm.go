@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sdp_dev/internal/strataudit/model"
 	"strings"
+	"unicode"
 )
 
 // xmlEscape replaces < and > with HTML entities to prevent tag injection in prompts.
@@ -179,12 +180,12 @@ Allowed entity types: %s
 
 Extract all strategic entities as JSON. Return a JSON object with an "entities" array. Each entity must have:
 - "type": one of [%s]
-- "title": concise name (max 100 chars)
-- "description": brief explanation (max 300 chars)
+- "title_original": concise name (max 100 chars) in the same language as the supporting quote
+- "description_original": brief explanation (max 300 chars) in the same language as the supporting quote
 - "source_quote": exact quote from the document supporting this extraction (max 500 chars)
 
 If the content contains no strategic entities, return {"entities": []}.
-If uncertain about an entity, do not include it.`, level.Name, level.Rank, types, xmlEscape(content), types)
+If uncertain about an entity, do not include it. Do NOT translate, anglicize, or normalize non-English source text.`, level.Name, level.Rank, types, xmlEscape(content), types)
 
 	if totalChunks > 1 {
 		prompt += fmt.Sprintf("\n\nNote: This is chunk %d of %d from a larger document. Extract only entities clearly present in this chunk.", chunkIndex+1, totalChunks)
@@ -199,7 +200,8 @@ func extractionSystemPrompt(cfg *Config) string {
 RULES:
 1. Extract ONLY entities explicitly stated in the document. Do NOT infer or create entities.
 2. Each entity MUST have a direct, verbatim source quote from the document.
-3. Use exact entity types from the allowed list only.
+3. Preserve the source language in title_original and description_original. Do NOT translate Russian or other non-English text into English.
+4. Use exact entity types from the allowed list only.
 4. If a passage is ambiguous, skip it rather than guess.
 5. Return valid JSON only. No markdown, no explanations outside JSON.
 
@@ -231,10 +233,12 @@ func parseExtractionResponseDetailed(content string, docID, levelID, extractMode
 
 	var result struct {
 		Entities []struct {
-			Type        string `json:"type"`
-			Title       string `json:"title"`
-			Description string `json:"description"`
-			SourceQuote string `json:"source_quote"`
+			Type                string `json:"type"`
+			Title               string `json:"title"`
+			Description         string `json:"description"`
+			TitleOriginal       string `json:"title_original"`
+			DescriptionOriginal string `json:"description_original"`
+			SourceQuote         string `json:"source_quote"`
 		} `json:"entities"`
 	}
 	if err := json.Unmarshal(raw, &result); err != nil {
@@ -243,24 +247,28 @@ func parseExtractionResponseDetailed(content string, docID, levelID, extractMode
 
 	parsed := &extractionParseResult{Entities: make([]model.Entity, 0, len(result.Entities))}
 	for _, e := range result.Entities {
-		if e.Title == "" || e.Type == "" {
+		titleOriginal := firstNonEmpty(strings.TrimSpace(e.TitleOriginal), strings.TrimSpace(e.Title))
+		descriptionOriginal := firstNonEmpty(strings.TrimSpace(e.DescriptionOriginal), strings.TrimSpace(e.Description))
+		if titleOriginal == "" || e.Type == "" {
 			continue
 		}
 		if !model.IsValidEntityType(model.EntityType(e.Type)) {
 			parsed.Rejected++
 			continue
 		}
-		id := entityID(docID, e.Type, e.Title)
+		id := entityID(docID, e.Type, titleOriginal)
 		entity := model.Entity{
-			ID:              id,
-			DocumentID:      docID,
-			LevelID:         levelID,
-			Type:            model.EntityType(e.Type),
-			Title:           e.Title,
-			Description:     e.Description,
-			SourceQuote:     e.SourceQuote,
-			TrustGrade:      model.TrustGradeVerified,
-			ExtractionModel: extractModel,
+			ID:                  id,
+			DocumentID:          docID,
+			LevelID:             levelID,
+			Type:                model.EntityType(e.Type),
+			Title:               titleOriginal,
+			Description:         descriptionOriginal,
+			TitleOriginal:       titleOriginal,
+			DescriptionOriginal: descriptionOriginal,
+			SourceQuote:         e.SourceQuote,
+			TrustGrade:          model.TrustGradeVerified,
+			ExtractionModel:     extractModel,
 		}
 		if flags := detectPromptLeakFlags(entity); len(flags) > 0 {
 			parsed.Rejected++
@@ -279,7 +287,9 @@ func entityID(docID, entityType, title string) string {
 func generateEmbeddings(ctx context.Context, cfg *Config, llm *LLMClient, entities []model.Entity) error {
 	texts := make([]string, len(entities))
 	for i, e := range entities {
-		texts[i] = e.Title + ". " + e.Description
+		title := firstNonEmpty(e.TitleOriginal, e.Title)
+		description := firstNonEmpty(e.DescriptionOriginal, e.Description)
+		texts[i] = title + ". " + description
 	}
 
 	// Batch in groups of 20 (embedding API limit)
@@ -308,6 +318,11 @@ func generateEmbeddings(ctx context.Context, cfg *Config, llm *LLMClient, entiti
 }
 
 func admitEntityCandidate(entity model.Entity, sourceText string) (model.Entity, bool) {
+	entity.TitleOriginal = firstNonEmpty(strings.TrimSpace(entity.TitleOriginal), strings.TrimSpace(entity.Title))
+	entity.DescriptionOriginal = firstNonEmpty(strings.TrimSpace(entity.DescriptionOriginal), strings.TrimSpace(entity.Description))
+	entity.Title = entity.TitleOriginal
+	entity.Description = entity.DescriptionOriginal
+
 	flags := append([]string{}, entity.QualityFlags...)
 
 	sourceQuote := strings.TrimSpace(entity.SourceQuote)
@@ -327,6 +342,18 @@ func admitEntityCandidate(entity model.Entity, sourceText string) (model.Entity,
 
 	if isBoilerplateRepetition(sourceText, sourceQuote) {
 		flags = append(flags, "boilerplate_repetition")
+		entity.TrustGrade = model.TrustGradeRejected
+		entity.QualityFlags = dedupeFlags(flags)
+		return entity, false
+	}
+
+	entity.Lang = detectPrimaryLanguage(sourceQuote)
+	if entity.Lang == "unknown" {
+		entity.Lang = detectPrimaryLanguage(entity.TitleOriginal + " " + entity.DescriptionOriginal)
+	}
+	entity.LanguageMismatch = hasLanguageMismatch(entity.Lang, entity.TitleOriginal, entity.DescriptionOriginal)
+	if entity.LanguageMismatch {
+		flags = append(flags, "language_mismatch")
 		entity.TrustGrade = model.TrustGradeRejected
 		entity.QualityFlags = dedupeFlags(flags)
 		return entity, false
@@ -390,6 +417,60 @@ func isBoilerplateRepetition(sourceText, quote string) bool {
 
 func normalizeTextForMatch(s string) string {
 	return strings.Join(strings.Fields(strings.ToLower(strings.TrimSpace(s))), " ")
+}
+
+func detectPrimaryLanguage(text string) string {
+	var cyrillicCount, latinCount int
+	for _, r := range text {
+		switch {
+		case unicode.In(r, unicode.Cyrillic):
+			cyrillicCount++
+		case unicode.In(r, unicode.Latin):
+			latinCount++
+		}
+	}
+
+	if cyrillicCount+latinCount < 4 {
+		return "unknown"
+	}
+	if cyrillicCount == 0 {
+		return "en"
+	}
+	if latinCount == 0 {
+		return "ru"
+	}
+	if cyrillicCount >= latinCount*2 {
+		return "ru"
+	}
+	if latinCount >= cyrillicCount*2 {
+		return "en"
+	}
+	return "mixed"
+}
+
+func hasLanguageMismatch(sourceLang, titleOriginal, descriptionOriginal string) bool {
+	if sourceLang != "ru" && sourceLang != "en" {
+		return false
+	}
+	for _, field := range []string{titleOriginal, descriptionOriginal} {
+		fieldLang := detectPrimaryLanguage(field)
+		if fieldLang == "unknown" || fieldLang == "mixed" || fieldLang == "" {
+			continue
+		}
+		if fieldLang != sourceLang {
+			return true
+		}
+	}
+	return false
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }
 
 func dedupeFlags(flags []string) []string {

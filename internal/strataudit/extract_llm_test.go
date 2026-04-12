@@ -28,6 +28,9 @@ func TestParseExtractionResponse(t *testing.T) {
 	if entities[0].Title != "Market Leadership" {
 		t.Errorf("title = %q", entities[0].Title)
 	}
+	if entities[0].TitleOriginal != "Market Leadership" {
+		t.Errorf("title_original = %q", entities[0].TitleOriginal)
+	}
 	if entities[0].DocumentID != "d1" {
 		t.Errorf("DocumentID = %q, want d1", entities[0].DocumentID)
 	}
@@ -137,5 +140,87 @@ func TestBuildExtractionPrompt_Chunked(t *testing.T) {
 	prompt := buildExtractionPrompt(cfg, level, "content", 2, 5)
 	if !strings.Contains(prompt, "chunk 3 of 5") {
 		t.Error("prompt should mention chunk number")
+	}
+}
+
+func TestBuildExtractionPrompt_RequiresSourceLanguagePreservation(t *testing.T) {
+	cfg := &Config{EntityTypes: []string{"goal"}}
+	level := model.Level{Name: "strategy", Rank: 0}
+
+	prompt := buildExtractionPrompt(cfg, level, "Наша цель — лидерство на рынке", 0, 1)
+	if !strings.Contains(prompt, "title_original") {
+		t.Error("prompt should request title_original")
+	}
+	if !strings.Contains(prompt, "Do NOT translate") {
+		t.Error("prompt should explicitly forbid translation")
+	}
+}
+
+func TestAdmitEntityCandidate_PreservesRussianSourceLanguage(t *testing.T) {
+	entity := model.Entity{
+		Type:                model.EntityGoal,
+		TitleOriginal:       "Лидерство на рынке",
+		DescriptionOriginal: "Стать лидером в цифровых платежах",
+		SourceQuote:         "Наша цель — лидерство на рынке цифровых платежей.",
+	}
+
+	admitted, accepted := admitEntityCandidate(entity, "Наша цель — лидерство на рынке цифровых платежей.")
+	if !accepted {
+		t.Fatal("expected russian source entity to be accepted")
+	}
+	if admitted.Lang != "ru" {
+		t.Fatalf("Lang = %q, want ru", admitted.Lang)
+	}
+	if admitted.LanguageMismatch {
+		t.Fatal("LanguageMismatch = true, want false")
+	}
+	if admitted.Title != "Лидерство на рынке" {
+		t.Fatalf("Title = %q", admitted.Title)
+	}
+	if admitted.TitleOriginal != "Лидерство на рынке" {
+		t.Fatalf("TitleOriginal = %q", admitted.TitleOriginal)
+	}
+}
+
+func TestAdmitEntityCandidate_RejectsEnglishRewriteForRussianSource(t *testing.T) {
+	entity := model.Entity{
+		Type:                model.EntityGoal,
+		TitleOriginal:       "Market leadership",
+		DescriptionOriginal: "Become the leader in digital payments",
+		SourceQuote:         "Наша цель — лидерство на рынке цифровых платежей.",
+	}
+
+	admitted, accepted := admitEntityCandidate(entity, "Наша цель — лидерство на рынке цифровых платежей.")
+	if accepted {
+		t.Fatal("expected english rewrite on russian source to be rejected")
+	}
+	if !admitted.LanguageMismatch {
+		t.Fatal("LanguageMismatch = false, want true")
+	}
+	if admitted.TrustGrade != model.TrustGradeRejected {
+		t.Fatalf("TrustGrade = %q, want rejected", admitted.TrustGrade)
+	}
+	if len(admitted.QualityFlags) == 0 || admitted.QualityFlags[0] != "language_mismatch" {
+		t.Fatalf("QualityFlags = %+v, want language_mismatch", admitted.QualityFlags)
+	}
+}
+
+func TestAdmitEntityCandidate_AllowsEnglishSourceLanguage(t *testing.T) {
+	entity := model.Entity{
+		Type:                model.EntityGoal,
+		TitleOriginal:       "Market leadership",
+		DescriptionOriginal: "Become the leader in digital payments",
+		SourceQuote:         "Our goal is market leadership in digital payments.",
+	}
+
+	admitted, accepted := admitEntityCandidate(entity, "Our goal is market leadership in digital payments.")
+	if !accepted {
+		t.Fatal("expected english source entity to be accepted")
+	}
+	if admitted.Lang != "en" {
+		t.Fatalf("Lang = %q, want en", admitted.Lang)
+	}
+	if admitted.LanguageMismatch {
+		t.Fatal("LanguageMismatch = true, want false")
 	}
 }

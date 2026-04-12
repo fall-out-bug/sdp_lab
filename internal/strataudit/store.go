@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 
@@ -56,7 +57,8 @@ func (s *SQLiteStore) migrate() error {
 	CREATE TABLE IF NOT EXISTS entities (
 		id TEXT PRIMARY KEY, document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
 		level_id TEXT NOT NULL REFERENCES levels(id), type TEXT NOT NULL, title TEXT NOT NULL,
-		description TEXT, source_quote TEXT, trust_grade TEXT NOT NULL DEFAULT 'verified', quality_flags TEXT, page_number INTEGER,
+		description TEXT, title_original TEXT, description_original TEXT, source_quote TEXT,
+		lang TEXT, language_mismatch BOOLEAN DEFAULT FALSE, trust_grade TEXT NOT NULL DEFAULT 'verified', quality_flags TEXT, page_number INTEGER,
 		embedding BLOB, embedding_model TEXT, embedding_dims INTEGER,
 		extraction_model TEXT, metadata TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		CHECK (embedding IS NULL OR embedding_dims IS NOT NULL)
@@ -127,6 +129,9 @@ func (s *SQLiteStore) migrate() error {
 	if err := s.ensureEntityTrustColumns(); err != nil {
 		return err
 	}
+	if err := s.ensureEntityLanguageColumns(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -171,6 +176,50 @@ func (s *SQLiteStore) ensureEntityTrustColumns() error {
 	if !hasQualityFlags {
 		if _, err := s.db.Exec(`ALTER TABLE entities ADD COLUMN quality_flags TEXT`); err != nil {
 			return fmt.Errorf("add entities.quality_flags: %w", err)
+		}
+	}
+	return nil
+}
+
+func (s *SQLiteStore) ensureEntityLanguageColumns() error {
+	requiredColumns := map[string]string{
+		"title_original":       `ALTER TABLE entities ADD COLUMN title_original TEXT`,
+		"description_original": `ALTER TABLE entities ADD COLUMN description_original TEXT`,
+		"lang":                 `ALTER TABLE entities ADD COLUMN lang TEXT`,
+		"language_mismatch":    `ALTER TABLE entities ADD COLUMN language_mismatch BOOLEAN DEFAULT FALSE`,
+	}
+
+	present := make(map[string]bool, len(requiredColumns))
+	rows, err := s.db.Query(`PRAGMA table_info(entities)`)
+	if err != nil {
+		return fmt.Errorf("pragma table_info(entities): %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var (
+			cid       int
+			name      string
+			colType   string
+			notNull   int
+			dfltValue sql.NullString
+			pk        int
+		)
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &dfltValue, &pk); err != nil {
+			return fmt.Errorf("scan table_info(entities): %w", err)
+		}
+		present[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate table_info(entities): %w", err)
+	}
+
+	for column, stmt := range requiredColumns {
+		if present[column] {
+			continue
+		}
+		if _, err := s.db.Exec(stmt); err != nil {
+			return fmt.Errorf("add entities.%s: %w", column, err)
 		}
 	}
 	return nil
@@ -247,9 +296,9 @@ func (s *SQLiteStore) SaveEntities(ctx context.Context, entities []model.Entity)
 			trustGrade = string(model.TrustGradeVerified)
 		}
 		_, err := s.db.ExecContext(ctx,
-			`INSERT OR REPLACE INTO entities (id, document_id, level_id, type, title, description, source_quote, trust_grade, quality_flags, page_number, embedding, embedding_model, embedding_dims, extraction_model, metadata)
-			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-			e.ID, e.DocumentID, e.LevelID, string(e.Type), e.Title, e.Description, e.SourceQuote, trustGrade, string(qualityFlags), nilIfZero(e.PageNumber), embBlob, e.EmbeddingModel, nilIfZero(e.EmbeddingDims), e.ExtractionModel, string(meta))
+			`INSERT OR REPLACE INTO entities (id, document_id, level_id, type, title, description, title_original, description_original, source_quote, lang, language_mismatch, trust_grade, quality_flags, page_number, embedding, embedding_model, embedding_dims, extraction_model, metadata)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			e.ID, e.DocumentID, e.LevelID, string(e.Type), e.Title, e.Description, nullableString(e.TitleOriginal), nullableString(e.DescriptionOriginal), e.SourceQuote, nullableString(e.Lang), e.LanguageMismatch, trustGrade, string(qualityFlags), nilIfZero(e.PageNumber), embBlob, e.EmbeddingModel, nilIfZero(e.EmbeddingDims), e.ExtractionModel, string(meta))
 		if err != nil {
 			return fmt.Errorf("save entity %s: %w", e.ID, err)
 		}
@@ -264,7 +313,7 @@ func (s *SQLiteStore) DeleteEntitiesForDocument(ctx context.Context, docID strin
 
 func (s *SQLiteStore) EntitiesByLevel(ctx context.Context, levelID string, page model.Page) ([]model.Entity, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, document_id, level_id, type, title, description, source_quote, trust_grade, quality_flags, extraction_model,
+		`SELECT id, document_id, level_id, type, title, description, title_original, description_original, source_quote, lang, language_mismatch, trust_grade, quality_flags, extraction_model,
 		embedding, embedding_model, embedding_dims
 		FROM entities WHERE level_id = ? ORDER BY title LIMIT ? OFFSET ?`,
 		levelID, page.Limit, page.Offset)
@@ -441,20 +490,41 @@ func nilIfZero(n int) interface{} {
 	return n
 }
 
+func nullableString(s string) interface{} {
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	return s
+}
+
 func scanEntities(rows *sql.Rows) ([]model.Entity, error) {
 	var entities []model.Entity
 	for rows.Next() {
 		var e model.Entity
 		var entityType string
+		var titleOriginal sql.NullString
+		var descriptionOriginal sql.NullString
+		var lang sql.NullString
+		var languageMismatch bool
 		var trustGrade sql.NullString
 		var qualityFlagsJSON sql.NullString
 		var embBlob []byte
 		var embModel sql.NullString
 		var embDims sql.NullInt64
-		if err := rows.Scan(&e.ID, &e.DocumentID, &e.LevelID, &entityType, &e.Title, &e.Description, &e.SourceQuote, &trustGrade, &qualityFlagsJSON, &e.ExtractionModel, &embBlob, &embModel, &embDims); err != nil {
+		if err := rows.Scan(&e.ID, &e.DocumentID, &e.LevelID, &entityType, &e.Title, &e.Description, &titleOriginal, &descriptionOriginal, &e.SourceQuote, &lang, &languageMismatch, &trustGrade, &qualityFlagsJSON, &e.ExtractionModel, &embBlob, &embModel, &embDims); err != nil {
 			return nil, err
 		}
 		e.Type = model.EntityType(entityType)
+		if titleOriginal.Valid {
+			e.TitleOriginal = titleOriginal.String
+		}
+		if descriptionOriginal.Valid {
+			e.DescriptionOriginal = descriptionOriginal.String
+		}
+		if lang.Valid {
+			e.Lang = lang.String
+		}
+		e.LanguageMismatch = languageMismatch
 		if trustGrade.Valid {
 			e.TrustGrade = model.TrustGrade(trustGrade.String)
 		} else {

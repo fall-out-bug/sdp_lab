@@ -19,12 +19,16 @@ type AuditReport struct {
 }
 
 type EntityReport struct {
-	ID          string `json:"id"`
-	Type        string `json:"type"`
-	Title       string `json:"title"`
-	Description string `json:"description,omitempty"`
-	LevelID     string `json:"level_id"`
-	DocumentID  string `json:"document_id"`
+	ID                  string `json:"id"`
+	Type                string `json:"type"`
+	Title               string `json:"title"`
+	Description         string `json:"description,omitempty"`
+	TitleOriginal       string `json:"title_original,omitempty"`
+	DescriptionOriginal string `json:"description_original,omitempty"`
+	Lang                string `json:"lang,omitempty"`
+	LanguageMismatch    bool   `json:"language_mismatch,omitempty"`
+	LevelID             string `json:"level_id"`
+	DocumentID          string `json:"document_id"`
 }
 
 type TraceReport struct {

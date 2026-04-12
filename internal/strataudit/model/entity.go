@@ -38,20 +38,24 @@ func IsValidEntityType(t EntityType) bool {
 }
 
 type Entity struct {
-	ID              string
-	DocumentID      string
-	LevelID         string
-	Type            EntityType
-	Title           string
-	Description     string
-	SourceQuote     string
-	TrustGrade      TrustGrade
-	QualityFlags    []string
-	PageNumber      int
-	Embedding       []float32
-	EmbeddingModel  string
-	EmbeddingDims   int
-	ExtractionModel string
-	Metadata        map[string]string
-	CreatedAt       string
+	ID                  string
+	DocumentID          string
+	LevelID             string
+	Type                EntityType
+	Title               string
+	Description         string
+	TitleOriginal       string
+	DescriptionOriginal string
+	SourceQuote         string
+	Lang                string
+	LanguageMismatch    bool
+	TrustGrade          TrustGrade
+	QualityFlags        []string
+	PageNumber          int
+	Embedding           []float32
+	EmbeddingModel      string
+	EmbeddingDims       int
+	ExtractionModel     string
+	Metadata            map[string]string
+	CreatedAt           string
 }
