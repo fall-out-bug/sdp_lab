@@ -225,13 +225,34 @@ func TestSQLiteStore_SaveTracesAndGetForEntity(t *testing.T) {
 		{ID: "d1", Path: "a.md", LevelID: "l0", ContentHash: "a", Content: "a"},
 		{ID: "d2", Path: "b.md", LevelID: "l1", ContentHash: "b", Content: "b"},
 	})
+	_ = store.SaveSections(ctx, []model.Section{
+		{ID: "s1", DocumentID: "d1", Ordinal: 0, CharStart: 0, CharEnd: 1, Preview: "a", Content: "a", ContentHash: "ha"},
+		{ID: "s2", DocumentID: "d2", Ordinal: 0, CharStart: 0, CharEnd: 1, Preview: "b", Content: "b", ContentHash: "hb"},
+	})
 	_ = store.SaveEntities(ctx, []model.Entity{
 		{ID: "e1", DocumentID: "d1", LevelID: "l0", Type: model.EntityGoal, Title: "G1"},
 		{ID: "e2", DocumentID: "d2", LevelID: "l1", Type: model.EntityTask, Title: "T1"},
 	})
 
 	traces := []model.Trace{
-		{ID: "t1", SourceEntityID: "e2", TargetEntityID: "e1", Relation: model.RelationContributesTo, Confidence: 0.85, Direction: model.DirectionUp},
+		{
+			ID:                     "t1",
+			SourceEntityID:         "e2",
+			TargetEntityID:         "e1",
+			Relation:               model.RelationContributesTo,
+			Confidence:             0.85,
+			SimilarityScore:        0.91,
+			Justification:          "Нижняя задача поддерживает верхнюю цель.",
+			Direction:              model.DirectionUp,
+			VerificationMode:       model.TraceVerificationModeLLMEvidence,
+			TrustGrade:             model.TrustGradeVerified,
+			SourceSectionID:        "s2",
+			TargetSectionID:        "s1",
+			SourceQuoteStartOffset: intPtr(3),
+			SourceQuoteEndOffset:   intPtr(7),
+			TargetQuoteStartOffset: intPtr(0),
+			TargetQuoteEndOffset:   intPtr(2),
+		},
 	}
 	if err := store.SaveTraces(ctx, traces); err != nil {
 		t.Fatalf("SaveTraces: %v", err)
@@ -246,6 +267,58 @@ func TestSQLiteStore_SaveTracesAndGetForEntity(t *testing.T) {
 	}
 	if got[0].Relation != model.RelationContributesTo {
 		t.Errorf("Relation = %q, want %q", got[0].Relation, model.RelationContributesTo)
+	}
+	if got[0].SimilarityScore != 0.91 {
+		t.Fatalf("SimilarityScore = %f, want 0.91", got[0].SimilarityScore)
+	}
+	if got[0].VerificationMode != model.TraceVerificationModeLLMEvidence {
+		t.Fatalf("VerificationMode = %q", got[0].VerificationMode)
+	}
+	if got[0].SourceSectionID != "s2" || got[0].TargetSectionID != "s1" {
+		t.Fatalf("unexpected section refs: %+v", got[0])
+	}
+}
+
+func TestSQLiteStore_SaveCandidatesAndLoadAll(t *testing.T) {
+	store := setupTestStore(t)
+	ctx := context.Background()
+
+	_ = store.SaveLevels(ctx, []model.Level{{ID: "l0", Name: "L0", Rank: 0}, {ID: "l1", Name: "L1", Rank: 1}})
+	_ = store.SaveDocuments(ctx, []model.Document{
+		{ID: "d1", Path: "a.md", LevelID: "l0", ContentHash: "a", Content: "a"},
+		{ID: "d2", Path: "b.md", LevelID: "l1", ContentHash: "b", Content: "b"},
+	})
+	_ = store.SaveEntities(ctx, []model.Entity{
+		{ID: "e1", DocumentID: "d1", LevelID: "l0", Type: model.EntityGoal, Title: "G1"},
+		{ID: "e2", DocumentID: "d2", LevelID: "l1", Type: model.EntityTask, Title: "T1"},
+	})
+
+	if err := store.SaveCandidates(ctx, []model.Candidate{
+		{
+			ID:             "cand_1",
+			SourceEntityID: "e2",
+			TargetEntityID: "e1",
+			Similarity:     0.82,
+			Verified:       true,
+			TraceID:        "tr_1",
+			DiagnosticCode: "embedding_similarity_candidate",
+		},
+	}); err != nil {
+		t.Fatalf("SaveCandidates: %v", err)
+	}
+
+	got, err := store.AllCandidates(ctx)
+	if err != nil {
+		t.Fatalf("AllCandidates: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1", len(got))
+	}
+	if !got[0].Verified || got[0].TraceID != "tr_1" {
+		t.Fatalf("unexpected candidate linkage: %+v", got[0])
+	}
+	if got[0].DiagnosticCode != "embedding_similarity_candidate" {
+		t.Fatalf("DiagnosticCode = %q", got[0].DiagnosticCode)
 	}
 }
 

@@ -74,14 +74,18 @@ func (s *SQLiteStore) migrate() error {
 	CREATE TABLE IF NOT EXISTS traces (
 		id TEXT PRIMARY KEY, source_entity_id TEXT NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
 		target_entity_id TEXT NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
-		relation TEXT NOT NULL, confidence REAL NOT NULL DEFAULT 0,
+		relation TEXT NOT NULL, confidence REAL NOT NULL DEFAULT 0, similarity_score REAL NOT NULL DEFAULT 0,
 		justification TEXT, direction TEXT NOT NULL CHECK (direction IN ('up','down','bidirectional')),
+		verification_mode TEXT, trust_grade TEXT NOT NULL DEFAULT 'verified',
+		source_section_id TEXT, target_section_id TEXT,
+		source_quote_start_offset INTEGER, source_quote_end_offset INTEGER,
+		target_quote_start_offset INTEGER, target_quote_end_offset INTEGER,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE TABLE IF NOT EXISTS trace_candidates (
 		id TEXT PRIMARY KEY, source_entity_id TEXT NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
 		target_entity_id TEXT NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
-		similarity REAL NOT NULL, verified BOOLEAN DEFAULT FALSE, trace_id TEXT,
+		similarity REAL NOT NULL, verified BOOLEAN DEFAULT FALSE, trace_id TEXT, diagnostic_code TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE TABLE IF NOT EXISTS findings (
@@ -147,6 +151,12 @@ func (s *SQLiteStore) migrate() error {
 		return err
 	}
 	if err := s.ensureEntityProvenanceColumns(); err != nil {
+		return err
+	}
+	if err := s.ensureTraceColumns(); err != nil {
+		return err
+	}
+	if err := s.ensureCandidateColumns(); err != nil {
 		return err
 	}
 	return nil
@@ -306,6 +316,65 @@ func (s *SQLiteStore) ensureEntityProvenanceColumns() error {
 	return nil
 }
 
+func (s *SQLiteStore) ensureTraceColumns() error {
+	requiredColumns := map[string]string{
+		"similarity_score":          `ALTER TABLE traces ADD COLUMN similarity_score REAL NOT NULL DEFAULT 0`,
+		"verification_mode":         `ALTER TABLE traces ADD COLUMN verification_mode TEXT`,
+		"trust_grade":               `ALTER TABLE traces ADD COLUMN trust_grade TEXT NOT NULL DEFAULT 'verified'`,
+		"source_section_id":         `ALTER TABLE traces ADD COLUMN source_section_id TEXT`,
+		"target_section_id":         `ALTER TABLE traces ADD COLUMN target_section_id TEXT`,
+		"source_quote_start_offset": `ALTER TABLE traces ADD COLUMN source_quote_start_offset INTEGER`,
+		"source_quote_end_offset":   `ALTER TABLE traces ADD COLUMN source_quote_end_offset INTEGER`,
+		"target_quote_start_offset": `ALTER TABLE traces ADD COLUMN target_quote_start_offset INTEGER`,
+		"target_quote_end_offset":   `ALTER TABLE traces ADD COLUMN target_quote_end_offset INTEGER`,
+	}
+	return s.ensureTableColumns("traces", requiredColumns)
+}
+
+func (s *SQLiteStore) ensureCandidateColumns() error {
+	requiredColumns := map[string]string{
+		"diagnostic_code": `ALTER TABLE trace_candidates ADD COLUMN diagnostic_code TEXT`,
+	}
+	return s.ensureTableColumns("trace_candidates", requiredColumns)
+}
+
+func (s *SQLiteStore) ensureTableColumns(table string, requiredColumns map[string]string) error {
+	present := make(map[string]bool, len(requiredColumns))
+	rows, err := s.db.Query(fmt.Sprintf(`PRAGMA table_info(%s)`, table))
+	if err != nil {
+		return fmt.Errorf("pragma table_info(%s): %w", table, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var (
+			cid       int
+			name      string
+			colType   string
+			notNull   int
+			dfltValue sql.NullString
+			pk        int
+		)
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &dfltValue, &pk); err != nil {
+			return fmt.Errorf("scan table_info(%s): %w", table, err)
+		}
+		present[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate table_info(%s): %w", table, err)
+	}
+
+	for column, stmt := range requiredColumns {
+		if present[column] {
+			continue
+		}
+		if _, err := s.db.Exec(stmt); err != nil {
+			return fmt.Errorf("add %s.%s: %w", table, column, err)
+		}
+	}
+	return nil
+}
+
 func (s *SQLiteStore) SaveLevels(ctx context.Context, levels []model.Level) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -437,49 +506,48 @@ func (s *SQLiteStore) SectionsByDocument(ctx context.Context, documentID string)
 
 func (s *SQLiteStore) TracesForEntity(ctx context.Context, entityID string) ([]model.Trace, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, source_entity_id, target_entity_id, relation, confidence, justification, direction
+		`SELECT id, source_entity_id, target_entity_id, relation, confidence, similarity_score, justification, direction, verification_mode, trust_grade,
+		source_section_id, target_section_id, source_quote_start_offset, source_quote_end_offset, target_quote_start_offset, target_quote_end_offset
 		FROM traces WHERE source_entity_id = ? OR target_entity_id = ?`,
 		entityID, entityID)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = rows.Close() }()
-	var traces []model.Trace
-	for rows.Next() {
-		var t model.Trace
-		if err := rows.Scan(&t.ID, &t.SourceEntityID, &t.TargetEntityID, &t.Relation, &t.Confidence, &t.Justification, &t.Direction); err != nil {
-			return nil, err
-		}
-		traces = append(traces, t)
-	}
-	return traces, rows.Err()
+	return scanTraces(rows)
 }
 
 func (s *SQLiteStore) AllTraces(ctx context.Context) ([]model.Trace, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, source_entity_id, target_entity_id, relation, confidence, justification, direction
+		`SELECT id, source_entity_id, target_entity_id, relation, confidence, similarity_score, justification, direction, verification_mode, trust_grade,
+		source_section_id, target_section_id, source_quote_start_offset, source_quote_end_offset, target_quote_start_offset, target_quote_end_offset
 		FROM traces ORDER BY confidence DESC`)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = rows.Close() }()
-	var traces []model.Trace
-	for rows.Next() {
-		var t model.Trace
-		if err := rows.Scan(&t.ID, &t.SourceEntityID, &t.TargetEntityID, &t.Relation, &t.Confidence, &t.Justification, &t.Direction); err != nil {
-			return nil, err
-		}
-		traces = append(traces, t)
+	return scanTraces(rows)
+}
+
+func (s *SQLiteStore) AllCandidates(ctx context.Context) ([]model.Candidate, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, source_entity_id, target_entity_id, similarity, verified, trace_id, diagnostic_code
+		FROM trace_candidates ORDER BY similarity DESC`)
+	if err != nil {
+		return nil, err
 	}
-	return traces, rows.Err()
+	defer func() { _ = rows.Close() }()
+	return scanCandidates(rows)
 }
 
 func (s *SQLiteStore) SaveTraces(ctx context.Context, traces []model.Trace) error {
 	for _, t := range traces {
 		_, err := s.db.ExecContext(ctx,
-			`INSERT OR REPLACE INTO traces (id, source_entity_id, target_entity_id, relation, confidence, justification, direction)
-			VALUES (?,?,?,?,?,?,?)`,
-			t.ID, t.SourceEntityID, t.TargetEntityID, string(t.Relation), t.Confidence, t.Justification, string(t.Direction))
+			`INSERT OR REPLACE INTO traces (id, source_entity_id, target_entity_id, relation, confidence, similarity_score, justification, direction, verification_mode, trust_grade,
+			source_section_id, target_section_id, source_quote_start_offset, source_quote_end_offset, target_quote_start_offset, target_quote_end_offset)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			t.ID, t.SourceEntityID, t.TargetEntityID, string(t.Relation), t.Confidence, t.SimilarityScore, t.Justification, string(t.Direction), nullableString(string(t.VerificationMode)), nullableString(string(t.TrustGrade)),
+			nullableString(t.SourceSectionID), nullableString(t.TargetSectionID), nullableIntPtr(t.SourceQuoteStartOffset), nullableIntPtr(t.SourceQuoteEndOffset), nullableIntPtr(t.TargetQuoteStartOffset), nullableIntPtr(t.TargetQuoteEndOffset))
 		if err != nil {
 			return fmt.Errorf("save trace %s: %w", t.ID, err)
 		}
@@ -731,6 +799,97 @@ func scanSections(rows *sql.Rows) ([]model.Section, error) {
 		sections = append(sections, section)
 	}
 	return sections, rows.Err()
+}
+
+func scanTraces(rows *sql.Rows) ([]model.Trace, error) {
+	var traces []model.Trace
+	for rows.Next() {
+		var trace model.Trace
+		var relation string
+		var direction string
+		var verificationMode sql.NullString
+		var trustGrade sql.NullString
+		var sourceSectionID sql.NullString
+		var targetSectionID sql.NullString
+		var sourceQuoteStart sql.NullInt64
+		var sourceQuoteEnd sql.NullInt64
+		var targetQuoteStart sql.NullInt64
+		var targetQuoteEnd sql.NullInt64
+		if err := rows.Scan(
+			&trace.ID,
+			&trace.SourceEntityID,
+			&trace.TargetEntityID,
+			&relation,
+			&trace.Confidence,
+			&trace.SimilarityScore,
+			&trace.Justification,
+			&direction,
+			&verificationMode,
+			&trustGrade,
+			&sourceSectionID,
+			&targetSectionID,
+			&sourceQuoteStart,
+			&sourceQuoteEnd,
+			&targetQuoteStart,
+			&targetQuoteEnd,
+		); err != nil {
+			return nil, err
+		}
+		trace.Relation = model.TraceRelation(relation)
+		trace.Direction = model.TraceDirection(direction)
+		if verificationMode.Valid {
+			trace.VerificationMode = model.TraceVerificationMode(verificationMode.String)
+		}
+		if trustGrade.Valid {
+			trace.TrustGrade = model.TrustGrade(trustGrade.String)
+		} else {
+			trace.TrustGrade = model.TrustGradeVerified
+		}
+		if sourceSectionID.Valid {
+			trace.SourceSectionID = sourceSectionID.String
+		}
+		if targetSectionID.Valid {
+			trace.TargetSectionID = targetSectionID.String
+		}
+		if sourceQuoteStart.Valid {
+			offset := int(sourceQuoteStart.Int64)
+			trace.SourceQuoteStartOffset = &offset
+		}
+		if sourceQuoteEnd.Valid {
+			offset := int(sourceQuoteEnd.Int64)
+			trace.SourceQuoteEndOffset = &offset
+		}
+		if targetQuoteStart.Valid {
+			offset := int(targetQuoteStart.Int64)
+			trace.TargetQuoteStartOffset = &offset
+		}
+		if targetQuoteEnd.Valid {
+			offset := int(targetQuoteEnd.Int64)
+			trace.TargetQuoteEndOffset = &offset
+		}
+		traces = append(traces, trace)
+	}
+	return traces, rows.Err()
+}
+
+func scanCandidates(rows *sql.Rows) ([]model.Candidate, error) {
+	var candidates []model.Candidate
+	for rows.Next() {
+		var candidate model.Candidate
+		var traceID sql.NullString
+		var diagnosticCode sql.NullString
+		if err := rows.Scan(&candidate.ID, &candidate.SourceEntityID, &candidate.TargetEntityID, &candidate.Similarity, &candidate.Verified, &traceID, &diagnosticCode); err != nil {
+			return nil, err
+		}
+		if traceID.Valid {
+			candidate.TraceID = traceID.String
+		}
+		if diagnosticCode.Valid {
+			candidate.DiagnosticCode = diagnosticCode.String
+		}
+		candidates = append(candidates, candidate)
+	}
+	return candidates, rows.Err()
 }
 
 func scanFindings(rows *sql.Rows) ([]model.Finding, error) {

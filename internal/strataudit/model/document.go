@@ -11,15 +11,15 @@ type Level struct {
 }
 
 type Document struct {
-	ID              string
-	Path            string
-	LevelID         string
-	ContentHash     string
-	Content         string
-	Version         int
-	FileModifiedAt  time.Time
-	Metadata        map[string]string
-	IngestedAt      time.Time
+	ID             string
+	Path           string
+	LevelID        string
+	ContentHash    string
+	Content        string
+	Version        int
+	FileModifiedAt time.Time
+	Metadata       map[string]string
+	IngestedAt     time.Time
 }
 
 type Coverage struct {
@@ -42,12 +42,13 @@ type PipelineState struct {
 }
 
 type Candidate struct {
-	ID              string
-	SourceEntityID  string
-	TargetEntityID  string
-	Similarity      float64
-	Verified        bool
-	TraceID         string
+	ID             string
+	SourceEntityID string
+	TargetEntityID string
+	Similarity     float64
+	Verified       bool
+	TraceID        string
+	DiagnosticCode string
 }
 
 type EntityScore struct {

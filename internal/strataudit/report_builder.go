@@ -100,12 +100,24 @@ func BuildReport(ctx context.Context, cfg *Config, store *SQLiteStore) (*report.
 		}
 	}
 
-	// Load all traces
+	candidates, _ := store.AllCandidates(ctx)
+	for _, candidate := range candidates {
+		rpt.TraceCandidates = append(rpt.TraceCandidates, report.TraceCandidateReport{
+			ID: candidate.ID, SourceEntityID: candidate.SourceEntityID, TargetEntityID: candidate.TargetEntityID,
+			Similarity: candidate.Similarity, Verified: candidate.Verified, TraceID: candidate.TraceID, DiagnosticCode: candidate.DiagnosticCode,
+		})
+	}
+
+	// Load all verified traces
 	traces, _ := store.AllTraces(ctx)
 	for _, t := range traces {
-		rpt.Traces = append(rpt.Traces, report.TraceReport{
+		rpt.VerifiedTraces = append(rpt.VerifiedTraces, report.VerifiedTraceReport{
 			ID: t.ID, SourceEntityID: t.SourceEntityID, TargetEntityID: t.TargetEntityID,
-			Relation: string(t.Relation), Confidence: t.Confidence, Justification: t.Justification,
+			Relation: string(t.Relation), Confidence: t.Confidence, SimilarityScore: t.SimilarityScore,
+			Justification: t.Justification, VerificationMode: string(t.VerificationMode), TrustGrade: string(t.TrustGrade),
+			SourceSectionID: t.SourceSectionID, TargetSectionID: t.TargetSectionID,
+			SourceQuoteStartOffset: t.SourceQuoteStartOffset, SourceQuoteEndOffset: t.SourceQuoteEndOffset,
+			TargetQuoteStartOffset: t.TargetQuoteStartOffset, TargetQuoteEndOffset: t.TargetQuoteEndOffset,
 		})
 	}
 

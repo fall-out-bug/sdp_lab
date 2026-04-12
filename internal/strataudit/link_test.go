@@ -289,7 +289,7 @@ func TestWriteDistributionReport(t *testing.T) {
 	}
 }
 
-func TestCreateTraces_AutoVerify(t *testing.T) {
+func TestCreateVerifiedTraces_DowngradesSimilarityOnlyCandidates(t *testing.T) {
 	cfg := &Config{
 		Thresholds: ThresholdConfig{
 			AutoVerifySimilarity: 0.85,
@@ -301,21 +301,25 @@ func TestCreateTraces_AutoVerify(t *testing.T) {
 
 	candidates := []candidate{
 		{source: model.Entity{ID: "e1"}, target: model.Entity{ID: "e2"}, sim: 0.90},
-		{source: model.Entity{ID: "e3"}, target: model.Entity{ID: "e4"}, sim: 0.70},
 	}
 
-	traces := createTraces(context.Background(), cfg, nil, candidates, model.Level{ID: "l1"}, model.Level{ID: "l2"})
-
-	// sim=0.90 >= 0.85 → auto-verified; sim=0.70 with nil LLM → skipped
-	if len(traces) != 1 {
-		t.Fatalf("traces = %d, want 1", len(traces))
+	traces, verifiedByCandidateID := createVerifiedTraces(context.Background(), cfg, nil, candidates, model.Level{ID: "task", Name: "task"}, model.Level{ID: "strategy", Name: "strategy"})
+	if len(traces) != 0 {
+		t.Fatalf("traces = %d, want 0", len(traces))
 	}
-	if traces[0].Confidence != 0.90 {
-		t.Errorf("confidence = %f, want 0.90", traces[0].Confidence)
+	modelCandidates := candidatesToModel(candidates, verifiedByCandidateID)
+	if len(modelCandidates) != 1 {
+		t.Fatalf("len(modelCandidates) = %d, want 1", len(modelCandidates))
+	}
+	if modelCandidates[0].Verified {
+		t.Fatal("similarity-only candidate must not be marked verified")
+	}
+	if modelCandidates[0].TraceID != "" {
+		t.Fatalf("TraceID = %q, want empty", modelCandidates[0].TraceID)
 	}
 }
 
-func TestCreateTraces_BudgetExhaustion(t *testing.T) {
+func TestCreateVerifiedTraces_BudgetExhaustion(t *testing.T) {
 	cfg := &Config{
 		Thresholds: ThresholdConfig{
 			AutoVerifySimilarity: 0.95,
@@ -326,18 +330,121 @@ func TestCreateTraces_BudgetExhaustion(t *testing.T) {
 	}
 
 	candidates := []candidate{
-		{source: model.Entity{ID: "e1"}, target: model.Entity{ID: "e2"}, sim: 0.70},
+		{source: model.Entity{
+			ID:               "e1",
+			DocumentID:       "d1",
+			SectionID:        "s1",
+			SourceQuote:      "Нижняя цитата",
+			QuoteStartOffset: intPtr(0),
+			QuoteEndOffset:   intPtr(12),
+		}, target: model.Entity{
+			ID:               "e2",
+			DocumentID:       "d2",
+			SectionID:        "s2",
+			SourceQuote:      "Верхняя цитата",
+			QuoteStartOffset: intPtr(0),
+			QuoteEndOffset:   intPtr(13),
+		}, sim: 0.70},
 	}
 
 	// With budget=0, no LLM calls should happen, so nil LLM is fine
-	traces := createTraces(context.Background(), cfg, nil, candidates, model.Level{ID: "l1"}, model.Level{ID: "l2"})
+	traces, _ := createVerifiedTraces(context.Background(), cfg, nil, candidates, model.Level{ID: "l1"}, model.Level{ID: "l2"})
 	if len(traces) != 0 {
 		t.Errorf("traces = %d, want 0 (budget exhausted)", len(traces))
 	}
 }
 
+func TestCreateVerifiedTraces_RequiresEvidenceAndLLMVerification(t *testing.T) {
+	cfg := &Config{
+		Thresholds: ThresholdConfig{
+			AutoVerifySimilarity: 0.85,
+			TraceConfidence:      0.6,
+			LLMVerifyBudget:      5,
+		},
+		LLM: LLMConfig{
+			Model:        "test-model",
+			Temperature:  0.0,
+			Temperatures: map[string]float64{"verify": 0.0},
+		},
+	}
+
+	lowerLevel := model.Level{ID: "task", Name: "task"}
+	upperLevel := model.Level{ID: "strategy", Name: "strategy"}
+	goodCandidate := candidate{
+		source: model.Entity{
+			ID:               "e1",
+			Title:            "Запустить интеграцию",
+			Type:             model.EntityTask,
+			DocumentID:       "d1",
+			SectionID:        "s1",
+			SourceQuote:      "Запустить интеграцию с платёжным шлюзом.",
+			QuoteStartOffset: intPtr(10),
+			QuoteEndOffset:   intPtr(48),
+			TrustGrade:       model.TrustGradeVerified,
+		},
+		target: model.Entity{
+			ID:               "e2",
+			Title:            "Рост цифровых платежей",
+			Type:             model.EntityObjective,
+			DocumentID:       "d2",
+			SectionID:        "s2",
+			SourceQuote:      "Наша стратегия — рост цифровых платежей.",
+			QuoteStartOffset: intPtr(2),
+			QuoteEndOffset:   intPtr(42),
+			TrustGrade:       model.TrustGradeVerified,
+		},
+		sim: 0.91,
+	}
+	missingEvidenceCandidate := candidate{
+		source: model.Entity{
+			ID:         "e3",
+			Title:      "Без evidence",
+			Type:       model.EntityTask,
+			DocumentID: "d3",
+		},
+		target: model.Entity{
+			ID:               "e4",
+			Title:            "Цель",
+			Type:             model.EntityGoal,
+			DocumentID:       "d4",
+			SectionID:        "s4",
+			SourceQuote:      "Верхняя цель.",
+			QuoteStartOffset: intPtr(0),
+			QuoteEndOffset:   intPtr(12),
+			TrustGrade:       model.TrustGradeVerified,
+		},
+		sim: 0.95,
+	}
+
+	llm := newMockLLMClient(t, `{"related": true, "confidence": 0.88, "relation": "contributes_to", "justification": "Нижняя инициатива прямо поддерживает верхнюю стратегию."}`)
+
+	traces, verifiedByCandidateID := createVerifiedTraces(context.Background(), cfg, llm, []candidate{missingEvidenceCandidate, goodCandidate}, lowerLevel, upperLevel)
+	if len(traces) != 1 {
+		t.Fatalf("traces = %d, want 1", len(traces))
+	}
+	trace := traces[0]
+	if trace.VerificationMode != model.TraceVerificationModeLLMEvidence {
+		t.Fatalf("VerificationMode = %q, want %q", trace.VerificationMode, model.TraceVerificationModeLLMEvidence)
+	}
+	if trace.SimilarityScore != 0.91 {
+		t.Fatalf("SimilarityScore = %f, want 0.91", trace.SimilarityScore)
+	}
+	if trace.SourceSectionID != "s1" || trace.TargetSectionID != "s2" {
+		t.Fatalf("unexpected section refs: %+v", trace)
+	}
+	if trace.SourceQuoteStartOffset == nil || *trace.SourceQuoteStartOffset != 10 {
+		t.Fatalf("SourceQuoteStartOffset = %+v, want 10", trace.SourceQuoteStartOffset)
+	}
+	if verifiedByCandidateID[candidateID(goodCandidate.source.ID, goodCandidate.target.ID)] == "" {
+		t.Fatal("expected verified candidate to map to trace id")
+	}
+	if verifiedByCandidateID[candidateID(missingEvidenceCandidate.source.ID, missingEvidenceCandidate.target.ID)] != "" {
+		t.Fatal("candidate without evidence must not map to verified trace")
+	}
+}
+
 func TestLLMVerifyResult_ParseJSON(t *testing.T) {
-	input := `{"related": true, "confidence": 0.9, "relation": "contributes_to"}`
+	input := `{"related": true, "confidence": 0.9, "relation": "contributes_to", "justification": "Нижняя сущность поддерживает верхнюю."}`
 	var result llmVerifyResult
 	if err := json.Unmarshal([]byte(input), &result); err != nil {
 		t.Fatalf("parse: %v", err)
@@ -350,5 +457,8 @@ func TestLLMVerifyResult_ParseJSON(t *testing.T) {
 	}
 	if result.Confidence != 0.9 {
 		t.Errorf("confidence = %f, want 0.9", result.Confidence)
+	}
+	if result.Justification == "" {
+		t.Fatal("expected justification to be parsed")
 	}
 }

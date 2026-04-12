@@ -9,15 +9,16 @@ import (
 
 // AuditReport is the top-level JSON report structure.
 type AuditReport struct {
-	Project   string           `json:"project"`
-	Levels    []LevelReport    `json:"levels"`
-	Documents []DocumentReport `json:"documents,omitempty"`
-	Sections  []SectionReport  `json:"sections,omitempty"`
-	Entities  []EntityReport   `json:"entities,omitempty"`
-	Traces    []TraceReport    `json:"traces,omitempty"`
-	Findings  []FindingReport  `json:"findings"`
-	Coverage  []CoverageReport `json:"coverage"`
-	Summary   SummaryReport    `json:"summary"`
+	Project         string                 `json:"project"`
+	Levels          []LevelReport          `json:"levels"`
+	Documents       []DocumentReport       `json:"documents,omitempty"`
+	Sections        []SectionReport        `json:"sections,omitempty"`
+	Entities        []EntityReport         `json:"entities,omitempty"`
+	TraceCandidates []TraceCandidateReport `json:"trace_candidates,omitempty"`
+	VerifiedTraces  []VerifiedTraceReport  `json:"verified_traces,omitempty"`
+	Findings        []FindingReport        `json:"findings"`
+	Coverage        []CoverageReport       `json:"coverage"`
+	Summary         SummaryReport          `json:"summary"`
 }
 
 type DocumentReport struct {
@@ -58,13 +59,32 @@ type EntityReport struct {
 	QualityFlags        []string `json:"quality_flags,omitempty"`
 }
 
-type TraceReport struct {
+type TraceCandidateReport struct {
 	ID             string  `json:"id"`
 	SourceEntityID string  `json:"source_entity_id"`
 	TargetEntityID string  `json:"target_entity_id"`
-	Relation       string  `json:"relation"`
-	Confidence     float64 `json:"confidence"`
-	Justification  string  `json:"justification"`
+	Similarity     float64 `json:"similarity"`
+	Verified       bool    `json:"verified,omitempty"`
+	TraceID        string  `json:"trace_id,omitempty"`
+	DiagnosticCode string  `json:"diagnostic_code,omitempty"`
+}
+
+type VerifiedTraceReport struct {
+	ID                     string  `json:"id"`
+	SourceEntityID         string  `json:"source_entity_id"`
+	TargetEntityID         string  `json:"target_entity_id"`
+	Relation               string  `json:"relation"`
+	Confidence             float64 `json:"confidence"`
+	SimilarityScore        float64 `json:"similarity_score"`
+	Justification          string  `json:"justification"`
+	VerificationMode       string  `json:"verification_mode"`
+	TrustGrade             string  `json:"trust_grade,omitempty"`
+	SourceSectionID        string  `json:"source_section_id,omitempty"`
+	TargetSectionID        string  `json:"target_section_id,omitempty"`
+	SourceQuoteStartOffset *int    `json:"source_quote_start_offset,omitempty"`
+	SourceQuoteEndOffset   *int    `json:"source_quote_end_offset,omitempty"`
+	TargetQuoteStartOffset *int    `json:"target_quote_start_offset,omitempty"`
+	TargetQuoteEndOffset   *int    `json:"target_quote_end_offset,omitempty"`
 }
 
 type LevelReport struct {

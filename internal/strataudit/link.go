@@ -82,13 +82,12 @@ func LinkEntities(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLM
 
 		// Save candidates
 		if len(candidates) > 0 {
-			modelCandidates := candidatesToModel(candidates)
+			traces, verifiedByCandidateID := createVerifiedTraces(ctx, cfg, llm, candidates, levels[i+1], levels[i])
+			modelCandidates := candidatesToModel(candidates, verifiedByCandidateID)
 			if err := store.SaveCandidates(ctx, modelCandidates); err != nil {
 				result.Errors = append(result.Errors, fmt.Errorf("save candidates %s->%s: %w", levels[i+1].Name, levels[i].Name, err))
 			}
 
-			// Create traces from verified candidates
-			traces := createTraces(ctx, cfg, llm, candidates, levels[i+1], levels[i])
 			result.TracesCreated += len(traces)
 
 			if len(traces) > 0 {
@@ -130,9 +129,9 @@ func writeDistributionReport(cfg *Config, report DistributionReport) {
 }
 
 type candidate struct {
-	source  model.Entity
-	target  model.Entity
-	sim     float64
+	source model.Entity
+	target model.Entity
+	sim    float64
 }
 
 // SimilarityBucket is one bucket in the similarity histogram.
@@ -143,24 +142,24 @@ type SimilarityBucket struct {
 
 // LevelPairStats holds similarity statistics for one level pair.
 type LevelPairStats struct {
-	LevelPair      string            `json:"level_pair"`
-	TotalPairs     int               `json:"total_pairs"`
-	AboveThreshold int               `json:"above_threshold"`
-	Min            float64           `json:"min"`
-	Max            float64           `json:"max"`
-	Mean           float64           `json:"mean"`
-	Median         float64           `json:"median"`
-	P95            float64           `json:"p95"`
+	LevelPair      string             `json:"level_pair"`
+	TotalPairs     int                `json:"total_pairs"`
+	AboveThreshold int                `json:"above_threshold"`
+	Min            float64            `json:"min"`
+	Max            float64            `json:"max"`
+	Mean           float64            `json:"mean"`
+	Median         float64            `json:"median"`
+	P95            float64            `json:"p95"`
 	Histogram      []SimilarityBucket `json:"histogram"`
-	Recommendation string            `json:"recommendation,omitempty"`
+	Recommendation string             `json:"recommendation,omitempty"`
 }
 
 // DistributionReport is the top-level similarity diagnostics file.
 type DistributionReport struct {
-	RunID         string           `json:"run_id"`
-	GeneratedAt   string           `json:"generated_at"`
-	Threshold     float64          `json:"threshold"`
-	LevelPairs    []LevelPairStats `json:"level_pairs"`
+	RunID       string           `json:"run_id"`
+	GeneratedAt string           `json:"generated_at"`
+	Threshold   float64          `json:"threshold"`
+	LevelPairs  []LevelPairStats `json:"level_pairs"`
 }
 
 type scoredPair struct {
@@ -335,62 +334,65 @@ func cosineSimilarity(a, b []float32) float64 {
 	return dot / (math.Sqrt(normA) * math.Sqrt(normB))
 }
 
-func createTraces(ctx context.Context, cfg *Config, llm *LLMClient, candidates []candidate, lowerLevel, upperLevel model.Level) []model.Trace {
+func createVerifiedTraces(ctx context.Context, cfg *Config, llm *LLMClient, candidates []candidate, lowerLevel, upperLevel model.Level) ([]model.Trace, map[string]string) {
 	autoThreshold := cfg.Thresholds.AutoVerifySimilarity
 	traceThreshold := cfg.Thresholds.TraceConfidence
 	budget := cfg.Thresholds.LLMVerifyBudget
 	var traces []model.Trace
+	verifiedByCandidateID := make(map[string]string)
 
-	var autoCount, llmCount int
+	if llm == nil || budget <= 0 {
+		return traces, verifiedByCandidateID
+	}
 
-	for _, c := range candidates {
+	prioritized := append([]candidate(nil), candidates...)
+	sort.SliceStable(prioritized, func(i, j int) bool {
+		iAuto := prioritized[i].sim >= autoThreshold
+		jAuto := prioritized[j].sim >= autoThreshold
+		if iAuto != jAuto {
+			return iAuto
+		}
+		return prioritized[i].sim > prioritized[j].sim
+	})
+
+	var llmCount int
+
+	for _, c := range prioritized {
 		if ctx.Err() != nil {
-			return traces
+			return traces, verifiedByCandidateID
 		}
 
-		// Tier 1: similarity >= auto_verify_similarity → auto-verified
-		if c.sim >= autoThreshold {
-			traces = append(traces, model.Trace{
-				ID:              traceID(c.source.ID, c.target.ID),
-				SourceEntityID:  c.source.ID,
-				TargetEntityID:  c.target.ID,
-				Relation:        model.RelationContributesTo,
-				Confidence:      c.sim,
-				Justification:   fmt.Sprintf("Auto-verified (similarity: %.2f)", c.sim),
-				Direction:       model.DirectionUp,
-			})
-			autoCount++
+		if c.sim < traceThreshold {
+			continue
+		}
+		if !hasTraceEvidence(c.source) || !hasTraceEvidence(c.target) {
+			continue
+		}
+		if budget <= 0 {
 			continue
 		}
 
-		// Tier 2: similarity in [trace_confidence, auto_verify_similarity) → LLM verify
-		if c.sim >= traceThreshold && llm != nil && budget > 0 {
-			budget--
-			verified, relation, conf := llmVerifyPair(ctx, llm, cfg, c, lowerLevel, upperLevel)
-			if verified {
-				traces = append(traces, model.Trace{
-					ID:              traceID(c.source.ID, c.target.ID),
-					SourceEntityID:  c.source.ID,
-					TargetEntityID:  c.target.ID,
-					Relation:        relation,
-					Confidence:      conf,
-					Justification:   fmt.Sprintf("LLM-verified (similarity: %.2f)", c.sim),
-					Direction:       model.DirectionUp,
-				})
-				llmCount++
-			}
-			// Fail-closed: LLM verification failure = pair rejected
+		budget--
+		verified, relation, conf, justification := llmVerifyPair(ctx, llm, cfg, c, lowerLevel, upperLevel)
+		if !verified {
+			continue
 		}
+
+		trace := buildVerifiedTrace(c, relation, conf, justification)
+		traces = append(traces, trace)
+		verifiedByCandidateID[candidateID(c.source.ID, c.target.ID)] = trace.ID
+		llmCount++
 	}
 
-	slog.Info("trace verification", "auto", autoCount, "llm", llmCount, "total", len(traces))
-	return traces
+	slog.Info("trace verification", "llm", llmCount, "total", len(traces))
+	return traces, verifiedByCandidateID
 }
 
 type llmVerifyResult struct {
-	Related     jsonBool  `json:"related"`
-	Confidence  float64   `json:"confidence"`
-	Relation    string    `json:"relation"`
+	Related       jsonBool `json:"related"`
+	Confidence    float64  `json:"confidence"`
+	Relation      string   `json:"relation"`
+	Justification string   `json:"justification"`
 }
 
 // jsonBool handles both bool and string ("true"/"false") JSON values.
@@ -406,45 +408,102 @@ func (b *jsonBool) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func llmVerifyPair(ctx context.Context, llm *LLMClient, cfg *Config, c candidate, lowerLevel, upperLevel model.Level) (bool, model.TraceRelation, float64) {
-	prompt := fmt.Sprintf(`Given two strategic entities:
-A: "%s" (%s) at %s level
-B: "%s" (%s) at %s level
-
-Is there a meaningful strategic relationship between them?
-Return JSON: {"related": bool, "confidence": 0.0-1.0, "relation": "contributes_to|enables|measures|decomposes_into|depends_on|none"}`,
-		c.source.Title, c.source.Type, lowerLevel.Name,
-		c.target.Title, c.target.Type, upperLevel.Name)
-
-	resp, err := llm.Chat(ctx, LLMRequest{
+func llmVerifyPair(ctx context.Context, llm *LLMClient, cfg *Config, c candidate, lowerLevel, upperLevel model.Level) (bool, model.TraceRelation, float64, string) {
+	req := LLMRequest{
 		Model:       cfg.LLM.Model,
-		System:      "You are a strategy analyst. Respond with valid JSON only.",
-		User:        prompt,
-		MaxTokens:   200,
+		System:      "You are a strategy analyst. Use only the provided evidence quotes. Respond with valid JSON only.",
+		User:        buildTraceVerificationPrompt(c, lowerLevel, upperLevel),
+		MaxTokens:   240,
 		Temperature: cfg.TemperatureForStage("verify"),
 		JSONMode:    true,
-	})
+	}
+
+	resp, err := llm.Chat(ctx, req)
 	if err != nil {
 		slog.Warn("LLM verify error", "err", err)
-		return false, model.RelationNone, 0
+		return false, model.RelationNone, 0, ""
 	}
 
 	raw := ParseLLMJSON(resp.Content)
 	if raw == nil {
 		slog.Warn("LLM verify: invalid JSON", "content", resp.Content)
-		return false, model.RelationNone, 0
+		return false, model.RelationNone, 0, ""
 	}
 
 	var result llmVerifyResult
 	if err := json.Unmarshal(raw, &result); err != nil {
 		slog.Warn("LLM verify: parse error", "err", err)
-		return false, model.RelationNone, 0
+		return false, model.RelationNone, 0, ""
 	}
 
 	if !bool(result.Related) || result.Relation == "none" {
-		return false, model.RelationNone, 0
+		return false, model.RelationNone, 0, ""
 	}
-	return true, model.TraceRelation(result.Relation), result.Confidence
+	return true, model.TraceRelation(result.Relation), result.Confidence, firstNonEmpty(strings.TrimSpace(result.Justification), "LLM verified strategic relation using source and target evidence quotes.")
+}
+
+func buildTraceVerificationPrompt(c candidate, lowerLevel, upperLevel model.Level) string {
+	return fmt.Sprintf(`Assess whether the lower-level entity is meaningfully related to the upper-level entity based only on the evidence quotes below.
+
+Lower-level entity:
+- title: %q
+- type: %s
+- level: %s
+- evidence_quote: %q
+
+Upper-level entity:
+- title: %q
+- type: %s
+- level: %s
+- evidence_quote: %q
+
+Return JSON:
+{"related": bool, "confidence": 0.0-1.0, "relation": "contributes_to|enables|measures|decomposes_into|depends_on|conflicts_with|none", "justification": "one short sentence grounded in the quotes"}
+
+If the quotes only sound similar but do not prove a strategic relation, return related=false. Do not rely on title similarity alone.`,
+		c.source.Title, c.source.Type, lowerLevel.Name, c.source.SourceQuote,
+		c.target.Title, c.target.Type, upperLevel.Name, c.target.SourceQuote)
+}
+
+func hasTraceEvidence(entity model.Entity) bool {
+	if entity.DocumentID == "" || entity.SectionID == "" {
+		return false
+	}
+	if strings.TrimSpace(entity.SourceQuote) == "" {
+		return false
+	}
+	if entity.QuoteStartOffset == nil || entity.QuoteEndOffset == nil {
+		return false
+	}
+	return entity.TrustGrade == "" || entity.TrustGrade == model.TrustGradeVerified
+}
+
+func buildVerifiedTrace(c candidate, relation model.TraceRelation, confidence float64, justification string) model.Trace {
+	return model.Trace{
+		ID:                     traceID(c.source.ID, c.target.ID),
+		SourceEntityID:         c.source.ID,
+		TargetEntityID:         c.target.ID,
+		Relation:               relation,
+		Confidence:             confidence,
+		SimilarityScore:        c.sim,
+		Justification:          justification,
+		Direction:              model.DirectionUp,
+		VerificationMode:       model.TraceVerificationModeLLMEvidence,
+		TrustGrade:             model.TrustGradeVerified,
+		SourceSectionID:        c.source.SectionID,
+		TargetSectionID:        c.target.SectionID,
+		SourceQuoteStartOffset: cloneIntPtr(c.source.QuoteStartOffset),
+		SourceQuoteEndOffset:   cloneIntPtr(c.source.QuoteEndOffset),
+		TargetQuoteStartOffset: cloneIntPtr(c.target.QuoteStartOffset),
+		TargetQuoteEndOffset:   cloneIntPtr(c.target.QuoteEndOffset),
+	}
+}
+
+func cloneIntPtr(value *int) *int {
+	if value == nil {
+		return nil
+	}
+	return intPtr(*value)
 }
 
 func traceID(sourceID, targetID string) string {
@@ -460,30 +519,35 @@ func groupByLevel(entities []model.Entity) map[string][]model.Entity {
 	return m
 }
 
-func candidatesToModel(candidates []candidate) []model.Candidate {
+func candidatesToModel(candidates []candidate, verifiedByCandidateID map[string]string) []model.Candidate {
 	result := make([]model.Candidate, len(candidates))
 	for i, c := range candidates {
+		candidateID := candidateID(c.source.ID, c.target.ID)
+		traceID := verifiedByCandidateID[candidateID]
 		result[i] = model.Candidate{
-			ID:             candidateID(c.source.ID, c.target.ID),
+			ID:             candidateID,
 			SourceEntityID: c.source.ID,
 			TargetEntityID: c.target.ID,
 			Similarity:     c.sim,
+			Verified:       traceID != "",
+			TraceID:        traceID,
+			DiagnosticCode: "embedding_similarity_candidate",
 		}
 	}
 	return result
 }
 
 func candidateID(src, tgt string) string {
-	return fmt.Sprintf("cand_%s", sha256Hash([]byte(src+"|"+tgt))[:10])
+	return fmt.Sprintf("cand_%s", sha256Hash([]byte(src + "|" + tgt))[:10])
 }
 
 // SaveCandidates saves trace candidates to the store.
 func (s *SQLiteStore) SaveCandidates(ctx context.Context, candidates []model.Candidate) error {
 	for _, c := range candidates {
 		_, err := s.db.ExecContext(ctx,
-			`INSERT OR REPLACE INTO trace_candidates (id, source_entity_id, target_entity_id, similarity, verified)
-			VALUES (?,?,?,?,?)`,
-			c.ID, c.SourceEntityID, c.TargetEntityID, c.Similarity, c.Verified)
+			`INSERT OR REPLACE INTO trace_candidates (id, source_entity_id, target_entity_id, similarity, verified, trace_id, diagnostic_code)
+			VALUES (?,?,?,?,?,?,?)`,
+			c.ID, c.SourceEntityID, c.TargetEntityID, c.Similarity, c.Verified, nullableString(c.TraceID), nullableString(c.DiagnosticCode))
 		if err != nil {
 			return fmt.Errorf("save candidate %s: %w", c.ID, err)
 		}

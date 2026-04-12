@@ -21,13 +21,28 @@ const (
 	DirectionBidirectional TraceDirection = "bidirectional"
 )
 
+type TraceVerificationMode string
+
+const (
+	TraceVerificationModeLLMEvidence TraceVerificationMode = "llm_evidence"
+)
+
 type Trace struct {
-	ID              string
-	SourceEntityID  string
-	TargetEntityID  string
-	Relation        TraceRelation
-	Confidence      float64
-	Justification   string
-	Direction       TraceDirection
-	CreatedAt       string
+	ID                     string
+	SourceEntityID         string
+	TargetEntityID         string
+	Relation               TraceRelation
+	Confidence             float64
+	SimilarityScore        float64
+	Justification          string
+	Direction              TraceDirection
+	VerificationMode       TraceVerificationMode
+	TrustGrade             TrustGrade
+	SourceSectionID        string
+	TargetSectionID        string
+	SourceQuoteStartOffset *int
+	SourceQuoteEndOffset   *int
+	TargetQuoteStartOffset *int
+	TargetQuoteEndOffset   *int
+	CreatedAt              string
 }

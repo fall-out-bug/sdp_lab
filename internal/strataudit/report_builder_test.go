@@ -58,6 +58,39 @@ func TestBuildReport_ExportsDocumentSectionAndEntityProvenance(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("SaveEntities: %v", err)
 	}
+	if err := store.SaveCandidates(ctx, []model.Candidate{
+		{
+			ID:             "cand_1",
+			SourceEntityID: "e1",
+			TargetEntityID: "e1",
+			Similarity:     0.88,
+			DiagnosticCode: "embedding_similarity_candidate",
+		},
+	}); err != nil {
+		t.Fatalf("SaveCandidates: %v", err)
+	}
+	if err := store.SaveTraces(ctx, []model.Trace{
+		{
+			ID:                     "tr_1",
+			SourceEntityID:         "e1",
+			TargetEntityID:         "e1",
+			Relation:               model.RelationContributesTo,
+			Confidence:             0.93,
+			SimilarityScore:        0.88,
+			Justification:          "Evidence-backed relation.",
+			Direction:              model.DirectionUp,
+			VerificationMode:       model.TraceVerificationModeLLMEvidence,
+			TrustGrade:             model.TrustGradeVerified,
+			SourceSectionID:        "s1",
+			TargetSectionID:        "s1",
+			SourceQuoteStartOffset: intPtr(0),
+			SourceQuoteEndOffset:   intPtr(17),
+			TargetQuoteStartOffset: intPtr(0),
+			TargetQuoteEndOffset:   intPtr(17),
+		},
+	}); err != nil {
+		t.Fatalf("SaveTraces: %v", err)
+	}
 
 	rpt, err := BuildReport(ctx, &Config{Project: ProjectConfig{Name: "test-project"}}, store)
 	if err != nil {
@@ -86,5 +119,20 @@ func TestBuildReport_ExportsDocumentSectionAndEntityProvenance(t *testing.T) {
 	}
 	if rpt.Entities[0].QuoteStartOffset == nil || *rpt.Entities[0].QuoteStartOffset != 0 {
 		t.Fatalf("entity quote_start_offset = %+v, want 0", rpt.Entities[0].QuoteStartOffset)
+	}
+	if len(rpt.TraceCandidates) != 1 {
+		t.Fatalf("len(rpt.TraceCandidates) = %d, want 1", len(rpt.TraceCandidates))
+	}
+	if rpt.TraceCandidates[0].DiagnosticCode != "embedding_similarity_candidate" {
+		t.Fatalf("trace candidate diagnostic = %q", rpt.TraceCandidates[0].DiagnosticCode)
+	}
+	if len(rpt.VerifiedTraces) != 1 {
+		t.Fatalf("len(rpt.VerifiedTraces) = %d, want 1", len(rpt.VerifiedTraces))
+	}
+	if rpt.VerifiedTraces[0].VerificationMode != string(model.TraceVerificationModeLLMEvidence) {
+		t.Fatalf("verification_mode = %q", rpt.VerifiedTraces[0].VerificationMode)
+	}
+	if rpt.VerifiedTraces[0].SourceSectionID != "s1" || rpt.VerifiedTraces[0].TargetSectionID != "s1" {
+		t.Fatalf("unexpected verified trace evidence refs: %+v", rpt.VerifiedTraces[0])
 	}
 }
