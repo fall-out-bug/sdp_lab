@@ -671,7 +671,87 @@ func BuildReferenceModelFromProfile(profile *CodebaseProfile) *ReferenceModel {
 		}
 	model.Containers = filtered
 
+	// Assign components to containers from import graph clusters (for L3 diagrams).
+	assignComponentsFromClusters(profile, model)
+
 	return model
+}
+
+// assignComponentsFromClusters populates C4Component entries within each container
+// based on import graph clusters. This enables L3 diagram rendering.
+func assignComponentsFromClusters(profile *CodebaseProfile, model *ReferenceModel) {
+	if len(profile.ImportGraph.Clusters) == 0 {
+		return
+	}
+
+	// Build container ID set for exact matching.
+	containerByID := make(map[string]int, len(model.Containers))
+	for i, c := range model.Containers {
+		containerByID[c.ID] = i
+	}
+
+	// Map each cluster to the best-matching container.
+	for _, cluster := range profile.ImportGraph.Clusters {
+		containerIdx := -1
+
+		// Pass 1: exact match by container ID.
+		if idx, ok := containerByID[cluster.ID]; ok {
+			containerIdx = idx
+		}
+
+		// Pass 2: fuzzy name matching.
+		if containerIdx < 0 {
+			bestScore := 0
+			clusterLower := strings.ToLower(cluster.ID)
+			for i, c := range model.Containers {
+				nameLower := strings.ToLower(c.Name)
+				score := 0
+				if clusterLower == nameLower {
+					score = 100
+				} else if strings.Contains(clusterLower, nameLower) || strings.Contains(nameLower, clusterLower) {
+					score = 50
+				}
+				if score > bestScore {
+					bestScore = score
+					containerIdx = i
+				}
+			}
+		}
+
+		if containerIdx < 0 {
+			continue
+		}
+
+		// Build component from cluster.
+		parts := strings.Split(cluster.ID, "/")
+		shortName := parts[len(parts)-1]
+		if shortName == "" {
+			shortName = cluster.ID
+		}
+
+		comp := C4Component{
+			ID:          model.Containers[containerIdx].ID + "-" + pipelineSlug(shortName),
+			Path:        cluster.ID,
+			Description: shortName + " component",
+			Confidence:  clusterComponentConfidence(cluster),
+		}
+		model.Containers[containerIdx].Components = append(
+			model.Containers[containerIdx].Components, comp,
+		)
+	}
+}
+
+// clusterComponentConfidence returns a confidence score for a component
+// derived from an import cluster's edge density.
+func clusterComponentConfidence(cluster ImportCluster) float64 {
+	total := cluster.InternalEdges + cluster.ExternalEdges
+	if total >= 5 {
+		return 0.85
+	}
+	if total >= 2 {
+		return 0.70
+	}
+	return 0.50
 }
 
 // PipelineOutput represents the complete JSON output of a pipeline run.

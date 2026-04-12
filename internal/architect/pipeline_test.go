@@ -203,6 +203,55 @@ func TestBuildReferenceModelFromProfile(t *testing.T) {
 	}
 }
 
+func TestBuildReferenceModelPopulatesComponents(t *testing.T) {
+	profile := &CodebaseProfile{
+		Name: "spark",
+		Infra: InfraInfo{
+			ModuleBoundaries: []ModuleBoundaryInfo{
+				{
+					Name:        ".",
+					BuildSystem: "maven",
+					Path:        "pom.xml",
+					Children:    []string{"core", "sql/core", "streaming"},
+				},
+			},
+		},
+		ImportGraph: ImportGraph{
+			Clusters: []ImportCluster{
+				{
+					ID:            "spark-core",
+					Packages:      []string{"core/src/main/scala/org.apache.spark"},
+					InternalEdges: 10,
+					ExternalEdges: 5,
+				},
+				{
+					ID:            "spark-sql-core",
+					Packages:      []string{"sql/core/src/main/scala/org.apache.spark.sql"},
+					InternalEdges: 8,
+					ExternalEdges: 3,
+				},
+			},
+		},
+	}
+
+	model := BuildReferenceModelFromProfile(profile)
+	if model == nil {
+		t.Fatal("model is nil")
+	}
+
+	// At least some containers should have components populated from import clusters.
+	hasComponents := false
+	for _, c := range model.Containers {
+		if len(c.Components) > 0 {
+			hasComponents = true
+			break
+		}
+	}
+	if !hasComponents {
+		t.Error("expected at least one container to have components populated from import clusters (needed for L3 diagrams)")
+	}
+}
+
 func TestPipelineResultToJSON(t *testing.T) {
 	result := &PipelineResult{
 		Profile: &CodebaseProfile{
