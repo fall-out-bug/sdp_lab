@@ -16,6 +16,12 @@ import (
 func TestCmdNew_createSession(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("SDP_DATA_DIR", dir)
+	t.Setenv("SDP_HARNESS_BD_PATH", installFakeBD(t, fakeBDIssue{
+		ID:        "sdplab-62nw",
+		Status:    "open",
+		Priority:  2,
+		CreatedAt: "2026-04-12T15:25:25Z",
+	}))
 	projectRoot := makeBoundHarnessProject(t)
 
 	err := cmdNew([]string{
@@ -39,6 +45,12 @@ func TestCmdRun_noAPIKey(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("SDP_DATA_DIR", dir)
 	t.Setenv("OPENROUTER_API_KEY", "")
+	t.Setenv("SDP_HARNESS_BD_PATH", installFakeBD(t, fakeBDIssue{
+		ID:        "sdplab-62nw",
+		Status:    "open",
+		Priority:  2,
+		CreatedAt: "2026-04-12T15:25:25Z",
+	}))
 	projectRoot := makeBoundHarnessProject(t)
 
 	// Create session first
@@ -146,6 +158,43 @@ dispatch_lifecycle: active
 	runCmd(t, root, "git", "add", ".")
 	runCmd(t, root, "git", "commit", "-m", "seed workgraph")
 	return root
+}
+
+func TestCmdRelease_clearsClaim(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SDP_DATA_DIR", dir)
+	t.Setenv("SDP_HARNESS_BD_PATH", installFakeBD(t, fakeBDIssue{
+		ID:        "sdplab-62nw",
+		Status:    "open",
+		Priority:  2,
+		CreatedAt: "2026-04-12T15:25:25Z",
+	}))
+	projectRoot := makeBoundHarnessProject(t)
+
+	if err := cmdNew([]string{
+		"--session=release-test",
+		"--project-root=" + projectRoot,
+		"--feature=F110",
+		"--ws=00-110-01",
+	}); err != nil {
+		t.Fatalf("cmdNew: %v", err)
+	}
+	if err := cmdRelease([]string{"--session=release-test"}); err != nil {
+		t.Fatalf("cmdRelease: %v", err)
+	}
+
+	store, err := agentloop.NewSQLiteStore(filepath.Join(dir, "release-test.db"))
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	defer store.Close()
+	session, err := agentloop.RecoverSession("release-test", store)
+	if err != nil {
+		t.Fatalf("recover session: %v", err)
+	}
+	if session.ClaimedIssueID != "" {
+		t.Fatalf("ClaimedIssueID = %q, want empty", session.ClaimedIssueID)
+	}
 }
 
 func mkdirAll(t *testing.T, path string) {

@@ -21,9 +21,10 @@ type TurnRecord struct {
 }
 
 type SessionBinding struct {
-	FeatureID   string
-	WSID        string
-	ProjectRoot string
+	FeatureID      string
+	WSID           string
+	ProjectRoot    string
+	ClaimedIssueID string
 }
 
 // PhaseRecord records one phase transition (Fix P2: NextPhase written at persist time).
@@ -39,16 +40,17 @@ type PhaseRecord struct {
 // Session is pure data — no Loop reference (Fix I8: no circular dependency).
 // Events are ephemeral in-memory telemetry; TurnRecords are the source of truth.
 type Session struct {
-	ID          string
-	Branch      string
-	FeatureID   string
-	WSID        string
-	ProjectRoot string
-	Phase       Role
-	Contract    *harness.TaskContract // loaded from beads card (I12)
-	History     []PhaseRecord
-	events      []Event      // in-memory telemetry buffer; NOT restored on recovery (Fix Q3)
-	turnRecords []TurnRecord // Fix N3: canonical log; restored by RecoverSession
+	ID             string
+	Branch         string
+	FeatureID      string
+	WSID           string
+	ProjectRoot    string
+	ClaimedIssueID string
+	Phase          Role
+	Contract       *harness.TaskContract // loaded from beads card (I12)
+	History        []PhaseRecord
+	events         []Event      // in-memory telemetry buffer; NOT restored on recovery (Fix Q3)
+	turnRecords    []TurnRecord // Fix N3: canonical log; restored by RecoverSession
 }
 
 // EmitEvent appends an event to the session's in-memory telemetry buffer.
@@ -105,12 +107,13 @@ func NewBoundSession(cardID string, binding SessionBinding, store SessionStore) 
 		branch = "feature/" + binding.FeatureID + "/" + binding.WSID
 	}
 	s := &Session{
-		ID:          cardID,
-		Branch:      branch,
-		FeatureID:   binding.FeatureID,
-		WSID:        binding.WSID,
-		ProjectRoot: binding.ProjectRoot,
-		Phase:       RoleDiscover,
+		ID:             cardID,
+		Branch:         branch,
+		FeatureID:      binding.FeatureID,
+		WSID:           binding.WSID,
+		ProjectRoot:    binding.ProjectRoot,
+		ClaimedIssueID: binding.ClaimedIssueID,
+		Phase:          RoleDiscover,
 		// Contract: nil for MVP — populated when beads integration is complete
 	}
 	if err := store.Persist(s); err != nil {

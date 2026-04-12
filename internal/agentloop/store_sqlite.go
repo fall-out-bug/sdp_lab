@@ -46,7 +46,8 @@ func (st *SQLiteStore) migrate() error {
 			phase   TEXT NOT NULL DEFAULT '',
 			feature_id TEXT NOT NULL DEFAULT '',
 			ws_id TEXT NOT NULL DEFAULT '',
-			project_root TEXT NOT NULL DEFAULT ''
+			project_root TEXT NOT NULL DEFAULT '',
+			claimed_issue_id TEXT NOT NULL DEFAULT ''
 		)`,
 		`CREATE TABLE IF NOT EXISTS turn_records (
 			id          TEXT NOT NULL,
@@ -96,6 +97,7 @@ func (st *SQLiteStore) migrate() error {
 		"feature_id TEXT NOT NULL DEFAULT ''",
 		"ws_id TEXT NOT NULL DEFAULT ''",
 		"project_root TEXT NOT NULL DEFAULT ''",
+		"claimed_issue_id TEXT NOT NULL DEFAULT ''",
 	} {
 		if err := st.ensureColumn("sessions", col); err != nil {
 			return err
@@ -232,9 +234,9 @@ func decodeToolResults(s string) ([]ToolResult, error) {
 
 func (st *SQLiteStore) Persist(s *Session) error {
 	_, err := st.db.Exec(
-		`INSERT INTO sessions (id, branch, phase, feature_id, ws_id, project_root) VALUES (?, ?, ?, ?, ?, ?)
-		 ON CONFLICT(id) DO UPDATE SET branch=excluded.branch, phase=excluded.phase, feature_id=excluded.feature_id, ws_id=excluded.ws_id, project_root=excluded.project_root`,
-		s.ID, s.Branch, string(s.Phase), s.FeatureID, s.WSID, s.ProjectRoot,
+		`INSERT INTO sessions (id, branch, phase, feature_id, ws_id, project_root, claimed_issue_id) VALUES (?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(id) DO UPDATE SET branch=excluded.branch, phase=excluded.phase, feature_id=excluded.feature_id, ws_id=excluded.ws_id, project_root=excluded.project_root, claimed_issue_id=excluded.claimed_issue_id`,
+		s.ID, s.Branch, string(s.Phase), s.FeatureID, s.WSID, s.ProjectRoot, s.ClaimedIssueID,
 	)
 	if err != nil {
 		return fmt.Errorf("persist session: %w", err)
@@ -243,10 +245,10 @@ func (st *SQLiteStore) Persist(s *Session) error {
 }
 
 func (st *SQLiteStore) Recover(sessionID string) (*Session, error) {
-	row := st.db.QueryRow(`SELECT id, branch, phase, feature_id, ws_id, project_root FROM sessions WHERE id = ?`, sessionID)
+	row := st.db.QueryRow(`SELECT id, branch, phase, feature_id, ws_id, project_root, claimed_issue_id FROM sessions WHERE id = ?`, sessionID)
 	var s Session
 	var phase string
-	if err := row.Scan(&s.ID, &s.Branch, &phase, &s.FeatureID, &s.WSID, &s.ProjectRoot); err != nil {
+	if err := row.Scan(&s.ID, &s.Branch, &phase, &s.FeatureID, &s.WSID, &s.ProjectRoot, &s.ClaimedIssueID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("session %q not found", sessionID)
 		}

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"sdp_dev/internal/agentloop"
 )
 
 // buildBinary compiles sdp-harness into a temp directory and returns the path.
@@ -64,6 +66,12 @@ func TestCLI_newSession_creates(t *testing.T) {
 	bin := buildBinary(t)
 	dir := t.TempDir()
 	projectRoot := makeCLIProject(t, bin)
+	fakeBD := installFakeBD(t, fakeBDIssue{
+		ID:        "sdplab-62nw",
+		Status:    "open",
+		Priority:  2,
+		CreatedAt: "2026-04-12T15:25:25Z",
+	})
 
 	cmd := exec.Command(bin, "new",
 		"--session=test-123",
@@ -71,7 +79,10 @@ func TestCLI_newSession_creates(t *testing.T) {
 		"--feature=F110",
 		"--ws=00-110-01",
 	)
-	cmd.Env = append(os.Environ(), "SDP_DATA_DIR="+dir)
+	cmd.Env = append(os.Environ(),
+		"SDP_DATA_DIR="+dir,
+		"SDP_HARNESS_BD_PATH="+fakeBD,
+	)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("sdp-harness new failed: %v\noutput: %s", err, out)
@@ -81,6 +92,19 @@ func TestCLI_newSession_creates(t *testing.T) {
 	dbPath := filepath.Join(dir, "test-123.db")
 	if _, statErr := os.Stat(dbPath); statErr != nil {
 		t.Errorf("expected DB file at %s, but stat failed: %v", dbPath, statErr)
+	}
+
+	store, err := agentloop.NewSQLiteStore(dbPath)
+	if err != nil {
+		t.Fatalf("open sqlite store: %v", err)
+	}
+	defer store.Close()
+	session, err := agentloop.RecoverSession("test-123", store)
+	if err != nil {
+		t.Fatalf("recover session: %v", err)
+	}
+	if session.ClaimedIssueID != "sdplab-62nw" {
+		t.Fatalf("ClaimedIssueID = %q, want sdplab-62nw", session.ClaimedIssueID)
 	}
 }
 

@@ -27,7 +27,7 @@ func TestSQLiteStore_PersistAndRecover_Session(t *testing.T) {
 	require.NoError(t, err)
 	defer st.Close()
 
-	s := &Session{ID: "s1", Phase: RoleDiscover, Branch: "sdp/s1"}
+	s := &Session{ID: "s1", Phase: RoleDiscover, Branch: "sdp/s1", ClaimedIssueID: "sdplab-62nw"}
 	require.NoError(t, st.Persist(s))
 
 	got, err := st.Recover("s1")
@@ -35,6 +35,7 @@ func TestSQLiteStore_PersistAndRecover_Session(t *testing.T) {
 	assert.Equal(t, "s1", got.ID)
 	assert.Equal(t, RoleDiscover, got.Phase)
 	assert.Equal(t, "sdp/s1", got.Branch)
+	assert.Equal(t, "sdplab-62nw", got.ClaimedIssueID)
 }
 
 func TestSQLiteStore_PersistAndLoad_TurnRecords(t *testing.T) {
@@ -142,7 +143,7 @@ func TestSQLiteStore_PhaseRecord_terminalStop(t *testing.T) {
 
 	require.NoError(t, st.Persist(&Session{ID: "sess", Phase: RoleDiscover}))
 	require.NoError(t, st.PersistPhaseRecord("sess", PhaseRecord{
-		Phase:    RoleDiscover,
+		Phase:     RoleDiscover,
 		NextPhase: "", // terminal
 	}))
 
@@ -208,9 +209,9 @@ func TestSQLiteStore_Recover_fullRoundTrip(t *testing.T) {
 
 	// Transition phase
 	require.NoError(t, st.PersistPhaseRecord("card-sqlite", PhaseRecord{
-		Phase:    RoleDiscover,
+		Phase:     RoleDiscover,
 		NextPhase: RolePlan,
-		EndedAt:  time.Now().UTC().Truncate(time.Second),
+		EndedAt:   time.Now().UTC().Truncate(time.Second),
 	}))
 
 	// Recover full session

@@ -385,7 +385,7 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 
 ### Phase Runtime Contract Normalization (In Progress)
 
-- **F110** — Work Atomicity Normalization — strict leaf execution contract (00-110-01). Make `leaf workstream` the only executable workstream shape in runtime-facing surfaces: normalized frontmatter and `## Beads` roles, compiled `workgraph.lock.json`, stale-lock rejection in the mini-harness, and canonical skill/agent wording that no longer treats every workstream as directly runnable.
+- **F110** — Work Atomicity Normalization — strict leaf execution contract (00-110-01 ... 00-110-03). First make `leaf workstream` the only executable workstream shape in runtime-facing surfaces: normalized frontmatter and `## Beads` roles, compiled `workgraph.lock.json`, stale-lock rejection in the mini-harness, and canonical skill/agent wording that no longer treats every workstream as directly runnable. Then wire live Beads query, claim, revalidation, and explicit claim release into bound leaf sessions. Finalize the runtime contract with counters and structured dispatch diagnostics instead of opaque wrapped CLI errors.
 
 
 ### Layer Rollout Matrix (Vision Alignment)

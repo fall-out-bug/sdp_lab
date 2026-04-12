@@ -48,6 +48,8 @@ func run(args []string) error {
 		return cmdNew(args[1:])
 	case "run":
 		return cmdRun(args[1:])
+	case "release":
+		return cmdRelease(args[1:])
 	case "--help", "-h", "help":
 		printUsage()
 		return nil
@@ -65,9 +67,11 @@ Subcommands:
   new           --session=<id> --project-root=<path> --feature=<FXXX> --ws=<id>
                                                           Create a new session bound to one executable leaf
   run           --session=<id> --prompt="<text>"         Run one phase turn for a bound leaf session
+  release       --session=<id>                           Release the claim held by a bound session
 
 Environment:
-  SDP_DATA_DIR   Directory for session DB files (default: $HOME/.sdp)`)
+  SDP_DATA_DIR         Directory for session DB files (default: $HOME/.sdp)
+  SDP_HARNESS_BD_PATH  Optional path to bd executable for live dispatch`)
 }
 
 // dataDir returns the directory where session DB files are stored.
@@ -149,9 +153,6 @@ func cmdNew(args []string) error {
 	if err != nil {
 		return fmt.Errorf("resolve project root: %w", err)
 	}
-	if _, err := workstream.ResolveExecutableLeaf(root, *featureID, *wsID, workstream.DefaultCompileOptions()); err != nil {
-		return fmt.Errorf("resolve executable leaf: %w\n(hint: run 'sdp-harness compile-lock --project-root=%s' after updating normalized workstreams)", err, root)
-	}
 
 	path, err := dbPath(*sessionID)
 	if err != nil {
@@ -164,16 +165,26 @@ func cmdNew(args []string) error {
 	}
 	defer store.Close()
 
+	adapter := runtimeAdapterForRoot(root)
+	lease, err := workstream.AcquireExecutionClaim(context.Background(), root, *featureID, *wsID, workstream.DefaultCompileOptions(), adapter)
+	if err != nil {
+		return fmt.Errorf("acquire execution claim: %w\n(hint: run 'sdp-harness compile-lock --project-root=%s' after updating normalized workstreams)", err, root)
+	}
+
 	_, err = agentloop.NewBoundSession(*sessionID, agentloop.SessionBinding{
-		FeatureID:   *featureID,
-		WSID:        *wsID,
-		ProjectRoot: root,
+		FeatureID:      *featureID,
+		WSID:           *wsID,
+		ProjectRoot:    root,
+		ClaimedIssueID: lease.ClaimedIssueID,
 	}, store)
 	if err != nil {
+		if releaseErr := workstream.ReleaseExecutionClaim(context.Background(), adapter, lease); releaseErr != nil {
+			return fmt.Errorf("create session: %w (claim release failed: %v)", err, releaseErr)
+		}
 		return fmt.Errorf("create session: %w", err)
 	}
 
-	fmt.Printf("session %q created at %s for %s/%s\n", *sessionID, path, *featureID, *wsID)
+	fmt.Printf("session %q created at %s for %s/%s (claimed %s)\n", *sessionID, path, *featureID, *wsID, lease.ClaimedIssueID)
 	return nil
 }
 
@@ -216,6 +227,15 @@ func cmdRun(args []string) error {
 	if session.ProjectRoot == "" || session.FeatureID == "" || session.WSID == "" {
 		return fmt.Errorf("session %q is not bound to a leaf workstream; recreate it with --project-root, --feature, and --ws", *sessionID)
 	}
+	if len(session.History) > 0 && session.Phase == "" {
+		return agentloop.ErrHarnessTerminated
+	}
+	if session.ClaimedIssueID == "" {
+		return fmt.Errorf("session %q has no claimed issue; create a fresh bound session", *sessionID)
+	}
+	if _, err := workstream.RevalidateExecutionClaim(context.Background(), session.ProjectRoot, session.FeatureID, session.WSID, session.ClaimedIssueID, workstream.DefaultCompileOptions(), runtimeAdapterForRoot(session.ProjectRoot)); err != nil {
+		return fmt.Errorf("revalidate execution claim: %w", err)
+	}
 
 	// Build a minimal router with no real tools (MVP placeholder).
 	// LiveGateway connects to OpenRouter; requires OPENROUTER_API_KEY.
@@ -233,9 +253,6 @@ func cmdRun(args []string) error {
 	if err != nil {
 		return fmt.Errorf("restore session %q: %w\n(hint: use 'sdp-harness new --session=%s' to create it)", *sessionID, err, *sessionID)
 	}
-	if _, err := workstream.ResolveExecutableLeaf(session.ProjectRoot, session.FeatureID, session.WSID, workstream.DefaultCompileOptions()); err != nil {
-		return fmt.Errorf("workstream target is no longer executable: %w", err)
-	}
 
 	// Run the phase turn with a background context (no timeout for MVP CLI).
 	ctx := context.Background()
@@ -243,8 +260,60 @@ func cmdRun(args []string) error {
 		return fmt.Errorf("run phase: %w", err)
 	}
 
-	fmt.Printf("phase turn complete for session %q (%s/%s)\n", *sessionID, session.FeatureID, session.WSID)
+	fmt.Printf("phase turn complete for session %q (%s/%s, claimed %s)\n", *sessionID, session.FeatureID, session.WSID, session.ClaimedIssueID)
 	return nil
+}
+
+func cmdRelease(args []string) error {
+	fs := flag.NewFlagSet("release", flag.ContinueOnError)
+	sessionID := fs.String("session", "", "Session ID (required)")
+	fs.SetOutput(os.Stderr)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *sessionID == "" {
+		fs.Usage()
+		return fmt.Errorf("--session is required")
+	}
+
+	path, err := dbPath(*sessionID)
+	if err != nil {
+		return err
+	}
+	store, err := agentloop.NewSQLiteStore(path)
+	if err != nil {
+		return fmt.Errorf("open store at %s: %w", path, err)
+	}
+	defer store.Close()
+
+	session, err := agentloop.RecoverSession(*sessionID, store)
+	if err != nil {
+		return fmt.Errorf("recover session %q: %w", *sessionID, err)
+	}
+	if session.ProjectRoot == "" || session.FeatureID == "" || session.WSID == "" {
+		return fmt.Errorf("session %q is not bound to a leaf workstream", *sessionID)
+	}
+	if session.ClaimedIssueID == "" {
+		return fmt.Errorf("session %q has no claimed issue to release", *sessionID)
+	}
+	if err := runtimeAdapterForRoot(session.ProjectRoot).ReleaseClaim(context.Background(), session.ClaimedIssueID); err != nil {
+		return fmt.Errorf("release execution claim: %w", err)
+	}
+	session.ClaimedIssueID = ""
+	if err := store.Persist(session); err != nil {
+		return fmt.Errorf("persist released session: %w", err)
+	}
+
+	fmt.Printf("released claim for session %q\n", *sessionID)
+	return nil
+}
+
+func runtimeAdapterForRoot(projectRoot string) *workstream.ShellBeadsRuntimeAdapter {
+	adapter := workstream.NewShellBeadsRuntimeAdapter(projectRoot)
+	if bdPath := strings.TrimSpace(os.Getenv("SDP_HARNESS_BD_PATH")); bdPath != "" {
+		adapter.BDPath = bdPath
+	}
+	return adapter
 }
 
 func summarizeIssues(issues []workstream.ValidationIssue) string {
