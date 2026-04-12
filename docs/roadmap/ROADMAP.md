@@ -290,7 +290,7 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 - Active strategy and ecosystem ranges: `F059`..`F085`
 - Parked long-horizon ideas: `F086`..`F089`
 - Canonical alignment and platform reset lanes: `F090`..`F096`
-- Product truth, architect, and analyst backlog: `F097`..`F105`, `F109`
+- Product truth, architect, and analyst backlog: `F097`..`F105`, `F109`, `F111`
 
 ### Standards & Tools
 - [in-toto attestation](https://github.com/in-toto/attestation) — envelope format
@@ -382,6 +382,7 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 ### Phase Analyst: Evidence-Backed Strategy Audit (Planned)
 
 - **F109** — StratAudit v2 — evidence-backed report redesign (00-109-01 ... 00-109-08). Turn StratAudit into a verifiable strategy-audit product over messy multilingual corpora: extraction trust gate, source-preserving language policy, document/section/quote provenance, trace evidence contract, grouped findings, `report.v2.json`, and only then final HTML reformatting.
+- **F111** — StratAudit portability — provider-neutral engine and skill surface (00-111-01 ... 00-111-03). Split StratAudit into a provider-neutral engine, config-driven runtime resolution, and a reusable skill surface so host-native harness models stay first-class and OpenRouter acts as an enhancer instead of the only runtime path.
 
 
 ### Layer Rollout Matrix (Vision Alignment)

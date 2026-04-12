@@ -196,6 +196,23 @@ Use when:
 - a feature or workstream may be drifting from code reality
 - an audit is needed before risky changes
 
+### `@strataudit`
+
+Purpose:
+
+- run a document-backed strategy traceability audit as a reusable discovery capability
+
+Use when:
+
+- the user needs evidence-backed alignment analysis across strategy, architecture, design, or execution documents
+- the harness can inject a native runtime, or the repo has a configured compatible network runtime
+
+Must emit:
+
+- `.strataudit/report.json`
+- `.strataudit/report.html`
+- explicit runtime choice and key trust caveats
+
 ## Skills To Absorb or Demote
 
 - `@idea` is internal to `@vision` and `@feature`

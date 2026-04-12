@@ -42,7 +42,7 @@
 |-------|-----------|--------|------------|
 | `internal/discovery` | 4-phase LLM pipeline: Frame→Hypothesize→Scan→Validate | 🟢 | Вызывает OpenRouter нативно |
 | `internal/architect` | C4-анализ + runtime coupling detection | 🟢 | `sdp architect analyze` |
-| `internal/strataudit` | Стратегический LLM-аудит | 🟢 | `sdp-strataudit run` |
+| `internal/strataudit` | Стратегический аудит с provider-neutral runtime | 🟢 | `sdp-strataudit run`, portable skill/harness integration |
 
 ### Delivery
 
@@ -101,6 +101,7 @@
 | Skill | Назначение | Статус |
 |-------|-----------|--------|
 | `skills/llm-council.md` | Multi-model deliberation | 🟢 |
+| `skills/strataudit.md` | Portable strategy traceability audit skill | 🟢 |
 | `skills/agent-dispatching.md` | Agent dispatch protocol | 🟢 |
 | `AGENTS.md` | Agent instructions + SDP overview | 🟢 |
 
@@ -112,8 +113,9 @@
 Discovery ──────────────────────────────────────────────────────────
   internal/discovery  →  OpenRouter (HTTP)
   internal/architect  →  OpenRouter (HTTP)
-  internal/strataudit →  OpenRouter (HTTP)
+  internal/strataudit →  injected host runtime | configured OpenAI-compatible runtime | OpenRouter
   skills/llm-council  →  OpenRouter (через agent)
+  skills/strataudit   →  internal/strataudit | sdp-strataudit
 
 Delivery ────────────────────────────────────────────────────────────
   internal/executor   →  internal/agentloop

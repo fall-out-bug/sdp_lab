@@ -10,12 +10,16 @@ import (
 )
 
 func TestIngest_E2E(t *testing.T) {
-	dataDir := "/Users/fall_out_bug/Documents/технологическая стратегия"
+	dataDir := os.Getenv("STRATAUDIT_E2E_DIR")
+	configPath := os.Getenv("STRATAUDIT_E2E_CONFIG")
+	if dataDir == "" || configPath == "" {
+		t.Skip("set STRATAUDIT_E2E_DIR and STRATAUDIT_E2E_CONFIG to enable e2e ingest")
+	}
 	if _, err := os.Stat(dataDir); err != nil {
 		t.Skip("data directory not available")
 	}
 
-	cfgData, err := os.ReadFile("/tmp/strataudit-v11-test/strataudit.yaml")
+	cfgData, err := os.ReadFile(configPath)
 	if err != nil {
 		t.Skip("config not found")
 	}
