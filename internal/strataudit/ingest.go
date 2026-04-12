@@ -102,10 +102,10 @@ const (
 
 // IngestResult holds ingestion statistics.
 type IngestResult struct {
-	New        int
-	Updated    int
-	Unchanged  int
-	Errors     []error
+	New       int
+	Updated   int
+	Unchanged int
+	Errors    []error
 }
 
 func processFile(ctx context.Context, cfg *Config, store *SQLiteStore, path string, sortedLevels []LevelConfig, registry *ExtractorRegistry) (*model.Document, docStatus, error) {
@@ -153,6 +153,9 @@ func processFile(ctx context.Context, cfg *Config, store *SQLiteStore, path stri
 		if err := store.DeleteEntitiesForDocument(ctx, existing.ID); err != nil {
 			return nil, statusUpdated, fmt.Errorf("delete entities for %s: %w", existing.ID, err)
 		}
+		if err := store.DeleteSectionsForDocument(ctx, existing.ID); err != nil {
+			return nil, statusUpdated, fmt.Errorf("delete sections for %s: %w", existing.ID, err)
+		}
 	}
 
 	docID := generateDocID(path)
@@ -168,6 +171,9 @@ func processFile(ctx context.Context, cfg *Config, store *SQLiteStore, path stri
 
 	if err := store.SaveDocuments(ctx, []model.Document{doc}); err != nil {
 		return nil, "", fmt.Errorf("save document: %w", err)
+	}
+	if err := store.SaveSections(ctx, ChunkSections(doc.ID, content, cfg.Thresholds.ChunkTokenLimit, cfg.Thresholds.ChunkOverlapTokens)); err != nil {
+		return nil, "", fmt.Errorf("save sections: %w", err)
 	}
 
 	status := statusNew
@@ -236,38 +242,56 @@ func extractText(path string, data []byte) (string, error) {
 // ChunkContent splits content into overlapping chunks of approximately chunkTokenLimit tokens.
 // Uses a rough heuristic: 1 token ≈ 4 characters.
 func ChunkContent(content string, chunkTokenLimit, overlapTokens int) []string {
+	sections := ChunkSections("", content, chunkTokenLimit, overlapTokens)
+	chunks := make([]string, 0, len(sections))
+	for _, section := range sections {
+		chunks = append(chunks, section.Content)
+	}
+	return chunks
+}
+
+// ChunkSections materializes fallback sections for a document when no logical parser exists yet.
+// Offsets are stored as rune offsets in the document content.
+func ChunkSections(docID, content string, chunkTokenLimit, overlapTokens int) []model.Section {
+	if content == "" {
+		return nil
+	}
+
 	if chunkTokenLimit <= 0 {
-		return []string{content}
+		return []model.Section{buildChunkSection(docID, 0, 0, utf8.RuneCountInString(content), content)}
 	}
 
 	charsPerToken := 4
 	chunkChars := chunkTokenLimit * charsPerToken
 	overlapChars := overlapTokens * charsPerToken
 
-	if utf8.RuneCountInString(content) <= chunkChars {
-		return []string{content}
+	runes := []rune(content)
+	if len(runes) <= chunkChars {
+		return []model.Section{buildChunkSection(docID, 0, 0, len(runes), content)}
 	}
 
-	runes := []rune(content)
-	var chunks []string
+	var sections []model.Section
 	start := 0
+	ordinal := 0
 
 	for start < len(runes) {
 		end := start + chunkChars
 		if end > len(runes) {
 			end = len(runes)
 		}
-		chunks = append(chunks, string(runes[start:end]))
+		sections = append(sections, buildChunkSection(docID, ordinal, start, end, string(runes[start:end])))
 		if end == len(runes) {
 			break
 		}
-		start = end - overlapChars
-		if start <= 0 {
-			start = end // prevent infinite loop
+		nextStart := end - overlapChars
+		if nextStart <= start {
+			nextStart = end
 		}
+		start = nextStart
+		ordinal++
 	}
 
-	return chunks
+	return sections
 }
 
 // helpers
@@ -280,6 +304,37 @@ func sha256Hash(data []byte) string {
 func generateDocID(path string) string {
 	h := sha256.Sum256([]byte(path))
 	return fmt.Sprintf("doc_%x", h[:8])
+}
+
+func generateSectionID(docID string, ordinal, start, end int) string {
+	h := sha256.Sum256([]byte(fmt.Sprintf("%s|%d|%d|%d", docID, ordinal, start, end)))
+	return fmt.Sprintf("sec_%x", h[:8])
+}
+
+func buildChunkSection(docID string, ordinal, start, end int, content string) model.Section {
+	return model.Section{
+		ID:           generateSectionID(docID, ordinal, start, end),
+		DocumentID:   docID,
+		Ordinal:      ordinal,
+		CharStart:    start,
+		CharEnd:      end,
+		Preview:      previewText(content, 140),
+		Content:      content,
+		ContentHash:  sha256Hash([]byte(content)),
+		QualityFlags: []string{"section_parse_fallback"},
+	}
+}
+
+func previewText(content string, limit int) string {
+	trimmed := strings.Join(strings.Fields(strings.TrimSpace(content)), " ")
+	if trimmed == "" {
+		return ""
+	}
+	runes := []rune(trimmed)
+	if len(runes) <= limit {
+		return trimmed
+	}
+	return string(runes[:limit]) + "..."
 }
 
 func cfgToLevels(cfg *Config) []model.Level {

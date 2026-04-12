@@ -16,12 +16,31 @@ func BuildReport(ctx context.Context, cfg *Config, store *SQLiteStore) (*report.
 	if err != nil {
 		return nil, fmt.Errorf("load levels: %w", err)
 	}
+	documents, err := store.AllDocuments(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load documents: %w", err)
+	}
+	sections, err := store.AllSections(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load sections: %w", err)
+	}
 
 	var totalEntities int
 	for _, l := range levels {
 		count, _ := store.CountEntitiesByLevel(ctx, l.ID)
 		rpt.Levels = append(rpt.Levels, report.LevelReport{Name: l.Name, Rank: l.Rank, Entities: int(count)})
 		totalEntities += int(count)
+	}
+	for _, doc := range documents {
+		rpt.Documents = append(rpt.Documents, report.DocumentReport{
+			ID: doc.ID, Path: doc.Path, LevelID: doc.LevelID, ContentHash: doc.ContentHash, Version: doc.Version,
+		})
+	}
+	for _, section := range sections {
+		rpt.Sections = append(rpt.Sections, report.SectionReport{
+			ID: section.ID, DocumentID: section.DocumentID, Ordinal: section.Ordinal, Heading: section.Heading,
+			CharStart: section.CharStart, CharEnd: section.CharEnd, Preview: section.Preview, QualityFlags: section.QualityFlags,
+		})
 	}
 
 	coverages, _ := store.CoverageByLevel(ctx)
@@ -75,6 +94,8 @@ func BuildReport(ctx context.Context, cfg *Config, store *SQLiteStore) (*report.
 				Description: e.Description, TitleOriginal: e.TitleOriginal,
 				DescriptionOriginal: e.DescriptionOriginal, Lang: e.Lang,
 				LanguageMismatch: e.LanguageMismatch, LevelID: e.LevelID, DocumentID: e.DocumentID,
+				SectionID: e.SectionID, SourceQuote: e.SourceQuote, QuoteStartOffset: e.QuoteStartOffset,
+				QuoteEndOffset: e.QuoteEndOffset, TrustGrade: string(e.TrustGrade), QualityFlags: e.QualityFlags,
 			})
 		}
 	}

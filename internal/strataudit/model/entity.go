@@ -40,6 +40,7 @@ func IsValidEntityType(t EntityType) bool {
 type Entity struct {
 	ID                  string
 	DocumentID          string
+	SectionID           string
 	LevelID             string
 	Type                EntityType
 	Title               string
@@ -47,6 +48,8 @@ type Entity struct {
 	TitleOriginal       string
 	DescriptionOriginal string
 	SourceQuote         string
+	QuoteStartOffset    *int
+	QuoteEndOffset      *int
 	Lang                string
 	LanguageMismatch    bool
 	TrustGrade          TrustGrade

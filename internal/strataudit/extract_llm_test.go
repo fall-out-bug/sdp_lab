@@ -157,6 +157,13 @@ func TestBuildExtractionPrompt_RequiresSourceLanguagePreservation(t *testing.T) 
 }
 
 func TestAdmitEntityCandidate_PreservesRussianSourceLanguage(t *testing.T) {
+	section := model.Section{
+		ID:         "sec-1",
+		DocumentID: "doc-1",
+		CharStart:  0,
+		CharEnd:    len([]rune("Наша цель — лидерство на рынке цифровых платежей.")),
+		Content:    "Наша цель — лидерство на рынке цифровых платежей.",
+	}
 	entity := model.Entity{
 		Type:                model.EntityGoal,
 		TitleOriginal:       "Лидерство на рынке",
@@ -164,7 +171,7 @@ func TestAdmitEntityCandidate_PreservesRussianSourceLanguage(t *testing.T) {
 		SourceQuote:         "Наша цель — лидерство на рынке цифровых платежей.",
 	}
 
-	admitted, accepted := admitEntityCandidate(entity, "Наша цель — лидерство на рынке цифровых платежей.")
+	admitted, accepted := admitEntityCandidate(entity, section)
 	if !accepted {
 		t.Fatal("expected russian source entity to be accepted")
 	}
@@ -180,9 +187,22 @@ func TestAdmitEntityCandidate_PreservesRussianSourceLanguage(t *testing.T) {
 	if admitted.TitleOriginal != "Лидерство на рынке" {
 		t.Fatalf("TitleOriginal = %q", admitted.TitleOriginal)
 	}
+	if admitted.SectionID != "sec-1" {
+		t.Fatalf("SectionID = %q, want sec-1", admitted.SectionID)
+	}
+	if admitted.QuoteStartOffset == nil || admitted.QuoteEndOffset == nil {
+		t.Fatal("expected quote offsets to be populated")
+	}
+	if *admitted.QuoteStartOffset != 0 {
+		t.Fatalf("QuoteStartOffset = %d, want 0", *admitted.QuoteStartOffset)
+	}
 }
 
 func TestAdmitEntityCandidate_RejectsEnglishRewriteForRussianSource(t *testing.T) {
+	section := model.Section{
+		ID:      "sec-1",
+		Content: "Наша цель — лидерство на рынке цифровых платежей.",
+	}
 	entity := model.Entity{
 		Type:                model.EntityGoal,
 		TitleOriginal:       "Market leadership",
@@ -190,7 +210,7 @@ func TestAdmitEntityCandidate_RejectsEnglishRewriteForRussianSource(t *testing.T
 		SourceQuote:         "Наша цель — лидерство на рынке цифровых платежей.",
 	}
 
-	admitted, accepted := admitEntityCandidate(entity, "Наша цель — лидерство на рынке цифровых платежей.")
+	admitted, accepted := admitEntityCandidate(entity, section)
 	if accepted {
 		t.Fatal("expected english rewrite on russian source to be rejected")
 	}
@@ -206,6 +226,10 @@ func TestAdmitEntityCandidate_RejectsEnglishRewriteForRussianSource(t *testing.T
 }
 
 func TestAdmitEntityCandidate_AllowsEnglishSourceLanguage(t *testing.T) {
+	section := model.Section{
+		ID:      "sec-1",
+		Content: "Our goal is market leadership in digital payments.",
+	}
 	entity := model.Entity{
 		Type:                model.EntityGoal,
 		TitleOriginal:       "Market leadership",
@@ -213,7 +237,7 @@ func TestAdmitEntityCandidate_AllowsEnglishSourceLanguage(t *testing.T) {
 		SourceQuote:         "Our goal is market leadership in digital payments.",
 	}
 
-	admitted, accepted := admitEntityCandidate(entity, "Our goal is market leadership in digital payments.")
+	admitted, accepted := admitEntityCandidate(entity, section)
 	if !accepted {
 		t.Fatal("expected english source entity to be accepted")
 	}
@@ -222,5 +246,58 @@ func TestAdmitEntityCandidate_AllowsEnglishSourceLanguage(t *testing.T) {
 	}
 	if admitted.LanguageMismatch {
 		t.Fatal("LanguageMismatch = true, want false")
+	}
+}
+
+func TestAdmitEntityCandidate_BindsAbsoluteQuoteOffsetsAcrossSectionWindow(t *testing.T) {
+	content := "Введение.\n\nНаша цель — лидерство на рынке цифровых платежей.\n\nДальше идёт контекст."
+	start := strings.Index(content, "Наша цель")
+	if start < 0 {
+		t.Fatal("test fixture broken: quote not found")
+	}
+	startRune := len([]rune(content[:start]))
+
+	section := model.Section{
+		ID:         "sec-2",
+		DocumentID: "doc-1",
+		CharStart:  startRune,
+		CharEnd:    len([]rune(content)),
+		Content:    content[start:],
+	}
+	entity := model.Entity{
+		Type:                model.EntityGoal,
+		TitleOriginal:       "Лидерство на рынке",
+		DescriptionOriginal: "Стать лидером в цифровых платежах",
+		SourceQuote:         "Наша цель — лидерство на рынке цифровых платежей.",
+	}
+
+	admitted, accepted := admitEntityCandidate(entity, section)
+	if !accepted {
+		t.Fatal("expected candidate to be accepted")
+	}
+	if admitted.QuoteStartOffset == nil || admitted.QuoteEndOffset == nil {
+		t.Fatal("expected absolute quote offsets to be populated")
+	}
+	if *admitted.QuoteStartOffset != startRune {
+		t.Fatalf("QuoteStartOffset = %d, want %d", *admitted.QuoteStartOffset, startRune)
+	}
+	if *admitted.QuoteEndOffset <= *admitted.QuoteStartOffset {
+		t.Fatalf("invalid offsets: start=%d end=%d", *admitted.QuoteStartOffset, *admitted.QuoteEndOffset)
+	}
+}
+
+func TestLocateQuoteSpan_NormalizedWhitespaceFallback(t *testing.T) {
+	source := "Цель:\nлидерство   на рынке цифровых платежей."
+	quote := "Цель: лидерство на рынке цифровых платежей."
+
+	start, end, ok := locateQuoteSpan(source, quote)
+	if !ok {
+		t.Fatal("expected whitespace-normalized quote match")
+	}
+	if start != 0 {
+		t.Fatalf("start = %d, want 0", start)
+	}
+	if end <= start {
+		t.Fatalf("invalid span: start=%d end=%d", start, end)
 	}
 }

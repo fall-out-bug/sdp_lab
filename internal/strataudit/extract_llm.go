@@ -61,7 +61,7 @@ func ExtractEntities(ctx context.Context, cfg *Config, store *SQLiteStore, llm *
 			}
 			slog.Info("extract: processing document", "doc", doc.Path, "level", level.ID)
 
-			batch, err := extractFromDocument(ctx, cfg, llm, doc, level)
+			batch, err := extractFromDocument(ctx, cfg, store, llm, doc, level)
 			if err != nil {
 				result.Errors = append(result.Errors, fmt.Errorf("%s: %w", doc.Path, err))
 				continue
@@ -93,16 +93,18 @@ type extractBatch struct {
 	Rejected int
 }
 
-func extractFromDocument(ctx context.Context, cfg *Config, llm *LLMClient, doc model.Document, level model.Level) (*extractBatch, error) {
-	content := doc.Content
-	chunks := ChunkContent(content, cfg.Thresholds.ChunkTokenLimit, cfg.Thresholds.ChunkOverlapTokens)
+func extractFromDocument(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLMClient, doc model.Document, level model.Level) (*extractBatch, error) {
+	sections, err := ensureDocumentSections(ctx, cfg, store, doc)
+	if err != nil {
+		return nil, err
+	}
 
 	// Cap chunks for large documents
 	maxChunks := cfg.Thresholds.MaxChunksPerDocument
-	if maxChunks > 0 && len(chunks) > maxChunks {
-		original := len(chunks)
-		chunks = sampleChunks(chunks, maxChunks)
-		slog.Warn("chunk sampling applied", "doc", filepath.Base(doc.Path), "original", original, "sampled", len(chunks))
+	if maxChunks > 0 && len(sections) > maxChunks {
+		original := len(sections)
+		sections = sampleSections(sections, maxChunks)
+		slog.Warn("chunk sampling applied", "doc", filepath.Base(doc.Path), "original", original, "sampled", len(sections))
 	}
 
 	batch := &extractBatch{}
@@ -110,13 +112,13 @@ func extractFromDocument(ctx context.Context, cfg *Config, llm *LLMClient, doc m
 	seen := make(map[string]bool)
 	seenRejected := make(map[string]bool)
 
-	for i, chunk := range chunks {
+	for i, section := range sections {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
 
-		chunkSanitized := SanitizeForPrompt(chunk)
-		prompt := buildExtractionPrompt(cfg, level, chunkSanitized, i, len(chunks))
+		chunkSanitized := SanitizeForPrompt(section.Content)
+		prompt := buildExtractionPrompt(cfg, level, chunkSanitized, i, len(sections))
 
 		resp, err := llm.Chat(ctx, LLMRequest{
 			Model:       cfg.LLM.ExtractModel,
@@ -139,7 +141,7 @@ func extractFromDocument(ctx context.Context, cfg *Config, llm *LLMClient, doc m
 		batch.Rejected += parsed.Rejected
 
 		for _, e := range parsed.Entities {
-			admitted, accepted := admitEntityCandidate(e, chunk)
+			admitted, accepted := admitEntityCandidate(e, section)
 			key := strings.ToLower(string(e.Type)) + "|" + strings.ToLower(e.Title)
 			if !accepted {
 				if !seenRejected[key] {
@@ -165,6 +167,25 @@ func extractFromDocument(ctx context.Context, cfg *Config, llm *LLMClient, doc m
 
 	batch.Entities = allEntities
 	return batch, nil
+}
+
+func ensureDocumentSections(ctx context.Context, cfg *Config, store *SQLiteStore, doc model.Document) ([]model.Section, error) {
+	sections, err := store.SectionsByDocument(ctx, doc.ID)
+	if err != nil {
+		return nil, fmt.Errorf("load sections for %s: %w", doc.ID, err)
+	}
+	if len(sections) > 0 {
+		return sections, nil
+	}
+
+	sections = ChunkSections(doc.ID, doc.Content, cfg.Thresholds.ChunkTokenLimit, cfg.Thresholds.ChunkOverlapTokens)
+	if len(sections) == 0 {
+		return nil, nil
+	}
+	if err := store.SaveSections(ctx, sections); err != nil {
+		return nil, fmt.Errorf("backfill sections for %s: %w", doc.ID, err)
+	}
+	return sections, nil
 }
 
 func buildExtractionPrompt(cfg *Config, level model.Level, content string, chunkIndex, totalChunks int) string {
@@ -317,11 +338,12 @@ func generateEmbeddings(ctx context.Context, cfg *Config, llm *LLMClient, entiti
 	return nil
 }
 
-func admitEntityCandidate(entity model.Entity, sourceText string) (model.Entity, bool) {
+func admitEntityCandidate(entity model.Entity, section model.Section) (model.Entity, bool) {
 	entity.TitleOriginal = firstNonEmpty(strings.TrimSpace(entity.TitleOriginal), strings.TrimSpace(entity.Title))
 	entity.DescriptionOriginal = firstNonEmpty(strings.TrimSpace(entity.DescriptionOriginal), strings.TrimSpace(entity.Description))
 	entity.Title = entity.TitleOriginal
 	entity.Description = entity.DescriptionOriginal
+	entity.SectionID = section.ID
 
 	flags := append([]string{}, entity.QualityFlags...)
 
@@ -333,14 +355,17 @@ func admitEntityCandidate(entity model.Entity, sourceText string) (model.Entity,
 		return entity, false
 	}
 
-	if !containsNormalized(sourceText, sourceQuote) {
+	sectionStart, sectionEnd, found := locateQuoteSpan(section.Content, sourceQuote)
+	if !found {
 		flags = append(flags, "quote_not_found")
 		entity.TrustGrade = model.TrustGradeRejected
 		entity.QualityFlags = dedupeFlags(flags)
 		return entity, false
 	}
+	entity.QuoteStartOffset = intPtr(section.CharStart + sectionStart)
+	entity.QuoteEndOffset = intPtr(section.CharStart + sectionEnd)
 
-	if isBoilerplateRepetition(sourceText, sourceQuote) {
+	if isBoilerplateRepetition(section.Content, sourceQuote) {
 		flags = append(flags, "boilerplate_repetition")
 		entity.TrustGrade = model.TrustGradeRejected
 		entity.QualityFlags = dedupeFlags(flags)
@@ -392,15 +417,6 @@ func detectPromptLeakFlags(entity model.Entity) []string {
 		}
 	}
 	return dedupeFlags(flags)
-}
-
-func containsNormalized(haystack, needle string) bool {
-	normHaystack := normalizeTextForMatch(haystack)
-	normNeedle := normalizeTextForMatch(needle)
-	if normNeedle == "" {
-		return false
-	}
-	return strings.Contains(normHaystack, normNeedle)
 }
 
 func isBoilerplateRepetition(sourceText, quote string) bool {
@@ -492,6 +508,92 @@ func dedupeFlags(flags []string) []string {
 	return result
 }
 
+func locateQuoteSpan(sourceText, quote string) (int, int, bool) {
+	if sourceText == "" || strings.TrimSpace(quote) == "" {
+		return 0, 0, false
+	}
+	if byteIndex := strings.Index(sourceText, quote); byteIndex >= 0 {
+		return byteOffsetToRuneOffset(sourceText, byteIndex), byteOffsetToRuneOffset(sourceText, byteIndex+len(quote)), true
+	}
+
+	normHaystack, haystackMap := normalizeTextWithRuneMap(sourceText)
+	normQuote, _ := normalizeTextWithRuneMap(quote)
+	if len(normQuote) == 0 {
+		return 0, 0, false
+	}
+	start := indexRuneSlice(normHaystack, normQuote)
+	if start < 0 {
+		return 0, 0, false
+	}
+	endIdx := start + len(normQuote) - 1
+	if start >= len(haystackMap) || endIdx >= len(haystackMap) {
+		return 0, 0, false
+	}
+	return haystackMap[start], haystackMap[endIdx] + 1, true
+}
+
+func normalizeTextWithRuneMap(text string) ([]rune, []int) {
+	runes := []rune(text)
+	normalized := make([]rune, 0, len(runes))
+	indexMap := make([]int, 0, len(runes))
+	lastWasSpace := true
+
+	for idx, r := range runes {
+		if unicode.IsSpace(r) {
+			if lastWasSpace {
+				continue
+			}
+			normalized = append(normalized, ' ')
+			indexMap = append(indexMap, idx)
+			lastWasSpace = true
+			continue
+		}
+		normalized = append(normalized, unicode.ToLower(r))
+		indexMap = append(indexMap, idx)
+		lastWasSpace = false
+	}
+
+	if len(normalized) > 0 && normalized[len(normalized)-1] == ' ' {
+		normalized = normalized[:len(normalized)-1]
+		indexMap = indexMap[:len(indexMap)-1]
+	}
+
+	return normalized, indexMap
+}
+
+func indexRuneSlice(haystack, needle []rune) int {
+	if len(needle) == 0 || len(needle) > len(haystack) {
+		return -1
+	}
+	for i := 0; i <= len(haystack)-len(needle); i++ {
+		matched := true
+		for j := range needle {
+			if haystack[i+j] != needle[j] {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return i
+		}
+	}
+	return -1
+}
+
+func byteOffsetToRuneOffset(text string, byteOffset int) int {
+	if byteOffset <= 0 {
+		return 0
+	}
+	if byteOffset >= len(text) {
+		return len([]rune(text))
+	}
+	return len([]rune(text[:byteOffset]))
+}
+
+func intPtr(value int) *int {
+	return &value
+}
+
 // sampleChunks reduces chunks to maxCount using uniform sampling (first + last + evenly spaced middle).
 func sampleChunks(chunks []string, maxCount int) []string {
 	if len(chunks) <= maxCount {
@@ -508,5 +610,23 @@ func sampleChunks(chunks []string, maxCount int) []string {
 		result = append(result, chunks[idx])
 	}
 	result = append(result, chunks[len(chunks)-1]) // always last
+	return result
+}
+
+func sampleSections(sections []model.Section, maxCount int) []model.Section {
+	if len(sections) <= maxCount {
+		return sections
+	}
+	result := make([]model.Section, 0, maxCount)
+	result = append(result, sections[0])
+	step := float64(len(sections)-2) / float64(maxCount-2)
+	for i := 1; i < maxCount-1; i++ {
+		idx := 1 + int(float64(i)*step)
+		if idx >= len(sections)-1 {
+			idx = len(sections) - 2
+		}
+		result = append(result, sections[idx])
+	}
+	result = append(result, sections[len(sections)-1])
 	return result
 }

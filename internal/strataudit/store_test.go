@@ -81,17 +81,36 @@ func TestSQLiteStore_SaveEntities_PersistsTrustFields(t *testing.T) {
 	_ = store.SaveDocuments(ctx, []model.Document{
 		{ID: "d1", Path: "vis.md", LevelID: "vision", ContentHash: "abc", Content: "text"},
 	})
+	if err := store.SaveSections(ctx, []model.Section{
+		{
+			ID:           "s1",
+			DocumentID:   "d1",
+			Ordinal:      0,
+			CharStart:    0,
+			CharEnd:      4,
+			Preview:      "text",
+			Content:      "text",
+			ContentHash:  "hash",
+			QualityFlags: []string{"section_parse_fallback"},
+		},
+	}); err != nil {
+		t.Fatalf("SaveSections: %v", err)
+	}
 
 	entities := []model.Entity{
 		{
 			ID:                  "e1",
 			DocumentID:          "d1",
+			SectionID:           "s1",
 			LevelID:             "vision",
 			Type:                model.EntityGoal,
 			Title:               "Глобальная экспансия",
 			Description:         "Описание для отчёта",
 			TitleOriginal:       "Глобальная экспансия",
 			DescriptionOriginal: "Описание для отчёта",
+			SourceQuote:         "text",
+			QuoteStartOffset:    intPtr(0),
+			QuoteEndOffset:      intPtr(4),
 			Lang:                "ru",
 			TrustGrade:          model.TrustGradeVerified,
 			QualityFlags:        []string{"quote_verified"},
@@ -120,8 +139,80 @@ func TestSQLiteStore_SaveEntities_PersistsTrustFields(t *testing.T) {
 	if got[0].Lang != "ru" {
 		t.Fatalf("Lang = %q, want ru", got[0].Lang)
 	}
+	if got[0].SectionID != "s1" {
+		t.Fatalf("SectionID = %q, want s1", got[0].SectionID)
+	}
+	if got[0].QuoteStartOffset == nil || *got[0].QuoteStartOffset != 0 {
+		t.Fatalf("QuoteStartOffset = %+v, want 0", got[0].QuoteStartOffset)
+	}
+	if got[0].QuoteEndOffset == nil || *got[0].QuoteEndOffset != 4 {
+		t.Fatalf("QuoteEndOffset = %+v, want 4", got[0].QuoteEndOffset)
+	}
 	if len(got[0].QualityFlags) != 1 || got[0].QualityFlags[0] != "quote_verified" {
 		t.Fatalf("QualityFlags = %+v, want [quote_verified]", got[0].QualityFlags)
+	}
+}
+
+func TestSQLiteStore_SaveSectionsAndRoundTrip(t *testing.T) {
+	store := setupTestStore(t)
+	ctx := context.Background()
+
+	_ = store.SaveLevels(ctx, []model.Level{
+		{ID: "vision", Name: "Vision", Rank: 0},
+	})
+	_ = store.SaveDocuments(ctx, []model.Document{
+		{ID: "d1", Path: "/tmp/vision.md", LevelID: "vision", ContentHash: "abc", Content: "Vision content"},
+	})
+
+	sections := []model.Section{
+		{
+			ID:           "s1",
+			DocumentID:   "d1",
+			Ordinal:      0,
+			Heading:      "Введение",
+			CharStart:    0,
+			CharEnd:      14,
+			Preview:      "Vision content",
+			Content:      "Vision content",
+			ContentHash:  "hash1",
+			QualityFlags: []string{"section_parse_fallback"},
+		},
+	}
+	if err := store.SaveSections(ctx, sections); err != nil {
+		t.Fatalf("SaveSections: %v", err)
+	}
+
+	got, err := store.SectionsByDocument(ctx, "d1")
+	if err != nil {
+		t.Fatalf("SectionsByDocument: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1", len(got))
+	}
+	if got[0].Heading != "Введение" {
+		t.Fatalf("Heading = %q, want Введение", got[0].Heading)
+	}
+	if got[0].Preview != "Vision content" {
+		t.Fatalf("Preview = %q", got[0].Preview)
+	}
+	if len(got[0].QualityFlags) != 1 || got[0].QualityFlags[0] != "section_parse_fallback" {
+		t.Fatalf("QualityFlags = %+v", got[0].QualityFlags)
+	}
+
+	allDocs, err := store.AllDocuments(ctx)
+	if err != nil {
+		t.Fatalf("AllDocuments: %v", err)
+	}
+	if len(allDocs) != 1 || allDocs[0].Path != "/tmp/vision.md" {
+		t.Fatalf("AllDocuments = %+v", allDocs)
+	}
+
+	allSections, err := store.AllSections(ctx)
+	if err != nil {
+		t.Fatalf("AllSections: %v", err)
+	}
+	if len(allSections) != 1 || allSections[0].ID != "s1" {
+		t.Fatalf("AllSections = %+v", allSections)
 	}
 }
 

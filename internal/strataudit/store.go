@@ -54,10 +54,18 @@ func (s *SQLiteStore) migrate() error {
 		content_hash TEXT NOT NULL, content TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1,
 		file_modified_at DATETIME, metadata TEXT, ingested_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
+	CREATE TABLE IF NOT EXISTS sections (
+		id TEXT PRIMARY KEY, document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+		ordinal INTEGER NOT NULL, heading TEXT, char_start INTEGER NOT NULL, char_end INTEGER NOT NULL,
+		preview TEXT NOT NULL, content TEXT NOT NULL, content_hash TEXT NOT NULL, quality_flags TEXT,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(document_id, ordinal)
+	);
 	CREATE TABLE IF NOT EXISTS entities (
 		id TEXT PRIMARY KEY, document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
-		level_id TEXT NOT NULL REFERENCES levels(id), type TEXT NOT NULL, title TEXT NOT NULL,
+		level_id TEXT NOT NULL REFERENCES levels(id), section_id TEXT, type TEXT NOT NULL, title TEXT NOT NULL,
 		description TEXT, title_original TEXT, description_original TEXT, source_quote TEXT,
+		quote_start_offset INTEGER, quote_end_offset INTEGER,
 		lang TEXT, language_mismatch BOOLEAN DEFAULT FALSE, trust_grade TEXT NOT NULL DEFAULT 'verified', quality_flags TEXT, page_number INTEGER,
 		embedding BLOB, embedding_model TEXT, embedding_dims INTEGER,
 		extraction_model TEXT, metadata TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -108,6 +116,7 @@ func (s *SQLiteStore) migrate() error {
 	);
 	CREATE INDEX IF NOT EXISTS idx_entities_level ON entities(level_id);
 	CREATE INDEX IF NOT EXISTS idx_entities_document ON entities(document_id);
+	CREATE INDEX IF NOT EXISTS idx_entities_section ON entities(section_id);
 	CREATE INDEX IF NOT EXISTS idx_entities_type_level ON entities(type, level_id);
 	CREATE INDEX IF NOT EXISTS idx_traces_source ON traces(source_entity_id);
 	CREATE INDEX IF NOT EXISTS idx_traces_target ON traces(target_entity_id);
@@ -118,6 +127,8 @@ func (s *SQLiteStore) migrate() error {
 	CREATE INDEX IF NOT EXISTS idx_findings_severity ON findings(severity);
 	CREATE INDEX IF NOT EXISTS idx_findings_suppressed ON findings(suppressed) WHERE suppressed = FALSE;
 	CREATE INDEX IF NOT EXISTS idx_documents_ingested ON documents(ingested_at);
+	CREATE INDEX IF NOT EXISTS idx_sections_document ON sections(document_id);
+	CREATE INDEX IF NOT EXISTS idx_sections_document_ordinal ON sections(document_id, ordinal);
 	CREATE INDEX IF NOT EXISTS idx_trace_candidates_source ON trace_candidates(source_entity_id);
 	CREATE INDEX IF NOT EXISTS idx_trace_candidates_verified ON trace_candidates(verified) WHERE verified = FALSE;
 	CREATE INDEX IF NOT EXISTS idx_llm_invocations_stage ON llm_invocations(stage);
@@ -131,6 +142,30 @@ func (s *SQLiteStore) migrate() error {
 	}
 	if err := s.ensureEntityLanguageColumns(); err != nil {
 		return err
+	}
+	if err := s.ensureSectionsTable(); err != nil {
+		return err
+	}
+	if err := s.ensureEntityProvenanceColumns(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *SQLiteStore) ensureSectionsTable() error {
+	_, err := s.db.Exec(`
+	CREATE TABLE IF NOT EXISTS sections (
+		id TEXT PRIMARY KEY, document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+		ordinal INTEGER NOT NULL, heading TEXT, char_start INTEGER NOT NULL, char_end INTEGER NOT NULL,
+		preview TEXT NOT NULL, content TEXT NOT NULL, content_hash TEXT NOT NULL, quality_flags TEXT,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(document_id, ordinal)
+	);
+	CREATE INDEX IF NOT EXISTS idx_sections_document ON sections(document_id);
+	CREATE INDEX IF NOT EXISTS idx_sections_document_ordinal ON sections(document_id, ordinal);
+	`)
+	if err != nil {
+		return fmt.Errorf("ensure sections table: %w", err)
 	}
 	return nil
 }
@@ -225,6 +260,52 @@ func (s *SQLiteStore) ensureEntityLanguageColumns() error {
 	return nil
 }
 
+func (s *SQLiteStore) ensureEntityProvenanceColumns() error {
+	requiredColumns := map[string]string{
+		"section_id":         `ALTER TABLE entities ADD COLUMN section_id TEXT`,
+		"quote_start_offset": `ALTER TABLE entities ADD COLUMN quote_start_offset INTEGER`,
+		"quote_end_offset":   `ALTER TABLE entities ADD COLUMN quote_end_offset INTEGER`,
+	}
+
+	present := make(map[string]bool, len(requiredColumns))
+	rows, err := s.db.Query(`PRAGMA table_info(entities)`)
+	if err != nil {
+		return fmt.Errorf("pragma table_info(entities): %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var (
+			cid       int
+			name      string
+			colType   string
+			notNull   int
+			dfltValue sql.NullString
+			pk        int
+		)
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &dfltValue, &pk); err != nil {
+			return fmt.Errorf("scan table_info(entities): %w", err)
+		}
+		present[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate table_info(entities): %w", err)
+	}
+
+	for column, stmt := range requiredColumns {
+		if present[column] {
+			continue
+		}
+		if _, err := s.db.Exec(stmt); err != nil {
+			return fmt.Errorf("add entities.%s: %w", column, err)
+		}
+	}
+	if _, err := s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_entities_section ON entities(section_id)`); err != nil {
+		return fmt.Errorf("ensure idx_entities_section: %w", err)
+	}
+	return nil
+}
+
 func (s *SQLiteStore) SaveLevels(ctx context.Context, levels []model.Level) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -282,6 +363,20 @@ func (s *SQLiteStore) SaveDocuments(ctx context.Context, docs []model.Document) 
 	return nil
 }
 
+func (s *SQLiteStore) SaveSections(ctx context.Context, sections []model.Section) error {
+	for _, section := range sections {
+		qualityFlags, _ := json.Marshal(section.QualityFlags)
+		_, err := s.db.ExecContext(ctx,
+			`INSERT OR REPLACE INTO sections (id, document_id, ordinal, heading, char_start, char_end, preview, content, content_hash, quality_flags)
+			VALUES (?,?,?,?,?,?,?,?,?,?)`,
+			section.ID, section.DocumentID, section.Ordinal, nullableString(section.Heading), section.CharStart, section.CharEnd, section.Preview, section.Content, section.ContentHash, string(qualityFlags))
+		if err != nil {
+			return fmt.Errorf("save section %s: %w", section.ID, err)
+		}
+	}
+	return nil
+}
+
 func (s *SQLiteStore) SaveEntities(ctx context.Context, entities []model.Entity) error {
 	for _, e := range entities {
 		meta, _ := json.Marshal(e.Metadata)
@@ -296,9 +391,9 @@ func (s *SQLiteStore) SaveEntities(ctx context.Context, entities []model.Entity)
 			trustGrade = string(model.TrustGradeVerified)
 		}
 		_, err := s.db.ExecContext(ctx,
-			`INSERT OR REPLACE INTO entities (id, document_id, level_id, type, title, description, title_original, description_original, source_quote, lang, language_mismatch, trust_grade, quality_flags, page_number, embedding, embedding_model, embedding_dims, extraction_model, metadata)
-			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-			e.ID, e.DocumentID, e.LevelID, string(e.Type), e.Title, e.Description, nullableString(e.TitleOriginal), nullableString(e.DescriptionOriginal), e.SourceQuote, nullableString(e.Lang), e.LanguageMismatch, trustGrade, string(qualityFlags), nilIfZero(e.PageNumber), embBlob, e.EmbeddingModel, nilIfZero(e.EmbeddingDims), e.ExtractionModel, string(meta))
+			`INSERT OR REPLACE INTO entities (id, document_id, level_id, section_id, type, title, description, title_original, description_original, source_quote, quote_start_offset, quote_end_offset, lang, language_mismatch, trust_grade, quality_flags, page_number, embedding, embedding_model, embedding_dims, extraction_model, metadata)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			e.ID, e.DocumentID, e.LevelID, nullableString(e.SectionID), string(e.Type), e.Title, e.Description, nullableString(e.TitleOriginal), nullableString(e.DescriptionOriginal), e.SourceQuote, nullableIntPtr(e.QuoteStartOffset), nullableIntPtr(e.QuoteEndOffset), nullableString(e.Lang), e.LanguageMismatch, trustGrade, string(qualityFlags), nilIfZero(e.PageNumber), embBlob, e.EmbeddingModel, nilIfZero(e.EmbeddingDims), e.ExtractionModel, string(meta))
 		if err != nil {
 			return fmt.Errorf("save entity %s: %w", e.ID, err)
 		}
@@ -311,9 +406,14 @@ func (s *SQLiteStore) DeleteEntitiesForDocument(ctx context.Context, docID strin
 	return err
 }
 
+func (s *SQLiteStore) DeleteSectionsForDocument(ctx context.Context, docID string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM sections WHERE document_id = ?`, docID)
+	return err
+}
+
 func (s *SQLiteStore) EntitiesByLevel(ctx context.Context, levelID string, page model.Page) ([]model.Entity, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, document_id, level_id, type, title, description, title_original, description_original, source_quote, lang, language_mismatch, trust_grade, quality_flags, extraction_model,
+		`SELECT id, document_id, level_id, section_id, type, title, description, title_original, description_original, source_quote, quote_start_offset, quote_end_offset, lang, language_mismatch, trust_grade, quality_flags, extraction_model,
 		embedding, embedding_model, embedding_dims
 		FROM entities WHERE level_id = ? ORDER BY title LIMIT ? OFFSET ?`,
 		levelID, page.Limit, page.Offset)
@@ -322,6 +422,17 @@ func (s *SQLiteStore) EntitiesByLevel(ctx context.Context, levelID string, page 
 	}
 	defer func() { _ = rows.Close() }()
 	return scanEntities(rows)
+}
+
+func (s *SQLiteStore) SectionsByDocument(ctx context.Context, documentID string) ([]model.Section, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, document_id, ordinal, heading, char_start, char_end, preview, content, content_hash, quality_flags
+		FROM sections WHERE document_id = ? ORDER BY ordinal`, documentID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	return scanSections(rows)
 }
 
 func (s *SQLiteStore) TracesForEntity(ctx context.Context, entityID string) ([]model.Trace, error) {
@@ -483,11 +594,52 @@ func (s *SQLiteStore) DocumentByPath(ctx context.Context, path string) (*model.D
 	return &d, nil
 }
 
+func (s *SQLiteStore) AllDocuments(ctx context.Context) ([]model.Document, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, path, level_id, content_hash, version, metadata FROM documents ORDER BY path`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var docs []model.Document
+	for rows.Next() {
+		var doc model.Document
+		var meta sql.NullString
+		if err := rows.Scan(&doc.ID, &doc.Path, &doc.LevelID, &doc.ContentHash, &doc.Version, &meta); err != nil {
+			return nil, err
+		}
+		if meta.Valid {
+			_ = json.Unmarshal([]byte(meta.String), &doc.Metadata)
+		}
+		docs = append(docs, doc)
+	}
+	return docs, rows.Err()
+}
+
+func (s *SQLiteStore) AllSections(ctx context.Context) ([]model.Section, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, document_id, ordinal, heading, char_start, char_end, preview, content, content_hash, quality_flags
+		FROM sections ORDER BY document_id, ordinal`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	return scanSections(rows)
+}
+
 func nilIfZero(n int) interface{} {
 	if n == 0 {
 		return nil
 	}
 	return n
+}
+
+func nullableIntPtr(n *int) interface{} {
+	if n == nil {
+		return nil
+	}
+	return *n
 }
 
 func nullableString(s string) interface{} {
@@ -502,8 +654,11 @@ func scanEntities(rows *sql.Rows) ([]model.Entity, error) {
 	for rows.Next() {
 		var e model.Entity
 		var entityType string
+		var sectionID sql.NullString
 		var titleOriginal sql.NullString
 		var descriptionOriginal sql.NullString
+		var quoteStart sql.NullInt64
+		var quoteEnd sql.NullInt64
 		var lang sql.NullString
 		var languageMismatch bool
 		var trustGrade sql.NullString
@@ -511,15 +666,26 @@ func scanEntities(rows *sql.Rows) ([]model.Entity, error) {
 		var embBlob []byte
 		var embModel sql.NullString
 		var embDims sql.NullInt64
-		if err := rows.Scan(&e.ID, &e.DocumentID, &e.LevelID, &entityType, &e.Title, &e.Description, &titleOriginal, &descriptionOriginal, &e.SourceQuote, &lang, &languageMismatch, &trustGrade, &qualityFlagsJSON, &e.ExtractionModel, &embBlob, &embModel, &embDims); err != nil {
+		if err := rows.Scan(&e.ID, &e.DocumentID, &e.LevelID, &sectionID, &entityType, &e.Title, &e.Description, &titleOriginal, &descriptionOriginal, &e.SourceQuote, &quoteStart, &quoteEnd, &lang, &languageMismatch, &trustGrade, &qualityFlagsJSON, &e.ExtractionModel, &embBlob, &embModel, &embDims); err != nil {
 			return nil, err
 		}
 		e.Type = model.EntityType(entityType)
+		if sectionID.Valid {
+			e.SectionID = sectionID.String
+		}
 		if titleOriginal.Valid {
 			e.TitleOriginal = titleOriginal.String
 		}
 		if descriptionOriginal.Valid {
 			e.DescriptionOriginal = descriptionOriginal.String
+		}
+		if quoteStart.Valid {
+			offset := int(quoteStart.Int64)
+			e.QuoteStartOffset = &offset
+		}
+		if quoteEnd.Valid {
+			offset := int(quoteEnd.Int64)
+			e.QuoteEndOffset = &offset
 		}
 		if lang.Valid {
 			e.Lang = lang.String
@@ -545,6 +711,26 @@ func scanEntities(rows *sql.Rows) ([]model.Entity, error) {
 		entities = append(entities, e)
 	}
 	return entities, rows.Err()
+}
+
+func scanSections(rows *sql.Rows) ([]model.Section, error) {
+	var sections []model.Section
+	for rows.Next() {
+		var section model.Section
+		var heading sql.NullString
+		var qualityFlagsJSON sql.NullString
+		if err := rows.Scan(&section.ID, &section.DocumentID, &section.Ordinal, &heading, &section.CharStart, &section.CharEnd, &section.Preview, &section.Content, &section.ContentHash, &qualityFlagsJSON); err != nil {
+			return nil, err
+		}
+		if heading.Valid {
+			section.Heading = heading.String
+		}
+		if qualityFlagsJSON.Valid && qualityFlagsJSON.String != "" {
+			_ = json.Unmarshal([]byte(qualityFlagsJSON.String), &section.QualityFlags)
+		}
+		sections = append(sections, section)
+	}
+	return sections, rows.Err()
 }
 
 func scanFindings(rows *sql.Rows) ([]model.Finding, error) {
