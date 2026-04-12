@@ -89,9 +89,9 @@ func (s *SQLiteStore) migrate() error {
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE TABLE IF NOT EXISTS findings (
-		id TEXT PRIMARY KEY, type TEXT NOT NULL CHECK (type IN ('alignment','strong_trace','coverage','gap','orphan','unknown_rationale','ambiguous_trace','conflict','weak_link','stale','inferred_strategy','shadow_strategy')),
+		id TEXT PRIMARY KEY, type TEXT NOT NULL CHECK (type IN ('alignment','strong_trace','coverage','gap','orphan','strategic_gap_cluster','orphan_cluster','corpus_quality_cluster','trace_ambiguity_cluster','unknown_rationale','ambiguous_trace','conflict','weak_link','stale','inferred_strategy','shadow_strategy')),
 		severity TEXT NOT NULL CHECK (severity IN ('info','warn','critical')),
-		entity_ids TEXT, title TEXT NOT NULL, description TEXT, recommendation TEXT,
+		entity_ids TEXT, document_ids TEXT, section_ids TEXT, cluster_key TEXT, title TEXT NOT NULL, description TEXT, recommendation TEXT,
 		suppressed BOOLEAN DEFAULT FALSE, llm_score TEXT,
 		evidence_quotes TEXT, evidence_verified BOOLEAN DEFAULT FALSE, evidence_count INTEGER DEFAULT 0,
 		support_ratio REAL DEFAULT 0, cross_model_status TEXT,
@@ -99,7 +99,8 @@ func (s *SQLiteStore) migrate() error {
 		ephemeral BOOLEAN DEFAULT FALSE, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE TABLE IF NOT EXISTS trace_coverage (
-		id TEXT PRIMARY KEY, level_id TEXT NOT NULL REFERENCES levels(id),
+		id TEXT PRIMARY KEY, scope_type TEXT NOT NULL DEFAULT 'level', scope_id TEXT, scope_label TEXT,
+		level_id TEXT NOT NULL REFERENCES levels(id), document_id TEXT, section_id TEXT,
 		total_entities INTEGER DEFAULT 0, traced_entities INTEGER DEFAULT 0,
 		coverage_pct REAL DEFAULT 0, computed_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
@@ -157,6 +158,12 @@ func (s *SQLiteStore) migrate() error {
 		return err
 	}
 	if err := s.ensureCandidateColumns(); err != nil {
+		return err
+	}
+	if err := s.ensureCoverageColumns(); err != nil {
+		return err
+	}
+	if err := s.ensureFindingsSchema(); err != nil {
 		return err
 	}
 	return nil
@@ -336,6 +343,87 @@ func (s *SQLiteStore) ensureCandidateColumns() error {
 		"diagnostic_code": `ALTER TABLE trace_candidates ADD COLUMN diagnostic_code TEXT`,
 	}
 	return s.ensureTableColumns("trace_candidates", requiredColumns)
+}
+
+func (s *SQLiteStore) ensureCoverageColumns() error {
+	requiredColumns := map[string]string{
+		"scope_type":  `ALTER TABLE trace_coverage ADD COLUMN scope_type TEXT NOT NULL DEFAULT 'level'`,
+		"scope_id":    `ALTER TABLE trace_coverage ADD COLUMN scope_id TEXT`,
+		"scope_label": `ALTER TABLE trace_coverage ADD COLUMN scope_label TEXT`,
+		"document_id": `ALTER TABLE trace_coverage ADD COLUMN document_id TEXT`,
+		"section_id":  `ALTER TABLE trace_coverage ADD COLUMN section_id TEXT`,
+	}
+	return s.ensureTableColumns("trace_coverage", requiredColumns)
+}
+
+func (s *SQLiteStore) ensureFindingsSchema() error {
+	var createSQL string
+	err := s.db.QueryRow(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'findings'`).Scan(&createSQL)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("load findings schema: %w", err)
+	}
+
+	if strings.Contains(createSQL, "strategic_gap_cluster") &&
+		strings.Contains(createSQL, "document_ids") &&
+		strings.Contains(createSQL, "section_ids") &&
+		strings.Contains(createSQL, "cluster_key") {
+		return nil
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin findings schema migration: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.Exec(`
+		CREATE TABLE findings_new (
+			id TEXT PRIMARY KEY, type TEXT NOT NULL CHECK (type IN ('alignment','strong_trace','coverage','gap','orphan','strategic_gap_cluster','orphan_cluster','corpus_quality_cluster','trace_ambiguity_cluster','unknown_rationale','ambiguous_trace','conflict','weak_link','stale','inferred_strategy','shadow_strategy')),
+			severity TEXT NOT NULL CHECK (severity IN ('info','warn','critical')),
+			entity_ids TEXT, document_ids TEXT, section_ids TEXT, cluster_key TEXT, title TEXT NOT NULL, description TEXT, recommendation TEXT,
+			suppressed BOOLEAN DEFAULT FALSE, llm_score TEXT,
+			evidence_quotes TEXT, evidence_verified BOOLEAN DEFAULT FALSE, evidence_count INTEGER DEFAULT 0,
+			support_ratio REAL DEFAULT 0, cross_model_status TEXT,
+			verification_passed BOOLEAN, confidence_score REAL DEFAULT 0,
+			ephemeral BOOLEAN DEFAULT FALSE, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);
+	`); err != nil {
+		return fmt.Errorf("create findings_new: %w", err)
+	}
+	if _, err := tx.Exec(`
+		INSERT INTO findings_new (
+			id, type, severity, entity_ids, document_ids, section_ids, cluster_key, title, description, recommendation,
+			suppressed, llm_score, evidence_quotes, evidence_verified, evidence_count, support_ratio,
+			cross_model_status, verification_passed, confidence_score, ephemeral, created_at
+		)
+		SELECT
+			id, type, severity, entity_ids, NULL, NULL, NULL, title, description, recommendation,
+			suppressed, llm_score, evidence_quotes, evidence_verified, evidence_count, support_ratio,
+			cross_model_status, verification_passed, confidence_score, ephemeral, created_at
+		FROM findings
+	`); err != nil {
+		return fmt.Errorf("copy findings to findings_new: %w", err)
+	}
+	if _, err := tx.Exec(`DROP TABLE findings`); err != nil {
+		return fmt.Errorf("drop findings: %w", err)
+	}
+	if _, err := tx.Exec(`ALTER TABLE findings_new RENAME TO findings`); err != nil {
+		return fmt.Errorf("rename findings_new: %w", err)
+	}
+	if _, err := tx.Exec(`
+		CREATE INDEX IF NOT EXISTS idx_findings_type ON findings(type);
+		CREATE INDEX IF NOT EXISTS idx_findings_severity ON findings(severity);
+		CREATE INDEX IF NOT EXISTS idx_findings_suppressed ON findings(suppressed) WHERE suppressed = FALSE;
+	`); err != nil {
+		return fmt.Errorf("recreate findings indexes: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit findings schema migration: %w", err)
+	}
+	return nil
 }
 
 func (s *SQLiteStore) ensureTableColumns(table string, requiredColumns map[string]string) error {
@@ -558,13 +646,15 @@ func (s *SQLiteStore) SaveTraces(ctx context.Context, traces []model.Trace) erro
 func (s *SQLiteStore) SaveFindings(ctx context.Context, findings []model.Finding) error {
 	for _, f := range findings {
 		entityIDs, _ := json.Marshal(f.EntityIDs)
+		documentIDs, _ := json.Marshal(f.DocumentIDs)
+		sectionIDs, _ := json.Marshal(f.SectionIDs)
 		evidenceQuotes, _ := json.Marshal(f.EvidenceQuotes)
 		_, err := s.db.ExecContext(ctx,
-			`INSERT OR REPLACE INTO findings (id, type, severity, entity_ids, title, description, recommendation,
+			`INSERT OR REPLACE INTO findings (id, type, severity, entity_ids, document_ids, section_ids, cluster_key, title, description, recommendation,
 			suppressed, llm_score, evidence_quotes, evidence_verified, evidence_count, support_ratio,
 			cross_model_status, verification_passed, confidence_score, ephemeral)
-			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-			f.ID, string(f.Type), string(f.Severity), string(entityIDs), f.Title, f.Description, f.Recommendation,
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			f.ID, string(f.Type), string(f.Severity), string(entityIDs), string(documentIDs), string(sectionIDs), nullableString(f.ClusterKey), f.Title, f.Description, f.Recommendation,
 			f.Suppressed, string(f.LLMScore), string(evidenceQuotes), f.EvidenceVerified, f.EvidenceCount, f.SupportRatio,
 			string(f.CrossModelStatus), f.VerificationPassed, f.ConfidenceScore, f.Ephemeral)
 		if err != nil {
@@ -574,9 +664,14 @@ func (s *SQLiteStore) SaveFindings(ctx context.Context, findings []model.Finding
 	return nil
 }
 
+func (s *SQLiteStore) ClearFindings(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM findings`)
+	return err
+}
+
 func (s *SQLiteStore) FindingsByType(ctx context.Context, ft model.FindingType, page model.Page) ([]model.Finding, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, type, severity, entity_ids, title, description, confidence_score, evidence_verified
+		`SELECT id, type, severity, entity_ids, document_ids, section_ids, cluster_key, title, description, confidence_score, evidence_verified
 		FROM findings WHERE type = ? LIMIT ? OFFSET ?`,
 		string(ft), page.Limit, page.Offset)
 	if err != nil {
@@ -586,11 +681,39 @@ func (s *SQLiteStore) FindingsByType(ctx context.Context, ft model.FindingType, 
 	return scanFindings(rows)
 }
 
+func (s *SQLiteStore) AllFindings(ctx context.Context, page model.Page) ([]model.Finding, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, type, severity, entity_ids, document_ids, section_ids, cluster_key, title, description, confidence_score, evidence_verified
+		FROM findings ORDER BY
+			CASE severity WHEN 'critical' THEN 0 WHEN 'warn' THEN 1 ELSE 2 END,
+			confidence_score DESC,
+			title ASC
+		LIMIT ? OFFSET ?`,
+		page.Limit, page.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	return scanFindings(rows)
+}
+
 func (s *SQLiteStore) SaveCoverage(ctx context.Context, coverages []model.Coverage) error {
 	for _, c := range coverages {
+		scopeType := c.ScopeType
+		if scopeType == "" {
+			scopeType = model.CoverageScopeLevel
+		}
+		scopeID := c.ScopeID
+		if scopeID == "" {
+			scopeID = firstNonEmpty(c.SectionID, c.DocumentID, c.LevelID)
+		}
+		scopeLabel := c.ScopeLabel
+		if scopeLabel == "" {
+			scopeLabel = scopeID
+		}
 		_, err := s.db.ExecContext(ctx,
-			`INSERT OR REPLACE INTO trace_coverage (id, level_id, total_entities, traced_entities, coverage_pct, computed_at)
-			VALUES (?,?,?,?,?,datetime('now'))`, c.ID, c.LevelID, c.TotalEntities, c.TracedEntities, c.CoveragePct)
+			`INSERT OR REPLACE INTO trace_coverage (id, scope_type, scope_id, scope_label, level_id, document_id, section_id, total_entities, traced_entities, coverage_pct, computed_at)
+			VALUES (?,?,?,?,?,?,?,?,?,?,datetime('now'))`, c.ID, string(scopeType), scopeID, scopeLabel, c.LevelID, nullableString(c.DocumentID), nullableString(c.SectionID), c.TotalEntities, c.TracedEntities, c.CoveragePct)
 		if err != nil {
 			return fmt.Errorf("save coverage %s: %w", c.ID, err)
 		}
@@ -598,22 +721,34 @@ func (s *SQLiteStore) SaveCoverage(ctx context.Context, coverages []model.Covera
 	return nil
 }
 
+func (s *SQLiteStore) ClearCoverage(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM trace_coverage`)
+	return err
+}
+
 func (s *SQLiteStore) CoverageByLevel(ctx context.Context) ([]model.Coverage, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, level_id, total_entities, traced_entities, coverage_pct FROM trace_coverage`)
+		`SELECT id, scope_type, scope_id, scope_label, level_id, document_id, section_id, total_entities, traced_entities, coverage_pct
+		FROM trace_coverage WHERE scope_type = 'level' ORDER BY level_id`)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = rows.Close() }()
-	var result []model.Coverage
-	for rows.Next() {
-		var c model.Coverage
-		if err := rows.Scan(&c.ID, &c.LevelID, &c.TotalEntities, &c.TracedEntities, &c.CoveragePct); err != nil {
-			return nil, err
-		}
-		result = append(result, c)
+	return scanCoverage(rows)
+}
+
+func (s *SQLiteStore) AllCoverage(ctx context.Context) ([]model.Coverage, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, scope_type, scope_id, scope_label, level_id, document_id, section_id, total_entities, traced_entities, coverage_pct
+		FROM trace_coverage ORDER BY
+			CASE scope_type WHEN 'level' THEN 0 WHEN 'document' THEN 1 ELSE 2 END,
+			coverage_pct ASC,
+			scope_label ASC`)
+	if err != nil {
+		return nil, err
 	}
-	return result, rows.Err()
+	defer func() { _ = rows.Close() }()
+	return scanCoverage(rows)
 }
 
 func (s *SQLiteStore) SavePipelineState(ctx context.Context, state model.PipelineState) error {
@@ -898,7 +1033,10 @@ func scanFindings(rows *sql.Rows) ([]model.Finding, error) {
 		var f model.Finding
 		var ftype, severity string
 		var entityIDsJSON sql.NullString
-		if err := rows.Scan(&f.ID, &ftype, &severity, &entityIDsJSON, &f.Title, &f.Description, &f.ConfidenceScore, &f.EvidenceVerified); err != nil {
+		var documentIDsJSON sql.NullString
+		var sectionIDsJSON sql.NullString
+		var clusterKey sql.NullString
+		if err := rows.Scan(&f.ID, &ftype, &severity, &entityIDsJSON, &documentIDsJSON, &sectionIDsJSON, &clusterKey, &f.Title, &f.Description, &f.ConfidenceScore, &f.EvidenceVerified); err != nil {
 			return nil, err
 		}
 		f.Type = model.FindingType(ftype)
@@ -906,7 +1044,46 @@ func scanFindings(rows *sql.Rows) ([]model.Finding, error) {
 		if entityIDsJSON.Valid {
 			_ = json.Unmarshal([]byte(entityIDsJSON.String), &f.EntityIDs)
 		}
+		if documentIDsJSON.Valid {
+			_ = json.Unmarshal([]byte(documentIDsJSON.String), &f.DocumentIDs)
+		}
+		if sectionIDsJSON.Valid {
+			_ = json.Unmarshal([]byte(sectionIDsJSON.String), &f.SectionIDs)
+		}
+		if clusterKey.Valid {
+			f.ClusterKey = clusterKey.String
+		}
 		findings = append(findings, f)
 	}
 	return findings, rows.Err()
+}
+
+func scanCoverage(rows *sql.Rows) ([]model.Coverage, error) {
+	var result []model.Coverage
+	for rows.Next() {
+		var c model.Coverage
+		var scopeType string
+		var scopeID sql.NullString
+		var scopeLabel sql.NullString
+		var documentID sql.NullString
+		var sectionID sql.NullString
+		if err := rows.Scan(&c.ID, &scopeType, &scopeID, &scopeLabel, &c.LevelID, &documentID, &sectionID, &c.TotalEntities, &c.TracedEntities, &c.CoveragePct); err != nil {
+			return nil, err
+		}
+		c.ScopeType = model.CoverageScope(scopeType)
+		if scopeID.Valid {
+			c.ScopeID = scopeID.String
+		}
+		if scopeLabel.Valid {
+			c.ScopeLabel = scopeLabel.String
+		}
+		if documentID.Valid {
+			c.DocumentID = documentID.String
+		}
+		if sectionID.Valid {
+			c.SectionID = sectionID.String
+		}
+		result = append(result, c)
+	}
+	return result, rows.Err()
 }

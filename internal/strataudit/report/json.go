@@ -97,17 +97,26 @@ type FindingReport struct {
 	ID          string   `json:"id"`
 	Type        string   `json:"type"`
 	Severity    string   `json:"severity"`
+	ClusterKey  string   `json:"cluster_key,omitempty"`
 	Title       string   `json:"title"`
 	Description string   `json:"description,omitempty"`
 	EntityIDs   []string `json:"entity_ids"`
+	DocumentIDs []string `json:"document_ids,omitempty"`
+	SectionIDs  []string `json:"section_ids,omitempty"`
 	Confidence  float64  `json:"confidence"`
 }
 
 type CoverageReport struct {
-	Level  string  `json:"level"`
-	Total  int     `json:"total"`
-	Traced int     `json:"traced"`
-	Pct    float64 `json:"pct"`
+	ScopeType  string  `json:"scope_type"`
+	ScopeID    string  `json:"scope_id"`
+	ScopeLabel string  `json:"scope_label"`
+	LevelID    string  `json:"level_id,omitempty"`
+	DocumentID string  `json:"document_id,omitempty"`
+	SectionID  string  `json:"section_id,omitempty"`
+	Level      string  `json:"level,omitempty"`
+	Total      int     `json:"total"`
+	Traced     int     `json:"traced"`
+	Pct        float64 `json:"pct"`
 }
 
 type SummaryReport struct {

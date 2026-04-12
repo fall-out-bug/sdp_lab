@@ -3,18 +3,22 @@ package model
 type FindingType string
 
 const (
-	FindingAlignment        FindingType = "alignment"
-	FindingStrongTrace      FindingType = "strong_trace"
-	FindingCoverage         FindingType = "coverage"
-	FindingGap              FindingType = "gap"
-	FindingOrphan           FindingType = "orphan"
-	FindingUnknownRationale FindingType = "unknown_rationale"
-	FindingAmbiguousTrace   FindingType = "ambiguous_trace"
-	FindingConflict         FindingType = "conflict"
-	FindingWeakLink         FindingType = "weak_link"
-	FindingStale            FindingType = "stale"
-	FindingInferredStrategy FindingType = "inferred_strategy"
-	FindingShadowStrategy   FindingType = "shadow_strategy"
+	FindingAlignment             FindingType = "alignment"
+	FindingStrongTrace           FindingType = "strong_trace"
+	FindingCoverage              FindingType = "coverage"
+	FindingGap                   FindingType = "gap"
+	FindingOrphan                FindingType = "orphan"
+	FindingStrategicGapCluster   FindingType = "strategic_gap_cluster"
+	FindingOrphanCluster         FindingType = "orphan_cluster"
+	FindingCorpusQualityCluster  FindingType = "corpus_quality_cluster"
+	FindingTraceAmbiguityCluster FindingType = "trace_ambiguity_cluster"
+	FindingUnknownRationale      FindingType = "unknown_rationale"
+	FindingAmbiguousTrace        FindingType = "ambiguous_trace"
+	FindingConflict              FindingType = "conflict"
+	FindingWeakLink              FindingType = "weak_link"
+	FindingStale                 FindingType = "stale"
+	FindingInferredStrategy      FindingType = "inferred_strategy"
+	FindingShadowStrategy        FindingType = "shadow_strategy"
 )
 
 type Severity string
@@ -55,6 +59,9 @@ type Finding struct {
 	Type               FindingType
 	Severity           Severity
 	EntityIDs          []string
+	DocumentIDs        []string
+	SectionIDs         []string
+	ClusterKey         string
 	Title              string
 	Description        string
 	Recommendation     string
@@ -86,7 +93,8 @@ func (f *Finding) Tier() ConfidenceTier {
 // Structural findings (gap, orphan, stale, coverage) get 1.0 automatically.
 func (f *Finding) ComputeConfidence() float64 {
 	switch f.Type {
-	case FindingGap, FindingOrphan, FindingStale, FindingCoverage, FindingAmbiguousTrace:
+	case FindingGap, FindingOrphan, FindingStale, FindingCoverage, FindingAmbiguousTrace,
+		FindingStrategicGapCluster, FindingOrphanCluster, FindingCorpusQualityCluster, FindingTraceAmbiguityCluster:
 		f.ConfidenceScore = 1.0
 		return 1.0
 	}

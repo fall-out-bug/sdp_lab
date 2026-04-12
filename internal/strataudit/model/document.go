@@ -24,12 +24,25 @@ type Document struct {
 
 type Coverage struct {
 	ID             string
+	ScopeType      CoverageScope
+	ScopeID        string
+	ScopeLabel     string
 	LevelID        string
+	DocumentID     string
+	SectionID      string
 	TotalEntities  int
 	TracedEntities int
 	CoveragePct    float64
 	ComputedAt     time.Time
 }
+
+type CoverageScope string
+
+const (
+	CoverageScopeLevel    CoverageScope = "level"
+	CoverageScopeDocument CoverageScope = "document"
+	CoverageScopeSection  CoverageScope = "section"
+)
 
 type PipelineState struct {
 	ID          string

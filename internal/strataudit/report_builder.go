@@ -43,40 +43,37 @@ func BuildReport(ctx context.Context, cfg *Config, store *SQLiteStore) (*report.
 		})
 	}
 
-	coverages, _ := store.CoverageByLevel(ctx)
+	coverages, _ := store.AllCoverage(ctx)
 	var avgCov float64
+	var levelCoverageCount int
 	for _, c := range coverages {
 		rpt.Coverage = append(rpt.Coverage, report.CoverageReport{
+			ScopeType: string(c.ScopeType), ScopeID: c.ScopeID, ScopeLabel: c.ScopeLabel,
+			LevelID: c.LevelID, DocumentID: c.DocumentID, SectionID: c.SectionID,
 			Level: c.LevelID, Total: c.TotalEntities, Traced: c.TracedEntities, Pct: c.CoveragePct,
 		})
-		avgCov += c.CoveragePct
+		if c.ScopeType == model.CoverageScopeLevel {
+			avgCov += c.CoveragePct
+			levelCoverageCount++
+		}
 	}
-	if len(coverages) > 0 {
-		avgCov /= float64(len(coverages))
-	}
-
-	allTypes := []model.FindingType{
-		model.FindingGap, model.FindingOrphan, model.FindingAlignment,
-		model.FindingCoverage, model.FindingConflict, model.FindingUnknownRationale,
-		model.FindingWeakLink, model.FindingStale, model.FindingInferredStrategy,
-		model.FindingShadowStrategy, model.FindingStrongTrace, model.FindingAmbiguousTrace,
+	if levelCoverageCount > 0 {
+		avgCov /= float64(levelCoverageCount)
 	}
 
 	var crit, warn int
-	for _, ft := range allTypes {
-		findings, _ := store.FindingsByType(ctx, ft, model.Page{Limit: 10000})
-		for _, f := range findings {
-			rpt.Findings = append(rpt.Findings, report.FindingReport{
-				ID: f.ID, Type: string(f.Type), Severity: string(f.Severity),
-				Title: f.Title, Description: f.Description,
-				EntityIDs: f.EntityIDs, Confidence: f.ConfidenceScore,
-			})
-			switch f.Severity {
-			case model.SeverityCritical:
-				crit++
-			case model.SeverityWarn:
-				warn++
-			}
+	findings, _ := store.AllFindings(ctx, model.Page{Limit: 10000})
+	for _, f := range findings {
+		rpt.Findings = append(rpt.Findings, report.FindingReport{
+			ID: f.ID, Type: string(f.Type), Severity: string(f.Severity), ClusterKey: f.ClusterKey,
+			Title: f.Title, Description: f.Description,
+			EntityIDs: f.EntityIDs, DocumentIDs: f.DocumentIDs, SectionIDs: f.SectionIDs, Confidence: f.ConfidenceScore,
+		})
+		switch f.Severity {
+		case model.SeverityCritical:
+			crit++
+		case model.SeverityWarn:
+			warn++
 		}
 	}
 
