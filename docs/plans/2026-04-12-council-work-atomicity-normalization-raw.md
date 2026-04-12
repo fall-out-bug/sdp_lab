@@ -1,171 +1,171 @@
 # LLM Council Raw Log: SDP Work Atomicity Normalization
 
 **Date:** 2026-04-12
+**Round:** 1 blind review
 **Subject:** [2026-04-12-work-atomicity-normalization.md](2026-04-12-work-atomicity-normalization.md)
-**Mode:** Round 1 blind review
+**Status:** Protocol-compliant council rerun with the intended mixed model roster
 
 ---
 
-## Architect — `gpt-5.4`
+## Model Roster
 
-**Verdict:** CONDITIONAL  
+| Role | Model | Runtime | Status |
+|---|---|---|---|
+| Architect | `gpt-5.4` | `codex-rescue` via Claude/Codex companion | responded |
+| Critic | `google/gemini-3.1-pro-preview` | OpenRouter | responded |
+| Technician | `deepseek/deepseek-v3.2` | OpenRouter | responded |
+| Philosopher | `moonshotai/kimi-k2.5` | OpenRouter | responded |
+| Pragmatist | `minimax/minimax-m2.7` | OpenRouter | responded |
+| Engineer | `xiaomi/mimo-v2-pro` | OpenRouter | responded |
+
+---
+
+## Architect — `gpt-5.4` via `codex-rescue`
+
+**Verdict:** CONDITIONAL ACCEPT  
 **Domain veto:** NO
 
-Key points:
+Main points:
 
-- critical: no governance for reshaping live work
-- major: ambiguity moved, not eliminated, in findings handling
-- major: parent workstream vs feature boundary under-specified
-- major: adoption plan incomplete and operationally risky
-- minor: concurrency rule too weak for real execution
+- Option B is the correct direction
+- current operational spec is not tight enough to adopt
+- strongest issues:
+  - unresolved isomorphism between `Feature` and `parent workstream`
+  - findings routing is still heuristic, not rule
+  - no migration path or phased rollout
+  - undefined `primary` boundary conditions
+  - no rollback/arbitration for `leaf -> parent`
 
-Requested changes:
+Key question:
 
-- add governance matrix for who may create parent WS and split live leaf WS
-- add escalation path for disputed classification
-- add migration plan and cutover order
-- tighten feature vs parent boundary
-- add execution-state rules for locking and stale invalidation
-
-Question:
-
-- who exactly may convert an in-flight leaf into a parent, and how is the
-  active primary Beads issue migrated without concurrent stale execution?
+- who has override authority for parent completion, and how is override
+  normalization prevented?
 
 ---
 
-## Critic — `gpt-5.2`
+## Critic — `google/gemini-3.1-pro-preview`
 
-**Verdict:** CONDITIONAL  
+**Verdict:** REJECT IN CURRENT FORM  
 **Domain veto:** YES
 
-Key points:
+Main points:
 
-- critical: parent completion override is an unbounded governance escape hatch
-- major: findings triage rules are subjective and gameable
-- major: “one primary execution issue per leaf” is not enforceable as written
-- major: leaf atomic contract definition is not operationalizable
-- minor: migration plan missing
+- process integrity veto
+- parent completion override is a fatal governance loophole
+- remediation routing remains subjective and gameable
+- mid-flight leaf-to-parent conversion can corrupt state
+- no mechanism prevents “zombie leaf” endless sequential remediation
 
-Risks called out:
+Key question:
 
-- process theater through “override with rationale”
-- scope creep hidden under “same leaf”
-- endless retries turning a leaf into a bucket
-- mapping ambiguity between helper and canonical sources
-- no authority or hard triggers for `leaf -> parent`
-
-Question:
-
-- what exact enforcement design prevents early parent closure and guarantees a
-  single primary execution issue per leaf?
+- how does the system mechanically stop endless sequential Beads issues from
+  turning one leaf into hidden parent scope?
 
 ---
 
-## Technician — `gpt-5.3-codex`
+## Technician — `deepseek/deepseek-v3.2`
 
-**Verdict:** CONDITIONAL  
-**Domain veto:** YES
-
-Key points:
-
-- critical: no migration protocol, only end-state rules
-- critical: “one primary execution issue per leaf” is not implementable as
-  written
-- major: `ws_kind` alone is insufficient to model a tree
-- major: findings split criteria are too subjective
-- major: runtime transition behavior is missing
-
-Technically viable parts:
-
-- leaf-only executability
-- blocking dispatch of parent workstreams
-- keeping findings in Beads by default
-- retiring “workstream = always atomic”
-
-Question:
-
-- can the next revision provide schema changes, backfill algorithm, dispatch
-  lock semantics, and phased validator rollout with zero orphaned active work?
-
----
-
-## Philosopher — `gpt-5.4-mini`
-
-**Verdict:** CONDITIONAL  
+**Verdict:** technically feasible, high migration cost, underspecified runtime  
 **Domain veto:** NO
 
-Key points:
+Main points:
 
-- major: leaf atomicity is reclassified, not normalized, if kind can change
-  after publication
-- major: feature/workstream ownership remains underspecified
-- major: findings/remediation rules are still judgment calls dressed as policy
-- major: parent completion override is a loophole
-- minor: external analogies are rhetorical, not validating evidence
+- no technical impossibility
+- but serious underspecification:
+  - state transitions and locking
+  - derived parent completion runtime
+  - validator/runtime split
+  - historical mapping ambiguity
+  - missing migration path
 
-Conceptual support:
+Key question:
 
-- separation of concerns is the right axis
-- one primary execution issue per leaf is clean
-- in-slice remediation vs new-slice discovery is the right UX boundary
-
-Question:
-
-- what exact creation-time rule determines `parent` vs `leaf`, and can a
-  workstream kind remain stable once published?
+- what exact mechanism enforces one primary execution issue per leaf and manages
+  atomic `leaf -> parent` conversion in a multi-actor system?
 
 ---
 
-## Pragmatist — `gpt-5.3-codex-spark`
+## Philosopher — `moonshotai/kimi-k2.5`
 
-**Verdict:** CONDITIONAL  
-**Domain veto:** NO
+**Verdict:** REJECT  
+**Protocol veto authority:** none for this role
 
-Key points:
+Main points:
 
-- critical: no transition plan for existing WS/Beads state
-- major: feature vs parent WS boundary not formalized
-- major: findings rules are not machine-checkable
-- major: shipping blast radius is too large for one step
-- minor: “one primary issue per leaf” is too rigid without retry lifecycle
+- the memo may rename ambiguity instead of removing it
+- `atomicity` is being conflated with `dispatchability`
+- the model is not truly recursive, just a rigid two-tier split
+- a leaf with repeated execution episodes is not really atomic
+- `Feature` and `parent WS` may be redundant containers
+- Workstream primacy may already be fiction if only Beads truly execute
+
+Key question:
+
+- when a leaf accumulates repeated issue history, who has authority to declare
+  it was never atomic in the first place?
+
+---
+
+## Pragmatist — `minimax/minimax-m2.7`
+
+**Verdict:** Option B is over-engineered for the stated problem  
+**Protocol veto authority:** none for this role
+
+Main points:
+
+- the memo solves classification, not execution
+- docs normalization and findings rules should ship first
+- tooling and schema migration should be deferred
+- `ws_kind` and invariants are too heavy as a first move
+- parent WS may not deserve first-class schema treatment yet
 
 What should ship first:
 
-- optional `ws_kind` with deduced default and warning mode
-- runtime guard that blocks dispatch of parents
-- migration script and report on current repo state
+- revised `docs/TERMS.md`
+- standalone findings/remediation rules
+- one-page dispatcher guide
 
-Question:
+Key question:
 
-- can the repo survive a one-sprint migration with no validator hard-fail and
-  with automatic reporting/backfill?
+- if humans can still mis-declare `leaf`, what is the real enforcement
+  mechanism?
 
 ---
 
-## Engineer — `gpt-5.4`
+## Engineer — `xiaomi/mimo-v2-pro`
 
-**Verdict:** CONDITIONAL  
+**Verdict:** REJECT  
 **Domain veto:** YES
 
-Key points:
+Main points:
 
-- critical: undefined `primary execution issue`
-- critical: `ws_kind` is not enough to represent a tree
-- major: findings triage is still human judgment, not policy
-- major: leaf-to-parent reshaping has no migration protocol
-- major: anti-double-dispatch rule needs dispatcher or Beads-side enforcement,
-  not validator-only enforcement
+- current memo lacks exact machine-readable schema
+- no exact validator logic
+- mapping file semantics undefined
+- migration/backfill missing
+- findings policy still too vague to encode
 
-Concretely implementable parts:
+Concretely implementable pieces:
 
-- add `ws_kind` and block dispatch of parents
-- update docs/prompts so only leaf WS is executable atomic task
-- require executable mappings to point only to leaf WS
-- require canonical parent/child field in workstream metadata
-- keep findings in Beads by default
+- `ws_kind: parent|leaf`
+- block dispatch of parent WS
+- require executable mappings to point only at leaf WS
+- require canonical parent/child field
 
-Question:
+Key question:
 
-- what exact machine-readable schema handles parent/child links, issue roles,
-  and live reshaping without breaking mappings, evidence, and PR traceability?
+- what exact frontmatter and mapping schema implements Option B without forcing
+  implementers to invent the missing details?
+
+---
+
+## Raw Notes
+
+This round intentionally stopped after blind review.
+
+Reason:
+
+- the draft is missing explicit contracts, not merely suffering from
+  perspective disagreement
+- further rebuttal on the same memo would be lower-signal than revising the
+  spec itself

@@ -1,281 +1,315 @@
 # LLM Council Report: SDP Work Atomicity Normalization
 
 **Date:** 2026-04-12
-**Rounds:** 1
+**Rounds:** 1 of 5
 **Subject:** [2026-04-12-work-atomicity-normalization.md](2026-04-12-work-atomicity-normalization.md)
-**Consensus:** PARTIAL
+**Consensus:** NOT REACHED
 **Decision Owner:** PENDING
+**Status:** This report supersedes the earlier invalid local-only pseudo-council.
 
 ---
 
 ## Models
 
-| Role | Model |
-|---|---|
-| Architect | `gpt-5.4` |
-| Critic | `gpt-5.2` |
-| Technician | `gpt-5.3-codex` |
-| Philosopher | `gpt-5.4-mini` |
-| Pragmatist | `gpt-5.3-codex-spark` |
-| Engineer | `gpt-5.4` |
+| Role | Model | Runtime |
+|---|---|---|
+| Architect | `gpt-5.4` via `codex-rescue` | Codex companion through `claude --agent codex-rescue` |
+| Critic | `google/gemini-3.1-pro-preview` | OpenRouter |
+| Technician | `deepseek/deepseek-v3.2` | OpenRouter |
+| Philosopher | `moonshotai/kimi-k2.5` | OpenRouter |
+| Pragmatist | `minimax/minimax-m2.7` | OpenRouter |
+| Engineer | `xiaomi/mimo-v2-pro` | OpenRouter |
 
-Note: current tool inventory exposed 5 distinct model SKUs, so `gpt-5.4` was
-reused for `Architect` and `Engineer`.
+All 6 roles responded.
 
 ---
 
 ## Executive Result
 
-The council did **not** reject the direction outright.
+This was a proper blind review round with the intended model roster.
 
-But it also did **not** approve the memo as a canonical SDP model.
+The result is harsher than the invalid draft council was:
 
-Final round state:
+- `Architect`: conditional accept
+- `Technician`: technically feasible, but underspecified
+- `Critic`: reject in current form
+- `Philosopher`: reject
+- `Pragmatist`: over-engineered for the stated problem
+- `Engineer`: reject
 
-- `0/6` unconditional support
-- `6/6` conditional support
-- `3` domain vetoes
-  - `Critic`
-  - `Technician`
-  - `Engineer`
+Protocol note:
 
-The common pattern was consistent:
+- `Critic` and `Engineer` raised formal domain vetoes
+- `Philosopher` used veto language in content, but that role has no protocol
+  veto authority
+- `Pragmatist` has no protocol veto authority either
 
-1. the diagnosis is right;
-2. Option B is the strongest direction;
-3. the memo is still one layer too abstract to adopt safely.
+Council conclusion:
+
+1. the drift diagnosis is correct;
+2. the current memo is **not adoption-ready**;
+3. the council did **not** converge on a single final normalization strategy.
 
 ---
 
-## Council Consensus
+## Consensus
 
-### C1: The current problem is real and structural
-
-Consensus.
-
-The council agreed that SDP has a genuine control-flow drift:
-
-- `workstream` is described as atomic in some sources
-- `beads issue` is the live execution atom in others
-- findings/remediation have no stable normalization rule
-
-This is not a wording cleanup. It is a model conflict.
-
-### C2: Option B is the right direction
-
-Consensus with conditions.
-
-The strongest supported direction remains:
-
-- keep `Feature` as the outcome container
-- keep `workstream` as the planning/contract layer
-- keep `Beads` as the live execution graph
-- make only executable `leaf workstream` dispatchable
-
-No role argued that the current mixed model should remain canonical.
-
-### C3: Parent workstreams must be non-dispatchable
+### C1: The current SDP model really is split
 
 Consensus.
 
-This was the cleanest and least disputed guardrail in the memo.
+All roles agreed that the repo currently mixes incompatible meanings:
 
-### C4: Findings should stay in Beads by default
+- `workstream` as atomic task
+- `workstream` as contract only
+- `beads issue` as real execution atom
 
-Consensus with conditions.
+No role defended the status quo as healthy.
 
-The council agreed that review/CI/drift/QA findings should usually stay inside
-the current leaf workstream unless they clearly create a new independent slice.
+### C2: The current memo is too abstract to adopt
 
-However, the current memo does not define that split strongly enough.
+Consensus.
+
+Every role found the same structural gap:
+
+- the memo states end-state rules
+- but not the machine-readable schema, migration protocol, or enforcement model
+
+This was the dominant blocker.
+
+### C3: The findings/remediation rules are still too subjective
+
+Consensus.
+
+Every role attacked some version of the same problem:
+
+- “scope boundary unchanged”
+- “new acceptance contract”
+- “problem re-shaping”
+- “execution quality”
+
+These are useful human intuitions, but not yet enforceable policy.
+
+### C4: `override with rationale` is unacceptable in current form
+
+Strong consensus.
+
+This clause was treated as a governance escape hatch, not as a harmless safety
+valve.
+
+Default council recommendation: remove it from the next revision.
+
+---
+
+## Split
+
+### S1: Is Option B the right end-state, or is it over-engineered?
+
+No consensus.
+
+**Architect + Technician**: Option B is directionally right.
+
+- keep `Feature`
+- keep `workstream`
+- keep `Beads`
+- make only executable leaf workstreams dispatchable
+
+**Pragmatist**: Option B solves the wrong layer first.
+
+- ship docs normalization and findings rules first
+- defer schema migration and tooling
+
+**Philosopher**: Option B preserves the dualism instead of resolving it.
+
+- if only Beads issues execute, Workstream primacy may already be fiction
+
+**Engineer + Critic**: direction is plausible, but current memo is too
+underspecified to endorse as an engineering spec.
+
+### S2: Is `parent workstream` a real first-class concept or a shadow feature?
+
+No consensus.
+
+This was a recurring structural objection:
+
+- the memo does not yet prove a hard boundary between `Feature` and `parent WS`
+- several roles argued that parent WS could easily become “feature in disguise”
 
 ---
 
 ## Blocking Issues
 
-### I1: No migration protocol for existing WS/Beads state
+### I1: No machine-readable tree schema
 
 **Severity:** CRITICAL  
-**Raised by:** Pragmatist, Technician, Architect, Critic
+**Raised by:** Technician, Engineer, Architect
 
-The memo defines an end-state but not a safe transition:
+`ws_kind: parent|leaf` is not enough.
 
-- no backfill strategy for current backlog files
-- no compatibility window
-- no phased validator rollout
-- no guarantee that active work is not stranded during cutover
+Missing:
 
-This was the most repeated implementation objection.
+- `parent_ws_id` or equivalent canonical linkage
+- child ordering rules
+- cycle prevention
+- completion derivation rules
 
 ### I2: `primary execution issue` is undefined
 
 **Severity:** CRITICAL  
-**Raised by:** Technician, Critic, Engineer
+**Raised by:** Critic, Engineer, Technician
 
-The memo makes this the core live invariant, but never defines:
+The memo makes this the core invariant without defining:
 
-- where `primary` is stored
+- where `primary` lives
 - how it differs from `finding` or `historical`
-- how concurrent claims are prevented
-- how stale or reopened issues are handled
+- how it is assigned
+- how double-dispatch is blocked
+- how retries/reopens interact with the invariant
 
-Without this, “one primary execution issue per leaf” is a slogan, not an
-enforceable rule.
-
-### I3: `ws_kind` is not enough to model a tree
+### I3: No migration protocol
 
 **Severity:** CRITICAL  
-**Raised by:** Technician, Engineer
+**Raised by:** Pragmatist, Technician, Architect, Engineer
 
-`parent|leaf` alone is insufficient. The council wants explicit tree schema:
+The memo lists required repo changes but no cutover design:
 
-- `parent_ws_id` or equivalent authoritative linkage
-- child ordering rules
-- cycle prevention
-- derived completion semantics from real child links, not prose
+- no backfill plan for current WS files
+- no warn-first vs fail-later rollout
+- no compatibility window
+- no sequencing across docs, prompts, validators, and queue tooling
 
-### I4: Findings triage is still subjective
+### I4: Findings triage is not operational policy yet
 
 **Severity:** MAJOR  
 **Raised by:** all roles
 
-Phrases such as:
+The current rules still depend on judgment calls and will recreate drift during
+triage even if the nouns are cleaned up.
 
-- “scope boundary unchanged”
-- “new acceptance contract”
-- “can be reviewed independently”
-
-are directionally correct but not operationally strong enough for automation or
-consistent human use.
-
-### I5: Governance for reshaping live work is missing
+### I5: Live reshaping governance is undefined
 
 **Severity:** MAJOR  
-**Raised by:** Architect, Technician, Engineer
+**Raised by:** Architect, Technician, Engineer, Critic
 
 The memo allows `leaf -> parent` reshaping but does not define:
 
-- who has authority to do it
+- who may trigger it
 - who approves it
-- who migrates the active issue and mappings
-- how concurrent execution on the stale leaf is blocked
+- what happens to the active Beads issue
+- how traceability, PR linkage, and evidence survive the transition
+- how stale execution against the old leaf is invalidated
 
-### I6: Parent completion override is a loophole
+### I6: Parent completion override is a governance hole
 
 **Severity:** CRITICAL  
-**Raised by:** Critic, Philosopher, Engineer
+**Raised by:** Critic, Philosopher, Engineer, Architect
 
-The clause:
-
-> parent completion is derived from child completion unless explicitly
-> overridden with rationale
-
-was treated as a governance escape hatch.
-
-Council conclusion:
-
-- this should not ship in its current form
-- if any override exists at all, it needs hard constraints, explicit authority,
-  and auditable evidence
-
-### I7: Feature vs parent workstream boundary is still underspecified
-
-**Severity:** MAJOR  
-**Raised by:** Architect, Philosopher, Pragmatist
-
-The council accepted the direction but wants a hard test for:
-
-- when decomposition belongs under a `Feature`
-- when a `parent workstream` is legitimate
-- how parent acceptance differs from feature acceptance
-
-Without this, parent WS risks becoming a shadow feature.
+The council treated this as a bypass channel for process theater.
 
 ---
 
-## Minority And Role-Specific Pressure
+## Role Summaries
 
-### Critic veto
+### Architect
 
-The memo still contains too many governance loopholes:
+Directionally positive on Option B, but blocked on:
 
-- parent completion override
-- fuzzy findings triage
-- undefined `primary`
-- unclear canonical source for mappings
+- no governance for reshaping live work
+- no hard feature vs parent boundary
+- no migration plan
 
-### Technician veto
+### Critic
 
-The memo is not machine-enforceable yet:
+Hardest negative review.
 
-- no schema for parent/child links
-- no schema for issue role
-- no migration protocol
-- no concurrency/dispatch semantics
+Main attack:
 
-### Engineer veto
+- parent completion override destroys the trust chain
+- findings triage is gameable
+- “single primary issue” is not enforceable as written
 
-The proposal is implementable only after narrowing:
+### Technician
 
-- define exact metadata fields
-- define exact issue-role model
-- define exact reshaping protocol
-- stop relying on prose where validators need fields
+No technical-impossibility veto, but very strong execution warning.
+
+Main attack:
+
+- state transitions, locks, and parent completion are unspecified state-machine
+  behavior, not small details
+
+### Philosopher
+
+The strongest conceptual challenge.
+
+Main attack:
+
+- the memo may be renaming ambiguity instead of removing it
+- `atomicity` and `dispatchability` are being conflated
+- `Feature` and `parent WS` may be redundant containers
+
+### Pragmatist
+
+The strongest scope-pressure review.
+
+Main attack:
+
+- the memo tries to ship docs + schema + validators + mapping rules together
+- a smaller normalization should land first
+
+### Engineer
+
+Strong implementation-blocker critique.
+
+Main attack:
+
+- no exact schema
+- no validator algorithm
+- no exact mapping semantics
+- no migration/backfill spec
 
 ---
 
 ## Council Recommendation
 
-Do **not** adopt the memo as canonical SDP policy yet.
+Do **not** adopt the current memo as canonical SDP policy.
 
-Adopt a narrower next step:
+The next useful step is not another debate round on the same artifact.
 
-### R1: Keep Option B as the working direction
+It is **Revision 2** with explicit contracts.
 
-Do not reopen the larger strategic question unless new evidence appears.
-
-### R2: Produce Revision 2 of the memo around four missing contracts
+### Revision 2 must add
 
 1. **Tree schema**
-   - add explicit parent/child linkage
-   - define authoritative direction of linkage
-   - define completion derivation
+   - exact frontmatter fields
+   - canonical parent/child linkage
+   - max depth rule
+   - feature vs parent discriminator
 
 2. **Issue role model**
-   - define `primary | finding | historical`
-   - define live invariants
-   - define reopen/retry semantics
+   - exact role set such as `primary | finding | historical`
+   - exact location of that metadata
+   - exact rule for “one active primary issue per leaf”
 
 3. **Migration protocol**
-   - existing backlog backfill
+   - current backlog backfill
    - compatibility window
-   - warn-first then fail-later validator rollout
-   - cutover sequence for docs, prompts, validators, queue tooling
+   - warn-first rollout
+   - hard-enforcement cutover sequence
 
 4. **Reshaping governance**
-   - who may convert `leaf -> parent`
-   - approval path
-   - issue/mapping/evidence migration custody
+   - who may propose `leaf -> parent`
+   - who approves
+   - what happens to active issues and mappings
    - stale execution invalidation
 
-### R3: Remove or harden the parent completion override
+5. **Decision table for findings**
+   - unchanged acceptance → stay in leaf
+   - acceptance changed → new leaf
+   - oversized slice discovered mid-flight → reshape path
 
-Default recommendation: remove it from the next draft.
+### Revision 2 should remove
 
-### R4: Replace fuzzy findings guidance with a decision table
-
-The next draft should classify at least these cases:
-
-- CI/test/review break under unchanged acceptance
-- discovered adjacent scope with its own acceptance
-- oversized leaf detected before execution
-- oversized leaf detected mid-flight
-- urgent fix against active leaf
-
-### R5: Re-run council only after Revision 2 exists
-
-The main blockers are now concrete enough that another round on the same memo
-would mostly repeat itself.
+- `override with rationale` in its current form
 
 ---
 
@@ -283,18 +317,25 @@ would mostly repeat itself.
 
 Choose one:
 
-1. approve Revision 2 work on top of Option B
-2. reject Option B and revert to strict atomic workstream doctrine
-3. reject workstream primacy and move to Beads-first execution model
-4. defer and explicitly accept the current mixed model risk
+1. keep pursuing Option B, but only through Revision 2
+2. pivot to a narrower docs-and-dispatch normalization first
+3. reopen the larger ontology question and reconsider Beads-first execution
 
 ---
 
-## Round Convergence
+## Why The Council Stopped After One Round
 
-| Round | Active models | Unconditional support | Conditional support | Vetoes |
-|---|---:|---:|---:|---:|
-| 1 | 6/6 | 0 | 6 | 3 |
+This was a valid stop, not an abandoned process.
+
+Reason:
+
+- the blockers are not disagreements over subtle trade-offs
+- they are missing contracts in the artifact itself
+
+A rebuttal round on the same memo would mostly produce repetition.
+
+The right next input for council is a revised spec, not more argument on an
+underspecified one.
 
 ---
 
