@@ -41,7 +41,7 @@ import java.io.File
 	require.NoError(t, err)
 
 	// Verify metadata fields.
-	assert.Equal(t, "java/kotlin", result.Language)
+	assert.Equal(t, "java/kotlin/scala", result.Language)
 	assert.Equal(t, "regex", result.ExtractionMethod)
 	assert.InDelta(t, 0.70, result.AccuracyEstimate, 0.001)
 

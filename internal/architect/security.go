@@ -1,16 +1,13 @@
 package architect
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"math"
-	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
-	"unsafe"
 
 	"golang.org/x/sys/unix"
 )
@@ -367,11 +364,11 @@ func ScrubSecrets(text string) (scrubbed string, redactionCounts map[string]int,
 // that are high-entropy but are known non-secrets (integrity hashes, UUIDs, etc.).
 // Each pattern uses full anchors (^...$).
 var highEntropyAllowlist = []*regexp.Regexp{
-	regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`),           // UUID
-	regexp.MustCompile(`^sha(256|384|512)-[A-Za-z0-9+/=]+$`),                                          // integrity hash (SRI)
-	regexp.MustCompile(`^[0-9a-f]{64}$`),                                                               // SHA256 hex
-	regexp.MustCompile(`^[0-9a-f]{128}$`),                                                              // SHA512 hex
-	regexp.MustCompile(`^[0-9a-f]{32}$`),                                                               // MD5 hex
+	regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`), // UUID
+	regexp.MustCompile(`^sha(256|384|512)-[A-Za-z0-9+/=]+$`),                             // integrity hash (SRI)
+	regexp.MustCompile(`^[0-9a-f]{64}$`),                                                 // SHA256 hex
+	regexp.MustCompile(`^[0-9a-f]{128}$`),                                                // SHA512 hex
+	regexp.MustCompile(`^[0-9a-f]{32}$`),                                                 // MD5 hex
 }
 
 // HighEntropyCheck flags strings with Shannon entropy > 4.5 and length >= 20
@@ -497,33 +494,10 @@ func ValidatePath(rawPath, repoRoot string) (io.ReadSeekCloser, error) {
 	}
 
 	// Step 4: Get the real path from the open fd.
-	var realPath string
-	switch runtime.GOOS {
-	case "linux":
-		linkPath := fmt.Sprintf("/proc/self/fd/%d", fd)
-		realPath, err = os.Readlink(linkPath)
-		if err != nil {
-			unix.Close(fd)
-			return nil, fmt.Errorf("ValidatePath: readlink /proc/self/fd/%d: %w", fd, err)
-		}
-	case "darwin":
-		// macOS: use F_GETPATH via fcntl.
-		// Allocate a buffer for the path (MAXPATHLEN = 1024 on macOS).
-		buf := make([]byte, 1024)
-		_, _, errno := unix.Syscall(unix.SYS_FCNTL, uintptr(fd), unix.F_GETPATH, uintptr(unsafe.Pointer(&buf[0])))
-		if errno != 0 {
-			unix.Close(fd)
-			return nil, fmt.Errorf("ValidatePath: fcntl F_GETPATH fd=%d: %w", fd, errno)
-		}
-		// Buffer is a C string; find the null terminator.
-		n := bytes.IndexByte(buf, 0)
-		if n < 0 {
-			n = len(buf)
-		}
-		realPath = string(buf[:n])
-	default:
+	realPath, err := realPathFromFD(fd)
+	if err != nil {
 		unix.Close(fd)
-		return nil, fmt.Errorf("ValidatePath: unsupported OS %q", runtime.GOOS)
+		return nil, fmt.Errorf("ValidatePath: resolve real path from fd=%d: %w", fd, err)
 	}
 
 	// Step 5: Resolve the repo root.
@@ -547,4 +521,3 @@ func ValidatePath(rawPath, repoRoot string) (io.ReadSeekCloser, error) {
 
 	return vf, nil
 }
-

@@ -673,7 +673,20 @@ func EstimateTokens(profile *CodebaseProfile) int {
 
 // ContentHash returns a SHA-256 hash of the profile's canonical JSON.
 func (pa *ProfileAssembler) ContentHash(profile *CodebaseProfile) string {
-	data, err := json.Marshal(profile)
+	canonical := *profile
+	if profile.Metadata != nil {
+		canonical.Metadata = make(map[string]string, len(profile.Metadata))
+		for k, v := range profile.Metadata {
+			switch k {
+			case "assembly_duration_ms":
+				continue
+			default:
+				canonical.Metadata[k] = v
+			}
+		}
+	}
+
+	data, err := json.Marshal(&canonical)
 	if err != nil {
 		return ""
 	}
