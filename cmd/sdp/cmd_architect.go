@@ -50,6 +50,7 @@ func runArchitectAnalyze(args []string) {
 	tierFlag := fs.Int("tier", 2, "analysis depth: 1 (system), 2 (container), 3 (component)")
 	extractorsFlag := fs.String("extractors", "", "comma-separated list of extractors (default: all)")
 	formatFlag := fs.String("format", "json", "output format: json, text, mermaid")
+	sectionFlag := fs.String("section", "", "output only specific section: profile, report, model, diagrams, summary")
 	timeoutFlag := fs.Duration("timeout", 5*time.Minute, "total session timeout")
 	outputFlag := fs.String("output", "", "output file path (default: stdout)")
 	verboseFlag := fs.Bool("verbose", false, "show per-extractor timing")
@@ -137,8 +138,13 @@ func runArchitectAnalyze(args []string) {
 		reporter.Report(fmt.Sprintf("Generated %d diagrams", len(diagrams)))
 	}
 
-	// Write output
-	output := formatAnalyzeResult(result, diagrams, *formatFlag)
+	// Write output — apply section filter if requested
+	var output string
+	if *sectionFlag != "" {
+		output = formatSection(result, diagrams, *sectionFlag, *formatFlag)
+	} else {
+		output = formatAnalyzeResult(result, diagrams, *formatFlag)
+	}
 	if *outputFlag != "" {
 		if err := os.WriteFile(*outputFlag, []byte(output), 0644); err != nil {
 			log.Fatalf("failed to write output: %v", err)
@@ -529,6 +535,230 @@ func formatMermaidResult(diagrams []*c4.DiagramResult) string {
 	return strings.Join(parts, "\n\n")
 }
 
+// --- Section filtering ---
+
+// formatSection outputs a single section of the analysis result.
+// Supported sections: profile, report, model, diagrams, summary.
+func formatSection(result *architect.PipelineResult, diagrams []*c4.DiagramResult, section, format string) string {
+	switch strings.ToLower(section) {
+	case "profile":
+		return marshalOrText(result.Profile, format, func() string {
+			return formatProfileText(result.Profile)
+		})
+	case "report":
+		return marshalOrText(result.Report, format, func() string {
+			return formatReportText(result.Report)
+		})
+	case "model":
+		return marshalOrText(result.ReferenceModel, format, func() string {
+			return formatModelText(result.ReferenceModel)
+		})
+	case "diagrams":
+		if format == "json" {
+			type d struct {
+				Level     string `json:"level"`
+				Mermaid   string `json:"mermaid_code"`
+				NodeCount int    `json:"node_count"`
+				EdgeCount int    `json:"edge_count"`
+			}
+			out := make([]d, 0, len(diagrams))
+			for _, diag := range diagrams {
+				out = append(out, d{Level: diag.Level.String(), Mermaid: diag.MermaidCode, NodeCount: diag.NodeCount, EdgeCount: diag.EdgeCount})
+			}
+			data, _ := json.MarshalIndent(out, "", "  ")
+			return string(data)
+		}
+		return formatMermaidResult(diagrams)
+	case "summary":
+		return formatSummaryText(result, diagrams)
+	default:
+		return fmt.Sprintf("unknown section %q (valid: profile, report, model, diagrams, summary)", section)
+	}
+}
+
+func marshalOrText(v interface{}, format string, textFn func() string) string {
+	if format == "json" {
+		data, err := json.MarshalIndent(v, "", "  ")
+		if err != nil {
+			return fmt.Sprintf(`{"error": %q}`, err.Error())
+		}
+		return string(data)
+	}
+	return textFn()
+}
+
+func formatProfileText(p *architect.CodebaseProfile) string {
+	if p == nil {
+		return "(no profile)"
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "=== Codebase Profile: %s ===\n", p.Name)
+	fmt.Fprintf(&b, "Files: %d  |  LOC: %d  |  Languages: %d\n", p.Metrics.TotalFiles, p.Metrics.TotalLOC, p.Metrics.LanguagesCount)
+	fmt.Fprintf(&b, "Containers: %d  |  Components: %d  |  Specs: %d\n",
+		p.Metrics.ContainersDetected, p.Metrics.ComponentsDetected, p.Metrics.ContractsDiscovered)
+
+	if p.Dependencies.Language != "" {
+		fmt.Fprintf(&b, "\nPrimary language: %s\n", p.Dependencies.Language)
+	}
+	if len(p.Dependencies.Manifests) > 0 {
+		fmt.Fprintf(&b, "Manifests: %d\n", len(p.Dependencies.Manifests))
+		for _, m := range p.Dependencies.Manifests {
+			fmt.Fprintf(&b, "  - %s (%s, %d deps)\n", m.Path, m.Language, m.DepsCount)
+		}
+	}
+	if len(p.Infra.Containers) > 0 {
+		fmt.Fprintf(&b, "\nInfra containers: %d\n", len(p.Infra.Containers))
+		for _, c := range p.Infra.Containers {
+			img := c.Image
+			if img == "" {
+				img = c.Source
+			}
+			fmt.Fprintf(&b, "  - %s [%s] %s\n", c.Name, c.Type, img)
+		}
+	}
+	if len(p.Infra.ModuleBoundaries) > 0 {
+		fmt.Fprintf(&b, "\nModule boundaries:\n")
+		for _, mb := range p.Infra.ModuleBoundaries {
+			fmt.Fprintf(&b, "  %s (%s): %d children\n", mb.Path, mb.BuildSystem, len(mb.Children))
+			for _, ch := range mb.Children {
+				fmt.Fprintf(&b, "    - %s\n", ch)
+			}
+		}
+	}
+	if p.ImportGraph.Nodes > 0 {
+		fmt.Fprintf(&b, "\nImport graph: %d nodes, %d edges, %d clusters\n",
+			p.ImportGraph.Nodes, p.ImportGraph.Edges, len(p.ImportGraph.Clusters))
+		for _, cl := range p.ImportGraph.Clusters {
+			fmt.Fprintf(&b, "  cluster %s: %d pkgs, %d internal, %d external edges\n",
+				cl.ID, len(cl.Packages), cl.InternalEdges, cl.ExternalEdges)
+		}
+	}
+	return b.String()
+}
+
+func formatReportText(r *architect.ArchitectureReport) string {
+	if r == nil {
+		return "(no report)"
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "=== Architecture Report ===\n")
+	fmt.Fprintf(&b, "Repo: %s\n", r.RepoRoot)
+	fmt.Fprintf(&b, "Analyzed at: %s\n", r.AnalyzedAt.Format(time.RFC3339))
+	fmt.Fprintf(&b, "Duration: %.1fs\n", r.AnalysisDurationS)
+	if r.Languages.Primary != "" {
+		fmt.Fprintf(&b, "Primary language: %s\n", r.Languages.Primary)
+	}
+	if len(r.StyleHypothesis.Styles) > 0 {
+		fmt.Fprintf(&b, "Styles:\n")
+		for _, s := range r.StyleHypothesis.Styles {
+			fmt.Fprintf(&b, "  - %s (confidence: %.2f)\n", s.Style, s.Confidence)
+		}
+	}
+	if len(r.PatternsDetected) > 0 {
+		fmt.Fprintf(&b, "\nPatterns: %d\n", len(r.PatternsDetected))
+		for _, p := range r.PatternsDetected {
+			fmt.Fprintf(&b, "  - %s (confidence: %.2f)\n", p.Name, p.Confidence)
+		}
+	}
+	if len(r.Risks) > 0 {
+		fmt.Fprintf(&b, "\nRisks: %d\n", len(r.Risks))
+		for _, risk := range r.Risks {
+			fmt.Fprintf(&b, "  [%s] %s: %s\n", risk.Severity, risk.Category, risk.Description)
+		}
+	}
+	return b.String()
+}
+
+func formatModelText(m *architect.ReferenceModel) string {
+	if m == nil {
+		return "(no model)"
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "=== C4 Reference Model ===\n")
+	fmt.Fprintf(&b, "System: %s\n", m.System.Name)
+	fmt.Fprintf(&b, "State: %s  |  Version: %s\n", m.State, m.Version)
+
+	if len(m.Actors) > 0 {
+		fmt.Fprintf(&b, "\nActors: %d\n", len(m.Actors))
+		for _, a := range m.Actors {
+			fmt.Fprintf(&b, "  - %s: %s\n", a.ID, a.Description)
+		}
+	}
+	if len(m.ExternalSystems) > 0 {
+		fmt.Fprintf(&b, "\nExternal systems: %d\n", len(m.ExternalSystems))
+		for _, es := range m.ExternalSystems {
+			fmt.Fprintf(&b, "  - %s (%s): %s\n", es.ID, es.Technology, es.Description)
+		}
+	}
+
+	fmt.Fprintf(&b, "\nContainers: %d\n", len(m.Containers))
+	for _, c := range m.Containers {
+		fmt.Fprintf(&b, "  [%s] %s — %s (deploy: %s)\n", c.ID, c.Name, c.Technology, c.Deploy)
+		for _, comp := range c.Components {
+			fmt.Fprintf(&b, "    component: %s (%s) confidence=%.2f\n", comp.ID, comp.Path, comp.Confidence)
+		}
+	}
+
+	fmt.Fprintf(&b, "\nRelationships: %d\n", len(m.Relationships))
+	for _, r := range m.Relationships {
+		fmt.Fprintf(&b, "  %s -> %s: %s\n", r.From, r.To, r.Description)
+	}
+	return b.String()
+}
+
+func formatSummaryText(result *architect.PipelineResult, diagrams []*c4.DiagramResult) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "=== Architecture Summary ===\n")
+	fmt.Fprintf(&b, "Duration: %s\n\n", result.Duration.Round(time.Millisecond))
+
+	if p := result.Profile; p != nil {
+		fmt.Fprintf(&b, "Codebase: %s\n", p.Name)
+		fmt.Fprintf(&b, "  Files: %d  |  LOC: %d  |  Languages: %d\n",
+			p.Metrics.TotalFiles, p.Metrics.TotalLOC, p.Metrics.LanguagesCount)
+		if p.Dependencies.Language != "" {
+			fmt.Fprintf(&b, "  Primary: %s\n", p.Dependencies.Language)
+		}
+		fmt.Fprintf(&b, "  Deployment: %s\n", p.Infra.DeploymentType)
+		if len(p.Infra.ModuleBoundaries) > 0 {
+			total := 0
+			for _, mb := range p.Infra.ModuleBoundaries {
+				total += len(mb.Children)
+			}
+			fmt.Fprintf(&b, "  Modules: %d (across %d build files)\n", total, len(p.Infra.ModuleBoundaries))
+		}
+		if p.ImportGraph.Nodes > 0 {
+			fmt.Fprintf(&b, "  Import graph: %d nodes, %d edges, %d clusters\n",
+				p.ImportGraph.Nodes, p.ImportGraph.Edges, len(p.ImportGraph.Clusters))
+		}
+	}
+
+	if m := result.ReferenceModel; m != nil {
+		fmt.Fprintf(&b, "\nC4 Model: %s\n", m.System.Name)
+		fmt.Fprintf(&b, "  Containers: %d\n", len(m.Containers))
+		for _, c := range m.Containers {
+			compCount := len(c.Components)
+			fmt.Fprintf(&b, "    - %s (%s) [%d components]\n", c.Name, c.Technology, compCount)
+		}
+		fmt.Fprintf(&b, "  Relationships: %d\n", len(m.Relationships))
+		fmt.Fprintf(&b, "  Actors: %d  |  External systems: %d\n", len(m.Actors), len(m.ExternalSystems))
+	}
+
+	if len(diagrams) > 0 {
+		fmt.Fprintf(&b, "\nDiagrams: %d\n", len(diagrams))
+		for _, d := range diagrams {
+			fmt.Fprintf(&b, "  - %s: %d nodes, %d edges\n", d.Level, d.NodeCount, d.EdgeCount)
+		}
+	}
+
+	if len(result.Errors) > 0 {
+		fmt.Fprintf(&b, "\nWarnings: %d\n", len(result.Errors))
+		for _, e := range result.Errors {
+			fmt.Fprintf(&b, "  - %s: %v\n", e.Extractor, e.Err)
+		}
+	}
+	return b.String()
+}
+
 // --- Helper functions ---
 
 func filterExtractorsByName(extractors []architect.Extractor, names []string) []architect.Extractor {
@@ -628,6 +858,7 @@ func architectUsage() {
 	fmt.Fprintln(os.Stderr, "  --tier <1|2|3>                Analysis depth (default: 2)")
 	fmt.Fprintln(os.Stderr, "  --extractors <list>           Comma-separated extractor names (default: all)")
 	fmt.Fprintln(os.Stderr, "  --format <json|text|mermaid>  Output format (default: json)")
+	fmt.Fprintln(os.Stderr, "  --section <name>              Output only: profile, report, model, diagrams, summary")
 	fmt.Fprintln(os.Stderr, "  --timeout <duration>          Total session timeout (default: 5m)")
 	fmt.Fprintln(os.Stderr, "  -o, --output <path>           Output file path (default: stdout)")
 	fmt.Fprintln(os.Stderr, "  -v, --verbose                 Show per-extractor timing")
