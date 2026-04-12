@@ -71,6 +71,47 @@ func TestSQLiteStore_SaveEntitiesAndGetByLevel(t *testing.T) {
 	}
 }
 
+func TestSQLiteStore_SaveEntities_PersistsTrustFields(t *testing.T) {
+	store := setupTestStore(t)
+	ctx := context.Background()
+
+	_ = store.SaveLevels(ctx, []model.Level{
+		{ID: "vision", Name: "Vision", Rank: 0},
+	})
+	_ = store.SaveDocuments(ctx, []model.Document{
+		{ID: "d1", Path: "vis.md", LevelID: "vision", ContentHash: "abc", Content: "text"},
+	})
+
+	entities := []model.Entity{
+		{
+			ID:           "e1",
+			DocumentID:   "d1",
+			LevelID:      "vision",
+			Type:         model.EntityGoal,
+			Title:        "Global expansion",
+			TrustGrade:   model.TrustGradeVerified,
+			QualityFlags: []string{"quote_verified"},
+		},
+	}
+	if err := store.SaveEntities(ctx, entities); err != nil {
+		t.Fatalf("SaveEntities: %v", err)
+	}
+
+	got, err := store.EntitiesByLevel(ctx, "vision", model.Page{Limit: 100})
+	if err != nil {
+		t.Fatalf("EntitiesByLevel: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1", len(got))
+	}
+	if got[0].TrustGrade != model.TrustGradeVerified {
+		t.Fatalf("TrustGrade = %q, want %q", got[0].TrustGrade, model.TrustGradeVerified)
+	}
+	if len(got[0].QualityFlags) != 1 || got[0].QualityFlags[0] != "quote_verified" {
+		t.Fatalf("QualityFlags = %+v, want [quote_verified]", got[0].QualityFlags)
+	}
+}
+
 func TestSQLiteStore_SaveTracesAndGetForEntity(t *testing.T) {
 	store := setupTestStore(t)
 	ctx := context.Background()

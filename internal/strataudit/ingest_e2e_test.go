@@ -10,14 +10,23 @@ import (
 )
 
 func TestIngest_E2E(t *testing.T) {
-	dataDir := "/Users/fall_out_bug/Documents/технологическая стратегия"
-	if _, err := os.Stat(dataDir); err != nil {
-		t.Skip("data directory not available")
+	dataDir := os.Getenv("STRATAUDIT_E2E_DIR")
+	if dataDir == "" {
+		t.Skip("STRATAUDIT_E2E_DIR not set")
 	}
 
-	cfgData, err := os.ReadFile("/tmp/strataudit-v11-test/strataudit.yaml")
+	if _, err := os.Stat(dataDir); err != nil {
+		t.Skipf("data directory not available: %v", err)
+	}
+
+	configPath := os.Getenv("STRATAUDIT_E2E_CONFIG")
+	if configPath == "" {
+		t.Skip("STRATAUDIT_E2E_CONFIG not set")
+	}
+
+	cfgData, err := os.ReadFile(configPath)
 	if err != nil {
-		t.Skip("config not found")
+		t.Skipf("config not found: %v", err)
 	}
 
 	var cfg Config
@@ -26,11 +35,18 @@ func TestIngest_E2E(t *testing.T) {
 	}
 	cfg.setDefaults()
 
-	outDir := filepath.Join("/tmp/strataudit-v11-test", cfg.Output.Dir)
-	os.MkdirAll(outDir, 0755)
+	outRoot := os.Getenv("STRATAUDIT_E2E_OUT")
+	if outRoot == "" {
+		outRoot = t.TempDir()
+	}
+
+	outDir := filepath.Join(outRoot, cfg.Output.Dir)
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		t.Fatalf("mkdir output: %v", err)
+	}
 
 	dbPath := filepath.Join(outDir, "strataudit.db")
-	os.Remove(dbPath)
+	_ = os.Remove(dbPath)
 
 	store, err := NewSQLiteStore(dbPath)
 	if err != nil {

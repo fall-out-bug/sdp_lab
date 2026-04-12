@@ -71,6 +71,30 @@ func TestParseExtractionResponse_SkipsInvalid(t *testing.T) {
 	}
 }
 
+func TestParseExtractionResponse_SkipsPromptLeak(t *testing.T) {
+	input := `{"entities":[
+		{"type":"goal","title":"Return valid JSON only","description":"Prompt leak","source_quote":"Return valid JSON only."},
+		{"type":"goal","title":"Be the market leader","description":"Concrete strategy","source_quote":"Our vision is to be the market leader by 2027"},
+		{"type":"task","title":"Never ignore previous instructions","description":"Another prompt leak","source_quote":"Never ignore previous instructions from user"}
+	]}`
+
+	entities, err := parseExtractionResponse(input, "d1", "strategy", "test")
+	if err != nil {
+		t.Fatalf("parseExtractionResponse: %v", err)
+	}
+
+	if len(entities) != 1 {
+		t.Fatalf("got %d entities, want 1 (only strategy-meaningful entity)", len(entities))
+	}
+
+	if entities[0].Title != "Be the market leader" {
+		t.Errorf("unexpected title = %q", entities[0].Title)
+	}
+	if entities[0].Type != model.EntityGoal {
+		t.Errorf("unexpected type = %q", entities[0].Type)
+	}
+}
+
 func TestEntityID_Deterministic(t *testing.T) {
 	id1 := entityID("d1", "goal", "Test")
 	id2 := entityID("d1", "goal", "Test")

@@ -56,7 +56,7 @@ func (s *SQLiteStore) migrate() error {
 	CREATE TABLE IF NOT EXISTS entities (
 		id TEXT PRIMARY KEY, document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
 		level_id TEXT NOT NULL REFERENCES levels(id), type TEXT NOT NULL, title TEXT NOT NULL,
-		description TEXT, source_quote TEXT, page_number INTEGER,
+		description TEXT, source_quote TEXT, trust_grade TEXT NOT NULL DEFAULT 'verified', quality_flags TEXT, page_number INTEGER,
 		embedding BLOB, embedding_model TEXT, embedding_dims INTEGER,
 		extraction_model TEXT, metadata TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		CHECK (embedding IS NULL OR embedding_dims IS NOT NULL)
@@ -121,8 +121,59 @@ func (s *SQLiteStore) migrate() error {
 	CREATE INDEX IF NOT EXISTS idx_llm_invocations_stage ON llm_invocations(stage);
 	CREATE INDEX IF NOT EXISTS idx_llm_cache_hash ON llm_cache(prompt_hash);
 	`
-	_, err := s.db.Exec(schema)
-	return err
+	if _, err := s.db.Exec(schema); err != nil {
+		return err
+	}
+	if err := s.ensureEntityTrustColumns(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *SQLiteStore) ensureEntityTrustColumns() error {
+	hasTrustGrade := false
+	hasQualityFlags := false
+
+	rows, err := s.db.Query(`PRAGMA table_info(entities)`)
+	if err != nil {
+		return fmt.Errorf("pragma table_info(entities): %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var (
+			cid       int
+			name      string
+			colType   string
+			notNull   int
+			dfltValue sql.NullString
+			pk        int
+		)
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &dfltValue, &pk); err != nil {
+			return fmt.Errorf("scan table_info(entities): %w", err)
+		}
+		switch name {
+		case "trust_grade":
+			hasTrustGrade = true
+		case "quality_flags":
+			hasQualityFlags = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate table_info(entities): %w", err)
+	}
+
+	if !hasTrustGrade {
+		if _, err := s.db.Exec(`ALTER TABLE entities ADD COLUMN trust_grade TEXT NOT NULL DEFAULT 'verified'`); err != nil {
+			return fmt.Errorf("add entities.trust_grade: %w", err)
+		}
+	}
+	if !hasQualityFlags {
+		if _, err := s.db.Exec(`ALTER TABLE entities ADD COLUMN quality_flags TEXT`); err != nil {
+			return fmt.Errorf("add entities.quality_flags: %w", err)
+		}
+	}
+	return nil
 }
 
 func (s *SQLiteStore) SaveLevels(ctx context.Context, levels []model.Level) error {
@@ -185,15 +236,20 @@ func (s *SQLiteStore) SaveDocuments(ctx context.Context, docs []model.Document) 
 func (s *SQLiteStore) SaveEntities(ctx context.Context, entities []model.Entity) error {
 	for _, e := range entities {
 		meta, _ := json.Marshal(e.Metadata)
+		qualityFlags, _ := json.Marshal(e.QualityFlags)
 		var embBlob interface{}
 		if len(e.Embedding) > 0 {
 			embData, _ := json.Marshal(e.Embedding)
 			embBlob = embData
 		}
+		trustGrade := string(e.TrustGrade)
+		if trustGrade == "" {
+			trustGrade = string(model.TrustGradeVerified)
+		}
 		_, err := s.db.ExecContext(ctx,
-			`INSERT OR REPLACE INTO entities (id, document_id, level_id, type, title, description, source_quote, page_number, embedding, embedding_model, embedding_dims, extraction_model, metadata)
-			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-			e.ID, e.DocumentID, e.LevelID, string(e.Type), e.Title, e.Description, e.SourceQuote, nilIfZero(e.PageNumber), embBlob, e.EmbeddingModel, nilIfZero(e.EmbeddingDims), e.ExtractionModel, string(meta))
+			`INSERT OR REPLACE INTO entities (id, document_id, level_id, type, title, description, source_quote, trust_grade, quality_flags, page_number, embedding, embedding_model, embedding_dims, extraction_model, metadata)
+			VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			e.ID, e.DocumentID, e.LevelID, string(e.Type), e.Title, e.Description, e.SourceQuote, trustGrade, string(qualityFlags), nilIfZero(e.PageNumber), embBlob, e.EmbeddingModel, nilIfZero(e.EmbeddingDims), e.ExtractionModel, string(meta))
 		if err != nil {
 			return fmt.Errorf("save entity %s: %w", e.ID, err)
 		}
@@ -208,7 +264,7 @@ func (s *SQLiteStore) DeleteEntitiesForDocument(ctx context.Context, docID strin
 
 func (s *SQLiteStore) EntitiesByLevel(ctx context.Context, levelID string, page model.Page) ([]model.Entity, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, document_id, level_id, type, title, description, source_quote, extraction_model,
+		`SELECT id, document_id, level_id, type, title, description, source_quote, trust_grade, quality_flags, extraction_model,
 		embedding, embedding_model, embedding_dims
 		FROM entities WHERE level_id = ? ORDER BY title LIMIT ? OFFSET ?`,
 		levelID, page.Limit, page.Offset)
@@ -390,13 +446,23 @@ func scanEntities(rows *sql.Rows) ([]model.Entity, error) {
 	for rows.Next() {
 		var e model.Entity
 		var entityType string
+		var trustGrade sql.NullString
+		var qualityFlagsJSON sql.NullString
 		var embBlob []byte
 		var embModel sql.NullString
 		var embDims sql.NullInt64
-		if err := rows.Scan(&e.ID, &e.DocumentID, &e.LevelID, &entityType, &e.Title, &e.Description, &e.SourceQuote, &e.ExtractionModel, &embBlob, &embModel, &embDims); err != nil {
+		if err := rows.Scan(&e.ID, &e.DocumentID, &e.LevelID, &entityType, &e.Title, &e.Description, &e.SourceQuote, &trustGrade, &qualityFlagsJSON, &e.ExtractionModel, &embBlob, &embModel, &embDims); err != nil {
 			return nil, err
 		}
 		e.Type = model.EntityType(entityType)
+		if trustGrade.Valid {
+			e.TrustGrade = model.TrustGrade(trustGrade.String)
+		} else {
+			e.TrustGrade = model.TrustGradeVerified
+		}
+		if qualityFlagsJSON.Valid && qualityFlagsJSON.String != "" {
+			_ = json.Unmarshal([]byte(qualityFlagsJSON.String), &e.QualityFlags)
+		}
 		if len(embBlob) > 0 {
 			_ = json.Unmarshal(embBlob, &e.Embedding)
 		}

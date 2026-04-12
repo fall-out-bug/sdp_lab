@@ -2,6 +2,10 @@ package strataudit
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
 
@@ -84,5 +88,156 @@ func TestEndToEnd_StoreAndQuery(t *testing.T) {
 	_ = store.db.QueryRowContext(ctx, "PRAGMA journal_mode").Scan(&mode)
 	if mode != "wal" {
 		t.Errorf("journal_mode = %q, want wal", mode)
+	}
+}
+
+func newMockLLMClient(t *testing.T, response string) *LLMClient {
+	t.Helper()
+	call := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		defer func() { _ = r.Body.Close() }()
+		if r.URL.Path != "/chat/completions" {
+			http.NotFound(w, r)
+			return
+		}
+		call++
+		payload := fmt.Sprintf(`{"choices":[{"message":{"role":"assistant","content":%q},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":4,"cost":0.0001}}`, response)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(payload))
+	}))
+	t.Cleanup(func() {
+		srv.Close()
+	})
+	client := NewLLMClient("test-key", srv.URL)
+	client.SetRateLimit(1200)
+	client.SetRetryConfig(0, 0)
+	t.Cleanup(func() {
+		if call == 0 {
+			t.Error("mock llm was never called")
+		}
+	})
+	return client
+}
+
+func TestExtractEntities_RejectsSourceQuoteMismatch(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "test.db")
+	store, err := NewSQLiteStore(dbPath)
+	if err != nil {
+		t.Fatalf("NewSQLiteStore: %v", err)
+	}
+	defer func() { _ = store.Close() }()
+	ctx := context.Background()
+
+	cfg := &Config{
+		Levels: []LevelConfig{
+			{Name: "vision", Rank: 0},
+		},
+		EntityTypes: []string{"goal"},
+		LLM: LLMConfig{
+			ExtractModel: "test-model",
+		},
+		Thresholds: ThresholdConfig{
+			ChunkTokenLimit:    3000,
+			ChunkOverlapTokens: 0,
+		},
+	}
+	cfg.setDefaults()
+
+	if err := store.SaveLevels(ctx, cfgToLevels(cfg)); err != nil {
+		t.Fatalf("SaveLevels: %v", err)
+	}
+	if err := store.SaveDocuments(ctx, []model.Document{
+		{
+			ID:          "d1",
+			Path:        "vision.md",
+			LevelID:     "vision",
+			ContentHash: "h1",
+			Content:     "Стратегия: выйти на 30% рынка цифровых платежей в 2027.",
+		},
+	}); err != nil {
+		t.Fatalf("SaveDocuments: %v", err)
+	}
+
+	llm := newMockLLMClient(t, `{"entities":[{"type":"goal","title":"Financial target","description":"Increase share","source_quote":"This phrase does not exist in the document"}]}`)
+	result, err := ExtractEntities(ctx, cfg, store, llm)
+	if err != nil {
+		t.Fatalf("ExtractEntities: %v", err)
+	}
+
+	entities, err := store.EntitiesByLevel(ctx, "vision", model.Page{Limit: 100})
+	if err != nil {
+		t.Fatalf("EntitiesByLevel: %v", err)
+	}
+	if len(entities) != 0 {
+		t.Fatalf("entities: got %d, want 0 (quote mismatch must be rejected as suspect path)", len(entities))
+	}
+	if result.EntitiesExtracted != 0 {
+		t.Fatalf("result.EntitiesExtracted = %d, want 0", result.EntitiesExtracted)
+	}
+	if result.RejectedEntities != 1 {
+		t.Fatalf("result.RejectedEntities = %d, want 1", result.RejectedEntities)
+	}
+}
+
+func TestExtractEntities_RejectsBoilerplateRepetition(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "test.db")
+	store, err := NewSQLiteStore(dbPath)
+	if err != nil {
+		t.Fatalf("NewSQLiteStore: %v", err)
+	}
+	defer func() { _ = store.Close() }()
+	ctx := context.Background()
+
+	cfg := &Config{
+		Levels: []LevelConfig{
+			{Name: "vision", Rank: 0},
+		},
+		EntityTypes: []string{"goal"},
+		LLM: LLMConfig{
+			ExtractModel: "test-model",
+		},
+		Thresholds: ThresholdConfig{
+			ChunkTokenLimit:    2,
+			ChunkOverlapTokens: 0,
+		},
+	}
+	cfg.setDefaults()
+
+	if err := store.SaveLevels(ctx, cfgToLevels(cfg)); err != nil {
+		t.Fatalf("SaveLevels: %v", err)
+	}
+	if err := store.SaveDocuments(ctx, []model.Document{
+		{
+			ID:          "d1",
+			Path:        "vision.md",
+			LevelID:     "vision",
+			ContentHash: "h1",
+			Content:     "This document is confidential. This document is confidential. This document is confidential.",
+		},
+	}); err != nil {
+		t.Fatalf("SaveDocuments: %v", err)
+	}
+
+	llm := newMockLLMClient(t, `{"entities":[{"type":"goal","title":"Confidentiality rule","description":"Template boilerplate","source_quote":"This document is confidential."}]}`)
+	result, err := ExtractEntities(ctx, cfg, store, llm)
+	if err != nil {
+		t.Fatalf("ExtractEntities: %v", err)
+	}
+
+	entities, err := store.EntitiesByLevel(ctx, "vision", model.Page{Limit: 100})
+	if err != nil {
+		t.Fatalf("EntitiesByLevel: %v", err)
+	}
+	if len(entities) != 0 {
+		t.Fatalf("entities: got %d, want 0 (boilerplate repetition must not be verified truth)", len(entities))
+	}
+	if result.EntitiesExtracted != 0 {
+		t.Fatalf("result.EntitiesExtracted = %d, want 0", result.EntitiesExtracted)
+	}
+	if result.RejectedEntities != 1 {
+		t.Fatalf("result.RejectedEntities = %d, want 1", result.RejectedEntities)
 	}
 }

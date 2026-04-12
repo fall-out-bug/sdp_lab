@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
-	"strings"
 	"sdp_dev/internal/strataudit/model"
+	"strings"
 )
 
 // xmlEscape replaces < and > with HTML entities to prevent tag injection in prompts.
@@ -21,6 +21,9 @@ func xmlEscape(s string) string {
 // ExtractResult holds extraction statistics.
 type ExtractResult struct {
 	EntitiesExtracted int
+	VerifiedEntities  int
+	SuspectEntities   int
+	RejectedEntities  int
 	Documents         int
 	Errors            []error
 }
@@ -57,12 +60,17 @@ func ExtractEntities(ctx context.Context, cfg *Config, store *SQLiteStore, llm *
 			}
 			slog.Info("extract: processing document", "doc", doc.Path, "level", level.ID)
 
-			entities, err := extractFromDocument(ctx, cfg, llm, doc, level)
+			batch, err := extractFromDocument(ctx, cfg, llm, doc, level)
 			if err != nil {
 				result.Errors = append(result.Errors, fmt.Errorf("%s: %w", doc.Path, err))
 				continue
 			}
 
+			result.VerifiedEntities += batch.Verified
+			result.SuspectEntities += batch.Suspect
+			result.RejectedEntities += batch.Rejected
+
+			entities := batch.Entities
 			if len(entities) > 0 {
 				if err := store.SaveEntities(ctx, entities); err != nil {
 					result.Errors = append(result.Errors, fmt.Errorf("%s: save: %w", doc.Path, err))
@@ -77,7 +85,14 @@ func ExtractEntities(ctx context.Context, cfg *Config, store *SQLiteStore, llm *
 	return result, nil
 }
 
-func extractFromDocument(ctx context.Context, cfg *Config, llm *LLMClient, doc model.Document, level model.Level) ([]model.Entity, error) {
+type extractBatch struct {
+	Entities []model.Entity
+	Verified int
+	Suspect  int
+	Rejected int
+}
+
+func extractFromDocument(ctx context.Context, cfg *Config, llm *LLMClient, doc model.Document, level model.Level) (*extractBatch, error) {
 	content := doc.Content
 	chunks := ChunkContent(content, cfg.Thresholds.ChunkTokenLimit, cfg.Thresholds.ChunkOverlapTokens)
 
@@ -89,8 +104,10 @@ func extractFromDocument(ctx context.Context, cfg *Config, llm *LLMClient, doc m
 		slog.Warn("chunk sampling applied", "doc", filepath.Base(doc.Path), "original", original, "sampled", len(chunks))
 	}
 
+	batch := &extractBatch{}
 	var allEntities []model.Entity
 	seen := make(map[string]bool)
+	seenRejected := make(map[string]bool)
 
 	for i, chunk := range chunks {
 		if ctx.Err() != nil {
@@ -112,17 +129,28 @@ func extractFromDocument(ctx context.Context, cfg *Config, llm *LLMClient, doc m
 			return nil, fmt.Errorf("llm extract chunk %d: %w", i, err)
 		}
 
-		entities, err := parseExtractionResponse(resp.Content, doc.ID, level.ID, cfg.LLM.ExtractModel)
+		parsed, err := parseExtractionResponseDetailed(resp.Content, doc.ID, level.ID, cfg.LLM.ExtractModel)
 		if err != nil {
 			// Try to continue with partial results
 			continue
 		}
+		batch.Suspect += parsed.Suspect
+		batch.Rejected += parsed.Rejected
 
-		for _, e := range entities {
+		for _, e := range parsed.Entities {
+			admitted, accepted := admitEntityCandidate(e, chunk)
 			key := strings.ToLower(string(e.Type)) + "|" + strings.ToLower(e.Title)
+			if !accepted {
+				if !seenRejected[key] {
+					seenRejected[key] = true
+					batch.Rejected++
+				}
+				continue
+			}
 			if !seen[key] {
 				seen[key] = true
-				allEntities = append(allEntities, e)
+				allEntities = append(allEntities, admitted)
+				batch.Verified++
 			}
 		}
 	}
@@ -134,7 +162,8 @@ func extractFromDocument(ctx context.Context, cfg *Config, llm *LLMClient, doc m
 		}
 	}
 
-	return allEntities, nil
+	batch.Entities = allEntities
+	return batch, nil
 }
 
 func buildExtractionPrompt(cfg *Config, level model.Level, content string, chunkIndex, totalChunks int) string {
@@ -180,7 +209,21 @@ HALLUCINATION PREVENTION:
 - Never fabricate quotes. Every source_quote must be a verbatim excerpt.`
 }
 
+type extractionParseResult struct {
+	Entities []model.Entity
+	Suspect  int
+	Rejected int
+}
+
 func parseExtractionResponse(content string, docID, levelID, extractModel string) ([]model.Entity, error) {
+	parsed, err := parseExtractionResponseDetailed(content, docID, levelID, extractModel)
+	if err != nil {
+		return nil, err
+	}
+	return parsed.Entities, nil
+}
+
+func parseExtractionResponseDetailed(content string, docID, levelID, extractModel string) (*extractionParseResult, error) {
 	raw := ParseLLMJSON(content)
 	if raw == nil {
 		return nil, fmt.Errorf("no valid JSON in response")
@@ -198,13 +241,17 @@ func parseExtractionResponse(content string, docID, levelID, extractModel string
 		return nil, fmt.Errorf("parse entities: %w", err)
 	}
 
-	entities := make([]model.Entity, 0, len(result.Entities))
+	parsed := &extractionParseResult{Entities: make([]model.Entity, 0, len(result.Entities))}
 	for _, e := range result.Entities {
 		if e.Title == "" || e.Type == "" {
 			continue
 		}
+		if !model.IsValidEntityType(model.EntityType(e.Type)) {
+			parsed.Rejected++
+			continue
+		}
 		id := entityID(docID, e.Type, e.Title)
-		entities = append(entities, model.Entity{
+		entity := model.Entity{
 			ID:              id,
 			DocumentID:      docID,
 			LevelID:         levelID,
@@ -212,10 +259,16 @@ func parseExtractionResponse(content string, docID, levelID, extractModel string
 			Title:           e.Title,
 			Description:     e.Description,
 			SourceQuote:     e.SourceQuote,
+			TrustGrade:      model.TrustGradeVerified,
 			ExtractionModel: extractModel,
-		})
+		}
+		if flags := detectPromptLeakFlags(entity); len(flags) > 0 {
+			parsed.Rejected++
+			continue
+		}
+		parsed.Entities = append(parsed.Entities, entity)
 	}
-	return entities, nil
+	return parsed, nil
 }
 
 func entityID(docID, entityType, title string) string {
@@ -252,6 +305,110 @@ func generateEmbeddings(ctx context.Context, cfg *Config, llm *LLMClient, entiti
 		}
 	}
 	return nil
+}
+
+func admitEntityCandidate(entity model.Entity, sourceText string) (model.Entity, bool) {
+	flags := append([]string{}, entity.QualityFlags...)
+
+	sourceQuote := strings.TrimSpace(entity.SourceQuote)
+	if sourceQuote == "" {
+		flags = append(flags, "quote_not_found")
+		entity.TrustGrade = model.TrustGradeRejected
+		entity.QualityFlags = dedupeFlags(flags)
+		return entity, false
+	}
+
+	if !containsNormalized(sourceText, sourceQuote) {
+		flags = append(flags, "quote_not_found")
+		entity.TrustGrade = model.TrustGradeRejected
+		entity.QualityFlags = dedupeFlags(flags)
+		return entity, false
+	}
+
+	if isBoilerplateRepetition(sourceText, sourceQuote) {
+		flags = append(flags, "boilerplate_repetition")
+		entity.TrustGrade = model.TrustGradeRejected
+		entity.QualityFlags = dedupeFlags(flags)
+		return entity, false
+	}
+
+	entity.TrustGrade = model.TrustGradeVerified
+	entity.QualityFlags = dedupeFlags(flags)
+	return entity, true
+}
+
+func detectPromptLeakFlags(entity model.Entity) []string {
+	text := normalizeTextForMatch(strings.Join([]string{
+		entity.Title,
+		entity.Description,
+		entity.SourceQuote,
+	}, "\n"))
+
+	markers := []string{
+		"return valid json",
+		"never ignore previous instructions",
+		"previous instructions",
+		"hallucination prevention",
+		"no markdown",
+		"source_quote",
+		"allowed entity types",
+		"extract strategic entities",
+		"verbatim excerpt",
+		"document_content",
+	}
+
+	var flags []string
+	for _, marker := range markers {
+		if strings.Contains(text, marker) {
+			flags = append(flags, "prompt_leak")
+			break
+		}
+	}
+	return dedupeFlags(flags)
+}
+
+func containsNormalized(haystack, needle string) bool {
+	normHaystack := normalizeTextForMatch(haystack)
+	normNeedle := normalizeTextForMatch(needle)
+	if normNeedle == "" {
+		return false
+	}
+	return strings.Contains(normHaystack, normNeedle)
+}
+
+func isBoilerplateRepetition(sourceText, quote string) bool {
+	normHaystack := normalizeTextForMatch(sourceText)
+	normQuote := normalizeTextForMatch(quote)
+	if normQuote == "" {
+		return false
+	}
+	if len(normQuote) < 20 {
+		return false
+	}
+	return strings.Count(normHaystack, normQuote) >= 3
+}
+
+func normalizeTextForMatch(s string) string {
+	return strings.Join(strings.Fields(strings.ToLower(strings.TrimSpace(s))), " ")
+}
+
+func dedupeFlags(flags []string) []string {
+	if len(flags) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(flags))
+	result := make([]string, 0, len(flags))
+	for _, flag := range flags {
+		if flag == "" {
+			continue
+		}
+		if _, ok := seen[flag]; ok {
+			continue
+		}
+		seen[flag] = struct{}{}
+		result = append(result, flag)
+	}
+	return result
 }
 
 // sampleChunks reduces chunks to maxCount using uniform sampling (first + last + evenly spaced middle).
