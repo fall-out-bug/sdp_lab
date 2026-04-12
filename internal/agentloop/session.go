@@ -11,7 +11,7 @@ import (
 // Fix X2: ToolCalls []ToolCall required — MessagesFromTurnRecords must produce
 // assistant messages with tool_calls for OpenAI/Anthropic API compliance.
 type TurnRecord struct {
-	ID            string       // Fix Q1: format "sessionID:runID", unique in store
+	ID            string // Fix Q1: format "sessionID:runID", unique in store
 	Phase         Role
 	UserMsg       Message
 	AssistantText string       // accumulated text_delta events
@@ -20,10 +20,16 @@ type TurnRecord struct {
 	CreatedAt     time.Time
 }
 
+type SessionBinding struct {
+	FeatureID   string
+	WSID        string
+	ProjectRoot string
+}
+
 // PhaseRecord records one phase transition (Fix P2: NextPhase written at persist time).
 type PhaseRecord struct {
 	Phase     Role
-	NextPhase Role      // Fix P2: written during PersistPhaseRecord; "" = terminal Stop()
+	NextPhase Role // Fix P2: written during PersistPhaseRecord; "" = terminal Stop()
 	StartedAt time.Time
 	EndedAt   time.Time
 	Snapshot  PhaseSnapshot
@@ -35,8 +41,11 @@ type PhaseRecord struct {
 type Session struct {
 	ID          string
 	Branch      string
+	FeatureID   string
+	WSID        string
+	ProjectRoot string
 	Phase       Role
-	Contract    *harness.TaskContract  // loaded from beads card (I12)
+	Contract    *harness.TaskContract // loaded from beads card (I12)
 	History     []PhaseRecord
 	events      []Event      // in-memory telemetry buffer; NOT restored on recovery (Fix Q3)
 	turnRecords []TurnRecord // Fix N3: canonical log; restored by RecoverSession
@@ -86,10 +95,22 @@ func (s *Session) MessagesFromTurnRecords() []Message {
 // Takes cardID string directly; initializes Phase=RoleDiscover and persists via store.Persist.
 // In production this would call loadBeadsCard + generateContract (I12).
 func NewSession(cardID string, store SessionStore) (*Session, error) {
+	return NewBoundSession(cardID, SessionBinding{}, store)
+}
+
+// NewBoundSession creates a new Session bound to one feature/workstream execution target.
+func NewBoundSession(cardID string, binding SessionBinding, store SessionStore) (*Session, error) {
+	branch := "sdp/" + cardID
+	if binding.FeatureID != "" && binding.WSID != "" {
+		branch = "feature/" + binding.FeatureID + "/" + binding.WSID
+	}
 	s := &Session{
-		ID:     cardID,
-		Branch: "sdp/" + cardID,
-		Phase:  RoleDiscover,
+		ID:          cardID,
+		Branch:      branch,
+		FeatureID:   binding.FeatureID,
+		WSID:        binding.WSID,
+		ProjectRoot: binding.ProjectRoot,
+		Phase:       RoleDiscover,
 		// Contract: nil for MVP — populated when beads integration is complete
 	}
 	if err := store.Persist(s); err != nil {

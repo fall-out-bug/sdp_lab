@@ -383,6 +383,10 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 
 - **F109** — StratAudit v2 — evidence-backed report redesign (00-109-01 ... 00-109-08). Turn StratAudit into a verifiable strategy-audit product over messy multilingual corpora: extraction trust gate, source-preserving language policy, document/section/quote provenance, trace evidence contract, grouped findings, `report.v2.json`, and only then final HTML reformatting.
 
+### Phase Runtime Contract Normalization (In Progress)
+
+- **F110** — Work Atomicity Normalization — strict leaf execution contract (00-110-01). Make `leaf workstream` the only executable workstream shape in runtime-facing surfaces: normalized frontmatter and `## Beads` roles, compiled `workgraph.lock.json`, stale-lock rejection in the mini-harness, and canonical skill/agent wording that no longer treats every workstream as directly runnable.
+
 
 ### Layer Rollout Matrix (Vision Alignment)
 

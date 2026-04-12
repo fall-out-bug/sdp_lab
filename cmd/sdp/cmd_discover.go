@@ -17,7 +17,7 @@ import (
 func runDiscover(args []string) {
 	fs := flag.NewFlagSet("discover", flag.ExitOnError)
 	outDir := fs.String("out", "docs/discovery", "output directory for artifacts")
-	model  := fs.String("model", "", "override default LLM model")
+	model := fs.String("model", "", "override default LLM model")
 	_ = fs.Parse(args)
 
 	if fs.NArg() < 1 {
@@ -34,11 +34,11 @@ func runDiscover(args []string) {
 
 	if *model != "" {
 		discovery.DefaultPlannerModel = *model
-		discovery.DefaultSynthModel   = *model
+		discovery.DefaultSynthModel = *model
 	}
 
 	client := discovery.NewLLMClient(apiKey, discovery.DefaultOpenRouterBase)
-	ctx    := context.Background()
+	ctx := context.Background()
 	session := discovery.NewSession(idea)
 
 	// ── Phase 1: FRAME ─────────────────────────────────────────────
@@ -395,6 +395,9 @@ status: backlog
 priority: P2
 size: M
 depends_on: []
+ws_kind: leaf
+parent_ws_id: null
+dispatch_lifecycle: active
 ---
 
 # %s: Delivery — Phase 1
@@ -406,8 +409,6 @@ Feature: %s
 %s
 
 ## Beads
-
-_(issue will be created when workstream is claimed)_
 
 ## Acceptance Criteria
 
@@ -422,7 +423,7 @@ Artifacts: %s/
 
 ## Implementation Notes
 
-Read Discovery artifacts before planning. Start with the frame and hypothesis docs.
+Read Discovery artifacts before planning. Start with the frame and hypothesis docs. Bind a concrete primary Beads issue before moving this leaf to active execution.
 `, wsID, featureID, wsID, featureID,
 		frame.ProblemStatement,
 		acLines.String(),

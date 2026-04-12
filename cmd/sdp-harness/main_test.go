@@ -63,8 +63,14 @@ func TestCLI_missingPrompt_fails(t *testing.T) {
 func TestCLI_newSession_creates(t *testing.T) {
 	bin := buildBinary(t)
 	dir := t.TempDir()
+	projectRoot := makeCLIProject(t, bin)
 
-	cmd := exec.Command(bin, "new", "--session=test-123")
+	cmd := exec.Command(bin, "new",
+		"--session=test-123",
+		"--project-root="+projectRoot,
+		"--feature=F110",
+		"--ws=00-110-01",
+	)
 	cmd.Env = append(os.Environ(), "SDP_DATA_DIR="+dir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -111,4 +117,76 @@ func TestCLI_unknownSubcommand_fails(t *testing.T) {
 		!strings.Contains(strings.ToLower(output), "invalid") {
 		t.Errorf("expected error/usage message, got: %s", output)
 	}
+}
+
+func makeCLIProject(t *testing.T, bin string) string {
+	t.Helper()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "docs", "workstreams", "backlog"), 0o755); err != nil {
+		t.Fatalf("mkdir backlog: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "docs", "workstreams"), 0o755); err != nil {
+		t.Fatalf("mkdir workstreams: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "docs", "roadmap"), 0o755); err != nil {
+		t.Fatalf("mkdir roadmap: %v", err)
+	}
+	write := func(path, content string) {
+		t.Helper()
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+	}
+
+	write(filepath.Join(root, "docs", "workstreams", "INDEX.md"), `# Workstream Index
+
+| Feature | Description | Workstreams | Status |
+|---------|-------------|-------------|--------|
+| **F110** | Atomicity | 00-110-01 | Open |
+`)
+	write(filepath.Join(root, "docs", "roadmap", "ROADMAP.md"), "# Roadmap\n\n- **F110** — Atomicity\n")
+	write(filepath.Join(root, "docs", "workstreams", "backlog", "00-110-01.md"), `---
+ws_id: 00-110-01
+feature_id: F110
+status: open
+priority: P1
+size: M
+depends_on: []
+ws_kind: leaf
+parent_ws_id: null
+dispatch_lifecycle: active
+---
+
+# 00-110-01: Atomicity
+
+## Beads
+
+- primary: sdplab-62nw
+
+## Acceptance Criteria
+
+- [ ] Implement strict execution contract
+`)
+
+	run := func(name string, args ...string) {
+		t.Helper()
+		cmd := exec.Command(name, args...)
+		cmd.Dir = root
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("%s %v: %v\n%s", name, args, err, string(out))
+		}
+	}
+	run("git", "init")
+	run("git", "config", "user.email", "test@example.com")
+	run("git", "config", "user.name", "Test User")
+
+	cmd := exec.Command(bin, "compile-lock", "--project-root="+root)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("compile-lock failed: %v\n%s", err, string(out))
+	}
+	run("git", "add", ".")
+	run("git", "commit", "-m", "seed workgraph")
+	return root
 }

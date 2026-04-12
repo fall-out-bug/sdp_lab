@@ -83,6 +83,7 @@ Notes:
 
 - internal feature clarification absorbs what older `@idea` and `@design` paths used to do on the happy path
 - separate `plan` is optional when the `beads issue` graph is already sufficient
+- not every `workstream` is directly executable: only `leaf workstream` entries bind to live execution
 
 ### `@oneshot`
 
@@ -95,7 +96,7 @@ Updates:
 
 - branch state
 - early `draft PR`
-- execution state
+- execution state for executable `leaf workstream` entries
 - `evidence`, `trace`, and `drift` inputs through the loop
 
 Must emit:
@@ -157,7 +158,7 @@ These are useful, but they are not the public happy path.
 
 Purpose:
 
-- execute one `workstream` or one ready `beads issue`
+- execute one `leaf workstream` or one ready `beads issue`
 
 Use when:
 

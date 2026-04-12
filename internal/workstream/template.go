@@ -26,10 +26,10 @@ type WorkstreamTemplate struct {
 type TemplateConfig struct {
 	// ProjectID is the project prefix (default: "00").
 	ProjectID string
-	
+
 	// FeatureID is the feature identifier (e.g., "F061").
 	FeatureID string
-	
+
 	// OutputDir is where workstream files are written.
 	OutputDir string
 }
@@ -42,7 +42,7 @@ func NewWorkstreamTemplate(cfg TemplateConfig) *WorkstreamTemplate {
 	if cfg.OutputDir == "" {
 		cfg.OutputDir = "docs/workstreams/backlog"
 	}
-	
+
 	return &WorkstreamTemplate{
 		projectID: cfg.ProjectID,
 		featureID: cfg.FeatureID,
@@ -53,59 +53,59 @@ func NewWorkstreamTemplate(cfg TemplateConfig) *WorkstreamTemplate {
 // Generate generates workstream files from a formula.
 func (wt *WorkstreamTemplate) Generate(formula *beads.Formula, vars map[string]string) ([]string, error) {
 	var generatedFiles []string
-	
+
 	// Resolve variables (merge defaults with provided)
 	resolvedVars := wt.resolveVariables(formula, vars)
-	
+
 	// Generate a feature ID if not provided
 	featureID := wt.featureID
 	if featureID == "" {
 		featureID = fmt.Sprintf("F%s", strings.ToUpper(strings.ReplaceAll(formula.Name, "-", "")))
 	}
-	
+
 	// Generate workstream for each step
 	for i, step := range formula.Steps {
 		wsID := fmt.Sprintf("%s-%s-%02d", wt.projectID, featureID, i+1)
-		
+
 		content, err := wt.generateWorkstream(formula, step, wsID, featureID, resolvedVars, i)
 		if err != nil {
 			return nil, fmt.Errorf("generate step %d: %w", i, err)
 		}
-		
+
 		// Write file
 		filename := fmt.Sprintf("%s.md", wsID)
 		path := filepath.Join(wt.outputDir, filename)
-		
+
 		if err := os.MkdirAll(wt.outputDir, 0755); err != nil {
 			return nil, fmt.Errorf("create output dir: %w", err)
 		}
-		
+
 		if err := os.WriteFile(path, content, 0644); err != nil {
 			return nil, fmt.Errorf("write file: %w", err)
 		}
-		
+
 		generatedFiles = append(generatedFiles, path)
 	}
-	
+
 	return generatedFiles, nil
 }
 
 // resolveVariables merges formula defaults with provided variables.
 func (wt *WorkstreamTemplate) resolveVariables(formula *beads.Formula, vars map[string]string) map[string]interface{} {
 	resolved := make(map[string]interface{})
-	
+
 	// Set defaults
 	for name, v := range formula.Variables {
 		if v.Default != nil {
 			resolved[name] = v.Default
 		}
 	}
-	
+
 	// Override with provided
 	for name, value := range vars {
 		resolved[name] = value
 	}
-	
+
 	return resolved
 }
 
@@ -119,7 +119,7 @@ func (wt *WorkstreamTemplate) generateWorkstream(
 ) ([]byte, error) {
 	// Substitute variables in step
 	step = wt.substituteStepVars(step, vars)
-	
+
 	// Build dependencies
 	var dependsOn []string
 	for _, dep := range step.Dependencies {
@@ -131,26 +131,26 @@ func (wt *WorkstreamTemplate) generateWorkstream(
 			}
 		}
 	}
-	
+
 	// Build template data
 	data := map[string]interface{}{
-		"WSID":              wsID,
-		"FeatureID":         featureID,
-		"StepName":          step.Name,
-		"Title":             step.Title,
-		"Description":       step.Description,
-		"Type":              step.Type,
-		"Priority":          step.Priority,
-		"Size":              step.Size,
-		"DependsOn":         dependsOn,
-		"ScopeFiles":        step.ScopeFiles,
+		"WSID":               wsID,
+		"FeatureID":          featureID,
+		"StepName":           step.Name,
+		"Title":              step.Title,
+		"Description":        step.Description,
+		"Type":               step.Type,
+		"Priority":           step.Priority,
+		"Size":               step.Size,
+		"DependsOn":          dependsOn,
+		"ScopeFiles":         step.ScopeFiles,
 		"AcceptanceCriteria": step.AcceptanceCriteria,
-		"FormulaName":       formula.Name,
-		"FormulaVersion":    formula.Version,
-		"FormulaHash":       wt.formulaHash(formula),
-		"GeneratedAt":       time.Now().Format(time.RFC3339),
+		"FormulaName":        formula.Name,
+		"FormulaVersion":     formula.Version,
+		"FormulaHash":        wt.formulaHash(formula),
+		"GeneratedAt":        time.Now().Format(time.RFC3339),
 	}
-	
+
 	// Set defaults
 	if data["Type"] == "" {
 		data["Type"] = "task"
@@ -164,13 +164,13 @@ func (wt *WorkstreamTemplate) generateWorkstream(
 	if step.Title == "" {
 		data["Title"] = step.Name
 	}
-	
+
 	// Execute template
 	var buf bytes.Buffer
 	if err := wsTemplate.Execute(&buf, data); err != nil {
 		return nil, fmt.Errorf("execute template: %w", err)
 	}
-	
+
 	return buf.Bytes(), nil
 }
 
@@ -178,20 +178,20 @@ func (wt *WorkstreamTemplate) generateWorkstream(
 func (wt *WorkstreamTemplate) substituteStepVars(step beads.FormulaStep, vars map[string]interface{}) beads.FormulaStep {
 	// Substitute in title
 	step.Title = wt.substituteVars(step.Title, vars)
-	
+
 	// Substitute in description
 	step.Description = wt.substituteVars(step.Description, vars)
-	
+
 	// Substitute in scope files
 	for i, f := range step.ScopeFiles {
 		step.ScopeFiles[i] = wt.substituteVars(f, vars)
 	}
-	
+
 	// Substitute in acceptance criteria
 	for i, ac := range step.AcceptanceCriteria {
 		step.AcceptanceCriteria[i] = wt.substituteVars(ac, vars)
 	}
-	
+
 	return step
 }
 
@@ -232,6 +232,9 @@ size: {{.Size}}
 {{- if .DependsOn}}
 depends_on: [{{range $i, $d := .DependsOn}}{{if $i}}, {{end}}{{$d}}{{end}}]
 {{- end}}
+ws_kind: leaf
+parent_ws_id: null
+dispatch_lifecycle: active
 formula:
   name: {{.FormulaName}}
   version: {{.FormulaVersion}}
@@ -263,6 +266,8 @@ Feature: {{.FeatureID}} ({{.FormulaName}})
 - [ ] Implementation complete
 - [ ] Tests pass
 {{- end}}
+
+## Beads
 
 ## Reference
 

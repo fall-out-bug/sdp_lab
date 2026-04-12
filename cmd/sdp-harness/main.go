@@ -21,9 +21,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"sdp_dev/internal/agentloop"
 	"sdp_dev/internal/agentloop/livegw"
+	"sdp_dev/internal/workstream"
 )
 
 func main() {
@@ -40,6 +42,8 @@ func run(args []string) error {
 	}
 
 	switch args[0] {
+	case "compile-lock":
+		return cmdCompileLock(args[1:])
 	case "new":
 		return cmdNew(args[1:])
 	case "run":
@@ -57,8 +61,10 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, `sdp-harness — SDP Mini-Harness CLI
 
 Subcommands:
-  new  --session=<id>                     Create a new session
-  run  --session=<id> --prompt="<text>"   Run one phase turn
+  compile-lock  --project-root=<path>                     Compile .sdp/workgraph.lock.json
+  new           --session=<id> --project-root=<path> --feature=<FXXX> --ws=<id>
+                                                          Create a new session bound to one executable leaf
+  run           --session=<id> --prompt="<text>"         Run one phase turn for a bound leaf session
 
 Environment:
   SDP_DATA_DIR   Directory for session DB files (default: $HOME/.sdp)`)
@@ -89,11 +95,42 @@ func dbPath(sessionID string) (string, error) {
 	return filepath.Join(dir, sessionID+".db"), nil
 }
 
-// cmdNew implements `sdp-harness new --session=<id>`.
-// Creates a fresh session DB and persists the initial Session record.
+func cmdCompileLock(args []string) error {
+	fs := flag.NewFlagSet("compile-lock", flag.ContinueOnError)
+	projectRoot := fs.String("project-root", ".", "Project root containing docs/workstreams")
+	fs.SetOutput(os.Stderr)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	root, err := filepath.Abs(*projectRoot)
+	if err != nil {
+		return fmt.Errorf("resolve project root: %w", err)
+	}
+
+	lock, report, err := workstream.CompileWorkgraphLock(root, workstream.DefaultCompileOptions())
+	if err != nil {
+		return err
+	}
+	if report.HasErrors() {
+		return fmt.Errorf("workgraph compile failed: %s", summarizeIssues(report.Issues))
+	}
+	if err := workstream.WriteWorkgraphLock(root, lock); err != nil {
+		return err
+	}
+
+	fmt.Printf("workgraph lock written at %s/.sdp/workgraph.lock.json (%d normalized features)\n", root, len(lock.Features))
+	return nil
+}
+
+// cmdNew implements `sdp-harness new --session=<id> --project-root=<path> --feature=<FXXX> --ws=<id>`.
+// It refuses to create a session unless the target is an executable leaf in a fresh workgraph lock.
 func cmdNew(args []string) error {
 	fs := flag.NewFlagSet("new", flag.ContinueOnError)
 	sessionID := fs.String("session", "", "Session ID (required)")
+	projectRoot := fs.String("project-root", ".", "Project root containing docs/workstreams (required)")
+	featureID := fs.String("feature", "", "Feature ID (required)")
+	wsID := fs.String("ws", "", "Leaf workstream ID (required)")
 	fs.SetOutput(os.Stderr)
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -102,6 +139,18 @@ func cmdNew(args []string) error {
 	if *sessionID == "" {
 		fs.Usage()
 		return fmt.Errorf("--session is required")
+	}
+	if *featureID == "" || *wsID == "" {
+		fs.Usage()
+		return fmt.Errorf("--feature and --ws are required")
+	}
+
+	root, err := filepath.Abs(*projectRoot)
+	if err != nil {
+		return fmt.Errorf("resolve project root: %w", err)
+	}
+	if _, err := workstream.ResolveExecutableLeaf(root, *featureID, *wsID, workstream.DefaultCompileOptions()); err != nil {
+		return fmt.Errorf("resolve executable leaf: %w\n(hint: run 'sdp-harness compile-lock --project-root=%s' after updating normalized workstreams)", err, root)
 	}
 
 	path, err := dbPath(*sessionID)
@@ -115,17 +164,21 @@ func cmdNew(args []string) error {
 	}
 	defer store.Close()
 
-	_, err = agentloop.NewSession(*sessionID, store)
+	_, err = agentloop.NewBoundSession(*sessionID, agentloop.SessionBinding{
+		FeatureID:   *featureID,
+		WSID:        *wsID,
+		ProjectRoot: root,
+	}, store)
 	if err != nil {
 		return fmt.Errorf("create session: %w", err)
 	}
 
-	fmt.Printf("session %q created at %s\n", *sessionID, path)
+	fmt.Printf("session %q created at %s for %s/%s\n", *sessionID, path, *featureID, *wsID)
 	return nil
 }
 
 // cmdRun implements `sdp-harness run --session=<id> --prompt="<text>" [--token=<tok>]`.
-// Restores or creates a session and runs one phase turn, streaming events to stdout.
+// Restores a bound session, verifies the lock is still fresh for the same leaf, and runs one phase turn.
 func cmdRun(args []string) error {
 	fs := flag.NewFlagSet("run", flag.ContinueOnError)
 	sessionID := fs.String("session", "", "Session ID (required)")
@@ -156,6 +209,14 @@ func cmdRun(args []string) error {
 	}
 	defer store.Close()
 
+	session, err := agentloop.RecoverSession(*sessionID, store)
+	if err != nil {
+		return fmt.Errorf("recover session %q: %w\n(hint: use 'sdp-harness new --session=%s --project-root=<root> --feature=<FXXX> --ws=<id>' to create it)", *sessionID, err, *sessionID)
+	}
+	if session.ProjectRoot == "" || session.FeatureID == "" || session.WSID == "" {
+		return fmt.Errorf("session %q is not bound to a leaf workstream; recreate it with --project-root, --feature, and --ws", *sessionID)
+	}
+
 	// Build a minimal router with no real tools (MVP placeholder).
 	// LiveGateway connects to OpenRouter; requires OPENROUTER_API_KEY.
 	registry := agentloop.NewToolRegistry(nil)
@@ -172,6 +233,9 @@ func cmdRun(args []string) error {
 	if err != nil {
 		return fmt.Errorf("restore session %q: %w\n(hint: use 'sdp-harness new --session=%s' to create it)", *sessionID, err, *sessionID)
 	}
+	if _, err := workstream.ResolveExecutableLeaf(session.ProjectRoot, session.FeatureID, session.WSID, workstream.DefaultCompileOptions()); err != nil {
+		return fmt.Errorf("workstream target is no longer executable: %w", err)
+	}
 
 	// Run the phase turn with a background context (no timeout for MVP CLI).
 	ctx := context.Background()
@@ -179,6 +243,24 @@ func cmdRun(args []string) error {
 		return fmt.Errorf("run phase: %w", err)
 	}
 
-	fmt.Printf("phase turn complete for session %q\n", *sessionID)
+	fmt.Printf("phase turn complete for session %q (%s/%s)\n", *sessionID, session.FeatureID, session.WSID)
 	return nil
+}
+
+func summarizeIssues(issues []workstream.ValidationIssue) string {
+	if len(issues) == 0 {
+		return "no issues"
+	}
+	limit := 3
+	if len(issues) < limit {
+		limit = len(issues)
+	}
+	parts := make([]string, 0, limit)
+	for i := 0; i < limit; i++ {
+		parts = append(parts, issues[i].Message)
+	}
+	if len(issues) > limit {
+		parts = append(parts, fmt.Sprintf("%d more", len(issues)-limit))
+	}
+	return strings.Join(parts, "; ")
 }

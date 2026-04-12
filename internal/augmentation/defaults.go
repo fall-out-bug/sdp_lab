@@ -24,7 +24,7 @@ func DefaultPacks() []kernel.WorkflowPack {
 			Description:  "Planner and clarification role pack.",
 			Dependencies: []string{"core.pack"},
 			PromptFragments: []kernel.PromptFragment{
-				{ID: "planner.brief", Kind: "system", Content: "Plan before implementation. Prefer file-specific steps, tests, and named risks."},
+				{ID: "planner.brief", Kind: "system", Content: "Plan before implementation. Prefer file-specific steps, tests, named risks, and explicit leaf workstream boundaries."},
 			},
 			Roles: []kernel.RoleDefinition{
 				{ID: "planner", Phase: "plan", Agent: "metis", Description: "Planning and design", PromptFragmentIDs: []string{"planner.brief"}},
@@ -37,7 +37,7 @@ func DefaultPacks() []kernel.WorkflowPack {
 			Description:  "Implementation role pack.",
 			Dependencies: []string{"core.pack"},
 			PromptFragments: []kernel.PromptFragment{
-				{ID: "implementer.brief", Kind: "system", Content: "Implement the requested slice directly. Keep diffs coherent and verify behavior."},
+				{ID: "implementer.brief", Kind: "system", Content: "Implement one leaf workstream or one finding issue directly. Keep diffs coherent and verify behavior before handing off."},
 			},
 			Roles: []kernel.RoleDefinition{
 				{ID: "implementer-build", Phase: "build", Agent: "hephaestus", Description: "Implementation", PromptFragmentIDs: []string{"implementer.brief"}},
@@ -52,7 +52,7 @@ func DefaultPacks() []kernel.WorkflowPack {
 			Description:  "Review and QA role pack.",
 			Dependencies: []string{"core.pack"},
 			PromptFragments: []kernel.PromptFragment{
-				{ID: "reviewer.brief", Kind: "system", Content: "Review against correctness, regressions, and missing tests before polish."},
+				{ID: "reviewer.brief", Kind: "system", Content: "Review the leaf-scoped contract against correctness, regressions, and missing tests before polish."},
 				{ID: "qa.brief", Kind: "system", Content: "Validate behavior against user intent and call out ambiguous evidence explicitly."},
 			},
 			Roles: []kernel.RoleDefinition{

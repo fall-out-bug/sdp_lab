@@ -137,6 +137,8 @@ If acceptance is unclear, stay in `vision` / `feature` work. Do not start execut
 ### Step 2: Prepare `workstream` and `beads issue`
 
 Break the `feature` into `workstream` files and linked `beads issue` entries.
+If the feature needs decomposition, use `aggregate workstream -> leaf workstream`.
+Only `leaf workstream` entries are directly executable.
 
 Use the `beads issue` graph for:
 
@@ -157,7 +159,7 @@ bd update <id> --status in_progress
 
 Use `docs/roadmap/ROADMAP.md` and `docs/workstreams/INDEX.md` for planning priority, not as a substitute for the live Beads queue.
 
-Each executable unit must link back to one `feature` and one `workstream`.
+Each executable unit must link back to one `feature` and one `leaf workstream`.
 
 ### Step 4: Branch and open early `draft PR`
 
@@ -444,7 +446,7 @@ Example: `go run ./cmd/sdp-orchestrate --feature F053 --next-action`
 | Need | Command |
 |------|---------|
 | Check status (pending WS, beads, next action) | `sdp-orchestrate --feature FXXX --status` |
-| Execute one workstream | `/build 00-FFF-SS` |
+| Execute one leaf workstream | `/build 00-FFF-SS` |
 | Execute all WS for feature | `@oneshot` or `sdp-orchestrate --feature FXXX` |
 | Multi-agent quality review | `/review FXXX` |
 | Create workstreams from findings | `@design phase4-remediation` |

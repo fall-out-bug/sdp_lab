@@ -75,6 +75,11 @@ func ValidateProtocol(projectRoot string, strictBeads, strictAll bool) (Validati
 
 	report.Issues = append(report.Issues, validateFeatureReferences(projectRoot, strictAll, wsFeatures, indexFeatures, roadmapFeatures, indexPath, roadmapPath)...)
 	report.Issues = append(report.Issues, validateIndexWorkstreamReferences(projectRoot, indexWSIDs, wsFiles, indexPath)...)
+	_, atomicityReport, err := CompileWorkgraphLock(projectRoot, DefaultCompileOptions())
+	if err != nil {
+		return report, err
+	}
+	report.Issues = append(report.Issues, atomicityReport.Issues...)
 
 	slices.SortFunc(report.Issues, func(a, b ValidationIssue) int {
 		if c := cmp.Compare(a.Severity, b.Severity); c != 0 {
@@ -145,13 +150,14 @@ func validateWorkstreamFile(projectRoot, filename, content string, strictBeads, 
 	legacyWS := isLegacyWorkstreamFilename(filename)
 
 	fm := parseFrontmatter(content)
+	normalizedCandidate := hasFrontmatterKey(fm, "ws_kind") || hasFrontmatterKey(fm, "parent_ws_id") || hasFrontmatterKey(fm, "dispatch_lifecycle")
 	frontmatterIssues, earlyExit := validateFrontmatterAndMeta(file, filename, fm, strictAll, legacyWS, &meta)
 	issues = append(issues, frontmatterIssues...)
 	if earlyExit {
 		return meta, issues
 	}
 
-	issues = append(issues, validateBeadsSection(file, content, strictBeads, strictAll, legacyWS)...)
+	issues = append(issues, validateBeadsSection(file, content, strictBeads, strictAll, legacyWS, normalizedCandidate)...)
 	issues = append(issues, validateAcceptanceCriteriaSection(file, content, strictAll, legacyWS)...)
 
 	return meta, issues
@@ -205,7 +211,7 @@ func validateFrontmatterAndMeta(file, filename string, fm map[string]string, str
 
 var strictBeadsIDPattern = regexp.MustCompile(`sdplab-[a-z0-9]+`)
 
-func validateBeadsSection(file, content string, strictBeads, strictAll, legacyWS bool) []ValidationIssue {
+func validateBeadsSection(file, content string, strictBeads, strictAll, legacyWS, normalizedCandidate bool) []ValidationIssue {
 	issues := []ValidationIssue{}
 	beadsSection, hasBeads := extractSection(content, "Beads")
 	if !hasBeads {
@@ -215,6 +221,9 @@ func validateBeadsSection(file, content string, strictBeads, strictAll, legacyWS
 
 	beadsItems := checkboxOrBulletItems(beadsSection, false)
 	if len(beadsItems) == 0 {
+		if normalizedCandidate {
+			return issues
+		}
 		issues = append(issues, ValidationIssue{Severity: severityForStrict(strictAll, legacyWS), File: file, Message: "section '## Beads' must contain at least one bullet item"})
 		return issues
 	}

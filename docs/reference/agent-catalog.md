@@ -21,7 +21,7 @@ The default loop is:
 
 - `vision`
 - `feature`
-- `workstream`
+- `workstream` graph
 - `beads issue`
 - early `draft PR`
 - `execution`
@@ -58,7 +58,7 @@ Owns:
 - one `feature`
 - feature acceptance criteria
 - `workstream` decomposition
-- mapping from `workstream` to `beads issue`
+- mapping from executable `leaf workstream` to `beads issue`
 - decision on whether a separate `plan` is needed
 
 Used when:
@@ -70,7 +70,7 @@ Used when:
 Primary output:
 
 - accepted `feature`
-- linked `workstream`
+- linked `workstream` graph
 - linked `beads issue` graph
 
 ### `orchestrator`
@@ -78,6 +78,7 @@ Primary output:
 Owns:
 
 - ready `beads issue` graph
+- executable `leaf workstream` boundary
 - early `draft PR`
 - dependency-aware execution order
 - keeping the `PR` moving until clean
@@ -100,6 +101,7 @@ Primary output:
 Owns:
 
 - execution of one `beads issue`
+- execution of one `leaf workstream`
 - TDD where required by the `workstream`
 - production of `evidence`
 - `trace` updates and `drift` inputs
@@ -159,7 +161,7 @@ Primary output:
 |-------|---------------|-----------------|
 | `vision` | `vision` | updated project map |
 | `feature` shaping | `feature` | accepted `feature` |
-| `workstream` + `beads issue` mapping | `feature` | executable graph |
+| `workstream` + `beads issue` mapping | `feature` | executable leaf graph |
 | early `draft PR` | `orchestrator` | active branch and draft PR |
 | `execution` | `implementer` | change or blocker |
 | review and gates | `reviewer` | pass or typed findings |

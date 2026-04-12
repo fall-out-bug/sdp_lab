@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -42,7 +43,10 @@ func (st *SQLiteStore) migrate() error {
 		`CREATE TABLE IF NOT EXISTS sessions (
 			id      TEXT PRIMARY KEY,
 			branch  TEXT NOT NULL DEFAULT '',
-			phase   TEXT NOT NULL DEFAULT ''
+			phase   TEXT NOT NULL DEFAULT '',
+			feature_id TEXT NOT NULL DEFAULT '',
+			ws_id TEXT NOT NULL DEFAULT '',
+			project_root TEXT NOT NULL DEFAULT ''
 		)`,
 		`CREATE TABLE IF NOT EXISTS turn_records (
 			id          TEXT NOT NULL,
@@ -87,6 +91,49 @@ func (st *SQLiteStore) migrate() error {
 		if _, err := st.db.Exec(s); err != nil {
 			return fmt.Errorf("exec migration: %w", err)
 		}
+	}
+	for _, col := range []string{
+		"feature_id TEXT NOT NULL DEFAULT ''",
+		"ws_id TEXT NOT NULL DEFAULT ''",
+		"project_root TEXT NOT NULL DEFAULT ''",
+	} {
+		if err := st.ensureColumn("sessions", col); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (st *SQLiteStore) ensureColumn(table, columnDef string) error {
+	colName := strings.Fields(columnDef)[0]
+	rows, err := st.db.Query(`PRAGMA table_info(` + table + `)`)
+	if err != nil {
+		return fmt.Errorf("pragma table_info(%s): %w", table, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			cid       int
+			name      string
+			typeName  string
+			notNull   int
+			dfltValue sql.NullString
+			pk        int
+		)
+		if err := rows.Scan(&cid, &name, &typeName, &notNull, &dfltValue, &pk); err != nil {
+			return fmt.Errorf("scan table_info(%s): %w", table, err)
+		}
+		if name == colName {
+			return nil
+		}
+	}
+	if rows.Err() != nil {
+		return fmt.Errorf("iterate table_info(%s): %w", table, rows.Err())
+	}
+
+	if _, err := st.db.Exec(`ALTER TABLE ` + table + ` ADD COLUMN ` + columnDef); err != nil {
+		return fmt.Errorf("alter table %s add column %s: %w", table, colName, err)
 	}
 	return nil
 }
@@ -185,9 +232,9 @@ func decodeToolResults(s string) ([]ToolResult, error) {
 
 func (st *SQLiteStore) Persist(s *Session) error {
 	_, err := st.db.Exec(
-		`INSERT INTO sessions (id, branch, phase) VALUES (?, ?, ?)
-		 ON CONFLICT(id) DO UPDATE SET branch=excluded.branch, phase=excluded.phase`,
-		s.ID, s.Branch, string(s.Phase),
+		`INSERT INTO sessions (id, branch, phase, feature_id, ws_id, project_root) VALUES (?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(id) DO UPDATE SET branch=excluded.branch, phase=excluded.phase, feature_id=excluded.feature_id, ws_id=excluded.ws_id, project_root=excluded.project_root`,
+		s.ID, s.Branch, string(s.Phase), s.FeatureID, s.WSID, s.ProjectRoot,
 	)
 	if err != nil {
 		return fmt.Errorf("persist session: %w", err)
@@ -196,10 +243,10 @@ func (st *SQLiteStore) Persist(s *Session) error {
 }
 
 func (st *SQLiteStore) Recover(sessionID string) (*Session, error) {
-	row := st.db.QueryRow(`SELECT id, branch, phase FROM sessions WHERE id = ?`, sessionID)
+	row := st.db.QueryRow(`SELECT id, branch, phase, feature_id, ws_id, project_root FROM sessions WHERE id = ?`, sessionID)
 	var s Session
 	var phase string
-	if err := row.Scan(&s.ID, &s.Branch, &phase); err != nil {
+	if err := row.Scan(&s.ID, &s.Branch, &phase, &s.FeatureID, &s.WSID, &s.ProjectRoot); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("session %q not found", sessionID)
 		}
