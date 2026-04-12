@@ -1058,12 +1058,20 @@ var reNpmWorkspace = regexp.MustCompile(`(?s)"workspaces"\s*:\s*\[([^\]]*)\]`)
 // reNpmWorkspacePkg matches individual package names in workspaces array
 var reNpmWorkspacePkg = regexp.MustCompile(`"([^"]+)"`)
 
+// reSBTProject matches lazy val definitions with file paths in build.sbt:
+//   lazy val core = (project in file("core"))
+//   lazy val sql  = project in file("sql/core")
+var reSBTProject = regexp.MustCompile(`(?m)lazy\s+val\s+\w+\s*=\s*(?:\(?\s*project\s+in\s+file\s*\(\s*"([^"]+)"\s*\)\s*\)?)`)
+
 func detectModuleBoundaries(root string, info *architect.InfraInfo) {
 	// Maven: pom.xml with <modules>
 	detectMavenModules(root, info)
 
 	// Gradle: settings.gradle with include
 	detectGradleModules(root, info)
+
+	// SBT: build.sbt with lazy val subprojects
+	detectSBTModules(root, info)
 
 	// npm workspaces: package.json with workspaces
 	detectNpmWorkspaces(root, info)
@@ -1134,6 +1142,39 @@ func detectGradleModules(root string, info *architect.InfraInfo) {
 		Name:        "gradle-root",
 		BuildSystem: "gradle",
 		Path:        rel,
+		Children:    children,
+	})
+}
+
+func detectSBTModules(root string, info *architect.InfraInfo) {
+	sbtPath := filepath.Join(root, "build.sbt")
+	data, err := os.ReadFile(sbtPath)
+	if err != nil {
+		return
+	}
+
+	matches := reSBTProject.FindAllStringSubmatch(string(data), -1)
+	if len(matches) == 0 {
+		return
+	}
+
+	var children []string
+	for _, m := range matches {
+		path := m[1]
+		// Skip root project (file("."))
+		if path == "." || path == "" {
+			continue
+		}
+		children = append(children, filepath.ToSlash(path))
+	}
+	if len(children) == 0 {
+		return
+	}
+
+	info.ModuleBoundaries = append(info.ModuleBoundaries, architect.ModuleBoundaryInfo{
+		Name:        "sbt-root",
+		BuildSystem: "sbt",
+		Path:        "build.sbt",
 		Children:    children,
 	})
 }

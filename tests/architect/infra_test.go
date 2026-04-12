@@ -371,6 +371,57 @@ jobs:
 }
 
 // ---------------------------------------------------------------------------
+// TestInfraExtractor_SBTModules — build.sbt with lazy val subprojects
+// ---------------------------------------------------------------------------
+
+func TestInfraExtractor_SBTModules(t *testing.T) {
+	root := t.TempDir()
+
+	buildSBT := `
+import sbt._
+
+lazy val root = (project in file("."))
+  .aggregate(core, sql, streaming, mllib)
+
+lazy val core = (project in file("core"))
+  .settings(name := "spark-core")
+
+lazy val sql = (project in file("sql/core"))
+  .dependsOn(core)
+  .settings(name := "spark-sql")
+
+lazy val streaming = (project in file("streaming"))
+  .dependsOn(core)
+
+lazy val mllib = (project in file("mllib"))
+  .dependsOn(core, sql)
+`
+	writeFile(t, root, "build.sbt", buildSBT)
+
+	ext := &extract.InfraExtractor{}
+	frag, err := ext.Extract(context.Background(), root)
+	require.NoError(t, err)
+	require.NotNil(t, frag.Infra)
+
+	// Should detect SBT module boundary
+	require.NotEmpty(t, frag.Infra.ModuleBoundaries, "expected SBT module boundaries")
+
+	var sbtBoundary *architect.ModuleBoundaryInfo
+	for i := range frag.Infra.ModuleBoundaries {
+		if frag.Infra.ModuleBoundaries[i].BuildSystem == "sbt" {
+			sbtBoundary = &frag.Infra.ModuleBoundaries[i]
+			break
+		}
+	}
+	require.NotNil(t, sbtBoundary, "expected an sbt module boundary")
+	assert.Equal(t, "build.sbt", sbtBoundary.Path)
+
+	// Should have 4 children: core, sql/core, streaming, mllib
+	sort.Strings(sbtBoundary.Children)
+	assert.Equal(t, []string{"core", "mllib", "sql/core", "streaming"}, sbtBoundary.Children)
+}
+
+// ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
 
