@@ -101,7 +101,7 @@
 | Skill | Назначение | Статус |
 |-------|-----------|--------|
 | `skills/llm-council.md` | Multi-model deliberation | 🟢 |
-| `skills/strataudit.md` | Portable strategy traceability audit skill | 🟢 |
+| `skills/strataudit.md` | Portable strategy traceability audit skill with explicit evidence/runtime contract | 🟢 |
 | `skills/agent-dispatching.md` | Agent dispatch protocol | 🟢 |
 | `AGENTS.md` | Agent instructions + SDP overview | 🟢 |
 

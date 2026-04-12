@@ -12,6 +12,34 @@ The engine is provider-neutral: host harnesses can inject their own runtime, whi
 
 **Pipeline:** Ingest → Extract → Link → Analyze → Report
 
+## Portable Skill Contract
+
+StratAudit is not just a CLI. In this repo it is also a portable audit capability
+for harnesses and agent skills.
+
+That public contract is intentionally narrower than the internal pipeline:
+
+- choose the right audit mode for the question,
+- audit only against real document text or saved artifacts,
+- expose runtime choice and trust caveats,
+- refuse claims that the evidence pack does not support.
+
+See:
+
+- [StratAudit Evidence Policy](reference/strataudit-evidence-policy.md)
+- [StratAudit Runtime Policy](reference/strataudit-runtime-policy.md)
+- [StratAudit Output Modes](reference/strataudit-output-modes.md)
+
+## Audit Modes
+
+| Mode | Use when | Primary output |
+|---|---|---|
+| `corpus-audit` | corpus quality and ingest readiness are unclear | inventory, exclusions, level coverage, caveats |
+| `traceability-audit` | the user wants cross-level alignment and missing links | traces, findings, caveats |
+| `coverage-audit` | the user asks what is and is not covered | coverage tables with explicit denominators |
+| `evidence-pack` | the user wants proof, drill-down, or source-backed findings | inspectable evidence bundle |
+| `report-redraft` | the user wants a better report from existing artifacts | rewritten report sections without new truth claims |
+
 ## Quick Start
 
 ```bash
@@ -187,6 +215,10 @@ Findings are localized to `output.lang` (default: `ru`).
 Generates output files in `.strataudit/`:
 - **HTML** — self-contained dark-theme report with coverage cards, findings list, trace chains
 - **JSON** — complete data export (entities, traces, findings, coverage, levels)
+
+The portable skill may also expose artifact-only flows such as `evidence-pack`
+and `report-redraft`, which reuse existing `.strataudit/` outputs without
+pretending a fresh audit was rerun.
 
 ## Architecture
 

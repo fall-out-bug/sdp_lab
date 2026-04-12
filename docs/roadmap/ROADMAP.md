@@ -382,7 +382,7 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 ### Phase Analyst: Evidence-Backed Strategy Audit (Planned)
 
 - **F109** — StratAudit v2 — evidence-backed report redesign (00-109-01 ... 00-109-08). Turn StratAudit into a verifiable strategy-audit product over messy multilingual corpora: extraction trust gate, source-preserving language policy, document/section/quote provenance, trace evidence contract, grouped findings, `report.v2.json`, and only then final HTML reformatting.
-- **F111** — StratAudit portability — provider-neutral engine and skill surface (00-111-01 ... 00-111-03). Split StratAudit into a provider-neutral engine, config-driven runtime resolution, and a reusable skill surface so host-native harness models stay first-class and OpenRouter acts as an enhancer instead of the only runtime path.
+- **F111** — StratAudit portability — provider-neutral engine and skill surface (00-111-01 ... 00-111-04). Split StratAudit into a provider-neutral engine, config-driven runtime resolution, and a reusable skill surface so host-native harness models stay first-class and OpenRouter acts as an enhancer instead of the only runtime path. The active follow-up hardens the skill contract itself: evidence policy, runtime policy, output modes, and fail-closed rules.
 
 
 ### Layer Rollout Matrix (Vision Alignment)
