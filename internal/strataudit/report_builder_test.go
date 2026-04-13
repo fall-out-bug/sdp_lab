@@ -224,6 +224,15 @@ func TestBuildReport_ExportsDocumentSectionAndEntityProvenance(t *testing.T) {
 	if len(rpt.TraceGaps) != 0 {
 		t.Fatalf("len(rpt.TraceGaps) = %d, want 0", len(rpt.TraceGaps))
 	}
+	if len(rpt.DocumentViews) != 1 {
+		t.Fatalf("len(rpt.DocumentViews) = %d, want 1", len(rpt.DocumentViews))
+	}
+	if rpt.DocumentViews[0].DocumentID != "d1" || rpt.DocumentViews[0].ClaimCount != 1 {
+		t.Fatalf("unexpected document view: %+v", rpt.DocumentViews[0])
+	}
+	if len(rpt.DocumentViews[0].UpstreamDocuments) != 0 || len(rpt.DocumentViews[0].DownstreamDocuments) != 0 {
+		t.Fatalf("unexpected single-document correspondence: %+v", rpt.DocumentViews[0])
+	}
 	if len(rpt.FindingsGrouped) != 1 {
 		t.Fatalf("len(rpt.FindingsGrouped) = %d, want 1", len(rpt.FindingsGrouped))
 	}
@@ -367,5 +376,118 @@ func TestBuildTraceGaps_ClassifiesWaterfallReasons(t *testing.T) {
 	}
 	if byEntity["impl_missing"].GapType != string(model.TraceGapTypeMissingUpstreamEntities) || byEntity["impl_missing"].ExpectedToLevelID != "design" {
 		t.Fatalf("unexpected missing-upstream gap: %+v", byEntity["impl_missing"])
+	}
+}
+
+func TestBuildDocumentViews_AggregatesCorrespondenceAndBlockers(t *testing.T) {
+	views := buildDocumentViews(
+		[]reportpkg.DocumentReport{
+			{ID: "d_v", Path: "/tmp/vision.md", Name: "vision.md", LevelID: "vision", LevelName: "Vision", EntityCount: 1},
+			{ID: "d_s", Path: "/tmp/strategy.md", Name: "strategy.md", LevelID: "strategy", LevelName: "Strategy", EntityCount: 2},
+			{ID: "d_d", Path: "/tmp/design.md", Name: "design.md", LevelID: "design", LevelName: "Design", EntityCount: 1},
+		},
+		[]reportpkg.LevelReport{
+			{ID: "vision", Name: "Vision", Rank: 0},
+			{ID: "strategy", Name: "Strategy", Rank: 1},
+			{ID: "design", Name: "Design", Rank: 2},
+		},
+		reportpkg.TraceGraphReport{
+			Nodes: []reportpkg.TraceNodeReport{
+				{ID: "v1", EntityID: "v1", Title: "Vision Claim", LevelID: "vision", LevelName: "Vision", DocumentID: "d_v", DocumentPath: "/tmp/vision.md"},
+				{ID: "s1", EntityID: "s1", Title: "Strategy Link", LevelID: "strategy", LevelName: "Strategy", DocumentID: "d_s", DocumentPath: "/tmp/strategy.md"},
+				{ID: "s2", EntityID: "s2", Title: "Strategy Gap", LevelID: "strategy", LevelName: "Strategy", DocumentID: "d_s", DocumentPath: "/tmp/strategy.md"},
+				{ID: "d1", EntityID: "d1", Title: "Design Claim", LevelID: "design", LevelName: "Design", DocumentID: "d_d", DocumentPath: "/tmp/design.md"},
+			},
+			Edges: []reportpkg.TraceEdgeReport{
+				{ID: "tr_vs", SourceNodeID: "s1", TargetNodeID: "v1", SourceEntityID: "s1", TargetEntityID: "v1", Status: "verified"},
+				{ID: "cand_ds", SourceNodeID: "d1", TargetNodeID: "s1", SourceEntityID: "d1", TargetEntityID: "s1", Status: "candidate"},
+				{ID: "rej_ds", SourceNodeID: "d1", TargetNodeID: "s2", SourceEntityID: "d1", TargetEntityID: "s2", Status: "rejected"},
+			},
+		},
+		[]reportpkg.TraceGapReport{
+			{
+				ID:                "gap_s2",
+				NodeID:            "s2",
+				EntityID:          "s2",
+				DocumentID:        "d_s",
+				DocumentPath:      "/tmp/strategy.md",
+				LevelID:           "strategy",
+				ExpectedToLevelID: "vision",
+				Stage:             "verification",
+				GapType:           "all_candidates_rejected",
+			},
+			{
+				ID:                "gap_d1",
+				NodeID:            "d1",
+				EntityID:          "d1",
+				DocumentID:        "d_d",
+				DocumentPath:      "/tmp/design.md",
+				LevelID:           "design",
+				ExpectedToLevelID: "strategy",
+				Stage:             "verification",
+				GapType:           "low_confidence",
+			},
+		},
+		[]reportpkg.CorpusQualityDocReport{
+			{
+				DocumentID: "d_s",
+				Severity:   "critical",
+				Flags:      []string{"language_mismatch", "html_export_noise"},
+			},
+		},
+	)
+
+	if len(views) != 3 {
+		t.Fatalf("len(views) = %d, want 3", len(views))
+	}
+
+	byDocID := make(map[string]reportpkg.DocumentViewReport, len(views))
+	for _, view := range views {
+		byDocID[view.DocumentID] = view
+	}
+
+	strategy := byDocID["d_s"]
+	if strategy.ClaimCount != 2 {
+		t.Fatalf("strategy claim_count = %d, want 2", strategy.ClaimCount)
+	}
+	if strategy.VerifiedLinkCount != 1 || strategy.CandidateLinkCount != 1 || strategy.RejectedLinkCount != 1 {
+		t.Fatalf("unexpected strategy link counts: %+v", strategy)
+	}
+	if strategy.BlockerCount != 1 || strategy.BrokenLinkCount != 1 {
+		t.Fatalf("unexpected strategy blocker counts: %+v", strategy)
+	}
+	if len(strategy.UpstreamDocuments) != 1 || strategy.UpstreamDocuments[0].DocumentID != "d_v" || strategy.UpstreamDocuments[0].VerifiedEdgeCount != 1 {
+		t.Fatalf("unexpected strategy upstream docs: %+v", strategy.UpstreamDocuments)
+	}
+	if len(strategy.DownstreamDocuments) != 1 || strategy.DownstreamDocuments[0].DocumentID != "d_d" {
+		t.Fatalf("unexpected strategy downstream docs: %+v", strategy.DownstreamDocuments)
+	}
+	if strategy.DownstreamDocuments[0].CandidateEdgeCount != 1 || strategy.DownstreamDocuments[0].RejectedEdgeCount != 1 {
+		t.Fatalf("unexpected strategy downstream counts: %+v", strategy.DownstreamDocuments[0])
+	}
+	if len(strategy.Blockers) != 1 || strategy.Blockers[0].GapType != "all_candidates_rejected" || strategy.Blockers[0].Count != 1 {
+		t.Fatalf("unexpected strategy blockers: %+v", strategy.Blockers)
+	}
+	if len(strategy.CriticalQualityFlags) != 1 || strategy.CriticalQualityFlags[0] != "language_mismatch" {
+		t.Fatalf("unexpected strategy critical quality flags: %+v", strategy.CriticalQualityFlags)
+	}
+
+	design := byDocID["d_d"]
+	if design.CandidateLinkCount != 1 || design.RejectedLinkCount != 1 || design.BlockerCount != 1 {
+		t.Fatalf("unexpected design counts: %+v", design)
+	}
+	if len(design.UpstreamDocuments) != 1 || design.UpstreamDocuments[0].DocumentID != "d_s" {
+		t.Fatalf("unexpected design upstream docs: %+v", design.UpstreamDocuments)
+	}
+	if len(design.DownstreamDocuments) != 0 {
+		t.Fatalf("unexpected design downstream docs: %+v", design.DownstreamDocuments)
+	}
+
+	vision := byDocID["d_v"]
+	if vision.VerifiedLinkCount != 1 || len(vision.DownstreamDocuments) != 1 || vision.DownstreamDocuments[0].DocumentID != "d_s" {
+		t.Fatalf("unexpected vision correspondence: %+v", vision)
+	}
+	if len(vision.UpstreamDocuments) != 0 {
+		t.Fatalf("unexpected vision upstream docs: %+v", vision.UpstreamDocuments)
 	}
 }

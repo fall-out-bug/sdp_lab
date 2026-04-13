@@ -8,9 +8,10 @@ import (
 )
 
 type htmlContext struct {
-	documentByID map[string]DocumentReport
-	sectionByID  map[string]SectionReport
-	entityByID   map[string]EntityReport
+	documentByID     map[string]DocumentReport
+	documentViewByID map[string]DocumentViewReport
+	sectionByID      map[string]SectionReport
+	entityByID       map[string]EntityReport
 }
 
 func buildHTML(rpt *AuditReport) string {
@@ -729,21 +730,27 @@ func renderEvidencePack(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) 
 	}
 	b.WriteString(`</div></div>`)
 
-	b.WriteString(`<div class="subpanel"><h3>Document Dossier</h3><div class="ledger">`)
+	b.WriteString(`<div class="subpanel"><h3>Разбор документов</h3><div class="ledger">`)
 	if len(rpt.Documents) == 0 {
 		b.WriteString(`<div class="empty-note">Документы не загружены в evidence pack.</div>`)
 	} else {
 		for _, doc := range rpt.Documents {
-			fmt.Fprintf(b, `<article class="ledger-card" id="doc-%s"><div class="ledger-head"><div><h4 class="card-title">%s</h4><div class="card-meta">%s · %d entities · %d sections</div></div><span class="pill pill-%s">%s</span></div><div class="card-body"><div class="link-list">%s %s</div></div></article>`,
+			view := documentViewForID(doc, ctx)
+			fmt.Fprintf(b, `<article class="ledger-card" id="doc-%s"><div class="ledger-head"><div><h4 class="card-title">%s</h4><div class="card-meta">%s · %d утверждений · %d разделов</div></div><span class="pill pill-%s">%s</span></div><div class="card-body"><div class="split">%s%s</div><div class="split">%s%s</div>%s<div class="link-list" style="margin-top:12px">%s %s</div></div></article>`,
 				html.EscapeString(doc.ID),
 				html.EscapeString(doc.Path),
 				html.EscapeString(firstNonEmpty(doc.LevelName, doc.LevelID)),
-				doc.EntityCount,
+				view.ClaimCount,
 				doc.SectionCount,
 				html.EscapeString(documentHealthClass(doc, rpt)),
 				html.EscapeString(strings.ToUpper(documentHealthLabel(doc, rpt))),
-				localDocumentLink(doc.Path, "Open file"),
-				internalLink("#coverage-explorer", "Coverage"))
+				renderDocumentTraceSnapshot(view),
+				renderDocumentBlockersBox(view, ctx),
+				renderDocumentCorrespondenceBox("Связи вверх по слоям", view.UpstreamDocuments, ctx),
+				renderDocumentCorrespondenceBox("Связи вниз по слоям", view.DownstreamDocuments, ctx),
+				renderDocumentKeyClaimsBox(view, ctx),
+				localDocumentLink(doc.Path, "Открыть файл"),
+				internalLink("#coverage-explorer", "Покрытие"))
 		}
 	}
 	b.WriteString(`</div></div>`)
@@ -791,6 +798,132 @@ func renderEvidencePack(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) 
 	b.WriteString(`</div></div>`)
 
 	b.WriteString(`</div></section>`)
+}
+
+func documentViewForID(doc DocumentReport, ctx *htmlContext) DocumentViewReport {
+	if view, ok := ctx.documentViewByID[doc.ID]; ok {
+		return view
+	}
+	return DocumentViewReport{
+		DocumentID:           doc.ID,
+		DocumentPath:         doc.Path,
+		DocumentName:         doc.Name,
+		LevelID:              doc.LevelID,
+		LevelName:            doc.LevelName,
+		ClaimCount:           doc.EntityCount,
+		UpstreamDocuments:    []DocumentCorrespondenceReport{},
+		DownstreamDocuments:  []DocumentCorrespondenceReport{},
+		Blockers:             []DocumentBlockerReport{},
+		CriticalQualityFlags: []string{},
+		KeyClaimIDs:          []string{},
+	}
+}
+
+func renderDocumentTraceSnapshot(view DocumentViewReport) string {
+	var b strings.Builder
+	b.WriteString(`<div class="quote-box"><h4>Снимок трассировки</h4>`)
+	fmt.Fprintf(&b, `<div class="card-meta">%d подтверждено · %d кандидатов · %d отклонено · %d утверждений с разрывом · %d блокеров</div>`,
+		view.VerifiedLinkCount,
+		view.CandidateLinkCount,
+		view.RejectedLinkCount,
+		view.BrokenLinkCount,
+		view.BlockerCount)
+	if len(view.CriticalQualityFlags) > 0 {
+		b.WriteString(`<div class="chips" style="margin-top:12px">`)
+		b.WriteString(renderFlagChips(view.CriticalQualityFlags))
+		b.WriteString(`</div>`)
+	} else {
+		b.WriteString(`<p style="margin-top:12px" class="muted">Критических флагов качества не зафиксировано.</p>`)
+	}
+	b.WriteString(`</div>`)
+	return b.String()
+}
+
+func renderDocumentCorrespondenceBox(title string, values []DocumentCorrespondenceReport, ctx *htmlContext) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, `<div class="quote-box"><h4>%s</h4>`, html.EscapeString(title))
+	if len(values) == 0 {
+		b.WriteString(`<p class="muted">Соответствия на этом направлении не зафиксированы.</p></div>`)
+		return b.String()
+	}
+	for i, value := range values {
+		if i > 0 {
+			b.WriteString(`<div style="height:1px;margin:12px 0;background:rgba(106,83,55,0.12)"></div>`)
+		}
+		fmt.Fprintf(&b, `<div><strong>%s</strong><div class="card-meta">%s · подтверждено %d · кандидатов %d · отклонено %d</div><div class="link-list" style="margin-top:10px">%s %s %s</div></div>`,
+			html.EscapeString(firstNonEmpty(value.DocumentName, value.DocumentPath, value.DocumentID)),
+			html.EscapeString(firstNonEmpty(value.LevelName, value.LevelID)),
+			value.VerifiedEdgeCount,
+			value.CandidateEdgeCount,
+			value.RejectedEdgeCount,
+			internalLink(fmt.Sprintf("#doc-%s", value.DocumentID), "Документ"),
+			localDocumentLink(value.DocumentPath, "Открыть файл"),
+			renderClaimReferenceLinks(value.ClaimIDs, ctx))
+	}
+	b.WriteString(`</div>`)
+	return b.String()
+}
+
+func renderDocumentBlockersBox(view DocumentViewReport, ctx *htmlContext) string {
+	var b strings.Builder
+	b.WriteString(`<div class="quote-box"><h4>Блокеры трассировки</h4>`)
+	if len(view.Blockers) == 0 {
+		b.WriteString(`<p class="muted">Явных разрывов трассировки для этого документа нет.</p></div>`)
+		return b.String()
+	}
+	for i, blocker := range view.Blockers {
+		if i > 0 {
+			b.WriteString(`<div style="height:1px;margin:12px 0;background:rgba(106,83,55,0.12)"></div>`)
+		}
+		fmt.Fprintf(&b, `<div><strong>%s</strong><div class="card-meta">этап %s · %d затронутых утверждений</div><div class="link-list" style="margin-top:10px">%s</div></div>`,
+			html.EscapeString(blocker.GapType),
+			html.EscapeString(blocker.Stage),
+			blocker.Count,
+			renderClaimReferenceLinks(blocker.ClaimIDs, ctx))
+	}
+	b.WriteString(`</div>`)
+	return b.String()
+}
+
+func renderDocumentKeyClaimsBox(view DocumentViewReport, ctx *htmlContext) string {
+	var b strings.Builder
+	b.WriteString(`<div class="quote-box" style="margin-top:12px"><h4>Ключевые утверждения документа</h4>`)
+	if len(view.KeyClaimIDs) == 0 {
+		b.WriteString(`<p class="muted">У документа нет допущенных утверждений для навигации.</p></div>`)
+		return b.String()
+	}
+	b.WriteString(`<div class="chips" style="margin-top:10px">`)
+	for _, claimID := range view.KeyClaimIDs {
+		label := claimID
+		if entity, ok := ctx.entityByID[claimID]; ok {
+			label = firstNonEmpty(entity.TitleOriginal, entity.Title, claimID)
+		}
+		fmt.Fprintf(&b, `<a class="chip" href="#evidence-entity-%s">%s</a>`, html.EscapeString(claimID), html.EscapeString(label))
+	}
+	b.WriteString(`</div></div>`)
+	return b.String()
+}
+
+func renderClaimReferenceLinks(claimIDs []string, ctx *htmlContext) string {
+	if len(claimIDs) == 0 {
+		return `<span class="muted">Без ссылок на утверждения</span>`
+	}
+	limit := len(claimIDs)
+	if limit > 3 {
+		limit = 3
+	}
+	parts := make([]string, 0, limit+1)
+	for _, claimID := range claimIDs[:limit] {
+		label := claimID
+		if entity, ok := ctx.entityByID[claimID]; ok {
+			label = firstNonEmpty(entity.TitleOriginal, entity.Title, claimID)
+		}
+		parts = append(parts, internalLink(fmt.Sprintf("#evidence-entity-%s", claimID), "Утв.: "+label))
+	}
+	if len(claimIDs) > limit {
+		parts = append(parts, fmt.Sprintf(`<span class="muted">ещё %d</span>`, len(claimIDs)-limit))
+	}
+	return strings.Join(parts, " ")
 }
 
 func renderCoverageTable(b *strings.Builder, title string, entries []CoverageScopeReport, ctx *htmlContext) {
@@ -855,12 +988,16 @@ func renderFlagChips(flags []string) string {
 
 func newHTMLContext(rpt *AuditReport) *htmlContext {
 	ctx := &htmlContext{
-		documentByID: make(map[string]DocumentReport, len(rpt.Documents)),
-		sectionByID:  make(map[string]SectionReport, len(rpt.Sections)),
-		entityByID:   make(map[string]EntityReport, len(rpt.Entities)),
+		documentByID:     make(map[string]DocumentReport, len(rpt.Documents)),
+		documentViewByID: make(map[string]DocumentViewReport, len(rpt.DocumentViews)),
+		sectionByID:      make(map[string]SectionReport, len(rpt.Sections)),
+		entityByID:       make(map[string]EntityReport, len(rpt.Entities)),
 	}
 	for _, doc := range rpt.Documents {
 		ctx.documentByID[doc.ID] = doc
+	}
+	for _, view := range rpt.DocumentViews {
+		ctx.documentViewByID[view.DocumentID] = view
 	}
 	for _, section := range rpt.Sections {
 		ctx.sectionByID[section.ID] = section

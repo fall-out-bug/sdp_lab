@@ -297,6 +297,33 @@ func TestWriteJSON_WritesV2AndCompatAlias(t *testing.T) {
 				TopCandidateIDs:     []string{"cand1"},
 			},
 		},
+		DocumentViews: []DocumentViewReport{
+			{
+				DocumentID:          "d1",
+				DocumentPath:        "/tmp/vision.md",
+				DocumentName:        "vision.md",
+				LevelID:             "vision",
+				LevelName:           "Vision",
+				ClaimCount:          1,
+				VerifiedLinkCount:   0,
+				CandidateLinkCount:  0,
+				RejectedLinkCount:   0,
+				BrokenLinkCount:     1,
+				BlockerCount:        1,
+				UpstreamDocuments:   []DocumentCorrespondenceReport{},
+				DownstreamDocuments: []DocumentCorrespondenceReport{},
+				Blockers: []DocumentBlockerReport{
+					{
+						Stage:    "verification",
+						GapType:  "all_candidates_rejected",
+						Count:    1,
+						ClaimIDs: []string{"e1"},
+					},
+				},
+				CriticalQualityFlags: []string{"language_mismatch", "prompt_leak"},
+				KeyClaimIDs:          []string{"e1"},
+			},
+		},
 		FindingsGrouped: []FindingReport{
 			{
 				ID:             "f1",

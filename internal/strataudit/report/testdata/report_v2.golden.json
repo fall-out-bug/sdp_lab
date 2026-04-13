@@ -321,6 +321,40 @@
       ]
     }
   ],
+  "document_views": [
+    {
+      "document_id": "d1",
+      "document_path": "/tmp/vision.md",
+      "document_name": "vision.md",
+      "level_id": "vision",
+      "level_name": "Vision",
+      "claim_count": 1,
+      "verified_link_count": 0,
+      "candidate_link_count": 0,
+      "rejected_link_count": 0,
+      "broken_link_count": 1,
+      "blocker_count": 1,
+      "upstream_documents": [],
+      "downstream_documents": [],
+      "blockers": [
+        {
+          "stage": "verification",
+          "gap_type": "all_candidates_rejected",
+          "count": 1,
+          "claim_ids": [
+            "e1"
+          ]
+        }
+      ],
+      "critical_quality_flags": [
+        "language_mismatch",
+        "prompt_leak"
+      ],
+      "key_claim_ids": [
+        "e1"
+      ]
+    }
+  ],
   "findings_grouped": [
     {
       "id": "f1",

@@ -288,6 +288,7 @@ func BuildReport(ctx context.Context, cfg *Config, store *SQLiteStore) (*report.
 		FlagCounts:        corpusQualityFlagCounts,
 		Documents:         corpusQualityDocs,
 	}
+	rpt.DocumentViews = buildDocumentViews(rpt.Documents, rpt.Levels, rpt.TraceGraph, rpt.TraceGaps, rpt.CorpusQuality.Documents)
 
 	for _, finding := range findings {
 		documentPaths := mapDocumentPaths(finding.DocumentIDs, documentByID)
@@ -477,6 +478,359 @@ func buildCorpusQualityDocs(findings []model.Finding, sections []model.Section, 
 		return docs[i].DocumentPath < docs[j].DocumentPath
 	})
 	return docs
+}
+
+type documentViewAccumulator struct {
+	view         *report.DocumentViewReport
+	upstream     map[string]*documentCorrespondenceAccumulator
+	downstream   map[string]*documentCorrespondenceAccumulator
+	blockers     map[string]*documentBlockerAccumulator
+	claimScores  map[string]int
+	localClaims  map[string]struct{}
+	brokenClaims map[string]struct{}
+}
+
+type documentCorrespondenceAccumulator struct {
+	item     *report.DocumentCorrespondenceReport
+	claimIDs map[string]struct{}
+	edgeIDs  map[string]struct{}
+}
+
+type documentBlockerAccumulator struct {
+	item     *report.DocumentBlockerReport
+	claimIDs map[string]struct{}
+}
+
+func buildDocumentViews(
+	documents []report.DocumentReport,
+	levels []report.LevelReport,
+	graph report.TraceGraphReport,
+	gaps []report.TraceGapReport,
+	corpusDocs []report.CorpusQualityDocReport,
+) []report.DocumentViewReport {
+	views := make([]report.DocumentViewReport, len(documents))
+	if len(documents) == 0 {
+		return views
+	}
+
+	levelRank := make(map[string]int, len(levels))
+	for _, level := range levels {
+		levelRank[level.ID] = level.Rank
+	}
+
+	accByDocID := make(map[string]*documentViewAccumulator, len(documents))
+	for i, doc := range documents {
+		views[i] = report.DocumentViewReport{
+			DocumentID:           doc.ID,
+			DocumentPath:         doc.Path,
+			DocumentName:         doc.Name,
+			LevelID:              doc.LevelID,
+			LevelName:            doc.LevelName,
+			UpstreamDocuments:    []report.DocumentCorrespondenceReport{},
+			DownstreamDocuments:  []report.DocumentCorrespondenceReport{},
+			Blockers:             []report.DocumentBlockerReport{},
+			CriticalQualityFlags: []string{},
+			KeyClaimIDs:          []string{},
+		}
+		accByDocID[doc.ID] = &documentViewAccumulator{
+			view:         &views[i],
+			upstream:     make(map[string]*documentCorrespondenceAccumulator),
+			downstream:   make(map[string]*documentCorrespondenceAccumulator),
+			blockers:     make(map[string]*documentBlockerAccumulator),
+			claimScores:  make(map[string]int),
+			localClaims:  make(map[string]struct{}),
+			brokenClaims: make(map[string]struct{}),
+		}
+	}
+
+	nodeByID := make(map[string]report.TraceNodeReport, len(graph.Nodes))
+	for _, node := range graph.Nodes {
+		nodeByID[node.ID] = node
+		acc, ok := accByDocID[node.DocumentID]
+		if !ok {
+			continue
+		}
+		acc.view.ClaimCount++
+		acc.localClaims[node.ID] = struct{}{}
+	}
+
+	for _, corpusDoc := range corpusDocs {
+		acc, ok := accByDocID[corpusDoc.DocumentID]
+		if !ok {
+			continue
+		}
+		acc.view.CriticalQualityFlags = documentCriticalQualityFlags(corpusDoc)
+	}
+
+	for _, edge := range graph.Edges {
+		sourceNode, sourceOK := nodeByID[edge.SourceNodeID]
+		targetNode, targetOK := nodeByID[edge.TargetNodeID]
+		if !sourceOK || !targetOK {
+			continue
+		}
+		if sourceNode.DocumentID == "" || targetNode.DocumentID == "" || sourceNode.DocumentID == targetNode.DocumentID {
+			continue
+		}
+		addDocumentEdge(accByDocID[sourceNode.DocumentID], sourceNode, targetNode, edge, levelRank, true)
+		addDocumentEdge(accByDocID[targetNode.DocumentID], targetNode, sourceNode, edge, levelRank, false)
+	}
+
+	for _, gap := range gaps {
+		acc, ok := accByDocID[gap.DocumentID]
+		if !ok {
+			continue
+		}
+		claimID := firstNonEmptyNonReport(gap.NodeID, gap.EntityID)
+		blockerKey := gap.Stage + "|" + gap.GapType
+		blocker, ok := acc.blockers[blockerKey]
+		if !ok {
+			item := &report.DocumentBlockerReport{
+				Stage:    gap.Stage,
+				GapType:  gap.GapType,
+				ClaimIDs: []string{},
+			}
+			blocker = &documentBlockerAccumulator{
+				item:     item,
+				claimIDs: make(map[string]struct{}),
+			}
+			acc.blockers[blockerKey] = blocker
+		}
+		blocker.item.Count++
+		if claimID != "" {
+			blocker.claimIDs[claimID] = struct{}{}
+			acc.claimScores[claimID]++
+			acc.localClaims[claimID] = struct{}{}
+			acc.brokenClaims[claimID] = struct{}{}
+		}
+		acc.view.BlockerCount++
+	}
+
+	for i := range views {
+		acc := accByDocID[views[i].DocumentID]
+		if acc == nil {
+			continue
+		}
+		acc.view.UpstreamDocuments = finalizeDocumentCorrespondences(acc.upstream)
+		acc.view.DownstreamDocuments = finalizeDocumentCorrespondences(acc.downstream)
+		acc.view.Blockers = finalizeDocumentBlockers(acc.blockers)
+		acc.view.BrokenLinkCount = len(acc.brokenClaims)
+		acc.view.KeyClaimIDs = topDocumentClaimIDs(acc.claimScores, acc.localClaims, 5)
+		if acc.view.ClaimCount == 0 && documents[i].EntityCount > 0 {
+			acc.view.ClaimCount = documents[i].EntityCount
+		}
+	}
+
+	return views
+}
+
+func addDocumentEdge(
+	acc *documentViewAccumulator,
+	currentNode report.TraceNodeReport,
+	otherNode report.TraceNodeReport,
+	edge report.TraceEdgeReport,
+	levelRank map[string]int,
+	currentIsSource bool,
+) {
+	if acc == nil {
+		return
+	}
+
+	claimID := currentNode.ID
+	if claimID != "" {
+		acc.claimScores[claimID]++
+		acc.localClaims[claimID] = struct{}{}
+	}
+
+	bucket := acc.downstream
+	if documentRelationDirection(currentNode.LevelID, otherNode.LevelID, currentIsSource, levelRank) == "upstream" {
+		bucket = acc.upstream
+	}
+	correspondence, ok := bucket[otherNode.DocumentID]
+	if !ok {
+		documentName := firstNonEmptyNonReport(otherNode.DocumentPath, otherNode.DocumentID)
+		if otherNode.DocumentPath != "" {
+			documentName = filepath.Base(otherNode.DocumentPath)
+		}
+		item := &report.DocumentCorrespondenceReport{
+			DocumentID:   otherNode.DocumentID,
+			DocumentPath: otherNode.DocumentPath,
+			DocumentName: documentName,
+			LevelID:      otherNode.LevelID,
+			LevelName:    otherNode.LevelName,
+			ClaimIDs:     []string{},
+			EdgeIDs:      []string{},
+		}
+		correspondence = &documentCorrespondenceAccumulator{
+			item:     item,
+			claimIDs: make(map[string]struct{}),
+			edgeIDs:  make(map[string]struct{}),
+		}
+		bucket[otherNode.DocumentID] = correspondence
+	}
+
+	switch edge.Status {
+	case string(model.TraceEdgeStatusVerified):
+		acc.view.VerifiedLinkCount++
+		correspondence.item.VerifiedEdgeCount++
+	case string(model.TraceEdgeStatusCandidate):
+		acc.view.CandidateLinkCount++
+		correspondence.item.CandidateEdgeCount++
+	default:
+		acc.view.RejectedLinkCount++
+		correspondence.item.RejectedEdgeCount++
+		if claimID != "" {
+			acc.brokenClaims[claimID] = struct{}{}
+		}
+	}
+
+	if claimID != "" {
+		correspondence.claimIDs[claimID] = struct{}{}
+	}
+	if edge.ID != "" {
+		correspondence.edgeIDs[edge.ID] = struct{}{}
+	}
+}
+
+func documentRelationDirection(currentLevelID, otherLevelID string, currentIsSource bool, levelRank map[string]int) string {
+	currentRank, currentOK := levelRank[currentLevelID]
+	otherRank, otherOK := levelRank[otherLevelID]
+	if currentOK && otherOK {
+		switch {
+		case otherRank < currentRank:
+			return "upstream"
+		case otherRank > currentRank:
+			return "downstream"
+		}
+	}
+	if currentIsSource {
+		return "upstream"
+	}
+	return "downstream"
+}
+
+func finalizeDocumentCorrespondences(values map[string]*documentCorrespondenceAccumulator) []report.DocumentCorrespondenceReport {
+	if len(values) == 0 {
+		return []report.DocumentCorrespondenceReport{}
+	}
+	items := make([]report.DocumentCorrespondenceReport, 0, len(values))
+	for _, value := range values {
+		value.item.ClaimIDs = sortedStringKeys(value.claimIDs)
+		value.item.EdgeIDs = sortedStringKeys(value.edgeIDs)
+		items = append(items, *value.item)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		left := items[i]
+		right := items[j]
+		if left.VerifiedEdgeCount != right.VerifiedEdgeCount {
+			return left.VerifiedEdgeCount > right.VerifiedEdgeCount
+		}
+		if left.CandidateEdgeCount != right.CandidateEdgeCount {
+			return left.CandidateEdgeCount > right.CandidateEdgeCount
+		}
+		if left.RejectedEdgeCount != right.RejectedEdgeCount {
+			return left.RejectedEdgeCount > right.RejectedEdgeCount
+		}
+		if left.LevelID != right.LevelID {
+			return left.LevelID < right.LevelID
+		}
+		return left.DocumentPath < right.DocumentPath
+	})
+	return items
+}
+
+func finalizeDocumentBlockers(values map[string]*documentBlockerAccumulator) []report.DocumentBlockerReport {
+	if len(values) == 0 {
+		return []report.DocumentBlockerReport{}
+	}
+	items := make([]report.DocumentBlockerReport, 0, len(values))
+	for _, value := range values {
+		value.item.ClaimIDs = sortedStringKeys(value.claimIDs)
+		items = append(items, *value.item)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		left := items[i]
+		right := items[j]
+		if left.Count != right.Count {
+			return left.Count > right.Count
+		}
+		if left.Stage != right.Stage {
+			return left.Stage < right.Stage
+		}
+		return left.GapType < right.GapType
+	})
+	return items
+}
+
+func topDocumentClaimIDs(scores map[string]int, localClaims map[string]struct{}, limit int) []string {
+	if len(localClaims) == 0 || limit <= 0 {
+		return []string{}
+	}
+	type claimScore struct {
+		id    string
+		score int
+	}
+	ranked := make([]claimScore, 0, len(localClaims))
+	for claimID := range localClaims {
+		ranked = append(ranked, claimScore{id: claimID, score: scores[claimID]})
+	}
+	sort.Slice(ranked, func(i, j int) bool {
+		if ranked[i].score != ranked[j].score {
+			return ranked[i].score > ranked[j].score
+		}
+		return ranked[i].id < ranked[j].id
+	})
+	if len(ranked) > limit {
+		ranked = ranked[:limit]
+	}
+	ids := make([]string, 0, len(ranked))
+	for _, item := range ranked {
+		ids = append(ids, item.id)
+	}
+	return ids
+}
+
+func documentCriticalQualityFlags(doc report.CorpusQualityDocReport) []string {
+	filtered := make([]string, 0, len(doc.Flags))
+	for _, flag := range dedupeStrings(doc.Flags) {
+		if isCriticalQualityFlag(flag) {
+			filtered = append(filtered, flag)
+		}
+	}
+	if len(filtered) == 0 && doc.Severity == string(model.SeverityCritical) {
+		filtered = append(filtered, dedupeStrings(doc.Flags)...)
+	}
+	sort.Strings(filtered)
+	return filtered
+}
+
+func isCriticalQualityFlag(flag string) bool {
+	switch flag {
+	case "prompt_leak", "quote_not_found", "boilerplate_repetition", "language_mismatch":
+		return true
+	default:
+		return false
+	}
+}
+
+func sortedStringKeys(values map[string]struct{}) []string {
+	if len(values) == 0 {
+		return []string{}
+	}
+	keys := make([]string, 0, len(values))
+	for value := range values {
+		keys = append(keys, value)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func firstNonEmptyNonReport(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func corpusSeverityFromFlags(flags []string) string {

@@ -23,6 +23,7 @@ type AuditReport struct {
 	VerifiedTraces  []VerifiedTraceReport  `json:"verified_traces,omitempty"`
 	TraceGraph      TraceGraphReport       `json:"trace_graph"`
 	TraceGaps       []TraceGapReport       `json:"trace_gaps"`
+	DocumentViews   []DocumentViewReport   `json:"document_views"`
 	FindingsGrouped []FindingReport        `json:"findings_grouped"`
 	Coverage        CoverageBlockReport    `json:"coverage"`
 	EvidencePack    EvidencePackReport     `json:"evidence_pack"`
@@ -245,6 +246,45 @@ type TraceGapReport struct {
 	Reason              string   `json:"reason,omitempty"`
 	CandidateCount      int      `json:"candidate_count"`
 	TopCandidateIDs     []string `json:"top_candidate_ids,omitempty"`
+}
+
+type DocumentViewReport struct {
+	DocumentID           string                         `json:"document_id"`
+	DocumentPath         string                         `json:"document_path"`
+	DocumentName         string                         `json:"document_name"`
+	LevelID              string                         `json:"level_id"`
+	LevelName            string                         `json:"level_name,omitempty"`
+	ClaimCount           int                            `json:"claim_count"`
+	VerifiedLinkCount    int                            `json:"verified_link_count"`
+	CandidateLinkCount   int                            `json:"candidate_link_count"`
+	RejectedLinkCount    int                            `json:"rejected_link_count"`
+	BrokenLinkCount      int                            `json:"broken_link_count"`
+	BlockerCount         int                            `json:"blocker_count"`
+	UpstreamDocuments    []DocumentCorrespondenceReport `json:"upstream_documents"`
+	DownstreamDocuments  []DocumentCorrespondenceReport `json:"downstream_documents"`
+	Blockers             []DocumentBlockerReport        `json:"blockers"`
+	CriticalQualityFlags []string                       `json:"critical_quality_flags"`
+	KeyClaimIDs          []string                       `json:"key_claim_ids"`
+}
+
+type DocumentCorrespondenceReport struct {
+	DocumentID         string   `json:"document_id"`
+	DocumentPath       string   `json:"document_path"`
+	DocumentName       string   `json:"document_name"`
+	LevelID            string   `json:"level_id"`
+	LevelName          string   `json:"level_name,omitempty"`
+	VerifiedEdgeCount  int      `json:"verified_edge_count"`
+	CandidateEdgeCount int      `json:"candidate_edge_count"`
+	RejectedEdgeCount  int      `json:"rejected_edge_count"`
+	ClaimIDs           []string `json:"claim_ids"`
+	EdgeIDs            []string `json:"edge_ids"`
+}
+
+type DocumentBlockerReport struct {
+	Stage    string   `json:"stage"`
+	GapType  string   `json:"gap_type"`
+	Count    int      `json:"count"`
+	ClaimIDs []string `json:"claim_ids"`
 }
 
 type TraceEvidenceReport struct {
