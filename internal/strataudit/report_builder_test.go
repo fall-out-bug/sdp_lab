@@ -233,6 +233,12 @@ func TestBuildReport_ExportsDocumentSectionAndEntityProvenance(t *testing.T) {
 	if len(rpt.DocumentViews[0].UpstreamDocuments) != 0 || len(rpt.DocumentViews[0].DownstreamDocuments) != 0 {
 		t.Fatalf("unexpected single-document correspondence: %+v", rpt.DocumentViews[0])
 	}
+	if rpt.ReportModes.Default != "analyst" || rpt.ReportModes.DefaultTab != "summary" || rpt.ReportModes.CompareAvailable {
+		t.Fatalf("unexpected report modes: %+v", rpt.ReportModes)
+	}
+	if len(rpt.ReportModes.Tabs) != 5 || rpt.ReportModes.Tabs[0].ID != "summary" || rpt.ReportModes.Tabs[4].ID != "diagnostics" {
+		t.Fatalf("unexpected report tabs: %+v", rpt.ReportModes.Tabs)
+	}
 	if len(rpt.FindingsGrouped) != 1 {
 		t.Fatalf("len(rpt.FindingsGrouped) = %d, want 1", len(rpt.FindingsGrouped))
 	}

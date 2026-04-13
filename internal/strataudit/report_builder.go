@@ -289,6 +289,7 @@ func BuildReport(ctx context.Context, cfg *Config, store *SQLiteStore) (*report.
 		Documents:         corpusQualityDocs,
 	}
 	rpt.DocumentViews = buildDocumentViews(rpt.Documents, rpt.Levels, rpt.TraceGraph, rpt.TraceGaps, rpt.CorpusQuality.Documents)
+	rpt.ReportModes = defaultReportModes()
 
 	for _, finding := range findings {
 		documentPaths := mapDocumentPaths(finding.DocumentIDs, documentByID)
@@ -478,6 +479,21 @@ func buildCorpusQualityDocs(findings []model.Finding, sections []model.Section, 
 		return docs[i].DocumentPath < docs[j].DocumentPath
 	})
 	return docs
+}
+
+func defaultReportModes() report.ReportModesReport {
+	return report.ReportModesReport{
+		Default:          "analyst",
+		DefaultTab:       "summary",
+		CompareAvailable: false,
+		Tabs: []report.ReportTabReport{
+			{ID: "summary", Label: "Сводка"},
+			{ID: "documents", Label: "Документы"},
+			{ID: "trace", Label: "Трассировка"},
+			{ID: "gaps", Label: "Разрывы"},
+			{ID: "diagnostics", Label: "Диагностика"},
+		},
+	}
 }
 
 type documentViewAccumulator struct {

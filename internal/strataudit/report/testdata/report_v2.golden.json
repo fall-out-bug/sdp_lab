@@ -355,6 +355,33 @@
       ]
     }
   ],
+  "report_modes": {
+    "default": "analyst",
+    "default_tab": "summary",
+    "compare_available": false,
+    "tabs": [
+      {
+        "id": "summary",
+        "label": "Сводка"
+      },
+      {
+        "id": "documents",
+        "label": "Документы"
+      },
+      {
+        "id": "trace",
+        "label": "Трассировка"
+      },
+      {
+        "id": "gaps",
+        "label": "Разрывы"
+      },
+      {
+        "id": "diagnostics",
+        "label": "Диагностика"
+      }
+    ]
+  },
   "findings_grouped": [
     {
       "id": "f1",

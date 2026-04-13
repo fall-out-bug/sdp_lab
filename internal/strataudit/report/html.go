@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html"
 	"net/url"
+	"sort"
 	"strings"
 )
 
@@ -17,9 +18,11 @@ type htmlContext struct {
 func buildHTML(rpt *AuditReport) string {
 	var b strings.Builder
 	projectName := firstNonEmpty(rpt.AuditScope.ProjectName, "StratAudit")
-	projectDescription := firstNonEmpty(rpt.AuditScope.ProjectDescription, "Evidence-backed strategy traceability audit")
+	projectDescription := firstNonEmpty(rpt.AuditScope.ProjectDescription, "Трассировка стратегии по документам и утверждениям")
 	htmlLang := firstNonEmpty(rpt.AuditScope.OutputLang, "ru")
 	ctx := newHTMLContext(rpt)
+	reportModes := reportModesOrDefault(rpt)
+	defaultTab := firstNonEmpty(reportModes.DefaultTab, "summary")
 
 	b.WriteString(`<!DOCTYPE html>
 <html lang="`)
@@ -30,7 +33,7 @@ func buildHTML(rpt *AuditReport) string {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>`)
 	b.WriteString(html.EscapeString(projectName))
-	b.WriteString(` — StratAudit Report</title>
+	b.WriteString(` — StratAudit</title>
 <style>
 :root {
   --paper: #f3eee3;
@@ -192,6 +195,41 @@ a:hover { text-decoration: underline; }
   padding: 8px 0;
   font-weight: 600;
 }
+.mode-chip {
+  display: inline-flex;
+  margin-top: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.7);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.tab-nav {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+.tab-btn {
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.72);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+.tab-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(160,54,44,0.08);
+}
 .rail-meta {
   margin-top: 16px;
   padding-top: 16px;
@@ -203,6 +241,8 @@ a:hover { text-decoration: underline; }
   display: grid;
   gap: 18px;
 }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
 .panel {
   padding: 22px 24px;
   border-radius: 22px;
@@ -466,7 +506,7 @@ th {
 <body>
 <div class="page">
   <header class="hero">
-    <div class="eyebrow">Evidence-backed Strategy Audit</div>
+    <div class="eyebrow">Стратегический аудит с доказательствами</div>
     <div class="hero-top">
       <div class="hero-copy">
         <h1>`)
@@ -483,42 +523,86 @@ th {
 	b.WriteString(`</div>
     </div>
     <div class="hero-grid">`)
-	writeMetricCard(&b, "Verified entities", fmt.Sprintf("%d", rpt.TrustSummary.Entities.Verified), fmt.Sprintf("%d rejected / %d suspect", rpt.TrustSummary.Entities.Rejected, rpt.TrustSummary.Entities.Suspect))
-	writeMetricCard(&b, "Verified traces", fmt.Sprintf("%d", rpt.TrustSummary.Traces.Verified), fmt.Sprintf("%d candidates", rpt.TrustSummary.Traces.Candidates))
-	writeMetricCard(&b, "Critical findings", fmt.Sprintf("%d", rpt.TrustSummary.Findings.Critical), fmt.Sprintf("%d total findings", rpt.TrustSummary.Findings.Total))
-	writeMetricCard(&b, "Critical corpus docs", fmt.Sprintf("%d", rpt.CorpusQuality.CriticalDocuments), fmt.Sprintf("%d total corpus issues", rpt.CorpusQuality.TotalIssues))
-	writeMetricCard(&b, "Average level coverage", fmt.Sprintf("%.0f%%", rpt.Coverage.AverageLevelPct), fmt.Sprintf("%d documents / %d sections", len(rpt.Documents), len(rpt.Sections)))
+	writeMetricCard(&b, "Подтверждено сущностей", fmt.Sprintf("%d", rpt.TrustSummary.Entities.Verified), fmt.Sprintf("%d отклонено / %d подозрительных", rpt.TrustSummary.Entities.Rejected, rpt.TrustSummary.Entities.Suspect))
+	writeMetricCard(&b, "Подтверждено связей", fmt.Sprintf("%d", rpt.TrustSummary.Traces.Verified), fmt.Sprintf("%d кандидатов", rpt.TrustSummary.Traces.Candidates))
+	writeMetricCard(&b, "Критические сигналы", fmt.Sprintf("%d", rpt.TrustSummary.Findings.Critical), fmt.Sprintf("%d всего сигналов", rpt.TrustSummary.Findings.Total))
+	writeMetricCard(&b, "Критические документы", fmt.Sprintf("%d", rpt.CorpusQuality.CriticalDocuments), fmt.Sprintf("%d проблем корпуса", rpt.CorpusQuality.TotalIssues))
+	writeMetricCard(&b, "Среднее покрытие", fmt.Sprintf("%.0f%%", rpt.Coverage.AverageLevelPct), fmt.Sprintf("%d документов / %d разделов", len(rpt.Documents), len(rpt.Sections)))
 	b.WriteString(`</div>
   </header>
 
   <div class="layout">
     <aside class="rail">
-      <div class="rail-title">Report Layers</div>
-      <a href="#executive-overview">Executive Overview</a>
-      <a href="#analyst-explorer">Analyst Explorer</a>
-      <a href="#evidence-pack">Evidence Pack</a>
+      <div class="rail-title">Навигация отчёта</div>
+      <div class="mode-chip">Режим: `)
+	b.WriteString(html.EscapeString(reportModeLabel(reportModes.Default)))
+	b.WriteString(`</div>
+      <div class="tab-nav" role="tablist" aria-label="Вкладки отчёта">`)
+	for _, tab := range reportModes.Tabs {
+		fmt.Fprintf(&b, `<button class="tab-btn" type="button" data-tab-btn="%s" role="tab" aria-controls="tab-%s">%s</button>`,
+			html.EscapeString(tab.ID),
+			html.EscapeString(tab.ID),
+			html.EscapeString(tab.Label))
+	}
+	b.WriteString(`</div>
       <div class="rail-meta">
-        <div>Generated: `)
+        <div>Стартовая вкладка: `)
+	b.WriteString(html.EscapeString(tabLabel(reportModes.Tabs, defaultTab)))
+	b.WriteString(`</div>
+        <div>Сравнение прогонов: `)
+	b.WriteString(html.EscapeString(compareAvailabilityLabel(reportModes.CompareAvailable)))
+	b.WriteString(`</div>
+        <div>Сгенерирован: `)
 	b.WriteString(html.EscapeString(rpt.AuditScope.GeneratedAt))
 	b.WriteString(`</div>
-        <div>Schema: v`)
+        <div>Схема: v`)
 	b.WriteString(html.EscapeString(rpt.SchemaVersion))
 	b.WriteString(`</div>
-        <div>Output: `)
+        <div>Вывод: `)
 	b.WriteString(html.EscapeString(firstNonEmpty(rpt.AuditScope.OutputDir, ".strataudit")))
 	b.WriteString(`</div>
       </div>
     </aside>
 
     <main class="main">`)
-	renderExecutiveOverview(&b, rpt, ctx)
-	renderAnalystExplorer(&b, rpt, ctx)
-	renderEvidencePack(&b, rpt, ctx)
+	renderSummaryTab(&b, rpt, ctx)
+	renderDocumentsTab(&b, rpt, ctx)
+	renderTraceTab(&b, rpt, ctx)
+	renderGapsTab(&b, rpt, ctx)
+	renderDiagnosticsTab(&b, rpt, ctx)
 	b.WriteString(`
     </main>
   </div>
 </div>
 <script>
+var defaultTab = `)
+	fmt.Fprintf(&b, "%q", defaultTab)
+	b.WriteString(`;
+var activateTab = function(tabId) {
+  var resolved = tabId || defaultTab;
+  document.querySelectorAll('[data-tab-btn]').forEach(function(btn) {
+    var active = btn.getAttribute('data-tab-btn') === resolved;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  document.querySelectorAll('[data-tab-panel]').forEach(function(panel) {
+    var active = panel.getAttribute('data-tab-panel') === resolved;
+    panel.classList.toggle('active', active);
+  });
+};
+var activateTabForHash = function() {
+  if (!window.location.hash) return;
+  var target = document.querySelector(window.location.hash);
+  if (!target) return;
+  var panel = target.closest('[data-tab-panel]');
+  if (!panel) return;
+  activateTab(panel.getAttribute('data-tab-panel'));
+};
+document.querySelectorAll('[data-tab-btn]').forEach(function(btn) {
+  btn.addEventListener('click', function(event) {
+    activateTab(event.currentTarget.getAttribute('data-tab-btn'));
+  });
+});
 document.querySelectorAll('[data-filter-btn]').forEach(function(btn) {
   btn.addEventListener('click', function(event) {
     var target = event.currentTarget;
@@ -533,6 +617,9 @@ document.querySelectorAll('[data-filter-btn]').forEach(function(btn) {
     });
   });
 });
+window.addEventListener('hashchange', activateTabForHash);
+activateTab(defaultTab);
+activateTabForHash();
 </script>
 </body>
 </html>`)
@@ -540,134 +627,62 @@ document.querySelectorAll('[data-filter-btn]').forEach(function(btn) {
 	return b.String()
 }
 
-func renderExecutiveOverview(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) {
+func renderSummaryTab(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) {
 	b.WriteString(`
-      <section class="panel" id="executive-overview">
-        <div class="section-kicker">Layer 1</div>
-        <h2 class="section-title">Executive Overview</h2>
-        <p class="section-description">Сверху только то, что помогает быстро понять, можно ли доверять аудиту, где блокеры корпуса и какие документы сильнее всего рвут стратегическую трассировку.</p>
+      <section class="panel tab-panel" id="tab-summary" data-tab-panel="summary">
+        <div class="section-kicker">Вкладка 1</div>
+        <h2 class="section-title">Сводка</h2>
+        <p class="section-description">Здесь только верхнеуровневая картина: доверие к аудиту, ограничения, главные блокеры корпуса и места, где трассировка рвётся сильнее всего.</p>
 `)
 	if len(rpt.TrustSummary.Disclaimers) > 0 {
 		b.WriteString(`<div class="stack">`)
 		for _, disclaimer := range rpt.TrustSummary.Disclaimers {
-			fmt.Fprintf(b, `<div class="subpanel"><h3>Trust disclaimer</h3><p>%s</p></div>`, html.EscapeString(disclaimer))
+			fmt.Fprintf(b, `<div class="subpanel"><h3>Ограничения отчёта</h3><p>%s</p></div>`, html.EscapeString(disclaimer))
 		}
 		b.WriteString(`</div>`)
 	}
-
 	b.WriteString(`<div class="panel-grid">`)
-	b.WriteString(`<div class="subpanel"><h3>Corpus Quality Blockers</h3>`)
-	if len(rpt.CorpusQuality.Documents) == 0 {
-		b.WriteString(`<div class="empty-note">Критических corpus-quality blockers не найдено.</div>`)
-	} else {
-		b.WriteString(`<div class="ledger">`)
-		limit := minInt(3, len(rpt.CorpusQuality.Documents))
-		for _, doc := range rpt.CorpusQuality.Documents[:limit] {
-			fmt.Fprintf(b, `<div class="ledger-card"><div class="ledger-head"><div><div class="card-title">%s</div><div class="card-meta">%s · %d issues</div></div><span class="pill pill-%s">%s</span></div><div class="card-body"><div class="chips">%s</div><div class="link-list" style="margin-top:12px">%s %s</div></div></div>`,
-				html.EscapeString(doc.DocumentPath),
-				html.EscapeString(firstNonEmpty(doc.LevelName, doc.LevelID)),
-				doc.IssueCount,
-				html.EscapeString(statusClass(doc.Severity)),
-				html.EscapeString(strings.ToUpper(doc.Severity)),
-				renderFlagChips(doc.Flags),
-				internalLink(fmt.Sprintf("#doc-%s", doc.DocumentID), "Open document dossier"),
-				localDocumentLink(doc.DocumentPath, "Open file"))
-		}
-		b.WriteString(`</div>`)
-	}
-	b.WriteString(`</div>`)
-
-	b.WriteString(`<div class="subpanel"><h3>Lowest Coverage</h3>`)
-	if len(rpt.Coverage.LowestDocuments) == 0 {
-		b.WriteString(`<div class="empty-note">Нет document-level coverage данных.</div>`)
-	} else {
-		b.WriteString(`<div class="ledger">`)
-		limit := minInt(3, len(rpt.Coverage.LowestDocuments))
-		for _, item := range rpt.Coverage.LowestDocuments[:limit] {
-			fmt.Fprintf(b, `<div class="ledger-card"><div class="ledger-head"><div><div class="card-title">%s</div><div class="card-meta">%s · %d/%d traced</div></div><span class="pill pill-%s">%.0f%%</span></div><div class="link-list" style="margin-top:12px">%s %s</div></div>`,
-				html.EscapeString(firstNonEmpty(item.ScopeLabel, item.DocumentPath, item.ScopeID)),
-				html.EscapeString(firstNonEmpty(item.LevelName, item.LevelID)),
-				item.Traced,
-				item.Total,
-				html.EscapeString(coverageClass(item.Pct)),
-				item.Pct,
-				internalLink(fmt.Sprintf("#doc-%s", item.DocumentID), "Open document dossier"),
-				internalLink("#coverage-explorer", "Coverage explorer"))
-		}
-		b.WriteString(`</div>`)
-	}
-	b.WriteString(`</div>`)
-	b.WriteString(`</div>`)
-	b.WriteString(`</section>`)
+	renderSummaryCorpusQuality(b, rpt)
+	renderSummaryGapWaterfall(b, rpt, ctx)
+	b.WriteString(`</div><div class="panel-grid">`)
+	renderSummaryCoverage(b, rpt)
+	renderSummaryScope(b, rpt)
+	b.WriteString(`</div></section>`)
 }
 
-func renderAnalystExplorer(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) {
+func renderDocumentsTab(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) {
 	b.WriteString(`
-      <section class="panel" id="analyst-explorer">
-        <div class="section-kicker">Layer 2</div>
-        <h2 class="section-title">Analyst Explorer</h2>
-        <p class="section-description">Отсюда аналитик должен пройти путь от findings и traces до документа, section и quote evidence без обращения к SQLite или внешнему дашборду.</p>
+      <section class="panel tab-panel" id="tab-documents" data-tab-panel="documents">
+        <div class="section-kicker">Вкладка 2</div>
+        <h2 class="section-title">Документы</h2>
+        <p class="section-description">Документный обзор отвечает на вопрос "что чему соответствует" через утверждения, связи и блокеры, а не через ручные итоговые подписи.</p>
+`)
+	b.WriteString(`<div class="stack">`)
+	renderDocumentDossier(b, rpt, ctx)
+	renderCoverageExplorer(b, rpt, ctx)
+	b.WriteString(`</div></section>`)
+}
 
-        <div class="filter-row">
-          <button class="filter-btn active" data-filter-btn="all">All findings</button>
-          <button class="filter-btn" data-filter-btn="strategic_gap_cluster">Strategic gaps</button>
-          <button class="filter-btn" data-filter-btn="orphan_cluster">Orphans</button>
-          <button class="filter-btn" data-filter-btn="corpus_quality_cluster">Corpus quality</button>
-          <button class="filter-btn" data-filter-btn="trace_ambiguity_cluster">Trace ambiguity</button>
-        </div>
-        <div class="finding-grid">`)
-	if len(rpt.FindingsGrouped) == 0 {
-		b.WriteString(`<div class="empty-note">Grouped findings отсутствуют.</div>`)
-	} else {
-		for _, finding := range rpt.FindingsGrouped {
-			fmt.Fprintf(b, `<article class="finding-card" id="finding-%s" data-finding-type="%s"><div class="finding-head"><div><h3 class="card-title">%s</h3><div class="card-meta">%s · confidence %.0f%% · affected %d</div></div><span class="pill pill-%s">%s</span></div><div class="card-body"><p>%s</p>`,
-				html.EscapeString(finding.ID),
-				html.EscapeString(finding.Type),
-				html.EscapeString(finding.Title),
-				html.EscapeString(finding.Type),
-				finding.Confidence*100,
-				finding.AffectedCount,
-				html.EscapeString(statusClass(finding.Severity)),
-				html.EscapeString(strings.ToUpper(finding.Severity)),
-				html.EscapeString(finding.Description))
-			if strings.TrimSpace(finding.Recommendation) != "" {
-				fmt.Fprintf(b, `<p style="margin-top:10px" class="muted">Recommendation: %s</p>`, html.EscapeString(finding.Recommendation))
-			}
-			b.WriteString(`<div class="link-list" style="margin-top:14px">`)
-			for _, documentID := range finding.DocumentIDs {
-				label := documentID
-				if doc, ok := ctx.documentByID[documentID]; ok {
-					label = firstNonEmpty(doc.Name, doc.Path, documentID)
-				}
-				b.WriteString(internalLink(fmt.Sprintf("#doc-%s", documentID), "Doc: "+label))
-			}
-			for _, sectionID := range finding.SectionIDs {
-				label := sectionID
-				if section, ok := ctx.sectionByID[sectionID]; ok {
-					label = section.Label
-				}
-				b.WriteString(internalLink(fmt.Sprintf("#section-%s", sectionID), "Section: "+label))
-			}
-			for _, entityID := range finding.EntityIDs {
-				label := entityID
-				if entity, ok := ctx.entityByID[entityID]; ok {
-					label = firstNonEmpty(entity.TitleOriginal, entity.Title, entityID)
-				}
-				b.WriteString(internalLink(fmt.Sprintf("#evidence-entity-%s", entityID), "Evidence: "+label))
-			}
-			b.WriteString(`</div></div></article>`)
-		}
-	}
-	b.WriteString(`</div>
-
-        <div class="stack" id="trace-explorer">
-          <div class="subpanel">
-            <h3>Trace Explorer</h3>
-            <p>Verified traces показываются отдельно от similarity candidates. Каждая карточка держит source/target evidence и путь к документу.</p>
-          </div>
-          <div class="trace-grid">`)
+func renderTraceTab(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) {
+	b.WriteString(`
+      <section class="panel tab-panel" id="tab-trace" data-tab-panel="trace">
+        <div class="section-kicker">Вкладка 3</div>
+        <h2 class="section-title">Трассировка</h2>
+        <p class="section-description">Здесь живут только подтверждённые пути между утверждениями. Кандидатные и отклонённые диагностические связи остаются в отдельной вкладке.</p>
+`)
+	b.WriteString(`<div class="stack">`)
 	if len(rpt.VerifiedTraces) == 0 {
-		b.WriteString(`<div class="empty-note">Verified traces отсутствуют.</div>`)
+		fmt.Fprintf(b, `<div class="subpanel"><h3>Подтверждённых трасс нет</h3><p>Система не подтвердила ни одной междокументной цепочки. Сейчас важнее читать вкладку "Разрывы": там %d разрывов и %d диагностических кандидатов.</p><div class="link-list" style="margin-top:12px">%s %s</div></div>`,
+			len(rpt.TraceGaps),
+			len(rpt.TraceCandidates),
+			internalLink("#tab-gaps", "Открыть разрывы"),
+			internalLink("#tab-diagnostics", "Открыть диагностику"))
+	} else {
+		fmt.Fprintf(b, `<div class="subpanel"><h3>Подтверждённые цепочки</h3><p>%d подтверждённых трасс проходят проверку и показываются с цитатами с обеих сторон связи.</p></div>`, len(rpt.VerifiedTraces))
+	}
+	b.WriteString(`<div class="trace-grid">`)
+	if len(rpt.VerifiedTraces) == 0 {
+		b.WriteString(`<div class="empty-note">Подтверждённые трассы отсутствуют.</div>`)
 	} else {
 		for _, trace := range rpt.VerifiedTraces {
 			sourceTitle := trace.SourceEntityID
@@ -678,7 +693,7 @@ func renderAnalystExplorer(b *strings.Builder, rpt *AuditReport, ctx *htmlContex
 			if entity, ok := ctx.entityByID[trace.TargetEntityID]; ok {
 				targetTitle = firstNonEmpty(entity.TitleOriginal, entity.Title, trace.TargetEntityID)
 			}
-			fmt.Fprintf(b, `<article class="trace-card" id="trace-%s"><div class="trace-head"><div><h3 class="card-title">%s → %s</h3><div class="card-meta">%s · %s · confidence %.0f%% · similarity %.2f</div></div><span class="pill pill-%s">%s</span></div><div class="card-body"><p>%s</p><div class="split">%s%s</div></div></article>`,
+			fmt.Fprintf(b, `<article class="trace-card" id="trace-%s"><div class="trace-head"><div><h3 class="card-title">%s → %s</h3><div class="card-meta">%s · %s · уверенность %.0f%% · близость %.2f</div></div><span class="pill pill-%s">%s</span></div><div class="card-body"><p>%s</p><div class="split">%s%s</div></div></article>`,
 				html.EscapeString(trace.ID),
 				html.EscapeString(sourceTitle),
 				html.EscapeString(targetTitle),
@@ -687,52 +702,209 @@ func renderAnalystExplorer(b *strings.Builder, rpt *AuditReport, ctx *htmlContex
 				trace.Confidence*100,
 				trace.SimilarityScore,
 				html.EscapeString(statusClass(trace.TrustGrade)),
-				html.EscapeString(strings.ToUpper(firstNonEmpty(trace.TrustGrade, "verified"))),
+				html.EscapeString(strings.ToUpper(displayLabel(firstNonEmpty(trace.TrustGrade, "verified")))),
 				html.EscapeString(trace.Justification),
-				renderTraceEvidenceBox("Source evidence", trace.TraceEvidence.Source, ctx),
-				renderTraceEvidenceBox("Target evidence", trace.TraceEvidence.Target, ctx))
+				renderTraceEvidenceBox("Источник доказательства", trace.TraceEvidence.Source, ctx),
+				renderTraceEvidenceBox("Целевое доказательство", trace.TraceEvidence.Target, ctx))
 		}
 	}
-	if len(rpt.TraceCandidates) > 0 {
-		fmt.Fprintf(b, `<div class="subpanel"><h3>Diagnostic candidates</h3><p>%d similarity candidates остались диагностикой и не выдаются за proof.</p></div>`, len(rpt.TraceCandidates))
-	}
-	b.WriteString(`</div>
-        </div>
-
-        <div class="stack" id="coverage-explorer">
-          <div class="subpanel">
-            <h3>Coverage Explorer</h3>
-            <p>Coverage раскрывается на трёх уровнях: level, document, section. Это нужно, чтобы не принимать один усреднённый процент за доказательство качества стратегии.</p>
-          </div>
-`)
-	renderCoverageTable(b, "Coverage by Level", rpt.Coverage.ByLevel, ctx)
-	renderCoverageTable(b, "Coverage by Document", rpt.Coverage.ByDocument, ctx)
-	renderCoverageTable(b, "Coverage by Section", rpt.Coverage.BySection, ctx)
-	b.WriteString(`</div>
-      </section>`)
+	b.WriteString(`</div></div></section>`)
 }
 
-func renderEvidencePack(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) {
+func renderGapsTab(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) {
 	b.WriteString(`
-      <section class="panel" id="evidence-pack">
-        <div class="section-kicker">Layer 3</div>
-        <h2 class="section-title">Evidence Pack</h2>
-        <p class="section-description">Полный offline-dossier: документы, section previews, entity evidence и generated artifacts. Это не dashboard; это пакет для верификации.</p>
+      <section class="panel tab-panel" id="tab-gaps" data-tab-panel="gaps">
+        <div class="section-kicker">Вкладка 4</div>
+        <h2 class="section-title">Разрывы</h2>
+        <p class="section-description">Если трасса не собралась, это должно быть объяснено явно: на каком утверждении, между какими слоями и по какой причине.</p>
 `)
 	b.WriteString(`<div class="stack">`)
+	renderSummaryGapWaterfall(b, rpt, ctx)
+	b.WriteString(`<div class="subpanel"><h3>Разрывы по утверждениям</h3>`)
+	if len(rpt.TraceGaps) == 0 {
+		b.WriteString(`<div class="empty-note">Trace gaps отсутствуют.</div>`)
+	} else {
+		b.WriteString(`<div class="trace-grid">`)
+		for _, gap := range rpt.TraceGaps {
+			fmt.Fprintf(b, `<article class="trace-card" id="gap-%s"><div class="trace-head"><div><h3 class="card-title">%s</h3><div class="card-meta">%s → ожидается %s · %s · %d кандидатов</div></div><span class="pill pill-warning">%s</span></div><div class="card-body"><p>%s</p><div class="split">%s%s</div><div class="link-list" style="margin-top:12px">%s %s %s</div></div></article>`,
+				html.EscapeString(gap.ID),
+				html.EscapeString(firstNonEmpty(gap.Title, gap.EntityID)),
+				html.EscapeString(firstNonEmpty(gap.LevelName, gap.LevelID)),
+				html.EscapeString(firstNonEmpty(gap.ExpectedToLevelName, gap.ExpectedToLevelID)),
+				html.EscapeString(gap.Stage),
+				gap.CandidateCount,
+				html.EscapeString(strings.ToUpper(gap.GapType)),
+				html.EscapeString(firstNonEmpty(gap.Reason, "Причина не зафиксирована")),
+				renderGapClaimBox(gap),
+				renderGapCandidateBox(gap),
+				internalLink(fmt.Sprintf("#doc-%s", gap.DocumentID), "Документ"),
+				internalLink(fmt.Sprintf("#section-%s", gap.SectionID), "Раздел"),
+				internalLink(fmt.Sprintf("#evidence-entity-%s", gap.EntityID), "Утверждение"))
+		}
+		b.WriteString(`</div>`)
+	}
+	b.WriteString(`</div></div></section>`)
+}
 
-	b.WriteString(`<div class="subpanel"><h3>Artifacts</h3><div class="artifacts">`)
-	for _, artifact := range rpt.EvidencePack.Artifacts {
-		fmt.Fprintf(b, `<div class="artifact-card"><div class="artifact-kind">%s</div><div class="artifact-path">%s</div><div class="link-list" style="margin-top:10px">%s</div></div>`,
-			html.EscapeString(artifact.Kind),
-			html.EscapeString(artifact.Path),
-			localDocumentLink(artifact.Path, "Open artifact"))
+func renderDiagnosticsTab(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) {
+	b.WriteString(`
+      <section class="panel tab-panel" id="tab-diagnostics" data-tab-panel="diagnostics">
+        <div class="section-kicker">Вкладка 5</div>
+        <h2 class="section-title">Диагностика</h2>
+        <p class="section-description">Сюда вынесены кандидатные и отклонённые диагностические связи, сигналы и сырые карточки доказательств. Эта вкладка не должна загрязнять основную аналитику.</p>
+`)
+	b.WriteString(`<div class="stack">`)
+	renderFindingsSection(b, rpt, ctx)
+	renderEdgeDiagnosticsSection(b, rpt, ctx)
+	renderArtifactsSection(b, rpt)
+	renderSectionEvidenceSection(b, rpt, ctx)
+	renderEntityEvidenceSection(b, rpt, ctx)
+	b.WriteString(`</div></section>`)
+}
+
+func renderSummaryCorpusQuality(b *strings.Builder, rpt *AuditReport) {
+	b.WriteString(`<div class="subpanel"><h3>Критические документы корпуса</h3>`)
+	if len(rpt.CorpusQuality.Documents) == 0 {
+		b.WriteString(`<div class="empty-note">Критических проблем качества корпуса не найдено.</div>`)
+	} else {
+		b.WriteString(`<div class="ledger">`)
+		limit := minInt(3, len(rpt.CorpusQuality.Documents))
+		for _, doc := range rpt.CorpusQuality.Documents[:limit] {
+			fmt.Fprintf(b, `<div class="ledger-card"><div class="ledger-head"><div><div class="card-title">%s</div><div class="card-meta">%s · %d проблем</div></div><span class="pill pill-%s">%s</span></div><div class="card-body"><div class="chips">%s</div><div class="link-list" style="margin-top:12px">%s %s</div></div></div>`,
+				html.EscapeString(doc.DocumentPath),
+				html.EscapeString(firstNonEmpty(doc.LevelName, doc.LevelID)),
+				doc.IssueCount,
+				html.EscapeString(statusClass(doc.Severity)),
+				html.EscapeString(strings.ToUpper(displayLabel(doc.Severity))),
+				renderFlagChips(doc.Flags),
+				internalLink(fmt.Sprintf("#doc-%s", doc.DocumentID), "Документ"),
+				localDocumentLink(doc.DocumentPath, "Открыть файл"))
+		}
+		b.WriteString(`</div>`)
+	}
+	b.WriteString(`</div>`)
+}
+
+func renderSummaryGapWaterfall(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) {
+	type gapBucket struct {
+		Stage       string
+		GapType     string
+		Count       int
+		DocumentIDs map[string]struct{}
+		ClaimIDs    map[string]struct{}
+	}
+	byKey := make(map[string]*gapBucket)
+	for _, gap := range rpt.TraceGaps {
+		key := gap.Stage + "|" + gap.GapType
+		bucket, ok := byKey[key]
+		if !ok {
+			bucket = &gapBucket{
+				Stage:       gap.Stage,
+				GapType:     gap.GapType,
+				DocumentIDs: map[string]struct{}{},
+				ClaimIDs:    map[string]struct{}{},
+			}
+			byKey[key] = bucket
+		}
+		bucket.Count++
+		if gap.DocumentID != "" {
+			bucket.DocumentIDs[gap.DocumentID] = struct{}{}
+		}
+		if gap.EntityID != "" {
+			bucket.ClaimIDs[gap.EntityID] = struct{}{}
+		}
+	}
+
+	b.WriteString(`<div class="subpanel"><h3>Водопад разрывов</h3>`)
+	if len(byKey) == 0 {
+		b.WriteString(`<div class="empty-note">Граф не содержит явных разрывов трассировки.</div></div>`)
+		return
+	}
+	type gapBucketView struct {
+		Stage       string
+		GapType     string
+		Count       int
+		DocumentIDs []string
+		ClaimIDs    []string
+	}
+	buckets := make([]gapBucketView, 0, len(byKey))
+	for _, bucket := range byKey {
+		buckets = append(buckets, gapBucketView{
+			Stage:       bucket.Stage,
+			GapType:     bucket.GapType,
+			Count:       bucket.Count,
+			DocumentIDs: sortedSetKeys(bucket.DocumentIDs),
+			ClaimIDs:    sortedSetKeys(bucket.ClaimIDs),
+		})
+	}
+	sort.Slice(buckets, func(i, j int) bool {
+		if buckets[i].Count != buckets[j].Count {
+			return buckets[i].Count > buckets[j].Count
+		}
+		if buckets[i].Stage != buckets[j].Stage {
+			return buckets[i].Stage < buckets[j].Stage
+		}
+		return buckets[i].GapType < buckets[j].GapType
+	})
+	b.WriteString(`<div class="ledger">`)
+	for _, bucket := range buckets {
+		b.WriteString(`<div class="ledger-card"><div class="ledger-head"><div>`)
+		fmt.Fprintf(b, `<div class="card-title">%s</div><div class="card-meta">этап %s · %d утверждений</div></div><span class="pill pill-warning">%d</span></div><div class="card-body"><div class="link-list">%s %s</div></div></div>`,
+			html.EscapeString(bucket.GapType),
+			html.EscapeString(bucket.Stage),
+			bucket.Count,
+			bucket.Count,
+			renderDocumentLinks(bucket.DocumentIDs, ctx),
+			renderClaimReferenceLinks(bucket.ClaimIDs, ctx))
 	}
 	b.WriteString(`</div></div>`)
+}
 
+func renderSummaryCoverage(b *strings.Builder, rpt *AuditReport) {
+	b.WriteString(`<div class="subpanel"><h3>Низкое покрытие</h3>`)
+	if len(rpt.Coverage.LowestDocuments) == 0 {
+		b.WriteString(`<div class="empty-note">Данные по покрытию документов отсутствуют.</div>`)
+	} else {
+		b.WriteString(`<div class="ledger">`)
+		limit := minInt(3, len(rpt.Coverage.LowestDocuments))
+		for _, item := range rpt.Coverage.LowestDocuments[:limit] {
+			fmt.Fprintf(b, `<div class="ledger-card"><div class="ledger-head"><div><div class="card-title">%s</div><div class="card-meta">%s · %d/%d протрассировано</div></div><span class="pill pill-%s">%.0f%%</span></div><div class="link-list" style="margin-top:12px">%s %s</div></div>`,
+				html.EscapeString(firstNonEmpty(item.ScopeLabel, item.DocumentPath, item.ScopeID)),
+				html.EscapeString(firstNonEmpty(item.LevelName, item.LevelID)),
+				item.Traced,
+				item.Total,
+				html.EscapeString(coverageClass(item.Pct)),
+				item.Pct,
+				internalLink(fmt.Sprintf("#doc-%s", item.DocumentID), "Документ"),
+				internalLink("#tab-documents", "Документы"))
+		}
+		b.WriteString(`</div>`)
+	}
+	b.WriteString(`</div>`)
+}
+
+func renderSummaryScope(b *strings.Builder, rpt *AuditReport) {
+	b.WriteString(`<div class="subpanel"><h3>Контекст отчёта</h3>`)
+	fmt.Fprintf(b, `<p>Режим: %s. Режим сравнения прогонов выключен по умолчанию.</p>`, html.EscapeString(reportModeLabel(reportModesOrDefault(rpt).Default)))
+	if len(rpt.AuditScope.SourceDirs) > 0 {
+		b.WriteString(`<div class="chips" style="margin-top:12px">`)
+		for _, dir := range rpt.AuditScope.SourceDirs {
+			fmt.Fprintf(b, `<span class="chip">%s</span>`, html.EscapeString(dir))
+		}
+		b.WriteString(`</div>`)
+	}
+	if len(rpt.AuditScope.Exclude) > 0 {
+		b.WriteString(`<div class="card-meta" style="margin-top:12px">Исключения: `)
+		b.WriteString(html.EscapeString(strings.Join(rpt.AuditScope.Exclude, ", ")))
+		b.WriteString(`</div>`)
+	}
+	b.WriteString(`</div>`)
+}
+
+func renderDocumentDossier(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) {
 	b.WriteString(`<div class="subpanel"><h3>Разбор документов</h3><div class="ledger">`)
 	if len(rpt.Documents) == 0 {
-		b.WriteString(`<div class="empty-note">Документы не загружены в evidence pack.</div>`)
+		b.WriteString(`<div class="empty-note">Документы не загружены в отчёт.</div>`)
 	} else {
 		for _, doc := range rpt.Documents {
 			view := documentViewForID(doc, ctx)
@@ -743,24 +915,140 @@ func renderEvidencePack(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) 
 				view.ClaimCount,
 				doc.SectionCount,
 				html.EscapeString(documentHealthClass(doc, rpt)),
-				html.EscapeString(strings.ToUpper(documentHealthLabel(doc, rpt))),
+				html.EscapeString(strings.ToUpper(displayLabel(documentHealthLabel(doc, rpt)))),
 				renderDocumentTraceSnapshot(view),
 				renderDocumentBlockersBox(view, ctx),
 				renderDocumentCorrespondenceBox("Связи вверх по слоям", view.UpstreamDocuments, ctx),
 				renderDocumentCorrespondenceBox("Связи вниз по слоям", view.DownstreamDocuments, ctx),
 				renderDocumentKeyClaimsBox(view, ctx),
 				localDocumentLink(doc.Path, "Открыть файл"),
-				internalLink("#coverage-explorer", "Покрытие"))
+				internalLink("#tab-diagnostics", "Диагностика"))
 		}
 	}
 	b.WriteString(`</div></div>`)
+}
 
-	b.WriteString(`<div class="subpanel"><h3>Section Evidence</h3><div class="evidence-grid">`)
+func renderCoverageExplorer(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) {
+	b.WriteString(`<div class="subpanel" id="coverage-explorer"><h3>Покрытие</h3><p>Покрытие раскрывается на трёх уровнях: слой, документ, раздел. Это отдельная модель чтения, а не замена трассировки.</p></div>`)
+	renderCoverageTable(b, "Покрытие по слоям", rpt.Coverage.ByLevel, ctx)
+	renderCoverageTable(b, "Покрытие по документам", rpt.Coverage.ByDocument, ctx)
+	renderCoverageTable(b, "Покрытие по разделам", rpt.Coverage.BySection, ctx)
+}
+
+func renderFindingsSection(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) {
+	b.WriteString(`<div class="subpanel"><h3>Сгруппированные сигналы</h3><p>Сигналы вынесены в диагностику, чтобы не смешивать блокеры процесса с основным потоком анализа документов и трассировки.</p></div>`)
+	b.WriteString(`
+        <div class="filter-row">
+          <button class="filter-btn active" data-filter-btn="all">Все сигналы</button>
+          <button class="filter-btn" data-filter-btn="strategic_gap_cluster">Стратегические разрывы</button>
+          <button class="filter-btn" data-filter-btn="orphan_cluster">Сироты</button>
+          <button class="filter-btn" data-filter-btn="corpus_quality_cluster">Качество корпуса</button>
+          <button class="filter-btn" data-filter-btn="trace_ambiguity_cluster">Неоднозначные связи</button>
+        </div>
+        <div class="finding-grid">`)
+	if len(rpt.FindingsGrouped) == 0 {
+		b.WriteString(`<div class="empty-note">Сгруппированные сигналы отсутствуют.</div>`)
+	} else {
+		for _, finding := range rpt.FindingsGrouped {
+			fmt.Fprintf(b, `<article class="finding-card" id="finding-%s" data-finding-type="%s"><div class="finding-head"><div><h3 class="card-title">%s</h3><div class="card-meta">%s · уверенность %.0f%% · затронуто %d</div></div><span class="pill pill-%s">%s</span></div><div class="card-body"><p>%s</p>`,
+				html.EscapeString(finding.ID),
+				html.EscapeString(finding.Type),
+				html.EscapeString(finding.Title),
+				html.EscapeString(finding.Type),
+				finding.Confidence*100,
+				finding.AffectedCount,
+				html.EscapeString(statusClass(finding.Severity)),
+				html.EscapeString(strings.ToUpper(displayLabel(finding.Severity))),
+				html.EscapeString(finding.Description))
+			if strings.TrimSpace(finding.Recommendation) != "" {
+				fmt.Fprintf(b, `<p style="margin-top:10px" class="muted">Рекомендация: %s</p>`, html.EscapeString(finding.Recommendation))
+			}
+			b.WriteString(`<div class="link-list" style="margin-top:14px">`)
+			for _, documentID := range finding.DocumentIDs {
+				label := documentID
+				if doc, ok := ctx.documentByID[documentID]; ok {
+					label = firstNonEmpty(doc.Name, doc.Path, documentID)
+				}
+				b.WriteString(internalLink(fmt.Sprintf("#doc-%s", documentID), "Документ: "+label))
+			}
+			for _, sectionID := range finding.SectionIDs {
+				label := sectionID
+				if section, ok := ctx.sectionByID[sectionID]; ok {
+					label = section.Label
+				}
+				b.WriteString(internalLink(fmt.Sprintf("#section-%s", sectionID), "Раздел: "+label))
+			}
+			for _, entityID := range finding.EntityIDs {
+				label := entityID
+				if entity, ok := ctx.entityByID[entityID]; ok {
+					label = firstNonEmpty(entity.TitleOriginal, entity.Title, entityID)
+				}
+				b.WriteString(internalLink(fmt.Sprintf("#evidence-entity-%s", entityID), "Доказательство: "+label))
+			}
+			b.WriteString(`</div></div></article>`)
+		}
+	}
+	b.WriteString(`</div>`)
+}
+
+func renderEdgeDiagnosticsSection(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) {
+	var diagnosticEdges []TraceEdgeReport
+	for _, edge := range rpt.TraceGraph.Edges {
+		if edge.Status == "verified" {
+			continue
+		}
+		diagnosticEdges = append(diagnosticEdges, edge)
+	}
+	b.WriteString(`<div class="subpanel"><h3>Диагностические связи</h3>`)
+	if len(diagnosticEdges) == 0 {
+		b.WriteString(`<p>Кандидатные и отклонённые связи не материализованы.</p></div>`)
+		return
+	}
+	fmt.Fprintf(b, `<p>%d кандидатных или отклонённых связей вынесены из основной трассировки и показаны только как диагностические артефакты.</p></div>`, len(diagnosticEdges))
+	b.WriteString(`<div class="trace-grid">`)
+	for _, edge := range diagnosticEdges {
+		sourceLabel := edge.SourceEntityID
+		if entity, ok := ctx.entityByID[edge.SourceEntityID]; ok {
+			sourceLabel = firstNonEmpty(entity.TitleOriginal, entity.Title, edge.SourceEntityID)
+		}
+		targetLabel := edge.TargetEntityID
+		if entity, ok := ctx.entityByID[edge.TargetEntityID]; ok {
+			targetLabel = firstNonEmpty(entity.TitleOriginal, entity.Title, edge.TargetEntityID)
+		}
+		fmt.Fprintf(b, `<article class="trace-card" id="diag-edge-%s"><div class="trace-head"><div><h3 class="card-title">%s → %s</h3><div class="card-meta">%s · %s · близость %.2f</div></div><span class="pill pill-%s">%s</span></div><div class="card-body"><p>%s</p><div class="split">%s%s</div></div></article>`,
+			html.EscapeString(edge.ID),
+			html.EscapeString(sourceLabel),
+			html.EscapeString(targetLabel),
+			html.EscapeString(displayLabel(firstNonEmpty(edge.VerificationMode, "diagnostic"))),
+			html.EscapeString(firstNonEmpty(edge.Reason, "причина_не_зафиксирована")),
+			edge.Similarity,
+			html.EscapeString(statusClass(edge.Status)),
+			html.EscapeString(strings.ToUpper(displayLabel(edge.Status))),
+			html.EscapeString(firstNonEmpty(edge.Reason, "Диагностическая связь без объяснения")),
+			renderEdgeEvidenceBox("Источник", edge.SourceEvidenceRef, ctx),
+			renderEdgeEvidenceBox("Цель", edge.TargetEvidenceRef, ctx))
+	}
+	b.WriteString(`</div>`)
+}
+
+func renderArtifactsSection(b *strings.Builder, rpt *AuditReport) {
+	b.WriteString(`<div class="subpanel"><h3>Артефакты отчёта</h3><div class="artifacts">`)
+	for _, artifact := range rpt.EvidencePack.Artifacts {
+		fmt.Fprintf(b, `<div class="artifact-card"><div class="artifact-kind">%s</div><div class="artifact-path">%s</div><div class="link-list" style="margin-top:10px">%s</div></div>`,
+			html.EscapeString(artifact.Kind),
+			html.EscapeString(artifact.Path),
+			localDocumentLink(artifact.Path, "Открыть артефакт"))
+	}
+	b.WriteString(`</div></div>`)
+}
+
+func renderSectionEvidenceSection(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) {
+	b.WriteString(`<div class="subpanel"><h3>Разделы и превью</h3><div class="evidence-grid">`)
 	if len(rpt.Sections) == 0 {
-		b.WriteString(`<div class="empty-note">Sections отсутствуют.</div>`)
+		b.WriteString(`<div class="empty-note">Разделы отсутствуют.</div>`)
 	} else {
 		for _, section := range rpt.Sections {
-			fmt.Fprintf(b, `<article class="evidence-card" id="section-%s"><div class="evidence-head"><div><h4 class="card-title">%s</h4><div class="card-meta">%s · chars %d-%d · %d entities</div></div><div class="chips">%s</div></div><div class="card-body"><div class="quote-box"><h4>Section preview</h4><pre>%s</pre></div><div class="link-list" style="margin-top:12px">%s %s</div></div></article>`,
+			fmt.Fprintf(b, `<article class="evidence-card" id="section-%s"><div class="evidence-head"><div><h4 class="card-title">%s</h4><div class="card-meta">%s · символы %d-%d · %d сущностей</div></div><div class="chips">%s</div></div><div class="card-body"><div class="quote-box"><h4>Превью раздела</h4><pre>%s</pre></div><div class="link-list" style="margin-top:12px">%s %s</div></div></article>`,
 				html.EscapeString(section.ID),
 				html.EscapeString(section.Label),
 				html.EscapeString(firstNonEmpty(section.LevelName, section.LevelID)),
@@ -769,18 +1057,20 @@ func renderEvidencePack(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) 
 				section.EntityCount,
 				renderFlagChips(section.QualityFlags),
 				html.EscapeString(section.Preview),
-				internalLink(fmt.Sprintf("#doc-%s", section.DocumentID), "Document dossier"),
-				localDocumentLink(section.DocumentPath, "Open file"))
+				internalLink(fmt.Sprintf("#doc-%s", section.DocumentID), "Документ"),
+				localDocumentLink(section.DocumentPath, "Открыть файл"))
 		}
 	}
 	b.WriteString(`</div></div>`)
+}
 
-	b.WriteString(`<div class="subpanel"><h3>Entity Evidence Cards</h3><div class="evidence-grid">`)
+func renderEntityEvidenceSection(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) {
+	b.WriteString(`<div class="subpanel"><h3>Карточки сущностей</h3><div class="evidence-grid">`)
 	if len(rpt.Entities) == 0 {
-		b.WriteString(`<div class="empty-note">Admitted entities отсутствуют.</div>`)
+		b.WriteString(`<div class="empty-note">Допущенные сущности отсутствуют.</div>`)
 	} else {
 		for _, entity := range rpt.Entities {
-			fmt.Fprintf(b, `<article class="evidence-card" id="evidence-entity-%s"><div class="evidence-head"><div><h4 class="card-title">%s</h4><div class="card-meta">%s · %s · %s</div></div><span class="pill pill-%s">%s</span></div><div class="card-body"><p class="muted">%s</p><div class="quote-box" style="margin-top:12px"><h4>Source quote</h4><pre>%s</pre></div><div class="link-list" style="margin-top:12px">%s %s %s</div></div></article>`,
+			fmt.Fprintf(b, `<article class="evidence-card" id="evidence-entity-%s"><div class="evidence-head"><div><h4 class="card-title">%s</h4><div class="card-meta">%s · %s · %s</div></div><span class="pill pill-%s">%s</span></div><div class="card-body"><p class="muted">%s</p><div class="quote-box" style="margin-top:12px"><h4>Цитата-источник</h4><pre>%s</pre></div><div class="link-list" style="margin-top:12px">%s %s %s</div></div></article>`,
 				html.EscapeString(entity.ID),
 				html.EscapeString(firstNonEmpty(entity.TitleOriginal, entity.Title)),
 				html.EscapeString(entity.Type),
@@ -790,14 +1080,12 @@ func renderEvidencePack(b *strings.Builder, rpt *AuditReport, ctx *htmlContext) 
 				html.EscapeString(strings.ToUpper(firstNonEmpty(entity.TrustGrade, "verified"))),
 				html.EscapeString(firstNonEmpty(entity.DescriptionOriginal, entity.Description)),
 				html.EscapeString(entity.SourceQuote),
-				internalLink(fmt.Sprintf("#section-%s", entity.SectionID), "Section"),
-				internalLink(fmt.Sprintf("#doc-%s", entity.DocumentID), "Document"),
-				localDocumentLink(entity.DocumentPath, "Open file"))
+				internalLink(fmt.Sprintf("#section-%s", entity.SectionID), "Раздел"),
+				internalLink(fmt.Sprintf("#doc-%s", entity.DocumentID), "Документ"),
+				localDocumentLink(entity.DocumentPath, "Открыть файл"))
 		}
 	}
 	b.WriteString(`</div></div>`)
-
-	b.WriteString(`</div></section>`)
 }
 
 func documentViewForID(doc DocumentReport, ctx *htmlContext) DocumentViewReport {
@@ -926,15 +1214,148 @@ func renderClaimReferenceLinks(claimIDs []string, ctx *htmlContext) string {
 	return strings.Join(parts, " ")
 }
 
+func renderDocumentLinks(documentIDs []string, ctx *htmlContext) string {
+	if len(documentIDs) == 0 {
+		return `<span class="muted">Без ссылок на документы</span>`
+	}
+	limit := len(documentIDs)
+	if limit > 3 {
+		limit = 3
+	}
+	parts := make([]string, 0, limit+1)
+	for _, documentID := range documentIDs[:limit] {
+		label := documentID
+		if doc, ok := ctx.documentByID[documentID]; ok {
+			label = firstNonEmpty(doc.Name, doc.Path, documentID)
+		}
+		parts = append(parts, internalLink(fmt.Sprintf("#doc-%s", documentID), "Документ: "+label))
+	}
+	if len(documentIDs) > limit {
+		parts = append(parts, fmt.Sprintf(`<span class="muted">ещё %d</span>`, len(documentIDs)-limit))
+	}
+	return strings.Join(parts, " ")
+}
+
+func renderGapClaimBox(gap TraceGapReport) string {
+	return fmt.Sprintf(`<div class="quote-box"><h4>Проблемное утверждение</h4><div class="card-meta">%s · %s</div><pre>%s</pre></div>`,
+		html.EscapeString(firstNonEmpty(gap.LevelName, gap.LevelID)),
+		html.EscapeString(firstNonEmpty(gap.DocumentPath, gap.DocumentID)),
+		html.EscapeString(firstNonEmpty(gap.SourceQuote, gap.Title)))
+}
+
+func renderGapCandidateBox(gap TraceGapReport) string {
+	var b strings.Builder
+	b.WriteString(`<div class="quote-box"><h4>Лучшие кандидаты</h4>`)
+	if len(gap.TopCandidateIDs) == 0 {
+		b.WriteString(`<p class="muted">Кандидаты similarity выше порога не найдены.</p></div>`)
+		return b.String()
+	}
+	b.WriteString(`<div class="chips">`)
+	for _, candidateID := range gap.TopCandidateIDs {
+		fmt.Fprintf(&b, `<span class="chip">%s</span>`, html.EscapeString(candidateID))
+	}
+	b.WriteString(`</div></div>`)
+	return b.String()
+}
+
+func renderEdgeEvidenceBox(title string, ref *EvidenceRefReport, ctx *htmlContext) string {
+	if ref == nil {
+		return fmt.Sprintf(`<div class="quote-box"><h4>%s</h4><p class="muted">Ссылка на доказательство отсутствует.</p></div>`, html.EscapeString(title))
+	}
+	return renderTraceEvidenceBox(title, *ref, ctx)
+}
+
+func reportModesOrDefault(rpt *AuditReport) ReportModesReport {
+	if strings.TrimSpace(rpt.ReportModes.Default) != "" && len(rpt.ReportModes.Tabs) > 0 {
+		return rpt.ReportModes
+	}
+	return ReportModesReport{
+		Default:          "analyst",
+		DefaultTab:       "summary",
+		CompareAvailable: false,
+		Tabs: []ReportTabReport{
+			{ID: "summary", Label: "Сводка"},
+			{ID: "documents", Label: "Документы"},
+			{ID: "trace", Label: "Трассировка"},
+			{ID: "gaps", Label: "Разрывы"},
+			{ID: "diagnostics", Label: "Диагностика"},
+		},
+	}
+}
+
+func reportModeLabel(mode string) string {
+	switch strings.TrimSpace(strings.ToLower(mode)) {
+	case "analyst":
+		return "аналитический"
+	default:
+		return displayLabel(mode)
+	}
+}
+
+func compareAvailabilityLabel(compareAvailable bool) string {
+	if compareAvailable {
+		return "доступен"
+	}
+	return "выключен"
+}
+
+func tabLabel(tabs []ReportTabReport, id string) string {
+	for _, tab := range tabs {
+		if tab.ID == id {
+			return tab.Label
+		}
+	}
+	return id
+}
+
+func displayLabel(value string) string {
+	switch strings.TrimSpace(strings.ToLower(value)) {
+	case "critical":
+		return "критично"
+	case "warning", "warn":
+		return "предупреждение"
+	case "ok":
+		return "норма"
+	case "verified":
+		return "подтверждено"
+	case "candidate":
+		return "кандидат"
+	case "rejected":
+		return "отклонено"
+	case "suspect":
+		return "подозрительно"
+	case "candidate_search":
+		return "поиск кандидатов"
+	case "llm_evidence":
+		return "llm-доказательство"
+	case "diagnostic":
+		return "диагностика"
+	default:
+		return value
+	}
+}
+
+func sortedSetKeys(values map[string]struct{}) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(values))
+	for value := range values {
+		keys = append(keys, value)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 func renderCoverageTable(b *strings.Builder, title string, entries []CoverageScopeReport, ctx *htmlContext) {
 	b.WriteString(`<div class="subpanel"><h3>`)
 	b.WriteString(html.EscapeString(title))
 	b.WriteString(`</h3>`)
 	if len(entries) == 0 {
-		b.WriteString(`<div class="empty-note">Coverage data отсутствуют.</div></div>`)
+		b.WriteString(`<div class="empty-note">Данные покрытия отсутствуют.</div></div>`)
 		return
 	}
-	b.WriteString(`<div class="table-wrap"><table><thead><tr><th>Scope</th><th>Coverage</th><th>Traced</th><th>Links</th></tr></thead><tbody>`)
+	b.WriteString(`<div class="table-wrap"><table><thead><tr><th>Объект</th><th>Покрытие</th><th>Протрассировано</th><th>Ссылки</th></tr></thead><tbody>`)
 	for _, entry := range entries {
 		fmt.Fprintf(b, `<tr><td><strong>%s</strong><div class="muted">%s</div></td><td><div class="bar"><span style="width: %.2f%%"></span></div><div class="muted" style="margin-top:6px">%.0f%%</div></td><td>%d / %d</td><td><div class="link-list">%s</div></td></tr>`,
 			html.EscapeString(firstNonEmpty(entry.ScopeLabel, entry.DocumentPath, entry.ScopeID)),
@@ -951,16 +1372,16 @@ func renderCoverageTable(b *strings.Builder, title string, entries []CoverageSco
 func renderCoverageLinks(entry CoverageScopeReport, ctx *htmlContext) string {
 	var parts []string
 	if entry.DocumentID != "" {
-		parts = append(parts, internalLink(fmt.Sprintf("#doc-%s", entry.DocumentID), "Document"))
+		parts = append(parts, internalLink(fmt.Sprintf("#doc-%s", entry.DocumentID), "Документ"))
 		if doc, ok := ctx.documentByID[entry.DocumentID]; ok {
-			parts = append(parts, localDocumentLink(doc.Path, "Open file"))
+			parts = append(parts, localDocumentLink(doc.Path, "Открыть файл"))
 		}
 	}
 	if entry.SectionID != "" {
-		parts = append(parts, internalLink(fmt.Sprintf("#section-%s", entry.SectionID), "Section"))
+		parts = append(parts, internalLink(fmt.Sprintf("#section-%s", entry.SectionID), "Раздел"))
 	}
 	if len(parts) == 0 {
-		return `<span class="muted">No direct drill-down</span>`
+		return `<span class="muted">Без прямой навигации</span>`
 	}
 	return strings.Join(parts, " ")
 }
@@ -971,13 +1392,13 @@ func renderTraceEvidenceBox(title string, ref EvidenceRefReport, ctx *htmlContex
 		html.EscapeString(ref.DocumentPath),
 		html.EscapeString(sectionLabelForEvidence(ref, ctx)),
 		html.EscapeString(ref.Quote),
-		internalLink(fmt.Sprintf("#section-%s", ref.SectionID), "Section"),
-		localDocumentLink(ref.DocumentPath, "Open file"))
+		internalLink(fmt.Sprintf("#section-%s", ref.SectionID), "Раздел"),
+		localDocumentLink(ref.DocumentPath, "Открыть файл"))
 }
 
 func renderFlagChips(flags []string) string {
 	if len(flags) == 0 {
-		return `<span class="chip">no flags</span>`
+		return `<span class="chip">без флагов</span>`
 	}
 	var b strings.Builder
 	for _, flag := range flags {
@@ -1045,11 +1466,11 @@ func statusClass(status string) string {
 func statusLabel(status string) string {
 	switch statusClass(status) {
 	case "critical":
-		return "critical"
+		return "критично"
 	case "warning":
-		return "warning"
+		return "предупреждение"
 	default:
-		return "ok"
+		return "норма"
 	}
 }
 

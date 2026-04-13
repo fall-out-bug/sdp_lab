@@ -21,14 +21,24 @@ func TestBuildHTML_RendersThreeLayerEvidenceReport(t *testing.T) {
 
 	out := buildHTML(&rpt)
 	for _, needle := range []string{
-		`Executive Overview`,
-		`Analyst Explorer`,
-		`Evidence Pack`,
-		`Coverage by Level`,
-		`Coverage by Document`,
-		`Coverage by Section`,
-		`Corpus Quality Blockers`,
-		`Trace Explorer`,
+		`data-tab-btn="summary"`,
+		`data-tab-btn="documents"`,
+		`data-tab-btn="trace"`,
+		`data-tab-btn="gaps"`,
+		`data-tab-btn="diagnostics"`,
+		`Сводка`,
+		`Документы`,
+		`Трассировка`,
+		`Разрывы`,
+		`Диагностика`,
+		`Режим: аналитический`,
+		`Сравнение прогонов: выключен`,
+		`Стартовая вкладка: Сводка`,
+		`Покрытие по слоям`,
+		`Покрытие по документам`,
+		`Покрытие по разделам`,
+		`Критические документы корпуса`,
+		`Водопад разрывов`,
 		`href="#doc-d1"`,
 		`href="#section-s1"`,
 		`href="#evidence-entity-e1"`,
@@ -36,6 +46,7 @@ func TestBuildHTML_RendersThreeLayerEvidenceReport(t *testing.T) {
 		`Блокеры трассировки`,
 		`Ключевые утверждения документа`,
 		`id="trace-tr1"`,
+		`id="tab-diagnostics"`,
 		`file:///tmp/vision.md`,
 		`Есть suspect-сущн.; часть выводов требует ручной проверки.`,
 		`Evidence-backed relation.`,
@@ -43,6 +54,17 @@ func TestBuildHTML_RendersThreeLayerEvidenceReport(t *testing.T) {
 	} {
 		if !strings.Contains(out, needle) {
 			t.Fatalf("HTML output missing %q\n%s", needle, out)
+		}
+	}
+	for _, needle := range []string{
+		`Executive Overview`,
+		`Analyst Explorer`,
+		`Evidence Pack`,
+		`Compare mode:`,
+		`All findings`,
+	} {
+		if strings.Contains(out, needle) {
+			t.Fatalf("HTML output should not contain %q\n%s", needle, out)
 		}
 	}
 }

@@ -324,6 +324,18 @@ func TestWriteJSON_WritesV2AndCompatAlias(t *testing.T) {
 				KeyClaimIDs:          []string{"e1"},
 			},
 		},
+		ReportModes: ReportModesReport{
+			Default:          "analyst",
+			DefaultTab:       "summary",
+			CompareAvailable: false,
+			Tabs: []ReportTabReport{
+				{ID: "summary", Label: "Сводка"},
+				{ID: "documents", Label: "Документы"},
+				{ID: "trace", Label: "Трассировка"},
+				{ID: "gaps", Label: "Разрывы"},
+				{ID: "diagnostics", Label: "Диагностика"},
+			},
+		},
 		FindingsGrouped: []FindingReport{
 			{
 				ID:             "f1",

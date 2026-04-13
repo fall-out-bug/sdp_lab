@@ -24,6 +24,7 @@ type AuditReport struct {
 	TraceGraph      TraceGraphReport       `json:"trace_graph"`
 	TraceGaps       []TraceGapReport       `json:"trace_gaps"`
 	DocumentViews   []DocumentViewReport   `json:"document_views"`
+	ReportModes     ReportModesReport      `json:"report_modes"`
 	FindingsGrouped []FindingReport        `json:"findings_grouped"`
 	Coverage        CoverageBlockReport    `json:"coverage"`
 	EvidencePack    EvidencePackReport     `json:"evidence_pack"`
@@ -285,6 +286,18 @@ type DocumentBlockerReport struct {
 	GapType  string   `json:"gap_type"`
 	Count    int      `json:"count"`
 	ClaimIDs []string `json:"claim_ids"`
+}
+
+type ReportModesReport struct {
+	Default          string            `json:"default"`
+	DefaultTab       string            `json:"default_tab,omitempty"`
+	CompareAvailable bool              `json:"compare_available"`
+	Tabs             []ReportTabReport `json:"tabs,omitempty"`
+}
+
+type ReportTabReport struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
 }
 
 type TraceEvidenceReport struct {
