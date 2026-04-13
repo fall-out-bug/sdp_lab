@@ -104,9 +104,7 @@ func renderReport(mdText string) renderResult {
 			num = m[1]
 			display = strings.TrimSpace(m[2])
 		}
-		if len(display) > 40 {
-			display = display[:38] + "…"
-		}
+		// No Go-level truncation — CSS text-overflow: ellipsis handles it
 		fmt.Fprintf(&navHTML, `<a class="nav-item" href="#%s"><span class="nav-number">%s.</span> %s</a>`+"\n",
 			sec.id, num, html.EscapeString(display))
 	}
@@ -367,15 +365,15 @@ func mdToHTML(lines []string, mermaidBlocks []string, sectionTitle string) strin
 			if idx < len(mermaidBlocks) {
 				code = mermaidBlocks[idx]
 			}
-			escaped := html.EscapeString(code)
-			escapedAttr := strings.ReplaceAll(escaped, "\"", "&quot;")
-
 			c4Level := detectC4Level(code, sectionTitle)
 			badge := ""
 			if c4Level > 0 {
 				badge = fmt.Sprintf(`<span class="c4-badge c4-l%d">C4 Level %d</span>`, c4Level, c4Level)
 			}
 
+			// Store mermaid code in a <script> tag to avoid HTML escaping issues
+			// with data attributes (&#34; and --&gt; can break mermaid parsing)
+			mermaidID := fmt.Sprintf("mermaid-src-%d", idx)
 			fmt.Fprintf(&out, `<div class="mermaid-wrapper">
   <div class="mermaid-toolbar">%s
     <button class="mermaid-btn mz-in" title="Приблизить">+</button>
@@ -384,11 +382,12 @@ func mdToHTML(lines []string, mermaidBlocks []string, sectionTitle string) strin
   </div>
   <div class="mermaid-viewport">
     <div class="mermaid-inner">
-      <div class="mermaid" data-mermaid="%s">%s</div>
+      <div class="mermaid" id="%s-target"></div>
+      <script type="text/plain" id="%s">%s</script>
     </div>
   </div>
-  <div class="mermaid-zoom-hint">🖱 Колесо = зум, перетаскивание = пан</div>
-</div>`+"\n", badge, escapedAttr, escaped)
+  <div class="mermaid-zoom-hint">Колесо = зум, перетаскивание = пан</div>
+</div>`+"\n", badge, mermaidID, mermaidID, code)
 			continue
 		}
 
@@ -573,7 +572,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .sidebar-header{padding:8px 12px 24px;border-bottom:1px solid var(--border);margin-bottom:16px}
 .sidebar-header h2{font-size:16px;font-weight:600;color:var(--accent);letter-spacing:-.01em}
 .sidebar-header .meta{font-size:12px;color:var(--text-secondary);margin-top:4px}
-.nav-item{display:block;padding:8px 12px;border-radius:8px;color:var(--text-secondary);text-decoration:none;font-size:14px;font-weight:400;transition:background .15s,color .15s;cursor:pointer;margin-bottom:2px;border-left:3px solid transparent}
+.nav-item{display:block;padding:8px 12px;border-radius:8px;color:var(--text-secondary);text-decoration:none;font-size:13px;font-weight:400;transition:background .15s,color .15s;cursor:pointer;margin-bottom:2px;border-left:3px solid transparent;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nav-item:hover{background:var(--bg-hover);color:var(--text)}
 .nav-item.active{background:var(--surface-tint);color:var(--accent);font-weight:500;border-left-color:var(--accent)}
 .nav-item .nav-number{display:inline-block;width:24px;font-size:12px;color:var(--text-muted);font-weight:500}
@@ -651,14 +650,16 @@ function toggleTheme(){
 function initMermaid(theme){
   mermaid.initialize({startOnLoad:false,securityLevel:'loose',theme:theme==='dark'?'dark':'default',
     themeVariables:theme==='dark'?{primaryColor:'#4760F3',primaryTextColor:'#e8e8e8',primaryBorderColor:'#3a3a3a',lineColor:'#8B93A7',secondaryColor:'#1a1a1a',tertiaryColor:'#222',background:'#1a1a1a',mainBkg:'#1a1a1a',nodeBorder:'#3a3a3a',clusterBkg:'#161622',clusterBorder:'#2a2a2a',titleColor:'#e8e8e8',edgeLabelBackground:'#1a1a1a',nodeTextColor:'#e8e8e8'}:{primaryColor:'#4760F3',primaryTextColor:'#1a1a1a',lineColor:'#6C778E'},
-    flowchart:{curve:'basis',padding:20,nodeSpacing:30,rankSpacing:50,htmlLabels:true,wrappingWidth:200},
+    flowchart:{curve:'basis',padding:24,nodeSpacing:60,rankSpacing:80,htmlLabels:true,wrappingWidth:200,useMaxWidth:false},
     c4:{personFontSize:14,personFontWeight:'500',c4ShapeMargin:40,c4ShapePadding:16,
       wrap:true,wrapPadding:10,c4BoundaryInRow:3},
     fontSize:14,fontFamily:'Inter,system-ui,sans-serif'});
-  document.querySelectorAll('.mermaid[data-mermaid]').forEach(function(el){
-    var code=el.getAttribute('data-mermaid');
-    el.removeAttribute('data-processed');el.innerHTML=code;
-    mermaid.run({nodes:[el]}).catch(function(e){el.innerHTML='<pre style="color:var(--danger);font-size:12px">Ошибка: '+e.message+'</pre>'});
+  document.querySelectorAll('script[type="text/plain"][id^="mermaid-src-"]').forEach(function(src){
+    var code=src.textContent;
+    var el=document.getElementById(src.id+'-target');
+    if(!el)return;
+    el.textContent=code;
+    mermaid.run({nodes:[el]}).catch(function(e){el.innerHTML='<pre style="color:var(--danger);font-size:12px">Ошибка: '+e.message+'</pre>';});
   });
 }
 function initPanZoom(){
