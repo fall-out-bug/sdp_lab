@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-13
 **Status:** Proposed
-**Feature:** F110
+**Feature:** F117
 **Owner:** Андрей
 **Module:** `internal/strataudit`
 **CLI:** `cmd/sdp-strataudit`
@@ -48,7 +48,7 @@
 
 ## Scope
 
-В scope `F110` входят:
+В scope `F117` входят:
 
 - claim-centric trace model поверх уже существующего provenance;
 - first-class `trace_nodes`, `trace_edges`, `trace_gaps`;
@@ -58,7 +58,7 @@
 - separation between analyst view and diagnostics/debug view;
 - regression/UX acceptance на реальном или воспроизводимом корпусе.
 
-Вне scope `F110`:
+Вне scope `F117`:
 
 - исправление recall на strategy deck'ах;
 - новая extraction ontology;
@@ -67,7 +67,7 @@
 - отдельный web backend.
 
 Open bugs вроде `sdplab-qkyt` и `sdplab-h2qm` остаются отдельной линией:
-`F110` не обещает magically создать хорошие traces из плохих данных. Он обязан
+`F117` не обещает magically создать хорошие traces из плохих данных. Он обязан
 сделать состояние системы наблюдаемым и аналитически понятным.
 
 ---
@@ -120,7 +120,7 @@ Open bugs вроде `sdplab-qkyt` и `sdplab-h2qm` остаются отдел�
 
 ### AD-1: Extend `report.v2.json`, Do Not Invent A New Contract Prematurely
 
-`F109` уже закрепил `report.v2.json` как основной контракт. `F110` не должен
+`F109` уже закрепил `report.v2.json` как основной контракт. `F117` не должен
 ломать его только потому, что текущий UI неудобен.
 
 Правило:
@@ -319,5 +319,5 @@ Verified и rejected должны жить в одной модели, но с �
 
 - [docs/plans/2026-04-13-strataudit-trace-explorer-plan.md](2026-04-13-strataudit-trace-explorer-plan.md)
 
-Его задача — разрезать `F110` на workstreams так, чтобы сначала появился честный
+Его задача — разрезать `F117` на workstreams так, чтобы сначала появился честный
 trace substrate, потом document correspondence, и только потом tabbed HTML.

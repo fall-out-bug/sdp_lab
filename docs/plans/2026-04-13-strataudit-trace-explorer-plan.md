@@ -2,14 +2,14 @@
 
 **Date:** 2026-04-13
 **Status:** Proposed
-**Feature:** F110
+**Feature:** F117
 **Spec:** [2026-04-13-strataudit-trace-explorer-design.md](2026-04-13-strataudit-trace-explorer-design.md)
 
 ---
 
 ## Outcome
 
-После выполнения `F110` StratAudit должен:
+После выполнения `F117` StratAudit должен:
 
 1. объяснять трассировку через claim graph, а не через длинный report dump;
 2. показывать doc-to-doc correspondence как агрегат над trace model;
@@ -159,4 +159,4 @@ Stop and revisit the design if any of these happen:
 
 1. `design(strataudit): claim-centric trace explorer spec`
 2. `plan(strataudit): workstreams for trace explorer`
-3. `docs(strataudit): register F110 in roadmap, index, backlog, and beads`
+3. `docs(strataudit): register F117 in roadmap, index, backlog, and beads`
