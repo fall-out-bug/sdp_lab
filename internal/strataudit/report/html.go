@@ -8,6 +8,10 @@ import (
 
 func buildHTML(rpt *AuditReport) string {
 	var b strings.Builder
+	projectName := rpt.AuditScope.ProjectName
+	if projectName == "" {
+		projectName = "StratAudit"
+	}
 
 	b.WriteString(`<!DOCTYPE html>
 <html lang="en">
@@ -15,7 +19,7 @@ func buildHTML(rpt *AuditReport) string {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>`)
-	b.WriteString(html.EscapeString(rpt.Project))
+	b.WriteString(html.EscapeString(projectName))
 	b.WriteString(` — StratAudit Report</title>
 <style>
 :root {
@@ -54,25 +58,25 @@ h2 { font-size: 1.3rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--acce
 <body>
 <h1>`)
 
-	b.WriteString(html.EscapeString(rpt.Project))
+	b.WriteString(html.EscapeString(projectName))
 	b.WriteString(`</h1>
 <p class="subtitle">Strategy Traceability Audit Report</p>
 
 <div class="stats">
   <div class="stat ok"><div class="stat-label">Entities</div><div class="stat-value">`)
-	fmt.Fprintf(&b, "%d", rpt.Summary.TotalEntities)
+	fmt.Fprintf(&b, "%d", rpt.TrustSummary.Entities.TotalAdmitted)
 	b.WriteString(`</div></div>
   <div class="stat"><div class="stat-label">Findings</div><div class="stat-value">`)
-	fmt.Fprintf(&b, "%d", rpt.Summary.TotalFindings)
+	fmt.Fprintf(&b, "%d", rpt.TrustSummary.Findings.Total)
 	b.WriteString(`</div></div>
   <div class="stat critical"><div class="stat-label">Critical</div><div class="stat-value">`)
-	fmt.Fprintf(&b, "%d", rpt.Summary.CriticalCount)
+	fmt.Fprintf(&b, "%d", rpt.TrustSummary.Findings.Critical)
 	b.WriteString(`</div></div>
   <div class="stat warning"><div class="stat-label">Warnings</div><div class="stat-value">`)
-	fmt.Fprintf(&b, "%d", rpt.Summary.WarnCount)
+	fmt.Fprintf(&b, "%d", rpt.TrustSummary.Findings.Warn)
 	b.WriteString(`</div></div>
   <div class="stat ok"><div class="stat-label">Avg Coverage</div><div class="stat-value">`)
-	fmt.Fprintf(&b, "%.0f%%", rpt.Summary.AvgCoverage)
+	fmt.Fprintf(&b, "%.0f%%", rpt.Coverage.AverageLevelPct)
 	b.WriteString(`</div></div>
 </div>
 
@@ -80,7 +84,7 @@ h2 { font-size: 1.3rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--acce
 <div class="stats">
 `)
 
-	for _, c := range rpt.Coverage {
+	for _, c := range rpt.Coverage.ByLevel {
 		cls := "ok"
 		if c.Pct < 50 {
 			cls = "critical"
@@ -88,7 +92,7 @@ h2 { font-size: 1.3rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--acce
 			cls = "warning"
 		}
 		fmt.Fprintf(&b, `  <div class="stat %s"><div class="stat-label">%s</div><div class="stat-value">%.0f%%</div><div style="font-size:0.8rem;color:var(--text-muted)">%d/%d traced</div></div>
-`, cls, html.EscapeString(c.Level), c.Pct, c.Traced, c.Total)
+`, cls, html.EscapeString(firstNonEmpty(c.LevelName, c.ScopeLabel, c.LevelID)), c.Pct, c.Traced, c.Total)
 	}
 
 	b.WriteString(`</div>
@@ -96,16 +100,15 @@ h2 { font-size: 1.3rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--acce
 <h2>Findings</h2>
 <div class="filter-bar">
   <button class="filter-btn active" onclick="filterFindings('all')">All</button>
-  <button class="filter-btn" onclick="filterFindings('gap')">Gaps</button>
-  <button class="filter-btn" onclick="filterFindings('orphan')">Orphans</button>
-  <button class="filter-btn" onclick="filterFindings('alignment')">Alignment</button>
-  <button class="filter-btn" onclick="filterFindings('coverage')">Coverage</button>
-  <button class="filter-btn" onclick="filterFindings('unknown_rationale')">Unknown</button>
+  <button class="filter-btn" onclick="filterFindings('strategic_gap_cluster')">Strategic Gaps</button>
+  <button class="filter-btn" onclick="filterFindings('orphan_cluster')">Orphans</button>
+  <button class="filter-btn" onclick="filterFindings('corpus_quality_cluster')">Corpus Quality</button>
+  <button class="filter-btn" onclick="filterFindings('trace_ambiguity_cluster')">Trace Ambiguity</button>
 </div>
 <div id="findings">
 `)
 
-	for _, f := range rpt.Findings {
+	for _, f := range rpt.FindingsGrouped {
 		tier := "low"
 		if f.Confidence >= 0.7 {
 			tier = "high"
@@ -138,4 +141,13 @@ function filterFindings(type) {
 </html>`)
 
 	return b.String()
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }

@@ -28,7 +28,7 @@ sdp-strataudit run --dir /path/to/project
 sdp-strataudit run --dir /path/to/project --resume
 ```
 
-Output lands in `.strataudit/`: `report.html`, `report.json`, `similarity_distribution.json`, `strataudit.db`.
+Output lands in `.strataudit/`: `report.html`, `report.v2.json`, `report.json` (compat alias), `similarity_distribution.json`, `strataudit.db`.
 
 ## Configuration
 
@@ -160,24 +160,23 @@ Similarity distribution is emitted to `similarity_distribution.json` for diagnos
 
 ### 4. Analyze
 
-Generates findings from the trace graph:
+Generates grouped findings and coverage breakdowns from the evidence-backed trace graph:
 
 | Finding Type | Severity | Meaning |
 |---|---|---|
-| `gap` | warn/critical | Entity has no downward trace (no supporting work) |
-| `orphan` | warn | Entity has no upward trace (disconnected from strategy) |
-| `coverage` | info/warn/critical | Level coverage below threshold |
-| `strong_trace` | info | Trace with confidence > 0.85 |
-| `ambiguous_trace` | warn | Multiple upward traces, no clear winner |
-| `weak_link` | warn | Low-confidence trace |
+| `strategic_gap_cluster` | warn/critical | Document-level strategic entities are not supported by the next lower level |
+| `orphan_cluster` | warn | Lower-level entities are disconnected from the next upper level |
+| `corpus_quality_cluster` | warn/critical | Document contains evidence-quality defects (language drift, prompt leak, quote issues) |
+| `trace_ambiguity_cluster` | warn | Lower-level entities have close unverified candidate traces without strong evidence |
 
 Findings are localized to `output.lang` (default: `ru`).
 
 ### 5. Report
 
 Generates output files in `.strataudit/`:
-- **HTML** — self-contained dark-theme report with coverage cards, findings list, trace chains
-- **JSON** — complete data export (entities, traces, findings, coverage, levels)
+- **HTML** — current read-model consumer of the JSON v2 contract
+- **JSON v2** — `report.v2.json`, the canonical offline audit contract with audit scope, trust summary, corpus quality, provenance-rich entities, trace evidence, grouped findings, and coverage by level/document/section
+- **JSON compat** — `report.json`, temporary alias for the same payload during transition
 
 ## Architecture
 

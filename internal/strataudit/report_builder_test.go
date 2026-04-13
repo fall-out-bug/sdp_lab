@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"sdp_dev/internal/strataudit/model"
+	reportpkg "sdp_dev/internal/strataudit/report"
 )
 
 func TestBuildReport_ExportsDocumentSectionAndEntityProvenance(t *testing.T) {
@@ -91,10 +92,65 @@ func TestBuildReport_ExportsDocumentSectionAndEntityProvenance(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("SaveTraces: %v", err)
 	}
+	if err := store.SaveFindings(ctx, []model.Finding{
+		{
+			ID:              "f1",
+			Type:            model.FindingStrategicGapCluster,
+			Severity:        model.SeverityWarn,
+			EntityIDs:       []string{"e1"},
+			DocumentIDs:     []string{"d1"},
+			SectionIDs:      []string{"s1"},
+			ClusterKey:      "strategic_gap:vision:strategy:d1",
+			Title:           "Стратегический разрыв",
+			Description:     "Описание кластера",
+			Recommendation:  "Добавить поддержку",
+			ConfidenceScore: 1,
+		},
+	}); err != nil {
+		t.Fatalf("SaveFindings: %v", err)
+	}
+	if err := store.SaveCoverage(ctx, []model.Coverage{
+		{
+			ID:             "cov_vision",
+			ScopeType:      model.CoverageScopeLevel,
+			ScopeID:        "vision",
+			ScopeLabel:     "Vision",
+			LevelID:        "vision",
+			TotalEntities:  1,
+			TracedEntities: 1,
+			CoveragePct:    100,
+		},
+	}); err != nil {
+		t.Fatalf("SaveCoverage: %v", err)
+	}
+	if err := store.SavePipelineState(ctx, model.PipelineState{
+		ID:         "ps_extract_1",
+		Stage:      "extract",
+		Status:     "completed",
+		Checkpoint: `{"verified":1,"suspect":0,"rejected":2,"documents":1,"saved":1}`,
+	}); err != nil {
+		t.Fatalf("SavePipelineState: %v", err)
+	}
 
-	rpt, err := BuildReport(ctx, &Config{Project: ProjectConfig{Name: "test-project"}}, store)
+	rpt, err := BuildReport(ctx, &Config{
+		Project: ProjectConfig{
+			Name:        "test-project",
+			Description: "audit",
+			SourceDirs:  []string{"docs/strategy"},
+		},
+		Output: OutputConfig{
+			Dir:  "/tmp/.strataudit",
+			Lang: "ru",
+		},
+	}, store)
 	if err != nil {
 		t.Fatalf("BuildReport: %v", err)
+	}
+	if rpt.SchemaVersion != reportpkg.SchemaVersion {
+		t.Fatalf("schema_version = %q, want %q", rpt.SchemaVersion, reportpkg.SchemaVersion)
+	}
+	if rpt.AuditScope.ProjectName != "test-project" {
+		t.Fatalf("audit_scope.project_name = %q", rpt.AuditScope.ProjectName)
 	}
 	if len(rpt.Documents) != 1 {
 		t.Fatalf("len(rpt.Documents) = %d, want 1", len(rpt.Documents))
@@ -132,7 +188,25 @@ func TestBuildReport_ExportsDocumentSectionAndEntityProvenance(t *testing.T) {
 	if rpt.VerifiedTraces[0].VerificationMode != string(model.TraceVerificationModeLLMEvidence) {
 		t.Fatalf("verification_mode = %q", rpt.VerifiedTraces[0].VerificationMode)
 	}
-	if rpt.VerifiedTraces[0].SourceSectionID != "s1" || rpt.VerifiedTraces[0].TargetSectionID != "s1" {
-		t.Fatalf("unexpected verified trace evidence refs: %+v", rpt.VerifiedTraces[0])
+	if rpt.VerifiedTraces[0].TraceEvidence.Source.SectionID != "s1" || rpt.VerifiedTraces[0].TraceEvidence.Target.SectionID != "s1" {
+		t.Fatalf("unexpected verified trace evidence refs: %+v", rpt.VerifiedTraces[0].TraceEvidence)
+	}
+	if rpt.VerifiedTraces[0].TraceEvidence.Source.DocumentPath != "/tmp/vision.md" {
+		t.Fatalf("source document path = %q", rpt.VerifiedTraces[0].TraceEvidence.Source.DocumentPath)
+	}
+	if len(rpt.FindingsGrouped) != 1 {
+		t.Fatalf("len(rpt.FindingsGrouped) = %d, want 1", len(rpt.FindingsGrouped))
+	}
+	if len(rpt.FindingsGrouped[0].DocumentPaths) != 1 || rpt.FindingsGrouped[0].DocumentPaths[0] != "/tmp/vision.md" {
+		t.Fatalf("finding document_paths = %+v", rpt.FindingsGrouped[0].DocumentPaths)
+	}
+	if rpt.TrustSummary.Entities.Rejected != 2 {
+		t.Fatalf("rejected entities = %d, want 2", rpt.TrustSummary.Entities.Rejected)
+	}
+	if len(rpt.Coverage.ByLevel) != 1 || rpt.Coverage.ByLevel[0].LevelID != "vision" {
+		t.Fatalf("unexpected coverage block: %+v", rpt.Coverage)
+	}
+	if rpt.EvidencePack.Artifacts[0].Path != "/tmp/.strataudit/report.v2.json" {
+		t.Fatalf("artifact path = %q", rpt.EvidencePack.Artifacts[0].Path)
 	}
 }
