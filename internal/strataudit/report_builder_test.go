@@ -221,6 +221,9 @@ func TestBuildReport_ExportsDocumentSectionAndEntityProvenance(t *testing.T) {
 	if rpt.TraceGraph.Paths[0].EntryNodeID != "e1" || rpt.TraceGraph.Paths[0].TerminalNodeID != "e1" {
 		t.Fatalf("unexpected trace path: %+v", rpt.TraceGraph.Paths[0])
 	}
+	if len(rpt.TraceGaps) != 0 {
+		t.Fatalf("len(rpt.TraceGaps) = %d, want 0", len(rpt.TraceGaps))
+	}
 	if len(rpt.FindingsGrouped) != 1 {
 		t.Fatalf("len(rpt.FindingsGrouped) = %d, want 1", len(rpt.FindingsGrouped))
 	}
@@ -235,5 +238,134 @@ func TestBuildReport_ExportsDocumentSectionAndEntityProvenance(t *testing.T) {
 	}
 	if rpt.EvidencePack.Artifacts[0].Path != "/tmp/.strataudit/report.v2.json" {
 		t.Fatalf("artifact path = %q", rpt.EvidencePack.Artifacts[0].Path)
+	}
+}
+
+func TestBuildTraceGaps_ClassifiesWaterfallReasons(t *testing.T) {
+	levels := []model.Level{
+		{ID: "vision", Name: "Vision", Rank: 0},
+		{ID: "strategy", Name: "Strategy", Rank: 1},
+		{ID: "design", Name: "Design", Rank: 2},
+		{ID: "implementation", Name: "Implementation", Rank: 3},
+	}
+	levelByID := map[string]model.Level{
+		"vision":         levels[0],
+		"strategy":       levels[1],
+		"design":         levels[2],
+		"implementation": levels[3],
+	}
+	documentByID := map[string]model.Document{
+		"d_v": {ID: "d_v", Path: "/tmp/vision.md", LevelID: "vision"},
+		"d_s": {ID: "d_s", Path: "/tmp/strategy.md", LevelID: "strategy"},
+		"d_i": {ID: "d_i", Path: "/tmp/implementation.md", LevelID: "implementation"},
+	}
+	sectionByID := map[string]model.Section{
+		"s_v": {ID: "s_v", DocumentID: "d_v", Heading: "Vision"},
+		"s_s": {ID: "s_s", DocumentID: "d_s", Heading: "Strategy"},
+		"s_i": {ID: "s_i", DocumentID: "d_i", Heading: "Implementation"},
+	}
+	entities := []model.Entity{
+		{
+			ID:               "v1",
+			DocumentID:       "d_v",
+			SectionID:        "s_v",
+			LevelID:          "vision",
+			Type:             model.EntityGoal,
+			Title:            "North Star",
+			SourceQuote:      "North Star",
+			QuoteStartOffset: intPtr(0),
+			QuoteEndOffset:   intPtr(10),
+			TrustGrade:       model.TrustGradeVerified,
+		},
+		{
+			ID:               "s_no",
+			DocumentID:       "d_s",
+			SectionID:        "s_s",
+			LevelID:          "strategy",
+			Type:             model.EntityObjective,
+			Title:            "No Candidates",
+			SourceQuote:      "No Candidates",
+			QuoteStartOffset: intPtr(0),
+			QuoteEndOffset:   intPtr(13),
+			TrustGrade:       model.TrustGradeVerified,
+		},
+		{
+			ID:               "s_quote",
+			DocumentID:       "d_s",
+			SectionID:        "s_s",
+			LevelID:          "strategy",
+			Type:             model.EntityObjective,
+			Title:            "Quote Missing",
+			SourceQuote:      "Quote Missing",
+			QuoteStartOffset: intPtr(0),
+			QuoteEndOffset:   intPtr(13),
+			TrustGrade:       model.TrustGradeVerified,
+		},
+		{
+			ID:               "s_reject",
+			DocumentID:       "d_s",
+			SectionID:        "s_s",
+			LevelID:          "strategy",
+			Type:             model.EntityObjective,
+			Title:            "Rejected",
+			SourceQuote:      "Rejected",
+			QuoteStartOffset: intPtr(0),
+			QuoteEndOffset:   intPtr(8),
+			TrustGrade:       model.TrustGradeVerified,
+		},
+		{
+			ID:               "impl_missing",
+			DocumentID:       "d_i",
+			SectionID:        "s_i",
+			LevelID:          "implementation",
+			Type:             model.EntityTask,
+			Title:            "Missing Upstream",
+			SourceQuote:      "Missing Upstream",
+			QuoteStartOffset: intPtr(0),
+			QuoteEndOffset:   intPtr(16),
+			TrustGrade:       model.TrustGradeVerified,
+		},
+	}
+	candidates := []model.Candidate{
+		{
+			ID:             "cand_quote",
+			SourceEntityID: "s_quote",
+			TargetEntityID: "v1",
+			Similarity:     0.91,
+			DiagnosticCode: string(model.TraceCandidateDiagnosticQuoteEvidenceMissing),
+		},
+		{
+			ID:             "cand_reject",
+			SourceEntityID: "s_reject",
+			TargetEntityID: "v1",
+			Similarity:     0.89,
+			DiagnosticCode: string(model.TraceCandidateDiagnosticLLMVerificationRejected),
+		},
+	}
+
+	gaps := buildTraceGaps(levels, entities, candidates, nil, documentByID, levelByID, sectionByID)
+	if len(gaps) != 4 {
+		t.Fatalf("len(gaps) = %d, want 4", len(gaps))
+	}
+
+	byEntity := make(map[string]reportpkg.TraceGapReport, len(gaps))
+	for _, gap := range gaps {
+		byEntity[gap.EntityID] = gap
+	}
+
+	if byEntity["s_no"].GapType != string(model.TraceGapTypeNoCandidates) || byEntity["s_no"].Stage != string(model.TraceGapStageCandidateSearch) {
+		t.Fatalf("unexpected no-candidates gap: %+v", byEntity["s_no"])
+	}
+	if byEntity["s_quote"].GapType != string(model.TraceGapTypeQuoteEvidenceMissing) || byEntity["s_quote"].CandidateCount != 1 {
+		t.Fatalf("unexpected quote-missing gap: %+v", byEntity["s_quote"])
+	}
+	if len(byEntity["s_quote"].TopCandidateIDs) != 1 || byEntity["s_quote"].TopCandidateIDs[0] != "cand_quote" {
+		t.Fatalf("unexpected quote-missing top candidates: %+v", byEntity["s_quote"].TopCandidateIDs)
+	}
+	if byEntity["s_reject"].GapType != string(model.TraceGapTypeAllCandidatesRejected) || byEntity["s_reject"].Reason != string(model.TraceCandidateDiagnosticLLMVerificationRejected) {
+		t.Fatalf("unexpected rejected gap: %+v", byEntity["s_reject"])
+	}
+	if byEntity["impl_missing"].GapType != string(model.TraceGapTypeMissingUpstreamEntities) || byEntity["impl_missing"].ExpectedToLevelID != "design" {
+		t.Fatalf("unexpected missing-upstream gap: %+v", byEntity["impl_missing"])
 	}
 }

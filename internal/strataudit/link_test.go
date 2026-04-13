@@ -289,7 +289,7 @@ func TestWriteDistributionReport(t *testing.T) {
 	}
 }
 
-func TestCreateVerifiedTraces_DowngradesSimilarityOnlyCandidates(t *testing.T) {
+func TestCreateVerifiedTraces_MarksVerificationUnavailableWithoutRuntime(t *testing.T) {
 	cfg := &Config{
 		Thresholds: ThresholdConfig{
 			AutoVerifySimilarity: 0.85,
@@ -300,14 +300,30 @@ func TestCreateVerifiedTraces_DowngradesSimilarityOnlyCandidates(t *testing.T) {
 	}
 
 	candidates := []candidate{
-		{source: model.Entity{ID: "e1"}, target: model.Entity{ID: "e2"}, sim: 0.90},
+		{source: model.Entity{
+			ID:               "e1",
+			DocumentID:       "d1",
+			SectionID:        "s1",
+			SourceQuote:      "Source quote",
+			QuoteStartOffset: intPtr(0),
+			QuoteEndOffset:   intPtr(12),
+			TrustGrade:       model.TrustGradeVerified,
+		}, target: model.Entity{
+			ID:               "e2",
+			DocumentID:       "d2",
+			SectionID:        "s2",
+			SourceQuote:      "Target quote",
+			QuoteStartOffset: intPtr(0),
+			QuoteEndOffset:   intPtr(12),
+			TrustGrade:       model.TrustGradeVerified,
+		}, sim: 0.90},
 	}
 
-	traces, verifiedByCandidateID := createVerifiedTraces(context.Background(), cfg, nil, nil, candidates, model.Level{ID: "task", Name: "task"}, model.Level{ID: "strategy", Name: "strategy"})
+	traces, verifiedByCandidateID, diagnosticByCandidateID := createVerifiedTraces(context.Background(), cfg, nil, nil, candidates, model.Level{ID: "task", Name: "task"}, model.Level{ID: "strategy", Name: "strategy"})
 	if len(traces) != 0 {
 		t.Fatalf("traces = %d, want 0", len(traces))
 	}
-	modelCandidates := candidatesToModel(candidates, verifiedByCandidateID)
+	modelCandidates := candidatesToModel(candidates, verifiedByCandidateID, diagnosticByCandidateID)
 	if len(modelCandidates) != 1 {
 		t.Fatalf("len(modelCandidates) = %d, want 1", len(modelCandidates))
 	}
@@ -316,6 +332,9 @@ func TestCreateVerifiedTraces_DowngradesSimilarityOnlyCandidates(t *testing.T) {
 	}
 	if modelCandidates[0].TraceID != "" {
 		t.Fatalf("TraceID = %q, want empty", modelCandidates[0].TraceID)
+	}
+	if modelCandidates[0].DiagnosticCode != string(model.TraceCandidateDiagnosticVerificationUnavailable) {
+		t.Fatalf("DiagnosticCode = %q, want verification_unavailable", modelCandidates[0].DiagnosticCode)
 	}
 }
 
@@ -347,10 +366,23 @@ func TestCreateVerifiedTraces_BudgetExhaustion(t *testing.T) {
 		}, sim: 0.70},
 	}
 
-	// With budget=0, no LLM calls should happen, so nil LLM is fine
-	traces, _ := createVerifiedTraces(context.Background(), cfg, nil, nil, candidates, model.Level{ID: "l1"}, model.Level{ID: "l2"})
+	// With budget=0, no LLM calls should happen even if runtime exists.
+	llm := FunctionalRuntime{
+		ChatFunc: func(ctx context.Context, req LLMRequest) (*LLMResponse, error) {
+			t.Fatal("Chat must not be called when verification budget is exhausted")
+			return nil, nil
+		},
+		EmbedFunc: func(ctx context.Context, texts []string, model string) ([][]float32, error) {
+			t.Fatal("Embed must not be called in createVerifiedTraces")
+			return nil, nil
+		},
+	}
+	traces, _, diagnosticByCandidateID := createVerifiedTraces(context.Background(), cfg, nil, llm, candidates, model.Level{ID: "l1"}, model.Level{ID: "l2"})
 	if len(traces) != 0 {
 		t.Errorf("traces = %d, want 0 (budget exhausted)", len(traces))
+	}
+	if diagnosticByCandidateID[candidateID("e1", "e2")] != string(model.TraceCandidateDiagnosticVerificationBudgetExhausted) {
+		t.Fatalf("diagnostic = %q, want verification_budget_exhausted", diagnosticByCandidateID[candidateID("e1", "e2")])
 	}
 }
 
@@ -418,7 +450,7 @@ func TestCreateVerifiedTraces_RequiresEvidenceAndLLMVerification(t *testing.T) {
 
 	llm := newMockLLMClient(t, `{"related": true, "confidence": 0.88, "relation": "contributes_to", "justification": "Нижняя инициатива прямо поддерживает верхнюю стратегию."}`)
 
-	traces, verifiedByCandidateID := createVerifiedTraces(context.Background(), cfg, nil, llm, []candidate{missingEvidenceCandidate, goodCandidate}, lowerLevel, upperLevel)
+	traces, verifiedByCandidateID, diagnosticByCandidateID := createVerifiedTraces(context.Background(), cfg, nil, llm, []candidate{missingEvidenceCandidate, goodCandidate}, lowerLevel, upperLevel)
 	if len(traces) != 1 {
 		t.Fatalf("traces = %d, want 1", len(traces))
 	}
@@ -438,8 +470,70 @@ func TestCreateVerifiedTraces_RequiresEvidenceAndLLMVerification(t *testing.T) {
 	if verifiedByCandidateID[candidateID(goodCandidate.source.ID, goodCandidate.target.ID)] == "" {
 		t.Fatal("expected verified candidate to map to trace id")
 	}
+	if diagnosticByCandidateID[candidateID(goodCandidate.source.ID, goodCandidate.target.ID)] != string(model.TraceCandidateDiagnosticLLMVerified) {
+		t.Fatalf("good candidate diagnostic = %q, want llm_verified", diagnosticByCandidateID[candidateID(goodCandidate.source.ID, goodCandidate.target.ID)])
+	}
 	if verifiedByCandidateID[candidateID(missingEvidenceCandidate.source.ID, missingEvidenceCandidate.target.ID)] != "" {
 		t.Fatal("candidate without evidence must not map to verified trace")
+	}
+	if diagnosticByCandidateID[candidateID(missingEvidenceCandidate.source.ID, missingEvidenceCandidate.target.ID)] != string(model.TraceCandidateDiagnosticQuoteEvidenceMissing) {
+		t.Fatalf("missing evidence diagnostic = %q, want quote_evidence_missing", diagnosticByCandidateID[candidateID(missingEvidenceCandidate.source.ID, missingEvidenceCandidate.target.ID)])
+	}
+}
+
+func TestCreateVerifiedTraces_RecordsLLMRejectionDiagnostic(t *testing.T) {
+	cfg := &Config{
+		Thresholds: ThresholdConfig{
+			AutoVerifySimilarity: 0.85,
+			TraceConfidence:      0.6,
+			LLMVerifyBudget:      5,
+		},
+		LLM: LLMConfig{
+			Model:        "test-model",
+			Temperature:  0.0,
+			Temperatures: map[string]float64{"verify": 0.0},
+		},
+	}
+
+	lowerLevel := model.Level{ID: "task", Name: "task"}
+	upperLevel := model.Level{ID: "strategy", Name: "strategy"}
+	rejectedCandidate := candidate{
+		source: model.Entity{
+			ID:               "e1",
+			Title:            "Локальная задача",
+			Type:             model.EntityTask,
+			DocumentID:       "d1",
+			SectionID:        "s1",
+			SourceQuote:      "Локальная задача без стратегической опоры.",
+			QuoteStartOffset: intPtr(0),
+			QuoteEndOffset:   intPtr(38),
+			TrustGrade:       model.TrustGradeVerified,
+		},
+		target: model.Entity{
+			ID:               "e2",
+			Title:            "Стратегическая цель",
+			Type:             model.EntityGoal,
+			DocumentID:       "d2",
+			SectionID:        "s2",
+			SourceQuote:      "Стратегическая цель роста.",
+			QuoteStartOffset: intPtr(0),
+			QuoteEndOffset:   intPtr(25),
+			TrustGrade:       model.TrustGradeVerified,
+		},
+		sim: 0.84,
+	}
+
+	llm := newMockLLMClient(t, `{"related": false, "confidence": 0.31, "relation": "none", "justification": "Quotes do not prove a strategic relation."}`)
+
+	traces, verifiedByCandidateID, diagnosticByCandidateID := createVerifiedTraces(context.Background(), cfg, nil, llm, []candidate{rejectedCandidate}, lowerLevel, upperLevel)
+	if len(traces) != 0 {
+		t.Fatalf("traces = %d, want 0", len(traces))
+	}
+	if verifiedByCandidateID[candidateID("e1", "e2")] != "" {
+		t.Fatal("rejected candidate must not map to a trace id")
+	}
+	if diagnosticByCandidateID[candidateID("e1", "e2")] != string(model.TraceCandidateDiagnosticLLMVerificationRejected) {
+		t.Fatalf("diagnostic = %q, want llm_verification_rejected", diagnosticByCandidateID[candidateID("e1", "e2")])
 	}
 }
 

@@ -297,6 +297,30 @@
       }
     ]
   },
+  "trace_gaps": [
+    {
+      "id": "gap1",
+      "node_id": "e1",
+      "entity_id": "e1",
+      "title": "Стратегия лидера",
+      "level_id": "vision",
+      "level_name": "Vision",
+      "document_id": "d1",
+      "document_path": "/tmp/vision.md",
+      "section_id": "s1",
+      "section_heading": "Введение",
+      "source_quote": "Стратегия лидера",
+      "expected_to_level_id": "strategy",
+      "expected_to_level_name": "Strategy",
+      "stage": "verification",
+      "gap_type": "all_candidates_rejected",
+      "reason": "llm_verification_rejected",
+      "candidate_count": 1,
+      "top_candidate_ids": [
+        "cand1"
+      ]
+    }
+  ],
   "findings_grouped": [
     {
       "id": "f1",

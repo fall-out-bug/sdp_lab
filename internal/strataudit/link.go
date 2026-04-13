@@ -82,8 +82,8 @@ func LinkEntities(ctx context.Context, cfg *Config, store *SQLiteStore, runtime 
 
 		// Save candidates
 		if len(candidates) > 0 {
-			traces, verifiedByCandidateID := createVerifiedTraces(ctx, cfg, store, runtime, candidates, levels[i+1], levels[i])
-			modelCandidates := candidatesToModel(candidates, verifiedByCandidateID)
+			traces, verifiedByCandidateID, diagnosticByCandidateID := createVerifiedTraces(ctx, cfg, store, runtime, candidates, levels[i+1], levels[i])
+			modelCandidates := candidatesToModel(candidates, verifiedByCandidateID, diagnosticByCandidateID)
 			if err := store.SaveCandidates(ctx, modelCandidates); err != nil {
 				result.Errors = append(result.Errors, fmt.Errorf("save candidates %s->%s: %w", levels[i+1].Name, levels[i].Name, err))
 			}
@@ -333,16 +333,13 @@ func cosineSimilarity(a, b []float32) float64 {
 	return dot / (math.Sqrt(normA) * math.Sqrt(normB))
 }
 
-func createVerifiedTraces(ctx context.Context, cfg *Config, store *SQLiteStore, runtime ModelRuntime, candidates []candidate, lowerLevel, upperLevel model.Level) ([]model.Trace, map[string]string) {
+func createVerifiedTraces(ctx context.Context, cfg *Config, store *SQLiteStore, runtime ModelRuntime, candidates []candidate, lowerLevel, upperLevel model.Level) ([]model.Trace, map[string]string, map[string]string) {
 	autoThreshold := cfg.Thresholds.AutoVerifySimilarity
 	traceThreshold := cfg.Thresholds.TraceConfidence
 	budget := cfg.Thresholds.LLMVerifyBudget
 	var traces []model.Trace
 	verifiedByCandidateID := make(map[string]string)
-
-	if runtime == nil || budget <= 0 {
-		return traces, verifiedByCandidateID
-	}
+	diagnosticByCandidateID := make(map[string]string, len(candidates))
 
 	prioritized := append([]candidate(nil), candidates...)
 	sort.SliceStable(prioritized, func(i, j int) bool {
@@ -358,33 +355,43 @@ func createVerifiedTraces(ctx context.Context, cfg *Config, store *SQLiteStore, 
 
 	for _, c := range prioritized {
 		if ctx.Err() != nil {
-			return traces, verifiedByCandidateID
+			return traces, verifiedByCandidateID, diagnosticByCandidateID
 		}
+		id := candidateID(c.source.ID, c.target.ID)
 
 		if c.sim < traceThreshold {
+			diagnosticByCandidateID[id] = string(model.TraceCandidateDiagnosticBelowTraceConfidence)
 			continue
 		}
 		if !hasTraceEvidence(c.source) || !hasTraceEvidence(c.target) {
+			diagnosticByCandidateID[id] = string(model.TraceCandidateDiagnosticQuoteEvidenceMissing)
+			continue
+		}
+		if runtime == nil {
+			diagnosticByCandidateID[id] = string(model.TraceCandidateDiagnosticVerificationUnavailable)
 			continue
 		}
 		if budget <= 0 {
+			diagnosticByCandidateID[id] = string(model.TraceCandidateDiagnosticVerificationBudgetExhausted)
 			continue
 		}
 
 		budget--
 		verified, relation, conf, justification := llmVerifyPair(ctx, store, runtime, cfg, c, lowerLevel, upperLevel)
 		if !verified {
+			diagnosticByCandidateID[id] = string(model.TraceCandidateDiagnosticLLMVerificationRejected)
 			continue
 		}
 
 		trace := buildVerifiedTrace(c, relation, conf, justification)
 		traces = append(traces, trace)
-		verifiedByCandidateID[candidateID(c.source.ID, c.target.ID)] = trace.ID
+		verifiedByCandidateID[id] = trace.ID
+		diagnosticByCandidateID[id] = string(model.TraceCandidateDiagnosticLLMVerified)
 		llmCount++
 	}
 
 	slog.Info("trace verification", "llm", llmCount, "total", len(traces))
-	return traces, verifiedByCandidateID
+	return traces, verifiedByCandidateID, diagnosticByCandidateID
 }
 
 type llmVerifyResult struct {
@@ -540,11 +547,15 @@ func groupByLevel(entities []model.Entity) map[string][]model.Entity {
 	return m
 }
 
-func candidatesToModel(candidates []candidate, verifiedByCandidateID map[string]string) []model.Candidate {
+func candidatesToModel(candidates []candidate, verifiedByCandidateID map[string]string, diagnosticByCandidateID map[string]string) []model.Candidate {
 	result := make([]model.Candidate, len(candidates))
 	for i, c := range candidates {
 		candidateID := candidateID(c.source.ID, c.target.ID)
 		traceID := verifiedByCandidateID[candidateID]
+		diagnosticCode := diagnosticByCandidateID[candidateID]
+		if diagnosticCode == "" {
+			diagnosticCode = string(model.TraceCandidateDiagnosticEmbeddingSimilarityCandidate)
+		}
 		result[i] = model.Candidate{
 			ID:             candidateID,
 			SourceEntityID: c.source.ID,
@@ -552,7 +563,7 @@ func candidatesToModel(candidates []candidate, verifiedByCandidateID map[string]
 			Similarity:     c.sim,
 			Verified:       traceID != "",
 			TraceID:        traceID,
-			DiagnosticCode: "embedding_similarity_candidate",
+			DiagnosticCode: diagnosticCode,
 		}
 	}
 	return result

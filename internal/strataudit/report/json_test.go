@@ -275,6 +275,28 @@ func TestWriteJSON_WritesV2AndCompatAlias(t *testing.T) {
 				},
 			},
 		},
+		TraceGaps: []TraceGapReport{
+			{
+				ID:                  "gap1",
+				NodeID:              "e1",
+				EntityID:            "e1",
+				Title:               "Стратегия лидера",
+				LevelID:             "vision",
+				LevelName:           "Vision",
+				DocumentID:          "d1",
+				DocumentPath:        "/tmp/vision.md",
+				SectionID:           "s1",
+				SectionHeading:      "Введение",
+				SourceQuote:         "Стратегия лидера",
+				ExpectedToLevelID:   "strategy",
+				ExpectedToLevelName: "Strategy",
+				Stage:               "verification",
+				GapType:             "all_candidates_rejected",
+				Reason:              "llm_verification_rejected",
+				CandidateCount:      1,
+				TopCandidateIDs:     []string{"cand1"},
+			},
+		},
 		FindingsGrouped: []FindingReport{
 			{
 				ID:             "f1",

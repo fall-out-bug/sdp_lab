@@ -267,6 +267,7 @@ func BuildReport(ctx context.Context, cfg *Config, store *SQLiteStore) (*report.
 		}
 	}
 	rpt.TraceGraph = buildTraceGraph(allEntities, candidates, traces, documentByID, levelByID, sectionByID)
+	rpt.TraceGaps = buildTraceGaps(levels, allEntities, candidates, traces, documentByID, levelByID, sectionByID)
 
 	var criticalFindings, warnFindings, infoFindings int
 	corpusQualityFlagCounts := make(map[string]int)
@@ -690,8 +691,8 @@ func buildTraceGraph(
 			TargetNodeID:      candidate.TargetEntityID,
 			SourceEntityID:    candidate.SourceEntityID,
 			TargetEntityID:    candidate.TargetEntityID,
-			Status:            string(model.TraceEdgeStatusCandidate),
-			VerificationMode:  string(model.TraceVerificationModeCandidateSearch),
+			Status:            string(traceEdgeStatusForCandidate(candidate)),
+			VerificationMode:  traceVerificationModeForCandidate(candidate),
 			Similarity:        candidate.Similarity,
 			Reason:            candidate.DiagnosticCode,
 			SourceEvidenceRef: buildTraceEdgeEvidenceRef(sourceEntity, documentByID, sectionByID, sourceEntity.SectionID, sourceEntity.QuoteStartOffset, sourceEntity.QuoteEndOffset),
@@ -734,6 +735,197 @@ func buildTraceGraph(
 	return graph
 }
 
+func buildTraceGaps(
+	levels []model.Level,
+	entities []model.Entity,
+	candidates []model.Candidate,
+	traces []model.Trace,
+	documentByID map[string]model.Document,
+	levelByID map[string]model.Level,
+	sectionByID map[string]model.Section,
+) []report.TraceGapReport {
+	gaps := []report.TraceGapReport{}
+	if len(levels) < 2 || len(entities) == 0 {
+		return gaps
+	}
+
+	entityByID := make(map[string]model.Entity, len(entities))
+	for _, entity := range entities {
+		entityByID[entity.ID] = entity
+	}
+
+	entitiesByLevel := groupByLevel(entities)
+	_, outboundSupport := buildAdjacencySupport(traces, entityByID)
+	candidatesByPair := groupUnverifiedCandidatesByPair(candidates, entityByID)
+
+	for i := 1; i < len(levels); i++ {
+		lower := levels[i]
+		upper := levels[i-1]
+		lowerEntities := entitiesByLevel[lower.ID]
+		if len(lowerEntities) == 0 {
+			continue
+		}
+
+		pairKey := adjacencyKey(lower.ID, upper.ID)
+		verifiedBySource := outboundSupport[pairKey]
+		candidatesBySource := candidatesByPair[pairKey]
+		upperEntitiesExist := len(entitiesByLevel[upper.ID]) > 0
+
+		for _, entity := range lowerEntities {
+			if _, ok := verifiedBySource[entity.ID]; ok {
+				continue
+			}
+			gap, ok := buildTraceGap(entity, upper, upperEntitiesExist, candidatesBySource[entity.ID], documentByID, levelByID, sectionByID)
+			if !ok {
+				continue
+			}
+			gaps = append(gaps, gap)
+		}
+	}
+
+	sort.Slice(gaps, func(i, j int) bool {
+		left := gaps[i]
+		right := gaps[j]
+		if levelByID[left.LevelID].Rank != levelByID[right.LevelID].Rank {
+			return levelByID[left.LevelID].Rank < levelByID[right.LevelID].Rank
+		}
+		if left.DocumentPath != right.DocumentPath {
+			return left.DocumentPath < right.DocumentPath
+		}
+		if left.ExpectedToLevelID != right.ExpectedToLevelID {
+			return left.ExpectedToLevelID < right.ExpectedToLevelID
+		}
+		return left.EntityID < right.EntityID
+	})
+
+	return gaps
+}
+
+func buildTraceGap(
+	entity model.Entity,
+	expectedLevel model.Level,
+	upperEntitiesExist bool,
+	candidates []model.Candidate,
+	documentByID map[string]model.Document,
+	levelByID map[string]model.Level,
+	sectionByID map[string]model.Section,
+) (report.TraceGapReport, bool) {
+	doc, ok := documentByID[entity.DocumentID]
+	if !ok {
+		return report.TraceGapReport{}, false
+	}
+	stage, gapType, reason := classifyTraceGap(candidates, upperEntitiesExist)
+	section := sectionByID[entity.SectionID]
+	return report.TraceGapReport{
+		ID:                  traceGapID(entity.ID, expectedLevel.ID),
+		NodeID:              entity.ID,
+		EntityID:            entity.ID,
+		Title:               entity.Title,
+		LevelID:             entity.LevelID,
+		LevelName:           levelByID[entity.LevelID].Name,
+		DocumentID:          entity.DocumentID,
+		DocumentPath:        doc.Path,
+		SectionID:           entity.SectionID,
+		SectionHeading:      section.Heading,
+		SourceQuote:         entity.SourceQuote,
+		ExpectedToLevelID:   expectedLevel.ID,
+		ExpectedToLevelName: expectedLevel.Name,
+		Stage:               string(stage),
+		GapType:             string(gapType),
+		Reason:              reason,
+		CandidateCount:      len(candidates),
+		TopCandidateIDs:     topCandidateIDs(candidates, 3),
+	}, true
+}
+
+func classifyTraceGap(candidates []model.Candidate, upperEntitiesExist bool) (model.TraceGapStage, model.TraceGapType, string) {
+	if !upperEntitiesExist {
+		return model.TraceGapStageUpstreamMissing, model.TraceGapTypeMissingUpstreamEntities, "no_entities_in_expected_level"
+	}
+	if len(candidates) == 0 {
+		return model.TraceGapStageCandidateSearch, model.TraceGapTypeNoCandidates, "no_similarity_candidates_above_threshold"
+	}
+	switch {
+	case allCandidatesHaveDiagnostic(candidates, string(model.TraceCandidateDiagnosticQuoteEvidenceMissing)):
+		return model.TraceGapStageVerification, model.TraceGapTypeQuoteEvidenceMissing, string(model.TraceCandidateDiagnosticQuoteEvidenceMissing)
+	case allCandidatesHaveDiagnostic(candidates, string(model.TraceCandidateDiagnosticBelowTraceConfidence)):
+		return model.TraceGapStageVerification, model.TraceGapTypeLowConfidence, string(model.TraceCandidateDiagnosticBelowTraceConfidence)
+	case hasCandidateDiagnostic(candidates, string(model.TraceCandidateDiagnosticVerificationBudgetExhausted)):
+		return model.TraceGapStageVerification, model.TraceGapTypeVerificationBudgetExhausted, string(model.TraceCandidateDiagnosticVerificationBudgetExhausted)
+	case hasCandidateDiagnostic(candidates, string(model.TraceCandidateDiagnosticVerificationUnavailable)):
+		return model.TraceGapStageVerification, model.TraceGapTypeVerificationUnavailable, string(model.TraceCandidateDiagnosticVerificationUnavailable)
+	case hasCandidateDiagnostic(candidates, string(model.TraceCandidateDiagnosticLLMVerificationRejected)):
+		return model.TraceGapStageVerification, model.TraceGapTypeAllCandidatesRejected, string(model.TraceCandidateDiagnosticLLMVerificationRejected)
+	case hasCandidateDiagnostic(candidates, string(model.TraceCandidateDiagnosticQuoteEvidenceMissing)):
+		return model.TraceGapStageVerification, model.TraceGapTypeQuoteEvidenceMissing, dominantCandidateDiagnostic(candidates)
+	case hasCandidateDiagnostic(candidates, string(model.TraceCandidateDiagnosticBelowTraceConfidence)):
+		return model.TraceGapStageVerification, model.TraceGapTypeLowConfidence, dominantCandidateDiagnostic(candidates)
+	default:
+		return model.TraceGapStageVerification, model.TraceGapTypeAllCandidatesRejected, dominantCandidateDiagnostic(candidates)
+	}
+}
+
+func allCandidatesHaveDiagnostic(candidates []model.Candidate, diagnostic string) bool {
+	if len(candidates) == 0 {
+		return false
+	}
+	for _, candidate := range candidates {
+		if candidate.DiagnosticCode != diagnostic {
+			return false
+		}
+	}
+	return true
+}
+
+func hasCandidateDiagnostic(candidates []model.Candidate, diagnostic string) bool {
+	for _, candidate := range candidates {
+		if candidate.DiagnosticCode == diagnostic {
+			return true
+		}
+	}
+	return false
+}
+
+func dominantCandidateDiagnostic(candidates []model.Candidate) string {
+	if len(candidates) == 0 {
+		return ""
+	}
+	counts := make(map[string]int, len(candidates))
+	bestCode := ""
+	bestCount := -1
+	for _, candidate := range candidates {
+		code := candidate.DiagnosticCode
+		if code == "" {
+			code = string(model.TraceCandidateDiagnosticEmbeddingSimilarityCandidate)
+		}
+		counts[code]++
+		if counts[code] > bestCount || (counts[code] == bestCount && code < bestCode) {
+			bestCode = code
+			bestCount = counts[code]
+		}
+	}
+	return bestCode
+}
+
+func topCandidateIDs(candidates []model.Candidate, limit int) []string {
+	if len(candidates) == 0 || limit <= 0 {
+		return nil
+	}
+	sorted := sortCandidatesBySimilarity(candidates)
+	if len(sorted) > limit {
+		sorted = sorted[:limit]
+	}
+	ids := make([]string, 0, len(sorted))
+	for _, candidate := range sorted {
+		ids = append(ids, candidate.ID)
+	}
+	return ids
+}
+
+func traceGapID(entityID, expectedLevelID string) string {
+	return fmt.Sprintf("gap_%s", sha256Hash([]byte(entityID + "|" + expectedLevelID))[:12])
+}
+
 func edgeAsPath(edge report.TraceEdgeReport) report.TracePathReport {
 	return report.TracePathReport{
 		ID:             edge.ID,
@@ -750,6 +942,24 @@ func hasTraceNodes(nodeIDs map[string]struct{}, sourceID, targetID string) bool 
 	_, sourceOK := nodeIDs[sourceID]
 	_, targetOK := nodeIDs[targetID]
 	return sourceOK && targetOK
+}
+
+func traceEdgeStatusForCandidate(candidate model.Candidate) model.TraceEdgeStatus {
+	switch candidate.DiagnosticCode {
+	case string(model.TraceCandidateDiagnosticEmbeddingSimilarityCandidate), string(model.TraceCandidateDiagnosticVerificationUnavailable):
+		return model.TraceEdgeStatusCandidate
+	default:
+		return model.TraceEdgeStatusRejected
+	}
+}
+
+func traceVerificationModeForCandidate(candidate model.Candidate) string {
+	switch candidate.DiagnosticCode {
+	case string(model.TraceCandidateDiagnosticBelowTraceConfidence), string(model.TraceCandidateDiagnosticEmbeddingSimilarityCandidate):
+		return string(model.TraceVerificationModeCandidateSearch)
+	default:
+		return string(model.TraceVerificationModeLLMEvidence)
+	}
 }
 
 func buildTraceEdgeEvidenceRef(
