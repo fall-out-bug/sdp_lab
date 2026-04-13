@@ -107,3 +107,23 @@ func TestConfig_SetDefaultsRuntime(t *testing.T) {
 		t.Fatalf("Runtime.APIKeyEnv = %q", cfg.Runtime.APIKeyEnv)
 	}
 }
+
+func TestDefaultConfigYAML_IsFullyMaterialized(t *testing.T) {
+	cfg := DefaultConfigYAML()
+
+	if cfg.Output.Lang != "ru" {
+		t.Fatalf("Output.Lang = %q, want ru", cfg.Output.Lang)
+	}
+	if !cfg.Thresholds.EmitDistribution {
+		t.Fatal("EmitDistribution should be true in generated template")
+	}
+	if cfg.Thresholds.AutoVerifySimilarity != 0.85 {
+		t.Fatalf("AutoVerifySimilarity = %v, want 0.85", cfg.Thresholds.AutoVerifySimilarity)
+	}
+	if cfg.Thresholds.LLMVerifyBudget != 50 {
+		t.Fatalf("LLMVerifyBudget = %d, want 50", cfg.Thresholds.LLMVerifyBudget)
+	}
+	if cfg.Thresholds.MaxChunksPerDocument != 100 {
+		t.Fatalf("MaxChunksPerDocument = %d, want 100", cfg.Thresholds.MaxChunksPerDocument)
+	}
+}

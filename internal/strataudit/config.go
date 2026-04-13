@@ -199,7 +199,7 @@ func (c *Config) TemperatureForStage(stage string) float64 {
 }
 
 func DefaultConfigYAML() *Config {
-	return &Config{
+	cfg := &Config{
 		Version: "1",
 		Project: ProjectConfig{
 			Name:        "My Project",
@@ -232,4 +232,6 @@ func DefaultConfigYAML() *Config {
 		Thresholds: ThresholdConfig{Similarity: 0.5, TraceConfidence: 0.6, CoverageWarn: 70, StaleDays: 90, ChunkTokenLimit: 3000, ChunkOverlapTokens: 500},
 		Output:     OutputConfig{Dir: ".strataudit", Formats: []string{"html", "json"}},
 	}
+	cfg.setDefaults()
+	return cfg
 }
