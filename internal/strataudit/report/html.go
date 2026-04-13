@@ -12,9 +12,16 @@ func buildHTML(rpt *AuditReport) string {
 	if projectName == "" {
 		projectName = "StratAudit"
 	}
+	htmlLang := firstNonEmpty(rpt.AuditScope.OutputLang, "en")
+	sectionByID := make(map[string]SectionReport, len(rpt.Sections))
+	for _, section := range rpt.Sections {
+		sectionByID[section.ID] = section
+	}
 
 	b.WriteString(`<!DOCTYPE html>
-<html lang="en">
+<html lang="`)
+	b.WriteString(html.EscapeString(htmlLang))
+	b.WriteString(`">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -53,6 +60,11 @@ h2 { font-size: 1.3rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--acce
 .filter-btn { padding: 0.4rem 0.8rem; border-radius: var(--radius); border: 1px solid #333; background: var(--surface); color: var(--text); cursor: pointer; font-size: 0.85rem; }
 .filter-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
 .subtitle { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.5rem; }
+.evidence-card { background: var(--surface); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 0.9rem; border: 1px solid #2a2a2a; }
+.evidence-title { font-weight: 600; margin-bottom: 0.35rem; }
+.evidence-meta { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.35rem; }
+.evidence-quote { color: var(--text); font-size: 0.9rem; white-space: pre-wrap; }
+.evidence-grid { display: grid; gap: 0.9rem; }
 </style>
 </head>
 <body>
@@ -128,6 +140,69 @@ h2 { font-size: 1.3rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--acce
 
 	b.WriteString(`</div>
 
+<h2>Evidence Preview</h2>
+<div class="evidence-grid">
+`)
+
+	for _, entity := range rpt.Entities {
+		sectionLabel := entity.SectionID
+		if section, ok := sectionByID[entity.SectionID]; ok {
+			sectionLabel = section.Label
+		}
+		fmt.Fprintf(&b, `<div class="evidence-card">
+  <div class="evidence-title">%s</div>
+  <div class="evidence-meta">%s · %s · %s</div>
+  <div class="evidence-quote">%s</div>
+</div>
+`, html.EscapeString(firstNonEmpty(entity.TitleOriginal, entity.Title)),
+			html.EscapeString(entity.Type),
+			html.EscapeString(entity.DocumentPath),
+			html.EscapeString(sectionLabel),
+			html.EscapeString(entity.SourceQuote))
+	}
+
+	for _, trace := range rpt.VerifiedTraces {
+		fmt.Fprintf(&b, `<div class="evidence-card">
+  <div class="evidence-title">%s → %s</div>
+  <div class="evidence-meta">%s · %.0f%% · %s</div>
+  <div class="evidence-quote">Источник: %s (%s)
+%s
+
+Назначение: %s (%s)
+%s</div>
+</div>
+`, html.EscapeString(trace.SourceEntityID),
+			html.EscapeString(trace.TargetEntityID),
+			html.EscapeString(trace.Relation),
+			trace.Confidence*100,
+			html.EscapeString(trace.VerificationMode),
+			html.EscapeString(trace.TraceEvidence.Source.DocumentPath),
+			html.EscapeString(sectionLabelForEvidence(trace.TraceEvidence.Source, sectionByID)),
+			html.EscapeString(trace.TraceEvidence.Source.Quote),
+			html.EscapeString(trace.TraceEvidence.Target.DocumentPath),
+			html.EscapeString(sectionLabelForEvidence(trace.TraceEvidence.Target, sectionByID)),
+			html.EscapeString(trace.TraceEvidence.Target.Quote))
+	}
+
+	for _, doc := range rpt.CorpusQuality.Documents {
+		fmt.Fprintf(&b, `<div class="evidence-card">
+  <div class="evidence-title">Corpus quality: %s</div>
+  <div class="evidence-meta">%s · flags: %s</div>
+`, html.EscapeString(doc.DocumentPath), html.EscapeString(doc.Severity), html.EscapeString(strings.Join(doc.Flags, ", ")))
+		for _, sectionID := range doc.SectionIDs {
+			section, ok := sectionByID[sectionID]
+			if !ok {
+				continue
+			}
+			fmt.Fprintf(&b, `  <div class="evidence-meta">%s</div>
+  <div class="evidence-quote">%s</div>
+`, html.EscapeString(section.Label), html.EscapeString(section.Preview))
+		}
+		b.WriteString("</div>\n")
+	}
+
+	b.WriteString(`</div>
+
 <script>
 function filterFindings(type) {
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -150,4 +225,14 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func sectionLabelForEvidence(ref EvidenceRefReport, sectionByID map[string]SectionReport) string {
+	if section, ok := sectionByID[ref.SectionID]; ok {
+		return section.Label
+	}
+	if ref.SectionHeading != "" {
+		return ref.SectionHeading
+	}
+	return ref.SectionID
 }

@@ -111,8 +111,10 @@ func extractFromDocument(ctx context.Context, cfg *Config, store *SQLiteStore, l
 	var allEntities []model.Entity
 	seen := make(map[string]bool)
 	seenRejected := make(map[string]bool)
+	sectionsChanged := false
 
-	for i, section := range sections {
+	for i := range sections {
+		section := sections[i]
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
@@ -139,11 +141,19 @@ func extractFromDocument(ctx context.Context, cfg *Config, store *SQLiteStore, l
 		}
 		batch.Suspect += parsed.Suspect
 		batch.Rejected += parsed.Rejected
+		if len(parsed.RejectedFlags) > 0 {
+			sections[i].QualityFlags = dedupeFlags(append(sections[i].QualityFlags, parsed.RejectedFlags...))
+			sectionsChanged = true
+		}
 
 		for _, e := range parsed.Entities {
 			admitted, accepted := admitEntityCandidate(e, section)
 			key := strings.ToLower(string(e.Type)) + "|" + strings.ToLower(e.Title)
 			if !accepted {
+				if len(admitted.QualityFlags) > 0 {
+					sections[i].QualityFlags = dedupeFlags(append(sections[i].QualityFlags, admitted.QualityFlags...))
+					sectionsChanged = true
+				}
 				if !seenRejected[key] {
 					seenRejected[key] = true
 					batch.Rejected++
@@ -155,6 +165,12 @@ func extractFromDocument(ctx context.Context, cfg *Config, store *SQLiteStore, l
 				allEntities = append(allEntities, admitted)
 				batch.Verified++
 			}
+		}
+	}
+
+	if sectionsChanged {
+		if err := store.SaveSections(ctx, sections); err != nil {
+			return nil, fmt.Errorf("save section quality flags for %s: %w", doc.Path, err)
 		}
 	}
 
@@ -233,9 +249,10 @@ HALLUCINATION PREVENTION:
 }
 
 type extractionParseResult struct {
-	Entities []model.Entity
-	Suspect  int
-	Rejected int
+	Entities      []model.Entity
+	Suspect       int
+	Rejected      int
+	RejectedFlags []string
 }
 
 func parseExtractionResponse(content string, docID, levelID, extractModel string) ([]model.Entity, error) {
@@ -293,6 +310,7 @@ func parseExtractionResponseDetailed(content string, docID, levelID, extractMode
 		}
 		if flags := detectPromptLeakFlags(entity); len(flags) > 0 {
 			parsed.Rejected++
+			parsed.RejectedFlags = append(parsed.RejectedFlags, flags...)
 			continue
 		}
 		parsed.Entities = append(parsed.Entities, entity)

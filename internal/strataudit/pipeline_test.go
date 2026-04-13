@@ -2,14 +2,18 @@ package strataudit
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"sdp_dev/internal/strataudit/model"
+	reportpkg "sdp_dev/internal/strataudit/report"
 )
 
 func TestEndToEnd_StoreAndQuery(t *testing.T) {
@@ -239,5 +243,82 @@ func TestExtractEntities_RejectsBoilerplateRepetition(t *testing.T) {
 	}
 	if result.RejectedEntities != 1 {
 		t.Fatalf("result.RejectedEntities = %d, want 1", result.RejectedEntities)
+	}
+}
+
+func TestRunPipeline_RegressionFixturePreservesTrustInvariants(t *testing.T) {
+	cfg, _, result := runRegressionPipeline(t)
+
+	if result.Extract.RejectedEntities != 1 {
+		t.Fatalf("trust guarantee violated: expected exactly 1 rejected entity from prompt-leak fixture, got %d", result.Extract.RejectedEntities)
+	}
+	if result.Link.TracesCreated != 1 {
+		t.Fatalf("trust guarantee violated: expected exactly 1 verified trace in regression fixture, got %d", result.Link.TracesCreated)
+	}
+
+	reportPath := filepath.Join(cfg.Output.Dir, "report.v2.json")
+	data, err := os.ReadFile(reportPath)
+	if err != nil {
+		t.Fatalf("trust guarantee violated: missing report.v2.json output: %v", err)
+	}
+	var rpt reportpkg.AuditReport
+	if err := json.Unmarshal(data, &rpt); err != nil {
+		t.Fatalf("trust guarantee violated: report.v2.json is not decodable: %v", err)
+	}
+
+	if rpt.SchemaVersion != reportpkg.SchemaVersion {
+		t.Fatalf("trust guarantee violated: schema_version = %q, want %q", rpt.SchemaVersion, reportpkg.SchemaVersion)
+	}
+	if rpt.TrustSummary.Entities.Rejected != 1 {
+		t.Fatalf("trust guarantee violated: rejected entity count = %d, want 1", rpt.TrustSummary.Entities.Rejected)
+	}
+	if len(rpt.Entities) != 2 {
+		t.Fatalf("trust guarantee violated: expected 2 admitted entities after rejecting noise, got %d", len(rpt.Entities))
+	}
+	for _, entity := range rpt.Entities {
+		if containsPromptLeakMarker(entity.Title) || containsPromptLeakMarker(entity.Description) || containsPromptLeakMarker(entity.SourceQuote) {
+			t.Fatalf("trust guarantee violated: prompt/system markers leaked into admitted entity %+v", entity)
+		}
+		if entity.DocumentPath == "" || entity.SectionID == "" || entity.SourceQuote == "" {
+			t.Fatalf("trust guarantee violated: entity lost provenance fields %+v", entity)
+		}
+	}
+
+	if len(rpt.VerifiedTraces) != 1 {
+		t.Fatalf("trust guarantee violated: expected 1 verified trace, got %d", len(rpt.VerifiedTraces))
+	}
+	trace := rpt.VerifiedTraces[0]
+	if trace.TraceEvidence.Source.DocumentPath == "" || trace.TraceEvidence.Source.SectionID == "" || trace.TraceEvidence.Source.Quote == "" {
+		t.Fatalf("trust guarantee violated: source trace evidence incomplete %+v", trace.TraceEvidence.Source)
+	}
+	if trace.TraceEvidence.Target.DocumentPath == "" || trace.TraceEvidence.Target.SectionID == "" || trace.TraceEvidence.Target.Quote == "" {
+		t.Fatalf("trust guarantee violated: target trace evidence incomplete %+v", trace.TraceEvidence.Target)
+	}
+
+	if len(rpt.Coverage.ByLevel) == 0 || len(rpt.Coverage.ByDocument) == 0 || len(rpt.Coverage.BySection) == 0 {
+		t.Fatalf("trust guarantee violated: coverage breakdown missing level/document/section slices %+v", rpt.Coverage)
+	}
+	if len(rpt.CorpusQuality.Documents) == 0 {
+		t.Fatal("trust guarantee violated: corpus_quality block lost noisy document diagnostics")
+	}
+
+	compatBytes, err := os.ReadFile(filepath.Join(cfg.Output.Dir, "report.json"))
+	if err != nil {
+		t.Fatalf("trust guarantee violated: missing compatibility report.json alias: %v", err)
+	}
+	if strings.TrimSpace(string(compatBytes)) != strings.TrimSpace(string(data)) {
+		t.Fatal("trust guarantee violated: report.json alias diverged from report.v2.json")
+	}
+
+	htmlBytes, err := os.ReadFile(filepath.Join(cfg.Output.Dir, "report.html"))
+	if err != nil {
+		t.Fatalf("trust guarantee violated: missing HTML report: %v", err)
+	}
+	html := string(htmlBytes)
+	if !strings.Contains(html, "company-vision.md") || !strings.Contains(html, "#section-0") {
+		t.Fatalf("trust guarantee violated: HTML report lost document/section provenance preview\n%s", html)
+	}
+	if !strings.Contains(html, "Template memo.") {
+		t.Fatalf("trust guarantee violated: HTML report lost evidence preview for noisy corpus section\n%s", html)
 	}
 }

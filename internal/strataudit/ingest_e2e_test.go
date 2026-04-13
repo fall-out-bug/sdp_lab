@@ -78,3 +78,36 @@ func TestIngest_E2E(t *testing.T) {
 		t.Errorf("too many errors: %d/%d", len(result.Errors), total)
 	}
 }
+
+func TestIngest_RegressionFixture(t *testing.T) {
+	cfg, _ := loadRegressionFixtureConfig(t)
+	store := newRegressionStore(t, cfg)
+
+	result, err := Ingest(context.Background(), cfg, store)
+	if err != nil {
+		t.Fatalf("trust guarantee violated: regression fixture ingest failed: %v", err)
+	}
+	if len(result.Errors) != 0 {
+		t.Fatalf("trust guarantee violated: regression fixture ingest produced errors: %+v", result.Errors)
+	}
+	if result.New != 3 {
+		t.Fatalf("trust guarantee violated: regression fixture should ingest 3 synthetic documents, got new=%d updated=%d unchanged=%d", result.New, result.Updated, result.Unchanged)
+	}
+
+	docs, err := store.AllDocuments(context.Background())
+	if err != nil {
+		t.Fatalf("AllDocuments: %v", err)
+	}
+	if len(docs) != 3 {
+		t.Fatalf("trust guarantee violated: expected 3 stored documents from regression fixture, got %d", len(docs))
+	}
+	for _, doc := range docs {
+		sections, err := store.SectionsByDocument(context.Background(), doc.ID)
+		if err != nil {
+			t.Fatalf("SectionsByDocument(%s): %v", doc.ID, err)
+		}
+		if len(sections) == 0 {
+			t.Fatalf("trust guarantee violated: document %s has no materialized sections", doc.Path)
+		}
+	}
+}

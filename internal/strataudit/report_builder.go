@@ -279,7 +279,7 @@ func BuildReport(ctx context.Context, cfg *Config, store *SQLiteStore) (*report.
 			corpusQualityFlagCounts[flag]++
 		}
 	}
-	corpusQualityDocs := buildCorpusQualityDocs(findings, documentByID, levelByID, sectionByID, corpusQualityFlagCounts)
+	corpusQualityDocs := buildCorpusQualityDocs(findings, sections, allEntities, documentByID, levelByID, sectionByID, corpusQualityFlagCounts)
 	rpt.CorpusQuality = report.CorpusQualityReport{
 		TotalIssues:       sumMapValues(corpusQualityFlagCounts),
 		CriticalDocuments: countCriticalCorpusDocs(corpusQualityDocs),
@@ -397,30 +397,73 @@ func reportableQualityFlags(flags []string) []string {
 	return dedupeStrings(filtered)
 }
 
-func buildCorpusQualityDocs(findings []model.Finding, documentByID map[string]model.Document, levelByID map[string]model.Level, sectionByID map[string]model.Section, flagCounts map[string]int) []report.CorpusQualityDocReport {
-	var docs []report.CorpusQualityDocReport
+func buildCorpusQualityDocs(findings []model.Finding, sections []model.Section, entities []model.Entity, documentByID map[string]model.Document, levelByID map[string]model.Level, sectionByID map[string]model.Section, flagCounts map[string]int) []report.CorpusQualityDocReport {
+	byDocument := make(map[string]*report.CorpusQualityDocReport)
+
+	ensureDoc := func(documentID string) *report.CorpusQualityDocReport {
+		entry, ok := byDocument[documentID]
+		if ok {
+			return entry
+		}
+		doc := documentByID[documentID]
+		level := levelByID[doc.LevelID]
+		entry = &report.CorpusQualityDocReport{
+			DocumentID:   documentID,
+			DocumentPath: doc.Path,
+			LevelID:      doc.LevelID,
+			LevelName:    level.Name,
+			Severity:     string(model.SeverityWarn),
+		}
+		byDocument[documentID] = entry
+		return entry
+	}
+
 	for _, finding := range findings {
 		if finding.Type != model.FindingCorpusQualityCluster {
 			continue
 		}
 		for _, documentID := range finding.DocumentIDs {
-			doc := documentByID[documentID]
-			level := levelByID[doc.LevelID]
+			entry := ensureDoc(documentID)
 			flags := extractFlagsFromCluster(finding.ClusterKey, finding.Title, finding.Description, flagCounts)
-			docs = append(docs, report.CorpusQualityDocReport{
-				DocumentID:   documentID,
-				DocumentPath: doc.Path,
-				LevelID:      doc.LevelID,
-				LevelName:    level.Name,
-				Severity:     string(finding.Severity),
-				IssueCount:   max(1, len(flags)),
-				Flags:        flags,
-				FindingIDs:   []string{finding.ID},
-				SectionIDs:   append([]string(nil), finding.SectionIDs...),
-				EntityIDs:    append([]string(nil), finding.EntityIDs...),
-			})
+			entry.Severity = higherCorpusSeverity(entry.Severity, string(finding.Severity))
+			entry.Flags = dedupeStrings(append(entry.Flags, flags...))
+			entry.FindingIDs = dedupeStrings(append(entry.FindingIDs, finding.ID))
+			entry.SectionIDs = dedupeStrings(append(entry.SectionIDs, finding.SectionIDs...))
+			entry.EntityIDs = dedupeStrings(append(entry.EntityIDs, finding.EntityIDs...))
 		}
 	}
+
+	for _, section := range sections {
+		flags := reportableQualityFlags(section.QualityFlags)
+		if len(flags) == 0 {
+			continue
+		}
+		entry := ensureDoc(section.DocumentID)
+		entry.Severity = higherCorpusSeverity(entry.Severity, corpusSeverityFromFlags(flags))
+		entry.Flags = dedupeStrings(append(entry.Flags, flags...))
+		entry.SectionIDs = dedupeStrings(append(entry.SectionIDs, section.ID))
+	}
+
+	for _, entity := range entities {
+		flags := reportableQualityFlags(entity.QualityFlags)
+		if len(flags) == 0 {
+			continue
+		}
+		entry := ensureDoc(entity.DocumentID)
+		entry.Severity = higherCorpusSeverity(entry.Severity, corpusSeverityFromFlags(flags))
+		entry.Flags = dedupeStrings(append(entry.Flags, flags...))
+		entry.EntityIDs = dedupeStrings(append(entry.EntityIDs, entity.ID))
+		if entity.SectionID != "" {
+			entry.SectionIDs = dedupeStrings(append(entry.SectionIDs, entity.SectionID))
+		}
+	}
+
+	docs := make([]report.CorpusQualityDocReport, 0, len(byDocument))
+	for _, entry := range byDocument {
+		entry.IssueCount = max(1, len(entry.Flags)+len(entry.FindingIDs))
+		docs = append(docs, *entry)
+	}
+
 	sort.Slice(docs, func(i, j int) bool {
 		if docs[i].Severity != docs[j].Severity {
 			return corpusSeverityRank(docs[i].Severity) < corpusSeverityRank(docs[j].Severity)
@@ -431,6 +474,23 @@ func buildCorpusQualityDocs(findings []model.Finding, documentByID map[string]mo
 		return docs[i].DocumentPath < docs[j].DocumentPath
 	})
 	return docs
+}
+
+func corpusSeverityFromFlags(flags []string) string {
+	for _, flag := range flags {
+		switch flag {
+		case "prompt_leak", "quote_not_found", "boilerplate_repetition", "language_mismatch":
+			return string(model.SeverityCritical)
+		}
+	}
+	return string(model.SeverityWarn)
+}
+
+func higherCorpusSeverity(current, candidate string) string {
+	if corpusSeverityRank(candidate) < corpusSeverityRank(current) {
+		return candidate
+	}
+	return current
 }
 
 func extractFlagsFromCluster(clusterKey, title, description string, knownFlags map[string]int) []string {
