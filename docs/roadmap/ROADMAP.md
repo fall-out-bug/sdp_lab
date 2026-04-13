@@ -1,6 +1,6 @@
 # sdp_lab Roadmap — Agent Platform + Trust Lane
 
-> **Updated:** 2026-04-12
+> **Updated:** 2026-04-13
 > **Repo naming:** GitHub repo is `sdp_lab`; historical workstreams and bead IDs may still use `sdp_dev` as a legacy label for the same codebase
 > **Direction:** Reusable agent platform (`kernel`, `adapters`, `augmentation`, `evals`) with standards-based trust and evidence as a secondary lane
 > **Platform Reset:** [AGENT_PLATFORM_ROADMAP_2026-03-31.md](AGENT_PLATFORM_ROADMAP_2026-03-31.md) + [2026-03-31-platform-backlog-reset.md](../plans/2026-03-31-platform-backlog-reset.md)
@@ -38,6 +38,11 @@ not cosmetic HTML work, but the final slice on top of verified evidence, provena
 and multilingual source preservation.
 
 This lane is not an exclusive ready queue. `bd ready` remains the live source of executable work, and older ecosystem tasks can still coexist in Beads until they are explicitly triaged or deprioritized.
+
+A second planned lane now exists for toolkit-led brownfield adoption. `F120`..`F126`
+turn the toolkit vision into executable backlog: scout first, then metrics and
+index, then bootstrap, intent UX, and MCP. This is not the current `P0` queue, but
+it is now the canonical plan for "unknown repo -> AI-native workspace".
 
 Two horizons. Phases 1-7 build the trust layer as CLI tools with CI enforcement. Phases 8-9 extend the same standards into K8s for autonomous swarm execution. The dream (issue in, PR with proof out) doesn't change — the path becomes standards-based.
 
@@ -260,6 +265,41 @@ in-toto Envelope (DSSE)
 
 ---
 
+## Phase Toolkit: Unknown Codebase -> AI-Native Adoption (planned)
+
+**Goal:** make SDP useful the moment it enters an unknown brownfield repo, without
+forcing a full operator workflow or a slow architecture pass as the first step.
+
+This lane intentionally overrides two stale assumptions inside the vision doc:
+
+- first shipped value is `sdp scout`, not `metrics` or `index`
+- `@landscape` and `@plan` are absorbed into the intent-routing lane, not planned as standalone capabilities
+
+`sdp architect` remains an existing dependency surface. Toolkit planning consumes
+it; it does not create a second architect backlog on top of `F105`.
+
+| Feature | Priority | Outcome | Depends On |
+|--------|----------|---------|------------|
+| `F120` Toolkit Scout | P1 | 30-second repo card with stable `scout.json` and shared exclusions | - |
+| `F121` Toolkit Metrics | P1 | git-derived health report for hygiene, flow, risk, and decay | `F120` |
+| `F122` Toolkit Index | P1 | persistent `.sdp/index.db` + `.sdp/manifest.md` | `F120` |
+| `F123` Toolkit Spec Recovery | P2 | recovered contracts, rules, invariants, and SLA signals | `F120` |
+| `F124` Toolkit Bootstrap | P1 | brownfield-safe context docs, policies, hooks, and beads setup | `F120`, `F121`, `F122` |
+| `F125` Toolkit UX | P1 | five intent-based skills over composable toolkit tools | `F120`, `F121`, `F122`, `F123`, `F124` |
+| `F126` Toolkit MCP | P2 | one MCP server exposing toolkit tools, resources, and prompts | `F120`..`F125` |
+
+**Execution slices:**
+
+- Slice A: `F120` + `F121` -> first-look repo understanding
+- Slice B: `F122` + `F123` -> persistent context and recovered contracts
+- Slice C: `F124` + `F125` -> safe adoption and smaller skill surface
+- Slice D: `F126` -> universal harness interface
+
+**Canonical plan:** [2026-04-13-sdp-toolkit-implementation-plan.md](../plans/2026-04-13-sdp-toolkit-implementation-plan.md)
+**Detailed child plans:** [F120 Scout](../plans/2026-04-13-sdp-scout-implementation-plan.md), [F121 Metrics](../plans/2026-04-13-sdp-metrics-implementation-plan.md), [F122 Index](../plans/2026-04-13-sdp-index-implementation-plan.md), [F123 Spec](../plans/2026-04-13-sdp-spec-implementation-plan.md), [F124 Bootstrap](../plans/2026-04-13-sdp-bootstrap-implementation-plan.md), [F126 MCP](../plans/2026-04-13-sdp-mcp-implementation-plan.md)
+
+---
+
 ## What SDP Does Better Than Anyone
 
 | Others | What they cover | What SDP covers |
@@ -290,7 +330,7 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 - Active strategy and ecosystem ranges: `F059`..`F085`
 - Parked long-horizon ideas: `F086`..`F089`
 - Canonical alignment and platform reset lanes: `F090`..`F096`
-- Product truth, architect, and analyst backlog: `F097`..`F105`, `F109`
+- Product truth, integration, architect, analyst, and toolkit backlog: `F097`..`F126`
 
 ### Standards & Tools
 - [in-toto attestation](https://github.com/in-toto/attestation) — envelope format
