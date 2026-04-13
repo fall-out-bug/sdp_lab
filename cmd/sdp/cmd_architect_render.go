@@ -639,7 +639,7 @@ ul,ol{padding-left:24px;margin:8px 0 16px}li{margin:4px 0;line-height:1.6}
   </nav>
   <main class="main-content" id="content">{{CONTENT}}</main>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script>
 function toggleTheme(){
   var h=document.documentElement,n=h.getAttribute('data-theme')==='dark'?'light':'dark';
@@ -651,16 +651,23 @@ function initMermaid(theme){
   mermaid.initialize({startOnLoad:false,securityLevel:'loose',theme:theme==='dark'?'dark':'default',
     themeVariables:theme==='dark'?{primaryColor:'#4760F3',primaryTextColor:'#e8e8e8',primaryBorderColor:'#3a3a3a',lineColor:'#8B93A7',secondaryColor:'#1a1a1a',tertiaryColor:'#222',background:'#1a1a1a',mainBkg:'#1a1a1a',nodeBorder:'#3a3a3a',clusterBkg:'#161622',clusterBorder:'#2a2a2a',titleColor:'#e8e8e8',edgeLabelBackground:'#1a1a1a',nodeTextColor:'#e8e8e8'}:{primaryColor:'#4760F3',primaryTextColor:'#1a1a1a',lineColor:'#6C778E'},
     flowchart:{curve:'basis',padding:24,nodeSpacing:60,rankSpacing:80,htmlLabels:true,wrappingWidth:200,useMaxWidth:false},
-    c4:{personFontSize:14,personFontWeight:'500',c4ShapeMargin:40,c4ShapePadding:16,
-      wrap:true,wrapPadding:10,c4BoundaryInRow:3},
+    c4:{personFontSize:14,personFontWeight:'500',c4ShapeMargin:60,c4ShapePadding:20,
+      wrap:true,wrapPadding:15,c4BoundaryInRow:2,width:280,height:180},
     fontSize:14,fontFamily:'Inter,system-ui,sans-serif'});
-  document.querySelectorAll('script[type="text/plain"][id^="mermaid-src-"]').forEach(function(src){
-    var code=src.textContent;
-    var el=document.getElementById(src.id+'-target');
-    if(!el)return;
-    el.textContent=code;
-    mermaid.run({nodes:[el]}).catch(function(e){el.innerHTML='<pre style="color:var(--danger);font-size:12px">Ошибка: '+e.message+'</pre>';});
-  });
+  var srcs=Array.from(document.querySelectorAll('script[type="text/plain"][id^="mermaid-src-"]'));
+  (async function(){
+    for(var i=0;i<srcs.length;i++){
+      var src=srcs[i],code=src.textContent.trim();
+      var el=document.getElementById(src.id+'-target');
+      if(!el)continue;
+      el.innerHTML='';
+      el.removeAttribute('data-processed');
+      el.removeAttribute('data-mermaid-processed');
+      el.textContent=code;
+      try{await mermaid.run({nodes:[el]});}
+      catch(e){el.innerHTML='<pre style="color:var(--danger);font-size:12px">Diagram '+i+': '+e.message+'</pre>';}
+    }
+  })();
 }
 function initPanZoom(){
   document.querySelectorAll('.mermaid-viewport').forEach(function(vp){
