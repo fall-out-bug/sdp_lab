@@ -3,6 +3,10 @@ package strataudit
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"unicode/utf8"
@@ -82,9 +86,9 @@ func TestParseLLMJSON(t *testing.T) {
 
 func TestExtractFinalAnswer(t *testing.T) {
 	tests := []struct {
-		name     string
+		name      string
 		reasoning string
-		want     string
+		want      string
 	}{
 		{
 			"answer tag",
@@ -196,5 +200,123 @@ func TestReasoningFallback(t *testing.T) {
 				t.Errorf("got %q, want %q", result, tt.wantContent)
 			}
 		})
+	}
+}
+
+func TestLLMClient_Chat_UsesReasoningFallback(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		defer func() { _ = r.Body.Close() }()
+		payload := `{"choices":[{"message":{"role":"assistant","content":null,"reasoning":"Let me think step by step.\n\n<answer>{\"status\":\"ok\"}</answer>"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":4,"cost":0.0001}}`
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(payload))
+	}))
+	defer srv.Close()
+
+	client := NewLLMClient("test-key", srv.URL)
+	client.SetRateLimit(1200)
+	client.SetRetryConfig(0, 0)
+
+	resp, err := client.Chat(context.Background(), LLMRequest{
+		Model:             "deepseek/deepseek-v3.2",
+		System:            "Respond with valid JSON only.",
+		User:              `Return {"status":"ok"}`,
+		MaxTokens:         200,
+		Temperature:       0.0,
+		JSONMode:          true,
+		Stage:             "extract",
+		ReasoningFallback: true,
+	})
+	if err != nil {
+		t.Fatalf("Chat: %v", err)
+	}
+	if resp.Content != `{"status":"ok"}` {
+		t.Fatalf("Content = %q", resp.Content)
+	}
+	if resp.ContentSource != "reasoning" {
+		t.Fatalf("ContentSource = %q, want reasoning", resp.ContentSource)
+	}
+	if resp.Reasoning == "" {
+		t.Fatal("Reasoning should be preserved for diagnostics")
+	}
+}
+
+func TestLLMClient_Chat_ReasoningFallbackCanBeDisabled(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		defer func() { _ = r.Body.Close() }()
+		payload := `{"choices":[{"message":{"role":"assistant","content":null,"reasoning":"Let me think step by step.\n\n<answer>{\"status\":\"ok\"}</answer>"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":4,"cost":0.0001}}`
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(payload))
+	}))
+	defer srv.Close()
+
+	client := NewLLMClient("test-key", srv.URL)
+	client.SetRateLimit(1200)
+	client.SetRetryConfig(0, 0)
+
+	_, err := client.Chat(context.Background(), LLMRequest{
+		Model:             "deepseek/deepseek-v3.2",
+		System:            "Respond with valid JSON only.",
+		User:              `Return {"status":"ok"}`,
+		MaxTokens:         200,
+		Temperature:       0.0,
+		JSONMode:          true,
+		Stage:             "extract",
+		ReasoningFallback: false,
+	})
+	if err == nil {
+		t.Fatal("expected error when reasoning fallback is disabled and content is empty")
+	}
+	if got := err.Error(); got != "llm: empty content and reasoning in response" {
+		t.Fatalf("error = %q", got)
+	}
+}
+
+func TestLLMClient_Chat_CacheHitMarksContentSource(t *testing.T) {
+	call := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		defer func() { _ = r.Body.Close() }()
+		call++
+		payload := fmt.Sprintf(`{"choices":[{"message":{"role":"assistant","content":%q},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":4,"cost":0.0001}}`, `{"status":"ok"}`)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(payload))
+	}))
+	defer srv.Close()
+
+	client := NewLLMClient("test-key", srv.URL)
+	client.SetRateLimit(1200)
+	client.SetRetryConfig(0, 0)
+
+	req := LLMRequest{
+		Model:             "deepseek/deepseek-v3.2",
+		System:            "Respond with valid JSON only.",
+		User:              `Return {"status":"cache-ok"}`,
+		MaxTokens:         200,
+		Temperature:       0.0,
+		JSONMode:          true,
+		Stage:             "extract",
+		ReasoningFallback: true,
+	}
+	first, err := client.Chat(context.Background(), req)
+	if err != nil {
+		t.Fatalf("first Chat: %v", err)
+	}
+	second, err := client.Chat(context.Background(), req)
+	if err != nil {
+		t.Fatalf("second Chat: %v", err)
+	}
+	if !second.Cached {
+		t.Fatal("second call should be cached")
+	}
+	if second.ContentSource != "cache" {
+		t.Fatalf("ContentSource = %q, want cache", second.ContentSource)
+	}
+	if first.PromptHash == "" || second.PromptHash == "" || first.PromptHash != second.PromptHash {
+		t.Fatalf("unexpected prompt hash values: first=%q second=%q", first.PromptHash, second.PromptHash)
+	}
+	if call != 1 {
+		t.Fatalf("upstream calls = %d, want 1", call)
 	}
 }

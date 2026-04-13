@@ -1,9 +1,12 @@
 package strataudit
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -14,10 +17,10 @@ func TestIngest_BasicFiles(t *testing.T) {
 	os.MkdirAll(stratDir, 0755) //nolint:errcheck
 
 	// Write test files
-		os.WriteFile(filepath.Join(stratDir, "vision-statement.md"), []byte("# Our Vision\nBecome the market leader in AI tools"), 0644) //nolint:errcheck
-		os.WriteFile(filepath.Join(stratDir, "strategy-2026.md"), []byte("# Strategy\nExpand into Southeast Asian markets"), 0644) //nolint:errcheck
-		os.WriteFile(filepath.Join(stratDir, "task-backlog.md"), []byte("# Tasks\n- Hire country manager\n- Set up office"), 0644) //nolint:errcheck
-		os.WriteFile(filepath.Join(stratDir, "random.tmp"), []byte("temp file"), 0644) //nolint:errcheck
+	os.WriteFile(filepath.Join(stratDir, "vision-statement.md"), []byte("# Our Vision\nBecome the market leader in AI tools"), 0644) //nolint:errcheck
+	os.WriteFile(filepath.Join(stratDir, "strategy-2026.md"), []byte("# Strategy\nExpand into Southeast Asian markets"), 0644)       //nolint:errcheck
+	os.WriteFile(filepath.Join(stratDir, "task-backlog.md"), []byte("# Tasks\n- Hire country manager\n- Set up office"), 0644)       //nolint:errcheck
+	os.WriteFile(filepath.Join(stratDir, "random.tmp"), []byte("temp file"), 0644)                                                   //nolint:errcheck
 
 	cfg := &Config{
 		Project: ProjectConfig{
@@ -84,8 +87,8 @@ func TestIngest_Deduplication(t *testing.T) {
 	os.WriteFile(filepath.Join(stratDir, "vision.md"), []byte("Be the leader"), 0644) //nolint:errcheck
 
 	cfg := &Config{
-		Project: ProjectConfig{SourceDirs: []string{stratDir}},
-		Levels:  []LevelConfig{{Name: "vision", Rank: 0, Patterns: []string{"*vision*"}}},
+		Project:    ProjectConfig{SourceDirs: []string{stratDir}},
+		Levels:     []LevelConfig{{Name: "vision", Rank: 0, Patterns: []string{"*vision*"}}},
 		Thresholds: ThresholdConfig{ChunkTokenLimit: 3000},
 	}
 
@@ -118,8 +121,8 @@ func TestIngest_UpdateTriggersVersionBump(t *testing.T) {
 	os.WriteFile(visionPath, []byte("Version 1"), 0644) //nolint:errcheck
 
 	cfg := &Config{
-		Project: ProjectConfig{SourceDirs: []string{stratDir}},
-		Levels:  []LevelConfig{{Name: "vision", Rank: 0, Patterns: []string{"*vision*"}}},
+		Project:    ProjectConfig{SourceDirs: []string{stratDir}},
+		Levels:     []LevelConfig{{Name: "vision", Rank: 0, Patterns: []string{"*vision*"}}},
 		Thresholds: ThresholdConfig{ChunkTokenLimit: 3000},
 	}
 
@@ -149,6 +152,112 @@ func TestIngest_UpdateTriggersVersionBump(t *testing.T) {
 	}
 }
 
+func TestIngest_PersistsSectionsWithOffsets(t *testing.T) {
+	dir := t.TempDir()
+	stratDir := filepath.Join(dir, "strategy")
+	os.MkdirAll(stratDir, 0755) //nolint:errcheck
+
+	visionPath := filepath.Join(stratDir, "vision.md")
+	content := "Наша стратегия — лидерство в платежах. " +
+		"Мы усиливаем продукт, каналы и международную экспансию. " +
+		"Это требует отдельного ownership и KPI."
+	os.WriteFile(visionPath, []byte(content), 0644) //nolint:errcheck
+
+	cfg := &Config{
+		Project: ProjectConfig{SourceDirs: []string{stratDir}},
+		Levels:  []LevelConfig{{Name: "vision", Rank: 0, Patterns: []string{"*vision*"}}},
+		Thresholds: ThresholdConfig{
+			ChunkTokenLimit:    8,
+			ChunkOverlapTokens: 2,
+		},
+	}
+
+	store := setupTestStore(t)
+	if _, err := Ingest(context.Background(), cfg, store); err != nil {
+		t.Fatalf("Ingest: %v", err)
+	}
+
+	doc, err := store.DocumentByPath(context.Background(), visionPath)
+	if err != nil {
+		t.Fatalf("DocumentByPath: %v", err)
+	}
+	sections, err := store.SectionsByDocument(context.Background(), doc.ID)
+	if err != nil {
+		t.Fatalf("SectionsByDocument: %v", err)
+	}
+	if len(sections) < 2 {
+		t.Fatalf("len(sections) = %d, want >= 2", len(sections))
+	}
+	if sections[0].DocumentID != doc.ID {
+		t.Fatalf("sections[0].DocumentID = %q, want %q", sections[0].DocumentID, doc.ID)
+	}
+	if sections[0].CharStart != 0 {
+		t.Fatalf("sections[0].CharStart = %d, want 0", sections[0].CharStart)
+	}
+	if sections[0].CharEnd <= sections[0].CharStart {
+		t.Fatalf("invalid first section offsets: %+v", sections[0])
+	}
+	if sections[0].Preview == "" {
+		t.Fatal("expected section preview to be populated")
+	}
+	if len(sections[0].QualityFlags) == 0 || sections[0].QualityFlags[0] != "section_parse_fallback" {
+		t.Fatalf("unexpected quality flags: %+v", sections[0].QualityFlags)
+	}
+}
+
+func TestIngest_UpdateReplacesOldSections(t *testing.T) {
+	dir := t.TempDir()
+	stratDir := filepath.Join(dir, "strategy")
+	os.MkdirAll(stratDir, 0755) //nolint:errcheck
+
+	visionPath := filepath.Join(stratDir, "vision.md")
+	os.WriteFile(visionPath, []byte("Первая версия стратегии с длинным хвостом для нескольких чанков."), 0644) //nolint:errcheck
+
+	cfg := &Config{
+		Project: ProjectConfig{SourceDirs: []string{stratDir}},
+		Levels:  []LevelConfig{{Name: "vision", Rank: 0, Patterns: []string{"*vision*"}}},
+		Thresholds: ThresholdConfig{
+			ChunkTokenLimit:    6,
+			ChunkOverlapTokens: 1,
+		},
+	}
+
+	store := setupTestStore(t)
+	if _, err := Ingest(context.Background(), cfg, store); err != nil {
+		t.Fatalf("first ingest: %v", err)
+	}
+	doc, err := store.DocumentByPath(context.Background(), visionPath)
+	if err != nil {
+		t.Fatalf("DocumentByPath: %v", err)
+	}
+	firstSections, err := store.SectionsByDocument(context.Background(), doc.ID)
+	if err != nil {
+		t.Fatalf("SectionsByDocument first: %v", err)
+	}
+	if len(firstSections) == 0 {
+		t.Fatal("expected initial sections")
+	}
+
+	os.WriteFile(visionPath, []byte("Короткая вторая версия."), 0644) //nolint:errcheck
+	if _, err := Ingest(context.Background(), cfg, store); err != nil {
+		t.Fatalf("second ingest: %v", err)
+	}
+	updatedDoc, err := store.DocumentByPath(context.Background(), visionPath)
+	if err != nil {
+		t.Fatalf("DocumentByPath updated: %v", err)
+	}
+	updatedSections, err := store.SectionsByDocument(context.Background(), updatedDoc.ID)
+	if err != nil {
+		t.Fatalf("SectionsByDocument updated: %v", err)
+	}
+	if len(updatedSections) != 1 {
+		t.Fatalf("len(updatedSections) = %d, want 1", len(updatedSections))
+	}
+	if updatedSections[0].Content != "Короткая вторая версия." {
+		t.Fatalf("unexpected updated section content: %q", updatedSections[0].Content)
+	}
+}
+
 func TestClassifyLevel(t *testing.T) {
 	levels := []LevelConfig{
 		{Name: "vision", Rank: 0, Patterns: []string{"*vision*", "*mission*"}},
@@ -156,8 +265,8 @@ func TestClassifyLevel(t *testing.T) {
 	}
 
 	tests := []struct {
-		path    string
-		want    string
+		path string
+		want string
 	}{
 		{"strategy/our-vision.md", "vision"},
 		{"strategy/mission-statement.txt", "vision"},
@@ -222,7 +331,7 @@ func TestClassifyLevel_Deterministic_LowestRankWins(t *testing.T) {
 }
 
 func TestChunkContent(t *testing.T) {
-	content := "Hello world. " // 13 chars, ~3 tokens
+	content := "Hello world. "            // 13 chars, ~3 tokens
 	chunks := ChunkContent(content, 2, 1) // 2 tokens ≈ 8 chars
 	if len(chunks) < 1 {
 		t.Fatal("expected at least 1 chunk")
@@ -254,6 +363,7 @@ func TestIsSupportedExt(t *testing.T) {
 		{"doc.txt", true},
 		{"doc.pdf", true},
 		{"doc.docx", true},
+		{"deck.pptx", true},
 		{"doc.html", false},
 		{"doc.xlsx", false},
 	}
@@ -263,6 +373,129 @@ func TestIsSupportedExt(t *testing.T) {
 			t.Errorf("isSupportedExt(%q) = %v, want %v", tt.path, got, tt.want)
 		}
 	}
+}
+
+func TestIngest_ExcludeMatchesNestedDirectorySegments(t *testing.T) {
+	dir := t.TempDir()
+	root := filepath.Join(dir, "corpus")
+	nested := filepath.Join(root, "Downloads", "nested")
+	keep := filepath.Join(root, "strategy")
+	if err := os.MkdirAll(nested, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(keep, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(nested, "strategy.md"), []byte("must be excluded"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(keep, "strategy.md"), []byte("must stay"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &Config{
+		Project: ProjectConfig{
+			SourceDirs: []string{root},
+			Exclude:    []string{"Downloads"},
+		},
+		Levels:     []LevelConfig{{Name: "strategy", Rank: 0, Patterns: []string{"*strategy*"}}},
+		Thresholds: ThresholdConfig{ChunkTokenLimit: 3000},
+	}
+
+	store := setupTestStore(t)
+	result, err := Ingest(context.Background(), cfg, store)
+	if err != nil {
+		t.Fatalf("Ingest: %v", err)
+	}
+	if result.New != 1 {
+		t.Fatalf("result.New = %d, want 1", result.New)
+	}
+
+	excludedDoc, err := store.DocumentByPath(context.Background(), filepath.Join(nested, "strategy.md"))
+	if err != nil {
+		t.Fatalf("DocumentByPath excluded: %v", err)
+	}
+	if excludedDoc != nil {
+		t.Fatalf("expected nested Downloads document to be excluded, got %+v", excludedDoc)
+	}
+}
+
+func TestIngest_NativePPTXExtraction(t *testing.T) {
+	dir := t.TempDir()
+	root := filepath.Join(dir, "corpus")
+	if err := os.MkdirAll(root, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	pptxPath := filepath.Join(root, "Стратегия-команды.pptx")
+	if err := os.WriteFile(pptxPath, buildTestPPTX(t, map[string]string{
+		"ppt/slides/slide1.xml":           pptxTextXML("Технологическая стратегия", "Ключевая инициатива"),
+		"ppt/notesSlides/notesSlide1.xml": pptxTextXML("Детали в notes"),
+	}), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &Config{
+		Project:    ProjectConfig{SourceDirs: []string{root}},
+		Levels:     []LevelConfig{{Name: "strategy", Rank: 0, Patterns: []string{"*стратег*"}}},
+		Thresholds: ThresholdConfig{ChunkTokenLimit: 3000},
+	}
+
+	store := setupTestStore(t)
+	result, err := Ingest(context.Background(), cfg, store)
+	if err != nil {
+		t.Fatalf("Ingest: %v", err)
+	}
+	if result.New != 1 {
+		t.Fatalf("result.New = %d, want 1", result.New)
+	}
+
+	doc, err := store.DocumentByPath(context.Background(), pptxPath)
+	if err != nil {
+		t.Fatalf("DocumentByPath: %v", err)
+	}
+	if doc == nil {
+		t.Fatal("expected pptx document to be stored")
+	}
+	if !strings.Contains(doc.Content, "Технологическая стратегия") {
+		t.Fatalf("pptx content missing slide text: %q", doc.Content)
+	}
+	if !strings.Contains(doc.Content, "Детали в notes") {
+		t.Fatalf("pptx content missing notes text: %q", doc.Content)
+	}
+}
+
+func buildTestPPTX(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for name, content := range files {
+		w, err := zw.Create(name)
+		if err != nil {
+			t.Fatalf("Create(%s): %v", name, err)
+		}
+		if _, err := w.Write([]byte(content)); err != nil {
+			t.Fatalf("Write(%s): %v", name, err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("zip close: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func pptxTextXML(values ...string) string {
+	var b strings.Builder
+	b.WriteString(`<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree>`)
+	for _, value := range values {
+		b.WriteString(`<p:sp><p:txBody><a:p><a:r><a:t>`)
+		b.WriteString(value)
+		b.WriteString(`</a:t></a:r></a:p></p:txBody></p:sp>`)
+	}
+	b.WriteString(`</p:spTree></p:cSld></p:sld>`)
+	return b.String()
 }
 
 func TestSHA256Hash(t *testing.T) {
@@ -285,8 +518,8 @@ func TestIngest_SkipEmptyFiles(t *testing.T) {
 	os.WriteFile(filepath.Join(stratDir, "vision.md"), []byte("   \n\n  "), 0644) //nolint:errcheck
 
 	cfg := &Config{
-		Project: ProjectConfig{SourceDirs: []string{stratDir}},
-		Levels:  []LevelConfig{{Name: "vision", Rank: 0, Patterns: []string{"*vision*"}}},
+		Project:    ProjectConfig{SourceDirs: []string{stratDir}},
+		Levels:     []LevelConfig{{Name: "vision", Rank: 0, Patterns: []string{"*vision*"}}},
 		Thresholds: ThresholdConfig{ChunkTokenLimit: 3000},
 	}
 
@@ -308,8 +541,8 @@ func TestIngest_SkipNoLevelMatch(t *testing.T) {
 	os.WriteFile(filepath.Join(stratDir, "random.md"), []byte("Some content"), 0644) //nolint:errcheck
 
 	cfg := &Config{
-		Project: ProjectConfig{SourceDirs: []string{stratDir}},
-		Levels:  []LevelConfig{{Name: "vision", Rank: 0, Patterns: []string{"*vision*"}}},
+		Project:    ProjectConfig{SourceDirs: []string{stratDir}},
+		Levels:     []LevelConfig{{Name: "vision", Rank: 0, Patterns: []string{"*vision*"}}},
 		Thresholds: ThresholdConfig{ChunkTokenLimit: 3000},
 	}
 

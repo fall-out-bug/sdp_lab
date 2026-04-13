@@ -9,13 +9,14 @@ import (
 )
 
 type Config struct {
-	Version     string          `yaml:"version"`
-	Project     ProjectConfig   `yaml:"project"`
-	Levels      []LevelConfig   `yaml:"levels"`
-	EntityTypes []string        `yaml:"entity_types"`
-	LLM         LLMConfig       `yaml:"llm"`
-	Thresholds  ThresholdConfig `yaml:"thresholds"`
-	Output      OutputConfig    `yaml:"output"`
+	Version     string           `yaml:"version"`
+	Project     ProjectConfig    `yaml:"project"`
+	Levels      []LevelConfig    `yaml:"levels"`
+	EntityTypes []string         `yaml:"entity_types"`
+	Runtime     RuntimeConfig    `yaml:"runtime"`
+	LLM         LLMConfig        `yaml:"llm"`
+	Thresholds  ThresholdConfig  `yaml:"thresholds"`
+	Output      OutputConfig     `yaml:"output"`
 	Extractors  ExtractorsConfig `yaml:"extractors"`
 }
 
@@ -33,31 +34,38 @@ type LevelConfig struct {
 	Patterns    []string `yaml:"patterns"`
 }
 
+type RuntimeConfig struct {
+	Provider  string `yaml:"provider"`
+	BaseURL   string `yaml:"base_url"`
+	APIKeyEnv string `yaml:"api_key_env"`
+}
+
 type LLMConfig struct {
-	Model            string             `yaml:"model"`
-	ExtractModel     string             `yaml:"extract_model"`
-	EmbeddingModel   string             `yaml:"embedding_model"`
-	EmbeddingDims    int                `yaml:"embedding_dims"`
-	Temperature      float64            `yaml:"temperature"`
-	Temperatures     map[string]float64 `yaml:"temperatures"`
-	RequestsPerMin   int                `yaml:"requests_per_minute"`
-	MaxConcurrent    int                `yaml:"max_concurrent"`
-	MaxRetries       int                `yaml:"max_retries"`
-	RetryBaseDelayMs int                `yaml:"retry_base_delay_ms"`
+	Model             string             `yaml:"model"`
+	ExtractModel      string             `yaml:"extract_model"`
+	EmbeddingModel    string             `yaml:"embedding_model"`
+	EmbeddingDims     int                `yaml:"embedding_dims"`
+	ReasoningFallback *bool              `yaml:"reasoning_fallback"`
+	Temperature       float64            `yaml:"temperature"`
+	Temperatures      map[string]float64 `yaml:"temperatures"`
+	RequestsPerMin    int                `yaml:"requests_per_minute"`
+	MaxConcurrent     int                `yaml:"max_concurrent"`
+	MaxRetries        int                `yaml:"max_retries"`
+	RetryBaseDelayMs  int                `yaml:"retry_base_delay_ms"`
 }
 
 type ThresholdConfig struct {
-	Similarity            float64 `yaml:"similarity"`
-	TraceConfidence       float64 `yaml:"trace_confidence"`
-	AutoVerifySimilarity  float64 `yaml:"auto_verify_similarity"`
-	LLMVerifyBudget       int     `yaml:"llm_verify_budget"`
-	CoverageWarn          float64 `yaml:"coverage_warn"`
-	StaleDays             int     `yaml:"stale_days"`
-	ChunkTokenLimit       int     `yaml:"chunk_token_limit"`
-	ChunkOverlapTokens    int     `yaml:"chunk_overlap_tokens"`
-	EmitDistribution      bool    `yaml:"emit_distribution"`
-	MaxChunksPerDocument  int     `yaml:"max_chunks_per_document"`
-	AdaptiveSimilarity    bool    `yaml:"adaptive_similarity"`
+	Similarity           float64 `yaml:"similarity"`
+	TraceConfidence      float64 `yaml:"trace_confidence"`
+	AutoVerifySimilarity float64 `yaml:"auto_verify_similarity"`
+	LLMVerifyBudget      int     `yaml:"llm_verify_budget"`
+	CoverageWarn         float64 `yaml:"coverage_warn"`
+	StaleDays            int     `yaml:"stale_days"`
+	ChunkTokenLimit      int     `yaml:"chunk_token_limit"`
+	ChunkOverlapTokens   int     `yaml:"chunk_overlap_tokens"`
+	EmitDistribution     bool    `yaml:"emit_distribution"`
+	MaxChunksPerDocument int     `yaml:"max_chunks_per_document"`
+	AdaptiveSimilarity   bool    `yaml:"adaptive_similarity"`
 }
 
 type OutputConfig struct {
@@ -80,6 +88,18 @@ func LoadConfig(path string) (*Config, error) {
 }
 
 func (c *Config) setDefaults() {
+	if c.Runtime.Provider == "" {
+		c.Runtime.Provider = "openrouter"
+	}
+	if c.Runtime.APIKeyEnv == "" && normalizeRuntimeProvider(c.Runtime.Provider) != "host" {
+		c.Runtime.APIKeyEnv = "OPENROUTER_API_KEY"
+	}
+	if c.Runtime.BaseURL == "" && normalizeRuntimeProvider(c.Runtime.Provider) == "openrouter" {
+		c.Runtime.BaseURL = "https://openrouter.ai/api/v1"
+	}
+	if c.LLM.ReasoningFallback == nil {
+		c.LLM.ReasoningFallback = boolPtr(true)
+	}
 	if c.LLM.MaxRetries == 0 {
 		c.LLM.MaxRetries = 3
 	}
@@ -143,6 +163,14 @@ func (c *Config) Validate() error {
 	if len(c.Levels) == 0 {
 		return fmt.Errorf("at least one level must be defined")
 	}
+	switch normalizeRuntimeProvider(c.Runtime.Provider) {
+	case "openrouter", "openai_compatible", "host":
+	default:
+		return fmt.Errorf("unsupported runtime provider %q", c.Runtime.Provider)
+	}
+	if normalizeRuntimeProvider(c.Runtime.Provider) != "host" && c.Runtime.BaseURL == "" {
+		return fmt.Errorf("runtime.base_url must be set for provider %q", c.Runtime.Provider)
+	}
 	ranks := make(map[int]string)
 	for _, l := range c.Levels {
 		if existing, ok := ranks[l.Rank]; ok {
@@ -174,8 +202,19 @@ func (c *Config) TemperatureForStage(stage string) float64 {
 	return c.LLM.Temperature
 }
 
+func (c *Config) ReasoningFallbackEnabled() bool {
+	if c == nil || c.LLM.ReasoningFallback == nil {
+		return true
+	}
+	return *c.LLM.ReasoningFallback
+}
+
+func boolPtr(v bool) *bool {
+	return &v
+}
+
 func DefaultConfigYAML() *Config {
-	return &Config{
+	cfg := &Config{
 		Version: "1",
 		Project: ProjectConfig{
 			Name:        "My Project",
@@ -191,16 +230,27 @@ func DefaultConfigYAML() *Config {
 			{Name: "task", Rank: 4, Description: "Tasks", Patterns: []string{"*sprint*", "*backlog*"}},
 		},
 		EntityTypes: []string{"goal", "objective", "kpi", "initiative", "task", "principle", "stakeholder", "capability"},
+		Runtime: RuntimeConfig{
+			Provider:  "openrouter",
+			BaseURL:   "https://openrouter.ai/api/v1",
+			APIKeyEnv: "OPENROUTER_API_KEY",
+		},
 		LLM: LLMConfig{
-			Model:          "deepseek/deepseek-v3.2",
-			ExtractModel:   "deepseek/deepseek-v3.2",
-			EmbeddingModel: "openai/text-embedding-3-small",
-			EmbeddingDims:  1536,
-			Temperature:    0.1,
-			Temperatures:   map[string]float64{"classify": 0.0, "extract": 0.1, "verify": 0.0, "infer": 0.3},
-			RequestsPerMin: 30, MaxConcurrent: 5, MaxRetries: 3, RetryBaseDelayMs: 1000,
+			Model:             "deepseek/deepseek-v3.2",
+			ExtractModel:      "deepseek/deepseek-v3.2",
+			EmbeddingModel:    "openai/text-embedding-3-small",
+			EmbeddingDims:     1536,
+			ReasoningFallback: boolPtr(true),
+			Temperature:       0.1,
+			Temperatures:      map[string]float64{"classify": 0.0, "extract": 0.1, "verify": 0.0, "infer": 0.3},
+			RequestsPerMin:    30,
+			MaxConcurrent:     5,
+			MaxRetries:        3,
+			RetryBaseDelayMs:  1000,
 		},
 		Thresholds: ThresholdConfig{Similarity: 0.5, TraceConfidence: 0.6, CoverageWarn: 70, StaleDays: 90, ChunkTokenLimit: 3000, ChunkOverlapTokens: 500},
 		Output:     OutputConfig{Dir: ".strataudit", Formats: []string{"html", "json"}},
 	}
+	cfg.setDefaults()
+	return cfg
 }

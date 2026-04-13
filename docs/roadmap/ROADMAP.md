@@ -1,6 +1,6 @@
 # sdp_lab Roadmap — Agent Platform + Trust Lane
 
-> **Updated:** 2026-04-12
+> **Updated:** 2026-04-13
 > **Repo naming:** GitHub repo is `sdp_lab`; historical workstreams and bead IDs may still use `sdp_dev` as a legacy label for the same codebase
 > **Direction:** Reusable agent platform (`kernel`, `adapters`, `augmentation`, `evals`) with standards-based trust and evidence as a secondary lane
 > **Platform Reset:** [AGENT_PLATFORM_ROADMAP_2026-03-31.md](AGENT_PLATFORM_ROADMAP_2026-03-31.md) + [2026-03-31-platform-backlog-reset.md](../plans/2026-03-31-platform-backlog-reset.md)
@@ -290,7 +290,7 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 - Active strategy and ecosystem ranges: `F059`..`F085`
 - Parked long-horizon ideas: `F086`..`F089`
 - Canonical alignment and platform reset lanes: `F090`..`F096`
-- Product truth, architect, and analyst backlog: `F097`..`F105`, `F109`
+- Product truth, architect, and analyst backlog: `F097`..`F105`, `F109`, `F111`
 
 ### Standards & Tools
 - [in-toto attestation](https://github.com/in-toto/attestation) — envelope format
@@ -382,6 +382,8 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 ### Phase Analyst: Evidence-Backed Strategy Audit (Planned)
 
 - **F109** — StratAudit v2 — evidence-backed report redesign (00-109-01 ... 00-109-08). Turn StratAudit into a verifiable strategy-audit product over messy multilingual corpora: extraction trust gate, source-preserving language policy, document/section/quote provenance, trace evidence contract, grouped findings, `report.v2.json`, and only then final HTML reformatting.
+- **F111** — StratAudit portability — provider-neutral engine and skill surface (00-111-01 ... 00-111-04). Split StratAudit into a provider-neutral engine, config-driven runtime resolution, and a reusable skill surface so host-native harness models stay first-class and OpenRouter acts as an enhancer instead of the only runtime path. The active follow-up hardens the skill contract itself: evidence policy, runtime policy, output modes, and fail-closed rules.
+- **F117** — StratAudit claim-centric trace explorer and tabbed analyst report (00-117-01 ... 00-117-05). Turn the evidence-first report into a usable analyst surface: claim-based trace graph, first-class trace gaps, document correspondence, tabbed views for summary/documents/trace/gaps/diagnostics, and no compare-first default flow. Current status: `00-117-01..05` done.
 
 
 ### Layer Rollout Matrix (Vision Alignment)

@@ -1,0 +1,51 @@
+version: "1"
+project:
+  name: "Regression Corpus"
+  description: "Synthetic strategy-audit regression fixture"
+  source_dirs:
+    - docs
+  exclude:
+    - "*.tmp"
+levels:
+  - name: vision
+    rank: 0
+    description: "Vision"
+    patterns: ["*vision*"]
+  - name: strategy
+    rank: 1
+    description: "Strategy"
+    patterns: ["*strategy*"]
+entity_types:
+  - goal
+  - objective
+llm:
+  model: "deepseek/deepseek-v3.2"
+  extract_model: "deepseek/deepseek-v3.2"
+  embedding_model: "openai/text-embedding-3-small"
+  embedding_dims: 1536
+  temperature: 0.1
+  temperatures:
+    classify: 0.0
+    extract: 0.1
+    verify: 0.0
+    infer: 0.3
+  requests_per_minute: 30
+  max_concurrent: 5
+  max_retries: 1
+  retry_base_delay_ms: 1
+thresholds:
+  similarity: 0.5
+  trace_confidence: 0.6
+  auto_verify_similarity: 0.85
+  llm_verify_budget: 10
+  coverage_warn: 70
+  stale_days: 90
+  chunk_token_limit: 3000
+  chunk_overlap_tokens: 0
+  emit_distribution: true
+  adaptive_similarity: false
+  max_chunks_per_document: 10
+output:
+  dir: ".strataudit"
+  formats: [html, json]
+  lang: "ru"
