@@ -113,6 +113,7 @@ func (s *SQLiteStore) migrate() error {
 		id TEXT PRIMARY KEY, stage TEXT NOT NULL, model TEXT NOT NULL,
 		prompt_hash TEXT NOT NULL, tokens_in INTEGER, tokens_out INTEGER,
 		cost_usd REAL, duration_ms INTEGER, cached BOOLEAN DEFAULT FALSE,
+		metadata TEXT, content_source TEXT, response_content TEXT, response_reasoning TEXT, error TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE TABLE IF NOT EXISTS llm_cache (
@@ -161,6 +162,9 @@ func (s *SQLiteStore) migrate() error {
 		return err
 	}
 	if err := s.ensureCoverageColumns(); err != nil {
+		return err
+	}
+	if err := s.ensureLLMInvocationColumns(); err != nil {
 		return err
 	}
 	if err := s.ensureFindingsSchema(); err != nil {
@@ -354,6 +358,17 @@ func (s *SQLiteStore) ensureCoverageColumns() error {
 		"section_id":  `ALTER TABLE trace_coverage ADD COLUMN section_id TEXT`,
 	}
 	return s.ensureTableColumns("trace_coverage", requiredColumns)
+}
+
+func (s *SQLiteStore) ensureLLMInvocationColumns() error {
+	requiredColumns := map[string]string{
+		"metadata":           `ALTER TABLE llm_invocations ADD COLUMN metadata TEXT`,
+		"content_source":     `ALTER TABLE llm_invocations ADD COLUMN content_source TEXT`,
+		"response_content":   `ALTER TABLE llm_invocations ADD COLUMN response_content TEXT`,
+		"response_reasoning": `ALTER TABLE llm_invocations ADD COLUMN response_reasoning TEXT`,
+		"error":              `ALTER TABLE llm_invocations ADD COLUMN error TEXT`,
+	}
+	return s.ensureTableColumns("llm_invocations", requiredColumns)
 }
 
 func (s *SQLiteStore) ensureFindingsSchema() error {
@@ -771,6 +786,127 @@ func (s *SQLiteStore) LoadPipelineState(ctx context.Context, stage string) (*mod
 		return nil, err
 	}
 	return &ps, nil
+}
+
+func (s *SQLiteStore) SaveLLMInvocation(ctx context.Context, inv model.LLMInvocation) error {
+	var metadataJSON interface{}
+	if len(inv.Metadata) > 0 {
+		data, err := json.Marshal(inv.Metadata)
+		if err != nil {
+			return fmt.Errorf("marshal llm invocation metadata: %w", err)
+		}
+		metadataJSON = string(data)
+	}
+	_, err := s.db.ExecContext(ctx,
+		`INSERT OR REPLACE INTO llm_invocations (
+			id, stage, model, prompt_hash, tokens_in, tokens_out, cost_usd, duration_ms, cached,
+			metadata, content_source, response_content, response_reasoning, error, created_at
+		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		inv.ID,
+		inv.Stage,
+		inv.Model,
+		inv.PromptHash,
+		nilIfZero(inv.TokensIn),
+		nilIfZero(inv.TokensOut),
+		inv.CostUSD,
+		nilIfZero(inv.DurationMs),
+		inv.Cached,
+		metadataJSON,
+		nullableString(inv.ContentSource),
+		nullableString(inv.ResponseContent),
+		nullableString(inv.ResponseReasoning),
+		nullableString(inv.Error),
+		inv.CreatedAt,
+	)
+	return err
+}
+
+func (s *SQLiteStore) SaveLLMCacheEntry(ctx context.Context, entry model.LLMCacheEntry) error {
+	_, err := s.db.ExecContext(ctx,
+		`INSERT OR REPLACE INTO llm_cache (prompt_hash, model, response, tokens_in, tokens_out, created_at)
+		VALUES (?,?,?,?,?,?)`,
+		entry.PromptHash,
+		entry.Model,
+		entry.Response,
+		nilIfZero(entry.TokensIn),
+		nilIfZero(entry.TokensOut),
+		entry.CreatedAt,
+	)
+	return err
+}
+
+func (s *SQLiteStore) AllLLMInvocations(ctx context.Context) ([]model.LLMInvocation, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, stage, model, prompt_hash, tokens_in, tokens_out, cost_usd, duration_ms, cached,
+			metadata, content_source, response_content, response_reasoning, error, created_at
+		FROM llm_invocations
+		ORDER BY created_at, id`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	var invocations []model.LLMInvocation
+	for rows.Next() {
+		var inv model.LLMInvocation
+		var tokensIn sql.NullInt64
+		var tokensOut sql.NullInt64
+		var costUSD sql.NullFloat64
+		var durationMs sql.NullInt64
+		var metadataJSON sql.NullString
+		var contentSource sql.NullString
+		var responseContent sql.NullString
+		var responseReasoning sql.NullString
+		var errText sql.NullString
+		if err := rows.Scan(
+			&inv.ID,
+			&inv.Stage,
+			&inv.Model,
+			&inv.PromptHash,
+			&tokensIn,
+			&tokensOut,
+			&costUSD,
+			&durationMs,
+			&inv.Cached,
+			&metadataJSON,
+			&contentSource,
+			&responseContent,
+			&responseReasoning,
+			&errText,
+			&inv.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		if tokensIn.Valid {
+			inv.TokensIn = int(tokensIn.Int64)
+		}
+		if tokensOut.Valid {
+			inv.TokensOut = int(tokensOut.Int64)
+		}
+		if costUSD.Valid {
+			inv.CostUSD = costUSD.Float64
+		}
+		if durationMs.Valid {
+			inv.DurationMs = int(durationMs.Int64)
+		}
+		if metadataJSON.Valid && metadataJSON.String != "" {
+			_ = json.Unmarshal([]byte(metadataJSON.String), &inv.Metadata)
+		}
+		if contentSource.Valid {
+			inv.ContentSource = contentSource.String
+		}
+		if responseContent.Valid {
+			inv.ResponseContent = responseContent.String
+		}
+		if responseReasoning.Valid {
+			inv.ResponseReasoning = responseReasoning.String
+		}
+		if errText.Valid {
+			inv.Error = errText.String
+		}
+		invocations = append(invocations, inv)
+	}
+	return invocations, rows.Err()
 }
 
 func (s *SQLiteStore) CountEntitiesByLevel(ctx context.Context, levelID string) (int64, error) {

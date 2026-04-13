@@ -116,6 +116,9 @@ func RunPipeline(ctx context.Context, cfg *Config, store *SQLiteStore, runtime M
 			}
 		}
 	}
+	if err := WriteLLMDiagnostics(ctx, cfg, store); err != nil {
+		return nil, fmt.Errorf("llm diagnostics: %w", err)
+	}
 	saveCheckpoint(ctx, store, "report", "completed", 1, 0)
 
 	result.Duration = time.Since(start)

@@ -303,7 +303,7 @@ func TestCreateVerifiedTraces_DowngradesSimilarityOnlyCandidates(t *testing.T) {
 		{source: model.Entity{ID: "e1"}, target: model.Entity{ID: "e2"}, sim: 0.90},
 	}
 
-	traces, verifiedByCandidateID := createVerifiedTraces(context.Background(), cfg, nil, candidates, model.Level{ID: "task", Name: "task"}, model.Level{ID: "strategy", Name: "strategy"})
+	traces, verifiedByCandidateID := createVerifiedTraces(context.Background(), cfg, nil, nil, candidates, model.Level{ID: "task", Name: "task"}, model.Level{ID: "strategy", Name: "strategy"})
 	if len(traces) != 0 {
 		t.Fatalf("traces = %d, want 0", len(traces))
 	}
@@ -348,7 +348,7 @@ func TestCreateVerifiedTraces_BudgetExhaustion(t *testing.T) {
 	}
 
 	// With budget=0, no LLM calls should happen, so nil LLM is fine
-	traces, _ := createVerifiedTraces(context.Background(), cfg, nil, candidates, model.Level{ID: "l1"}, model.Level{ID: "l2"})
+	traces, _ := createVerifiedTraces(context.Background(), cfg, nil, nil, candidates, model.Level{ID: "l1"}, model.Level{ID: "l2"})
 	if len(traces) != 0 {
 		t.Errorf("traces = %d, want 0 (budget exhausted)", len(traces))
 	}
@@ -418,7 +418,7 @@ func TestCreateVerifiedTraces_RequiresEvidenceAndLLMVerification(t *testing.T) {
 
 	llm := newMockLLMClient(t, `{"related": true, "confidence": 0.88, "relation": "contributes_to", "justification": "Нижняя инициатива прямо поддерживает верхнюю стратегию."}`)
 
-	traces, verifiedByCandidateID := createVerifiedTraces(context.Background(), cfg, llm, []candidate{missingEvidenceCandidate, goodCandidate}, lowerLevel, upperLevel)
+	traces, verifiedByCandidateID := createVerifiedTraces(context.Background(), cfg, nil, llm, []candidate{missingEvidenceCandidate, goodCandidate}, lowerLevel, upperLevel)
 	if len(traces) != 1 {
 		t.Fatalf("traces = %d, want 1", len(traces))
 	}

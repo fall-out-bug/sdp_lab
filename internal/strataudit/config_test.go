@@ -106,6 +106,9 @@ func TestConfig_SetDefaultsRuntime(t *testing.T) {
 	if cfg.Runtime.APIKeyEnv != "OPENROUTER_API_KEY" {
 		t.Fatalf("Runtime.APIKeyEnv = %q", cfg.Runtime.APIKeyEnv)
 	}
+	if cfg.LLM.ReasoningFallback == nil || !*cfg.LLM.ReasoningFallback {
+		t.Fatalf("ReasoningFallback = %+v, want true", cfg.LLM.ReasoningFallback)
+	}
 }
 
 func TestDefaultConfigYAML_IsFullyMaterialized(t *testing.T) {
@@ -125,5 +128,27 @@ func TestDefaultConfigYAML_IsFullyMaterialized(t *testing.T) {
 	}
 	if cfg.Thresholds.MaxChunksPerDocument != 100 {
 		t.Fatalf("MaxChunksPerDocument = %d, want 100", cfg.Thresholds.MaxChunksPerDocument)
+	}
+	if cfg.LLM.ReasoningFallback == nil || !*cfg.LLM.ReasoningFallback {
+		t.Fatalf("ReasoningFallback = %+v, want true", cfg.LLM.ReasoningFallback)
+	}
+}
+
+func TestConfig_ReasoningFallbackCanBeDisabledExplicitly(t *testing.T) {
+	cfg := &Config{
+		LLM: LLMConfig{
+			ReasoningFallback: boolPtr(false),
+		},
+	}
+	cfg.setDefaults()
+
+	if cfg.LLM.ReasoningFallback == nil {
+		t.Fatal("ReasoningFallback should stay explicit")
+	}
+	if *cfg.LLM.ReasoningFallback {
+		t.Fatal("ReasoningFallback should remain false when explicitly disabled")
+	}
+	if cfg.ReasoningFallbackEnabled() {
+		t.Fatal("ReasoningFallbackEnabled() = true, want false")
 	}
 }

@@ -47,6 +47,7 @@ type ChatRequest struct {
 // ChatResponse is the response from a non-streaming Chat call.
 type ChatResponse struct {
 	Content      string
+	Reasoning    string
 	FinishReason string
 	InputTokens  int
 	OutputTokens int
@@ -123,8 +124,11 @@ func (c *Client) Chat(ctx context.Context, req ChatRequest) (*ChatResponse, erro
 
 	var out struct {
 		Choices []struct {
-			Message      Message `json:"message"`
-			FinishReason string  `json:"finish_reason"`
+			Message struct {
+				Content   *string `json:"content"`
+				Reasoning *string `json:"reasoning"`
+			} `json:"message"`
+			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
 		Usage struct {
 			PromptTokens     int     `json:"prompt_tokens"`
@@ -138,8 +142,17 @@ func (c *Client) Chat(ctx context.Context, req ChatRequest) (*ChatResponse, erro
 	if len(out.Choices) == 0 {
 		return nil, fmt.Errorf("no choices in response")
 	}
+	content := ""
+	if out.Choices[0].Message.Content != nil {
+		content = *out.Choices[0].Message.Content
+	}
+	reasoning := ""
+	if out.Choices[0].Message.Reasoning != nil {
+		reasoning = *out.Choices[0].Message.Reasoning
+	}
 	return &ChatResponse{
-		Content:      out.Choices[0].Message.Content,
+		Content:      content,
+		Reasoning:    reasoning,
 		FinishReason: out.Choices[0].FinishReason,
 		InputTokens:  out.Usage.PromptTokens,
 		OutputTokens: out.Usage.CompletionTokens,

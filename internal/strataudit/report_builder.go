@@ -339,6 +339,7 @@ func BuildReport(ctx context.Context, cfg *Config, store *SQLiteStore) (*report.
 			{Kind: "json_compat", Path: filepath.Join(outputDir, "report.json")},
 			{Kind: "html", Path: filepath.Join(outputDir, "report.html")},
 			{Kind: "sqlite", Path: filepath.Join(outputDir, "strataudit.db")},
+			{Kind: "llm_diagnostics", Path: filepath.Join(outputDir, "llm_diagnostics.json")},
 			{Kind: "similarity_distribution", Path: filepath.Join(outputDir, "similarity_distribution.json")},
 		},
 		DocumentCount:              len(rpt.Documents),

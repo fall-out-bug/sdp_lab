@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"path/filepath"
 	"sdp_dev/internal/strataudit/model"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -122,14 +123,19 @@ func extractFromDocument(ctx context.Context, cfg *Config, store *SQLiteStore, r
 		chunkSanitized := SanitizeForPrompt(section.Content)
 		prompt := buildExtractionPrompt(cfg, level, chunkSanitized, i, len(sections))
 
-		resp, err := runtime.Chat(ctx, LLMRequest{
-			Model:       cfg.LLM.ExtractModel,
-			System:      extractionSystemPrompt(cfg),
-			User:        prompt,
-			MaxTokens:   4096,
-			Temperature: cfg.TemperatureForStage("extract"),
-			JSONMode:    true,
-		})
+		req := LLMRequest{
+			Model:             cfg.LLM.ExtractModel,
+			System:            extractionSystemPrompt(cfg),
+			User:              prompt,
+			MaxTokens:         4096,
+			Temperature:       cfg.TemperatureForStage("extract"),
+			JSONMode:          true,
+			Stage:             "extract",
+			Metadata:          extractInvocationMetadata(doc, level, section, i, len(sections)),
+			ReasoningFallback: cfg.ReasoningFallbackEnabled(),
+		}
+		resp, err := runtime.Chat(ctx, req)
+		recordLLMInvocation(ctx, store, req, resp, err)
 		if err != nil {
 			return nil, fmt.Errorf("llm extract chunk %d: %w", i, err)
 		}
@@ -229,6 +235,19 @@ If uncertain about an entity, do not include it. Do NOT translate, anglicize, or
 	}
 
 	return prompt
+}
+
+func extractInvocationMetadata(doc model.Document, level model.Level, section model.Section, chunkIndex, totalChunks int) map[string]string {
+	return map[string]string{
+		"document_id":     doc.ID,
+		"document_path":   doc.Path,
+		"level_id":        level.ID,
+		"level_name":      level.Name,
+		"section_id":      section.ID,
+		"section_ordinal": strconv.Itoa(section.Ordinal),
+		"chunk_index":     strconv.Itoa(chunkIndex + 1),
+		"chunk_total":     strconv.Itoa(totalChunks),
+	}
 }
 
 func extractionSystemPrompt(cfg *Config) string {

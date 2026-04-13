@@ -82,7 +82,7 @@ func LinkEntities(ctx context.Context, cfg *Config, store *SQLiteStore, runtime 
 
 		// Save candidates
 		if len(candidates) > 0 {
-			traces, verifiedByCandidateID := createVerifiedTraces(ctx, cfg, runtime, candidates, levels[i+1], levels[i])
+			traces, verifiedByCandidateID := createVerifiedTraces(ctx, cfg, store, runtime, candidates, levels[i+1], levels[i])
 			modelCandidates := candidatesToModel(candidates, verifiedByCandidateID)
 			if err := store.SaveCandidates(ctx, modelCandidates); err != nil {
 				result.Errors = append(result.Errors, fmt.Errorf("save candidates %s->%s: %w", levels[i+1].Name, levels[i].Name, err))
@@ -333,7 +333,7 @@ func cosineSimilarity(a, b []float32) float64 {
 	return dot / (math.Sqrt(normA) * math.Sqrt(normB))
 }
 
-func createVerifiedTraces(ctx context.Context, cfg *Config, runtime ModelRuntime, candidates []candidate, lowerLevel, upperLevel model.Level) ([]model.Trace, map[string]string) {
+func createVerifiedTraces(ctx context.Context, cfg *Config, store *SQLiteStore, runtime ModelRuntime, candidates []candidate, lowerLevel, upperLevel model.Level) ([]model.Trace, map[string]string) {
 	autoThreshold := cfg.Thresholds.AutoVerifySimilarity
 	traceThreshold := cfg.Thresholds.TraceConfidence
 	budget := cfg.Thresholds.LLMVerifyBudget
@@ -372,7 +372,7 @@ func createVerifiedTraces(ctx context.Context, cfg *Config, runtime ModelRuntime
 		}
 
 		budget--
-		verified, relation, conf, justification := llmVerifyPair(ctx, runtime, cfg, c, lowerLevel, upperLevel)
+		verified, relation, conf, justification := llmVerifyPair(ctx, store, runtime, cfg, c, lowerLevel, upperLevel)
 		if !verified {
 			continue
 		}
@@ -407,17 +407,21 @@ func (b *jsonBool) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func llmVerifyPair(ctx context.Context, runtime ModelRuntime, cfg *Config, c candidate, lowerLevel, upperLevel model.Level) (bool, model.TraceRelation, float64, string) {
+func llmVerifyPair(ctx context.Context, store *SQLiteStore, runtime ModelRuntime, cfg *Config, c candidate, lowerLevel, upperLevel model.Level) (bool, model.TraceRelation, float64, string) {
 	req := LLMRequest{
-		Model:       cfg.LLM.Model,
-		System:      "You are a strategy analyst. Use only the provided evidence quotes. Respond with valid JSON only.",
-		User:        buildTraceVerificationPrompt(c, lowerLevel, upperLevel),
-		MaxTokens:   240,
-		Temperature: cfg.TemperatureForStage("verify"),
-		JSONMode:    true,
+		Model:             cfg.LLM.Model,
+		System:            "You are a strategy analyst. Use only the provided evidence quotes. Respond with valid JSON only.",
+		User:              buildTraceVerificationPrompt(c, lowerLevel, upperLevel),
+		MaxTokens:         240,
+		Temperature:       cfg.TemperatureForStage("verify"),
+		JSONMode:          true,
+		Stage:             "verify",
+		Metadata:          verifyInvocationMetadata(c, lowerLevel, upperLevel),
+		ReasoningFallback: cfg.ReasoningFallbackEnabled(),
 	}
 
 	resp, err := runtime.Chat(ctx, req)
+	recordLLMInvocation(ctx, store, req, resp, err)
 	if err != nil {
 		slog.Warn("LLM verify error", "err", err)
 		return false, model.RelationNone, 0, ""
@@ -439,6 +443,24 @@ func llmVerifyPair(ctx context.Context, runtime ModelRuntime, cfg *Config, c can
 		return false, model.RelationNone, 0, ""
 	}
 	return true, model.TraceRelation(result.Relation), result.Confidence, firstNonEmpty(strings.TrimSpace(result.Justification), "LLM verified strategic relation using source and target evidence quotes.")
+}
+
+func verifyInvocationMetadata(c candidate, lowerLevel, upperLevel model.Level) map[string]string {
+	return map[string]string{
+		"lower_level_id":     lowerLevel.ID,
+		"lower_level_name":   lowerLevel.Name,
+		"upper_level_id":     upperLevel.ID,
+		"upper_level_name":   upperLevel.Name,
+		"source_entity_id":   c.source.ID,
+		"source_title":       c.source.Title,
+		"source_document_id": c.source.DocumentID,
+		"source_section_id":  c.source.SectionID,
+		"target_entity_id":   c.target.ID,
+		"target_title":       c.target.Title,
+		"target_document_id": c.target.DocumentID,
+		"target_section_id":  c.target.SectionID,
+		"similarity":         fmt.Sprintf("%.6f", c.sim),
+	}
 }
 
 func buildTraceVerificationPrompt(c candidate, lowerLevel, upperLevel model.Level) string {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"sdp_dev/internal/strataudit/model"
 )
@@ -399,5 +400,55 @@ func TestSQLiteStore_PipelineState(t *testing.T) {
 	}
 	if got.Checkpoint != state.Checkpoint {
 		t.Errorf("Checkpoint = %q, want %q", got.Checkpoint, state.Checkpoint)
+	}
+}
+
+func TestSQLiteStore_SaveAndLoadLLMInvocations(t *testing.T) {
+	store := setupTestStore(t)
+	ctx := context.Background()
+
+	invocation := model.LLMInvocation{
+		ID:                "llm_1",
+		Stage:             "extract",
+		Model:             "deepseek/deepseek-v3.2",
+		PromptHash:        "hash-1",
+		Metadata:          map[string]string{"document_id": "doc1", "section_id": "sec1"},
+		TokensIn:          10,
+		TokensOut:         4,
+		DurationMs:        120,
+		ContentSource:     "reasoning",
+		ResponseContent:   `{"entities":[]}`,
+		ResponseReasoning: "Let me think.\n\n<answer>{\"entities\":[]}</answer>",
+		CreatedAt:         time.Now().UTC(),
+	}
+	if err := store.SaveLLMInvocation(ctx, invocation); err != nil {
+		t.Fatalf("SaveLLMInvocation: %v", err)
+	}
+	if err := store.SaveLLMCacheEntry(ctx, model.LLMCacheEntry{
+		PromptHash: invocation.PromptHash,
+		Model:      invocation.Model,
+		Response:   invocation.ResponseContent,
+		TokensIn:   invocation.TokensIn,
+		TokensOut:  invocation.TokensOut,
+		CreatedAt:  invocation.CreatedAt,
+	}); err != nil {
+		t.Fatalf("SaveLLMCacheEntry: %v", err)
+	}
+
+	got, err := store.AllLLMInvocations(ctx)
+	if err != nil {
+		t.Fatalf("AllLLMInvocations: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1", len(got))
+	}
+	if got[0].ContentSource != "reasoning" {
+		t.Fatalf("ContentSource = %q, want reasoning", got[0].ContentSource)
+	}
+	if got[0].Metadata["document_id"] != "doc1" {
+		t.Fatalf("document_id metadata = %q", got[0].Metadata["document_id"])
+	}
+	if got[0].ResponseReasoning == "" {
+		t.Fatal("ResponseReasoning should round-trip")
 	}
 }

@@ -41,16 +41,17 @@ type RuntimeConfig struct {
 }
 
 type LLMConfig struct {
-	Model            string             `yaml:"model"`
-	ExtractModel     string             `yaml:"extract_model"`
-	EmbeddingModel   string             `yaml:"embedding_model"`
-	EmbeddingDims    int                `yaml:"embedding_dims"`
-	Temperature      float64            `yaml:"temperature"`
-	Temperatures     map[string]float64 `yaml:"temperatures"`
-	RequestsPerMin   int                `yaml:"requests_per_minute"`
-	MaxConcurrent    int                `yaml:"max_concurrent"`
-	MaxRetries       int                `yaml:"max_retries"`
-	RetryBaseDelayMs int                `yaml:"retry_base_delay_ms"`
+	Model             string             `yaml:"model"`
+	ExtractModel      string             `yaml:"extract_model"`
+	EmbeddingModel    string             `yaml:"embedding_model"`
+	EmbeddingDims     int                `yaml:"embedding_dims"`
+	ReasoningFallback *bool              `yaml:"reasoning_fallback"`
+	Temperature       float64            `yaml:"temperature"`
+	Temperatures      map[string]float64 `yaml:"temperatures"`
+	RequestsPerMin    int                `yaml:"requests_per_minute"`
+	MaxConcurrent     int                `yaml:"max_concurrent"`
+	MaxRetries        int                `yaml:"max_retries"`
+	RetryBaseDelayMs  int                `yaml:"retry_base_delay_ms"`
 }
 
 type ThresholdConfig struct {
@@ -95,6 +96,9 @@ func (c *Config) setDefaults() {
 	}
 	if c.Runtime.BaseURL == "" && normalizeRuntimeProvider(c.Runtime.Provider) == "openrouter" {
 		c.Runtime.BaseURL = "https://openrouter.ai/api/v1"
+	}
+	if c.LLM.ReasoningFallback == nil {
+		c.LLM.ReasoningFallback = boolPtr(true)
 	}
 	if c.LLM.MaxRetries == 0 {
 		c.LLM.MaxRetries = 3
@@ -198,6 +202,17 @@ func (c *Config) TemperatureForStage(stage string) float64 {
 	return c.LLM.Temperature
 }
 
+func (c *Config) ReasoningFallbackEnabled() bool {
+	if c == nil || c.LLM.ReasoningFallback == nil {
+		return true
+	}
+	return *c.LLM.ReasoningFallback
+}
+
+func boolPtr(v bool) *bool {
+	return &v
+}
+
 func DefaultConfigYAML() *Config {
 	cfg := &Config{
 		Version: "1",
@@ -221,13 +236,17 @@ func DefaultConfigYAML() *Config {
 			APIKeyEnv: "OPENROUTER_API_KEY",
 		},
 		LLM: LLMConfig{
-			Model:          "deepseek/deepseek-v3.2",
-			ExtractModel:   "deepseek/deepseek-v3.2",
-			EmbeddingModel: "openai/text-embedding-3-small",
-			EmbeddingDims:  1536,
-			Temperature:    0.1,
-			Temperatures:   map[string]float64{"classify": 0.0, "extract": 0.1, "verify": 0.0, "infer": 0.3},
-			RequestsPerMin: 30, MaxConcurrent: 5, MaxRetries: 3, RetryBaseDelayMs: 1000,
+			Model:             "deepseek/deepseek-v3.2",
+			ExtractModel:      "deepseek/deepseek-v3.2",
+			EmbeddingModel:    "openai/text-embedding-3-small",
+			EmbeddingDims:     1536,
+			ReasoningFallback: boolPtr(true),
+			Temperature:       0.1,
+			Temperatures:      map[string]float64{"classify": 0.0, "extract": 0.1, "verify": 0.0, "infer": 0.3},
+			RequestsPerMin:    30,
+			MaxConcurrent:     5,
+			MaxRetries:        3,
+			RetryBaseDelayMs:  1000,
 		},
 		Thresholds: ThresholdConfig{Similarity: 0.5, TraceConfidence: 0.6, CoverageWarn: 70, StaleDays: 90, ChunkTokenLimit: 3000, ChunkOverlapTokens: 500},
 		Output:     OutputConfig{Dir: ".strataudit", Formats: []string{"html", "json"}},

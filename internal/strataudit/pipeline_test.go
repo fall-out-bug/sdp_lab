@@ -310,6 +310,34 @@ func TestRunPipeline_RegressionFixturePreservesTrustInvariants(t *testing.T) {
 		t.Fatal("trust guarantee violated: report.json alias diverged from report.v2.json")
 	}
 
+	diagBytes, err := os.ReadFile(filepath.Join(cfg.Output.Dir, "llm_diagnostics.json"))
+	if err != nil {
+		t.Fatalf("trust guarantee violated: missing llm_diagnostics.json artifact: %v", err)
+	}
+	var diagnostics struct {
+		Summary struct {
+			Total   int            `json:"total"`
+			ByStage map[string]int `json:"by_stage"`
+		} `json:"summary"`
+		Invocations []struct {
+			Stage         string            `json:"stage"`
+			ContentSource string            `json:"content_source"`
+			Metadata      map[string]string `json:"metadata"`
+		} `json:"invocations"`
+	}
+	if err := json.Unmarshal(diagBytes, &diagnostics); err != nil {
+		t.Fatalf("trust guarantee violated: llm_diagnostics.json is not decodable: %v", err)
+	}
+	if diagnostics.Summary.Total == 0 {
+		t.Fatal("trust guarantee violated: llm diagnostics summary recorded zero invocations")
+	}
+	if diagnostics.Summary.ByStage["extract"] == 0 {
+		t.Fatalf("trust guarantee violated: llm diagnostics missing extract stage counts %+v", diagnostics.Summary.ByStage)
+	}
+	if len(diagnostics.Invocations) == 0 || diagnostics.Invocations[0].Metadata["document_id"] == "" {
+		t.Fatalf("trust guarantee violated: llm diagnostics lost request metadata %+v", diagnostics.Invocations)
+	}
+
 	htmlBytes, err := os.ReadFile(filepath.Join(cfg.Output.Dir, "report.html"))
 	if err != nil {
 		t.Fatalf("trust guarantee violated: missing HTML report: %v", err)
