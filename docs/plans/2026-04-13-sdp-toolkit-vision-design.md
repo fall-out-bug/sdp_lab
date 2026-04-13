@@ -94,21 +94,28 @@ git log --merges --first-parent main
 **Output:** CLAUDE.md, hooks, beads init, `.sdp/policies/`.
 **CLI:** `sdp bootstrap <repo>`
 
-### 7. @landscape — Full Picture Synthesis
+### 7. @landscape → folded into @understand intent
 
-**What:** Meta-skill orchestrating architect + metrics + index → unified report + action plan.
-**Status:** New. Depends on @architect, @metrics, @index.
-**Output:** `landscape-report.md`, HTML via `sdp architect render`.
-**CLI:** `sdp landscape <repo>`
+**What:** Was: meta-skill orchestrating architect + metrics + index.
+**Status:** Folded into `@understand --depth standard|deep`. See `2026-04-13-sdp-skill-architecture-design.md`.
+**Rationale:** Separate meta-skill adds cognitive load. @understand with depth parameter does the same job.
 
-### 8. @plan — Insights to Backlog
+### 8. @plan → folded into @operate intent
 
-**What:** Convert analysis insights into prioritized beads issues with dependencies.
-**Status:** Extend existing planner stub (4 files).
-**Output:** beads issues with priorities and dependencies.
-**CLI:** `sdp plan <repo>`
+**What:** Was: convert analysis insights into prioritized beads issues.
+**Status:** Folded into `@operate --mode plan`. See `2026-04-13-sdp-skill-architecture-design.md`.
+**Rationale:** Planning is an operational activity, not a standalone skill.
+
+### 9. MCP Server — Universal Agent Interface
+
+**What:** Single MCP server exposing all SDP tools, resources, and intent prompts to any AI agent.
+**Status:** Design complete. See `2026-04-13-sdp-mcp-design.md`.
+**Output:** `sdp-mcp` binary (stdio transport).
+**Config:** One JSON per harness (Claude Code, Cursor, VS Code, OpenCode).
 
 ## Skills Rationalization
+
+See `2026-04-13-sdp-skill-architecture-design.md` for full design.
 
 **Before (26 skills):**
 ```
@@ -123,30 +130,26 @@ Internal:   beads, tdd, guard, think, go-modern,          (8)
             prototype
 ```
 
-**After (proposed consolidation):**
+**After (intent routing — Option B):**
 ```
-UNDERSTANDING (new block):
-  @scout      — quick recon (from discover FRAME)
-  @architect  — architecture (exists)
-  @metrics    — process health (new)
-  @spec       — spec recovery (extends @reality)
-  @index      — codebase memory (new)
-  @landscape  — synthesis meta-skill (new)
+5 INTENTS (agent-facing skills):
+  @understand — uses: scout, architect, metrics, spec, index (modes: quick|standard|deep)
+  @build      — uses: feature, tdd, guard (modes: idea|feature|prototype)
+  @fix        — uses: debug, hotfix (modes: quick|investigate|systematic)
+  @review     — uses: policy checks (modes: code|arch|security|readiness)
+  @operate    — uses: deploy, ci-triage, plan (modes: deploy|triage|plan)
 
-CREATION (simplified):
-  @feature    — full cycle: idea→design→build (absorbs idea, design, ux)
-  @fix        — one skill for hotfix+bugfix+issue (severity as parameter)
-  @deploy     — deployment (exists)
+6+ CLI TOOLS (scale freely, not skills):
+  sdp scout, sdp architect, sdp metrics, sdp index, sdp spec, sdp bootstrap
 
-QUALITY (simplified):
-  @review     — 2-3 roles instead of 6
-  @debug      — debugging (exists)
+PRACTICES (embedded, not skills):
+  tdd (in @build/@fix), guard (in hooks), go-modern (in CLAUDE.md)
 
-INTERNAL (unchanged):
-  tdd, guard, think, go-modern, beads
+MCP SERVER (universal interface):
+  sdp-mcp — exposes tools + resources + prompts to any AI agent
 ```
 
-**From 26 to ~14 skills.** Less cognitive load, clearer intent.
+**From 26 skills to 5 intents.** Tools scale freely via MCP.
 
 ## Three-Layer Memory Model
 
