@@ -1,6 +1,7 @@
 package report
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -463,5 +464,22 @@ func TestWriteJSON_WritesV2AndCompatAlias(t *testing.T) {
 	}
 	if strings.TrimSpace(string(compatBytes)) != strings.TrimSpace(string(v2Bytes)) {
 		t.Fatalf("report.json compatibility alias mismatch\n--- compat ---\n%s\n--- v2 ---\n%s", string(compatBytes), string(v2Bytes))
+	}
+
+	var got AuditReport
+	if err := json.Unmarshal(v2Bytes, &got); err != nil {
+		t.Fatalf("Unmarshal(report.v2.json): %v", err)
+	}
+	if got.ReportModes.Default != "analyst" || got.ReportModes.DefaultTab != "summary" || got.ReportModes.CompareAvailable {
+		t.Fatalf("unexpected report_modes: %+v", got.ReportModes)
+	}
+	if len(got.ReportModes.Tabs) != 5 {
+		t.Fatalf("len(report_modes.tabs) = %d, want 5", len(got.ReportModes.Tabs))
+	}
+	if len(got.TraceGaps) != 1 || got.TraceGaps[0].Reason == "" || len(got.TraceGaps[0].TopCandidateIDs) != 1 {
+		t.Fatalf("trace_gaps lost explainability: %+v", got.TraceGaps)
+	}
+	if len(got.DocumentViews) != 1 || got.DocumentViews[0].BlockerCount != 1 || len(got.DocumentViews[0].KeyClaimIDs) != 1 {
+		t.Fatalf("document_views lost blocker/key-claim contract: %+v", got.DocumentViews)
 	}
 }

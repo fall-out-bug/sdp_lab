@@ -100,7 +100,21 @@ func TestIngest_RegressionFixture(t *testing.T) {
 	if len(docs) != 3 {
 		t.Fatalf("trust guarantee violated: expected 3 stored documents from regression fixture, got %d", len(docs))
 	}
+
+	expectedDocs := map[string]string{
+		"company-vision.md":       "vision",
+		"payment-strategy.md":     "strategy",
+		"template-vision-note.md": "vision",
+	}
 	for _, doc := range docs {
+		base := filepath.Base(doc.Path)
+		expectedLevel, ok := expectedDocs[base]
+		if !ok {
+			t.Fatalf("trust guarantee violated: unexpected document in regression fixture ingest: %s", doc.Path)
+		}
+		if doc.LevelID != expectedLevel {
+			t.Fatalf("trust guarantee violated: document %s classified as %s, want %s", doc.Path, doc.LevelID, expectedLevel)
+		}
 		sections, err := store.SectionsByDocument(context.Background(), doc.ID)
 		if err != nil {
 			t.Fatalf("SectionsByDocument(%s): %v", doc.ID, err)

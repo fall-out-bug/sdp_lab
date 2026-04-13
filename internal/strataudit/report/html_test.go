@@ -68,3 +68,34 @@ func TestBuildHTML_RendersThreeLayerEvidenceReport(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildHTML_KeepsSummaryFirstRussianAnalystFlow(t *testing.T) {
+	goldenBytes, err := os.ReadFile(filepath.Join("testdata", "report_v2.golden.json"))
+	if err != nil {
+		t.Fatalf("ReadFile(report_v2.golden.json): %v", err)
+	}
+
+	var rpt AuditReport
+	if err := json.Unmarshal(goldenBytes, &rpt); err != nil {
+		t.Fatalf("Unmarshal(report_v2.golden.json): %v", err)
+	}
+
+	out := buildHTML(&rpt)
+	if !strings.Contains(out, "Стартовая вкладка: Сводка") {
+		t.Fatalf("summary-first analyst flow cue missing\n%s", out)
+	}
+	if !strings.Contains(out, "Сравнение прогонов: выключен") {
+		t.Fatalf("compare-off analyst flow cue missing\n%s", out)
+	}
+	if !strings.Contains(out, "Навигация отчёта") || !strings.Contains(out, "Режим: аналитический") {
+		t.Fatalf("russian analyst chrome missing\n%s", out)
+	}
+	summaryIdx := strings.Index(out, `id="tab-summary"`)
+	diagnosticsIdx := strings.Index(out, `id="tab-diagnostics"`)
+	if summaryIdx == -1 || diagnosticsIdx == -1 {
+		t.Fatalf("summary/diagnostics tabs missing\n%s", out)
+	}
+	if summaryIdx > diagnosticsIdx {
+		t.Fatalf("summary tab rendered after diagnostics: summary=%d diagnostics=%d", summaryIdx, diagnosticsIdx)
+	}
+}

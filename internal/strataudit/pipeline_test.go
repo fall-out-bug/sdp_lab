@@ -16,6 +16,17 @@ import (
 	reportpkg "sdp_dev/internal/strataudit/report"
 )
 
+var requiredAnalystTabs = []struct {
+	ID    string
+	Label string
+}{
+	{ID: "summary", Label: "Сводка"},
+	{ID: "documents", Label: "Документы"},
+	{ID: "trace", Label: "Трассировка"},
+	{ID: "gaps", Label: "Разрывы"},
+	{ID: "diagnostics", Label: "Диагностика"},
+}
+
 func TestEndToEnd_StoreAndQuery(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "test.db")
@@ -349,4 +360,208 @@ func TestRunPipeline_RegressionFixturePreservesTrustInvariants(t *testing.T) {
 	if !strings.Contains(html, "Template memo.") {
 		t.Fatalf("trust guarantee violated: HTML report lost evidence preview for noisy corpus section\n%s", html)
 	}
+}
+
+func TestRunPipeline_RegressionFixtureLocksTabbedAnalystUX(t *testing.T) {
+	cfg, _, _ := runRegressionPipeline(t)
+	rpt, html := loadRegressionFixtureReport(t, cfg.Output.Dir)
+
+	assertRegressionReportTabs(t, rpt, html)
+	assertRegressionReportStartsInSummaryMode(t, rpt, html)
+	assertRegressionReportUsesRussianChrome(t, html)
+
+	strategyView := findDocumentViewByBaseName(t, rpt.DocumentViews, "payment-strategy.md")
+	if len(strategyView.UpstreamDocuments) != 1 {
+		t.Fatalf("expected exactly one explainable upstream document for payment-strategy.md, got %+v", strategyView.UpstreamDocuments)
+	}
+	upstream := strategyView.UpstreamDocuments[0]
+	if filepath.Base(upstream.DocumentPath) != "company-vision.md" {
+		t.Fatalf("strategy upstream document = %q, want company-vision.md", upstream.DocumentPath)
+	}
+	if upstream.VerifiedEdgeCount != 1 {
+		t.Fatalf("strategy upstream verified_edge_count = %d, want 1", upstream.VerifiedEdgeCount)
+	}
+	if len(upstream.ClaimIDs) == 0 || len(upstream.EdgeIDs) == 0 {
+		t.Fatalf("strategy upstream correspondence lost explainability: %+v", upstream)
+	}
+
+	visionView := findDocumentViewByBaseName(t, rpt.DocumentViews, "company-vision.md")
+	if len(visionView.DownstreamDocuments) != 1 {
+		t.Fatalf("expected exactly one explainable downstream document for company-vision.md, got %+v", visionView.DownstreamDocuments)
+	}
+	downstream := visionView.DownstreamDocuments[0]
+	if filepath.Base(downstream.DocumentPath) != "payment-strategy.md" {
+		t.Fatalf("vision downstream document = %q, want payment-strategy.md", downstream.DocumentPath)
+	}
+	if downstream.VerifiedEdgeCount != 1 {
+		t.Fatalf("vision downstream verified_edge_count = %d, want 1", downstream.VerifiedEdgeCount)
+	}
+	if len(downstream.ClaimIDs) == 0 || len(downstream.EdgeIDs) == 0 {
+		t.Fatalf("vision downstream correspondence lost explainability: %+v", downstream)
+	}
+}
+
+func TestRunPipeline_RegressionFixtureZeroTraceExplainsGapWaterfall(t *testing.T) {
+	cfg, _, result := runRegressionPipelineWithRuntime(t, newRegressionZeroTraceRuntime(t))
+	if result.Link.CandidatesGenerated == 0 {
+		t.Fatal("zero-trace regression fixture produced no trace candidates; gap waterfall would be meaningless")
+	}
+	if result.Link.TracesCreated != 0 {
+		t.Fatalf("zero-trace regression fixture created %d verified traces, want 0", result.Link.TracesCreated)
+	}
+
+	rpt, html := loadRegressionFixtureReport(t, cfg.Output.Dir)
+	assertRegressionReportTabs(t, rpt, html)
+	assertRegressionReportStartsInSummaryMode(t, rpt, html)
+
+	if len(rpt.VerifiedTraces) != 0 {
+		t.Fatalf("zero-trace regression fixture must not emit verified traces, got %d", len(rpt.VerifiedTraces))
+	}
+	if len(rpt.TraceGaps) == 0 {
+		t.Fatal("zero-trace regression fixture lost trace_gaps entirely")
+	}
+
+	var rejectedGap *reportpkg.TraceGapReport
+	for i := range rpt.TraceGaps {
+		gap := &rpt.TraceGaps[i]
+		if gap.Stage == "verification" && gap.GapType == "all_candidates_rejected" {
+			rejectedGap = gap
+			break
+		}
+	}
+	if rejectedGap == nil {
+		t.Fatalf("zero-trace regression fixture missing verification rejection gap: %+v", rpt.TraceGaps)
+	}
+	if rejectedGap.CandidateCount == 0 || len(rejectedGap.TopCandidateIDs) == 0 {
+		t.Fatalf("zero-trace rejection gap lost candidate evidence: %+v", *rejectedGap)
+	}
+	if rejectedGap.Reason != "llm_verification_rejected" {
+		t.Fatalf("zero-trace rejection gap reason = %q, want llm_verification_rejected", rejectedGap.Reason)
+	}
+
+	strategyView := findDocumentViewByBaseName(t, rpt.DocumentViews, "payment-strategy.md")
+	if strategyView.BlockerCount == 0 || strategyView.BrokenLinkCount == 0 {
+		t.Fatalf("strategy document lost blocker accounting in zero-trace mode: %+v", strategyView)
+	}
+	if len(strategyView.Blockers) == 0 || strategyView.Blockers[0].GapType != "all_candidates_rejected" {
+		t.Fatalf("strategy document blockers do not explain zero-trace failure: %+v", strategyView.Blockers)
+	}
+
+	for _, needle := range []string{
+		"Подтверждённых трасс нет",
+		"Водопад разрывов",
+		"Разрывы по утверждениям",
+		"Открыть разрывы",
+	} {
+		if !strings.Contains(html, needle) {
+			t.Fatalf("zero-trace HTML report missing %q\n%s", needle, html)
+		}
+	}
+}
+
+func loadRegressionFixtureReport(t *testing.T, outputDir string) (*reportpkg.AuditReport, string) {
+	t.Helper()
+
+	data, err := os.ReadFile(filepath.Join(outputDir, "report.v2.json"))
+	if err != nil {
+		t.Fatalf("ReadFile(report.v2.json): %v", err)
+	}
+	var rpt reportpkg.AuditReport
+	if err := json.Unmarshal(data, &rpt); err != nil {
+		t.Fatalf("Unmarshal(report.v2.json): %v", err)
+	}
+
+	htmlBytes, err := os.ReadFile(filepath.Join(outputDir, "report.html"))
+	if err != nil {
+		t.Fatalf("ReadFile(report.html): %v", err)
+	}
+	return &rpt, string(htmlBytes)
+}
+
+func assertRegressionReportTabs(t *testing.T, rpt *reportpkg.AuditReport, html string) {
+	t.Helper()
+
+	if len(rpt.ReportModes.Tabs) != len(requiredAnalystTabs) {
+		t.Fatalf("report_modes.tabs len = %d, want %d", len(rpt.ReportModes.Tabs), len(requiredAnalystTabs))
+	}
+	for i, tab := range requiredAnalystTabs {
+		if rpt.ReportModes.Tabs[i].ID != tab.ID || rpt.ReportModes.Tabs[i].Label != tab.Label {
+			t.Fatalf("report_modes.tabs[%d] = %+v, want id=%q label=%q", i, rpt.ReportModes.Tabs[i], tab.ID, tab.Label)
+		}
+		if !strings.Contains(html, fmt.Sprintf(`data-tab-btn="%s"`, tab.ID)) {
+			t.Fatalf("HTML report missing tab button for %q\n%s", tab.ID, html)
+		}
+		if !strings.Contains(html, fmt.Sprintf(`id="tab-%s"`, tab.ID)) {
+			t.Fatalf("HTML report missing tab panel for %q\n%s", tab.ID, html)
+		}
+		if !strings.Contains(html, tab.Label) {
+			t.Fatalf("HTML report missing tab label %q\n%s", tab.Label, html)
+		}
+	}
+}
+
+func assertRegressionReportStartsInSummaryMode(t *testing.T, rpt *reportpkg.AuditReport, html string) {
+	t.Helper()
+
+	if rpt.ReportModes.Default != "analyst" {
+		t.Fatalf("report_modes.default = %q, want analyst", rpt.ReportModes.Default)
+	}
+	if rpt.ReportModes.DefaultTab != "summary" {
+		t.Fatalf("report_modes.default_tab = %q, want summary", rpt.ReportModes.DefaultTab)
+	}
+	if rpt.ReportModes.CompareAvailable {
+		t.Fatal("report_modes.compare_available must stay false for analyst-first flow")
+	}
+	if !strings.Contains(html, "Стартовая вкладка: Сводка") {
+		t.Fatalf("HTML report lost summary-first cue\n%s", html)
+	}
+	if !strings.Contains(html, "Сравнение прогонов: выключен") {
+		t.Fatalf("HTML report lost compare-off cue\n%s", html)
+	}
+	summaryIdx := strings.Index(html, `id="tab-summary"`)
+	diagnosticsIdx := strings.Index(html, `id="tab-diagnostics"`)
+	if summaryIdx == -1 || diagnosticsIdx == -1 {
+		t.Fatalf("HTML report missing summary/diagnostics sections\n%s", html)
+	}
+	if summaryIdx > diagnosticsIdx {
+		t.Fatalf("summary tab rendered after diagnostics: summary=%d diagnostics=%d", summaryIdx, diagnosticsIdx)
+	}
+}
+
+func assertRegressionReportUsesRussianChrome(t *testing.T, html string) {
+	t.Helper()
+
+	for _, needle := range []string{
+		"Навигация отчёта",
+		"Режим: аналитический",
+		"Критические документы корпуса",
+		"Водопад разрывов",
+	} {
+		if !strings.Contains(html, needle) {
+			t.Fatalf("HTML report missing Russian chrome label %q\n%s", needle, html)
+		}
+	}
+	for _, needle := range []string{
+		"Executive Overview",
+		"Analyst Explorer",
+		"Evidence Pack",
+		"Compare mode:",
+		"All findings",
+	} {
+		if strings.Contains(html, needle) {
+			t.Fatalf("HTML report leaked English chrome %q\n%s", needle, html)
+		}
+	}
+}
+
+func findDocumentViewByBaseName(t *testing.T, views []reportpkg.DocumentViewReport, base string) reportpkg.DocumentViewReport {
+	t.Helper()
+
+	for _, view := range views {
+		if filepath.Base(view.DocumentPath) == base {
+			return view
+		}
+	}
+	t.Fatalf("document_view for %q not found in %+v", base, views)
+	return reportpkg.DocumentViewReport{}
 }
