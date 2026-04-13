@@ -47,6 +47,8 @@ type LLMClient struct {
 	retryDelay time.Duration
 }
 
+var _ ModelRuntime = (*LLMClient)(nil)
+
 func NewLLMClient(apiKey, baseURL string) *LLMClient {
 	return &LLMClient{
 		inner:      llmclient.New(apiKey, strings.TrimRight(baseURL, "/")),

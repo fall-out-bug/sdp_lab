@@ -26,7 +26,7 @@ type LinkResult struct {
 }
 
 // LinkEntities generates trace candidates using embedding similarity and optionally verifies with LLM.
-func LinkEntities(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLMClient) (*LinkResult, error) {
+func LinkEntities(ctx context.Context, cfg *Config, store *SQLiteStore, runtime ModelRuntime) (*LinkResult, error) {
 	result := &LinkResult{}
 
 	levels, err := store.LoadLevels(ctx)
@@ -82,12 +82,11 @@ func LinkEntities(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLM
 
 		// Save candidates
 		if len(candidates) > 0 {
-			traces, verifiedByCandidateID := createVerifiedTraces(ctx, cfg, llm, candidates, levels[i+1], levels[i])
+			traces, verifiedByCandidateID := createVerifiedTraces(ctx, cfg, runtime, candidates, levels[i+1], levels[i])
 			modelCandidates := candidatesToModel(candidates, verifiedByCandidateID)
 			if err := store.SaveCandidates(ctx, modelCandidates); err != nil {
 				result.Errors = append(result.Errors, fmt.Errorf("save candidates %s->%s: %w", levels[i+1].Name, levels[i].Name, err))
 			}
-
 			result.TracesCreated += len(traces)
 
 			if len(traces) > 0 {
@@ -334,14 +333,14 @@ func cosineSimilarity(a, b []float32) float64 {
 	return dot / (math.Sqrt(normA) * math.Sqrt(normB))
 }
 
-func createVerifiedTraces(ctx context.Context, cfg *Config, llm *LLMClient, candidates []candidate, lowerLevel, upperLevel model.Level) ([]model.Trace, map[string]string) {
+func createVerifiedTraces(ctx context.Context, cfg *Config, runtime ModelRuntime, candidates []candidate, lowerLevel, upperLevel model.Level) ([]model.Trace, map[string]string) {
 	autoThreshold := cfg.Thresholds.AutoVerifySimilarity
 	traceThreshold := cfg.Thresholds.TraceConfidence
 	budget := cfg.Thresholds.LLMVerifyBudget
 	var traces []model.Trace
 	verifiedByCandidateID := make(map[string]string)
 
-	if llm == nil || budget <= 0 {
+	if runtime == nil || budget <= 0 {
 		return traces, verifiedByCandidateID
 	}
 
@@ -373,7 +372,7 @@ func createVerifiedTraces(ctx context.Context, cfg *Config, llm *LLMClient, cand
 		}
 
 		budget--
-		verified, relation, conf, justification := llmVerifyPair(ctx, llm, cfg, c, lowerLevel, upperLevel)
+		verified, relation, conf, justification := llmVerifyPair(ctx, runtime, cfg, c, lowerLevel, upperLevel)
 		if !verified {
 			continue
 		}
@@ -408,7 +407,7 @@ func (b *jsonBool) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func llmVerifyPair(ctx context.Context, llm *LLMClient, cfg *Config, c candidate, lowerLevel, upperLevel model.Level) (bool, model.TraceRelation, float64, string) {
+func llmVerifyPair(ctx context.Context, runtime ModelRuntime, cfg *Config, c candidate, lowerLevel, upperLevel model.Level) (bool, model.TraceRelation, float64, string) {
 	req := LLMRequest{
 		Model:       cfg.LLM.Model,
 		System:      "You are a strategy analyst. Use only the provided evidence quotes. Respond with valid JSON only.",
@@ -418,7 +417,7 @@ func llmVerifyPair(ctx context.Context, llm *LLMClient, cfg *Config, c candidate
 		JSONMode:    true,
 	}
 
-	resp, err := llm.Chat(ctx, req)
+	resp, err := runtime.Chat(ctx, req)
 	if err != nil {
 		slog.Warn("LLM verify error", "err", err)
 		return false, model.RelationNone, 0, ""

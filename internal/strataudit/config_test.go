@@ -25,6 +25,12 @@ func TestLoadConfig_ValidYAML(t *testing.T) {
 	if cfg.Thresholds.Similarity != 0.5 {
 		t.Errorf("Thresholds.Similarity = %f, want 0.5", cfg.Thresholds.Similarity)
 	}
+	if cfg.Runtime.Provider != "openrouter" {
+		t.Errorf("Runtime.Provider = %q, want openrouter", cfg.Runtime.Provider)
+	}
+	if cfg.Runtime.APIKeyEnv != "OPENROUTER_API_KEY" {
+		t.Errorf("Runtime.APIKeyEnv = %q, want OPENROUTER_API_KEY", cfg.Runtime.APIKeyEnv)
+	}
 }
 
 func TestLoadConfig_MissingFile(t *testing.T) {
@@ -84,5 +90,20 @@ func TestConfig_TemperatureForStage(t *testing.T) {
 	}
 	if v := cfg.TemperatureForStage("unknown"); v != 0.1 {
 		t.Errorf("TemperatureForStage(unknown) = %f, want 0.1 (default)", v)
+	}
+}
+
+func TestConfig_SetDefaultsRuntime(t *testing.T) {
+	cfg := &Config{}
+	cfg.setDefaults()
+
+	if cfg.Runtime.Provider != "openrouter" {
+		t.Fatalf("Runtime.Provider = %q, want openrouter", cfg.Runtime.Provider)
+	}
+	if cfg.Runtime.BaseURL != "https://openrouter.ai/api/v1" {
+		t.Fatalf("Runtime.BaseURL = %q", cfg.Runtime.BaseURL)
+	}
+	if cfg.Runtime.APIKeyEnv != "OPENROUTER_API_KEY" {
+		t.Fatalf("Runtime.APIKeyEnv = %q", cfg.Runtime.APIKeyEnv)
 	}
 }

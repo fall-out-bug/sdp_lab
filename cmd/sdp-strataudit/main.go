@@ -91,12 +91,6 @@ func runRun(args []string) {
 	}
 	cfg.Output.Dir = filepath.Join(absDir, cfg.Output.Dir)
 
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
-	if apiKey == "" {
-		fmt.Fprintln(os.Stderr, "error: OPENROUTER_API_KEY not set")
-		os.Exit(1)
-	}
-
 	dbPath := filepath.Join(cfg.Output.Dir, "strataudit.db")
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "error creating output dir: %v\n", err)
@@ -111,13 +105,16 @@ func runRun(args []string) {
 	defer func() { _ = store.Close() }()
 
 	ctx := context.Background()
-	llm := strataudit.NewLLMClient(apiKey, "https://openrouter.ai/api/v1")
-	llm.SetRateLimit(cfg.LLM.RequestsPerMin)
+	runtime, err := cfg.ResolveRuntime()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error resolving runtime: %v\n", err)
+		os.Exit(1)
+	}
 
 	fmt.Printf("StratAudit config loaded: %d levels, %d source dirs\n", len(cfg.Levels), len(cfg.Project.SourceDirs))
 	fmt.Printf("Store: %s\n", dbPath)
 
-	result, err := strataudit.RunPipeline(ctx, cfg, store, llm, strataudit.PipelineOpts{
+	result, err := strataudit.RunPipeline(ctx, cfg, store, runtime, strataudit.PipelineOpts{
 		Resume: *resume,
 	})
 	if err != nil {

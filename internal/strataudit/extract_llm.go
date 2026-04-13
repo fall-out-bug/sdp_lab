@@ -30,7 +30,7 @@ type ExtractResult struct {
 }
 
 // ExtractEntities runs LLM entity extraction on all documents that don't have entities yet.
-func ExtractEntities(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLMClient) (*ExtractResult, error) {
+func ExtractEntities(ctx context.Context, cfg *Config, store *SQLiteStore, runtime ModelRuntime) (*ExtractResult, error) {
 	result := &ExtractResult{}
 
 	levels, err := store.LoadLevels(ctx)
@@ -61,7 +61,7 @@ func ExtractEntities(ctx context.Context, cfg *Config, store *SQLiteStore, llm *
 			}
 			slog.Info("extract: processing document", "doc", doc.Path, "level", level.ID)
 
-			batch, err := extractFromDocument(ctx, cfg, store, llm, doc, level)
+			batch, err := extractFromDocument(ctx, cfg, store, runtime, doc, level)
 			if err != nil {
 				result.Errors = append(result.Errors, fmt.Errorf("%s: %w", doc.Path, err))
 				continue
@@ -93,7 +93,7 @@ type extractBatch struct {
 	Rejected int
 }
 
-func extractFromDocument(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLMClient, doc model.Document, level model.Level) (*extractBatch, error) {
+func extractFromDocument(ctx context.Context, cfg *Config, store *SQLiteStore, runtime ModelRuntime, doc model.Document, level model.Level) (*extractBatch, error) {
 	sections, err := ensureDocumentSections(ctx, cfg, store, doc)
 	if err != nil {
 		return nil, err
@@ -122,7 +122,7 @@ func extractFromDocument(ctx context.Context, cfg *Config, store *SQLiteStore, l
 		chunkSanitized := SanitizeForPrompt(section.Content)
 		prompt := buildExtractionPrompt(cfg, level, chunkSanitized, i, len(sections))
 
-		resp, err := llm.Chat(ctx, LLMRequest{
+		resp, err := runtime.Chat(ctx, LLMRequest{
 			Model:       cfg.LLM.ExtractModel,
 			System:      extractionSystemPrompt(cfg),
 			User:        prompt,
@@ -176,7 +176,7 @@ func extractFromDocument(ctx context.Context, cfg *Config, store *SQLiteStore, l
 
 	// Generate embeddings for all entities
 	if len(allEntities) > 0 {
-		if err := generateEmbeddings(ctx, cfg, llm, allEntities); err != nil {
+		if err := generateEmbeddings(ctx, cfg, runtime, allEntities); err != nil {
 			_ = err
 		}
 	}
@@ -323,7 +323,7 @@ func entityID(docID, entityType, title string) string {
 	return fmt.Sprintf("ent_%x", h[:8])
 }
 
-func generateEmbeddings(ctx context.Context, cfg *Config, llm *LLMClient, entities []model.Entity) error {
+func generateEmbeddings(ctx context.Context, cfg *Config, runtime ModelRuntime, entities []model.Entity) error {
 	texts := make([]string, len(entities))
 	for i, e := range entities {
 		title := firstNonEmpty(e.TitleOriginal, e.Title)
@@ -340,7 +340,7 @@ func generateEmbeddings(ctx context.Context, cfg *Config, llm *LLMClient, entiti
 			end = len(texts)
 		}
 
-		embs, err := llm.Embed(ctx, texts[i:end], cfg.LLM.EmbeddingModel)
+		embs, err := runtime.Embed(ctx, texts[i:end], cfg.LLM.EmbeddingModel)
 		if err != nil {
 			return fmt.Errorf("embed batch %d: %w", i/batchSize, err)
 		}

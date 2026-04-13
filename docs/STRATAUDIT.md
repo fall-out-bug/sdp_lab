@@ -8,18 +8,50 @@
 
 StratAudit audits alignment between strategy documents at different hierarchy levels. It ingests documents, extracts strategic entities via LLM, builds a traceability graph, and produces a gap analysis report.
 
+The engine is provider-neutral: host harnesses can inject their own runtime, while the CLI resolves a configured network runtime. OpenRouter remains the default accelerator path, not the only execution path.
+
 **Pipeline:** Ingest → Extract → Link → Analyze → Report
+
+## Portable Skill Contract
+
+StratAudit is not just a CLI. In this repo it is also a portable audit capability
+for harnesses and agent skills.
+
+That public contract is intentionally narrower than the internal pipeline:
+
+- choose the right audit mode for the question,
+- audit only against real document text or saved artifacts,
+- expose runtime choice and trust caveats,
+- refuse claims that the evidence pack does not support.
+
+See:
+
+- [StratAudit Evidence Policy](reference/strataudit-evidence-policy.md)
+- [StratAudit Runtime Policy](reference/strataudit-runtime-policy.md)
+- [StratAudit Output Modes](reference/strataudit-output-modes.md)
+
+## Audit Modes
+
+| Mode | Use when | Primary output |
+|---|---|---|
+| `corpus-audit` | corpus quality and ingest readiness are unclear | inventory, exclusions, level coverage, caveats |
+| `traceability-audit` | the user wants cross-level alignment and missing links | traces, findings, caveats |
+| `coverage-audit` | the user asks what is and is not covered | coverage tables with explicit denominators |
+| `evidence-pack` | the user wants proof, drill-down, or source-backed findings | inspectable evidence bundle |
+| `report-redraft` | the user wants a better report from existing artifacts | rewritten report sections without new truth claims |
 
 ## Quick Start
 
 ```bash
-# Set API key
+# Optional: set the default OpenRouter key for CLI fallback
 export OPENROUTER_API_KEY=sk-...
 
 # Initialize config
 sdp-strataudit init --dir /path/to/project
 
 # Edit strataudit.yaml (levels, patterns, thresholds)
+
+# Optional: change runtime.provider/base_url/api_key_env in strataudit.yaml
 
 # Run full audit
 sdp-strataudit run --dir /path/to/project
@@ -87,6 +119,11 @@ entity_types:
   - stakeholder
   - capability
 
+runtime:
+  provider: "openrouter"             # openrouter | openai_compatible | host
+  base_url: "https://openrouter.ai/api/v1"
+  api_key_env: "OPENROUTER_API_KEY"  # ignored for provider=host
+
 llm:
   model: "deepseek/deepseek-v3.2"
   extract_model: "deepseek/deepseek-v3.2"
@@ -144,7 +181,7 @@ Documents are deduplicated by content hash. Unchanged documents are skipped on r
 
 For each document, splits content into overlapping chunks (configurable `chunk_token_limit`/`chunk_overlap_tokens`). Large documents are sampled to `max_chunks_per_document` chunks (first + last + uniform middle).
 
-Each chunk is sent to the LLM with an extraction prompt. The LLM returns structured JSON entities with type, title, description, and source quote.
+Each chunk is sent to the configured runtime with an extraction prompt. The runtime returns structured JSON entities with type, title, description, and source quote.
 
 Entities are deduplicated by (type + title) per document. Embeddings are generated in batches of 20.
 
@@ -178,6 +215,10 @@ Generates output files in `.strataudit/`:
 - **JSON v2** — `report.v2.json`, the canonical offline audit contract with audit scope, trust summary, corpus quality, provenance-rich entities, trace evidence, grouped findings, and coverage by level/document/section
 - **JSON compat** — `report.json`, temporary alias for the same payload during transition
 
+The portable skill may also expose artifact-only flows such as `evidence-pack`
+and `report-redraft`, which reuse existing `.strataudit/` outputs without
+pretending a fresh audit was rerun.
+
 ## Architecture
 
 ```
@@ -192,7 +233,7 @@ internal/strataudit/
   extractor_bridge.go  External command bridge for .doc/.rtf (154 lines)
   link.go              Cosine similarity + LLM verification (559 lines)
   analyze.go           Finding detection engine (318 lines)
-  llmclient.go         OpenRouter API client with rate limiting and cache (349 lines)
+  llmclient.go         OpenAI-compatible runtime client with rate limiting and cache (349 lines)
   store.go             SQLite persistence layer (431 lines)
   sanitize.go          Prompt injection protection (104 lines)
   report_builder.go    Report data aggregation (90 lines)
@@ -223,7 +264,7 @@ SQLite tables: `levels`, `documents`, `entities`, `traces`, `findings`, `trace_c
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| LLM API | OpenRouter | Model-agnostic, supports deepseek/openai/anthropic |
+| Runtime transport | Injected host runtime or OpenAI-compatible API | Keeps the engine portable across harnesses; OpenRouter stays the default network path |
 | Embeddings | text-embedding-3-small | Cost-effective, 1536 dims |
 | Storage | SQLite (WAL mode) | Self-contained, no external DB, portable |
 | Level classification | Glob patterns | Deterministic, no LLM cost, configurable |
@@ -235,7 +276,10 @@ SQLite tables: `levels`, `documents`, `entities`, `traces`, `findings`, `trace_c
 
 | Variable | Required | Description |
 |---|---|---|
-| `OPENROUTER_API_KEY` | Yes | API key for OpenRouter |
+| `OPENROUTER_API_KEY` | Conditional | Default CLI key when `runtime.provider: openrouter` |
+
+For `runtime.provider: openai_compatible`, the required env var is whatever `runtime.api_key_env` specifies.
+For `runtime.provider: host`, the package must receive an injected runtime; the CLI cannot materialize a host-native runtime on its own.
 
 ## CLI Reference
 
@@ -270,5 +314,5 @@ Chunk sampling reduces large-document processing from ~44 min to ~3 min per docu
 
 - Strategy↔Architecture linking depends on document quality: if strategy documents contain operational details rather than strategic goals, traces will be sparse
 - No incremental extraction: all entities for a document are regenerated on re-run
-- Embedding model must be OpenAI-compatible (via OpenRouter)
+- Embedding model must be available through the selected runtime; the current built-in CLI resolver expects an OpenAI-compatible embeddings API
 - No web UI (static HTML report only)

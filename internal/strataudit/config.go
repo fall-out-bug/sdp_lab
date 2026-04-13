@@ -9,13 +9,14 @@ import (
 )
 
 type Config struct {
-	Version     string          `yaml:"version"`
-	Project     ProjectConfig   `yaml:"project"`
-	Levels      []LevelConfig   `yaml:"levels"`
-	EntityTypes []string        `yaml:"entity_types"`
-	LLM         LLMConfig       `yaml:"llm"`
-	Thresholds  ThresholdConfig `yaml:"thresholds"`
-	Output      OutputConfig    `yaml:"output"`
+	Version     string           `yaml:"version"`
+	Project     ProjectConfig    `yaml:"project"`
+	Levels      []LevelConfig    `yaml:"levels"`
+	EntityTypes []string         `yaml:"entity_types"`
+	Runtime     RuntimeConfig    `yaml:"runtime"`
+	LLM         LLMConfig        `yaml:"llm"`
+	Thresholds  ThresholdConfig  `yaml:"thresholds"`
+	Output      OutputConfig     `yaml:"output"`
 	Extractors  ExtractorsConfig `yaml:"extractors"`
 }
 
@@ -33,6 +34,12 @@ type LevelConfig struct {
 	Patterns    []string `yaml:"patterns"`
 }
 
+type RuntimeConfig struct {
+	Provider  string `yaml:"provider"`
+	BaseURL   string `yaml:"base_url"`
+	APIKeyEnv string `yaml:"api_key_env"`
+}
+
 type LLMConfig struct {
 	Model            string             `yaml:"model"`
 	ExtractModel     string             `yaml:"extract_model"`
@@ -47,17 +54,17 @@ type LLMConfig struct {
 }
 
 type ThresholdConfig struct {
-	Similarity            float64 `yaml:"similarity"`
-	TraceConfidence       float64 `yaml:"trace_confidence"`
-	AutoVerifySimilarity  float64 `yaml:"auto_verify_similarity"`
-	LLMVerifyBudget       int     `yaml:"llm_verify_budget"`
-	CoverageWarn          float64 `yaml:"coverage_warn"`
-	StaleDays             int     `yaml:"stale_days"`
-	ChunkTokenLimit       int     `yaml:"chunk_token_limit"`
-	ChunkOverlapTokens    int     `yaml:"chunk_overlap_tokens"`
-	EmitDistribution      bool    `yaml:"emit_distribution"`
-	MaxChunksPerDocument  int     `yaml:"max_chunks_per_document"`
-	AdaptiveSimilarity    bool    `yaml:"adaptive_similarity"`
+	Similarity           float64 `yaml:"similarity"`
+	TraceConfidence      float64 `yaml:"trace_confidence"`
+	AutoVerifySimilarity float64 `yaml:"auto_verify_similarity"`
+	LLMVerifyBudget      int     `yaml:"llm_verify_budget"`
+	CoverageWarn         float64 `yaml:"coverage_warn"`
+	StaleDays            int     `yaml:"stale_days"`
+	ChunkTokenLimit      int     `yaml:"chunk_token_limit"`
+	ChunkOverlapTokens   int     `yaml:"chunk_overlap_tokens"`
+	EmitDistribution     bool    `yaml:"emit_distribution"`
+	MaxChunksPerDocument int     `yaml:"max_chunks_per_document"`
+	AdaptiveSimilarity   bool    `yaml:"adaptive_similarity"`
 }
 
 type OutputConfig struct {
@@ -80,6 +87,15 @@ func LoadConfig(path string) (*Config, error) {
 }
 
 func (c *Config) setDefaults() {
+	if c.Runtime.Provider == "" {
+		c.Runtime.Provider = "openrouter"
+	}
+	if c.Runtime.APIKeyEnv == "" && normalizeRuntimeProvider(c.Runtime.Provider) != "host" {
+		c.Runtime.APIKeyEnv = "OPENROUTER_API_KEY"
+	}
+	if c.Runtime.BaseURL == "" && normalizeRuntimeProvider(c.Runtime.Provider) == "openrouter" {
+		c.Runtime.BaseURL = "https://openrouter.ai/api/v1"
+	}
 	if c.LLM.MaxRetries == 0 {
 		c.LLM.MaxRetries = 3
 	}
@@ -143,6 +159,14 @@ func (c *Config) Validate() error {
 	if len(c.Levels) == 0 {
 		return fmt.Errorf("at least one level must be defined")
 	}
+	switch normalizeRuntimeProvider(c.Runtime.Provider) {
+	case "openrouter", "openai_compatible", "host":
+	default:
+		return fmt.Errorf("unsupported runtime provider %q", c.Runtime.Provider)
+	}
+	if normalizeRuntimeProvider(c.Runtime.Provider) != "host" && c.Runtime.BaseURL == "" {
+		return fmt.Errorf("runtime.base_url must be set for provider %q", c.Runtime.Provider)
+	}
 	ranks := make(map[int]string)
 	for _, l := range c.Levels {
 		if existing, ok := ranks[l.Rank]; ok {
@@ -191,6 +215,11 @@ func DefaultConfigYAML() *Config {
 			{Name: "task", Rank: 4, Description: "Tasks", Patterns: []string{"*sprint*", "*backlog*"}},
 		},
 		EntityTypes: []string{"goal", "objective", "kpi", "initiative", "task", "principle", "stakeholder", "capability"},
+		Runtime: RuntimeConfig{
+			Provider:  "openrouter",
+			BaseURL:   "https://openrouter.ai/api/v1",
+			APIKeyEnv: "OPENROUTER_API_KEY",
+		},
 		LLM: LLMConfig{
 			Model:          "deepseek/deepseek-v3.2",
 			ExtractModel:   "deepseek/deepseek-v3.2",

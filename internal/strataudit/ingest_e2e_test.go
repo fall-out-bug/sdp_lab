@@ -23,7 +23,6 @@ func TestIngest_E2E(t *testing.T) {
 	if configPath == "" {
 		t.Skip("STRATAUDIT_E2E_CONFIG not set")
 	}
-
 	cfgData, err := os.ReadFile(configPath)
 	if err != nil {
 		t.Skipf("config not found: %v", err)
