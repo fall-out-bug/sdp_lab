@@ -266,6 +266,7 @@ func BuildReport(ctx context.Context, cfg *Config, store *SQLiteStore) (*report.
 			traceModeCounts[string(trace.VerificationMode)]++
 		}
 	}
+	rpt.TraceGraph = buildTraceGraph(allEntities, candidates, traces, documentByID, levelByID, sectionByID)
 
 	var criticalFindings, warnFindings, infoFindings int
 	corpusQualityFlagCounts := make(map[string]int)
@@ -597,6 +598,195 @@ func buildTrustDisclaimers(lang string, entityCounts report.EntityTrustCounts, c
 		}
 	}
 	return disclaimers
+}
+
+func buildTraceGraph(
+	entities []model.Entity,
+	candidates []model.Candidate,
+	traces []model.Trace,
+	documentByID map[string]model.Document,
+	levelByID map[string]model.Level,
+	sectionByID map[string]model.Section,
+) report.TraceGraphReport {
+	graph := report.TraceGraphReport{
+		Nodes: []report.TraceNodeReport{},
+		Edges: []report.TraceEdgeReport{},
+		Paths: []report.TracePathReport{},
+	}
+	nodeIDs := make(map[string]struct{}, len(entities))
+	entityByID := make(map[string]model.Entity, len(entities))
+
+	for _, entity := range entities {
+		doc, ok := documentByID[entity.DocumentID]
+		if !ok {
+			continue
+		}
+		entityByID[entity.ID] = entity
+		level := levelByID[entity.LevelID]
+		section := sectionByID[entity.SectionID]
+		graph.Nodes = append(graph.Nodes, report.TraceNodeReport{
+			ID:             entity.ID,
+			EntityID:       entity.ID,
+			Type:           string(entity.Type),
+			Title:          entity.Title,
+			LevelID:        entity.LevelID,
+			LevelName:      level.Name,
+			DocumentID:     entity.DocumentID,
+			DocumentPath:   doc.Path,
+			SectionID:      entity.SectionID,
+			SectionHeading: section.Heading,
+			SourceQuote:    entity.SourceQuote,
+			TrustGrade:     string(entity.TrustGrade),
+			Lang:           entity.Lang,
+		})
+		nodeIDs[entity.ID] = struct{}{}
+	}
+
+	for _, trace := range traces {
+		if !hasTraceNodes(nodeIDs, trace.SourceEntityID, trace.TargetEntityID) {
+			continue
+		}
+		sourceEntity, sourceOK := entityByID[trace.SourceEntityID]
+		targetEntity, targetOK := entityByID[trace.TargetEntityID]
+		if !sourceOK || !targetOK {
+			continue
+		}
+		edge := report.TraceEdgeReport{
+			ID:                trace.ID,
+			SourceNodeID:      trace.SourceEntityID,
+			TargetNodeID:      trace.TargetEntityID,
+			SourceEntityID:    trace.SourceEntityID,
+			TargetEntityID:    trace.TargetEntityID,
+			Relation:          string(trace.Relation),
+			Direction:         string(trace.Direction),
+			Status:            string(model.TraceEdgeStatusVerified),
+			VerificationMode:  string(trace.VerificationMode),
+			Confidence:        trace.Confidence,
+			Similarity:        trace.SimilarityScore,
+			Reason:            trace.Justification,
+			TrustGrade:        string(trace.TrustGrade),
+			SourceEvidenceRef: buildTraceEdgeEvidenceRef(sourceEntity, documentByID, sectionByID, trace.SourceSectionID, trace.SourceQuoteStartOffset, trace.SourceQuoteEndOffset),
+			TargetEvidenceRef: buildTraceEdgeEvidenceRef(targetEntity, documentByID, sectionByID, trace.TargetSectionID, trace.TargetQuoteStartOffset, trace.TargetQuoteEndOffset),
+		}
+		graph.Edges = append(graph.Edges, edge)
+		graph.Paths = append(graph.Paths, edgeAsPath(edge))
+	}
+
+	for _, candidate := range candidates {
+		if candidate.Verified || candidate.TraceID != "" {
+			continue
+		}
+		if !hasTraceNodes(nodeIDs, candidate.SourceEntityID, candidate.TargetEntityID) {
+			continue
+		}
+		sourceEntity, sourceOK := entityByID[candidate.SourceEntityID]
+		targetEntity, targetOK := entityByID[candidate.TargetEntityID]
+		if !sourceOK || !targetOK {
+			continue
+		}
+		edge := report.TraceEdgeReport{
+			ID:                candidate.ID,
+			SourceNodeID:      candidate.SourceEntityID,
+			TargetNodeID:      candidate.TargetEntityID,
+			SourceEntityID:    candidate.SourceEntityID,
+			TargetEntityID:    candidate.TargetEntityID,
+			Status:            string(model.TraceEdgeStatusCandidate),
+			VerificationMode:  string(model.TraceVerificationModeCandidateSearch),
+			Similarity:        candidate.Similarity,
+			Reason:            candidate.DiagnosticCode,
+			SourceEvidenceRef: buildTraceEdgeEvidenceRef(sourceEntity, documentByID, sectionByID, sourceEntity.SectionID, sourceEntity.QuoteStartOffset, sourceEntity.QuoteEndOffset),
+			TargetEvidenceRef: buildTraceEdgeEvidenceRef(targetEntity, documentByID, sectionByID, targetEntity.SectionID, targetEntity.QuoteStartOffset, targetEntity.QuoteEndOffset),
+		}
+		graph.Edges = append(graph.Edges, edge)
+		graph.Paths = append(graph.Paths, edgeAsPath(edge))
+	}
+
+	sort.Slice(graph.Nodes, func(i, j int) bool {
+		left := graph.Nodes[i]
+		right := graph.Nodes[j]
+		if levelByID[left.LevelID].Rank != levelByID[right.LevelID].Rank {
+			return levelByID[left.LevelID].Rank < levelByID[right.LevelID].Rank
+		}
+		if left.DocumentPath != right.DocumentPath {
+			return left.DocumentPath < right.DocumentPath
+		}
+		return left.ID < right.ID
+	})
+	sort.Slice(graph.Edges, func(i, j int) bool {
+		if graph.Edges[i].Status != graph.Edges[j].Status {
+			return graph.Edges[i].Status < graph.Edges[j].Status
+		}
+		if graph.Edges[i].SourceNodeID != graph.Edges[j].SourceNodeID {
+			return graph.Edges[i].SourceNodeID < graph.Edges[j].SourceNodeID
+		}
+		return graph.Edges[i].ID < graph.Edges[j].ID
+	})
+	sort.Slice(graph.Paths, func(i, j int) bool {
+		if graph.Paths[i].Status != graph.Paths[j].Status {
+			return graph.Paths[i].Status < graph.Paths[j].Status
+		}
+		if graph.Paths[i].EntryNodeID != graph.Paths[j].EntryNodeID {
+			return graph.Paths[i].EntryNodeID < graph.Paths[j].EntryNodeID
+		}
+		return graph.Paths[i].ID < graph.Paths[j].ID
+	})
+
+	return graph
+}
+
+func edgeAsPath(edge report.TraceEdgeReport) report.TracePathReport {
+	return report.TracePathReport{
+		ID:             edge.ID,
+		EntryNodeID:    edge.SourceNodeID,
+		TerminalNodeID: edge.TargetNodeID,
+		NodeIDs:        []string{edge.SourceNodeID, edge.TargetNodeID},
+		EdgeIDs:        []string{edge.ID},
+		Status:         edge.Status,
+		HopCount:       1,
+	}
+}
+
+func hasTraceNodes(nodeIDs map[string]struct{}, sourceID, targetID string) bool {
+	_, sourceOK := nodeIDs[sourceID]
+	_, targetOK := nodeIDs[targetID]
+	return sourceOK && targetOK
+}
+
+func buildTraceEdgeEvidenceRef(
+	entity model.Entity,
+	documentByID map[string]model.Document,
+	sectionByID map[string]model.Section,
+	sectionID string,
+	quoteStartOffset *int,
+	quoteEndOffset *int,
+) *report.EvidenceRefReport {
+	doc, ok := documentByID[entity.DocumentID]
+	if !ok {
+		return nil
+	}
+	if sectionID == "" {
+		sectionID = entity.SectionID
+	}
+	if quoteStartOffset == nil {
+		quoteStartOffset = entity.QuoteStartOffset
+	}
+	if quoteEndOffset == nil {
+		quoteEndOffset = entity.QuoteEndOffset
+	}
+
+	ref := &report.EvidenceRefReport{
+		DocumentID:       entity.DocumentID,
+		DocumentPath:     doc.Path,
+		Quote:            entity.SourceQuote,
+		QuoteStartOffset: quoteStartOffset,
+		QuoteEndOffset:   quoteEndOffset,
+		TrustGrade:       string(entity.TrustGrade),
+	}
+	if sectionID != "" {
+		ref.SectionID = sectionID
+		ref.SectionHeading = sectionByID[sectionID].Heading
+	}
+	return ref
 }
 
 func countEntitiesWithQuotes(entities []model.Entity) int {

@@ -21,6 +21,7 @@ type AuditReport struct {
 	Entities        []EntityReport         `json:"entities,omitempty"`
 	TraceCandidates []TraceCandidateReport `json:"trace_candidates,omitempty"`
 	VerifiedTraces  []VerifiedTraceReport  `json:"verified_traces,omitempty"`
+	TraceGraph      TraceGraphReport       `json:"trace_graph"`
 	FindingsGrouped []FindingReport        `json:"findings_grouped"`
 	Coverage        CoverageBlockReport    `json:"coverage"`
 	EvidencePack    EvidencePackReport     `json:"evidence_pack"`
@@ -172,6 +173,56 @@ type VerifiedTraceReport struct {
 	VerificationMode string              `json:"verification_mode"`
 	TrustGrade       string              `json:"trust_grade,omitempty"`
 	TraceEvidence    TraceEvidenceReport `json:"trace_evidence"`
+}
+
+type TraceGraphReport struct {
+	Nodes []TraceNodeReport `json:"nodes"`
+	Edges []TraceEdgeReport `json:"edges"`
+	Paths []TracePathReport `json:"paths"`
+}
+
+type TraceNodeReport struct {
+	ID             string `json:"id"`
+	EntityID       string `json:"entity_id"`
+	Type           string `json:"type,omitempty"`
+	Title          string `json:"title"`
+	LevelID        string `json:"level_id"`
+	LevelName      string `json:"level_name,omitempty"`
+	DocumentID     string `json:"document_id"`
+	DocumentPath   string `json:"document_path"`
+	SectionID      string `json:"section_id,omitempty"`
+	SectionHeading string `json:"section_heading,omitempty"`
+	SourceQuote    string `json:"source_quote,omitempty"`
+	TrustGrade     string `json:"trust_grade,omitempty"`
+	Lang           string `json:"lang,omitempty"`
+}
+
+type TraceEdgeReport struct {
+	ID                string             `json:"id"`
+	SourceNodeID      string             `json:"source_node_id"`
+	TargetNodeID      string             `json:"target_node_id"`
+	SourceEntityID    string             `json:"source_entity_id"`
+	TargetEntityID    string             `json:"target_entity_id"`
+	Relation          string             `json:"relation,omitempty"`
+	Direction         string             `json:"direction,omitempty"`
+	Status            string             `json:"status"`
+	VerificationMode  string             `json:"verification_mode"`
+	Confidence        float64            `json:"confidence"`
+	Similarity        float64            `json:"similarity,omitempty"`
+	Reason            string             `json:"reason,omitempty"`
+	TrustGrade        string             `json:"trust_grade,omitempty"`
+	SourceEvidenceRef *EvidenceRefReport `json:"source_evidence_ref,omitempty"`
+	TargetEvidenceRef *EvidenceRefReport `json:"target_evidence_ref,omitempty"`
+}
+
+type TracePathReport struct {
+	ID             string   `json:"id"`
+	EntryNodeID    string   `json:"entry_node_id"`
+	TerminalNodeID string   `json:"terminal_node_id"`
+	NodeIDs        []string `json:"node_ids"`
+	EdgeIDs        []string `json:"edge_ids"`
+	Status         string   `json:"status"`
+	HopCount       int      `json:"hop_count"`
 }
 
 type TraceEvidenceReport struct {

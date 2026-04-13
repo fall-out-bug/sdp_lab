@@ -24,7 +24,16 @@ const (
 type TraceVerificationMode string
 
 const (
-	TraceVerificationModeLLMEvidence TraceVerificationMode = "llm_evidence"
+	TraceVerificationModeLLMEvidence     TraceVerificationMode = "llm_evidence"
+	TraceVerificationModeCandidateSearch TraceVerificationMode = "candidate_search"
+)
+
+type TraceEdgeStatus string
+
+const (
+	TraceEdgeStatusVerified  TraceEdgeStatus = "verified"
+	TraceEdgeStatusCandidate TraceEdgeStatus = "candidate"
+	TraceEdgeStatusRejected  TraceEdgeStatus = "rejected"
 )
 
 type Trace struct {

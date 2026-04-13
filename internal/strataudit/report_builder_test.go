@@ -194,6 +194,33 @@ func TestBuildReport_ExportsDocumentSectionAndEntityProvenance(t *testing.T) {
 	if rpt.VerifiedTraces[0].TraceEvidence.Source.DocumentPath != "/tmp/vision.md" {
 		t.Fatalf("source document path = %q", rpt.VerifiedTraces[0].TraceEvidence.Source.DocumentPath)
 	}
+	if len(rpt.TraceGraph.Nodes) != 1 {
+		t.Fatalf("len(rpt.TraceGraph.Nodes) = %d, want 1", len(rpt.TraceGraph.Nodes))
+	}
+	if rpt.TraceGraph.Nodes[0].EntityID != "e1" || rpt.TraceGraph.Nodes[0].DocumentPath != "/tmp/vision.md" {
+		t.Fatalf("unexpected trace node: %+v", rpt.TraceGraph.Nodes[0])
+	}
+	if len(rpt.TraceGraph.Edges) != 2 {
+		t.Fatalf("len(rpt.TraceGraph.Edges) = %d, want 2", len(rpt.TraceGraph.Edges))
+	}
+	if rpt.TraceGraph.Edges[0].Status != string(model.TraceEdgeStatusCandidate) {
+		t.Fatalf("first edge status = %q, want candidate", rpt.TraceGraph.Edges[0].Status)
+	}
+	if rpt.TraceGraph.Edges[0].VerificationMode != string(model.TraceVerificationModeCandidateSearch) {
+		t.Fatalf("first edge verification_mode = %q, want candidate_search", rpt.TraceGraph.Edges[0].VerificationMode)
+	}
+	if rpt.TraceGraph.Edges[1].Status != string(model.TraceEdgeStatusVerified) {
+		t.Fatalf("second edge status = %q, want verified", rpt.TraceGraph.Edges[1].Status)
+	}
+	if rpt.TraceGraph.Edges[1].SourceEvidenceRef == nil || rpt.TraceGraph.Edges[1].SourceEvidenceRef.SectionID != "s1" {
+		t.Fatalf("verified edge source evidence = %+v", rpt.TraceGraph.Edges[1].SourceEvidenceRef)
+	}
+	if len(rpt.TraceGraph.Paths) != 2 {
+		t.Fatalf("len(rpt.TraceGraph.Paths) = %d, want 2", len(rpt.TraceGraph.Paths))
+	}
+	if rpt.TraceGraph.Paths[0].EntryNodeID != "e1" || rpt.TraceGraph.Paths[0].TerminalNodeID != "e1" {
+		t.Fatalf("unexpected trace path: %+v", rpt.TraceGraph.Paths[0])
+	}
 	if len(rpt.FindingsGrouped) != 1 {
 		t.Fatalf("len(rpt.FindingsGrouped) = %d, want 1", len(rpt.FindingsGrouped))
 	}

@@ -150,7 +150,7 @@
   "trace_candidates": [
     {
       "id": "cand1",
-      "source_entity_id": "e2",
+      "source_entity_id": "e1",
       "target_entity_id": "e1",
       "similarity": 0.81,
       "diagnostic_code": "embedding_similarity_candidate"
@@ -159,7 +159,7 @@
   "verified_traces": [
     {
       "id": "tr1",
-      "source_entity_id": "e2",
+      "source_entity_id": "e1",
       "target_entity_id": "e1",
       "relation": "contributes_to",
       "confidence": 0.92,
@@ -169,11 +169,11 @@
       "trust_grade": "verified",
       "trace_evidence": {
         "source": {
-          "document_id": "d2",
-          "document_path": "/tmp/strategy.md",
-          "section_id": "s2",
-          "section_heading": "Стратегия",
-          "quote": "Выход на рынок",
+          "document_id": "d1",
+          "document_path": "/tmp/vision.md",
+          "section_id": "s1",
+          "section_heading": "Введение",
+          "quote": "Стратегия лидера",
           "trust_grade": "verified"
         },
         "target": {
@@ -187,6 +187,116 @@
       }
     }
   ],
+  "trace_graph": {
+    "nodes": [
+      {
+        "id": "e1",
+        "entity_id": "e1",
+        "type": "goal",
+        "title": "Стратегия лидера",
+        "level_id": "vision",
+        "level_name": "Vision",
+        "document_id": "d1",
+        "document_path": "/tmp/vision.md",
+        "section_id": "s1",
+        "section_heading": "Введение",
+        "source_quote": "Стратегия лидера",
+        "trust_grade": "verified",
+        "lang": "ru"
+      }
+    ],
+    "edges": [
+      {
+        "id": "cand1",
+        "source_node_id": "e1",
+        "target_node_id": "e1",
+        "source_entity_id": "e1",
+        "target_entity_id": "e1",
+        "status": "candidate",
+        "verification_mode": "candidate_search",
+        "confidence": 0,
+        "similarity": 0.81,
+        "reason": "embedding_similarity_candidate",
+        "source_evidence_ref": {
+          "document_id": "d1",
+          "document_path": "/tmp/vision.md",
+          "section_id": "s1",
+          "section_heading": "Введение",
+          "quote": "Стратегия лидера",
+          "trust_grade": "verified"
+        },
+        "target_evidence_ref": {
+          "document_id": "d1",
+          "document_path": "/tmp/vision.md",
+          "section_id": "s1",
+          "section_heading": "Введение",
+          "quote": "Стратегия лидера",
+          "trust_grade": "verified"
+        }
+      },
+      {
+        "id": "tr1",
+        "source_node_id": "e1",
+        "target_node_id": "e1",
+        "source_entity_id": "e1",
+        "target_entity_id": "e1",
+        "relation": "contributes_to",
+        "direction": "up",
+        "status": "verified",
+        "verification_mode": "llm_evidence",
+        "confidence": 0.92,
+        "similarity": 0.81,
+        "reason": "Evidence-backed relation.",
+        "trust_grade": "verified",
+        "source_evidence_ref": {
+          "document_id": "d1",
+          "document_path": "/tmp/vision.md",
+          "section_id": "s1",
+          "section_heading": "Введение",
+          "quote": "Стратегия лидера",
+          "trust_grade": "verified"
+        },
+        "target_evidence_ref": {
+          "document_id": "d1",
+          "document_path": "/tmp/vision.md",
+          "section_id": "s1",
+          "section_heading": "Введение",
+          "quote": "Стратегия лидера",
+          "trust_grade": "verified"
+        }
+      }
+    ],
+    "paths": [
+      {
+        "id": "cand1",
+        "entry_node_id": "e1",
+        "terminal_node_id": "e1",
+        "node_ids": [
+          "e1",
+          "e1"
+        ],
+        "edge_ids": [
+          "cand1"
+        ],
+        "status": "candidate",
+        "hop_count": 1
+      },
+      {
+        "id": "tr1",
+        "entry_node_id": "e1",
+        "terminal_node_id": "e1",
+        "node_ids": [
+          "e1",
+          "e1"
+        ],
+        "edge_ids": [
+          "tr1"
+        ],
+        "status": "verified",
+        "hop_count": 1
+      }
+    ]
+  },
   "findings_grouped": [
     {
       "id": "f1",

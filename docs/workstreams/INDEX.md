@@ -41,7 +41,7 @@
 |---------|-------------|-------------|--------|----------|
 | **F109** | StratAudit v2 — evidence-backed report redesign | 00-109-01 ... 00-109-08 | Done | P1 |
 | **F111** | StratAudit portability — provider-neutral engine and skill surface | 00-111-01 ... 00-111-04 | Done | P1 |
-| **F117** | StratAudit — claim-centric trace explorer and tabbed analyst report | 00-117-01 ... 00-117-05 | Backlog | P1 |
+| **F117** | StratAudit — claim-centric trace explorer and tabbed analyst report | 00-117-01 ... 00-117-05 | In Progress | P1 |
 
 > **F109 Source:** [StratAudit Design](../plans/2026-04-12-strataudit-evidence-report-redesign-design.md), [Implementation Plan](../plans/2026-04-12-strataudit-evidence-report-redesign-plan.md), [Market Landscape](../research/2026-04-12-strataudit-market-landscape.md)
 > **F111 Source:** [Portable Skill Design](../plans/2026-04-12-strataudit-portable-skill-design.md), [Portable Skill Plan](../plans/2026-04-12-strataudit-portable-skill-plan.md), [Skill Pattern Scan](../research/2026-04-12-strataudit-skill-pattern-scan.md)
