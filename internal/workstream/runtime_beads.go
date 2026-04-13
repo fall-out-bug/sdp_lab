@@ -36,7 +36,7 @@ func (e *RuntimeQueryError) Error() string {
 type RuntimeAdapter interface {
 	QueryBoundIssues(ctx context.Context, leaf WorkstreamLock) ([]RuntimeIssueState, error)
 	ClaimIssue(ctx context.Context, issueID string) error
-	ReleaseClaim(ctx context.Context, issueID string) error
+	ReleaseClaim(ctx context.Context, issueID, restoreStatus string) error
 }
 
 type ShellBeadsRuntimeAdapter struct {
@@ -156,14 +156,19 @@ func (a *ShellBeadsRuntimeAdapter) ClaimIssue(ctx context.Context, issueID strin
 	return nil
 }
 
-func (a *ShellBeadsRuntimeAdapter) ReleaseClaim(ctx context.Context, issueID string) error {
+func (a *ShellBeadsRuntimeAdapter) ReleaseClaim(ctx context.Context, issueID, restoreStatus string) error {
 	if a.Runner == nil {
 		a.Runner = executil.GetDefaultRunner()
 	}
 	if a.BDPath == "" {
 		a.BDPath = "bd"
 	}
-	_, err := a.Runner.CombinedOutput(ctx, a.ProjectRoot, a.BDPath, "update", issueID, "--status", "open", "-a", "", "--json")
+	args := []string{"update", issueID}
+	if strings.TrimSpace(restoreStatus) != "" {
+		args = append(args, "--status", restoreStatus)
+	}
+	args = append(args, "-a", "", "--json")
+	_, err := a.Runner.CombinedOutput(ctx, a.ProjectRoot, a.BDPath, args...)
 	if err != nil {
 		return fmt.Errorf("release claim for issue %s: %w", issueID, err)
 	}

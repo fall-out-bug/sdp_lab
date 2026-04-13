@@ -70,27 +70,33 @@ case "$cmd" in
     done
     printf ']'
     ;;
-  update)
-    issue_id="${2-}"
-    shift 2
-    load_issue "$issue_id"
-    if [ "${1-}" = "--claim" ]; then
-      status="in_progress"
-      assignee="Test Agent"
-      save_issue "$id" "$status" "$priority" "$created_at" "$assignee"
-      printf '[]'
-      exit 0
-    fi
-    if [ "${1-}" = "--status" ] && [ "${2-}" = "open" ] && [ "${3-}" = "-a" ] && [ "${5-}" = "--json" ]; then
-      status="open"
-      assignee=""
-      save_issue "$id" "$status" "$priority" "$created_at" "$assignee"
-      printf '[]'
-      exit 0
-    fi
-    echo "unsupported fake bd update: $*" >&2
-    exit 2
-    ;;
+	update)
+	    issue_id="${2-}"
+	    shift 2
+	    load_issue "$issue_id"
+	    if [ "${1-}" = "--claim" ]; then
+	      status="in_progress"
+	      assignee="Test Agent"
+	      save_issue "$id" "$status" "$priority" "$created_at" "$assignee"
+	      printf '[]'
+	      exit 0
+	    fi
+	    if [ "${1-}" = "--status" ] && [ "${3-}" = "-a" ] && [ "${4-}" = "" ] && [ "${5-}" = "--json" ]; then
+	      status="${2-}"
+	      assignee=""
+	      save_issue "$id" "$status" "$priority" "$created_at" "$assignee"
+	      printf '[]'
+	      exit 0
+	    fi
+	    if [ "${1-}" = "-a" ] && [ "${2-}" = "" ] && [ "${3-}" = "--json" ]; then
+	      assignee=""
+	      save_issue "$id" "$status" "$priority" "$created_at" "$assignee"
+	      printf '[]'
+	      exit 0
+	    fi
+	    echo "unsupported fake bd update: $*" >&2
+	    exit 2
+	    ;;
   *)
     echo "unsupported fake bd command: $*" >&2
     exit 2

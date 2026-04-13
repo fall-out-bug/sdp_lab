@@ -23,6 +23,8 @@ func main() {
 		runInit(os.Args[2:])
 	case "run":
 		runRun(os.Args[2:])
+	case "demo":
+		runDemo(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -35,10 +37,14 @@ func usage() {
 Commands:
   init    Create strataudit.yaml template
   run     Run full audit pipeline
+  demo    Generate offline demo report with a verified trace
 
 Run options:
   --dir   Project root directory (default: .)
-  --config  Config file path (default: strataudit.yaml)`)
+  --config  Config file path (default: strataudit.yaml)
+
+Demo options:
+  --out   Output directory for demo artifacts (default: .strataudit-demo)`)
 }
 
 func runInit(args []string) {
@@ -91,12 +97,6 @@ func runRun(args []string) {
 	}
 	cfg.Output.Dir = filepath.Join(absDir, cfg.Output.Dir)
 
-	apiKey := os.Getenv("OPENROUTER_API_KEY")
-	if apiKey == "" {
-		fmt.Fprintln(os.Stderr, "error: OPENROUTER_API_KEY not set")
-		os.Exit(1)
-	}
-
 	dbPath := filepath.Join(cfg.Output.Dir, "strataudit.db")
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "error creating output dir: %v\n", err)
@@ -111,13 +111,16 @@ func runRun(args []string) {
 	defer func() { _ = store.Close() }()
 
 	ctx := context.Background()
-	llm := strataudit.NewLLMClient(apiKey, "https://openrouter.ai/api/v1")
-	llm.SetRateLimit(cfg.LLM.RequestsPerMin)
+	runtime, err := cfg.ResolveRuntime()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error resolving runtime: %v\n", err)
+		os.Exit(1)
+	}
 
 	fmt.Printf("StratAudit config loaded: %d levels, %d source dirs\n", len(cfg.Levels), len(cfg.Project.SourceDirs))
 	fmt.Printf("Store: %s\n", dbPath)
 
-	result, err := strataudit.RunPipeline(ctx, cfg, store, llm, strataudit.PipelineOpts{
+	result, err := strataudit.RunPipeline(ctx, cfg, store, runtime, strataudit.PipelineOpts{
 		Resume: *resume,
 	})
 	if err != nil {
@@ -132,4 +135,24 @@ func runRun(args []string) {
 	fmt.Printf("Analyze:  %d findings\n", result.Analyze.Findings)
 	fmt.Printf("Duration: %s\n", result.Duration.Round(time.Millisecond))
 	fmt.Printf("Output:   %s\n", cfg.Output.Dir)
+}
+
+func runDemo(args []string) {
+	fs := flag.NewFlagSet("demo", flag.ExitOnError)
+	outDir := fs.String("out", ".strataudit-demo", "output directory for demo artifacts")
+	_ = fs.Parse(args)
+
+	result, err := strataudit.RunRegressionDemo(context.Background(), *outDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "demo error: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("StratAudit demo complete\n")
+	fmt.Printf("Fixture: %s\n", result.FixtureDocsDir)
+	fmt.Printf("Verified traces: %d\n", result.Result.Link.TracesCreated)
+	fmt.Printf("Rejected entities: %d\n", result.Result.Extract.RejectedEntities)
+	fmt.Printf("HTML report: %s\n", result.ReportHTMLPath)
+	fmt.Printf("JSON report: %s\n", result.ReportJSONPath)
+	fmt.Printf("LLM diagnostics: %s\n", result.DiagnosticsPath)
 }

@@ -235,33 +235,80 @@ func inferRelationships(profile *architect.CodebaseProfile, model *architect.Ref
 }
 
 // buildPackageToContainerMap maps package/cluster IDs to container IDs.
+// It uses a three-pass strategy:
+//  1. Exact match: cluster ID == container ID (e.g. module slugs from JavaAdapter)
+//  2. Module slug match: build slug-to-container mapping from ModuleBoundaries
+//  3. Fuzzy fallback: matchScore heuristic for remaining unmatched clusters
 func buildPackageToContainerMap(profile *architect.CodebaseProfile, model *architect.ReferenceModel) map[string]string {
 	result := make(map[string]string)
 
-	for _, cluster := range profile.ImportGraph.Clusters {
-		bestContainer := ""
-		bestScore := 0
-		for _, c := range model.Containers {
-			score := matchScore(strings.ToLower(cluster.ID), strings.ToLower(c.Name))
-			if score > bestScore {
-				bestScore = score
-				bestContainer = c.ID
+	// Build container ID lookup for exact matching.
+	containerByID := make(map[string]string, len(model.Containers))
+	for _, c := range model.Containers {
+		containerByID[c.ID] = c.ID
+	}
+
+	// Build module slug → container ID mapping from module boundaries.
+	// JavaAdapter produces cluster IDs like "spark-core" (moduleSlug of "core"),
+	// and pipeline.go creates containers with matching IDs.
+	slugToContainer := make(map[string]string)
+	for _, mb := range profile.Infra.ModuleBoundaries {
+		for _, child := range mb.Children {
+			parts := strings.Split(filepath.ToSlash(child), "/")
+			slug := strings.Join(parts, "-")
+			// Check if a container with this slug as ID exists.
+			if cID, ok := containerByID[slug]; ok {
+				slugToContainer[slug] = cID
 			}
-			// Also check source path.
-			if c.Source != "" {
-				score = matchScore(strings.ToLower(cluster.ID), strings.ToLower(c.Source))
-				if score > bestScore {
-					bestScore = score
-					bestContainer = c.ID
+			// Also try with common prefixes (e.g. "spark-" for Spark modules).
+			for _, c := range model.Containers {
+				if strings.HasSuffix(c.ID, slug) && len(c.ID) > len(slug) {
+					slugToContainer[c.ID] = c.ID
 				}
 			}
 		}
-		if bestContainer != "" {
-			result[cluster.ID] = bestContainer
+	}
+
+	for _, cluster := range profile.ImportGraph.Clusters {
+		containerID := ""
+
+		// Pass 1: exact match by container ID.
+		if cID, ok := containerByID[cluster.ID]; ok {
+			containerID = cID
+		}
+
+		// Pass 2: module slug match.
+		if containerID == "" {
+			if cID, ok := slugToContainer[cluster.ID]; ok {
+				containerID = cID
+			}
+		}
+
+		// Pass 3: fuzzy matchScore fallback.
+		if containerID == "" {
+			bestScore := 0
+			for _, c := range model.Containers {
+				score := matchScore(strings.ToLower(cluster.ID), strings.ToLower(c.Name))
+				if score > bestScore {
+					bestScore = score
+					containerID = c.ID
+				}
+				if c.Source != "" {
+					score = matchScore(strings.ToLower(cluster.ID), strings.ToLower(c.Source))
+					if score > bestScore {
+						bestScore = score
+						containerID = c.ID
+					}
+				}
+			}
+		}
+
+		if containerID != "" {
+			result[cluster.ID] = containerID
 		}
 		for _, pkg := range cluster.Packages {
 			if result[pkg] == "" {
-				result[pkg] = bestContainer
+				result[pkg] = containerID
 			}
 		}
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"sdp_dev/internal/strataudit/model"
 )
@@ -71,6 +72,151 @@ func TestSQLiteStore_SaveEntitiesAndGetByLevel(t *testing.T) {
 	}
 }
 
+func TestSQLiteStore_SaveEntities_PersistsTrustFields(t *testing.T) {
+	store := setupTestStore(t)
+	ctx := context.Background()
+
+	_ = store.SaveLevels(ctx, []model.Level{
+		{ID: "vision", Name: "Vision", Rank: 0},
+	})
+	_ = store.SaveDocuments(ctx, []model.Document{
+		{ID: "d1", Path: "vis.md", LevelID: "vision", ContentHash: "abc", Content: "text"},
+	})
+	if err := store.SaveSections(ctx, []model.Section{
+		{
+			ID:           "s1",
+			DocumentID:   "d1",
+			Ordinal:      0,
+			CharStart:    0,
+			CharEnd:      4,
+			Preview:      "text",
+			Content:      "text",
+			ContentHash:  "hash",
+			QualityFlags: []string{"section_parse_fallback"},
+		},
+	}); err != nil {
+		t.Fatalf("SaveSections: %v", err)
+	}
+
+	entities := []model.Entity{
+		{
+			ID:                  "e1",
+			DocumentID:          "d1",
+			SectionID:           "s1",
+			LevelID:             "vision",
+			Type:                model.EntityGoal,
+			Title:               "Глобальная экспансия",
+			Description:         "Описание для отчёта",
+			TitleOriginal:       "Глобальная экспансия",
+			DescriptionOriginal: "Описание для отчёта",
+			SourceQuote:         "text",
+			QuoteStartOffset:    intPtr(0),
+			QuoteEndOffset:      intPtr(4),
+			Lang:                "ru",
+			TrustGrade:          model.TrustGradeVerified,
+			QualityFlags:        []string{"quote_verified"},
+		},
+	}
+	if err := store.SaveEntities(ctx, entities); err != nil {
+		t.Fatalf("SaveEntities: %v", err)
+	}
+
+	got, err := store.EntitiesByLevel(ctx, "vision", model.Page{Limit: 100})
+	if err != nil {
+		t.Fatalf("EntitiesByLevel: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1", len(got))
+	}
+	if got[0].TrustGrade != model.TrustGradeVerified {
+		t.Fatalf("TrustGrade = %q, want %q", got[0].TrustGrade, model.TrustGradeVerified)
+	}
+	if got[0].TitleOriginal != "Глобальная экспансия" {
+		t.Fatalf("TitleOriginal = %q", got[0].TitleOriginal)
+	}
+	if got[0].DescriptionOriginal != "Описание для отчёта" {
+		t.Fatalf("DescriptionOriginal = %q", got[0].DescriptionOriginal)
+	}
+	if got[0].Lang != "ru" {
+		t.Fatalf("Lang = %q, want ru", got[0].Lang)
+	}
+	if got[0].SectionID != "s1" {
+		t.Fatalf("SectionID = %q, want s1", got[0].SectionID)
+	}
+	if got[0].QuoteStartOffset == nil || *got[0].QuoteStartOffset != 0 {
+		t.Fatalf("QuoteStartOffset = %+v, want 0", got[0].QuoteStartOffset)
+	}
+	if got[0].QuoteEndOffset == nil || *got[0].QuoteEndOffset != 4 {
+		t.Fatalf("QuoteEndOffset = %+v, want 4", got[0].QuoteEndOffset)
+	}
+	if len(got[0].QualityFlags) != 1 || got[0].QualityFlags[0] != "quote_verified" {
+		t.Fatalf("QualityFlags = %+v, want [quote_verified]", got[0].QualityFlags)
+	}
+}
+
+func TestSQLiteStore_SaveSectionsAndRoundTrip(t *testing.T) {
+	store := setupTestStore(t)
+	ctx := context.Background()
+
+	_ = store.SaveLevels(ctx, []model.Level{
+		{ID: "vision", Name: "Vision", Rank: 0},
+	})
+	_ = store.SaveDocuments(ctx, []model.Document{
+		{ID: "d1", Path: "/tmp/vision.md", LevelID: "vision", ContentHash: "abc", Content: "Vision content"},
+	})
+
+	sections := []model.Section{
+		{
+			ID:           "s1",
+			DocumentID:   "d1",
+			Ordinal:      0,
+			Heading:      "Введение",
+			CharStart:    0,
+			CharEnd:      14,
+			Preview:      "Vision content",
+			Content:      "Vision content",
+			ContentHash:  "hash1",
+			QualityFlags: []string{"section_parse_fallback"},
+		},
+	}
+	if err := store.SaveSections(ctx, sections); err != nil {
+		t.Fatalf("SaveSections: %v", err)
+	}
+
+	got, err := store.SectionsByDocument(ctx, "d1")
+	if err != nil {
+		t.Fatalf("SectionsByDocument: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1", len(got))
+	}
+	if got[0].Heading != "Введение" {
+		t.Fatalf("Heading = %q, want Введение", got[0].Heading)
+	}
+	if got[0].Preview != "Vision content" {
+		t.Fatalf("Preview = %q", got[0].Preview)
+	}
+	if len(got[0].QualityFlags) != 1 || got[0].QualityFlags[0] != "section_parse_fallback" {
+		t.Fatalf("QualityFlags = %+v", got[0].QualityFlags)
+	}
+
+	allDocs, err := store.AllDocuments(ctx)
+	if err != nil {
+		t.Fatalf("AllDocuments: %v", err)
+	}
+	if len(allDocs) != 1 || allDocs[0].Path != "/tmp/vision.md" {
+		t.Fatalf("AllDocuments = %+v", allDocs)
+	}
+
+	allSections, err := store.AllSections(ctx)
+	if err != nil {
+		t.Fatalf("AllSections: %v", err)
+	}
+	if len(allSections) != 1 || allSections[0].ID != "s1" {
+		t.Fatalf("AllSections = %+v", allSections)
+	}
+}
+
 func TestSQLiteStore_SaveTracesAndGetForEntity(t *testing.T) {
 	store := setupTestStore(t)
 	ctx := context.Background()
@@ -80,13 +226,34 @@ func TestSQLiteStore_SaveTracesAndGetForEntity(t *testing.T) {
 		{ID: "d1", Path: "a.md", LevelID: "l0", ContentHash: "a", Content: "a"},
 		{ID: "d2", Path: "b.md", LevelID: "l1", ContentHash: "b", Content: "b"},
 	})
+	_ = store.SaveSections(ctx, []model.Section{
+		{ID: "s1", DocumentID: "d1", Ordinal: 0, CharStart: 0, CharEnd: 1, Preview: "a", Content: "a", ContentHash: "ha"},
+		{ID: "s2", DocumentID: "d2", Ordinal: 0, CharStart: 0, CharEnd: 1, Preview: "b", Content: "b", ContentHash: "hb"},
+	})
 	_ = store.SaveEntities(ctx, []model.Entity{
 		{ID: "e1", DocumentID: "d1", LevelID: "l0", Type: model.EntityGoal, Title: "G1"},
 		{ID: "e2", DocumentID: "d2", LevelID: "l1", Type: model.EntityTask, Title: "T1"},
 	})
 
 	traces := []model.Trace{
-		{ID: "t1", SourceEntityID: "e2", TargetEntityID: "e1", Relation: model.RelationContributesTo, Confidence: 0.85, Direction: model.DirectionUp},
+		{
+			ID:                     "t1",
+			SourceEntityID:         "e2",
+			TargetEntityID:         "e1",
+			Relation:               model.RelationContributesTo,
+			Confidence:             0.85,
+			SimilarityScore:        0.91,
+			Justification:          "Нижняя задача поддерживает верхнюю цель.",
+			Direction:              model.DirectionUp,
+			VerificationMode:       model.TraceVerificationModeLLMEvidence,
+			TrustGrade:             model.TrustGradeVerified,
+			SourceSectionID:        "s2",
+			TargetSectionID:        "s1",
+			SourceQuoteStartOffset: intPtr(3),
+			SourceQuoteEndOffset:   intPtr(7),
+			TargetQuoteStartOffset: intPtr(0),
+			TargetQuoteEndOffset:   intPtr(2),
+		},
 	}
 	if err := store.SaveTraces(ctx, traces); err != nil {
 		t.Fatalf("SaveTraces: %v", err)
@@ -101,6 +268,58 @@ func TestSQLiteStore_SaveTracesAndGetForEntity(t *testing.T) {
 	}
 	if got[0].Relation != model.RelationContributesTo {
 		t.Errorf("Relation = %q, want %q", got[0].Relation, model.RelationContributesTo)
+	}
+	if got[0].SimilarityScore != 0.91 {
+		t.Fatalf("SimilarityScore = %f, want 0.91", got[0].SimilarityScore)
+	}
+	if got[0].VerificationMode != model.TraceVerificationModeLLMEvidence {
+		t.Fatalf("VerificationMode = %q", got[0].VerificationMode)
+	}
+	if got[0].SourceSectionID != "s2" || got[0].TargetSectionID != "s1" {
+		t.Fatalf("unexpected section refs: %+v", got[0])
+	}
+}
+
+func TestSQLiteStore_SaveCandidatesAndLoadAll(t *testing.T) {
+	store := setupTestStore(t)
+	ctx := context.Background()
+
+	_ = store.SaveLevels(ctx, []model.Level{{ID: "l0", Name: "L0", Rank: 0}, {ID: "l1", Name: "L1", Rank: 1}})
+	_ = store.SaveDocuments(ctx, []model.Document{
+		{ID: "d1", Path: "a.md", LevelID: "l0", ContentHash: "a", Content: "a"},
+		{ID: "d2", Path: "b.md", LevelID: "l1", ContentHash: "b", Content: "b"},
+	})
+	_ = store.SaveEntities(ctx, []model.Entity{
+		{ID: "e1", DocumentID: "d1", LevelID: "l0", Type: model.EntityGoal, Title: "G1"},
+		{ID: "e2", DocumentID: "d2", LevelID: "l1", Type: model.EntityTask, Title: "T1"},
+	})
+
+	if err := store.SaveCandidates(ctx, []model.Candidate{
+		{
+			ID:             "cand_1",
+			SourceEntityID: "e2",
+			TargetEntityID: "e1",
+			Similarity:     0.82,
+			Verified:       true,
+			TraceID:        "tr_1",
+			DiagnosticCode: "embedding_similarity_candidate",
+		},
+	}); err != nil {
+		t.Fatalf("SaveCandidates: %v", err)
+	}
+
+	got, err := store.AllCandidates(ctx)
+	if err != nil {
+		t.Fatalf("AllCandidates: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1", len(got))
+	}
+	if !got[0].Verified || got[0].TraceID != "tr_1" {
+		t.Fatalf("unexpected candidate linkage: %+v", got[0])
+	}
+	if got[0].DiagnosticCode != "embedding_similarity_candidate" {
+		t.Fatalf("DiagnosticCode = %q", got[0].DiagnosticCode)
 	}
 }
 
@@ -181,5 +400,55 @@ func TestSQLiteStore_PipelineState(t *testing.T) {
 	}
 	if got.Checkpoint != state.Checkpoint {
 		t.Errorf("Checkpoint = %q, want %q", got.Checkpoint, state.Checkpoint)
+	}
+}
+
+func TestSQLiteStore_SaveAndLoadLLMInvocations(t *testing.T) {
+	store := setupTestStore(t)
+	ctx := context.Background()
+
+	invocation := model.LLMInvocation{
+		ID:                "llm_1",
+		Stage:             "extract",
+		Model:             "deepseek/deepseek-v3.2",
+		PromptHash:        "hash-1",
+		Metadata:          map[string]string{"document_id": "doc1", "section_id": "sec1"},
+		TokensIn:          10,
+		TokensOut:         4,
+		DurationMs:        120,
+		ContentSource:     "reasoning",
+		ResponseContent:   `{"entities":[]}`,
+		ResponseReasoning: "Let me think.\n\n<answer>{\"entities\":[]}</answer>",
+		CreatedAt:         time.Now().UTC(),
+	}
+	if err := store.SaveLLMInvocation(ctx, invocation); err != nil {
+		t.Fatalf("SaveLLMInvocation: %v", err)
+	}
+	if err := store.SaveLLMCacheEntry(ctx, model.LLMCacheEntry{
+		PromptHash: invocation.PromptHash,
+		Model:      invocation.Model,
+		Response:   invocation.ResponseContent,
+		TokensIn:   invocation.TokensIn,
+		TokensOut:  invocation.TokensOut,
+		CreatedAt:  invocation.CreatedAt,
+	}); err != nil {
+		t.Fatalf("SaveLLMCacheEntry: %v", err)
+	}
+
+	got, err := store.AllLLMInvocations(ctx)
+	if err != nil {
+		t.Fatalf("AllLLMInvocations: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1", len(got))
+	}
+	if got[0].ContentSource != "reasoning" {
+		t.Fatalf("ContentSource = %q, want reasoning", got[0].ContentSource)
+	}
+	if got[0].Metadata["document_id"] != "doc1" {
+		t.Fatalf("document_id metadata = %q", got[0].Metadata["document_id"])
+	}
+	if got[0].ResponseReasoning == "" {
+		t.Fatal("ResponseReasoning should round-trip")
 	}
 }

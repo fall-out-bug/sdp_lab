@@ -42,3 +42,7 @@ func extractDOCXBasic(data []byte) (string, error) {
 	// For v1, we use a simple approach without external DOCX library
 	return extractDOCXFromZIP(data)
 }
+
+func extractPPTXBasic(data []byte) (string, error) {
+	return extractPPTXFromZIP(data)
+}

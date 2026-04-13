@@ -107,7 +107,7 @@ func AcquireExecutionClaim(ctx context.Context, projectRoot, featureID, wsID str
 		return lease, nil
 	}
 
-	if releaseErr := adapter.ReleaseClaim(ctx, active.ID); releaseErr != nil {
+	if releaseErr := adapter.ReleaseClaim(ctx, active.ID, active.Status); releaseErr != nil {
 		releaseFailure := &DispatchError{
 			Code:      "dispatch_claim_release_failed",
 			FeatureID: featureID,
@@ -229,7 +229,7 @@ func ReleaseExecutionClaim(ctx context.Context, adapter RuntimeAdapter, lease Di
 	if lease.ClaimedIssueID == "" {
 		return nil
 	}
-	if err := adapter.ReleaseClaim(ctx, lease.ClaimedIssueID); err != nil {
+	if err := adapter.ReleaseClaim(ctx, lease.ClaimedIssueID, ""); err != nil {
 		releaseErr := &DispatchError{
 			Code:      "dispatch_claim_release_failed",
 			FeatureID: lease.Target.Feature.FeatureID,

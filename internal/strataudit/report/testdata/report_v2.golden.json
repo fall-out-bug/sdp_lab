@@ -1,0 +1,505 @@
+{
+  "schema_version": "2",
+  "audit_scope": {
+    "project_name": "sample-project",
+    "project_description": "sample audit",
+    "output_dir": ".strataudit",
+    "output_lang": "ru",
+    "generated_at": "2026-04-13T00:00:00Z",
+    "source_dirs": [
+      "docs/strategy"
+    ],
+    "exclude": [
+      ".DS_Store"
+    ],
+    "models": {
+      "default_model": "deepseek/deepseek-v3.2",
+      "extract_model": "deepseek/deepseek-v3.2",
+      "embedding_model": "openai/text-embedding-3-small"
+    },
+    "thresholds": {
+      "similarity": 0.5,
+      "trace_confidence": 0.6,
+      "auto_verify_similarity": 0.85,
+      "coverage_warn": 70,
+      "llm_verify_budget": 50
+    }
+  },
+  "trust_summary": {
+    "overall_status": "warning",
+    "entities": {
+      "total_admitted": 3,
+      "verified": 2,
+      "suspect": 1,
+      "rejected": 4,
+      "unknown": 0
+    },
+    "traces": {
+      "verified": 1,
+      "candidates": 2,
+      "verification_modes": {
+        "llm_evidence": 1
+      }
+    },
+    "findings": {
+      "total": 2,
+      "critical": 1,
+      "warn": 1,
+      "info": 0
+    },
+    "disclaimers": [
+      "Есть suspect-сущн.; часть выводов требует ручной проверки."
+    ]
+  },
+  "corpus_quality": {
+    "total_issues": 2,
+    "critical_documents": 1,
+    "flag_counts": {
+      "language_mismatch": 1,
+      "prompt_leak": 1
+    },
+    "documents": [
+      {
+        "document_id": "d1",
+        "document_path": "/tmp/vision.md",
+        "level_id": "vision",
+        "level_name": "Vision",
+        "severity": "critical",
+        "issue_count": 2,
+        "flags": [
+          "language_mismatch",
+          "prompt_leak"
+        ],
+        "finding_ids": [
+          "f1"
+        ],
+        "section_ids": [
+          "s1"
+        ],
+        "entity_ids": [
+          "e1"
+        ]
+      }
+    ]
+  },
+  "levels": [
+    {
+      "id": "vision",
+      "name": "Vision",
+      "rank": 0,
+      "description": "Vision layer",
+      "patterns": [
+        "*vision*"
+      ],
+      "entity_count": 1,
+      "document_count": 1
+    }
+  ],
+  "documents": [
+    {
+      "id": "d1",
+      "path": "/tmp/vision.md",
+      "name": "vision.md",
+      "level_id": "vision",
+      "level_name": "Vision",
+      "content_hash": "hash-doc",
+      "version": 1,
+      "entity_count": 1,
+      "section_count": 1
+    }
+  ],
+  "sections": [
+    {
+      "id": "s1",
+      "document_id": "d1",
+      "document_path": "/tmp/vision.md",
+      "level_id": "vision",
+      "level_name": "Vision",
+      "ordinal": 0,
+      "heading": "Введение",
+      "label": "vision.md#Введение",
+      "char_start": 0,
+      "char_end": 17,
+      "preview": "Стратегия лидера",
+      "entity_count": 1,
+      "quality_flags": [
+        "prompt_leak"
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "id": "e1",
+      "type": "goal",
+      "title": "Стратегия лидера",
+      "title_original": "Стратегия лидера",
+      "lang": "ru",
+      "level_id": "vision",
+      "level_name": "Vision",
+      "document_id": "d1",
+      "document_path": "/tmp/vision.md",
+      "section_id": "s1",
+      "section_heading": "Введение",
+      "source_quote": "Стратегия лидера",
+      "trust_grade": "verified",
+      "quality_flags": [
+        "quote_verified"
+      ]
+    }
+  ],
+  "trace_candidates": [
+    {
+      "id": "cand1",
+      "source_entity_id": "e1",
+      "target_entity_id": "e1",
+      "similarity": 0.81,
+      "diagnostic_code": "embedding_similarity_candidate"
+    }
+  ],
+  "verified_traces": [
+    {
+      "id": "tr1",
+      "source_entity_id": "e1",
+      "target_entity_id": "e1",
+      "relation": "contributes_to",
+      "confidence": 0.92,
+      "similarity_score": 0.81,
+      "justification": "Evidence-backed relation.",
+      "verification_mode": "llm_evidence",
+      "trust_grade": "verified",
+      "trace_evidence": {
+        "source": {
+          "document_id": "d1",
+          "document_path": "/tmp/vision.md",
+          "section_id": "s1",
+          "section_heading": "Введение",
+          "quote": "Стратегия лидера",
+          "trust_grade": "verified"
+        },
+        "target": {
+          "document_id": "d1",
+          "document_path": "/tmp/vision.md",
+          "section_id": "s1",
+          "section_heading": "Введение",
+          "quote": "Стратегия лидера",
+          "trust_grade": "verified"
+        }
+      }
+    }
+  ],
+  "trace_graph": {
+    "nodes": [
+      {
+        "id": "e1",
+        "entity_id": "e1",
+        "type": "goal",
+        "title": "Стратегия лидера",
+        "level_id": "vision",
+        "level_name": "Vision",
+        "document_id": "d1",
+        "document_path": "/tmp/vision.md",
+        "section_id": "s1",
+        "section_heading": "Введение",
+        "source_quote": "Стратегия лидера",
+        "trust_grade": "verified",
+        "lang": "ru"
+      }
+    ],
+    "edges": [
+      {
+        "id": "cand1",
+        "source_node_id": "e1",
+        "target_node_id": "e1",
+        "source_entity_id": "e1",
+        "target_entity_id": "e1",
+        "status": "candidate",
+        "verification_mode": "candidate_search",
+        "confidence": 0,
+        "similarity": 0.81,
+        "reason": "embedding_similarity_candidate",
+        "source_evidence_ref": {
+          "document_id": "d1",
+          "document_path": "/tmp/vision.md",
+          "section_id": "s1",
+          "section_heading": "Введение",
+          "quote": "Стратегия лидера",
+          "trust_grade": "verified"
+        },
+        "target_evidence_ref": {
+          "document_id": "d1",
+          "document_path": "/tmp/vision.md",
+          "section_id": "s1",
+          "section_heading": "Введение",
+          "quote": "Стратегия лидера",
+          "trust_grade": "verified"
+        }
+      },
+      {
+        "id": "tr1",
+        "source_node_id": "e1",
+        "target_node_id": "e1",
+        "source_entity_id": "e1",
+        "target_entity_id": "e1",
+        "relation": "contributes_to",
+        "direction": "up",
+        "status": "verified",
+        "verification_mode": "llm_evidence",
+        "confidence": 0.92,
+        "similarity": 0.81,
+        "reason": "Evidence-backed relation.",
+        "trust_grade": "verified",
+        "source_evidence_ref": {
+          "document_id": "d1",
+          "document_path": "/tmp/vision.md",
+          "section_id": "s1",
+          "section_heading": "Введение",
+          "quote": "Стратегия лидера",
+          "trust_grade": "verified"
+        },
+        "target_evidence_ref": {
+          "document_id": "d1",
+          "document_path": "/tmp/vision.md",
+          "section_id": "s1",
+          "section_heading": "Введение",
+          "quote": "Стратегия лидера",
+          "trust_grade": "verified"
+        }
+      }
+    ],
+    "paths": [
+      {
+        "id": "cand1",
+        "entry_node_id": "e1",
+        "terminal_node_id": "e1",
+        "node_ids": [
+          "e1",
+          "e1"
+        ],
+        "edge_ids": [
+          "cand1"
+        ],
+        "status": "candidate",
+        "hop_count": 1
+      },
+      {
+        "id": "tr1",
+        "entry_node_id": "e1",
+        "terminal_node_id": "e1",
+        "node_ids": [
+          "e1",
+          "e1"
+        ],
+        "edge_ids": [
+          "tr1"
+        ],
+        "status": "verified",
+        "hop_count": 1
+      }
+    ]
+  },
+  "trace_gaps": [
+    {
+      "id": "gap1",
+      "node_id": "e1",
+      "entity_id": "e1",
+      "title": "Стратегия лидера",
+      "level_id": "vision",
+      "level_name": "Vision",
+      "document_id": "d1",
+      "document_path": "/tmp/vision.md",
+      "section_id": "s1",
+      "section_heading": "Введение",
+      "source_quote": "Стратегия лидера",
+      "expected_to_level_id": "strategy",
+      "expected_to_level_name": "Strategy",
+      "stage": "verification",
+      "gap_type": "all_candidates_rejected",
+      "reason": "llm_verification_rejected",
+      "candidate_count": 1,
+      "top_candidate_ids": [
+        "cand1"
+      ]
+    }
+  ],
+  "document_views": [
+    {
+      "document_id": "d1",
+      "document_path": "/tmp/vision.md",
+      "document_name": "vision.md",
+      "level_id": "vision",
+      "level_name": "Vision",
+      "claim_count": 1,
+      "verified_link_count": 0,
+      "candidate_link_count": 0,
+      "rejected_link_count": 0,
+      "broken_link_count": 1,
+      "blocker_count": 1,
+      "upstream_documents": [],
+      "downstream_documents": [],
+      "blockers": [
+        {
+          "stage": "verification",
+          "gap_type": "all_candidates_rejected",
+          "count": 1,
+          "claim_ids": [
+            "e1"
+          ]
+        }
+      ],
+      "critical_quality_flags": [
+        "language_mismatch",
+        "prompt_leak"
+      ],
+      "key_claim_ids": [
+        "e1"
+      ]
+    }
+  ],
+  "report_modes": {
+    "default": "analyst",
+    "default_tab": "summary",
+    "compare_available": false,
+    "tabs": [
+      {
+        "id": "summary",
+        "label": "Сводка"
+      },
+      {
+        "id": "documents",
+        "label": "Документы"
+      },
+      {
+        "id": "trace",
+        "label": "Трассировка"
+      },
+      {
+        "id": "gaps",
+        "label": "Разрывы"
+      },
+      {
+        "id": "diagnostics",
+        "label": "Диагностика"
+      }
+    ]
+  },
+  "findings_grouped": [
+    {
+      "id": "f1",
+      "type": "corpus_quality_cluster",
+      "severity": "critical",
+      "cluster_key": "corpus_quality:vision:d1",
+      "title": "Качество корпуса",
+      "description": "Документ содержит проблемы качества.",
+      "recommendation": "Очистить источник.",
+      "entity_ids": [
+        "e1"
+      ],
+      "document_ids": [
+        "d1"
+      ],
+      "document_paths": [
+        "/tmp/vision.md"
+      ],
+      "section_ids": [
+        "s1"
+      ],
+      "section_labels": [
+        "vision.md#Введение"
+      ],
+      "affected_count": 1,
+      "confidence": 1
+    }
+  ],
+  "coverage": {
+    "average_level_pct": 75,
+    "by_level": [
+      {
+        "scope_type": "level",
+        "scope_id": "vision",
+        "scope_label": "Vision",
+        "level_id": "vision",
+        "level_name": "Vision",
+        "total": 4,
+        "traced": 3,
+        "pct": 75
+      }
+    ],
+    "by_document": [
+      {
+        "scope_type": "document",
+        "scope_id": "d1",
+        "scope_label": "vision.md",
+        "level_id": "vision",
+        "level_name": "Vision",
+        "document_id": "d1",
+        "document_path": "/tmp/vision.md",
+        "total": 2,
+        "traced": 1,
+        "pct": 50
+      }
+    ],
+    "by_section": [
+      {
+        "scope_type": "section",
+        "scope_id": "s1",
+        "scope_label": "vision.md#Введение",
+        "level_id": "vision",
+        "level_name": "Vision",
+        "document_id": "d1",
+        "document_path": "/tmp/vision.md",
+        "section_id": "s1",
+        "section_heading": "Введение",
+        "total": 1,
+        "traced": 1,
+        "pct": 100
+      }
+    ],
+    "lowest_documents": [
+      {
+        "scope_type": "document",
+        "scope_id": "d1",
+        "scope_label": "vision.md",
+        "level_id": "vision",
+        "level_name": "Vision",
+        "document_id": "d1",
+        "document_path": "/tmp/vision.md",
+        "total": 2,
+        "traced": 1,
+        "pct": 50
+      }
+    ],
+    "lowest_sections": [
+      {
+        "scope_type": "section",
+        "scope_id": "s1",
+        "scope_label": "vision.md#Введение",
+        "level_id": "vision",
+        "level_name": "Vision",
+        "document_id": "d1",
+        "document_path": "/tmp/vision.md",
+        "section_id": "s1",
+        "section_heading": "Введение",
+        "total": 1,
+        "traced": 1,
+        "pct": 100
+      }
+    ]
+  },
+  "evidence_pack": {
+    "artifacts": [
+      {
+        "kind": "json_v2",
+        "path": "/tmp/report.v2.json"
+      },
+      {
+        "kind": "html",
+        "path": "/tmp/report.html"
+      }
+    ],
+    "document_count": 1,
+    "trace_candidate_count": 1,
+    "rejected_entity_count": 4,
+    "entities_with_source_quotes": 1,
+    "verified_traces_with_evidence": 1
+  }
+}

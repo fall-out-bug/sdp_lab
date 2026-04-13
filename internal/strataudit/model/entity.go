@@ -2,6 +2,14 @@ package model
 
 type EntityType string
 
+type TrustGrade string
+
+const (
+	TrustGradeVerified TrustGrade = "verified"
+	TrustGradeSuspect  TrustGrade = "suspect"
+	TrustGradeRejected TrustGrade = "rejected"
+)
+
 const (
 	EntityGoal        EntityType = "goal"
 	EntityObjective   EntityType = "objective"
@@ -30,18 +38,27 @@ func IsValidEntityType(t EntityType) bool {
 }
 
 type Entity struct {
-	ID              string
-	DocumentID      string
-	LevelID         string
-	Type            EntityType
-	Title           string
-	Description     string
-	SourceQuote     string
-	PageNumber      int
-	Embedding       []float32
-	EmbeddingModel  string
-	EmbeddingDims   int
-	ExtractionModel string
-	Metadata        map[string]string
-	CreatedAt       string
+	ID                  string
+	DocumentID          string
+	SectionID           string
+	LevelID             string
+	Type                EntityType
+	Title               string
+	Description         string
+	TitleOriginal       string
+	DescriptionOriginal string
+	SourceQuote         string
+	QuoteStartOffset    *int
+	QuoteEndOffset      *int
+	Lang                string
+	LanguageMismatch    bool
+	TrustGrade          TrustGrade
+	QualityFlags        []string
+	PageNumber          int
+	Embedding           []float32
+	EmbeddingModel      string
+	EmbeddingDims       int
+	ExtractionModel     string
+	Metadata            map[string]string
+	CreatedAt           string
 }

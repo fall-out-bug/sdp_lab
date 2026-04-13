@@ -11,25 +11,38 @@ type Level struct {
 }
 
 type Document struct {
-	ID              string
-	Path            string
-	LevelID         string
-	ContentHash     string
-	Content         string
-	Version         int
-	FileModifiedAt  time.Time
-	Metadata        map[string]string
-	IngestedAt      time.Time
+	ID             string
+	Path           string
+	LevelID        string
+	ContentHash    string
+	Content        string
+	Version        int
+	FileModifiedAt time.Time
+	Metadata       map[string]string
+	IngestedAt     time.Time
 }
 
 type Coverage struct {
 	ID             string
+	ScopeType      CoverageScope
+	ScopeID        string
+	ScopeLabel     string
 	LevelID        string
+	DocumentID     string
+	SectionID      string
 	TotalEntities  int
 	TracedEntities int
 	CoveragePct    float64
 	ComputedAt     time.Time
 }
+
+type CoverageScope string
+
+const (
+	CoverageScopeLevel    CoverageScope = "level"
+	CoverageScopeDocument CoverageScope = "document"
+	CoverageScopeSection  CoverageScope = "section"
+)
 
 type PipelineState struct {
 	ID          string
@@ -42,12 +55,13 @@ type PipelineState struct {
 }
 
 type Candidate struct {
-	ID              string
-	SourceEntityID  string
-	TargetEntityID  string
-	Similarity      float64
-	Verified        bool
-	TraceID         string
+	ID             string
+	SourceEntityID string
+	TargetEntityID string
+	Similarity     float64
+	Verified       bool
+	TraceID        string
+	DiagnosticCode string
 }
 
 type EntityScore struct {

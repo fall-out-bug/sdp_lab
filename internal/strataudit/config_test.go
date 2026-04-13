@@ -25,6 +25,12 @@ func TestLoadConfig_ValidYAML(t *testing.T) {
 	if cfg.Thresholds.Similarity != 0.5 {
 		t.Errorf("Thresholds.Similarity = %f, want 0.5", cfg.Thresholds.Similarity)
 	}
+	if cfg.Runtime.Provider != "openrouter" {
+		t.Errorf("Runtime.Provider = %q, want openrouter", cfg.Runtime.Provider)
+	}
+	if cfg.Runtime.APIKeyEnv != "OPENROUTER_API_KEY" {
+		t.Errorf("Runtime.APIKeyEnv = %q, want OPENROUTER_API_KEY", cfg.Runtime.APIKeyEnv)
+	}
 }
 
 func TestLoadConfig_MissingFile(t *testing.T) {
@@ -84,5 +90,65 @@ func TestConfig_TemperatureForStage(t *testing.T) {
 	}
 	if v := cfg.TemperatureForStage("unknown"); v != 0.1 {
 		t.Errorf("TemperatureForStage(unknown) = %f, want 0.1 (default)", v)
+	}
+}
+
+func TestConfig_SetDefaultsRuntime(t *testing.T) {
+	cfg := &Config{}
+	cfg.setDefaults()
+
+	if cfg.Runtime.Provider != "openrouter" {
+		t.Fatalf("Runtime.Provider = %q, want openrouter", cfg.Runtime.Provider)
+	}
+	if cfg.Runtime.BaseURL != "https://openrouter.ai/api/v1" {
+		t.Fatalf("Runtime.BaseURL = %q", cfg.Runtime.BaseURL)
+	}
+	if cfg.Runtime.APIKeyEnv != "OPENROUTER_API_KEY" {
+		t.Fatalf("Runtime.APIKeyEnv = %q", cfg.Runtime.APIKeyEnv)
+	}
+	if cfg.LLM.ReasoningFallback == nil || !*cfg.LLM.ReasoningFallback {
+		t.Fatalf("ReasoningFallback = %+v, want true", cfg.LLM.ReasoningFallback)
+	}
+}
+
+func TestDefaultConfigYAML_IsFullyMaterialized(t *testing.T) {
+	cfg := DefaultConfigYAML()
+
+	if cfg.Output.Lang != "ru" {
+		t.Fatalf("Output.Lang = %q, want ru", cfg.Output.Lang)
+	}
+	if !cfg.Thresholds.EmitDistribution {
+		t.Fatal("EmitDistribution should be true in generated template")
+	}
+	if cfg.Thresholds.AutoVerifySimilarity != 0.85 {
+		t.Fatalf("AutoVerifySimilarity = %v, want 0.85", cfg.Thresholds.AutoVerifySimilarity)
+	}
+	if cfg.Thresholds.LLMVerifyBudget != 50 {
+		t.Fatalf("LLMVerifyBudget = %d, want 50", cfg.Thresholds.LLMVerifyBudget)
+	}
+	if cfg.Thresholds.MaxChunksPerDocument != 100 {
+		t.Fatalf("MaxChunksPerDocument = %d, want 100", cfg.Thresholds.MaxChunksPerDocument)
+	}
+	if cfg.LLM.ReasoningFallback == nil || !*cfg.LLM.ReasoningFallback {
+		t.Fatalf("ReasoningFallback = %+v, want true", cfg.LLM.ReasoningFallback)
+	}
+}
+
+func TestConfig_ReasoningFallbackCanBeDisabledExplicitly(t *testing.T) {
+	cfg := &Config{
+		LLM: LLMConfig{
+			ReasoningFallback: boolPtr(false),
+		},
+	}
+	cfg.setDefaults()
+
+	if cfg.LLM.ReasoningFallback == nil {
+		t.Fatal("ReasoningFallback should stay explicit")
+	}
+	if *cfg.LLM.ReasoningFallback {
+		t.Fatal("ReasoningFallback should remain false when explicitly disabled")
+	}
+	if cfg.ReasoningFallbackEnabled() {
+		t.Fatal("ReasoningFallbackEnabled() = true, want false")
 	}
 }

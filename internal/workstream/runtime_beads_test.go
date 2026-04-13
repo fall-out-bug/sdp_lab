@@ -146,8 +146,9 @@ func TestCompetingClaimedIssuesExcludesAllowedIssue(t *testing.T) {
 func TestClaimAndReleaseIssueCommands(t *testing.T) {
 	runner := &fakeRunner{
 		combinedOutputs: map[string][]byte{
-			"bd update sdplab-primary --claim --json":           []byte(`[]`),
-			"bd update sdplab-primary --status open -a  --json": []byte(`[]`),
+			"bd update sdplab-primary --claim --json":              []byte(`[]`),
+			"bd update sdplab-primary -a  --json":                  []byte(`[]`),
+			"bd update sdplab-primary --status blocked -a  --json": []byte(`[]`),
 		},
 	}
 	adapter := &ShellBeadsRuntimeAdapter{ProjectRoot: "/tmp/project", Runner: runner, BDPath: "bd"}
@@ -155,8 +156,11 @@ func TestClaimAndReleaseIssueCommands(t *testing.T) {
 	if err := adapter.ClaimIssue(context.Background(), "sdplab-primary"); err != nil {
 		t.Fatalf("ClaimIssue: %v", err)
 	}
-	if err := adapter.ReleaseClaim(context.Background(), "sdplab-primary"); err != nil {
+	if err := adapter.ReleaseClaim(context.Background(), "sdplab-primary", ""); err != nil {
 		t.Fatalf("ReleaseClaim: %v", err)
+	}
+	if err := adapter.ReleaseClaim(context.Background(), "sdplab-primary", "blocked"); err != nil {
+		t.Fatalf("ReleaseClaim restore status: %v", err)
 	}
 }
 

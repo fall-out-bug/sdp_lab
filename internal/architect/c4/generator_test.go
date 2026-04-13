@@ -534,6 +534,63 @@ func TestImageToTech(t *testing.T) {
 	}
 }
 
+func TestBuildPackageToContainerMap_ModuleSlugs(t *testing.T) {
+	// Clusters from JavaAdapter use module slugs (e.g. "spark-core", "spark-sql-core").
+	// Containers from Maven modules use display names (e.g. "core", "sql/core").
+	// buildPackageToContainerMap must map them directly, not rely on fuzzy matchScore.
+	profile := &architect.CodebaseProfile{
+		ImportGraph: architect.ImportGraph{
+			Clusters: []architect.ImportCluster{
+				{
+					ID:       "spark-core",
+					Packages: []string{"core/src/main/scala/org.apache.spark"},
+				},
+				{
+					ID:       "spark-sql-core",
+					Packages: []string{"sql/core/src/main/scala/org.apache.spark.sql"},
+				},
+				{
+					ID:       "spark-streaming",
+					Packages: []string{"streaming/src/main/scala/org.apache.spark.streaming"},
+				},
+			},
+		},
+		Infra: architect.InfraInfo{
+			ModuleBoundaries: []architect.ModuleBoundaryInfo{
+				{
+					Name:        ".",
+					BuildSystem: "maven",
+					Path:        "pom.xml",
+					Children:    []string{"core", "sql/core", "streaming"},
+				},
+			},
+		},
+	}
+
+	model := &architect.ReferenceModel{
+		Containers: []architect.C4Container{
+			{ID: "spark-core", Name: "core", Description: "maven module: core"},
+			{ID: "spark-sql-core", Name: "sql/core", Description: "maven module: sql/core"},
+			{ID: "spark-streaming", Name: "streaming", Description: "maven module: streaming"},
+		},
+	}
+
+	result := buildPackageToContainerMap(profile, model)
+
+	// "spark-core" cluster should map to "spark-core" container
+	if result["spark-core"] != "spark-core" {
+		t.Errorf("cluster spark-core mapped to %q, want %q", result["spark-core"], "spark-core")
+	}
+	// "spark-sql-core" cluster should map to "spark-sql-core" container
+	if result["spark-sql-core"] != "spark-sql-core" {
+		t.Errorf("cluster spark-sql-core mapped to %q, want %q", result["spark-sql-core"], "spark-sql-core")
+	}
+	// "spark-streaming" cluster should map to "spark-streaming" container
+	if result["spark-streaming"] != "spark-streaming" {
+		t.Errorf("cluster spark-streaming mapped to %q, want %q", result["spark-streaming"], "spark-streaming")
+	}
+}
+
 func TestMatchScore(t *testing.T) {
 	tests := []struct {
 		a, b     string

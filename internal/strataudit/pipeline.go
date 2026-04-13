@@ -34,7 +34,7 @@ func isStageCompleted(ctx context.Context, store *SQLiteStore, stage string) boo
 }
 
 // RunPipeline executes the full StratAudit pipeline: ingest → extract → link → analyze → report.
-func RunPipeline(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLMClient, opts PipelineOpts) (*PipelineResult, error) {
+func RunPipeline(ctx context.Context, cfg *Config, store *SQLiteStore, runtime ModelRuntime, opts PipelineOpts) (*PipelineResult, error) {
 	start := time.Now()
 	result := &PipelineResult{}
 
@@ -59,13 +59,19 @@ func RunPipeline(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLMC
 		result.Extract = &ExtractResult{}
 	} else {
 		slog.Info("pipeline: starting extract")
-		extractResult, err := ExtractEntities(ctx, cfg, store, llm)
+		extractResult, err := ExtractEntities(ctx, cfg, store, runtime)
 		if err != nil {
 			return nil, fmt.Errorf("extract stage: %w", err)
 		}
 		result.Extract = extractResult
-		saveCheckpoint(ctx, store, "extract", stageStatus(extractResult.Errors), extractResult.EntitiesExtracted, extractResult.Documents)
-		slog.Info("pipeline: extract done", "entities", extractResult.EntitiesExtracted, "docs", extractResult.Documents, "errors", len(extractResult.Errors))
+		saveExtractCheckpoint(ctx, store, extractResult)
+		slog.Info("pipeline: extract done",
+			"entities", extractResult.EntitiesExtracted,
+			"verified", extractResult.VerifiedEntities,
+			"suspect", extractResult.SuspectEntities,
+			"rejected", extractResult.RejectedEntities,
+			"docs", extractResult.Documents,
+			"errors", len(extractResult.Errors))
 	}
 
 	// Stage 3: Link
@@ -74,7 +80,7 @@ func RunPipeline(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLMC
 		result.Link = &LinkResult{}
 	} else {
 		slog.Info("pipeline: starting link")
-		linkResult, err := LinkEntities(ctx, cfg, store, llm)
+		linkResult, err := LinkEntities(ctx, cfg, store, runtime)
 		if err != nil {
 			return nil, fmt.Errorf("link stage: %w", err)
 		}
@@ -110,6 +116,9 @@ func RunPipeline(ctx context.Context, cfg *Config, store *SQLiteStore, llm *LLMC
 			}
 		}
 	}
+	if err := WriteLLMDiagnostics(ctx, cfg, store); err != nil {
+		return nil, fmt.Errorf("llm diagnostics: %w", err)
+	}
 	saveCheckpoint(ctx, store, "report", "completed", 1, 0)
 
 	result.Duration = time.Since(start)
@@ -130,6 +139,26 @@ func saveCheckpoint(ctx context.Context, store *SQLiteStore, stage, status strin
 		Stage:       stage,
 		Status:      status,
 		Checkpoint:  fmt.Sprintf(`{"count":%d,"count2":%d}`, count, count2),
+		StartedAt:   now,
+		CompletedAt: now,
+	})
+}
+
+func saveExtractCheckpoint(ctx context.Context, store *SQLiteStore, result *ExtractResult) {
+	now := time.Now()
+	checkpoint := fmt.Sprintf(
+		`{"verified":%d,"suspect":%d,"rejected":%d,"documents":%d,"saved":%d}`,
+		result.VerifiedEntities,
+		result.SuspectEntities,
+		result.RejectedEntities,
+		result.Documents,
+		result.EntitiesExtracted,
+	)
+	_ = store.SavePipelineState(ctx, model.PipelineState{
+		ID:          fmt.Sprintf("ps_extract_%d", now.UnixMilli()),
+		Stage:       "extract",
+		Status:      stageStatus(result.Errors),
+		Checkpoint:  checkpoint,
 		StartedAt:   now,
 		CompletedAt: now,
 	})

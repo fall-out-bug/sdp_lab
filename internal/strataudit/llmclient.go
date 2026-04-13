@@ -8,11 +8,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"sdp_dev/internal/llmclient"
 
@@ -20,21 +22,27 @@ import (
 )
 
 type LLMRequest struct {
-	Model       string
-	System      string
-	User        string
-	MaxTokens   int
-	Temperature float64
-	JSONMode    bool
+	Model             string
+	System            string
+	User              string
+	MaxTokens         int
+	Temperature       float64
+	JSONMode          bool
+	Stage             string
+	Metadata          map[string]string
+	ReasoningFallback bool
 }
 
 type LLMResponse struct {
-	Content    string
-	TokensIn   int
-	TokensOut  int
-	Cached     bool
-	Model      string
-	DurationMs int64
+	Content       string
+	Reasoning     string
+	ContentSource string
+	PromptHash    string
+	TokensIn      int
+	TokensOut     int
+	Cached        bool
+	Model         string
+	DurationMs    int64
 }
 
 type LLMClient struct {
@@ -46,6 +54,8 @@ type LLMClient struct {
 	maxRetries int
 	retryDelay time.Duration
 }
+
+var _ ModelRuntime = (*LLMClient)(nil)
 
 func NewLLMClient(apiKey, baseURL string) *LLMClient {
 	return &LLMClient{
@@ -71,7 +81,13 @@ func (c *LLMClient) SetRateLimit(requestsPerMinute int) {
 func (c *LLMClient) Chat(ctx context.Context, req LLMRequest) (*LLMResponse, error) {
 	cacheKey := c.cacheKey(req)
 	if cached := c.checkCache(cacheKey); cached != "" {
-		return &LLMResponse{Content: cached, Cached: true}, nil
+		return &LLMResponse{
+			Content:       cached,
+			ContentSource: "cache",
+			PromptHash:    cacheKey,
+			Cached:        true,
+			Model:         req.Model,
+		}, nil
 	}
 
 	if err := c.limiter.Wait(ctx); err != nil {
@@ -118,16 +134,40 @@ func (c *LLMClient) Chat(ctx context.Context, req LLMRequest) (*LLMResponse, err
 		return nil, fmt.Errorf("llm request after %d retries: %w", c.maxRetries, lastErr)
 	}
 
-	content := resp.Content
+	content := strings.TrimSpace(resp.Content)
+	reasoning := strings.TrimSpace(resp.Reasoning)
+	contentSource := "content"
+	if content == "" && req.ReasoningFallback && utf8.RuneCountInString(reasoning) >= 50 {
+		content = strings.TrimSpace(extractFinalAnswer(reasoning))
+		if content != "" {
+			contentSource = "reasoning"
+			slog.Warn("llm reasoning fallback used", "stage", req.Stage, "model", req.Model, "prompt_hash", cacheKey)
+		}
+	}
 	duration := time.Since(start).Milliseconds()
+	if content == "" {
+		return &LLMResponse{
+			Reasoning:     reasoning,
+			ContentSource: "empty",
+			PromptHash:    cacheKey,
+			TokensIn:      resp.InputTokens,
+			TokensOut:     resp.OutputTokens,
+			Model:         req.Model,
+			DurationMs:    duration,
+		}, fmt.Errorf("llm: empty content and reasoning in response")
+	}
 
 	c.storeCache(cacheKey, content)
 
 	return &LLMResponse{
-		Content:    content,
-		TokensIn:   resp.InputTokens,
-		TokensOut:  resp.OutputTokens,
-		DurationMs: duration,
+		Content:       content,
+		Reasoning:     reasoning,
+		ContentSource: contentSource,
+		PromptHash:    cacheKey,
+		TokensIn:      resp.InputTokens,
+		TokensOut:     resp.OutputTokens,
+		Model:         req.Model,
+		DurationMs:    duration,
 	}, nil
 }
 
@@ -218,7 +258,7 @@ var (
 
 func (c *LLMClient) cacheKey(req LLMRequest) string {
 	h := sha256.New()
-	_, _ = fmt.Fprintf(h, "%s|%s|%s|%f", req.Model, req.System, req.User, req.Temperature)
+	_, _ = fmt.Fprintf(h, "%s|%s|%s|%f|%t", req.Model, req.System, req.User, req.Temperature, req.ReasoningFallback)
 	return hex.EncodeToString(h.Sum(nil))
 }
 

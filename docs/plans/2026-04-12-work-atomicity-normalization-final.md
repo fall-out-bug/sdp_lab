@@ -523,6 +523,13 @@ spec.
 The Beads adapter must expose a release operation for a previously acquired
 claim.
 
+Release semantics:
+
+1. normal operator release clears claim ownership without forcing a new status
+2. if dispatch aborts before execution begins, the adapter must restore the
+   pre-claim issue status when releasing the claim
+3. release must not silently coerce a previously `blocked` issue into `open`
+
 ### Post-claim revalidation
 
 Immediately after claim, the dispatcher must re-read:

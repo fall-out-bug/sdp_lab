@@ -1058,12 +1058,23 @@ var reNpmWorkspace = regexp.MustCompile(`(?s)"workspaces"\s*:\s*\[([^\]]*)\]`)
 // reNpmWorkspacePkg matches individual package names in workspaces array
 var reNpmWorkspacePkg = regexp.MustCompile(`"([^"]+)"`)
 
+// reSBTProject matches lazy val definitions with file paths in build.sbt:
+//   lazy val core = (project in file("core"))
+//   lazy val sql  = project in file("sql/core")
+var reSBTProject = regexp.MustCompile(`(?m)lazy\s+val\s+(\w+)\s*=\s*(?:\(?\s*project\s+in\s+file\s*\(\s*"([^"]+)"\s*\)\s*\)?)`)
+
+// reSBTDependsOn matches .dependsOn(name1, name2, ...) in a string.
+var reSBTDependsOn = regexp.MustCompile(`\.dependsOn\(([^)]+)\)`)
+
 func detectModuleBoundaries(root string, info *architect.InfraInfo) {
 	// Maven: pom.xml with <modules>
 	detectMavenModules(root, info)
 
 	// Gradle: settings.gradle with include
 	detectGradleModules(root, info)
+
+	// SBT: build.sbt with lazy val subprojects
+	detectSBTModules(root, info)
 
 	// npm workspaces: package.json with workspaces
 	detectNpmWorkspaces(root, info)
@@ -1136,6 +1147,82 @@ func detectGradleModules(root string, info *architect.InfraInfo) {
 		Path:        rel,
 		Children:    children,
 	})
+}
+
+func detectSBTModules(root string, info *architect.InfraInfo) {
+	sbtPath := filepath.Join(root, "build.sbt")
+	data, err := os.ReadFile(sbtPath)
+	if err != nil {
+		return
+	}
+	content := string(data)
+
+	// Parse lazy val name → file path mapping.
+	matches := reSBTProject.FindAllStringSubmatch(content, -1)
+	if len(matches) == 0 {
+		return
+	}
+
+	nameToPath := make(map[string]string)
+	var children []string
+	for _, m := range matches {
+		name := m[1]
+		path := filepath.ToSlash(m[2])
+		// Skip root project (file("."))
+		if path == "." || path == "" {
+			continue
+		}
+		nameToPath[name] = path
+		children = append(children, path)
+	}
+	if len(children) == 0 {
+		return
+	}
+
+	info.ModuleBoundaries = append(info.ModuleBoundaries, architect.ModuleBoundaryInfo{
+		Name:        "sbt-root",
+		BuildSystem: "sbt",
+		Path:        "build.sbt",
+		Children:    children,
+	})
+
+	// Parse .dependsOn(name1, name2) and convert to ServiceDep edges.
+	// Split content into blocks per lazy val, then find dependsOn within each block.
+	projectMatches := reSBTProject.FindAllStringSubmatchIndex(content, -1)
+	for i, loc := range projectMatches {
+		valName := content[loc[2]:loc[3]] // capture group 1: lazy val name
+		// Block extends from this match to the next lazy val (or end of file).
+		blockEnd := len(content)
+		if i+1 < len(projectMatches) {
+			blockEnd = projectMatches[i+1][0]
+		}
+		block := content[loc[0]:blockEnd]
+
+		depMatch := reSBTDependsOn.FindStringSubmatch(block)
+		if depMatch == nil {
+			continue
+		}
+
+		fromPath, ok := nameToPath[valName]
+		if !ok {
+			continue
+		}
+
+		for _, dep := range strings.Split(depMatch[1], ",") {
+			depName := strings.TrimSpace(dep)
+			if depName == "" {
+				continue
+			}
+			toPath, ok := nameToPath[depName]
+			if !ok {
+				continue
+			}
+			info.Services = append(info.Services, architect.ServiceDep{
+				From: fromPath,
+				To:   toPath,
+			})
+		}
+	}
 }
 
 func detectNpmWorkspaces(root string, info *architect.InfraInfo) {

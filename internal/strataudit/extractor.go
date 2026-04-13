@@ -24,6 +24,7 @@ func NewExtractorRegistry(cfg *Config) *ExtractorRegistry {
 	r := &ExtractorRegistry{}
 	r.Register(&TextExtractor{})
 	r.Register(&PDFExtractor{})
+	r.Register(&PPTXExtractor{})
 	r.Register(&DOCXExtractor{})
 	if cfg.Extractors.ExternalCommand != "" {
 		be, err := NewBridgeExtractor(cfg.Extractors)
@@ -76,20 +77,37 @@ func extOnly(path string) string {
 // TextExtractor handles .txt, .md, .markdown
 type TextExtractor struct{}
 
-func (t *TextExtractor) Name() string                                         { return "text" }
-func (t *TextExtractor) CanHandle(ext string) bool                            { return ext == ".txt" || ext == ".md" || ext == ".markdown" }
-func (t *TextExtractor) Extract(_ context.Context, _ string, data []byte) (string, error) { return string(data), nil }
+func (t *TextExtractor) Name() string { return "text" }
+func (t *TextExtractor) CanHandle(ext string) bool {
+	return ext == ".txt" || ext == ".md" || ext == ".markdown"
+}
+func (t *TextExtractor) Extract(_ context.Context, _ string, data []byte) (string, error) {
+	return string(data), nil
+}
 
 // PDFExtractor handles .pdf
 type PDFExtractor struct{}
 
-func (p *PDFExtractor) Name() string                                      { return "pdf" }
-func (p *PDFExtractor) CanHandle(ext string) bool                         { return ext == ".pdf" }
-func (p *PDFExtractor) Extract(_ context.Context, _ string, data []byte) (string, error) { return extractPDF(data) }
+func (p *PDFExtractor) Name() string              { return "pdf" }
+func (p *PDFExtractor) CanHandle(ext string) bool { return ext == ".pdf" }
+func (p *PDFExtractor) Extract(_ context.Context, _ string, data []byte) (string, error) {
+	return extractPDF(data)
+}
+
+// PPTXExtractor handles .pptx
+type PPTXExtractor struct{}
+
+func (p *PPTXExtractor) Name() string              { return "pptx" }
+func (p *PPTXExtractor) CanHandle(ext string) bool { return ext == ".pptx" }
+func (p *PPTXExtractor) Extract(_ context.Context, _ string, data []byte) (string, error) {
+	return extractPPTXBasic(data)
+}
 
 // DOCXExtractor handles .docx
 type DOCXExtractor struct{}
 
-func (d *DOCXExtractor) Name() string                                      { return "docx" }
-func (d *DOCXExtractor) CanHandle(ext string) bool                         { return ext == ".docx" }
-func (d *DOCXExtractor) Extract(_ context.Context, _ string, data []byte) (string, error) { return extractDOCX(data) }
+func (d *DOCXExtractor) Name() string              { return "docx" }
+func (d *DOCXExtractor) CanHandle(ext string) bool { return ext == ".docx" }
+func (d *DOCXExtractor) Extract(_ context.Context, _ string, data []byte) (string, error) {
+	return extractDOCX(data)
+}

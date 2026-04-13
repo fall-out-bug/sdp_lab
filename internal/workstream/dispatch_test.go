@@ -14,15 +14,15 @@ func TestAcquireExecutionClaimReleasesOnRevalidationFailure(t *testing.T) {
 	runner := &fakeRunner{
 		outputs: map[string][]byte{
 			"bd show sdplab-62nw --json": []byte(`[
-				{"id":"sdplab-62nw","status":"open","priority":2,"created_at":"2026-04-12T15:25:25Z","assignee":""}
+				{"id":"sdplab-62nw","status":"blocked","priority":2,"created_at":"2026-04-12T15:25:25Z","assignee":""}
 			]`),
 			"bd show sdplab-62nw --json#2": []byte(`[
 				{"id":"sdplab-62nw","status":"closed","priority":2,"created_at":"2026-04-12T15:25:25Z","assignee":"Andrei"}
 			]`),
 		},
 		combinedOutputs: map[string][]byte{
-			"bd update sdplab-62nw --claim --json":           []byte(`[]`),
-			"bd update sdplab-62nw --status open -a  --json": []byte(`[]`),
+			"bd update sdplab-62nw --claim --json":              []byte(`[]`),
+			"bd update sdplab-62nw --status blocked -a  --json": []byte(`[]`),
 		},
 	}
 	adapter := &ShellBeadsRuntimeAdapter{ProjectRoot: root, Runner: newSequencedRunner(runner), BDPath: "bd"}
@@ -44,7 +44,7 @@ func TestAcquireExecutionClaimReleasesOnRevalidationFailure(t *testing.T) {
 	if observer.counters[DispatchAbortedRevalidationTotal] != 1 {
 		t.Fatalf("abort counter = %d, want 1", observer.counters[DispatchAbortedRevalidationTotal])
 	}
-	assertCallSeen(t, runner.calls, "COMB:bd update sdplab-62nw --status open -a  --json")
+	assertCallSeen(t, runner.calls, "COMB:bd update sdplab-62nw --status blocked -a  --json")
 }
 
 func TestRevalidateExecutionClaimRejectsChangedActiveIssue(t *testing.T) {
