@@ -23,6 +23,8 @@ func main() {
 		runInit(os.Args[2:])
 	case "run":
 		runRun(os.Args[2:])
+	case "demo":
+		runDemo(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -35,10 +37,14 @@ func usage() {
 Commands:
   init    Create strataudit.yaml template
   run     Run full audit pipeline
+  demo    Generate offline demo report with a verified trace
 
 Run options:
   --dir   Project root directory (default: .)
-  --config  Config file path (default: strataudit.yaml)`)
+  --config  Config file path (default: strataudit.yaml)
+
+Demo options:
+  --out   Output directory for demo artifacts (default: .strataudit-demo)`)
 }
 
 func runInit(args []string) {
@@ -129,4 +135,24 @@ func runRun(args []string) {
 	fmt.Printf("Analyze:  %d findings\n", result.Analyze.Findings)
 	fmt.Printf("Duration: %s\n", result.Duration.Round(time.Millisecond))
 	fmt.Printf("Output:   %s\n", cfg.Output.Dir)
+}
+
+func runDemo(args []string) {
+	fs := flag.NewFlagSet("demo", flag.ExitOnError)
+	outDir := fs.String("out", ".strataudit-demo", "output directory for demo artifacts")
+	_ = fs.Parse(args)
+
+	result, err := strataudit.RunRegressionDemo(context.Background(), *outDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "demo error: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("StratAudit demo complete\n")
+	fmt.Printf("Fixture: %s\n", result.FixtureDocsDir)
+	fmt.Printf("Verified traces: %d\n", result.Result.Link.TracesCreated)
+	fmt.Printf("Rejected entities: %d\n", result.Result.Extract.RejectedEntities)
+	fmt.Printf("HTML report: %s\n", result.ReportHTMLPath)
+	fmt.Printf("JSON report: %s\n", result.ReportJSONPath)
+	fmt.Printf("LLM diagnostics: %s\n", result.DiagnosticsPath)
 }

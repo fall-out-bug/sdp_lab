@@ -49,6 +49,9 @@ export OPENROUTER_API_KEY=sk-...
 # Initialize config
 sdp-strataudit init --dir /path/to/project
 
+# Generate an offline demo report with one verified trace and diagnostics
+sdp-strataudit demo --out /tmp/strataudit-demo
+
 # Edit strataudit.yaml (levels, patterns, thresholds)
 
 # Optional: change runtime.provider/base_url/api_key_env in strataudit.yaml
@@ -60,7 +63,9 @@ sdp-strataudit run --dir /path/to/project
 sdp-strataudit run --dir /path/to/project --resume
 ```
 
-Output lands in `.strataudit/`: `report.html`, `report.v2.json`, `report.json` (compat alias), `similarity_distribution.json`, `strataudit.db`.
+`demo` uses the built-in synthetic regression corpus under `internal/strataudit/testdata/regression_corpus` and does not require `OPENROUTER_API_KEY`.
+
+Output lands in `.strataudit/` or the explicit `demo --out` directory: `report.html`, `report.v2.json`, `report.json` (compat alias), `similarity_distribution.json`, `llm_diagnostics.json`, `strataudit.db`.
 
 ## Configuration
 
