@@ -1,9 +1,12 @@
 package strataudit
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -360,6 +363,7 @@ func TestIsSupportedExt(t *testing.T) {
 		{"doc.txt", true},
 		{"doc.pdf", true},
 		{"doc.docx", true},
+		{"deck.pptx", true},
 		{"doc.html", false},
 		{"doc.xlsx", false},
 	}
@@ -369,6 +373,129 @@ func TestIsSupportedExt(t *testing.T) {
 			t.Errorf("isSupportedExt(%q) = %v, want %v", tt.path, got, tt.want)
 		}
 	}
+}
+
+func TestIngest_ExcludeMatchesNestedDirectorySegments(t *testing.T) {
+	dir := t.TempDir()
+	root := filepath.Join(dir, "corpus")
+	nested := filepath.Join(root, "Downloads", "nested")
+	keep := filepath.Join(root, "strategy")
+	if err := os.MkdirAll(nested, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(keep, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(nested, "strategy.md"), []byte("must be excluded"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(keep, "strategy.md"), []byte("must stay"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &Config{
+		Project: ProjectConfig{
+			SourceDirs: []string{root},
+			Exclude:    []string{"Downloads"},
+		},
+		Levels:     []LevelConfig{{Name: "strategy", Rank: 0, Patterns: []string{"*strategy*"}}},
+		Thresholds: ThresholdConfig{ChunkTokenLimit: 3000},
+	}
+
+	store := setupTestStore(t)
+	result, err := Ingest(context.Background(), cfg, store)
+	if err != nil {
+		t.Fatalf("Ingest: %v", err)
+	}
+	if result.New != 1 {
+		t.Fatalf("result.New = %d, want 1", result.New)
+	}
+
+	excludedDoc, err := store.DocumentByPath(context.Background(), filepath.Join(nested, "strategy.md"))
+	if err != nil {
+		t.Fatalf("DocumentByPath excluded: %v", err)
+	}
+	if excludedDoc != nil {
+		t.Fatalf("expected nested Downloads document to be excluded, got %+v", excludedDoc)
+	}
+}
+
+func TestIngest_NativePPTXExtraction(t *testing.T) {
+	dir := t.TempDir()
+	root := filepath.Join(dir, "corpus")
+	if err := os.MkdirAll(root, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	pptxPath := filepath.Join(root, "Стратегия-команды.pptx")
+	if err := os.WriteFile(pptxPath, buildTestPPTX(t, map[string]string{
+		"ppt/slides/slide1.xml":           pptxTextXML("Технологическая стратегия", "Ключевая инициатива"),
+		"ppt/notesSlides/notesSlide1.xml": pptxTextXML("Детали в notes"),
+	}), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &Config{
+		Project:    ProjectConfig{SourceDirs: []string{root}},
+		Levels:     []LevelConfig{{Name: "strategy", Rank: 0, Patterns: []string{"*стратег*"}}},
+		Thresholds: ThresholdConfig{ChunkTokenLimit: 3000},
+	}
+
+	store := setupTestStore(t)
+	result, err := Ingest(context.Background(), cfg, store)
+	if err != nil {
+		t.Fatalf("Ingest: %v", err)
+	}
+	if result.New != 1 {
+		t.Fatalf("result.New = %d, want 1", result.New)
+	}
+
+	doc, err := store.DocumentByPath(context.Background(), pptxPath)
+	if err != nil {
+		t.Fatalf("DocumentByPath: %v", err)
+	}
+	if doc == nil {
+		t.Fatal("expected pptx document to be stored")
+	}
+	if !strings.Contains(doc.Content, "Технологическая стратегия") {
+		t.Fatalf("pptx content missing slide text: %q", doc.Content)
+	}
+	if !strings.Contains(doc.Content, "Детали в notes") {
+		t.Fatalf("pptx content missing notes text: %q", doc.Content)
+	}
+}
+
+func buildTestPPTX(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for name, content := range files {
+		w, err := zw.Create(name)
+		if err != nil {
+			t.Fatalf("Create(%s): %v", name, err)
+		}
+		if _, err := w.Write([]byte(content)); err != nil {
+			t.Fatalf("Write(%s): %v", name, err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("zip close: %v", err)
+	}
+	return buf.Bytes()
+}
+
+func pptxTextXML(values ...string) string {
+	var b strings.Builder
+	b.WriteString(`<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree>`)
+	for _, value := range values {
+		b.WriteString(`<p:sp><p:txBody><a:p><a:r><a:t>`)
+		b.WriteString(value)
+		b.WriteString(`</a:t></a:r></a:p></p:txBody></p:sp>`)
+	}
+	b.WriteString(`</p:spTree></p:cSld></p:sld>`)
+	return b.String()
 }
 
 func TestSHA256Hash(t *testing.T) {

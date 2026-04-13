@@ -352,13 +352,32 @@ func cfgToLevels(cfg *Config) []model.Level {
 }
 
 func isExcluded(path string, patterns []string) bool {
+	cleanPath := filepath.Clean(path)
+	segments := strings.Split(cleanPath, string(os.PathSeparator))
+
 	for _, p := range patterns {
-		if matched, _ := filepath.Match(p, filepath.Base(path)); matched {
+		if matched, _ := filepath.Match(p, filepath.Base(cleanPath)); matched {
 			return true
 		}
-		// Handle glob with path separators
+		if matched, _ := filepath.Match(strings.ToLower(p), strings.ToLower(filepath.Base(cleanPath))); matched {
+			return true
+		}
+
+		for _, segment := range segments {
+			if matched, _ := filepath.Match(p, segment); matched {
+				return true
+			}
+			if matched, _ := filepath.Match(strings.ToLower(p), strings.ToLower(segment)); matched {
+				return true
+			}
+		}
+
+		// Handle glob with path separators against the full normalized path.
 		if strings.Contains(p, "/") || strings.Contains(p, string(os.PathSeparator)) {
-			if matched, _ := filepath.Match(p, path); matched {
+			if matched, _ := filepath.Match(p, cleanPath); matched {
+				return true
+			}
+			if matched, _ := filepath.Match(strings.ToLower(p), strings.ToLower(cleanPath)); matched {
 				return true
 			}
 		}
@@ -369,7 +388,7 @@ func isExcluded(path string, patterns []string) bool {
 func isSupportedExt(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
-	case ".txt", ".md", ".markdown", ".pdf", ".docx":
+	case ".txt", ".md", ".markdown", ".pdf", ".docx", ".pptx":
 		return true
 	}
 	return false

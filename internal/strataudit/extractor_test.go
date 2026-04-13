@@ -18,9 +18,9 @@ func TestExtractorRegistry_Routing(t *testing.T) {
 		{".md", true, "text"},
 		{".markdown", true, "text"},
 		{".pdf", true, "pdf"},
+		{".pptx", true, "pptx"},
 		{".docx", true, "docx"},
-		{".pptx", false, ""},  // no bridge configured
-		{".doc", false, ""},   // no bridge configured
+		{".doc", false, ""}, // no bridge configured
 		{".exe", false, ""},
 		{"", false, ""},
 	}
