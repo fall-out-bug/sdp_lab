@@ -1,0 +1,26 @@
+{
+  "ws_id": "00-120-04",
+  "feature_id": "F120",
+  "verdict": "PASS",
+  "commit": "376b9cb",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": 88.6,
+    "coverage_threshold": 80,
+    "max_file_loc": 195,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {"ac": "B1: context.Context threaded through all git commands", "met": true, "evidence": "gitCmdWithContext in internal/scout/activity.go:119, RunWithContext in internal/scout/scout.go:18"},
+    {"ac": "B1: 30s default timeout on git operations", "met": true, "evidence": "defaultGitTimeout const in internal/scout/activity.go:13"},
+    {"ac": "B1: RunWithContext returns error on cancelled context", "met": true, "evidence": "TestRunWithContextCancelled in internal/scout/remediation_test.go:30"},
+    {"ac": "B2: branch detection fallback main → master → HEAD", "met": true, "evidence": "detectDefaultBranch in internal/scout/activity.go:72"},
+    {"ac": "B2: master-branch repos handled without error", "met": true, "evidence": "TestBranchDetectionMasterRepo in internal/scout/remediation_test.go:61"},
+    {"ac": "B3: RepoURL populated from git remote origin", "met": true, "evidence": "detectRepoURL in internal/scout/activity.go:168, TestRepoURLPopulated in internal/scout/remediation_test.go:90"},
+    {"ac": "B3: ConfigFiles populated from root-level config filenames", "met": true, "evidence": "isConfigFile + detectBuildSystemFiles in internal/scout/build_detect.go:12, internal/scout/identity.go:136"},
+    {"ac": "B3: DependencyCount parsed from go.mod and package.json", "met": true, "evidence": "countGoModRequires/countPackageJSONDeps in internal/scout/build_detect.go:45, TestDependencyCountPopulated in internal/scout/remediation_test.go:131"}
+  ],
+  "existing_work_summary": "Extended activity.go (context threading), scout.go (RunWithContext wrapper), identity.go (build/maturity detection). Extracted build_detect.go from identity.go to stay under 200 LOC."
+}
