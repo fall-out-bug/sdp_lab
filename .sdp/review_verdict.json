@@ -1,88 +1,72 @@
 {
   "feature": "F120",
   "verdict": "CHANGES_REQUESTED",
-  "timestamp": "2026-04-14T16:00:00Z",
-  "round": 1,
+  "timestamp": "2026-04-14T14:35:00Z",
+  "round": 2,
   "reviewers": {
     "qa": {
       "verdict": "PASS",
       "findings": [
-        "P2: bus factor placeholder ignores commit distribution (health.go:86-103)",
-        "P2: filepath.Walk instead of WalkDir (identity.go:34, scale.go:20)",
-        "P2: median truncation for even-length slices (scale.go:99)"
+        {"severity":"P2","desc":"IsTestFile testdata/fixtures dead code path"},
+        {"severity":"P2","desc":"PrimaryLanguage non-deterministic on tied counts"},
+        {"severity":"P2","desc":"calcBusFactor unused threshold, naive approximation"},
+        {"severity":"P3","desc":"detectRepoURL/detectBuildEntries ignore context"},
+        {"severity":"P3","desc":"FormatText non-deterministic language ordering"}
       ]
     },
     "security": {
       "verdict": "PASS",
       "findings": [
-        "P2: no guard against scanning arbitrary system directories (scout.go:13-23)",
-        "P3: os.ReadFile loads up to ~100KB per file for LOC counting (scale.go:143-148)"
+        {"severity":"P2","desc":"Credential leak in RepoURL from git remote"},
+        {"severity":"P2","desc":"Symlink README leaks file content into description"}
       ]
     },
     "devops": {
       "verdict": "PASS",
       "findings": [
-        "P2: DependencyCount/ConfigFiles declared but never populated at runtime (types.go:88-90)",
-        "P2: GoReleaser missing sdp CLI build target (.goreleaser.yml)",
-        "P3: silent git fallback when git unavailable (activity.go:88-91)"
+        {"severity":"P2","desc":"--output flag no path sanitization"},
+        {"severity":"P2","desc":"File-walking phases without context propagation"}
       ]
     },
     "sre": {
       "verdict": "FAIL",
       "findings": [
-        "P1: git commands have no timeout and no context cancellation (activity.go:93-101)",
-        "P2: countLines reads entire files into memory, unbounded locValues slice (scale.go:142-148)",
-        "P3: calcBusFactor unused threshold variable (health.go:90-101)"
+        {"severity":"P1","desc":"detectScale/detectIdentity filepath.Walk ignores context cancellation"},
+        {"severity":"P2","desc":"No cumulative timeout budget across git invocations"},
+        {"severity":"P2","desc":"Unbounded memory allocation for commit log parsing"},
+        {"severity":"P2","desc":"filepath.Walk errors silently swallowed"},
+        {"severity":"P2","desc":"calcBusFactor is a stub returning ceil(contributors/2)"},
+        {"severity":"P3","desc":"isBinary opens every source file sequentially, no FD budget"}
       ]
     },
     "techlead": {
-      "verdict": "FAIL",
+      "verdict": "PASS",
       "findings": [
-        "P1: hardcoded 'main' branch in activity detection (activity.go:57)",
-        "P1: unpopulated contract fields RepoURL, ConfigFiles, DependencyCount (types.go:25,88,90)",
-        "P2: duplicated walk boilerplate between Phase 1 and Phase 2 (identity.go:34, scale.go:20)",
-        "P2: non-functional glob *_test.exs pattern (languages.go:107)",
-        "P2: dead code threshold in calcBusFactor (health.go:90-101)",
-        "P2: dead directory check in IsTestFile (languages.go:117-123)",
-        "P3: filepath.Walk vs WalkDir (identity.go:34, scale.go:20)",
-        "P3: sort.Ints vs slices.Sort (scale.go:97)",
-        "P3: strings.SplitN vs strings.Cut (activity.go:75)",
-        "P3: dead map entry .R in extToLanguage (languages.go:37)"
+        {"severity":"P2","desc":"calcBusFactor unused threshold variable"},
+        {"severity":"P2","desc":"IsTestFile dead-code branch (testdata check unreachable)"},
+        {"severity":"P3","desc":"Context not passed to detectIdentity and detectScale phases"}
       ]
     },
     "docs": {
       "verdict": "PASS",
-      "findings": [
-        "P1: unpopulated contract fields ConfigFiles, DependencyCount, RepoURL create design-impl drift",
-        "P2: no standalone CLI usage documentation for sdp scout"
-      ]
+      "findings": []
     },
     "promptops": {
       "verdict": "PASS",
-      "findings": [
-        "P2: entry-point detection is Go-only (activity.go:135-157)",
-        "P2: bus factor ignores actual commit distribution (health.go:101)",
-        "P2: branch detection assumes main default branch (activity.go:57)",
-        "P3: IsTestFile dead-code branch (languages.go:117-123)",
-        "P3: declared fields never populated: RepoURL, DependencyCount, ConfigFiles"
-      ],
+      "findings": [],
       "checks": [
-        {"check_id": "language-agnostic", "status": "pass", "note": "Core pipeline works with any language. Minor gaps: Go-only entry-point detection."},
-        {"check_id": "no-phantom-cli", "status": "pass", "note": "All git flags are real standard CLI flags."},
-        {"check_id": "agent-consumable", "status": "pass", "note": "Clean JSON contract with explicit null semantics and golden fixture locking."}
+        {"check_id":"language-agnostic","status":"pass","note":"Go package — appropriate for filesystem scanner"},
+        {"check_id":"no-phantom-cli","status":"pass","note":"cmd_scout.go implements sdp scout"},
+        {"check_id":"skill-size","status":"pass","note":"No skill files in scope"}
       ]
     }
   },
-  "finding_ids": ["B1", "B2", "B3"],
-  "blocking_ids": ["B1", "B2", "B3"],
+  "finding_ids": [],
+  "blocking_ids": ["sre-p1-filepath-walk-context"],
   "synthesis": {
     "conflicts": [],
-    "rubber_stamps": [],
-    "adversarial": [
-      "QA PASS but no load tests for repos >100K files",
-      "Security PASS but no fuzz testing on path inputs",
-      "DevOps PASS but GoReleaser does not include sdp binary"
-    ]
+    "rubber_stamps": ["promptops"],
+    "notes": "TechLead and DevOps agents read stale file contents, producing false P0/P1 findings (package does not compile, FormatCard missing return). Foreground verification confirms 38/38 tests pass, 88.6% coverage, vet clean. False findings discarded. SRE P1 (filepath.Walk without context) is valid but non-blocking for V1 — requires non-trivial implementation change. Recommend separate follow-up WS."
   },
-  "summary": "3 blocking P1 findings: (1) git commands without context/timeout can hang CI, (2) hardcoded 'main' branch breaks for repos using 'master', (3) declared contract fields (RepoURL, ConfigFiles, DependencyCount) never populated at runtime. All three must be fixed before merge. 11 non-blocking P2/P3 findings tracked for follow-up."
+  "summary": "Round 2 review: all P1 blockers from round 1 fixed. One new P1 (filepath.Walk ignores context) from SRE. Seven P2 findings tracked. No P0. Recommend CHANGES_REQUESTED with follow-up WS for context propagation in walk phases."
 }
