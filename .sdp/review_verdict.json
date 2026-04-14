@@ -1,82 +1,88 @@
 {
-  "feature": "F108",
-  "verdict": "APPROVED",
-  "timestamp": "2026-04-12T12:00:00Z",
-  "round": 3,
+  "feature": "F120",
+  "verdict": "CHANGES_REQUESTED",
+  "timestamp": "2026-04-14T16:00:00Z",
+  "round": 1,
   "reviewers": {
     "qa": {
       "verdict": "PASS",
       "findings": [
-        {"id": "qa-p2-1", "severity": "P2", "note": "harness.go transitionTo holds mu during store.PersistPhaseRecord — latency spike in store blocks all Harness operations"},
-        {"id": "qa-p2-2", "severity": "P2", "note": "harness.go validateToken uses plain string comparison, not constant-time — timing side-channel"},
-        {"id": "qa-p2-3", "severity": "P2", "note": "llmclient.go ChatRequest.Tools field is []Tool but StreamEvent.ToolCalls is []ToolCallChunk — type mismatch requires caller conversion"},
-        {"id": "qa-p3-1", "severity": "P3", "note": "sse.go parseSSE parameter type is interface{Read([]byte)(int,error)} instead of io.Reader"},
-        {"id": "qa-p3-2", "severity": "P3", "note": "strataudit/llmclient.go Embed() uses separate HTTP client instead of llmclient — inconsistent with Chat() path"}
+        "P2: bus factor placeholder ignores commit distribution (health.go:86-103)",
+        "P2: filepath.Walk instead of WalkDir (identity.go:34, scale.go:20)",
+        "P2: median truncation for even-length slices (scale.go:99)"
       ]
     },
     "security": {
       "verdict": "PASS",
       "findings": [
-        {"id": "sec-p2-1", "severity": "P2", "note": "security.go:53 regex sk-[0-9a-zA-Z]{48} misses OpenRouter sk-or-v1-... format (pre-existing, not F108-introduced)"},
-        {"id": "sec-p2-2", "severity": "P2", "note": "architect/llm_client.go: LLM API error responses include raw body in error messages — potential secret leak if API echoes headers"},
-        {"id": "sec-p2-3", "severity": "P2", "note": "architect/llm_client.go scrubSecretsJSON only handles JSON-string contexts — misses secrets in plain text or binary"},
-        {"id": "sec-p3-1", "severity": "P3", "note": "prompt injection detection uses simple substring matching — trivially bypassable"}
+        "P2: no guard against scanning arbitrary system directories (scout.go:13-23)",
+        "P3: os.ReadFile loads up to ~100KB per file for LOC counting (scale.go:143-148)"
       ]
     },
     "devops": {
       "verdict": "PASS",
       "findings": [
-        {"id": "devops-p3-1", "severity": "P3", "note": "No Dockerfile or deployment manifest changes in F108 scope — expected, not a gap"},
-        {"id": "devops-p3-2", "severity": "P3", "note": "go.mod unchanged — no new dependencies introduced by F108"}
+        "P2: DependencyCount/ConfigFiles declared but never populated at runtime (types.go:88-90)",
+        "P2: GoReleaser missing sdp CLI build target (.goreleaser.yml)",
+        "P3: silent git fallback when git unavailable (activity.go:88-91)"
       ]
     },
     "sre": {
-      "verdict": "PASS",
+      "verdict": "FAIL",
       "findings": [
-        {"id": "sre-p2-1", "severity": "P2", "note": "architect/llm_client.go: double retry — LLMAdapter retries 3x and llmclient.Client also retries internally; 9x amplification"},
-        {"id": "sre-p2-2", "severity": "P2", "note": "architect/llm_client.go CircuitBreaker has no half-open state — recovery requires full SuccessThreshold consecutive successes"},
-        {"id": "sre-p2-3", "severity": "P2", "note": "harness.go: RestoreHarness runID derived from len(turnRecords) — fragile if records are deleted"},
-        {"id": "sre-p2-4", "severity": "P2", "note": "strataudit/llmclient.go: separate retry loop duplicates llmclient retry — same amplification pattern as architect"},
-        {"id": "sre-p3-1", "severity": "P3", "note": "llmclient/sse.go: no max token/event count — unbounded streaming could consume memory"},
-        {"id": "sre-p3-2", "severity": "P3", "note": "livegw/livegw.go: Call() maps error types but loses original error chain — debugging requires verbose logging"}
+        "P1: git commands have no timeout and no context cancellation (activity.go:93-101)",
+        "P2: countLines reads entire files into memory, unbounded locValues slice (scale.go:142-148)",
+        "P3: calcBusFactor unused threshold variable (health.go:90-101)"
       ]
     },
     "techlead": {
-      "verdict": "PASS",
+      "verdict": "FAIL",
       "findings": [
-        {"id": "tl-p2-1", "severity": "P2", "note": "Resilience gap: architect/llm_client.go has retry+CB but discovery/llm.go and strataudit/llmclient.go have no circuit breaker — inconsistent resilience posture across callers"}
+        "P1: hardcoded 'main' branch in activity detection (activity.go:57)",
+        "P1: unpopulated contract fields RepoURL, ConfigFiles, DependencyCount (types.go:25,88,90)",
+        "P2: duplicated walk boilerplate between Phase 1 and Phase 2 (identity.go:34, scale.go:20)",
+        "P2: non-functional glob *_test.exs pattern (languages.go:107)",
+        "P2: dead code threshold in calcBusFactor (health.go:90-101)",
+        "P2: dead directory check in IsTestFile (languages.go:117-123)",
+        "P3: filepath.Walk vs WalkDir (identity.go:34, scale.go:20)",
+        "P3: sort.Ints vs slices.Sort (scale.go:97)",
+        "P3: strings.SplitN vs strings.Cut (activity.go:75)",
+        "P3: dead map entry .R in extToLanguage (languages.go:37)"
       ]
     },
     "docs": {
       "verdict": "PASS",
       "findings": [
-        {"id": "doc-f108-1", "severity": "P3", "note": "modelgateway/README.md references non-existent type 'AuditLog' — code has 'AuditLogger' interface"},
-        {"id": "doc-f108-2", "severity": "P3", "note": "modelgateway/README.md claims 'on top of llmclient' but package does not import llmclient"}
+        "P1: unpopulated contract fields ConfigFiles, DependencyCount, RepoURL create design-impl drift",
+        "P2: no standalone CLI usage documentation for sdp scout"
       ]
     },
     "promptops": {
       "verdict": "PASS",
-      "findings": [],
+      "findings": [
+        "P2: entry-point detection is Go-only (activity.go:135-157)",
+        "P2: bus factor ignores actual commit distribution (health.go:101)",
+        "P2: branch detection assumes main default branch (activity.go:57)",
+        "P3: IsTestFile dead-code branch (languages.go:117-123)",
+        "P3: declared fields never populated: RepoURL, DependencyCount, ConfigFiles"
+      ],
       "checks": [
-        {"check_id": "language-agnostic", "status": "pass", "note": "Workstream files are language-agnostic"},
-        {"check_id": "no-phantom-cli", "status": "fail", "note": "PRE-EXISTING: skills reference 'sdp quality' and 'sdp drift' CLI subcommands that do not exist. Not introduced by F108."},
-        {"check_id": "skill-size", "status": "pass", "note": "All skills under 200 LOC; workstream files appropriately sized"},
-        {"check_id": "no-handoff-lists", "status": "pass", "note": "No handoff lists found in workstream files"}
+        {"check_id": "language-agnostic", "status": "pass", "note": "Core pipeline works with any language. Minor gaps: Go-only entry-point detection."},
+        {"check_id": "no-phantom-cli", "status": "pass", "note": "All git flags are real standard CLI flags."},
+        {"check_id": "agent-consumable", "status": "pass", "note": "Clean JSON contract with explicit null semantics and golden fixture locking."}
       ]
     }
   },
-  "finding_ids": ["sdplab-22f", "qa-p2-1", "qa-p2-2", "qa-p2-3", "sec-p2-1", "sec-p2-2", "sec-p2-3", "sre-p2-1", "sre-p2-2", "sre-p2-3", "sre-p2-4", "tl-p2-1"],
-  "blocking_ids": [],
+  "finding_ids": ["B1", "B2", "B3"],
+  "blocking_ids": ["B1", "B2", "B3"],
   "synthesis": {
     "conflicts": [],
-    "rubber_stamps": ["devops"],
-    "adversarial_blind_spots": [
-      "Round 3 used inline file contents (orchestrator-read, subagent-analyze) — eliminated the Round 1-2 hallucination problem. All findings based on verified code.",
-      "Load/stress tests not run — review covers unit tests, static analysis, and code inspection only.",
-      "PromptOps no-phantom-cli FAIL is pre-existing (skills reference non-existent CLI commands). This is a legitimate tech-debt item but not F108-introduced.",
-      "Double-retry amplification (SRE) noted by both SRE and TechLead — consistent finding. Neither flagged as P0/P1 since callers control retry configuration.",
-      "Constant-time token comparison flagged by both QA (P2) and Security — consistent. Not blocking since harness.go runs locally with owner token."
+    "rubber_stamps": [],
+    "adversarial": [
+      "QA PASS but no load tests for repos >100K files",
+      "Security PASS but no fuzz testing on path inputs",
+      "DevOps PASS but GoReleaser does not include sdp binary"
     ]
   },
-  "summary": "F108 Architecture Normalization reviewed (Round 3, inline-contents). All code compiles, all tests pass. Reviewed: llmclient (156 LOC unified HTTP client), sse.go (163 LOC SSE parser with tool_call accumulation), livegw (134 LOC ModelGateway), architect/llm_client.go (222 LOC with retry+CB+secret scrubbing), harness.go (393 LOC FSM with ErrHarnessTerminated sentinel), bridge_serve.go (381 LOC ServeBridge), discovery/llm.go (32 LOC type aliases), strataudit/llmclient.go (300 LOC with cache+rate limit). All 7 roles: PASS. Finding distribution: 0x P0, 0x P1, 10x P2, 5x P3. Top themes: (1) retry amplification across layers (architect + strataudit both retry on top of llmclient), (2) inconsistent resilience posture (discovery and strataudit lack circuit breakers that architect has), (3) pre-existing security regex gap for OpenRouter key format. Verdict: APPROVED."
+  "summary": "3 blocking P1 findings: (1) git commands without context/timeout can hang CI, (2) hardcoded 'main' branch breaks for repos using 'master', (3) declared contract fields (RepoURL, ConfigFiles, DependencyCount) never populated at runtime. All three must be fixed before merge. 11 non-blocking P2/P3 findings tracked for follow-up."
 }
