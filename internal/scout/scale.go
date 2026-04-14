@@ -2,6 +2,7 @@ package scout
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,28 +14,36 @@ import (
 // detectScale runs Phase 2: file counts, LOC, entry points, directory stats.
 // buildSystem is used to identify source vs config files (may be nil).
 func detectScale(root string, buildSystem *string) Scale {
+	return detectScaleWithContext(context.Background(), root, buildSystem)
+}
+
+// detectScaleWithContext is the context-aware version of detectScale.
+func detectScaleWithContext(ctx context.Context, root string, buildSystem *string) Scale {
 	var s Scale
 	var locValues []int
 	dirSet := make(map[string]bool)
 
-	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info == nil {
+	_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
 			return nil
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
 		rel, _ := filepath.Rel(root, path)
 		if rel == "." {
 			return nil
 		}
 
-		if info.IsDir() {
-			if common.DefaultMatcher.Match(info.Name(), true) {
+		if d.IsDir() {
+			if common.DefaultMatcher.Match(d.Name(), true) {
 				return filepath.SkipDir
 			}
 			dirSet[filepath.Dir(rel)] = true
 			return nil
 		}
 
-		if common.DefaultMatcher.Match(info.Name(), false) {
+		if common.DefaultMatcher.Match(d.Name(), false) {
 			// Count vendor files separately
 			if isInVendorDir(rel) {
 				s.VendorFiles++
@@ -50,6 +59,10 @@ func detectScale(root string, buildSystem *string) Scale {
 		}
 
 		// Skip large files (>100KB)
+		info, infoErr := d.Info()
+		if infoErr != nil {
+			return nil
+		}
 		if info.Size() > 100*1024 {
 			return nil
 		}

@@ -2,6 +2,7 @@ package scout
 
 import (
 	"bufio"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +25,11 @@ func isProgrammingLanguage(lang string) bool { return programmingLanguages[lang]
 
 // detectIdentity runs Phase 1: language distribution, build system, README, monorepo.
 func detectIdentity(root string) (Identity, Maturity, Build) {
+	return detectIdentityWithContext(context.Background(), root)
+}
+
+// detectIdentityWithContext is the context-aware version of detectIdentity.
+func detectIdentityWithContext(ctx context.Context, root string) (Identity, Maturity, Build) {
 	var id Identity
 	var mat Maturity
 	var bld Build
@@ -31,21 +37,24 @@ func detectIdentity(root string) (Identity, Maturity, Build) {
 	id.Name = filepath.Base(root)
 	id.Languages = make(map[string]LangStats)
 
-	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info == nil {
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
 			return nil
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
 		rel, _ := filepath.Rel(root, path)
 		if rel == "." {
 			return nil
 		}
-		if info.IsDir() {
-			if common.DefaultMatcher.Match(info.Name(), true) {
+		if d.IsDir() {
+			if common.DefaultMatcher.Match(d.Name(), true) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if common.DefaultMatcher.Match(info.Name(), false) {
+		if common.DefaultMatcher.Match(d.Name(), false) {
 			return nil
 		}
 		ext := strings.ToLower(filepath.Ext(path))
@@ -56,6 +65,7 @@ func detectIdentity(root string) (Identity, Maturity, Build) {
 		}
 		return nil
 	})
+	_ = err // walk errors are non-fatal; partial results are acceptable
 
 	// Compute language ratios
 	var totalFiles int
@@ -158,38 +168,4 @@ func detectMonorepo(root string) bool {
 		return true
 	}
 	return false
-}
-
-func detectMaturitySignals(root string, mat *Maturity) {
-	for name, field := range map[string]*bool{
-		"LICENSE": &mat.HasLicense, "LICENSE.md": &mat.HasLicense, "LICENSE.txt": &mat.HasLicense,
-		"Dockerfile": &mat.HasDocker, "CODEOWNERS": &mat.HasCodeowners,
-		"CONTRIBUTING.md": &mat.HasContributing, "CHANGELOG.md": &mat.HasChangelog,
-	} {
-		if _, err := os.Stat(filepath.Join(root, name)); err == nil {
-			*field = true
-		}
-	}
-	for _, f := range []string{".golangci.yml", ".golangci.yaml", ".eslintrc.js", ".eslintrc.json", ".flake8", ".pylintrc"} {
-		if _, err := os.Stat(filepath.Join(root, f)); err == nil {
-			mat.HasLinter = true
-			break
-		}
-	}
-	for _, ci := range []struct {
-		path, name string
-	}{
-		{".github/workflows", "github-actions"},
-		{".gitlab-ci.yml", "gitlab-ci"},
-		{"Jenkinsfile", "jenkins"},
-		{".circleci", "circleci"},
-		{".travis.yml", "travis"},
-	} {
-		if _, err := os.Stat(filepath.Join(root, ci.path)); err == nil {
-			mat.HasCI = true
-			s := ci.name
-			mat.CISystem = &s
-			break
-		}
-	}
 }

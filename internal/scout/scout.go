@@ -42,13 +42,13 @@ func RunWithContext(ctx context.Context, repoPath string) (*ProjectCard, error) 
 	}
 
 	// Phase 1: Identity
-	identity, maturity, build := detectIdentity(abs)
+	identity, maturity, build := detectIdentityWithContext(ctx, abs)
 	card.Identity = identity
 	card.Maturity = maturity
 	card.Build = build
 
 	// Phase 2: Scale
-	card.Scale = detectScale(abs, identity.BuildSystem)
+	card.Scale = detectScaleWithContext(ctx, abs, identity.BuildSystem)
 	card.Maturity.HasTests = card.Scale.TestFiles > 0
 
 	// Entry points

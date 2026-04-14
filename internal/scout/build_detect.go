@@ -76,3 +76,38 @@ func countPackageJSONDeps(content string) int {
 	}
 	return count
 }
+
+// detectMaturitySignals populates Maturity flags from filesystem signals.
+func detectMaturitySignals(root string, mat *Maturity) {
+	for name, field := range map[string]*bool{
+		"LICENSE": &mat.HasLicense, "LICENSE.md": &mat.HasLicense, "LICENSE.txt": &mat.HasLicense,
+		"Dockerfile": &mat.HasDocker, "CODEOWNERS": &mat.HasCodeowners,
+		"CONTRIBUTING.md": &mat.HasContributing, "CHANGELOG.md": &mat.HasChangelog,
+	} {
+		if _, err := os.Stat(filepath.Join(root, name)); err == nil {
+			*field = true
+		}
+	}
+	for _, f := range []string{".golangci.yml", ".golangci.yaml", ".eslintrc.js", ".eslintrc.json", ".flake8", ".pylintrc"} {
+		if _, err := os.Stat(filepath.Join(root, f)); err == nil {
+			mat.HasLinter = true
+			break
+		}
+	}
+	for _, ci := range []struct {
+		path, name string
+	}{
+		{".github/workflows", "github-actions"},
+		{".gitlab-ci.yml", "gitlab-ci"},
+		{"Jenkinsfile", "jenkins"},
+		{".circleci", "circleci"},
+		{".travis.yml", "travis"},
+	} {
+		if _, err := os.Stat(filepath.Join(root, ci.path)); err == nil {
+			mat.HasCI = true
+			s := ci.name
+			mat.CISystem = &s
+			break
+		}
+	}
+}
