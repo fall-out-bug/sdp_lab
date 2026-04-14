@@ -48,8 +48,11 @@
       ]
     },
     "docs": {
-      "verdict": "PASS",
-      "findings": []
+      "verdict": "FAIL",
+      "findings": [
+        {"severity":"P1","desc":"isGitRepo() uses bare exec.Command without context/timeout (sdplab-spzm)","status":"fixed"},
+        {"severity":"P2","desc":"FirstCommit/LastCommit comments say RFC3339 but format is date-only (sdplab-d1vy)","status":"fixed"}
+      ]
     },
     "promptops": {
       "verdict": "PASS",
@@ -61,12 +64,12 @@
       ]
     }
   },
-  "finding_ids": [],
+  "finding_ids": ["sdplab-spzm", "sdplab-d1vy"],
   "blocking_ids": ["sre-p1-filepath-walk-context"],
   "synthesis": {
     "conflicts": [],
     "rubber_stamps": ["promptops"],
-    "notes": "TechLead and DevOps agents read stale file contents, producing false P0/P1 findings (package does not compile, FormatCard missing return). Foreground verification confirms 38/38 tests pass, 88.6% coverage, vet clean. False findings discarded. SRE P1 (filepath.Walk without context) is valid but non-blocking for V1 — requires non-trivial implementation change. Recommend separate follow-up WS."
+    "notes": "TechLead and DevOps agents read stale file contents, producing false P0/P1 findings — discarded. Docs P1 (isGitRepo bare exec.Command) fixed inline. SRE P1 (filepath.Walk without context) requires separate follow-up WS. Remaining P2/P3 tracked."
   },
-  "summary": "Round 2 review: all P1 blockers from round 1 fixed. One new P1 (filepath.Walk ignores context) from SRE. Seven P2 findings tracked. No P0. Recommend CHANGES_REQUESTED with follow-up WS for context propagation in walk phases."
+  "summary": "Round 2 review: Docs P1 (isGitRepo) fixed inline. SRE P1 (filepath.Walk context) still open — needs follow-up WS. All round-1 P1s resolved. Total tracked: 1 open P1, 12 P2/P3."
 }

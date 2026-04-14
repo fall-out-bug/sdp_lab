@@ -53,8 +53,8 @@ type Scale struct {
 
 // Activity describes recent and historical commit patterns.
 type Activity struct {
-	FirstCommit          *string  `json:"first_commit"`           // RFC3339 date, nil = no git
-	LastCommit           *string  `json:"last_commit"`            // RFC3339 date, nil = no git
+	FirstCommit          *string  `json:"first_commit"`           // date-only (2006-01-02), nil = no git
+	LastCommit           *string  `json:"last_commit"`            // date-only (2006-01-02), nil = no git
 	AgeMonths            int      `json:"age_months"`
 	TotalCommits         int      `json:"total_commits"`
 	Contributors         int      `json:"contributors"`

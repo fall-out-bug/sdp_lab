@@ -106,7 +106,9 @@ func parseCommitLog(data string) []commitInfo {
 }
 
 func isGitRepo(dir string) bool {
-	_, err := exec.Command("git", "-C", dir, "rev-parse", "--git-dir").CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultGitTimeout)
+	defer cancel()
+	_, err := exec.CommandContext(ctx, "git", "-C", dir, "rev-parse", "--git-dir").CombinedOutput()
 	return err == nil
 }
 
