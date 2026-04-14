@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -12,8 +11,8 @@ import (
 func runScout(args []string) {
 	fs := flag.NewFlagSet("scout", flag.ExitOnError)
 	format := fs.String("format", "json", "output format: json, text, card")
-	output := fs.String("output", "", "write output to directory as .sdp/scout.json")
-	_ = fs.Parse(args)
+	output := fs.String("output", "", "write .sdp/scout.json to this directory")
+	fs.Parse(args)
 
 	if fs.NArg() < 1 {
 		fmt.Fprintln(os.Stderr, "usage: sdp scout [--format json|text|card] [--output DIR] <repo-path>")
@@ -21,26 +20,45 @@ func runScout(args []string) {
 	}
 	repoPath := fs.Arg(0)
 
-	// Scout implementation (phases) is delivered in WS-02 and WS-03.
-	// This stub validates the CLI interface and ProjectCard contract.
-	fmt.Fprintf(os.Stderr, "scout: %s (format=%s output=%s)\n", repoPath, *format, *output)
-
-	// Emit empty card as contract proof. Full implementation in 00-120-02/03.
-	card := scout.ProjectCard{
-		Version:    "1.0.0",
-		Identity:   scout.Identity{Name: repoPath},
-		Health:     scout.HealthSignals{
-			CommitFrequency:  scout.Unknown,
-			Staleness:        scout.Unknown,
-			TestCoverageHint: scout.Unknown,
-			ComplexityHint:   scout.Unknown,
-		},
+	// Validate format flag
+	switch *format {
+	case "json", "text", "card":
+	default:
+		fmt.Fprintf(os.Stderr, "error: unknown format %q (use json, text, or card)\n", *format)
+		os.Exit(2)
 	}
 
-	data, err := json.MarshalIndent(card, "", "  ")
+	card, err := scout.Run(repoPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "error: scout failed: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Println(string(data))
+
+	// Write artifact if requested
+	if *output != "" {
+		path, werr := scout.WriteArtifact(*output, card)
+		if werr != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not write artifact: %v\n", werr)
+		} else {
+			fmt.Fprintf(os.Stderr, "artifact: %s\n", path)
+		}
+	}
+
+	// Format output
+	var out string
+	switch *format {
+	case "json":
+		var jerr error
+		out, jerr = scout.FormatJSON(card)
+		if jerr != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", jerr)
+			os.Exit(1)
+		}
+	case "text":
+		out = scout.FormatText(card)
+	case "card":
+		out = scout.FormatCard(card)
+	}
+
+	fmt.Print(out)
 }

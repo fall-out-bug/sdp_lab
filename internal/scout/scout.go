@@ -1,6 +1,8 @@
 package scout
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 )
@@ -11,6 +13,13 @@ func Run(repoPath string) (*ProjectCard, error) {
 	abs, err := filepath.Abs(repoPath)
 	if err != nil {
 		return nil, err
+	}
+	info, err := os.Stat(abs)
+	if err != nil {
+		return nil, fmt.Errorf("scout: cannot access %q: %w", repoPath, err)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("scout: %q is not a directory", repoPath)
 	}
 
 	start := time.Now()

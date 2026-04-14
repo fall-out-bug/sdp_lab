@@ -57,6 +57,18 @@ func detectIdentity(root string) (Identity, Maturity, Build) {
 		return nil
 	})
 
+	// Compute language ratios
+	var totalFiles int
+	for _, st := range id.Languages {
+		totalFiles += st.Files
+	}
+	for lang, st := range id.Languages {
+		if totalFiles > 0 {
+			st.Ratio = float64(st.Files) / float64(totalFiles)
+		}
+		id.Languages[lang] = st
+	}
+
 	// Primary language = highest file count among programming languages only
 	maxFiles := 0
 	for lang, st := range id.Languages {
