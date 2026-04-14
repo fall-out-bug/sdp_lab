@@ -1,6 +1,7 @@
 package scout
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,15 @@ import (
 // Run executes the full three-phase scout pipeline on a repository path.
 // Returns a populated ProjectCard or an error.
 func Run(repoPath string) (*ProjectCard, error) {
+	return RunWithContext(context.Background(), repoPath)
+}
+
+// RunWithContext executes the pipeline with context for cancellation/timeout.
+func RunWithContext(ctx context.Context, repoPath string) (*ProjectCard, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("scout: %w", err)
+	}
+
 	abs, err := filepath.Abs(repoPath)
 	if err != nil {
 		return nil, err
@@ -44,9 +54,12 @@ func Run(repoPath string) (*ProjectCard, error) {
 	// Entry points
 	card.Build.EntryPoints = detectBuildEntries(abs, identity.BuildSystem)
 
-	// Phase 3: Activity
-	card.Activity = detectActivity(abs)
-	detectMaturityFromGit(abs, &card.Maturity)
+	// Phase 3: Activity (with context)
+	card.Activity = detectActivityWithContext(ctx, abs)
+	detectMaturityFromGitWithContext(ctx, abs, &card.Maturity)
+
+	// B3: Populate RepoURL from git remote
+	card.Identity.RepoURL = detectRepoURL(abs)
 
 	// Phase 4: Health signals (derived from other fields)
 	deriveHealthSignals(card)

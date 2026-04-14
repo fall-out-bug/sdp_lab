@@ -95,15 +95,20 @@ func detectBuildSystemFiles(root string, id *Identity, bld *Build) {
 		return
 	}
 	for _, e := range entries {
-		if sys, ok := DetectBuildSystem(e.Name()); ok {
+		name := e.Name()
+		if sys, ok := DetectBuildSystem(name); ok {
 			s := sys
 			id.BuildSystem = &s
-			id.BuildFiles = append(id.BuildFiles, e.Name())
+			id.BuildFiles = append(id.BuildFiles, name)
 			bld.PackageManager = &s
-			df := e.Name()
+			df := name
 			bld.DependencyFile = &df
 		}
+		if isConfigFile(name) {
+			bld.ConfigFiles = append(bld.ConfigFiles, name)
+		}
 	}
+	populateDependencyCount(root, bld)
 }
 
 func detectReadme(root string, id *Identity) bool {

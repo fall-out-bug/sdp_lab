@@ -2,6 +2,7 @@ package scout
 
 import (
 	"bufio"
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,17 +10,23 @@ import (
 	"time"
 )
 
+const defaultGitTimeout = 30 * time.Second
+
 // detectActivity runs Phase 3: git history analysis.
 // Returns zero-value Activity for non-git directories.
 func detectActivity(root string) Activity {
+	return detectActivityWithContext(context.Background(), root)
+}
+
+func detectActivityWithContext(ctx context.Context, root string) Activity {
 	var a Activity
 	if !isGitRepo(root) {
 		return a
 	}
 
-	logData := gitCmd(root, "log", "--format=%aI|%aN", "--no-merges", "--since=2 years ago")
+	logData := gitCmdWithContext(ctx, root, "log", "--format=%aI|%aN", "--no-merges", "--since=2 years ago")
 	if logData == "" {
-		logData = gitCmd(root, "log", "--format=%aI|%aN", "--no-merges")
+		logData = gitCmdWithContext(ctx, root, "log", "--format=%aI|%aN", "--no-merges")
 	}
 
 	commits := parseCommitLog(logData)
@@ -54,9 +61,22 @@ func detectActivity(root string) Activity {
 	a.Contributors = len(authors)
 	a.ActiveContributors90d = len(active90)
 
-	branches := gitCmd(root, "branch", "-r", "--no-merged", "main")
+	// B2 fix: branch detection with fallback (main → master → HEAD)
+	defaultBranch := detectDefaultBranch(root)
+	branches := gitCmdWithContext(ctx, root, "branch", "-r", "--no-merged", defaultBranch)
 	a.ActiveBranches = countNonEmptyLines(branches)
 	return a
+}
+
+// detectDefaultBranch tries main, master, then falls back to HEAD.
+func detectDefaultBranch(dir string) string {
+	for _, branch := range []string{"main", "master"} {
+		result := gitCmdWithContext(context.Background(), dir, "rev-parse", "--verify", branch)
+		if result != "" {
+			return branch
+		}
+	}
+	return "HEAD"
 }
 
 type commitInfo struct {
@@ -72,15 +92,15 @@ func parseCommitLog(data string) []commitInfo {
 		if line == "" {
 			continue
 		}
-		parts := strings.SplitN(line, "|", 2)
-		if len(parts) < 2 {
+		before, after, ok := strings.Cut(line, "|")
+		if !ok {
 			continue
 		}
-		t, err := time.Parse(time.RFC3339, strings.TrimSpace(parts[0]))
+		t, err := time.Parse(time.RFC3339, strings.TrimSpace(before))
 		if err != nil {
 			continue
 		}
-		commits = append(commits, commitInfo{date: t, author: strings.TrimSpace(parts[1])})
+		commits = append(commits, commitInfo{date: t, author: strings.TrimSpace(after)})
 	}
 	return commits
 }
@@ -90,8 +110,17 @@ func isGitRepo(dir string) bool {
 	return err == nil
 }
 
+// gitCmd runs a git command with the default timeout.
 func gitCmd(dir string, args ...string) string {
-	cmd := exec.Command("git", args...)
+	return gitCmdWithContext(context.Background(), dir, args...)
+}
+
+// gitCmdWithContext runs a git command with context-based cancellation.
+func gitCmdWithContext(ctx context.Context, dir string, args ...string) string {
+	ctx, cancel := context.WithTimeout(ctx, defaultGitTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -112,10 +141,14 @@ func countNonEmptyLines(s string) int {
 
 // detectMaturityFromGit extends Maturity with tag/release signals.
 func detectMaturityFromGit(root string, mat *Maturity) {
+	detectMaturityFromGitWithContext(context.Background(), root, mat)
+}
+
+func detectMaturityFromGitWithContext(ctx context.Context, root string, mat *Maturity) {
 	if !isGitRepo(root) {
 		return
 	}
-	tags := gitCmd(root, "tag", "--sort=-creatordate")
+	tags := gitCmdWithContext(ctx, root, "tag", "--sort=-creatordate")
 	var releases []string
 	for _, tag := range strings.Split(strings.TrimSpace(tags), "\n") {
 		tag = strings.TrimSpace(tag)
@@ -129,6 +162,16 @@ func detectMaturityFromGit(root string, mat *Maturity) {
 		v := releases[0]
 		mat.LatestRelease = &v
 	}
+}
+
+// detectRepoURL returns the origin remote URL, or nil if none.
+func detectRepoURL(root string) *string {
+	url := gitCmdWithContext(context.Background(), root, "remote", "get-url", "origin")
+	url = strings.TrimSpace(url)
+	if url == "" {
+		return nil
+	}
+	return &url
 }
 
 // detectBuildEntries finds entry points (files with func main()).
