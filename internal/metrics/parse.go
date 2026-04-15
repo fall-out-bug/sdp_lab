@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"bufio"
+	"log"
 	"regexp"
 	"strings"
 	"time"
@@ -32,6 +33,8 @@ func parseCommits(raw string) []RawCommit {
 func parseOneCommit(block string) (RawCommit, bool) {
 	var c RawCommit
 	scanner := bufio.NewScanner(strings.NewReader(block))
+	// Expand buffer beyond 64KB default to handle long numstat lines
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024) // 1MB max
 	inNumstat := false
 	var numstatLines []string
 
@@ -70,6 +73,11 @@ func parseOneCommit(block string) (RawCommit, bool) {
 		} else if c.Hash == "" && len(line) > 0 && len(line) <= 40 && isHex(line) {
 			c.Hash = line
 		}
+	}
+
+	// Check for scanner truncation
+	if err := scanner.Err(); err != nil {
+		log.Printf("metrics: scanner error parsing commit %s: %v", c.Hash, err)
 	}
 
 	for _, nl := range numstatLines {

@@ -44,8 +44,7 @@ func AnalyzeDecay(data *GitData) *Decay {
 	}
 	fileMap := make(map[string]*fileStats)
 	for _, c := range data.Commits {
-		lower := strings.ToLower(c.Subject)
-		isFix := strings.Contains(lower, "fix") || strings.Contains(lower, "bugfix") || strings.Contains(lower, "patch")
+		isFix := isFixCommit(c.Subject)
 		for _, f := range c.Files {
 			entry, ok := fileMap[f.Path]
 			if !ok {

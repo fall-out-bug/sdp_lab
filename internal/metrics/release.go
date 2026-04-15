@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"strings"
 	"time"
 )
 
@@ -48,9 +47,7 @@ func AnalyzeReleaseQuality(data *GitData) *ReleaseQuality {
 			if c.Date.Before(tag.Date) || !c.Date.Before(windowEnd) {
 				continue
 			}
-			lower := strings.ToLower(c.Subject)
-			isFix := strings.Contains(lower, "fix") || strings.Contains(lower, "bugfix") || strings.Contains(lower, "patch")
-			if !isFix {
+			if !isFixCommit(c.Subject) {
 				continue
 			}
 			hours := c.Date.Sub(tag.Date).Hours()
@@ -174,8 +171,7 @@ func countFixesAfter(data *GitData, start, end time.Time) int {
 		if c.Date.Before(start) || c.Date.After(end) {
 			continue
 		}
-		lower := strings.ToLower(c.Subject)
-		if strings.Contains(lower, "fix") || strings.Contains(lower, "bugfix") || strings.Contains(lower, "patch") {
+		if isFixCommit(c.Subject) {
 			count++
 		}
 	}

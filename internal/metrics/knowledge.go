@@ -3,6 +3,7 @@ package metrics
 import (
 	"cmp"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -156,10 +157,8 @@ func gini(vals []float64) float64 {
 
 func topModule(files []FileChange) string {
 	for _, f := range files {
-		for i := 0; i < len(f.Path); i++ {
-			if f.Path[i] == '/' {
-				return f.Path[:i]
-			}
+		if idx := strings.IndexByte(f.Path, '/'); idx >= 0 {
+			return f.Path[:idx]
 		}
 		return f.Path
 	}

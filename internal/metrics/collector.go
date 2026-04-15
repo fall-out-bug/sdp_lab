@@ -101,17 +101,39 @@ func validateRepoPath(repoPath string) error {
 }
 
 func collectCommits(ctx context.Context, dir string) ([]RawCommit, error) {
-	raw, _ := gitCmdErr(ctx, dir, "log", "--numstat", "--no-merges",
+	raw, err := gitCmdErr(ctx, dir, "log", "--numstat", "--no-merges",
 		"--since=2 years ago",
 		"--format="+gitLogFormat)
+	if err != nil {
+		// Empty repo or no matching commits — not an error for callers
+		if isEmptyRepoError(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("git log (2y window): %w", err)
+	}
 	if raw == "" {
-		raw, _ = gitCmdErr(ctx, dir, "log", "--numstat", "--no-merges",
+		raw, err = gitCmdErr(ctx, dir, "log", "--numstat", "--no-merges",
 			"--format="+gitLogFormat)
+		if err != nil {
+			if isEmptyRepoError(err) {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("git log (full history): %w", err)
+		}
 	}
 	if raw == "" {
 		return nil, nil
 	}
 	return parseCommits(raw), nil
+}
+
+// isEmptyRepoError reports whether a git error is just "no commits yet".
+func isEmptyRepoError(err error) bool {
+	if ge, ok := err.(*GitError); ok {
+		return strings.Contains(ge.Stderr, "does not have any commits") ||
+			strings.Contains(ge.Stderr, "unknown revision")
+	}
+	return false
 }
 
 func collectTags(ctx context.Context, dir string) ([]TagInfo, error) {

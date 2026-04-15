@@ -52,6 +52,12 @@ func IsCIOnly(files []FileChange) bool {
 	return true
 }
 
+// isFixCommit reports whether a commit subject indicates a bug fix.
+func isFixCommit(subject string) bool {
+	lower := strings.ToLower(subject)
+	return strings.Contains(lower, "fix") || strings.Contains(lower, "bugfix") || strings.Contains(lower, "patch")
+}
+
 // IsFormattingOnly reports whether a commit appears to be a mass reformatting.
 func IsFormattingOnly(files []FileChange) bool {
 	if len(files) < 3 {
