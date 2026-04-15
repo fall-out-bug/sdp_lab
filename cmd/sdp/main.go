@@ -57,6 +57,8 @@ func main() {
 		runDiscover(os.Args[2:])
 	case "architect":
 		runArchitect(os.Args[2:])
+	case "scout":
+		runScout(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -111,4 +113,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Other:")
 	fmt.Fprintln(os.Stderr, "  sdp attention")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Scout commands:")
+	fmt.Fprintln(os.Stderr, "  sdp scout [--format json|text|card] [--output DIR] <repo-path>")
 }

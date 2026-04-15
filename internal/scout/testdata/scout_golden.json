@@ -1,0 +1,79 @@
+{
+  "version": "1.0.0",
+  "scanned_at": "2026-04-13T15:00:00Z",
+  "duration_ms": 2700,
+  "identity": {
+    "name": "example",
+    "description": "A fast SDP toolkit",
+    "repo_url": "github.com/example/repo",
+    "primary_language": "go",
+    "languages": {
+      "go": {
+        "files": 312,
+        "ratio": 0.72
+      }
+    },
+    "build_system": "go-modules",
+    "build_files": [
+      "go.mod"
+    ],
+    "monorepo": false
+  },
+  "scale": {
+    "total_files": 433,
+    "total_loc": 48200,
+    "source_files": 312,
+    "test_files": 67,
+    "test_ratio": 0.18,
+    "generated_files": 12,
+    "vendor_files": 0,
+    "max_file_loc": 1240,
+    "median_file_loc": 89,
+    "directories": 47,
+    "depth_max": 6
+  },
+  "activity": {
+    "first_commit": "2024-06-15",
+    "last_commit": "2026-04-13",
+    "age_months": 22,
+    "total_commits": 1247,
+    "contributors": 8,
+    "active_contributors_90d": 4,
+    "commits_30d": 87,
+    "commits_90d": 234,
+    "active_branches": 5
+  },
+  "maturity": {
+    "has_readme": true,
+    "has_license": true,
+    "has_ci": true,
+    "ci_system": "github-actions",
+    "has_tests": true,
+    "has_linter": true,
+    "has_docker": true,
+    "has_releases": true,
+    "latest_release": "v1.0.0",
+    "release_count": 14,
+    "has_codeowners": false,
+    "has_contributing": true,
+    "has_changelog": false
+  },
+  "build": {
+    "entry_points": [
+      "cmd/app/main.go"
+    ],
+    "config_files": [
+      "go.mod"
+    ],
+    "package_manager": "go-modules",
+    "dependency_count": 42,
+    "dependency_file": "go.mod"
+  },
+  "health_signals": {
+    "bus_factor_estimate": 3,
+    "commit_frequency": "high",
+    "staleness": "active",
+    "test_coverage_hint": "partial",
+    "complexity_hint": "medium"
+  }
+}
