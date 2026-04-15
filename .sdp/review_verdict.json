@@ -1,19 +1,84 @@
 {
   "feature": "F121",
   "verdict": "APPROVED",
-  "timestamp": "2026-04-15T17:42:00Z",
-  "round": 1,
+  "timestamp": "2026-04-15T21:30:00Z",
+  "round": 3,
   "reviewers": {
-    "qa": {"verdict": "PASS", "findings": [{"severity": "P2", "desc": "renderText not tested for empty Period"}, {"severity": "P2", "desc": "No end-to-end integration test"}]},
-    "security": {"verdict": "PASS", "findings": [{"severity": "P2", "desc": "No repoPath validation"}]},
-    "devops": {"verdict": "PASS", "findings": [{"severity": "P2", "desc": "N+1 in parseBranches"}, {"severity": "P2", "desc": "gitCmd swallows errors"}, {"severity": "P3", "desc": "Missing --verbose/--period/--category flags"}]},
-    "sre": {"verdict": "PASS", "findings": [{"severity": "P2", "desc": "gini() O(n^2)"}, {"severity": "P2", "desc": "Context cancellation only at start"}]},
-    "techlead": {"verdict": "PASS", "findings": [{"severity": "P2", "desc": "Custom string helpers vs stdlib"}, {"severity": "P2", "desc": "Insertion sort duplicated 3x"}, {"severity": "P2", "desc": "Wrong rater for conventional commits in renderText"}, {"severity": "P2", "desc": "Period zero-value rendered as 0001-01-02"}, {"severity": "P3", "desc": "Empty import () in hygiene.go"}]},
-    "docs": {"verdict": "PASS", "findings": [{"severity": "P2", "desc": "Missing godoc on 5 analyzer functions"}, {"severity": "P2", "desc": "Design drift: --period/--category/cherry-pick not implemented"}]},
-    "promptops": {"verdict": "PASS", "findings": [], "checks": [{"check_id": "language-agnostic", "status": "pass"}, {"check_id": "no-phantom-cli", "status": "pass"}, {"check_id": "skill-size", "status": "pass"}]}
+    "qa": {
+      "verdict": "PASS",
+      "findings": [
+        {"id": "F121-decay-patch", "severity": "P2", "desc": "decay.go fix detection missing 'patch' keyword — inconsistent with release.go"},
+        {"id": "F121-duration", "severity": "P2", "desc": "DurationMs captured before 7 analyzers run — understates execution time"},
+        {"id": "F121-nondet", "severity": "P2", "desc": "time.Now() in gitflow/waste/knowledge creates non-deterministic tests"},
+        {"id": "F121-jwi", "severity": "P3", "desc": "waste.go churnAdded dead code"},
+        {"id": "F121-b7v", "severity": "P3", "desc": "gitflow.go trunkScore += 0 dead code"},
+        {"id": "F121-1gm", "severity": "P3", "desc": "knowledge.go unnecessary blank identifier loop"},
+        {"id": "filter-stdlib", "severity": "P3", "desc": "filter.go custom stringsSplit/indexOf reimplements stdlib"},
+        {"id": "filepath-join", "severity": "P3", "desc": "cmd_metrics.go string concat instead of filepath.Join"},
+        {"id": "git-lookpath", "severity": "P3", "desc": "No exec.LookPath check for git binary"}
+      ]
+    },
+    "security": {
+      "verdict": "PASS",
+      "findings": []
+    },
+    "devops": {
+      "verdict": "PASS",
+      "findings": [
+        {"id": "devops-r3-1", "severity": "P2", "desc": "git binary hard dependency — no exec.LookPath check"},
+        {"id": "devops-r3-2", "severity": "P3", "desc": "string concat instead of filepath.Join for output path"},
+        {"id": "devops-r3-3", "severity": "P3", "desc": "custom stringsSplit/indexOf leftover in filter.go"},
+        {"id": "devops-r3-4", "severity": "P3", "desc": "dead code: churnAdded, trunkScore+=0, blank identifier loop"},
+        {"id": "devops-r3-5", "severity": "P3", "desc": "ChurnWindowDays=14 set but never used for filtering"}
+      ]
+    },
+    "sre": {
+      "verdict": "PASS",
+      "findings": [
+        {"id": "F121-r3a", "severity": "P2", "desc": "collectCommits still silently discards git errors"},
+        {"id": "F121-r3b", "severity": "P3", "desc": "DurationMs measured before analyzers run"},
+        {"id": "F121-r3c", "severity": "P3", "desc": "time.Now() non-determinism in gitflow/waste/knowledge"},
+        {"id": "F121-r3d", "severity": "P3", "desc": "dead code: trunkScore+=0, churnAdded"},
+        {"id": "F121-r3e", "severity": "P3", "desc": "ChurnWindowDays=14 set but unused — misleading JSON"}
+      ]
+    },
+    "techlead": {
+      "verdict": "PASS",
+      "findings": [
+        {"id": "sdplab-agk", "severity": "P2", "desc": "Custom stringsSplit/indexOf in filter.go reimplements stdlib"},
+        {"id": "sdplab-z3y", "severity": "P2", "desc": "Fix detection duplicated with semantic gap — decay.go missing 'patch'"},
+        {"id": "sdplab-2wm", "severity": "P3", "desc": "dirOf() vs strings.IndexByte style inconsistency"}
+      ]
+    },
+    "docs": {
+      "verdict": "PASS",
+      "findings": [
+        {"id": "docs-1", "severity": "P2", "desc": "metrics subcommand not listed in top-level usage() output"}
+      ]
+    },
+    "promptops": {
+      "verdict": "PASS",
+      "findings": [],
+      "checks": [
+        {"check_id": "language-agnostic", "status": "pass"},
+        {"check_id": "no-phantom-cli", "status": "pass"},
+        {"check_id": "skill-size", "status": "pass"},
+        {"check_id": "ac-specificity", "status": "pass"},
+        {"check_id": "evidence-quality", "status": "pass", "note": "line numbers corrected during synthesis: :211→:202, :170→:166, :222→:216"}
+      ]
+    }
   },
-  "finding_ids": [],
+  "finding_ids": ["F121-decay-patch","F121-duration","F121-nondet","F121-jwi","F121-b7v","F121-1gm","filter-stdlib","filepath-join","git-lookpath","devops-r3-1","devops-r3-2","devops-r3-3","devops-r3-4","devops-r3-5","F121-r3a","F121-r3b","F121-r3c","F121-r3d","F121-r3e","sdplab-agk","sdplab-z3y","sdplab-2wm","docs-1"],
   "blocking_ids": [],
-  "synthesis": {"conflicts": [], "rubber_stamps": []},
-  "summary": "All 7 roles PASS, max severity P2. No P0/P1 blockers."
+  "synthesis": {
+    "conflicts": [],
+    "rubber_stamps": ["security"],
+    "adversarial_notes": [
+      "QA passed but DurationMs excludes analyzer execution time",
+      "SRE correctly noted collectCommits still swallows errors (WS-08 tracked)",
+      "4/7 reviewers confirmed dead code and WS-08 items still present — strong consensus",
+      "PromptOps evidence-quality initially failed (wrong line numbers), fixed during synthesis"
+    ]
+  },
+  "summary": "APPROVED: Round-2 P1 findings verified fixed (P95 percentile, error propagation). 23 findings total (8 P2, 15 P3), all tracked in WS-08 (Code Quality Cleanup). No blocking issues."
 }
