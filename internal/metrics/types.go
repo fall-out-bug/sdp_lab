@@ -18,6 +18,9 @@ type MetricsReport struct {
 	Waste           *Waste       `json:"waste,omitempty"`
 	GitFlow         *GitFlow     `json:"git_flow,omitempty"`
 	ReleaseQuality  *ReleaseQuality `json:"release_quality,omitempty"`
+	Stabilization   *Stabilization  `json:"stabilization,omitempty"`
+	KnowledgeRisk   *KnowledgeRisk  `json:"knowledge_risk,omitempty"`
+	Decay           *Decay          `json:"decay,omitempty"`
 }
 
 // TimePeriod describes the analysis window.
@@ -127,82 +130,66 @@ type ReleaseInfo struct {
 	TimeToFirstFixH  float64   `json:"time_to_first_fix_hours"`
 }
 
+// Stabilization holds release stabilization metrics.
+type Stabilization struct {
+	AvgPatchesToStable float64            `json:"avg_patches_to_stable"`
+	Trend              string             `json:"trend"`
+	Releases           []StabilizedRelease `json:"releases,omitempty"`
+}
+
+// StabilizedRelease describes stabilization of a release line.
+type StabilizedRelease struct {
+	Base              string `json:"base"`
+	StabilizedAtPatch int    `json:"stabilized_at_patch"`
+	PatchesTotal      int    `json:"patches_total"`
+}
+
+// KnowledgeRisk holds knowledge risk metrics.
+type KnowledgeRisk struct {
+	OverallBusFactor        int             `json:"overall_bus_factor"`
+	GiniCoefficient         float64         `json:"gini_coefficient"`
+	BusFactorByModule       []ModuleRisk    `json:"bus_factor_by_module,omitempty"`
+	FormerContributorRatio  float64         `json:"former_contributor_ratio"`
+	FormerContributors      []string        `json:"former_contributors,omitempty"`
+}
+
+// ModuleRisk holds bus factor info for a directory.
+type ModuleRisk struct {
+	Module             string  `json:"module"`
+	BusFactor          int     `json:"bus_factor"`
+	PrimaryAuthor      string  `json:"primary_author"`
+	PrimaryAuthorRatio float64 `json:"primary_author_ratio"`
+	FilesCount         int     `json:"files_count"`
+}
+
+// Decay holds code decay metrics.
+type Decay struct {
+	ShotgunSurgeryRatio  float64          `json:"shotgun_surgery_ratio"`
+	ShotgunCommits       int              `json:"shotgun_commits"`
+	MonotonicGrowthFiles []MonotonicFile  `json:"monotonic_growth_files,omitempty"`
+	FixRecurrence        []FixRecurrenceEntry `json:"fix_recurrence,omitempty"`
+}
+
+// MonotonicFile represents a file that keeps growing without refactoring.
+type MonotonicFile struct {
+	Path          string `json:"path"`
+	MonthsGrowing int    `json:"months_growing"`
+	StartLOC      int    `json:"start_loc"`
+	CurrentLOC    int    `json:"current_loc"`
+	ZeroRefactor  bool   `json:"zero_refactor_events"`
+}
+
+// FixRecurrenceEntry describes files with repeated fix commits.
+type FixRecurrenceEntry struct {
+	Path         string  `json:"path"`
+	FixCount     int     `json:"fix_count"`
+	TotalCommits int     `json:"total_commits"`
+	FixDensity   float64 `json:"fix_density"`
+}
+
 // ── Helper Functions ──────────────────────────────────────────────
 
-// IsBot reports whether an author name matches known bot patterns.
-func IsBot(author string) bool {
-	bots := []string{"dependabot", "renovate", "github-actions", "mergify", "snyk", "semantic-release"}
-	lower := toLower(author)
-	for _, b := range bots {
-		if contains(lower, b) {
-			return true
-		}
-	}
-	return false
-}
-
-// IsGeneratedFile reports whether a file path matches generated-file patterns.
-func IsGeneratedFile(path string) bool {
-	patterns := []string{".pb.go", ".generated.", ".min.js", ".min.css"}
-	for _, p := range patterns {
-		if contains(path, p) {
-			return true
-		}
-	}
-	// Lock files
-	suffixes := []string{".lock", ".sum", "-lock.json"}
-	for _, s := range suffixes {
-		if hasSuffix(path, s) {
-			return true
-		}
-	}
-	return false
-}
-
-// IsCIOnly reports whether all changed files in a commit are CI/infra config.
-func IsCIOnly(files []FileChange) bool {
-	if len(files) == 0 {
-		return false
-	}
-	ciPrefixes := []string{".github/", ".gitlab-ci.yml", "Jenkinsfile", ".circleci/", ".travis.yml"}
-	for _, f := range files {
-		isCI := false
-		for _, prefix := range ciPrefixes {
-			if hasPrefix(f.Path, prefix) {
-				isCI = true
-				break
-			}
-		}
-		if !isCI {
-			return false
-		}
-	}
-	return true
-}
-
-// IsFormattingOnly reports whether a commit appears to be a mass reformatting.
-// Heuristic: >90% of files have added ≈ deleted ± 10%.
-func IsFormattingOnly(files []FileChange) bool {
-	if len(files) < 3 {
-		return false
-	}
-	formatCount := 0
-	for _, f := range files {
-		if f.Added == 0 && f.Deleted == 0 {
-			continue
-		}
-		// added ≈ deleted within 10% tolerance
-		min := imin(f.Added, f.Deleted)
-		max := imax(f.Added, f.Deleted)
-		if max > 0 && (min >= max*9/10) {
-			formatCount++
-		}
-	}
-	return formatCount*10 >= len(files)*9 // >=90%
-}
-
 func toLower(s string) string {
-	// Simple ASCII lowercase without importing strings
 	result := make([]byte, len(s))
 	for i := 0; i < len(s); i++ {
 		c := s[i]
