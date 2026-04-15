@@ -37,3 +37,29 @@ func TestActivityEmptyDir(t *testing.T) {
 		t.Error("FirstCommit should be nil for non-git dir")
 	}
 }
+
+func TestStripCredentials(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"no credentials", "https://github.com/org/repo.git", "https://github.com/org/repo.git"},
+		{"https with token", "https://ghp_TOKEN@github.com/org/repo.git", "https://github.com/org/repo.git"},
+		{"https with user:pass", "https://user:pass123@github.com/org/repo.git", "https://github.com/org/repo.git"},
+		{"scp-like with token", "token123@github.com:org/repo.git", "github.com:org/repo.git"},
+		{"scp-like with user", "git@github.com:org/repo.git", "github.com:org/repo.git"},
+		{"ssh full", "ssh://git@github.com/org/repo.git", "ssh://github.com/org/repo.git"},
+		{"no at sign", "https://github.com/org/repo.git", "https://github.com/org/repo.git"},
+		{"empty string", "", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := stripCredentials(tt.input)
+			if got != tt.want {
+				t.Errorf("stripCredentials(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}

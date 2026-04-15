@@ -168,22 +168,30 @@ func detectRepoURL(root string) *string {
 	return &clean
 }
 
-// stripCredentials removes embedded userinfo (user:pass@) from a URL.
+// stripCredentials removes embedded userinfo (user:pass@) from a git remote URL.
+// Handles both HTTPS (https://user:pass@host/path) and scp-like (user@host:path) formats.
 func stripCredentials(rawURL string) string {
-	// Handle common formats: https://user:pass@host/path, http://token@host/path
-	atIdx := strings.Index(rawURL, "@")
+	atIdx := strings.LastIndex(rawURL, "@")
 	if atIdx < 0 {
 		return rawURL
 	}
-	// Find the :// separator
-	schemeIdx := strings.Index(rawURL, "://")
-	if schemeIdx < 0 {
-		return rawURL
+
+	// HTTPS format: scheme://userinfo@host/path
+	if schemeIdx := strings.Index(rawURL, "://"); schemeIdx >= 0 {
+		hostStart := atIdx + 1
+		scheme := rawURL[:schemeIdx+3]
+		rest := rawURL[hostStart:]
+		return scheme + rest
 	}
+
+	// scp-like format: userinfo@host:path.git
+	// Pattern: something@host:path — strip everything before @
 	hostStart := atIdx + 1
-	scheme := rawURL[:schemeIdx+3]
-	rest := rawURL[hostStart:]
-	return scheme + rest
+	if hostStart < len(rawURL) {
+		return rawURL[hostStart:]
+	}
+
+	return rawURL
 }
 
 // detectBuildEntries finds entry points (files with func main()).
