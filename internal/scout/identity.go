@@ -123,7 +123,13 @@ func detectBuildSystemFiles(root string, id *Identity, bld *Build) {
 
 func detectReadme(root string, id *Identity) bool {
 	for _, name := range []string{"README.md", "README.rst", "README.txt", "README"} {
-		data, err := os.ReadFile(filepath.Join(root, name))
+		path := filepath.Join(root, name)
+		// Skip symlinks to prevent exfiltration from unknown codebases
+		info, err := os.Lstat(path)
+		if err != nil || info.Mode()&os.ModeSymlink != 0 {
+			continue
+		}
+		data, err := os.ReadFile(path)
 		if err != nil {
 			continue
 		}

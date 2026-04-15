@@ -61,11 +61,11 @@ func addAndCommit(t *testing.T, dir, file, content, date string) {
 	cmd := exec.Command("git", "add", ".")
 	cmd.Dir = dir
 	cmd.Env = env
-	cmd.CombinedOutput()
+	_, _ = cmd.CombinedOutput()
 	cmd = exec.Command("git", "commit", "-m", "update "+file)
 	cmd.Dir = dir
 	cmd.Env = env
-	cmd.CombinedOutput()
+	_, _ = cmd.CombinedOutput()
 }
 
 func sortedKeys(m map[string]LangStats) []string {

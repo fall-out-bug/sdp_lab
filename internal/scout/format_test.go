@@ -158,16 +158,16 @@ func TestWriteArtifactCreatesDir(t *testing.T) {
 func TestLargeRepoSkipLOCForMinorLanguages(t *testing.T) {
 	// Create a repo with many files to trigger large-repo path
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test\ngo 1.26\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test\ngo 1.26\n"), 0o644)
 
 	// Create 101 source files (above large-repo threshold of 100)
 	for i := range 101 {
-		os.MkdirAll(filepath.Join(dir, "pkg"), 0o755)
-		os.WriteFile(filepath.Join(dir, "pkg", "file"+string(rune('A'+i%26))+".go"),
+		_ = os.MkdirAll(filepath.Join(dir, "pkg"), 0o755)
+		_ = os.WriteFile(filepath.Join(dir, "pkg", "file"+string(rune('A'+i%26))+".go"),
 			[]byte("package pkg\nfunc F() {}\n"), 0o644)
 	}
 	// Add a minor-language file
-	os.WriteFile(filepath.Join(dir, "script.sh"), []byte("#!/bin/bash\necho hi\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "script.sh"), []byte("#!/bin/bash\necho hi\n"), 0o644)
 
 	scale := detectScale(dir, strPtr("go-modules"))
 	// Should still have LOC counted — just tests it doesn't crash

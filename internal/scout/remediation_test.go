@@ -66,7 +66,7 @@ func TestBranchDetectionMasterRepo(t *testing.T) {
 	// Rename branch to master
 	cmd := exec.Command("git", "branch", "-M", "master")
 	cmd.Dir = dir
-	cmd.CombinedOutput()
+	_, _ = cmd.CombinedOutput()
 
 	// Add a remote branch to test
 	activity := detectActivity(dir)
@@ -95,10 +95,10 @@ func TestRepoURLPopulated(t *testing.T) {
 
 	// Add a remote (local)
 	originPath := filepath.Join(dir, "../fake-remote")
-	os.MkdirAll(originPath, 0o755)
+	_ = os.MkdirAll(originPath, 0o755)
 	cmd := exec.Command("git", "remote", "add", "origin", originPath)
 	cmd.Dir = dir
-	cmd.CombinedOutput()
+	_, _ = cmd.CombinedOutput()
 
 	ctx := context.Background()
 	card, err := RunWithContext(ctx, dir)

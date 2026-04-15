@@ -112,11 +112,6 @@ func isGitRepo(dir string) bool {
 	return err == nil
 }
 
-// gitCmd runs a git command with the default timeout.
-func gitCmd(dir string, args ...string) string {
-	return gitCmdWithContext(context.Background(), dir, args...)
-}
-
 // gitCmdWithContext runs a git command with context-based cancellation.
 func gitCmdWithContext(ctx context.Context, dir string, args ...string) string {
 	ctx, cancel := context.WithTimeout(ctx, defaultGitTimeout)
@@ -141,11 +136,7 @@ func countNonEmptyLines(s string) int {
 	return n
 }
 
-// detectMaturityFromGit extends Maturity with tag/release signals.
-func detectMaturityFromGit(root string, mat *Maturity) {
-	detectMaturityFromGitWithContext(context.Background(), root, mat)
-}
-
+// detectMaturityFromGitWithContext extends Maturity with tag/release signals.
 func detectMaturityFromGitWithContext(ctx context.Context, root string, mat *Maturity) {
 	if !isGitRepo(root) {
 		return
@@ -166,14 +157,33 @@ func detectMaturityFromGitWithContext(ctx context.Context, root string, mat *Mat
 	}
 }
 
-// detectRepoURL returns the origin remote URL, or nil if none.
+// detectRepoURL returns the origin remote URL with credentials stripped, or nil if none.
 func detectRepoURL(root string) *string {
-	url := gitCmdWithContext(context.Background(), root, "remote", "get-url", "origin")
-	url = strings.TrimSpace(url)
-	if url == "" {
+	raw := gitCmdWithContext(context.Background(), root, "remote", "get-url", "origin")
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
 		return nil
 	}
-	return &url
+	clean := stripCredentials(raw)
+	return &clean
+}
+
+// stripCredentials removes embedded userinfo (user:pass@) from a URL.
+func stripCredentials(rawURL string) string {
+	// Handle common formats: https://user:pass@host/path, http://token@host/path
+	atIdx := strings.Index(rawURL, "@")
+	if atIdx < 0 {
+		return rawURL
+	}
+	// Find the :// separator
+	schemeIdx := strings.Index(rawURL, "://")
+	if schemeIdx < 0 {
+		return rawURL
+	}
+	hostStart := atIdx + 1
+	scheme := rawURL[:schemeIdx+3]
+	rest := rawURL[hostStart:]
+	return scheme + rest
 }
 
 // detectBuildEntries finds entry points (files with func main()).

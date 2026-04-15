@@ -49,8 +49,8 @@ func TestScaleSkipsBinaryFiles(t *testing.T) {
 	dir := t.TempDir()
 	binContent := make([]byte, 100)
 	binContent[10] = 0x00
-	os.WriteFile(filepath.Join(dir, "image.png"), binContent, 0o644)
-	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "image.png"), binContent, 0o644)
+	_ = os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n"), 0o644)
 
 	scale := detectScale(dir, nil)
 	if scale.TotalLoc != 1 {

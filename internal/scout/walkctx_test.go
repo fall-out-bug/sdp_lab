@@ -45,9 +45,9 @@ func TestWalkCancelledMidScan(t *testing.T) {
 	// Create enough files to ensure walk is non-trivial
 	for i := 0; i < 50; i++ {
 		sub := filepath.Join(dir, "sub"+string(rune('A'+i%26)))
-		os.MkdirAll(sub, 0o755)
+		_ = os.MkdirAll(sub, 0o755)
 		for j := 0; j < 10; j++ {
-			os.WriteFile(filepath.Join(sub, "file.txt"), []byte("hello\n"), 0o644)
+			_ = os.WriteFile(filepath.Join(sub, "file.txt"), []byte("hello\n"), 0o644)
 		}
 	}
 

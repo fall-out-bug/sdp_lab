@@ -12,7 +12,7 @@ func runScout(args []string) {
 	fs := flag.NewFlagSet("scout", flag.ExitOnError)
 	format := fs.String("format", "json", "output format: json, text, card")
 	output := fs.String("output", "", "write .sdp/scout.json to this directory")
-	fs.Parse(args)
+	_ = fs.Parse(args)
 
 	if fs.NArg() < 1 {
 		fmt.Fprintln(os.Stderr, "usage: sdp scout [--format json|text|card] [--output DIR] <repo-path>")
