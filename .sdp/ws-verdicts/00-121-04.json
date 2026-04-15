@@ -1,0 +1,26 @@
+{
+  "ws_id": "00-121-04",
+  "feature_id": "F121",
+  "verdict": "PASS",
+  "commit": "0ae8fec",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": 94.6,
+    "coverage_threshold": 80,
+    "max_file_loc": 188,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {"ac": "Custom helpers replaced with stdlib strings/slices packages", "met": true, "evidence": "types.go: removed toLower/contains/stringContains/hasSuffix/hasPrefix/imin/imax. helpers.go: uses strings.ToLower/Contains/HasSuffix/HasPrefix, min/max builtins. hygiene.go: uses strings.IndexByte/ToLower/Contains. gitflow.go: uses slices.Sort, fmt.Sprintf"},
+    {"ac": "Insertion sort deduplicated via slices.SortFunc", "met": true, "evidence": "waste.go:64-66 uses slices.SortFunc with cmp.Compare. knowledge.go:56-58 and 89-91 use slices.SortFunc. gitflow.go:68 uses slices.Sort. No inline insertion sort remains"},
+    {"ac": "RateConventionalCommitsRatio added to thresholds.go", "met": true, "evidence": "thresholds.go:78-90 defines RateConventionalCommitsRatio with >0.7 green, 0.4-0.7 yellow, <0.4 red. TestRateConventionalCommitsRatio in thresholds_test.go verifies thresholds"},
+    {"ac": "cmd_metrics.go uses RateConventionalCommitsRatio instead of RateTicketLinkedRatio", "met": true, "evidence": "cmd_metrics.go:101 renderText uses RateConventionalCommitsRatio. cmd_metrics.go:151 renderMarkdown uses RateConventionalCommitsRatio"},
+    {"ac": "renderText and renderMarkdown guard against Period zero-value", "met": true, "evidence": "cmd_metrics.go:95-99 guard with r.Period.From.IsZero(). cmd_metrics.go:142-145 guard with r.Period.From.IsZero(). TestRenderTextEmptyPeriod and TestRenderMarkdownEmptyPeriod verify no '0001' in output"},
+    {"ac": "Empty import () removed from hygiene.go", "met": true, "evidence": "hygiene.go:3 now has 'import \"strings\"' instead of 'import ()'"},
+    {"ac": "go build ./... passes", "met": true, "evidence": "Build succeeded with 0 errors"},
+    {"ac": "go test ./internal/metrics/... ./cmd/sdp/... passes", "met": true, "evidence": "93 tests passed (78 metrics + 15 cmd/sdp)"}
+  ],
+  "existing_work_summary": "types.go had 8 custom helpers (toLower, contains, stringContains, hasSuffix, hasPrefix, imin, imax, indexOfChar). gitflow.go had sortFloats, ftoa, itoa. Insertion sort duplicated in waste.go, knowledge.go (2 places). cmd_metrics.go:100,149 used RateTicketLinkedRatio for conventional commits. Period zero-value rendered as 0001-01-02. hygiene.go had empty import (). 77 existing tests, 93.3% coverage."
+}
