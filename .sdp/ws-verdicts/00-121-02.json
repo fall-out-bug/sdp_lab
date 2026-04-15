@@ -1,0 +1,43 @@
+{
+  "ws_id": "00-121-02",
+  "feature_id": "F121",
+  "verdict": "PASS",
+  "commit": "8724dc2",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": 91.9,
+    "coverage_threshold": 80,
+    "max_file_loc": 209,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {
+      "ac": "commit hygiene metrics report commit size, commit quality, and batchiness signals",
+      "met": true,
+      "evidence": "AnalyzeHygiene in internal/metrics/hygiene.go:16 — computes ticket_linked_ratio, conventional_commits_ratio, commit_type_breakdown, fix_to_feature_ratio, avg_message_length, avg_files_per_commit, monorepo_style_ratio. Tests: TestAnalyzeHygieneTicketLinked, TestAnalyzeHygieneConventionalCommits, TestAnalyzeHygieneFixToFeatureRatio, TestAnalyzeHygieneMessageLength, TestAnalyzeHygieneAvgFilesPerCommit, TestAnalyzeHygieneMonorepoStyle, TestAnalyzeHygieneJiraPattern, TestParseConventionalType"
+    },
+    {
+      "ac": "wasted-work metrics quantify churn, reverts, and abandoned changes",
+      "met": true,
+      "evidence": "AnalyzeWaste in internal/metrics/waste.go:9 — computes churn_ratio, churn_files_top (top 5), revert_count, revert_rate, abandoned_branches. Tests: TestAnalyzeWasteChurnRatio, TestAnalyzeWasteChurnTopFiles, TestAnalyzeWasteRevertCount, TestAnalyzeWasteAbandonedBranches, TestAnalyzeWasteChurnWindowDays"
+    },
+    {
+      "ac": "git-flow detection distinguishes likely branch models from actual history",
+      "met": true,
+      "evidence": "AnalyzeGitFlow in internal/metrics/gitflow.go:6 — scores trunk-based/gitflow/github-flow models via branch naming, merge frequency, branch lifetimes. Tests: TestAnalyzeGitFlowTrunkBased, TestAnalyzeGitFlowGitFlow, TestAnalyzeGitFlowMergeFrequency, TestAnalyzeGitFlowEvidence, TestAnalyzeGitFlowBranchLifetimes, TestMedian"
+    },
+    {
+      "ac": "release-quality metrics describe release cadence and instability from tags/merges",
+      "met": true,
+      "evidence": "AnalyzeReleaseQuality in internal/metrics/release.go:9 — analyzes semver tags, counts fixes in 7d/14d/30d windows, computes avg time-to-first-hotfix. Tests: TestAnalyzeReleaseQualitySemverOnly, TestAnalyzeReleaseQualityFixesInWindow, TestAnalyzeReleaseQualityTimeToFirstFix, TestAnalyzeReleaseQualityMultipleReleases, TestAnalyzeReleaseQualityNoFixes"
+    },
+    {
+      "ac": "tests use synthetic git histories to prove the analyzers match expected patterns",
+      "met": true,
+      "evidence": "31 new unit tests across hygiene_test.go, waste_test.go, gitflow_test.go, release_test.go — all use constructed GitData structs with synthetic commits/tags/branches to verify analyzer behavior"
+    }
+  ],
+  "existing_work_summary": "types.go had helper functions (toLower, contains, imin, imax) from WS-01. Added Hygiene, Waste, GitFlow, ReleaseQuality, ChurnFile, ReleaseInfo structs to MetricsReport. No pre-existing analyzer code."
+}
