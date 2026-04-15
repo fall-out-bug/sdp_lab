@@ -3,6 +3,7 @@ package metrics
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -403,5 +404,51 @@ func TestIsFormattingOnly(t *testing.T) {
 	}
 	if IsFormattingOnly(unbalanced) {
 		t.Error("should not detect as formatting-only")
+	}
+}
+
+// ── WS-05: Robustness and Performance ─────────────────────────────
+
+func TestCollectInvalidPath(t *testing.T) {
+	_, err := Collect("/nonexistent/path/that/does/not/exist")
+	if err == nil {
+		t.Error("expected error for nonexistent path")
+	}
+}
+
+func TestCollectNonGitDirectory(t *testing.T) {
+	dir := t.TempDir()
+	_, err := Collect(dir)
+	if err == nil {
+		t.Error("expected error for non-git directory")
+	}
+}
+
+func TestGitCmdReturnsError(t *testing.T) {
+	dir := createTempGitRepo(t)
+	_, err := gitCmdErr(context.Background(), dir, "invalid-git-subcommand-xyz")
+	if err == nil {
+		t.Error("expected error for invalid git command")
+	}
+	var ge *GitError
+	if !errors.As(err, &ge) {
+		t.Errorf("expected *GitError, got %T", err)
+	}
+}
+
+func TestGiniConsistency(t *testing.T) {
+	vals := []float64{10, 20, 30, 40, 50}
+	g := gini(vals)
+	if g < 0 || g > 1 {
+		t.Errorf("gini = %f, want [0,1]", g)
+	}
+	// Uniform distribution should have gini = 0
+	uniform := []float64{100, 100, 100, 100}
+	if g := gini(uniform); g > 0.01 {
+		t.Errorf("gini(uniform) = %f, want ~0", g)
+	}
+	// Single value should have gini = 0
+	if g := gini([]float64{42}); g != 0 {
+		t.Errorf("gini(single) = %f, want 0", g)
 	}
 }

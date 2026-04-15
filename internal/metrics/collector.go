@@ -1,16 +1,26 @@
 package metrics
 
 import (
-	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
-	"regexp"
 	"strings"
 	"time"
 )
 
 const defaultGitTimeout = 60 * time.Second
+
+// GitError represents a structured error from a git command.
+type GitError struct {
+	Cmd      string
+	ExitCode int
+	Stderr   string
+}
+
+func (e *GitError) Error() string {
+	return fmt.Sprintf("git %s: exit %d: %s", e.Cmd, e.ExitCode, e.Stderr)
+}
 
 // Collect runs the 4-call git ingestion pipeline and returns raw data
 // for all seven analyzers to consume.
@@ -24,17 +34,33 @@ func CollectWithContext(ctx context.Context, repoPath string) (*GitData, error) 
 		return nil, fmt.Errorf("metrics: %w", err)
 	}
 
+	if err := validateRepoPath(repoPath); err != nil {
+		return nil, err
+	}
+
 	// Call 1: git log --numstat (rich commit data)
 	commits, err := collectCommits(ctx, repoPath)
 	if err != nil {
 		return nil, fmt.Errorf("collect commits: %w", err)
 	}
 
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("metrics: %w", err)
+	}
+
 	// Call 2: git tag --sort=creatordate
 	tags := collectTags(ctx, repoPath)
 
-	// Call 3: git branch -r
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("metrics: %w", err)
+	}
+
+	// Call 3: git branch -r (single batch call via for-each-ref)
 	branches := collectBranches(ctx, repoPath)
+
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("metrics: %w", err)
+	}
 
 	// Call 4: git log --merges --first-parent main (merge count)
 	mergeCount := countMerges(ctx, repoPath)
@@ -47,19 +73,30 @@ func CollectWithContext(ctx context.Context, repoPath string) (*GitData, error) 
 	}, nil
 }
 
-// gitDelim is the format delimiter used to separate commits.
-const gitDelim = "COMMIT_BOUNDARY_9F2A"
-
-// gitLogFormat is the rich format capturing all fields needed by analyzers.
-const gitLogFormat = "COMMIT_BOUNDARY_9F2A%H%nAUTHOR:%an%nDATE:%aI%nSUBJECT:%s%nBODY:%b%nNUMSTAT"
+func validateRepoPath(repoPath string) error {
+	info, err := os.Stat(repoPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("metrics: repo path does not exist: %s", repoPath)
+		}
+		return fmt.Errorf("metrics: cannot access repo path: %w", err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("metrics: repo path is not a directory: %s", repoPath)
+	}
+	gitDir := repoPath + "/.git"
+	if _, err := os.Stat(gitDir); err != nil {
+		return fmt.Errorf("metrics: not a git repository (no .git directory): %s", repoPath)
+	}
+	return nil
+}
 
 func collectCommits(ctx context.Context, dir string) ([]RawCommit, error) {
-	// Try 2 years first, fall back to full history
-	raw := gitCmd(ctx, dir, "log", "--numstat", "--no-merges",
+	raw, _ := gitCmdErr(ctx, dir, "log", "--numstat", "--no-merges",
 		"--since=2 years ago",
 		"--format="+gitLogFormat)
 	if raw == "" {
-		raw = gitCmd(ctx, dir, "log", "--numstat", "--no-merges",
+		raw, _ = gitCmdErr(ctx, dir, "log", "--numstat", "--no-merges",
 			"--format="+gitLogFormat)
 	}
 	if raw == "" {
@@ -69,7 +106,7 @@ func collectCommits(ctx context.Context, dir string) ([]RawCommit, error) {
 }
 
 func collectTags(ctx context.Context, dir string) []TagInfo {
-	raw := gitCmd(ctx, dir, "tag", "--sort=creatordate")
+	raw, _ := gitCmdErr(ctx, dir, "tag", "--sort=creatordate")
 	if raw == "" {
 		return nil
 	}
@@ -77,198 +114,46 @@ func collectTags(ctx context.Context, dir string) []TagInfo {
 }
 
 func collectBranches(ctx context.Context, dir string) []BranchInfo {
-	raw := gitCmd(ctx, dir, "branch", "-r")
+	raw, _ := gitCmdErr(ctx, dir, "for-each-ref",
+		"--sort=creatordate",
+		"--format=%(refname:short) %(creatordate:iso-strict)",
+		"refs/remotes/")
 	if raw == "" {
 		return nil
 	}
-	return parseBranches(ctx, dir, raw)
+	return parseBranchesBatch(raw)
 }
 
 func countMerges(ctx context.Context, dir string) int {
-	// Determine default branch
 	branch := "main"
-	if gitCmd(ctx, dir, "rev-parse", "--verify", "master") != "" {
+	if raw, _ := gitCmdErr(ctx, dir, "rev-parse", "--verify", "master"); raw != "" {
 		branch = "master"
 	}
-	raw := gitCmd(ctx, dir, "log", "--merges", "--first-parent", branch, "--format=%H")
+	raw, _ := gitCmdErr(ctx, dir, "log", "--merges", "--first-parent", branch, "--format=%H")
 	return countNonEmptyLines(raw)
 }
 
-// parseCommits parses the raw git log output into RawCommit structs.
-func parseCommits(raw string) []RawCommit {
-	var commits []RawCommit
-	blocks := strings.Split(raw, gitDelim)
-
-	for _, block := range blocks {
-		block = strings.TrimSpace(block)
-		if block == "" {
-			continue
-		}
-		c, ok := parseOneCommit(block)
-		if !ok {
-			continue
-		}
-		commits = append(commits, c)
-	}
-	return commits
-}
-
-func parseOneCommit(block string) (RawCommit, bool) {
-	var c RawCommit
-	scanner := bufio.NewScanner(strings.NewReader(block))
-	inNumstat := false
-	var numstatLines []string
-
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		if line == "NUMSTAT" {
-			inNumstat = true
-			continue
-		}
-
-		if inNumstat {
-			if strings.HasPrefix(line, "COMMIT_BOUNDARY") || strings.HasPrefix(line, "AUTHOR:") {
-				continue
-			}
-			numstatLines = append(numstatLines, line)
-			continue
-		}
-
-		if strings.HasPrefix(line, "AUTHOR:") {
-			c.Author = strings.TrimSpace(strings.TrimPrefix(line, "AUTHOR:"))
-		} else if strings.HasPrefix(line, "DATE:") {
-			ds := strings.TrimSpace(strings.TrimPrefix(line, "DATE:"))
-			t, err := time.Parse(time.RFC3339, ds)
-			if err == nil {
-				c.Date = t
-			}
-		} else if strings.HasPrefix(line, "SUBJECT:") {
-			c.Subject = strings.TrimSpace(strings.TrimPrefix(line, "SUBJECT:"))
-		} else if strings.HasPrefix(line, "BODY:") {
-			// Body may span multiple lines — collect remaining until NUMSTAT
-			c.Body = strings.TrimSpace(strings.TrimPrefix(line, "BODY:"))
-		} else if strings.HasPrefix(line, "COMMIT_BOUNDARY") {
-			// Skip boundary markers
-		} else if len(line) == 40 && isHex(line) && c.Hash == "" {
-			c.Hash = line
-		} else if c.Hash == "" && len(line) > 0 && len(line) <= 40 && isHex(line) {
-			c.Hash = line
-		}
-	}
-
-	// Parse numstat lines: "added\tdeleted\tpath"
-	for _, nl := range numstatLines {
-		fc, ok := parseNumstatLine(nl)
-		if ok {
-			c.Files = append(c.Files, fc)
-		}
-	}
-
-	if c.Hash == "" {
-		return c, false
-	}
-	return c, true
-}
-
-func parseNumstatLine(line string) (FileChange, bool) {
-	parts := strings.SplitN(line, "\t", 3)
-	if len(parts) != 3 {
-		return FileChange{}, false
-	}
-	added := parseNumOrNeg(parts[0])
-	deleted := parseNumOrNeg(parts[1])
-	path := parts[2]
-	// Skip binary files (shown as "-")
-	if added < 0 || deleted < 0 {
-		return FileChange{Path: path}, false
-	}
-	return FileChange{Added: added, Deleted: deleted, Path: path}, true
-}
-
-func parseNumOrNeg(s string) int {
-	s = strings.TrimSpace(s)
-	if s == "-" {
-		return -1
-	}
-	var n int
-	for _, c := range s {
-		if c >= '0' && c <= '9' {
-			n = n*10 + int(c-'0')
-		} else {
-			return -1
-		}
-	}
-	return n
-}
-
-var semverRe = regexp.MustCompile(`^v?\d+\.\d+\.\d+`)
-
-func parseTags(raw string) []TagInfo {
-	var tags []TagInfo
-	for _, line := range strings.Split(raw, "\n") {
-		tag := strings.TrimSpace(line)
-		if tag == "" {
-			continue
-		}
-		tags = append(tags, TagInfo{
-			Tag:      tag,
-			IsSemver: semverRe.MatchString(tag),
-		})
-	}
-	return tags
-}
-
-func parseBranches(ctx context.Context, dir string, raw string) []BranchInfo {
-	var branches []BranchInfo
-	for _, line := range strings.Split(raw, "\n") {
-		name := strings.TrimSpace(line)
-		// Skip HEAD references and empty lines
-		if name == "" || strings.Contains(name, "->") {
-			continue
-		}
-		bi := BranchInfo{Name: name}
-		// Get last commit date for the branch
-		dateStr := gitCmd(ctx, dir, "log", "-1", "--format=%aI", name)
-		if dateStr != "" {
-			t, err := time.Parse(time.RFC3339, strings.TrimSpace(dateStr))
-			if err == nil {
-				bi.LastCommit = &t
-			}
-		}
-		branches = append(branches, bi)
-	}
-	return branches
-}
-
-func isHex(s string) bool {
-	for _, c := range s {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
-			return false
-		}
-	}
-	return true
-}
-
-func countNonEmptyLines(s string) int {
-	n := 0
-	for _, l := range strings.Split(s, "\n") {
-		if strings.TrimSpace(l) != "" {
-			n++
-		}
-	}
-	return n
-}
-
-// gitCmd runs a git command with timeout and returns stdout.
-func gitCmd(ctx context.Context, dir string, args ...string) string {
+// gitCmdErr runs a git command with timeout and returns stdout or a structured error.
+func gitCmdErr(ctx context.Context, dir string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, defaultGitTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return ""
+		exitCode := -1
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		}
+		stderr := ""
+		if out != nil {
+			stderr = strings.TrimSpace(string(out))
+		}
+		return "", &GitError{
+			Cmd:      strings.Join(args, " "),
+			ExitCode: exitCode,
+			Stderr:   stderr,
+		}
 	}
-	return string(out)
+	return string(out), nil
 }

@@ -137,23 +137,24 @@ func gini(vals []float64) float64 {
 	if n == 0 {
 		return 0
 	}
-	var totalDiff, sum float64
-	for _, v := range vals {
+	// Sort for O(n log n) formula
+	sorted := make([]float64, n)
+	copy(sorted, vals)
+	slices.Sort(sorted)
+
+	var sum float64
+	for _, v := range sorted {
 		sum += v
 	}
 	if sum == 0 {
 		return 0
 	}
-	for i := 0; i < n; i++ {
-		for j := 0; j < n; j++ {
-			if vals[i] > vals[j] {
-				totalDiff += vals[i] - vals[j]
-			} else {
-				totalDiff += vals[j] - vals[i]
-			}
-		}
+	// Gini = (2 * sum((i+1)*x_i)) / (n * sum(x_i)) - (n+1)/n
+	var weightedSum float64
+	for i, v := range sorted {
+		weightedSum += float64(i+1) * v
 	}
-	return totalDiff / (2 * float64(n) * sum)
+	return (2*weightedSum)/(float64(n)*sum) - (float64(n)+1)/float64(n)
 }
 
 func topModule(files []FileChange) string {
