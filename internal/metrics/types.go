@@ -14,8 +14,10 @@ type MetricsReport struct {
 	DurationMs      int64        `json:"duration_ms"`
 	CommitsAnalyzed int          `json:"commits_analyzed"`
 	Period          TimePeriod   `json:"period"`
-	// Category fields are populated by later workstreams (WS-02, WS-03).
-	// This contract is versioned; consumers should check Version.
+	Hygiene         *Hygiene     `json:"hygiene,omitempty"`
+	Waste           *Waste       `json:"waste,omitempty"`
+	GitFlow         *GitFlow     `json:"git_flow,omitempty"`
+	ReleaseQuality  *ReleaseQuality `json:"release_quality,omitempty"`
 }
 
 // TimePeriod describes the analysis window.
@@ -63,6 +65,69 @@ type GitData struct {
 	Branches   []BranchInfo `json:"branches"`
 	MergeCount int         `json:"merge_count"`
 }
+
+// ── Category Result Types ─────────────────────────────────────────
+
+// Hygiene holds commit hygiene metrics.
+type Hygiene struct {
+	TicketLinkedRatio       float64           `json:"ticket_linked_ratio"`
+	TicketPatternsFound     []string          `json:"ticket_patterns_found"`
+	ConventionalCommitsRatio float64           `json:"conventional_commits_ratio"`
+	CommitTypeBreakdown     map[string]int    `json:"commit_type_breakdown"`
+	FixToFeatureRatio       float64           `json:"fix_to_feature_ratio"`
+	AvgMessageLength        float64           `json:"avg_message_length"`
+	AvgFilesPerCommit       float64           `json:"avg_files_per_commit"`
+	MonorepoStyleRatio      float64           `json:"monorepo_style_ratio"` // commits with >10 files
+}
+
+// Waste holds wasted-work metrics.
+type Waste struct {
+	ChurnRatio        float64           `json:"churn_ratio"`
+	ChurnWindowDays   int               `json:"churn_window_days"`
+	ChurnFilesTop     []ChurnFile       `json:"churn_files_top"`
+	AbandonedBranches int               `json:"abandoned_branches"`
+	AbandonedLinesEst int64             `json:"abandoned_lines_est"`
+	RevertRate        float64           `json:"revert_rate"`
+	RevertCount       int               `json:"revert_count"`
+}
+
+// ChurnFile describes a high-churn file.
+type ChurnFile struct {
+	Path      string `json:"path"`
+	Added     int    `json:"added"`
+	Deleted   int    `json:"deleted"`
+	Commits   int    `json:"commits"`
+}
+
+// GitFlow holds branch-model detection results.
+type GitFlow struct {
+	DetectedModel           string   `json:"detected_model"`
+	Confidence              float64  `json:"confidence"`
+	Evidence                []string `json:"evidence"`
+	BranchLifetimeMedianH   float64  `json:"branch_lifetime_median_hours"`
+	BranchLifetimeP95H      float64  `json:"branch_lifetime_p95_hours"`
+	MergeFrequencyPerWeek   float64  `json:"merge_frequency_per_week"`
+	LongLivedBranches       int      `json:"long_lived_branches"`
+}
+
+// ReleaseQuality holds release quality metrics.
+type ReleaseQuality struct {
+	ReleasesAnalyzed          int              `json:"releases_analyzed"`
+	AvgTimeToFirstHotfixH     float64          `json:"avg_time_to_first_hotfix_hours"`
+	Releases                  []ReleaseInfo    `json:"releases,omitempty"`
+}
+
+// ReleaseInfo describes a single release.
+type ReleaseInfo struct {
+	Tag              string    `json:"tag"`
+	Date             time.Time `json:"date"`
+	Fixes7d          int       `json:"fixes_7d"`
+	Fixes14d         int       `json:"fixes_14d"`
+	Fixes30d         int       `json:"fixes_30d"`
+	TimeToFirstFixH  float64   `json:"time_to_first_fix_hours"`
+}
+
+// ── Helper Functions ──────────────────────────────────────────────
 
 // IsBot reports whether an author name matches known bot patterns.
 func IsBot(author string) bool {
