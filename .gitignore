@@ -79,3 +79,9 @@ sdp-beads-bridge
 
 # Main CLI binary (rebuilt from source)
 /sdp
+
+# Git worktrees
+.worktrees/
+
+# Local RTK config
+.rtk/

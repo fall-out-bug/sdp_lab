@@ -550,3 +550,5 @@ Beads transport is explicit in this repo:
 For more details, see README.md and docs/QUICKSTART.md.
 
 <!-- END BEADS INTEGRATION -->
+
+@RTK.md
