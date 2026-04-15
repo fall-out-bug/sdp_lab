@@ -91,13 +91,17 @@ func runMetrics(args []string) {
 
 func renderText(r *metrics.MetricsReport) {
 	fmt.Fprintf(os.Stdout, " %s — %d commits analyzed\n", r.RepoPath, r.CommitsAnalyzed)
-	fmt.Fprintf(os.Stdout, " Period: %s to %s\n", r.Period.From.Format("2006-01-02"), r.Period.To.Format("2006-01-02"))
+	if r.Period.From.IsZero() {
+		fmt.Fprintf(os.Stdout, " Period: N/A\n")
+	} else {
+		fmt.Fprintf(os.Stdout, " Period: %s to %s\n", r.Period.From.Format("2006-01-02"), r.Period.To.Format("2006-01-02"))
+	}
 	fmt.Fprintf(os.Stdout, " Duration: %dms\n\n", r.DurationMs)
 
 	if r.Hygiene != nil {
 		fmt.Fprintf(os.Stdout, " [Hygiene]\n")
 		fmt.Fprintf(os.Stdout, "  Ticket linked:     %.0f%%  %s\n", r.Hygiene.TicketLinkedRatio*100, metrics.RateTicketLinkedRatio(r.Hygiene.TicketLinkedRatio))
-		fmt.Fprintf(os.Stdout, "  Conventional:      %.0f%%  %s\n", r.Hygiene.ConventionalCommitsRatio*100, metrics.RateTicketLinkedRatio(r.Hygiene.ConventionalCommitsRatio))
+		fmt.Fprintf(os.Stdout, "  Conventional:      %.0f%%  %s\n", r.Hygiene.ConventionalCommitsRatio*100, metrics.RateConventionalCommitsRatio(r.Hygiene.ConventionalCommitsRatio))
 		fmt.Fprintf(os.Stdout, "  Fix/Feature ratio: %.2f   %s\n", r.Hygiene.FixToFeatureRatio, metrics.RateFixToFeature(r.Hygiene.FixToFeatureRatio))
 	}
 	if r.Waste != nil {
@@ -137,16 +141,19 @@ func renderText(r *metrics.MetricsReport) {
 
 func renderMarkdown(r *metrics.MetricsReport) {
 	fmt.Fprintf(os.Stdout, "# SDP Metrics Report\n\n")
-	fmt.Fprintf(os.Stdout, "**Repo:** %s | **Commits:** %d | **Period:** %s — %s\n\n",
-		r.RepoPath, r.CommitsAnalyzed,
-		r.Period.From.Format("2006-01-02"), r.Period.To.Format("2006-01-02"))
+	periodStr := "N/A"
+	if !r.Period.From.IsZero() {
+		periodStr = r.Period.From.Format("2006-01-02") + " — " + r.Period.To.Format("2006-01-02")
+	}
+	fmt.Fprintf(os.Stdout, "**Repo:** %s | **Commits:** %d | **Period:** %s\n\n",
+		r.RepoPath, r.CommitsAnalyzed, periodStr)
 
 	fmt.Fprintf(os.Stdout, "| Category | Metric | Value | Rating |\n")
 	fmt.Fprintf(os.Stdout, "|----------|--------|-------|--------|\n")
 
 	if r.Hygiene != nil {
 		fmt.Fprintf(os.Stdout, "| Hygiene | Ticket linked | %.0f%% | %s |\n", r.Hygiene.TicketLinkedRatio*100, metrics.RateTicketLinkedRatio(r.Hygiene.TicketLinkedRatio))
-		fmt.Fprintf(os.Stdout, "| Hygiene | Conventional commits | %.0f%% | %s |\n", r.Hygiene.ConventionalCommitsRatio*100, metrics.RateTicketLinkedRatio(r.Hygiene.ConventionalCommitsRatio))
+		fmt.Fprintf(os.Stdout, "| Hygiene | Conventional commits | %.0f%% | %s |\n", r.Hygiene.ConventionalCommitsRatio*100, metrics.RateConventionalCommitsRatio(r.Hygiene.ConventionalCommitsRatio))
 		fmt.Fprintf(os.Stdout, "| Hygiene | Fix/Feature ratio | %.2f | %s |\n", r.Hygiene.FixToFeatureRatio, metrics.RateFixToFeature(r.Hygiene.FixToFeatureRatio))
 	}
 	if r.Waste != nil {

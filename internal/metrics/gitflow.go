@@ -1,6 +1,11 @@
 package metrics
 
-import "time"
+import (
+	"fmt"
+	"slices"
+	"strings"
+	"time"
+)
 
 // AnalyzeGitFlow detects the branch model from git history.
 func AnalyzeGitFlow(data *GitData) *GitFlow {
@@ -24,19 +29,19 @@ func AnalyzeGitFlow(data *GitData) *GitFlow {
 	for _, b := range data.Branches {
 		totalBranches++
 		name := b.Name
-		if contains(name, "release/") {
+		if strings.Contains(name, "release/") {
 			hasRelease = true
 		}
-		if contains(name, "develop") || contains(name, "dev") {
+		if strings.Contains(name, "develop") || strings.Contains(name, "dev") {
 			hasDevelop = true
 		}
-		if contains(name, "hotfix/") {
+		if strings.Contains(name, "hotfix/") {
 			hasHotfix = true
 		}
-		if contains(name, "main") || contains(name, "master") {
+		if strings.Contains(name, "main") || strings.Contains(name, "master") {
 			continue
 		}
-		if !contains(name, "release/") && !contains(name, "hotfix/") && !contains(name, "develop") {
+		if !strings.Contains(name, "release/") && !strings.Contains(name, "hotfix/") && !strings.Contains(name, "develop") {
 			featureFromMain++
 		}
 	}
@@ -65,7 +70,7 @@ func AnalyzeGitFlow(data *GitData) *GitFlow {
 		}
 	}
 	if len(lifetimes) > 0 {
-		sortFloats(lifetimes)
+		slices.Sort(lifetimes)
 		gf.BranchLifetimeMedianH = median(lifetimes)
 		gf.BranchLifetimeP95H = lifetimes[len(lifetimes)*95/100]
 	}
@@ -148,7 +153,7 @@ func AnalyzeGitFlow(data *GitData) *GitFlow {
 		gf.Evidence = append(gf.Evidence, "develop branch found")
 	}
 	if mergeFreq > 0 {
-		gf.Evidence = append(gf.Evidence, ftoa(mergeFreq)+" merges/week")
+		gf.Evidence = append(gf.Evidence, fmt.Sprintf("%.1f", mergeFreq)+" merges/week")
 	}
 
 	return gf
@@ -163,47 +168,4 @@ func median(sorted []float64) float64 {
 		return sorted[n/2]
 	}
 	return (sorted[n/2-1] + sorted[n/2]) / 2
-}
-
-func sortFloats(a []float64) {
-	for i := 1; i < len(a); i++ {
-		for j := i; j > 0 && a[j] < a[j-1]; j-- {
-			a[j], a[j-1] = a[j-1], a[j]
-		}
-	}
-}
-
-func ftoa(f float64) string {
-	if f == float64(int(f)) {
-		return itoa(int(f))
-	}
-	// Simple 1-decimal conversion
-	whole := int(f)
-	frac := int((f - float64(whole)) * 10)
-	if frac < 0 {
-		frac = -frac
-	}
-	return itoa(whole) + "." + string(rune('0'+frac))
-}
-
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var buf [20]byte
-	pos := len(buf)
-	neg := n < 0
-	if neg {
-		n = -n
-	}
-	for n > 0 {
-		pos--
-		buf[pos] = byte('0' + n%10)
-		n /= 10
-	}
-	if neg {
-		pos--
-		buf[pos] = '-'
-	}
-	return string(buf[pos:])
 }

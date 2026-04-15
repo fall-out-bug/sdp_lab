@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"cmp"
+	"slices"
 	"strings"
 	"time"
 )
@@ -39,7 +41,7 @@ func AnalyzeWaste(data *GitData) *Waste {
 	// Churn = min(added, deleted) per file
 	var totalChurn int
 	for _, entry := range churnMap {
-		churn := imin(entry.added, entry.deleted)
+		churn := min(entry.added, entry.deleted)
 		totalChurn += churn
 	}
 	if totalAdded > 0 {
@@ -56,17 +58,15 @@ func AnalyzeWaste(data *GitData) *Waste {
 	}
 	var sorted []churnEntry
 	for path, e := range churnMap {
-		ch := imin(e.added, e.deleted)
+		ch := min(e.added, e.deleted)
 		if ch > 0 {
 			sorted = append(sorted, churnEntry{path, ch, e})
 		}
 	}
-	// Simple sort by churn descending (insertion sort for small sets)
-	for i := 1; i < len(sorted); i++ {
-		for j := i; j > 0 && sorted[j].churn > sorted[j-1].churn; j-- {
-			sorted[j], sorted[j-1] = sorted[j-1], sorted[j]
-		}
-	}
+	// Sort by churn descending
+	slices.SortFunc(sorted, func(a, b churnEntry) int {
+		return cmp.Compare(b.churn, a.churn)
+	})
 	limit := 5
 	if len(sorted) < limit {
 		limit = len(sorted)
@@ -83,7 +83,7 @@ func AnalyzeWaste(data *GitData) *Waste {
 	// ── Revert detection ──
 	var revertCount int
 	for _, c := range data.Commits {
-		lower := toLower(c.Subject)
+		lower := strings.ToLower(c.Subject)
 		if strings.Contains(lower, "revert") || strings.Contains(lower, "rollback") {
 			revertCount++
 		}

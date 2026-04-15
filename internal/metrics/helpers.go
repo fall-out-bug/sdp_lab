@@ -1,11 +1,13 @@
 package metrics
 
+import "strings"
+
 // IsBot reports whether an author name matches known bot patterns.
 func IsBot(author string) bool {
 	bots := []string{"dependabot", "renovate", "github-actions", "mergify", "snyk", "semantic-release"}
-	lower := toLower(author)
+	lower := strings.ToLower(author)
 	for _, b := range bots {
-		if contains(lower, b) {
+		if strings.Contains(lower, b) {
 			return true
 		}
 	}
@@ -16,13 +18,13 @@ func IsBot(author string) bool {
 func IsGeneratedFile(path string) bool {
 	patterns := []string{".pb.go", ".generated.", ".min.js", ".min.css"}
 	for _, p := range patterns {
-		if contains(path, p) {
+		if strings.Contains(path, p) {
 			return true
 		}
 	}
 	suffixes := []string{".lock", ".sum", "-lock.json"}
 	for _, s := range suffixes {
-		if hasSuffix(path, s) {
+		if strings.HasSuffix(path, s) {
 			return true
 		}
 	}
@@ -38,7 +40,7 @@ func IsCIOnly(files []FileChange) bool {
 	for _, f := range files {
 		isCI := false
 		for _, prefix := range ciPrefixes {
-			if hasPrefix(f.Path, prefix) {
+			if strings.HasPrefix(f.Path, prefix) {
 				isCI = true
 				break
 			}
@@ -60,9 +62,9 @@ func IsFormattingOnly(files []FileChange) bool {
 		if f.Added == 0 && f.Deleted == 0 {
 			continue
 		}
-		min := imin(f.Added, f.Deleted)
-		max := imax(f.Added, f.Deleted)
-		if max > 0 && (min >= max*9/10) {
+		mn := min(f.Added, f.Deleted)
+		mx := max(f.Added, f.Deleted)
+		if mx > 0 && (mn >= mx*9/10) {
 			formatCount++
 		}
 	}

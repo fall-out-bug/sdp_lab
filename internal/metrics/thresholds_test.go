@@ -158,7 +158,25 @@ func TestRateShotgunRatio(t *testing.T) {
 	}
 }
 
-func TestSemverBase(t *testing.T) {
+func TestRateConventionalCommitsRatio(t *testing.T) {
+		tests := []struct {
+			val  float64
+			want TrafficLight
+		}{
+			{0.8, Green},
+			{0.7, Yellow}, // >0.7 is green, 0.7 is not >0.7
+			{0.5, Yellow},
+			{0.3, Red},
+		}
+		for _, tt := range tests {
+			got := RateConventionalCommitsRatio(tt.val)
+			if got != tt.want {
+				t.Errorf("RateConventionalCommitsRatio(%.1f) = %s, want %s", tt.val, got, tt.want)
+			}
+		}
+	}
+
+	func TestSemverBase(t *testing.T) {
 	tests := []struct {
 		tag, want string
 	}{

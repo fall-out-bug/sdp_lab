@@ -1,78 +1,19 @@
 {
-  "feature": "F120",
+  "feature": "F121",
   "verdict": "APPROVED",
-  "timestamp": "2026-04-14T23:55:00Z",
-  "round": 3,
+  "timestamp": "2026-04-15T17:42:00Z",
+  "round": 1,
   "reviewers": {
-    "qa": {
-      "verdict": "PASS",
-      "findings": [
-        {"severity":"P2","desc":"IsTestFile testdata/fixtures dead code block (lines 117-122 unreachable, both branches return false)"},
-        {"severity":"P2","desc":"PrimaryLanguage non-deterministic on tied file counts (map iteration order)"},
-        {"severity":"P2","desc":"calcBusFactor threshold unused, naive ceil(contributors/2) approximation"},
-        {"severity":"P2","desc":"detectDefaultBranch/isGitRepo use context.Background instead of parent ctx"}
-      ]
-    },
-    "security": {
-      "verdict": "PASS",
-      "findings": [
-        {"severity":"P2","desc":"Credential leak in RepoURL — raw git remote URL may embed tokens"},
-        {"severity":"P2","desc":"Symlink README leaks host file content into Description"},
-        {"severity":"P3","desc":"Path traversal in --output flag (defense-in-depth for local CLI)"}
-      ]
-    },
-    "devops": {
-      "verdict": "PASS",
-      "findings": [
-        {"severity":"P2","desc":"WriteArtifact path traversal — no sanitization on --output flag value"},
-        {"severity":"P2","desc":"CLI calls scout.Run() not RunWithContext — no timeout/cancellation from CLI"},
-        {"severity":"P2","desc":"Scout missing from GoReleaser build config"},
-        {"severity":"P3","desc":"Usage string missing scout subcommand"}
-      ]
-    },
-    "sre": {
-      "verdict": "PASS",
-      "findings": [
-        {"severity":"P2","desc":"detectRepoURL/detectDefaultBranch use context.Background instead of parent ctx"},
-        {"severity":"P2","desc":"calcBusFactor threshold unused, stub approximation"},
-        {"severity":"P3","desc":"isBinary opens every file sequentially without FD budget"}
-      ]
-    },
-    "techlead": {
-      "verdict": "PASS",
-      "findings": [
-        {"severity":"P2","desc":"IsTestFile dead code — testdata/fixtures check unreachable"},
-        {"severity":"P2","desc":"calcBusFactor unused threshold variable (silenced with _ = threshold)"},
-        {"severity":"P2","desc":"testFilePatterns *_test.exs glob character never matches via strings.Contains"},
-        {"severity":"P2","desc":"detectMaturityFromGit/gitCmd non-context wrappers are dead code"}
-      ]
-    },
-    "docs": {
-      "verdict": "PASS",
-      "findings": [
-        {"severity":"P2","desc":"WS-04 verdict claim 'context threaded through all git commands' inaccurate for detectDefaultBranch"},
-        {"severity":"P3","desc":"HealthSignals.BusFactorEstimate lacks per-field comment"}
-      ]
-    },
-    "promptops": {
-      "verdict": "PASS",
-      "findings": [],
-      "checks": [
-        {"check_id":"language-agnostic","status":"pass","note":"No harness-specific references in internal/scout/ or cmd/"},
-        {"check_id":"no-phantom-cli","status":"pass","note":"sdp scout registered in cmd/sdp/main.go"},
-        {"check_id":"skill-size","status":"pass","note":"N/A — no prompt/skill files in F120 scope"}
-      ]
-    }
+    "qa": {"verdict": "PASS", "findings": [{"severity": "P2", "desc": "renderText not tested for empty Period"}, {"severity": "P2", "desc": "No end-to-end integration test"}]},
+    "security": {"verdict": "PASS", "findings": [{"severity": "P2", "desc": "No repoPath validation"}]},
+    "devops": {"verdict": "PASS", "findings": [{"severity": "P2", "desc": "N+1 in parseBranches"}, {"severity": "P2", "desc": "gitCmd swallows errors"}, {"severity": "P3", "desc": "Missing --verbose/--period/--category flags"}]},
+    "sre": {"verdict": "PASS", "findings": [{"severity": "P2", "desc": "gini() O(n^2)"}, {"severity": "P2", "desc": "Context cancellation only at start"}]},
+    "techlead": {"verdict": "PASS", "findings": [{"severity": "P2", "desc": "Custom string helpers vs stdlib"}, {"severity": "P2", "desc": "Insertion sort duplicated 3x"}, {"severity": "P2", "desc": "Wrong rater for conventional commits in renderText"}, {"severity": "P2", "desc": "Period zero-value rendered as 0001-01-02"}, {"severity": "P3", "desc": "Empty import () in hygiene.go"}]},
+    "docs": {"verdict": "PASS", "findings": [{"severity": "P2", "desc": "Missing godoc on 5 analyzer functions"}, {"severity": "P2", "desc": "Design drift: --period/--category/cherry-pick not implemented"}]},
+    "promptops": {"verdict": "PASS", "findings": [], "checks": [{"check_id": "language-agnostic", "status": "pass"}, {"check_id": "no-phantom-cli", "status": "pass"}, {"check_id": "skill-size", "status": "pass"}]}
   },
   "finding_ids": [],
   "blocking_ids": [],
-  "synthesis": {
-    "conflicts": [
-      "Path traversal (--output): DevOps rated P1, Security rated P3. Resolved as P2 — local CLI tool, user already has shell access. Defense-in-depth gap, not exploitable in production."
-    ],
-    "rubber_stamps": ["promptops"],
-    "severity_reassessment": "All reported P1s reassessed as P2: (1) IsTestFile dead code is maintenance debt not edge-case breakage, (2) dead code wrappers delegate to tested WithContext variants, (3) path traversal is defense-in-depth for local CLI. Max severity is P2 → APPROVED.",
-    "round2_p1_fix_verified": "SRE P1 (filepath.Walk without context) confirmed FIXED in WS-05: detectIdentityWithContext and detectScaleWithContext use filepath.WalkDir with ctx.Err() check per entry."
-  },
-  "summary": "Round 3 review: APPROVED. All round-2 P1s resolved (filepath.Walk context, isGitRepo bare exec.Command, types.go comment drift). 0 P0/P1 findings. 18 P2 findings tracked as tech debt (IsTestFile dead code, calcBusFactor stub, credential leak, symlink README, path traversal, CLI timeout, GoReleaser, non-deterministic language selection). 5 P3 findings. 88.7% coverage, vet clean."
+  "synthesis": {"conflicts": [], "rubber_stamps": []},
+  "summary": "All 7 roles PASS, max severity P2. No P0/P1 blockers."
 }

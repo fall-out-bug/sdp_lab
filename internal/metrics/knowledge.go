@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"cmp"
+	"slices"
 	"time"
 )
 
@@ -50,11 +52,9 @@ func AnalyzeKnowledge(data *GitData) *KnowledgeRisk {
 			allAuthors = append(allAuthors, authorCommits{name, cnt})
 		}
 		// Sort descending by count
-		for i := 1; i < len(sorted); i++ {
-			for j := i; j > 0 && sorted[j].count > sorted[j-1].count; j-- {
-				sorted[j], sorted[j-1] = sorted[j-1], sorted[j]
-			}
-		}
+		slices.SortFunc(sorted, func(a, b authorCommits) int {
+			return cmp.Compare(b.count, a.count)
+		})
 		bf := busFactor(sorted, total)
 		var primary string
 		var primaryRatio float64
@@ -82,11 +82,9 @@ func AnalyzeKnowledge(data *GitData) *KnowledgeRisk {
 		overallSorted = append(overallSorted, authorCommits{name, cnt})
 		grandTotal += cnt
 	}
-	for i := 1; i < len(overallSorted); i++ {
-		for j := i; j > 0 && overallSorted[j].count > overallSorted[j-1].count; j-- {
-			overallSorted[j], overallSorted[j-1] = overallSorted[j-1], overallSorted[j]
-		}
-	}
+	slices.SortFunc(overallSorted, func(a, b authorCommits) int {
+		return cmp.Compare(b.count, a.count)
+	})
 	kr.OverallBusFactor = busFactor(overallSorted, grandTotal)
 
 	// Gini coefficient

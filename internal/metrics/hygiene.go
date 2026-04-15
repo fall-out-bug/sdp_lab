@@ -1,6 +1,6 @@
 package metrics
 
-import ()
+import "strings"
 
 var knownTypes = map[string]bool{
 	"feat": true, "fix": true, "chore": true, "refactor": true,
@@ -96,33 +96,24 @@ func AnalyzeHygiene(data *GitData) *Hygiene {
 
 func parseConventionalType(subject string) string {
 	// Format: type(scope): description or type: description
-	idx := indexOfChar(subject, ':')
+	idx := strings.IndexByte(subject, ':')
 	if idx < 1 || idx > 20 {
 		return ""
 	}
 	candidate := subject[:idx]
 	// Remove optional scope
-	if parenIdx := indexOfChar(candidate, '('); parenIdx > 0 {
+	if parenIdx := strings.IndexByte(candidate, '('); parenIdx > 0 {
 		candidate = candidate[:parenIdx]
 	}
 	if knownTypes[candidate] {
 		return candidate
 	}
 	// Check for known types case-insensitively
-	lower := toLower(candidate)
+	lower := strings.ToLower(candidate)
 	if knownTypes[lower] {
 		return lower
 	}
 	return ""
-}
-
-func indexOfChar(s string, c byte) int {
-	for i := 0; i < len(s); i++ {
-		if s[i] == c {
-			return i
-		}
-	}
-	return -1
 }
 
 func containsPattern(s, pattern string) bool {
@@ -133,9 +124,9 @@ func containsPattern(s, pattern string) bool {
 	if pattern == `[A-Z]+-[0-9]+` {
 		return containsJiraStyle(s)
 	}
-	if contains(pattern, "fixes") || contains(pattern, "closes") || contains(pattern, "resolves") {
-		lower := toLower(s)
-		return contains(lower, "fixes #") || contains(lower, "closes #") || contains(lower, "resolves #")
+	if strings.Contains(pattern, "fixes") || strings.Contains(pattern, "closes") || strings.Contains(pattern, "resolves") {
+		lower := strings.ToLower(s)
+		return strings.Contains(lower, "fixes #") || strings.Contains(lower, "closes #") || strings.Contains(lower, "resolves #")
 	}
 	return false
 }

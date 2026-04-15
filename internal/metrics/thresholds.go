@@ -74,3 +74,14 @@ func RateShotgunRatio(r float64) TrafficLight {
 	}
 	return Red
 }
+
+// RateConventionalCommitsRatio rates conventional commits adoption (>0.7 green, 0.4-0.7 yellow, <0.4 red).
+func RateConventionalCommitsRatio(r float64) TrafficLight {
+	if r > 0.7 {
+		return Green
+	}
+	if r >= 0.4 {
+		return Yellow
+	}
+	return Red
+}

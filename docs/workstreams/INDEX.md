@@ -56,7 +56,7 @@
 | Feature | Description | Workstreams | Status | Priority |
 |---------|-------------|-------------|--------|----------|
 | **F120** | Toolkit Scout — instant repo card for unknown codebases | 00-120-01 ... 00-120-05 | Backlog | P1 |
-| **F121** | Toolkit Metrics — git-derived process health | 00-121-01 ... 00-121-03 | Backlog | P1 |
+| **F121** | Toolkit Metrics — git-derived process health | 00-121-01 ... 00-121-06 | Backlog | P1 |
 | **F122** | Toolkit Index — persistent codebase memory | 00-122-01 ... 00-122-04 | Backlog | P1 |
 | **F123** | Toolkit Spec Recovery — recover implicit contracts from code | 00-123-01 ... 00-123-03 | Backlog | P2 |
 | **F124** | Toolkit Bootstrap — brownfield-safe agent setup | 00-124-01 ... 00-124-04 | Backlog | P1 |

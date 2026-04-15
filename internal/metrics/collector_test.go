@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -220,13 +221,13 @@ func TestMetricsReportJSONRoundTrip(t *testing.T) {
 	}
 	// Verify key fields in JSON
 	s := string(b)
-	if !contains(s, `"version"`) || !contains(s, `"1.0.0"`) {
+	if !strings.Contains(s, `"version"`) || !strings.Contains(s, `"1.0.0"`) {
 		t.Error("missing version in JSON")
 	}
-	if !contains(s, `"commits_analyzed"`) {
+	if !strings.Contains(s, `"commits_analyzed"`) {
 		t.Error("missing commits_analyzed in JSON")
 	}
-	if !contains(s, `"period"`) {
+	if !strings.Contains(s, `"period"`) {
 		t.Error("missing period in JSON")
 	}
 }
