@@ -1,84 +1,87 @@
 {
   "feature": "F121",
-  "verdict": "APPROVED",
-  "timestamp": "2026-04-15T21:30:00Z",
-  "round": 3,
+  "verdict": "CHANGES_REQUESTED",
+  "timestamp": "2026-04-15T12:00:00Z",
+  "round": 4,
   "reviewers": {
     "qa": {
       "verdict": "PASS",
       "findings": [
-        {"id": "F121-decay-patch", "severity": "P2", "desc": "decay.go fix detection missing 'patch' keyword — inconsistent with release.go"},
-        {"id": "F121-duration", "severity": "P2", "desc": "DurationMs captured before 7 analyzers run — understates execution time"},
-        {"id": "F121-nondet", "severity": "P2", "desc": "time.Now() in gitflow/waste/knowledge creates non-deterministic tests"},
-        {"id": "F121-jwi", "severity": "P3", "desc": "waste.go churnAdded dead code"},
-        {"id": "F121-b7v", "severity": "P3", "desc": "gitflow.go trunkScore += 0 dead code"},
-        {"id": "F121-1gm", "severity": "P3", "desc": "knowledge.go unnecessary blank identifier loop"},
-        {"id": "filter-stdlib", "severity": "P3", "desc": "filter.go custom stringsSplit/indexOf reimplements stdlib"},
-        {"id": "filepath-join", "severity": "P3", "desc": "cmd_metrics.go string concat instead of filepath.Join"},
-        {"id": "git-lookpath", "severity": "P3", "desc": "No exec.LookPath check for git binary"}
+        {"severity": "P3", "description": "gitCmdErr overlays 60s timeout regardless of caller context", "location": "collector.go:156"},
+        {"severity": "P3", "description": "collectBranches only queries refs/remotes/ — local-only branches invisible", "location": "collector.go:128"},
+        {"severity": "P3", "description": "isHex only checks lowercase hex", "location": "parse.go:159"}
       ]
     },
     "security": {
       "verdict": "PASS",
-      "findings": []
+      "findings": [
+        {"severity": "P3", "description": "No filepath.Clean/Abs on repoPath", "location": "collector.go:85"},
+        {"severity": "P3", "description": ".git validation uses string concat — rejects valid worktrees", "location": "collector.go:96"},
+        {"severity": "P3", "description": "No memory bounds for very large repos", "location": "parse.go:14"}
+      ]
     },
     "devops": {
       "verdict": "PASS",
       "findings": [
-        {"id": "devops-r3-1", "severity": "P2", "desc": "git binary hard dependency — no exec.LookPath check"},
-        {"id": "devops-r3-2", "severity": "P3", "desc": "string concat instead of filepath.Join for output path"},
-        {"id": "devops-r3-3", "severity": "P3", "desc": "custom stringsSplit/indexOf leftover in filter.go"},
-        {"id": "devops-r3-4", "severity": "P3", "desc": "dead code: churnAdded, trunkScore+=0, blank identifier loop"},
-        {"id": "devops-r3-5", "severity": "P3", "desc": "ChurnWindowDays=14 set but never used for filtering"}
+        {"severity": "P2", "description": "--output JSON marshal error silently discarded — corrupt report.json possible", "location": "cmd_metrics.go:90"},
+        {"severity": "P3", "description": "deploy/metrics/slo_rules.yaml unrelated to git metrics CLI", "location": "deploy/metrics/"},
+        {"severity": "P3", "description": "No filepath.Clean() on --output path", "location": "cmd_metrics.go:87"}
       ]
     },
     "sre": {
       "verdict": "PASS",
       "findings": [
-        {"id": "F121-r3a", "severity": "P2", "desc": "collectCommits still silently discards git errors"},
-        {"id": "F121-r3b", "severity": "P3", "desc": "DurationMs measured before analyzers run"},
-        {"id": "F121-r3c", "severity": "P3", "desc": "time.Now() non-determinism in gitflow/waste/knowledge"},
-        {"id": "F121-r3d", "severity": "P3", "desc": "dead code: trunkScore+=0, churnAdded"},
-        {"id": "F121-r3e", "severity": "P3", "desc": "ChurnWindowDays=14 set but unused — misleading JSON"}
+        {"severity": "P2", "description": "bufio.Scanner 64KB limit silently truncates long numstat; scanner.Err() unchecked", "location": "parse.go:34", "id": "F121-3bb"},
+        {"severity": "P2", "description": "collectCommits discards git errors — misleading empty report", "location": "collector.go:104", "id": "F121-b6u"},
+        {"severity": "P3", "description": "No memory bounds on very large repos", "location": "parse.go:14", "id": "F121-f3h"},
+        {"severity": "P3", "description": "ReleaseQuality O(T*N) — impacts 100+ tags with 50K+ commits", "location": "release.go:47", "id": "F121-7to"}
       ]
     },
     "techlead": {
       "verdict": "PASS",
       "findings": [
-        {"id": "sdplab-agk", "severity": "P2", "desc": "Custom stringsSplit/indexOf in filter.go reimplements stdlib"},
-        {"id": "sdplab-z3y", "severity": "P2", "desc": "Fix detection duplicated with semantic gap — decay.go missing 'patch'"},
-        {"id": "sdplab-2wm", "severity": "P3", "desc": "dirOf() vs strings.IndexByte style inconsistency"}
+        {"severity": "P2", "description": "isFix detection pattern duplicated 3x across release.go and decay.go", "location": "release.go:52,178 decay.go:48", "id": "F121-6l0"},
+        {"severity": "P3", "description": "time.Now() not injectable in 3 analyzers — deferred from WS-08", "location": "gitflow.go:63 waste.go:91 knowledge.go:95", "id": "F121-ocz"},
+        {"severity": "P3", "description": "topModule() manual byte loop instead of strings.IndexByte", "location": "knowledge.go:157", "id": "F121-s37"}
       ]
     },
     "docs": {
       "verdict": "PASS",
       "findings": [
-        {"id": "docs-1", "severity": "P2", "desc": "metrics subcommand not listed in top-level usage() output"}
+        {"severity": "P2", "description": "All 8 WS files stuck at status:backlog despite PASS verdicts", "id": "F121-0fa"},
+        {"severity": "P2", "description": "55/55 AC checkboxes unchecked despite evidence of completion", "id": "F121-jjh"},
+        {"severity": "P2", "description": "WS-04 AC specifies insertionSort but uses slices.SortFunc", "id": "F121-cht"},
+        {"severity": "P2", "description": "WS-08 scope lists cmd_metrics.go at wrong path", "id": "F121-qd9"},
+        {"severity": "P2", "description": "WS-07/08 verdicts have commit:pending — no SHA", "id": "F121-o4p"},
+        {"severity": "P2", "description": "WS-08 AC-5 time.Now() met:false but verdict PASS with no follow-up", "id": "F121-4m5"},
+        {"severity": "P3", "description": "parse.go not listed in any WS scope file", "id": "F121-6mq"}
       ]
     },
     "promptops": {
-      "verdict": "PASS",
-      "findings": [],
+      "verdict": "FAIL",
+      "findings": [
+        {"severity": "P2", "description": "Skills reference Go-specific tooling — not language-agnostic", "id": "sdplab-9r8"},
+        {"severity": "P2", "description": "Skills reference phantom CLI commands that don't exist", "id": "sdplab-f44"},
+        {"severity": "P2", "description": "architect/SKILL.md is 621 lines — exceeds 200 LOC limit", "id": "sdplab-czz"}
+      ],
       "checks": [
-        {"check_id": "language-agnostic", "status": "pass"},
-        {"check_id": "no-phantom-cli", "status": "pass"},
-        {"check_id": "skill-size", "status": "pass"},
-        {"check_id": "ac-specificity", "status": "pass"},
-        {"check_id": "evidence-quality", "status": "pass", "note": "line numbers corrected during synthesis: :211→:202, :170→:166, :222→:216"}
+        {"check_id": "language-agnostic", "status": "fail", "note": "7 references to Go-specific tooling across skills"},
+        {"check_id": "no-phantom-cli", "status": "fail", "note": "6 phantom CLI commands referenced"},
+        {"check_id": "skill-size", "status": "fail", "note": "architect/SKILL.md is 621 lines"}
       ]
     }
   },
-  "finding_ids": ["F121-decay-patch","F121-duration","F121-nondet","F121-jwi","F121-b7v","F121-1gm","filter-stdlib","filepath-join","git-lookpath","devops-r3-1","devops-r3-2","devops-r3-3","devops-r3-4","devops-r3-5","F121-r3a","F121-r3b","F121-r3c","F121-r3d","F121-r3e","sdplab-agk","sdplab-z3y","sdplab-2wm","docs-1"],
+  "finding_ids": ["F121-3bb", "F121-b6u", "F121-f3h", "F121-7to", "F121-6l0", "F121-ocz", "F121-s37", "F121-0fa", "F121-jjh", "F121-cht", "F121-qd9", "F121-o4p", "F121-4m5", "F121-6mq", "sdplab-9r8", "sdplab-f44", "sdplab-czz"],
   "blocking_ids": [],
   "synthesis": {
     "conflicts": [],
-    "rubber_stamps": ["security"],
-    "adversarial_notes": [
-      "QA passed but DurationMs excludes analyzer execution time",
-      "SRE correctly noted collectCommits still swallows errors (WS-08 tracked)",
-      "4/7 reviewers confirmed dead code and WS-08 items still present — strong consensus",
-      "PromptOps evidence-quality initially failed (wrong line numbers), fixed during synthesis"
-    ]
+    "rubber_stamps": ["qa", "security"],
+    "adversarial_blindspots": [
+      "QA passed but no load/stress tests on repos with millions of commits",
+      "Security passed but no fuzzing of git output parsing edge cases",
+      "SRE O(T*N) in ReleaseQuality only tested on small repos"
+    ],
+    "note": "PromptOps FAIL on pre-existing SDP skill framework issues, not F121 code. F121 code has no P0/P1 findings across all 6 code-reviewing roles."
   },
-  "summary": "APPROVED: Round-2 P1 findings verified fixed (P95 percentile, error propagation). 23 findings total (8 P2, 15 P3), all tracked in WS-08 (Code Quality Cleanup). No blocking issues."
+  "summary": "Round 4: CHANGES_REQUESTED due to PromptOps FAIL on pre-existing SDP skill issues (Go-specific, phantom CLI, oversized skill). F121 code is solid — 110 tests pass, 95% coverage, go vet clean, all code findings P2/P3. Recommend: treat F121 code as approved, track PromptOps findings as separate SDP-framework cleanup."
 }
