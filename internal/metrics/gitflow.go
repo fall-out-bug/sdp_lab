@@ -72,7 +72,7 @@ func AnalyzeGitFlow(data *GitData) *GitFlow {
 	if len(lifetimes) > 0 {
 		slices.Sort(lifetimes)
 		gf.BranchLifetimeMedianH = median(lifetimes)
-		gf.BranchLifetimeP95H = lifetimes[len(lifetimes)*95/100]
+		gf.BranchLifetimeP95H = percentile(lifetimes, 95)
 	}
 
 	// Long-lived branches (>7 days)
@@ -168,4 +168,21 @@ func median(sorted []float64) float64 {
 		return sorted[n/2]
 	}
 	return (sorted[n/2-1] + sorted[n/2]) / 2
+}
+
+// percentile returns the p-th percentile (0-100) from a sorted slice.
+// Uses nearest-rank method with float index to avoid integer truncation.
+func percentile(sorted []float64, p float64) float64 {
+	n := len(sorted)
+	if n == 0 {
+		return 0
+	}
+	if n == 1 {
+		return sorted[0]
+	}
+	idx := int(float64(n) * p / 100)
+	if idx >= n {
+		idx = n - 1
+	}
+	return sorted[idx]
 }

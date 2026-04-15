@@ -45,7 +45,7 @@ func AnalyzeReleaseQuality(data *GitData) *ReleaseQuality {
 
 		var firstFixH float64 = -1
 		for _, c := range data.Commits {
-			if c.Date.Before(tag.Date) || c.Date.After(windowEnd) {
+			if c.Date.Before(tag.Date) || !c.Date.Before(windowEnd) {
 				continue
 			}
 			lower := strings.ToLower(c.Subject)

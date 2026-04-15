@@ -49,21 +49,30 @@ func CollectWithContext(ctx context.Context, repoPath string) (*GitData, error) 
 	}
 
 	// Call 2: git tag --sort=creatordate
-	tags := collectTags(ctx, repoPath)
+	tags, err := collectTags(ctx, repoPath)
+	if err != nil {
+		return nil, fmt.Errorf("collect tags: %w", err)
+	}
 
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("metrics: %w", err)
 	}
 
 	// Call 3: git branch -r (single batch call via for-each-ref)
-	branches := collectBranches(ctx, repoPath)
+	branches, err := collectBranches(ctx, repoPath)
+	if err != nil {
+		return nil, fmt.Errorf("collect branches: %w", err)
+	}
 
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("metrics: %w", err)
 	}
 
 	// Call 4: git log --merges --first-parent main (merge count)
-	mergeCount := countMerges(ctx, repoPath)
+	mergeCount, err := countMerges(ctx, repoPath)
+	if err != nil {
+		return nil, fmt.Errorf("count merges: %w", err)
+	}
 
 	return &GitData{
 		Commits:    commits,
@@ -105,32 +114,42 @@ func collectCommits(ctx context.Context, dir string) ([]RawCommit, error) {
 	return parseCommits(raw), nil
 }
 
-func collectTags(ctx context.Context, dir string) []TagInfo {
-	raw, _ := gitCmdErr(ctx, dir, "tag", "--sort=creatordate")
-	if raw == "" {
-		return nil
+func collectTags(ctx context.Context, dir string) ([]TagInfo, error) {
+	raw, err := gitCmdErr(ctx, dir, "tag", "--sort=creatordate")
+	if err != nil {
+		return nil, err
 	}
-	return parseTags(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	return parseTags(raw), nil
 }
 
-func collectBranches(ctx context.Context, dir string) []BranchInfo {
-	raw, _ := gitCmdErr(ctx, dir, "for-each-ref",
+func collectBranches(ctx context.Context, dir string) ([]BranchInfo, error) {
+	raw, err := gitCmdErr(ctx, dir, "for-each-ref",
 		"--sort=creatordate",
 		"--format=%(refname:short) %(creatordate:iso-strict)",
 		"refs/remotes/")
-	if raw == "" {
-		return nil
+	if err != nil {
+		return nil, err
 	}
-	return parseBranchesBatch(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	return parseBranchesBatch(raw), nil
 }
 
-func countMerges(ctx context.Context, dir string) int {
+func countMerges(ctx context.Context, dir string) (int, error) {
 	branch := "main"
 	if raw, _ := gitCmdErr(ctx, dir, "rev-parse", "--verify", "master"); raw != "" {
 		branch = "master"
 	}
-	raw, _ := gitCmdErr(ctx, dir, "log", "--merges", "--first-parent", branch, "--format=%H")
-	return countNonEmptyLines(raw)
+	raw, err := gitCmdErr(ctx, dir, "log", "--merges", "--first-parent", branch, "--format=%H")
+	if err != nil {
+		// No branch found or empty repo — not an error, just 0 merges
+		return 0, nil
+	}
+	return countNonEmptyLines(raw), nil
 }
 
 // gitCmdErr runs a git command with timeout and returns stdout or a structured error.
