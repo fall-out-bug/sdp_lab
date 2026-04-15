@@ -1,0 +1,25 @@
+{
+  "ws_id": "00-121-05",
+  "feature_id": "F121",
+  "verdict": "PASS",
+  "commit": "d2e704c",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": 93.7,
+    "coverage_threshold": 80,
+    "max_file_loc": 176,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {"ac": "Collect/CollectWithContext validate repoPath", "met": true, "evidence": "collector.go:64-79 validateRepoPath checks os.Stat + .git dir. TestCollectInvalidPath and TestCollectNonGitDirectory verify error returned"},
+    {"ac": "collectBranches uses single batch git log", "met": true, "evidence": "collector.go:116-124 uses git for-each-ref with format '%(refname:short) %(creatordate:iso-strict)' refs/remotes/ — single call replaces N+1 pattern"},
+    {"ac": "gitCmd returns structured errors with exit code and stderr", "met": true, "evidence": "collector.go:140-161 gitCmdErr returns (string, *GitError). GitError has Cmd, ExitCode, Stderr fields. TestGitCmdReturnsError verifies GitError type"},
+    {"ac": "gini() uses sorted array O(n log n)", "met": true, "evidence": "knowledge.go:135-158 uses slices.Sort then weighted sum formula: (2*weightedSum)/(n*sum) - (n+1)/n. TestGiniConsistency verifies uniform→~0, single→0, [10..50]→[0,1]"},
+    {"ac": "Context checked between git command calls", "met": true, "evidence": "collector.go:50,60,66,72 ctx.Err() checks after commits, tags, branches calls — not just at start"},
+    {"ac": "go build ./... passes", "met": true, "evidence": "Build succeeded with 0 errors"},
+    {"ac": "go test ./internal/metrics/... passes", "met": true, "evidence": "82 tests passed in metrics package"}
+  ],
+  "existing_work_summary": "collector.go had 4-call git pipeline with gitCmd returning empty string on error, parseBranches running N+1 git calls for dates, ctx.Err() checked only at start. knowledge.go had gini() with O(n^2) nested loops. No repoPath validation — Collect returned empty GitData for invalid paths. 78 existing tests in metrics, 93.3% coverage. File was 274 LOC before split."
+}
