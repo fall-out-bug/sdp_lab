@@ -103,13 +103,3 @@ func TestAnalyzeWasteAbandonedBranches(t *testing.T) {
 		t.Fatalf("expected 2 abandoned branches got %d", w.AbandonedBranches)
 	}
 }
-
-func TestAnalyzeWasteChurnWindowDays(t *testing.T) {
-	data := &GitData{
-		Commits: []RawCommit{{Subject: "x", Date: time.Now(), Files: []FileChange{{Path: "f.go", Added: 1}}}},
-	}
-	w := AnalyzeWaste(data)
-	if w.ChurnWindowDays != 14 {
-		t.Fatalf("expected churn_window_days=14 got %d", w.ChurnWindowDays)
-	}
-}

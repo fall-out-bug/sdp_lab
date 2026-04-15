@@ -239,3 +239,49 @@ func TestMedian(t *testing.T) {
 		}
 	}
 }
+
+// ── WS-08: parseBranchesBatch unit tests ──────────────────────────
+
+func TestParseBranchesBatchNormal(t *testing.T) {
+	raw := "origin/main 2025-06-01T10:00:00Z\norigin/feature/x 2025-07-15T12:30:00Z\n"
+	branches := parseBranchesBatch(raw)
+	if len(branches) != 2 {
+		t.Fatalf("expected 2 branches got %d", len(branches))
+	}
+	if branches[0].Name != "origin/main" {
+		t.Errorf("name[0] = %q, want origin/main", branches[0].Name)
+	}
+	if branches[0].LastCommit == nil {
+		t.Fatal("expected non-nil LastCommit")
+	}
+}
+
+func TestParseBranchesBatchArrowFilter(t *testing.T) {
+	raw := "origin/main 2025-06-01T10:00:00Z\n  -> origin/HEAD\norigin/feature/x 2025-07-01T10:00:00Z\n"
+	branches := parseBranchesBatch(raw)
+	if len(branches) != 2 {
+		t.Fatalf("expected 2 branches (arrow filtered) got %d", len(branches))
+	}
+}
+
+func TestParseBranchesBatchMissingDate(t *testing.T) {
+	raw := "origin/nodate\norigin/hasdate 2025-06-01T10:00:00Z\n"
+	branches := parseBranchesBatch(raw)
+	if len(branches) != 2 {
+		t.Fatalf("expected 2 branches got %d", len(branches))
+	}
+	if branches[0].LastCommit != nil {
+		t.Error("expected nil LastCommit for branch without date")
+	}
+}
+
+func TestParseBranchesBatchNoSpace(t *testing.T) {
+	raw := "origin/nospace\n"
+	branches := parseBranchesBatch(raw)
+	if len(branches) != 1 {
+		t.Fatalf("expected 1 branch got %d", len(branches))
+	}
+	if branches[0].Name != "origin/nospace" {
+		t.Errorf("name = %q, want origin/nospace", branches[0].Name)
+	}
+}

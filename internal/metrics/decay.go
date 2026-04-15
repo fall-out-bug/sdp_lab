@@ -45,7 +45,7 @@ func AnalyzeDecay(data *GitData) *Decay {
 	fileMap := make(map[string]*fileStats)
 	for _, c := range data.Commits {
 		lower := strings.ToLower(c.Subject)
-		isFix := strings.Contains(lower, "fix") || strings.Contains(lower, "bugfix")
+		isFix := strings.Contains(lower, "fix") || strings.Contains(lower, "bugfix") || strings.Contains(lower, "patch")
 		for _, f := range c.Files {
 			entry, ok := fileMap[f.Path]
 			if !ok {
@@ -112,10 +112,8 @@ func AnalyzeDecay(data *GitData) *Decay {
 }
 
 func dirOf(path string) string {
-	for i := 0; i < len(path); i++ {
-		if path[i] == '/' {
-			return path[:i]
-		}
+	if idx := strings.IndexByte(path, '/'); idx >= 0 {
+		return path[:idx]
 	}
 	return "."
 }

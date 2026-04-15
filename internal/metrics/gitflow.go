@@ -88,9 +88,6 @@ func AnalyzeGitFlow(data *GitData) *GitFlow {
 	if gf.BranchLifetimeMedianH > 0 && gf.BranchLifetimeMedianH < 3*24 {
 		trunkScore += 3
 	}
-	if !hasRelease {
-		trunkScore += 0
-	}
 	if mergeFreq > 20 {
 		trunkScore += 2
 	}

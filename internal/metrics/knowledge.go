@@ -35,10 +35,7 @@ func AnalyzeKnowledge(data *GitData) *KnowledgeRisk {
 		for _, f := range c.Files {
 			fileSet[f.Path] = true
 		}
-		for p := range fileSet {
-			_ = p
-			moduleFiles[mod]++
-		}
+		moduleFiles[mod] += len(fileSet)
 	}
 
 	// Compute bus factor per module

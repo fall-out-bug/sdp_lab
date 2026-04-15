@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"sdp_dev/internal/metrics"
 	"time"
 )
@@ -28,6 +30,12 @@ func runMetrics(args []string) {
 		os.Exit(2)
 	}
 
+	// Validate git binary is available
+	if _, err := exec.LookPath("git"); err != nil {
+		fmt.Fprintln(os.Stderr, "error: git binary not found in PATH")
+		os.Exit(1)
+	}
+
 	start := time.Now()
 	data, err := metrics.Collect(repoPath)
 	if err != nil {
@@ -40,7 +48,6 @@ func runMetrics(args []string) {
 		Version:         "1.0.0",
 		GeneratedAt:     start.UTC(),
 		RepoPath:        repoPath,
-		DurationMs:      time.Since(start).Milliseconds(),
 		CommitsAnalyzed: len(data.Commits),
 	}
 
@@ -59,6 +66,8 @@ func runMetrics(args []string) {
 	report.Stabilization = metrics.AnalyzeStabilization(data)
 	report.KnowledgeRisk = metrics.AnalyzeKnowledge(data)
 	report.Decay = metrics.AnalyzeDecay(data)
+
+	report.DurationMs = time.Since(start).Milliseconds()
 
 	switch *format {
 	case "json":
@@ -79,7 +88,7 @@ func runMetrics(args []string) {
 			fmt.Fprintf(os.Stderr, "warning: could not create output dir: %v\n", err)
 		} else {
 			b, _ := json.MarshalIndent(report, "", "  ")
-			path := *output + "/report.json"
+			path := filepath.Join(*output, "report.json")
 			if err := os.WriteFile(path, b, 0o644); err != nil {
 				fmt.Fprintf(os.Stderr, "warning: could not write report: %v\n", err)
 			} else {

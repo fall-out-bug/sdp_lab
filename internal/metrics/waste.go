@@ -12,9 +12,7 @@ func AnalyzeWaste(data *GitData) *Waste {
 	if data == nil || len(data.Commits) == 0 {
 		return nil
 	}
-	w := &Waste{
-		ChurnWindowDays: 14,
-	}
+	w := &Waste{}
 
 	// ── Churn analysis ──
 	type fileChurn struct {
@@ -22,7 +20,7 @@ func AnalyzeWaste(data *GitData) *Waste {
 		commits        int
 	}
 	churnMap := make(map[string]*fileChurn)
-	var totalAdded, churnAdded int
+	var totalAdded int
 
 	for _, c := range data.Commits {
 		for _, f := range c.Files {
@@ -49,8 +47,6 @@ func AnalyzeWaste(data *GitData) *Waste {
 	}
 
 	// Top churn files
-	churnAdded = totalChurn
-	_ = churnAdded
 	type churnEntry struct {
 		path  string
 		churn int

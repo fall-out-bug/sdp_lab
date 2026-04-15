@@ -86,7 +86,6 @@ type Hygiene struct {
 // Waste holds wasted-work metrics.
 type Waste struct {
 	ChurnRatio        float64           `json:"churn_ratio"`
-	ChurnWindowDays   int               `json:"churn_window_days"`
 	ChurnFilesTop     []ChurnFile       `json:"churn_files_top"`
 	AbandonedBranches int               `json:"abandoned_branches"`
 	AbandonedLinesEst int64             `json:"abandoned_lines_est"`
