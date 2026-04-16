@@ -475,7 +475,7 @@ func (s *SQLiteStore) LoadEntryPoints() ([]string, error) {
 		SELECT DISTINCT file_path FROM chunks
 		WHERE symbol_name = 'main' AND kind = 'function'
 		UNION
-		SELECT DISTINCT file_path FROM files
+		SELECT DISTINCT path FROM files
 		WHERE path LIKE 'cmd/%'`)
 	if err != nil {
 		return nil, err

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -615,4 +616,228 @@ func TestStore_TransactionRollback(t *testing.T) {
 	var count int
 	require.NoError(t, s.db.QueryRow("SELECT COUNT(*) FROM chunks WHERE file_path = 'rb.go'").Scan(&count))
 	assert.Equal(t, 0, count)
+}
+
+// --- Cross-File Edge Tests ---
+
+// createCrossFileTestRepo builds a temp repo with two Go packages where one
+// calls functions defined in the other.
+func createCrossFileTestRepo(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+
+	// Package: internal/dispatch
+	dispatchDir := filepath.Join(dir, "internal", "dispatch")
+	require.NoError(t, os.MkdirAll(dispatchDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dispatchDir, "dispatcher.go"), []byte(`package dispatch
+
+import "errors"
+
+var ErrStopped = errors.New("stopped")
+
+type Dispatcher struct {
+	queue []string
+}
+
+func NewDispatcher() *Dispatcher {
+	return &Dispatcher{queue: nil}
+}
+
+func (d *Dispatcher) Start() error {
+	return nil
+}
+
+func (d *Dispatcher) Stop() error {
+	return ErrStopped
+}
+`), 0o644))
+
+	// Package: cmd/app  (calls dispatch.NewDispatcher, dispatch.Dispatcher, etc.)
+	appDir := filepath.Join(dir, "cmd", "app")
+	require.NoError(t, os.MkdirAll(appDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(appDir, "main.go"), []byte(`package main
+
+import "fmt"
+
+func main() {
+	d := NewDispatcher()
+	d.Start()
+	fmt.Println("running")
+}
+
+func NewDispatcher() *Dispatcher {
+	return &Dispatcher{}
+}
+
+type Dispatcher struct {
+	x int
+}
+`), 0o644))
+
+	return dir
+}
+
+func TestColdBuild_CrossFileEdges(t *testing.T) {
+	repoPath := createCrossFileTestRepo(t)
+
+	result, err := ColdBuild(BuildOptions{RepoPath: repoPath})
+	require.NoError(t, err)
+	defer os.Remove(result.DBPath)
+
+	// We expect edges within each file (same-file) AND potentially cross-file
+	// if identifier names overlap. The key test: total edges > 0.
+	assert.Greater(t, result.TotalEdges, 0, "should produce edges from cross-file references")
+}
+
+func TestColdBuild_CrossFileEdges_VerifyEdgeTargets(t *testing.T) {
+	repoPath := createCrossFileTestRepo(t)
+
+	result, err := ColdBuild(BuildOptions{RepoPath: repoPath})
+	require.NoError(t, err)
+
+	s, err := OpenStore(result.DBPath)
+	require.NoError(t, err)
+	defer func() { _ = s.Close() }()
+
+	// Query edges and verify that cross-file edges exist
+	rows, err := s.db.Query(`
+		SELECT
+			sc.file_path AS source_file,
+			sc.symbol_name AS source_symbol,
+			tc.file_path AS target_file,
+			tc.symbol_name AS target_symbol,
+			e.relation
+		FROM edges e
+		JOIN chunks sc ON sc.id = e.source_id
+		JOIN chunks tc ON tc.id = e.target_id
+		ORDER BY source_file, source_symbol, target_file`)
+	require.NoError(t, err)
+	defer rows.Close()
+
+	type edgeInfo struct {
+		srcFile, srcSym string
+		tgtFile, tgtSym string
+		relation        string
+	}
+
+	var edges []edgeInfo
+	for rows.Next() {
+		var e edgeInfo
+		require.NoError(t, rows.Scan(&e.srcFile, &e.srcSym, &e.tgtFile, &e.tgtSym, &e.relation))
+		edges = append(edges, e)
+	}
+
+	// Verify that at least some edges exist
+	assert.NotEmpty(t, edges, "should have at least some edges")
+
+	// Check that cross-file edges exist (source and target in different files)
+	var crossFileCount int
+	for _, e := range edges {
+		if e.srcFile != e.tgtFile {
+			crossFileCount++
+		}
+	}
+	assert.Greater(t, crossFileCount, 0, "should have at least one cross-file edge")
+}
+
+func TestColdBuild_CrossFileEdges_DepsSearch(t *testing.T) {
+	repoPath := createCrossFileTestRepo(t)
+
+	result, err := ColdBuild(BuildOptions{RepoPath: repoPath})
+	require.NoError(t, err)
+
+	s, err := OpenStore(result.DBPath)
+	require.NoError(t, err)
+	defer func() { _ = s.Close() }()
+
+	// Search forward deps from the cmd/app module
+	resp, err := DepsSearch(s, "cmd/app", false, 3)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	// Should find dependencies reachable from cmd/app via edges
+	assert.NotEmpty(t, resp.Results, "DepsSearch from cmd/app should return results")
+}
+
+func TestExtractExternalRefs(t *testing.T) {
+	content := `func main() {
+	d := dispatch.NewDispatcher()
+	d.Start()
+	fmt.Println("hello")
+	return ErrNotFound
+}`
+	localSyms := map[string]bool{
+		"main": true,
+	}
+
+	refs := extractExternalRefs(content, localSyms)
+
+	// Should find capitalized identifiers that aren't local
+	refSet := make(map[string]bool)
+	for _, r := range refs {
+		refSet[r] = true
+	}
+
+	// These should be found as external refs
+	assert.True(t, refSet["NewDispatcher"], "should find NewDispatcher")
+	assert.True(t, refSet["Start"], "should find Start")
+	assert.True(t, refSet["ErrNotFound"], "should find ErrNotFound")
+
+	// "main" is local, should NOT appear
+	assert.False(t, refSet["main"], "should not include local symbols")
+}
+
+func TestExtractExternalRefs_SkipsBuiltins(t *testing.T) {
+	content := `func Handler() error {
+	if x {
+		return nil
+	}
+	return New("test")
+}`
+	localSyms := map[string]bool{}
+
+	refs := extractExternalRefs(content, localSyms)
+
+	refSet := make(map[string]bool)
+	for _, r := range refs {
+		refSet[r] = true
+	}
+
+	// "nil" should be skipped (lowercase anyway, but also in skip list)
+	assert.False(t, refSet["nil"])
+	// "New" is in the builtin skip list
+	assert.False(t, refSet["New"])
+}
+
+func TestResolveCrossFileTarget(t *testing.T) {
+	// Build a mock symMap and symNameIndex
+	symMap := map[string]int64{
+		"cmd/app/main.go:main":            1,
+		"internal/dispatch/dispatcher.go:NewDispatcher": 2,
+		"internal/dispatch/dispatcher.go:Dispatcher":    3,
+		"internal/dispatch/dispatcher.go:Dispatcher.Start": 4,
+	}
+
+	symNameIndex := make(map[string][]string)
+	for key := range symMap {
+		idx := strings.Index(key, ":")
+		symName := key[idx+1:]
+		symNameIndex[symName] = append(symNameIndex[symName], key)
+		if dotIdx := strings.Index(symName, "."); dotIdx >= 0 {
+			short := symName[dotIdx+1:]
+			symNameIndex[short] = append(symNameIndex[short], key)
+		}
+	}
+
+	// Looking up "NewDispatcher" from cmd/app/main.go should find it in dispatch
+	id := resolveCrossFileTarget("NewDispatcher", "cmd/app/main.go", symMap, symNameIndex)
+	assert.Equal(t, int64(2), id, "should resolve NewDispatcher to dispatch package")
+
+	// Looking up "Dispatcher" should find the type in dispatch
+	id = resolveCrossFileTarget("Dispatcher", "cmd/app/main.go", symMap, symNameIndex)
+	assert.Equal(t, int64(3), id, "should resolve Dispatcher type to dispatch package")
+
+	// Looking up a non-existent symbol should return 0
+	id = resolveCrossFileTarget("NonExistent", "cmd/app/main.go", symMap, symNameIndex)
+	assert.Equal(t, int64(0), id, "should return 0 for non-existent symbol")
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -494,6 +495,10 @@ func buildIndexedFileMap(store *SQLiteStore) (map[string]string, error) {
 
 // resolveAndInsertEdges resolves symbolic edges to chunk IDs and inserts them.
 // Returns the number of edges successfully inserted.
+//
+// For edges where TargetFile is set (same-file edges), it resolves directly.
+// For edges where TargetFile is empty (cross-file edges), it searches the
+// full symbol map for any file that defines the target symbol.
 func resolveAndInsertEdges(store *SQLiteStore, symEdges []SymbolicEdge) int {
 	if len(symEdges) == 0 {
 		return 0
@@ -505,6 +510,27 @@ func resolveAndInsertEdges(store *SQLiteStore, symEdges []SymbolicEdge) int {
 		return 0
 	}
 
+	// Build a reverse index: symbolName -> list of "file:symbol" keys
+	// This allows cross-file lookups by bare symbol name.
+	symNameIndex := make(map[string][]string)
+	for key := range symMap {
+		idx := strings.Index(key, ":")
+		if idx < 0 {
+			continue
+		}
+		symName := key[idx+1:]
+		symNameIndex[symName] = append(symNameIndex[symName], key)
+
+		// Also index the short name (after dot) for method targets
+		// e.g. "Handler.Serve" -> index both "Handler.Serve" and "Serve"
+		if dotIdx := strings.Index(symName, "."); dotIdx >= 0 {
+			short := symName[dotIdx+1:]
+			if short != symName {
+				symNameIndex[short] = append(symNameIndex[short], key)
+			}
+		}
+	}
+
 	inserted := 0
 	for _, se := range symEdges {
 		// Resolve source
@@ -514,15 +540,22 @@ func resolveAndInsertEdges(store *SQLiteStore, symEdges []SymbolicEdge) int {
 			continue
 		}
 
-		// Resolve target (target file may be empty = same file)
-		targetFile := se.TargetFile
-		if targetFile == "" {
-			targetFile = se.SourceFile
-		}
-		targetKey := targetFile + ":" + se.TargetSymbol
-		targetID, ok := symMap[targetKey]
-		if !ok {
-			continue
+		var targetID int64
+
+		if se.TargetFile != "" {
+			// Same-file edge: resolve directly
+			targetKey := se.TargetFile + ":" + se.TargetSymbol
+			targetID, ok = symMap[targetKey]
+			if !ok {
+				continue
+			}
+		} else {
+			// Cross-file edge: TargetFile is empty, search across all files.
+			// First try exact symbol name match, then try as short name.
+			targetID = resolveCrossFileTarget(se.TargetSymbol, se.SourceFile, symMap, symNameIndex)
+			if targetID == 0 {
+				continue
+			}
 		}
 
 		if sourceID == targetID {
@@ -543,9 +576,46 @@ func resolveAndInsertEdges(store *SQLiteStore, symEdges []SymbolicEdge) int {
 	return inserted
 }
 
+// resolveCrossFileTarget finds a chunk ID for a symbol across all files.
+// It prefers matches from files different from sourceFile, and picks the
+// first such match.
+func resolveCrossFileTarget(targetSymbol, sourceFile string, symMap map[string]int64, symNameIndex map[string][]string) int64 {
+	// Try exact symbol name first
+	candidates := symNameIndex[targetSymbol]
+
+	// Prefer candidates from a different file
+	for _, key := range candidates {
+		id := symMap[key]
+		if id == 0 {
+			continue
+		}
+		idx := strings.Index(key, ":")
+		if idx < 0 {
+			continue
+		}
+		candidateFile := key[:idx]
+		if candidateFile != sourceFile {
+			return id
+		}
+	}
+
+	// Fall back to any candidate, even same file
+	for _, key := range candidates {
+		if id := symMap[key]; id > 0 {
+			return id
+		}
+	}
+
+	return 0
+}
+
 // extractSymbolicEdges scans the chunks from a file and produces symbolic edges.
-// For each function/method chunk, it looks for references to other symbols defined
-// in the same file (same-file calls/uses) and produces SymbolicEdge entries.
+// For each function/method chunk, it looks for:
+//   - references to other symbols defined in the same file (same-file calls/uses)
+//   - references to symbols NOT defined in this file (cross-file calls)
+//
+// Cross-file edges have TargetFile="" and are resolved later by
+// resolveAndInsertEdges using the full symbol map across all files.
 func extractSymbolicEdges(filePath string, chunks []Chunk) []SymbolicEdge {
 	if len(chunks) <= 1 {
 		return nil
@@ -553,13 +623,23 @@ func extractSymbolicEdges(filePath string, chunks []Chunk) []SymbolicEdge {
 
 	// Collect all symbol names defined in this file
 	symbols := make(map[string]bool, len(chunks))
+	// Also track short names (after the dot) to avoid duplicating cross-file refs
+	// that are already covered by same-file edges.
+	shortNameToFull := make(map[string]string, len(chunks))
 	for _, c := range chunks {
 		if c.SymbolName != "" && c.Kind != "file" {
 			symbols[c.SymbolName] = true
+			short := c.SymbolName
+			if idx := strings.Index(c.SymbolName, "."); idx >= 0 {
+				short = c.SymbolName[idx+1:]
+			}
+			shortNameToFull[short] = c.SymbolName
 		}
 	}
 
 	var edges []SymbolicEdge
+
+	// Phase 1: same-file edges (unchanged logic)
 	for _, c := range chunks {
 		if c.Kind != "function" && c.Kind != "method" {
 			continue
@@ -574,16 +654,11 @@ func extractSymbolicEdges(filePath string, chunks []Chunk) []SymbolicEdge {
 			}
 
 			// Check if the function/method body references this symbol.
-			// For bare functions (e.g. "NewHandler"), look for the bare name.
-			// For method targets (e.g. "Handler.Serve"), the receiver type name
-			// is also a candidate -- we check both the short name and the full name.
 			shortName := targetSym
 			if idx := strings.Index(targetSym, "."); idx >= 0 {
 				shortName = targetSym[idx+1:]
 			}
 
-			// Use word-boundary matching: the symbol name should appear as a
-			// standalone identifier, not as a substring of a larger token.
 			if containsIdentifier(c.Content, targetSym) || containsIdentifier(c.Content, shortName) {
 				relation := "calls"
 				if strings.HasPrefix(targetSym, c.SymbolName) {
@@ -600,7 +675,114 @@ func extractSymbolicEdges(filePath string, chunks []Chunk) []SymbolicEdge {
 		}
 	}
 
+	// Phase 2: cross-file edges
+	// Extract capitalized identifiers from function/method bodies that are NOT
+	// defined in this file. These are candidates for cross-file references.
+	for _, c := range chunks {
+		if c.Kind != "function" && c.Kind != "method" {
+			continue
+		}
+		if c.SymbolName == "" || c.Content == "" {
+			continue
+		}
+
+		refs := extractExternalRefs(c.Content, symbols)
+		for _, ref := range refs {
+			// Skip if this reference is covered by a same-file symbol's short name.
+			if _, isLocal := shortNameToFull[ref]; isLocal {
+				continue
+			}
+			// Avoid self-edges
+			if ref == c.SymbolName {
+				continue
+			}
+			short := c.SymbolName
+			if idx := strings.Index(c.SymbolName, "."); idx >= 0 {
+				short = c.SymbolName[idx+1:]
+			}
+			if ref == short {
+				continue
+			}
+
+			edges = append(edges, SymbolicEdge{
+				SourceFile:   filePath,
+				SourceSymbol: c.SymbolName,
+				TargetFile:   "", // unknown, resolved later
+				TargetSymbol: ref,
+				Relation:     "calls",
+				Weight:       0.5, // lower weight than same-file edges
+			})
+		}
+	}
+
 	return edges
+}
+
+// externalIdentRe matches capitalized identifiers (exported symbols) followed
+// by '(' or '{' or '.' or whitespace. This catches function calls, type
+// references, and qualified accesses like pkg.Func.
+var externalIdentRe = regexp.MustCompile(`\b([A-Z][A-Za-z0-9_]*)\b`)
+
+// extractExternalRefs finds capitalized identifiers in content that are not
+// present in the localSymbols set. Returns deduplicated symbol names.
+func extractExternalRefs(content string, localSymbols map[string]bool) []string {
+	matches := externalIdentRe.FindAllStringSubmatch(content, -1)
+	seen := make(map[string]bool, len(matches))
+	var result []string
+
+	// Language keywords and builtins to skip
+	skip := map[string]bool{
+		"true": true, "false": true, "nil": true,
+		"True": true, "False": true, "None": true,
+		"String": true, "Int": true, "Float": true, "Bool": true,
+		"Error": true, "Printf": true, "Sprintf": true, "Fprintf": true,
+		"Println": true, "Print": true,
+		"Make": true, "New": true, "Len": true, "Cap": true,
+		"Append": true, "Copy": true, "Delete": true, "Close": true,
+		"Panic": true, "Recover": true,
+		"Return": true, "Defer": true, "Go": true, "Select": true,
+		"Range": true, "Type": true, "Map": true, "Chan": true,
+		"Func": true, "Interface": true, "Struct": true,
+		"Package": true, "Import": true,
+		"IF": true, "ELSE": true, "FOR": true, "WHILE": true,
+		"SWITCH": true, "CASE": true, "DEFAULT": true,
+		"BREAK": true, "CONTINUE": true, "GOTO": true,
+		"VAR": true, "CONST": true,
+		"ASYNC": true, "AWAIT": true, "CLASS": true, "EXPORT": true,
+		"IMPORT": true, "FROM": true, "THROW": true, "TRY": true,
+		"CATCH": true, "FINALLY": true, "NEW": true, "DELETE": true,
+		"TYPEOF": true, "INSTANCEOF": true, "VOID": true,
+		"SELF": true, "SUPER": true, "WITH": true, "YIELD": true,
+	}
+
+	for _, m := range matches {
+		name := m[1]
+		if seen[name] {
+			continue
+		}
+		// Skip if it's defined locally
+		if localSymbols[name] {
+			continue
+		}
+		// Also check if the short name (after dot) matches a local symbol
+		if idx := strings.Index(name, "."); idx >= 0 {
+			short := name[idx+1:]
+			if localSymbols[short] {
+				continue
+			}
+		}
+		// Skip language keywords and builtins
+		if skip[name] {
+			continue
+		}
+		// Skip very short names (likely not meaningful symbols)
+		if len(name) < 2 {
+			continue
+		}
+		seen[name] = true
+		result = append(result, name)
+	}
+	return result
 }
 
 // containsIdentifier checks if the identifier appears as a standalone token in

@@ -4,7 +4,7 @@
 set -e
 
 # 1. go build ./...
-go build ./... || { echo "pre-commit: go build failed" >&2; exit 1; }
+go build -tags "sqlite_fts5" ./... || { echo "pre-commit: go build failed" >&2; exit 1; }
 
 # 2. If staged files touch docs/ws-verdicts/*.json — validate
 if git diff --cached --name-only | grep -q '^docs/ws-verdicts/.*\.json$'; then

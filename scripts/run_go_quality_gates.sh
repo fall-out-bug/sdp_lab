@@ -19,14 +19,14 @@ run_host_quality_gates() {
   echo "==> Go toolchain"
   "$GO" version
 
-  echo "==> go build ./..."
-  "$GO" build ./...
+  echo "==> go build -tags \"sqlite_fts5\" ./..."
+  "$GO" build -tags "sqlite_fts5" ./...
 
-  echo "==> go test ./... -count=1"
-  "$GO" test ./... -count=1
+  echo "==> go test -tags \"sqlite_fts5\" ./... -count=1"
+  "$GO" test -tags "sqlite_fts5" ./... -count=1
 
-  echo "==> go vet ./..."
-  "$GO" vet ./...
+  echo "==> go vet -tags \"sqlite_fts5\" ./..."
+  "$GO" vet -tags "sqlite_fts5" ./...
 }
 
 run_container_quality_gates() {
@@ -50,7 +50,7 @@ run_container_quality_gates() {
     -v "$ROOT:/workspace" \
     -w /workspace \
     "$DOCKER_IMAGE" \
-    sh -c 'set -eu; go version; go build ./...; go test ./... -count=1; go vet ./...'
+    sh -c 'set -eu; go version; go build -tags "sqlite_fts5" ./...; go test -tags "sqlite_fts5" ./... -count=1; go vet -tags "sqlite_fts5" ./...'
 }
 
 case "$MODE" in

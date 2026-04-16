@@ -175,19 +175,17 @@ func runIndexRefresh(args []string) {
 }
 
 func runIndexStats(args []string) {
-	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: sdp index stats <repo-path>")
+	fs := flag.NewFlagSet("index stats", flag.ExitOnError)
+	db := fs.String("db", "", "custom database path (default: <repo>/.sdp/index.db)")
+	_ = fs.Parse(args)
+
+	if fs.NArg() < 1 {
+		fmt.Fprintln(os.Stderr, "usage: sdp index stats [--db PATH] <repo-path>")
 		os.Exit(2)
 	}
-	repoPath := args[0]
+	repoPath := fs.Arg(0)
 
-	dbPath := filepath.Join(repoPath, ".sdp", "index.db")
-	if _, err := os.Stat(dbPath); err != nil {
-		fmt.Fprintf(os.Stderr, "error: index not found at %s (run 'sdp index build' first)\n", dbPath)
-		os.Exit(1)
-	}
-
-	store, err := index.OpenStore(dbPath)
+	store, err := openIndexStore(repoPath, *db)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: open index: %v\n", err)
 		os.Exit(1)
@@ -216,10 +214,11 @@ func runIndexStats(args []string) {
 func runIndexManifest(args []string) {
 	fs := flag.NewFlagSet("index manifest", flag.ExitOnError)
 	output := fs.String("output", "", "output directory for manifest.md (default: <repo>/.sdp)")
+	db := fs.String("db", "", "custom database path (default: <repo>/.sdp/index.db)")
 	_ = fs.Parse(args)
 
 	if fs.NArg() < 1 {
-		fmt.Fprintln(os.Stderr, "usage: sdp index manifest [--output DIR] <repo-path>")
+		fmt.Fprintln(os.Stderr, "usage: sdp index manifest [--output DIR] [--db PATH] <repo-path>")
 		os.Exit(2)
 	}
 	repoPath := fs.Arg(0)
@@ -229,7 +228,12 @@ func runIndexManifest(args []string) {
 		sdpDir = filepath.Join(repoPath, ".sdp")
 	}
 
-	dbPath := filepath.Join(sdpDir, "index.db")
+	var dbPath string
+	if *db != "" {
+		dbPath = *db
+	} else {
+		dbPath = filepath.Join(sdpDir, "index.db")
+	}
 	info, err := os.Stat(dbPath)
 	if err != nil || info.IsDir() {
 		fmt.Fprintln(os.Stderr, "error: no index database found. Run 'sdp index build' first.")
@@ -256,16 +260,17 @@ func runIndexQuery(args []string) {
 	fs := flag.NewFlagSet("index query", flag.ExitOnError)
 	format := fs.String("format", "text", "output format: json, text")
 	limit := fs.Int("limit", 10, "maximum results to return")
+	db := fs.String("db", "", "custom database path (default: <repo>/.sdp/index.db)")
 	_ = fs.Parse(args)
 
 	if fs.NArg() < 2 {
-		fmt.Fprintln(os.Stderr, "usage: sdp index query [--format json|text] [--limit N] <repo-path> <query>")
+		fmt.Fprintln(os.Stderr, "usage: sdp index query [--format json|text] [--limit N] [--db PATH] <repo-path> <query>")
 		os.Exit(2)
 	}
 	repoPath := fs.Arg(0)
 	query := fs.Arg(1)
 
-	store, err := openIndexStore(repoPath)
+	store, err := openIndexStore(repoPath, *db)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
@@ -309,16 +314,17 @@ func runIndexDeps(args []string) {
 	format := fs.String("format", "text", "output format: json, text")
 	reverse := fs.Bool("reverse", false, "show reverse dependencies (who depends on this module)")
 	depth := fs.Int("depth", 3, "maximum traversal depth")
+	db := fs.String("db", "", "custom database path (default: <repo>/.sdp/index.db)")
 	_ = fs.Parse(args)
 
 	if fs.NArg() < 2 {
-		fmt.Fprintln(os.Stderr, "usage: sdp index deps [--reverse] [--depth N] <repo-path> <module>")
+		fmt.Fprintln(os.Stderr, "usage: sdp index deps [--reverse] [--depth N] [--db PATH] <repo-path> <module>")
 		os.Exit(2)
 	}
 	repoPath := fs.Arg(0)
 	module := fs.Arg(1)
 
-	store, err := openIndexStore(repoPath)
+	store, err := openIndexStore(repoPath, *db)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
@@ -367,16 +373,17 @@ func runIndexFind(args []string) {
 	format := fs.String("format", "text", "output format: json, text")
 	limit := fs.Int("limit", 20, "maximum results to return")
 	regex := fs.Bool("regex", false, "treat query as regex pattern")
+	db := fs.String("db", "", "custom database path (default: <repo>/.sdp/index.db)")
 	_ = fs.Parse(args)
 
 	if fs.NArg() < 2 {
-		fmt.Fprintln(os.Stderr, "usage: sdp index find [--regex] [--limit N] <repo-path> <term>")
+		fmt.Fprintln(os.Stderr, "usage: sdp index find [--regex] [--limit N] [--db PATH] <repo-path> <term>")
 		os.Exit(2)
 	}
 	repoPath := fs.Arg(0)
 	term := fs.Arg(1)
 
-	store, err := openIndexStore(repoPath)
+	store, err := openIndexStore(repoPath, *db)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
@@ -413,15 +420,16 @@ func runIndexFind(args []string) {
 func runIndexRank(args []string) {
 	fs := flag.NewFlagSet("index rank", flag.ExitOnError)
 	format := fs.String("format", "text", "output format: json, text")
+	db := fs.String("db", "", "custom database path (default: <repo>/.sdp/index.db)")
 	_ = fs.Parse(args)
 
 	if fs.NArg() < 1 {
-		fmt.Fprintln(os.Stderr, "usage: sdp index rank <repo-path>")
+		fmt.Fprintln(os.Stderr, "usage: sdp index rank [--db PATH] <repo-path>")
 		os.Exit(2)
 	}
 	repoPath := fs.Arg(0)
 
-	store, err := openIndexStore(repoPath)
+	store, err := openIndexStore(repoPath, *db)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
@@ -454,8 +462,11 @@ func runIndexRank(args []string) {
 }
 
 // openIndexStore opens the index database for a given repo path.
-func openIndexStore(repoPath string) (*index.SQLiteStore, error) {
-	dbPath := filepath.Join(repoPath, ".sdp", "index.db")
+// If dbPath is empty, it defaults to <repo>/.sdp/index.db.
+func openIndexStore(repoPath string, dbPath string) (*index.SQLiteStore, error) {
+	if dbPath == "" {
+		dbPath = filepath.Join(repoPath, ".sdp", "index.db")
+	}
 	if _, err := os.Stat(dbPath); err != nil {
 		return nil, fmt.Errorf("index not found at %s (run 'sdp index build' first)", dbPath)
 	}
