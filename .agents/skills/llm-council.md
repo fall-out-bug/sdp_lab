@@ -1,6 +1,6 @@
 ---
 name: llm-council
-description: Multi-model blind deliberation skill. Runs up to 5 rounds of review/rebuttal/synthesis until convergence or mapped disagreement; produces advisory verdicts with minority reports.
+description: Multi-model blind deliberation — up to 5 rounds; advisory verdicts with minority reports on contested claims.
 version: 1.0.0
 compatibility:
   - claude-code

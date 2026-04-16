@@ -1,6 +1,6 @@
 ---
 name: strataudit
-description: Portable strategy traceability audit over a document corpus; produces evidence-backed alignment analysis and trace coverage across strategy, architecture, design, and execution docs.
+description: Strategy traceability audit — evidence-backed alignment and trace coverage across strategy, design and execution docs.
 version: 1.0.0
 compatibility:
   - claude-code

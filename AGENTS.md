@@ -457,6 +457,10 @@ Example: `go run ./cmd/sdp-orchestrate --feature F053 --next-action`
 | `.beads-sdp-mapping.jsonl` | WS ID ↔ beads ID mapping |
 | `docs/MANIFESTO.md` | What SDP is and where it fits |
 | `docs/reference/project-map.md` | Canonical project entrypoint / SOT split |
+| `docs/reference/multi-agent-patterns.md` | Когда использовать Generator-Verifier / Orchestrator-Subagent / Agent Teams / Message Bus / Shared State |
+| `docs/reference/harness-integration.md` | Status per harness (Claude Code, Codex, OpenCode, Cursor); OpenCode Sisyphus fix |
+| `docs/reference/skill-authoring.md` | SKILL.md frontmatter policy, body template, versioning |
+| `.agents/skills/README.md` | Multi-harness skills layout |
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:full hash:d4f96305 -->
 ## Issue Tracking with bd (beads)

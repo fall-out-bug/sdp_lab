@@ -700,3 +700,146 @@ Agent configs (.claude/, .opencode/, .cursor/)
 5. **All tools always registered.** Even if index isn't built, `sdp_index_query` is registered — it returns a helpful error telling the agent to run `sdp_index_build` first. This avoids dynamic tool registration complexity.
 
 6. **One binary.** `sdp-mcp` is a single Go binary. No Node.js runtime, no Python, no Docker. Install and go.
+
+## MCP 2026 Alignment (added 2026-04-16, F127-06)
+
+> **Scope:** design addendum — не требует немедленной реализации. Описывает roadmap-совместимость с MCP 2026 и enterprise readiness.
+> **Source:** MCP 2026 Roadmap (SEP-1932 DPoP, SEP-1933 WIF), Anthropic MCP best-practices updates.
+
+### Why now
+
+К 2026 MCP вышел за пределы local-stdio сценария: появились server cards для discovery, stateless Streamable HTTP (замена SSE), enterprise auth (DPoP, Workload Identity Federation), audit trails как обязательный контрольный элемент для compliance-окружений. SDP-MCP должен быть готов эволюционировать в эту сторону без ломающих изменений.
+
+### Workstreams (design-only на этой итерации)
+
+#### 1. MCP Server Card (`.well-known/mcp`)
+
+Публиковать discovery-manifest по стандартному пути для автоматического обнаружения MCP-клиентами (Cursor, OpenCode, Claude Code 2026+).
+
+**Manifest schema (draft):**
+```json
+{
+  "name": "sdp-mcp",
+  "version": "0.1.0",
+  "protocol_version": "2026-03-01",
+  "transports": ["stdio", "streamable-http"],
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true,
+    "sampling": false
+  },
+  "auth": {
+    "stdio": "inherit-process",
+    "streamable-http": ["bearer", "dpop"]
+  },
+  "tools_summary": "Architect review, dispatch, scout, metrics, spec, index, bootstrap",
+  "docs_url": "https://github.com/<org>/sdp/blob/main/docs/plans/2026-04-13-sdp-mcp-design.md"
+}
+```
+
+**Publish locations:**
+- Local stdio: `$REPO/.sdp/mcp-server-card.json` (discovered by IDE plugins).
+- Remote HTTP: `https://mcp.<host>/.well-known/mcp` (served by `sdp-mcp serve --transport streamable-http`).
+
+Не реализовывать в M1–M2; добавить в M3 как часть enterprise-ready milestone.
+
+#### 2. Streamable HTTP transport (stateless)
+
+MCP 2026 заменяет SSE на **Streamable HTTP** — stateless транспорт, который легче масштабировать и который совместим с serverless/edge-окружениями.
+
+**Отличия от SSE (M2 design):**
+- Нет long-lived connection. Каждый вызов — отдельный HTTP POST.
+- Server может ответить либо JSON (одиночный результат), либо `text/event-stream` (для стриминга).
+- Session-id передаётся через header `Mcp-Session-Id`, не через cookie.
+- Permite horizontal scaling без sticky sessions.
+
+**Impact на design:**
+- M2 плана уже включает HTTP; переключить `SSE` → `Streamable HTTP` в описании.
+- Добавить в M3 фичу: stateless handler, sticky-session заменяется на session persistence via Redis/SQLite.
+
+#### 3. Audit trail hook
+
+Enterprise-требование: каждый tool call должен оставлять audit event, пригодный для SIEM-систем.
+
+**Event schema:**
+```json
+{
+  "ts": "2026-04-16T12:34:56Z",
+  "session_id": "mcp-ses-abc123",
+  "principal": "user:alice@example.com",
+  "tool": "sdp_dispatch",
+  "args_hash": "sha256:…",
+  "result_status": "ok|error|denied",
+  "duration_ms": 1245,
+  "client": {"name": "cursor", "version": "2.1.4"}
+}
+```
+
+**Sink options:**
+- `SDP_MCP_AUDIT=stdout` — JSON lines в stdout (default для dev).
+- `SDP_MCP_AUDIT=file:/var/log/sdp-mcp.audit.jsonl` — ротационный file sink.
+- `SDP_MCP_AUDIT=otlp:<endpoint>` — OpenTelemetry export (enterprise).
+
+Hook реализовать как middleware вокруг tool dispatcher — то же место, где будет rate-limit (уже в design'е).
+
+#### 4. DPoP (SEP-1932) prep
+
+**DPoP** (Demonstrating Proof-of-Possession) — стандарт, по которому bearer-токен привязывается к клиентскому ключу. Защищает от token replay при утечке.
+
+**Для SDP-MCP:**
+- В M2 auth через bearer-токен (`SDP_MCP_TOKEN`) — прямо уязвимый к replay.
+- В M3 добавить опцию `auth.mode: dpop` в config:
+  ```yaml
+  auth:
+    mode: dpop               # или bearer (legacy)
+    dpop_key: /etc/sdp-mcp/client.pem
+  ```
+- На стороне клиента — требует MCP SDK с DPoP-поддержкой (появится в mcp-go v0.5+).
+
+Не реализовывать сейчас; только зарезервировать conf-поле.
+
+#### 5. Workload Identity Federation (SEP-1933) prep
+
+**WIF** — механизм, позволяющий MCP-серверу получать доступ к upstream-ресурсам (например, Cloud DB, S3) через федеративную identity, без долгоживущих secrets.
+
+**Use case для SDP-MCP:**
+- `sdp_architect` may need access to Claude API / OpenAI API — сейчас через env-var с API-ключом.
+- В enterprise-окружении ключи хранятся в KMS; MCP-сервер получает short-lived token через WIF.
+
+**Design hook:**
+- Add config path `auth.upstream_wif.enabled: true` в M3.
+- Document expected token exchange flow (server → KMS → upstream API).
+
+Не реализовывать; отметить в roadmap.
+
+### Enterprise readiness checklist
+
+Перед тем как объявить SDP-MCP production-ready для enterprise:
+
+- [ ] Server Card published at `.well-known/mcp`.
+- [ ] Streamable HTTP transport implemented (stateless).
+- [ ] Audit events emit to pluggable sink.
+- [ ] DPoP auth mode available (bearer — legacy/dev).
+- [ ] WIF support for upstream API credentials.
+- [ ] Rate limiting per session_id (already in design).
+- [ ] TLS required on Streamable HTTP transport (no plaintext auth tokens).
+- [ ] CVE/security audit of mcp-go dependency.
+
+### Impact on existing milestones
+
+| Milestone | Changes (from F127-06) |
+|-----------|-----------------------|
+| M1 (stdio) | Нет изменений. Fast-path остаётся. |
+| M2 (SSE) | Переименовать в "HTTP transport"; использовать Streamable HTTP (stateless) вместо SSE. Bearer auth остаётся, но с пометкой "legacy/dev". |
+| M3 (polish) | Добавить: Server Card publish, audit sink, config-поля для DPoP и WIF (без реализации). |
+| M4 (new, optional) | **Enterprise readiness** — реализация DPoP/WIF, OTLP audit sink, multi-tenant session persistence. Условия: появление enterprise-заказчика или продакшн-запуска sdp-mcp на shared host. |
+
+### References
+
+- [MCP Specification 2026-03-01 draft](https://modelcontextprotocol.io/specification/draft)
+- SEP-1932 DPoP (Demonstrating Proof-of-Possession) — draft
+- SEP-1933 Workload Identity Federation — draft
+- [Anthropic MCP Best Practices](https://docs.anthropic.com/en/docs/build-with-claude/mcp)
+- RFC 9449 (OAuth 2.0 DPoP) — базовый стандарт
+- F127 epic: `docs/plans/2026-04-16-f127-multi-harness-modernization-design.md`

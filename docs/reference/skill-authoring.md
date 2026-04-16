@@ -137,11 +137,26 @@ Run `sdp scout .`; read `scout.json`; summarize for the user.
 
 ## Validation
 
-После F127-08 `sdp-protocol-check --lint-skills` будет сканировать `.agents/skills/*.md`:
-- **error:** отсутствует `name`, `description` или `version`.
-- **warning:** отсутствует `compatibility`; hardcoded harness-specific фразы; kebab-case не совпадает с filename.
+F127-08 добавил `sdp-protocol-check --lint-skills` — скан `.agents/skills/*.md`:
 
-До F127-08 — ручная проверка.
+```bash
+# Локально
+go run ./cmd/sdp-protocol-check --lint-skills
+
+# JSON output для CI
+go run ./cmd/sdp-protocol-check --lint-skills --format json
+```
+
+**Errors (exit code 2):**
+- отсутствует обязательный frontmatter-ключ `name`, `description` или `version`.
+
+**Warnings (exit code 0):**
+- отсутствует `compatibility` — skill не декларирует harness-переносимость.
+- `name` не совпадает с `<filename>.md` (kebab-case).
+- `description` вне окна 60-120 символов.
+- body содержит hardcoded harness-specific фразы (например, "In Claude Code,", "Use the Task tool", "Claude Code only").
+
+В CI (`.github/workflows/ci.yml`, `consistency-gate` job) запускается non-blocking — findings пишутся в `.sdp/findings/sdp-skill-lint-*.json`.
 
 ## References
 
