@@ -1,5 +1,5 @@
 // Package index provides persistent codebase memory via local SQLite indexing.
-// It supports tree-sitter-aware chunking, structural edge extraction,
+// It supports regex-based language-aware chunking, structural edge extraction,
 // FTS5 full-text search, and optional embedding-based semantic search.
 package index
 
