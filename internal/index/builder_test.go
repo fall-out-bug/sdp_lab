@@ -959,3 +959,83 @@ func main() {}`,
 		})
 	}
 }
+
+func TestRefresh_PreservesCallerEdges(t *testing.T) {
+	// Reproduce the bug: editing a callee file must not destroy
+	// cross-file edges from an unchanged caller.
+	dir := t.TempDir()
+
+	// Caller: cmd/app/main.go
+	appDir := filepath.Join(dir, "cmd", "app")
+	require.NoError(t, os.MkdirAll(appDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(appDir, "main.go"), []byte(`package main
+
+import "example.com/repo/internal/dispatch"
+
+func main() {
+	dispatch.NewRouter()
+}
+`), 0o644))
+
+	// Callee: internal/dispatch/router.go
+	dispDir := filepath.Join(dir, "internal", "dispatch")
+	require.NoError(t, os.MkdirAll(dispDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dispDir, "router.go"), []byte(`package dispatch
+
+func NewRouter() *Router {
+	return &Router{}
+}
+
+type Router struct{}
+`), 0o644))
+
+	dbPath := filepath.Join(dir, ".sdp", "index.db")
+
+	// Cold build
+	result, err := ColdBuild(BuildOptions{RepoPath: dir, DBPath: dbPath})
+	require.NoError(t, err)
+	require.True(t, result.TotalEdges > 0, "cold build should produce edges")
+
+	store, err := OpenStore(result.DBPath)
+	require.NoError(t, err)
+	defer store.Close()
+
+	// Verify caller edge exists: main → NewRouter
+	var beforeCount int
+	require.NoError(t, store.db.QueryRow(`
+		SELECT COUNT(*) FROM edges e
+		JOIN chunks src ON e.source_id = src.id
+		JOIN chunks tgt ON e.target_id = tgt.id
+		WHERE src.file_path = 'cmd/app/main.go'
+		  AND tgt.file_path = 'internal/dispatch/router.go'
+	`).Scan(&beforeCount))
+	require.Greater(t, beforeCount, 0, "should have caller edges after cold build")
+
+	// Edit only the callee file
+	require.NoError(t, os.WriteFile(filepath.Join(dispDir, "router.go"), []byte(`package dispatch
+
+func NewRouter() *Router {
+	return &Router{Port: 8080}
+}
+
+type Router struct {
+	Port int
+}
+`), 0o644))
+
+	// Refresh
+	_, err = Refresh(RefreshOptions{RepoPath: dir, DBPath: result.DBPath})
+	require.NoError(t, err)
+
+	// Verify caller edge still exists after refresh
+	var afterCount int
+	require.NoError(t, store.db.QueryRow(`
+		SELECT COUNT(*) FROM edges e
+		JOIN chunks src ON e.source_id = src.id
+		JOIN chunks tgt ON e.target_id = tgt.id
+		WHERE src.file_path = 'cmd/app/main.go'
+		  AND tgt.file_path = 'internal/dispatch/router.go'
+	`).Scan(&afterCount))
+	assert.Equal(t, beforeCount, afterCount,
+		"caller edges should survive refresh of callee file")
+}

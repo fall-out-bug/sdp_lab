@@ -329,7 +329,76 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 	var allSymEdges []SymbolicEdge
 	fileImports := make(map[string][]string) // filePath -> import paths
 
-	// Begin a transaction wrapping the walk phase.
+	// --- Pass 1: detect changed/removed files without mutating the DB ---
+	err = filepath.Walk(opts.RepoPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		relPath, relErr := filepath.Rel(opts.RepoPath, path)
+		if relErr != nil {
+			return nil
+		}
+		relPath = filepath.ToSlash(relPath)
+		if relPath == ".sdp" && info.IsDir() {
+			return filepath.SkipDir
+		}
+		if info.IsDir() {
+			if common.DefaultMatcher.Match(relPath, true) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if shouldExcludeFile(path, relPath, info, maxSize) {
+			return nil
+		}
+		language := DetectLanguage(relPath)
+		if language == "" {
+			return nil
+		}
+		if len(langFilter) > 0 && !langFilter[language] {
+			return nil
+		}
+		result.FilesChecked++
+		seenOnDisk[relPath] = true
+
+		data, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return nil
+		}
+		fileHash := contentHash(string(data))
+		storedHash, wasIndexed := indexedFiles[relPath]
+		if wasIndexed && storedHash == fileHash {
+			return nil // unchanged
+		}
+		changedFiles[relPath] = true
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("walk repo (pass 1): %w", err)
+	}
+
+	// Detect removed files
+	for relPath := range indexedFiles {
+		if !seenOnDisk[relPath] {
+			changedFiles[relPath] = true
+		}
+	}
+
+	// Query callers BEFORE any mutations — edges still intact.
+	callerFiles := map[string]bool{}
+	if len(changedFiles) > 0 {
+		readTx, txErr := store.Begin()
+		if txErr != nil {
+			return nil, fmt.Errorf("begin caller query transaction: %w", txErr)
+		}
+		callerFiles = findCallerFiles(readTx, changedFiles)
+		RollbackTx(readTx) // read-only, just discard
+	}
+
+	// Reset seenOnDisk for pass 2
+	seenOnDisk = map[string]bool{}
+
+	// --- Pass 2: mutate — delete old chunks, insert new ones ---
 	tx, txErr := store.Begin()
 	if txErr != nil {
 		return nil, fmt.Errorf("begin transaction: %w", txErr)
@@ -401,7 +470,6 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 		} else {
 			result.FilesAdded++
 		}
-		changedFiles[relPath] = true
 
 		// Delete old chunks for this file (CASCADE handles edges)
 		if _, delErr := DeleteChunksByFileTx(tx, relPath); delErr != nil {
@@ -463,10 +531,9 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 		return nil, fmt.Errorf("walk repo: %w", err)
 	}
 
-	// Detect files removed from disk but still in the index
+	// Delete removed files (detected in pass 1)
 	for relPath := range indexedFiles {
 		if !seenOnDisk[relPath] {
-			changedFiles[relPath] = true
 			if _, delErr := DeleteChunksByFileTx(tx, relPath); delErr != nil {
 				result.Errors = append(result.Errors, fmt.Errorf("delete chunks for removed %s: %w", relPath, delErr))
 				continue
@@ -478,21 +545,15 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 		}
 	}
 
-	// Before commit, find caller files that had edges pointing to changed files.
-	// After commit, CASCADE will delete these edges, so we need to know callers now.
-	callerFiles := map[string]bool{}
-	if len(changedFiles) > 0 {
-		callerFiles = findCallerFiles(tx, changedFiles)
-	}
-
 	// Commit the walk transaction
 	if commitErr := CommitTx(tx); commitErr != nil {
 		return nil, fmt.Errorf("commit refresh transaction: %w", commitErr)
 	}
 
 	// Repair incoming edges from unchanged callers.
-	// When a file changes, CASCADE deletes edges from callers pointing to it.
-	// Re-extract edges from callers so they point to the new chunks.
+	// Caller files were discovered in pass 1 (before any mutations).
+	// CASCADE deleted edges from callers to changed files,
+	// so re-extract edges from callers so they point to the new chunks.
 	for callerFile := range callerFiles {
 		if changedFiles[callerFile] {
 			continue // already handled above
