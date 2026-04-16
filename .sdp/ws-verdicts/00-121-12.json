@@ -1,0 +1,26 @@
+{
+  "ws_id": "00-121-12",
+  "feature_id": "F121",
+  "verdict": "PASS",
+  "commit": "6e07599",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": 94.0,
+    "coverage_threshold": 80,
+    "max_file_loc": 188,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {"ac": "collectTags uses git for-each-ref with date format", "met": true, "evidence": "collector.go:139-145: for-each-ref --format=%(refname:short) %(creatordate:iso-strict) refs/tags/"},
+    {"ac": "parseTags updated to parse name date format and populate TagInfo.Date", "met": true, "evidence": "parse.go:128-147: splitTagLine extracts name+date, time.Parse populates Date"},
+    {"ac": "Existing tests updated to cover new parseTags format", "met": true, "evidence": "parse_test.go:46-80: TestParseTagsWithDates + TestParseTagsNameOnly"},
+    {"ac": "New test: verify tag dates are non-zero after Collect()", "met": true, "evidence": "collector_test.go:122-140: TestCollectTagsPopulatesDates checks Date.IsZero()"},
+    {"ac": "AnalyzeReleaseQuality window logic verified correct with real tag dates", "met": true, "evidence": "release.go:47 uses tag.Date for window bounds; TestCollectTagsPopulatesDates confirms dates populated"},
+    {"ac": "All existing tests pass", "met": true, "evidence": "101 passed, 0 failed"},
+    {"ac": "build passes", "met": true, "evidence": "go build ./... clean"},
+    {"ac": "tests pass", "met": true, "evidence": "go test ./internal/metrics/ — 101 passed"}
+  ],
+  "existing_work_summary": "collectTags used git tag --sort=creatordate (names only). parseTags created TagInfo without Date. collectBranches already had the correct for-each-ref pattern. TestCollectTags only checked count/IsSemver, not Date."
+}

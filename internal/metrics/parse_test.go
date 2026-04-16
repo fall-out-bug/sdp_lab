@@ -41,3 +41,47 @@ func TestParseOneCommitMultipleLongLines(t *testing.T) {
 		t.Fatalf("expected 5 files, got %d", len(c.Files))
 	}
 }
+
+// ── WS-12: parseTags with dates (for-each-ref format) ──────────────
+
+func TestParseTagsWithDates(t *testing.T) {
+	raw := "v1.0.0 2026-04-01T10:00:00+00:00\nv1.1.0 2026-04-02T15:30:00+00:00\n"
+	tags := parseTags(raw)
+	if len(tags) != 2 {
+		t.Fatalf("tags = %d, want 2", len(tags))
+	}
+	if tags[0].Tag != "v1.0.0" {
+		t.Errorf("tags[0].Tag = %q, want v1.0.0", tags[0].Tag)
+	}
+	if tags[0].Date.IsZero() {
+		t.Error("tags[0].Date is zero — parseTags must extract dates")
+	}
+	if tags[0].Date.Month() != 4 || tags[0].Date.Day() != 1 {
+		t.Errorf("tags[0].Date = %v, want April 1", tags[0].Date)
+	}
+	if !tags[0].IsSemver {
+		t.Error("tags[0].IsSemver = false, want true")
+	}
+	if tags[1].Tag != "v1.1.0" {
+		t.Errorf("tags[1].Tag = %q, want v1.1.0", tags[1].Tag)
+	}
+	if tags[1].Date.IsZero() {
+		t.Error("tags[1].Date is zero")
+	}
+}
+
+func TestParseTagsNameOnly(t *testing.T) {
+	// Legacy format: name only (no date)
+	raw := "v1.0.0\nv1.1.0\n"
+	tags := parseTags(raw)
+	if len(tags) != 2 {
+		t.Fatalf("tags = %d, want 2", len(tags))
+	}
+	if tags[0].Tag != "v1.0.0" {
+		t.Errorf("tags[0].Tag = %q, want v1.0.0", tags[0].Tag)
+	}
+	if !tags[0].IsSemver {
+		t.Error("tags[0].IsSemver = false, want true")
+	}
+	// Date will be zero for legacy format — acceptable fallback
+}

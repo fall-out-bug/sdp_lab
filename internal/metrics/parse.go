@@ -128,16 +128,40 @@ var semverRe = regexp.MustCompile(`^v?\d+\.\d+\.\d+`)
 func parseTags(raw string) []TagInfo {
 	var tags []TagInfo
 	for _, line := range strings.Split(raw, "\n") {
-		tag := strings.TrimSpace(line)
-		if tag == "" {
+		line = strings.TrimSpace(line)
+		if line == "" {
 			continue
 		}
-		tags = append(tags, TagInfo{
+		tag, dateStr := splitTagLine(line)
+		ti := TagInfo{
 			Tag:      tag,
 			IsSemver: semverRe.MatchString(tag),
-		})
+		}
+		if dateStr != "" {
+			if t, err := time.Parse(time.RFC3339, dateStr); err == nil {
+				ti.Date = t
+			}
+		}
+		tags = append(tags, ti)
 	}
 	return tags
+}
+
+// splitTagLine splits "tagname ISOdate" from git for-each-ref output.
+// Falls back to entire line as tag name if no date found.
+func splitTagLine(line string) (tag, date string) {
+	// Format from git for-each-ref: "tagname 2026-04-01T10:00:00+00:00"
+	// Find last space — everything before is tag, after is date
+	idx := strings.LastIndex(line, " ")
+	if idx < 0 {
+		return line, ""
+	}
+	candidate := line[idx+1:]
+	// Verify it looks like a date (starts with digit)
+	if len(candidate) > 0 && candidate[0] >= '0' && candidate[0] <= '9' {
+		return line[:idx], candidate
+	}
+	return line, ""
 }
 
 // parseBranchesBatch parses output from git for-each-ref (single call).

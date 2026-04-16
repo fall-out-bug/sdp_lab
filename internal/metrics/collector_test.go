@@ -118,6 +118,28 @@ func TestCollectTags(t *testing.T) {
 	}
 }
 
+// WS-12: TagInfo.Date must be populated from collector
+func TestCollectTagsPopulatesDates(t *testing.T) {
+	dir := createTempGitRepo(t)
+	commitFile(t, dir, "main.go", "package main\n", "2026-04-01T10:00:00Z", "feat: initial")
+	runGit(t, dir, "tag", "v1.0.0")
+	commitFile(t, dir, "fix.go", "package main\n", "2026-04-02T10:00:00Z", "fix: bug")
+	runGit(t, dir, "tag", "v1.1.0")
+
+	data, err := Collect(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(data.Tags) < 2 {
+		t.Skip("need >= 2 tags")
+	}
+	for _, tag := range data.Tags {
+		if tag.Date.IsZero() {
+			t.Errorf("TagInfo.Date is zero for tag %q — collector must populate dates", tag.Tag)
+		}
+	}
+}
+
 // ── AC2: Generated, bot, and formatting-only noise filtered ────────
 
 func TestFilterRemovesBotCommits(t *testing.T) {

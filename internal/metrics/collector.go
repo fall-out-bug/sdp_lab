@@ -137,7 +137,10 @@ func isEmptyRepoError(err error) bool {
 }
 
 func collectTags(ctx context.Context, dir string) ([]TagInfo, error) {
-	raw, err := gitCmdErr(ctx, dir, "tag", "--sort=creatordate")
+	raw, err := gitCmdErr(ctx, dir, "for-each-ref",
+		"--sort=creatordate",
+		"--format=%(refname:short) %(creatordate:iso-strict)",
+		"refs/tags/")
 	if err != nil {
 		return nil, err
 	}
