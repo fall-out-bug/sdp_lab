@@ -1,6 +1,7 @@
 package index
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -321,6 +322,8 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 
 	// Track which indexed files we see on disk
 	seenOnDisk := map[string]bool{}
+	// Track changed/removed files so we can repair incoming edges from callers
+	changedFiles := map[string]bool{}
 
 	// Collect all symbolic edges across changed/added files for batch resolution.
 	var allSymEdges []SymbolicEdge
@@ -398,6 +401,7 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 		} else {
 			result.FilesAdded++
 		}
+		changedFiles[relPath] = true
 
 		// Delete old chunks for this file (CASCADE handles edges)
 		if _, delErr := DeleteChunksByFileTx(tx, relPath); delErr != nil {
@@ -462,6 +466,7 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 	// Detect files removed from disk but still in the index
 	for relPath := range indexedFiles {
 		if !seenOnDisk[relPath] {
+			changedFiles[relPath] = true
 			if _, delErr := DeleteChunksByFileTx(tx, relPath); delErr != nil {
 				result.Errors = append(result.Errors, fmt.Errorf("delete chunks for removed %s: %w", relPath, delErr))
 				continue
@@ -473,12 +478,43 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 		}
 	}
 
+	// Before commit, find caller files that had edges pointing to changed files.
+	// After commit, CASCADE will delete these edges, so we need to know callers now.
+	callerFiles := map[string]bool{}
+	if len(changedFiles) > 0 {
+		callerFiles = findCallerFiles(tx, changedFiles)
+	}
+
 	// Commit the walk transaction
 	if commitErr := CommitTx(tx); commitErr != nil {
 		return nil, fmt.Errorf("commit refresh transaction: %w", commitErr)
 	}
 
-	// Resolve symbolic edges for all changed/added files.
+	// Repair incoming edges from unchanged callers.
+	// When a file changes, CASCADE deletes edges from callers pointing to it.
+	// Re-extract edges from callers so they point to the new chunks.
+	for callerFile := range callerFiles {
+		if changedFiles[callerFile] {
+			continue // already handled above
+		}
+		absPath := filepath.Join(opts.RepoPath, callerFile)
+		chunks, _, parseErr := ParseFile(absPath, DetectLanguage(callerFile))
+		if parseErr != nil {
+			continue
+		}
+		for i := range chunks {
+			chunks[i].FilePath = callerFile
+		}
+		symEdges := extractSymbolicEdges(callerFile, chunks)
+		allSymEdges = append(allSymEdges, symEdges...)
+
+		data, readErr := os.ReadFile(absPath)
+		if readErr == nil && DetectLanguage(callerFile) == "go" {
+			fileImports[callerFile] = extractGoImports(string(data))
+		}
+	}
+
+	// Resolve symbolic edges for all changed/added files and repaired callers.
 	resolveAndInsertEdges(store, allSymEdges, fileImports)
 
 	// Get final counts
@@ -776,6 +812,46 @@ func extractSymbolicEdges(filePath string, chunks []Chunk) []SymbolicEdge {
 
 // goImportRe matches quoted strings in import declarations.
 var goImportRe = regexp.MustCompile(`"([^"]+)"`)
+
+// findCallerFiles queries the edges table to find files that had edges
+// pointing to any chunk in the changed files. Returns a set of caller
+// file paths. Must be called BEFORE the transaction commits (while edges
+// still exist).
+func findCallerFiles(tx *sql.Tx, changedFiles map[string]bool) map[string]bool {
+	callers := map[string]bool{}
+
+	var args []any
+	placeholders := ""
+	i := 0
+	for f := range changedFiles {
+		if i > 0 {
+			placeholders += ","
+		}
+		placeholders += "?"
+		args = append(args, f)
+		i++
+	}
+
+	query := `SELECT DISTINCT src.file_path
+		FROM edges e
+		JOIN chunks src ON e.source_id = src.id
+		JOIN chunks tgt ON e.target_id = tgt.id
+		WHERE tgt.file_path IN (` + placeholders + `)`
+
+	rows, err := tx.Query(query, args...)
+	if err != nil {
+		return callers
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var fp string
+		if err := rows.Scan(&fp); err == nil {
+			callers[fp] = true
+		}
+	}
+	return callers
+}
 
 // extractGoImports parses import paths from Go source content.
 // Returns the import paths (e.g. "example.com/internal/dispatch").

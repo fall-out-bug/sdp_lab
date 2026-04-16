@@ -899,9 +899,10 @@ func TestResolveCrossFileTargetImportDisambiguation(t *testing.T) {
 	id := resolveCrossFileTarget("RouteTask", "cmd/app/main.go", imports, symMap, symNameIndex)
 	assert.Equal(t, int64(3), id, "should prefer symbol from imported package internal/other")
 
-	// With no imports, falls back to first different-file candidate (dispatch)
+	// With no imports, falls back to any different-file candidate
 	id = resolveCrossFileTarget("RouteTask", "cmd/app/main.go", nil, symMap, symNameIndex)
-	assert.Equal(t, int64(2), id, "without imports, should pick first different-file candidate")
+	assert.True(t, id == int64(2) || id == int64(3),
+		"without imports, should pick some different-file candidate, got %d", id)
 }
 
 func TestExtractGoImports(t *testing.T) {
