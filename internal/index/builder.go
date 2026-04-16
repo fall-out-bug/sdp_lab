@@ -50,6 +50,16 @@ func ColdBuild(opts BuildOptions) (*BuildResult, error) {
 	// Track languages seen
 	langSet := map[string]bool{}
 
+	// Collect symbolic edges for resolution after all files are inserted.
+	var allSymEdges []SymbolicEdge
+
+	// Begin a transaction wrapping the entire walk phase.
+	tx, txErr := store.Begin()
+	if txErr != nil {
+		return nil, fmt.Errorf("begin transaction: %w", txErr)
+	}
+	defer RollbackTx(tx)
+
 	// Walk the repo
 	err = filepath.Walk(opts.RepoPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -94,14 +104,16 @@ func ColdBuild(opts BuildOptions) (*BuildResult, error) {
 		}
 
 		// Parse file
-		chunks, edges, parseErr := ParseFile(path, language)
+		chunks, _, parseErr := ParseFile(path, language)
 		if parseErr != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("parse %s: %w", relPath, parseErr))
 			return nil // skip unparseable files
 		}
 
 		// Read file for hash
 		data, readErr := os.ReadFile(path)
 		if readErr != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("read %s: %w", relPath, readErr))
 			return nil
 		}
 		fileHash := contentHash(string(data))
@@ -115,24 +127,21 @@ func ColdBuild(opts BuildOptions) (*BuildResult, error) {
 			}
 		}
 
-		// Insert chunks
+		// Extract symbolic edges from the parsed chunks
+		symEdges := extractSymbolicEdges(relPath, chunks)
+		allSymEdges = append(allSymEdges, symEdges...)
+
+		// Insert chunks within the transaction
 		for _, chunk := range chunks {
-			_, insertErr := store.InsertChunk(chunk)
+			_, insertErr := InsertChunkTx(tx, chunk)
 			if insertErr != nil {
-				continue // skip problematic chunks
+				result.Errors = append(result.Errors, fmt.Errorf("insert chunk %s/%s: %w", relPath, chunk.SymbolName, insertErr))
+				continue
 			}
 			result.TotalChunks++
 		}
 
-		// Insert edges
-		for _, edge := range edges {
-			if edge.SourceID > 0 && edge.TargetID > 0 {
-				_, _ = store.InsertEdge(edge)
-				result.TotalEdges++
-			}
-		}
-
-		// Store file metadata
+		// Store file metadata within transaction
 		fm := FileMeta{
 			Path:        relPath,
 			Hash:        fileHash,
@@ -142,7 +151,9 @@ func ColdBuild(opts BuildOptions) (*BuildResult, error) {
 			IsTest:      IsTestFile(relPath),
 			IsGenerated: isGeneratedFile(relPath),
 		}
-		_ = store.UpsertFileMeta(fm)
+		if fmErr := UpsertFileMetaTx(tx, fm); fmErr != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("upsert file meta %s: %w", relPath, fmErr))
+		}
 		result.TotalFiles++
 
 		langSet[language] = true
@@ -153,23 +164,49 @@ func ColdBuild(opts BuildOptions) (*BuildResult, error) {
 		return nil, fmt.Errorf("walk repo: %w", err)
 	}
 
+	// Commit the walk transaction
+	if commitErr := CommitTx(tx); commitErr != nil {
+		return nil, fmt.Errorf("commit walk transaction: %w", commitErr)
+	}
+
 	// Build language list
 	for lang := range langSet {
 		result.Languages = append(result.Languages, lang)
 	}
 
-	// Store metadata
-	_ = store.SetMeta("schema_version", fmt.Sprintf("%d", SchemaVersion))
-	_ = store.SetMeta("indexed_at", time.Now().UTC().Format(time.RFC3339))
-	_ = store.SetMeta("total_chunks", fmt.Sprintf("%d", result.TotalChunks))
-	_ = store.SetMeta("total_files", fmt.Sprintf("%d", result.TotalFiles))
-	_ = store.SetMeta("total_edges", fmt.Sprintf("%d", result.TotalEdges))
-	_ = store.SetMeta("languages", strings.Join(result.Languages, ","))
-	_ = store.SetMeta("embedding_model", "none")
+	// Resolve symbolic edges to ID-based edges and insert them.
+	// This must happen after commit so all chunks have assigned IDs.
+	resolvedCount := resolveAndInsertEdges(store, allSymEdges)
+	result.TotalEdges = resolvedCount
+
+	// Store metadata (outside the main transaction, these are simple writes)
+	if mErr := store.SetMeta("schema_version", fmt.Sprintf("%d", SchemaVersion)); mErr != nil {
+		result.Errors = append(result.Errors, fmt.Errorf("set meta schema_version: %w", mErr))
+	}
+	if mErr := store.SetMeta("indexed_at", time.Now().UTC().Format(time.RFC3339)); mErr != nil {
+		result.Errors = append(result.Errors, fmt.Errorf("set meta indexed_at: %w", mErr))
+	}
+	if mErr := store.SetMeta("total_chunks", fmt.Sprintf("%d", result.TotalChunks)); mErr != nil {
+		result.Errors = append(result.Errors, fmt.Errorf("set meta total_chunks: %w", mErr))
+	}
+	if mErr := store.SetMeta("total_files", fmt.Sprintf("%d", result.TotalFiles)); mErr != nil {
+		result.Errors = append(result.Errors, fmt.Errorf("set meta total_files: %w", mErr))
+	}
+	if mErr := store.SetMeta("total_edges", fmt.Sprintf("%d", result.TotalEdges)); mErr != nil {
+		result.Errors = append(result.Errors, fmt.Errorf("set meta total_edges: %w", mErr))
+	}
+	if mErr := store.SetMeta("languages", strings.Join(result.Languages, ",")); mErr != nil {
+		result.Errors = append(result.Errors, fmt.Errorf("set meta languages: %w", mErr))
+	}
+	if mErr := store.SetMeta("embedding_model", "none"); mErr != nil {
+		result.Errors = append(result.Errors, fmt.Errorf("set meta embedding_model: %w", mErr))
+	}
 
 	// Get repo name from directory
 	repoName := filepath.Base(opts.RepoPath)
-	_ = store.SetMeta("repo_name", repoName)
+	if mErr := store.SetMeta("repo_name", repoName); mErr != nil {
+		result.Errors = append(result.Errors, fmt.Errorf("set meta repo_name: %w", mErr))
+	}
 
 	result.Duration = time.Since(start)
 	return result, nil
@@ -278,6 +315,16 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 	// Track which indexed files we see on disk
 	seenOnDisk := map[string]bool{}
 
+	// Collect all symbolic edges across changed/added files for batch resolution.
+	var allSymEdges []SymbolicEdge
+
+	// Begin a transaction wrapping the walk phase.
+	tx, txErr := store.Begin()
+	if txErr != nil {
+		return nil, fmt.Errorf("begin transaction: %w", txErr)
+	}
+	defer RollbackTx(tx)
+
 	// Walk the repo and detect changes
 	err = filepath.Walk(opts.RepoPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -326,6 +373,7 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 		// Read file content and compute hash
 		data, readErr := os.ReadFile(path)
 		if readErr != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("read %s: %w", relPath, readErr))
 			return nil
 		}
 		fileHash := contentHash(string(data))
@@ -336,7 +384,7 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 			return nil // unchanged, skip
 		}
 
-		// File is new or changed — re-index it
+		// File is new or changed -- re-index it
 		if wasIndexed {
 			result.FilesUpdated++
 		} else {
@@ -344,13 +392,15 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 		}
 
 		// Delete old chunks for this file (CASCADE handles edges)
-		if _, delErr := store.DeleteChunksByFile(relPath); delErr != nil {
-			return nil // skip problematic files
+		if _, delErr := DeleteChunksByFileTx(tx, relPath); delErr != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("delete chunks %s: %w", relPath, delErr))
+			return nil
 		}
 
 		// Parse file
-		chunks, edges, parseErr := ParseFile(path, language)
+		chunks, _, parseErr := ParseFile(path, language)
 		if parseErr != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("parse %s: %w", relPath, parseErr))
 			return nil
 		}
 
@@ -362,22 +412,20 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 			}
 		}
 
-		// Insert chunks
+		// Extract symbolic edges from the parsed chunks
+		symEdges := extractSymbolicEdges(relPath, chunks)
+		allSymEdges = append(allSymEdges, symEdges...)
+
+		// Insert chunks within transaction
 		for _, chunk := range chunks {
-			_, insertErr := store.InsertChunk(chunk)
+			_, insertErr := InsertChunkTx(tx, chunk)
 			if insertErr != nil {
+				result.Errors = append(result.Errors, fmt.Errorf("insert chunk %s/%s: %w", relPath, chunk.SymbolName, insertErr))
 				continue
 			}
 		}
 
-		// Insert edges
-		for _, edge := range edges {
-			if edge.SourceID > 0 && edge.TargetID > 0 {
-				_, _ = store.InsertEdge(edge)
-			}
-		}
-
-		// Update file metadata
+		// Update file metadata within transaction
 		loc := len(strings.Split(string(data), "\n"))
 		fm := FileMeta{
 			Path:        relPath,
@@ -388,7 +436,9 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 			IsTest:      IsTestFile(relPath),
 			IsGenerated: isGeneratedFile(relPath),
 		}
-		_ = store.UpsertFileMeta(fm)
+		if fmErr := UpsertFileMetaTx(tx, fm); fmErr != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("upsert file meta %s: %w", relPath, fmErr))
+		}
 
 		return nil
 	})
@@ -399,23 +449,39 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 	// Detect files removed from disk but still in the index
 	for relPath := range indexedFiles {
 		if !seenOnDisk[relPath] {
-			// File was deleted or now excluded — remove from index
-			if _, delErr := store.DeleteChunksByFile(relPath); delErr != nil {
+			if _, delErr := DeleteChunksByFileTx(tx, relPath); delErr != nil {
+				result.Errors = append(result.Errors, fmt.Errorf("delete chunks for removed %s: %w", relPath, delErr))
 				continue
 			}
-			_ = store.DeleteFileMeta(relPath)
+			if fmErr := DeleteFileMetaTx(tx, relPath); fmErr != nil {
+				result.Errors = append(result.Errors, fmt.Errorf("delete file meta %s: %w", relPath, fmErr))
+			}
 			result.FilesRemoved++
 		}
 	}
+
+	// Commit the walk transaction
+	if commitErr := CommitTx(tx); commitErr != nil {
+		return nil, fmt.Errorf("commit refresh transaction: %w", commitErr)
+	}
+
+	// Resolve symbolic edges for all changed/added files.
+	resolveAndInsertEdges(store, allSymEdges)
 
 	// Get final counts
 	result.TotalChunks, _ = store.CountChunks()
 	result.TotalFiles, _ = store.CountFiles()
 
 	// Update metadata
-	_ = store.SetMeta("indexed_at", time.Now().UTC().Format(time.RFC3339))
-	_ = store.SetMeta("total_chunks", fmt.Sprintf("%d", result.TotalChunks))
-	_ = store.SetMeta("total_files", fmt.Sprintf("%d", result.TotalFiles))
+	if mErr := store.SetMeta("indexed_at", time.Now().UTC().Format(time.RFC3339)); mErr != nil {
+		result.Errors = append(result.Errors, fmt.Errorf("set meta indexed_at: %w", mErr))
+	}
+	if mErr := store.SetMeta("total_chunks", fmt.Sprintf("%d", result.TotalChunks)); mErr != nil {
+		result.Errors = append(result.Errors, fmt.Errorf("set meta total_chunks: %w", mErr))
+	}
+	if mErr := store.SetMeta("total_files", fmt.Sprintf("%d", result.TotalFiles)); mErr != nil {
+		result.Errors = append(result.Errors, fmt.Errorf("set meta total_files: %w", mErr))
+	}
 
 	result.Duration = time.Since(start)
 	return result, nil
@@ -424,4 +490,159 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 // buildIndexedFileMap returns a map of file_path -> hash from the files table.
 func buildIndexedFileMap(store *SQLiteStore) (map[string]string, error) {
 	return store.LoadFileHashMap()
+}
+
+// resolveAndInsertEdges resolves symbolic edges to chunk IDs and inserts them.
+// Returns the number of edges successfully inserted.
+func resolveAndInsertEdges(store *SQLiteStore, symEdges []SymbolicEdge) int {
+	if len(symEdges) == 0 {
+		return 0
+	}
+
+	// Build the symbol -> ID map from the database
+	symMap, err := BuildSymbolIDMap(store)
+	if err != nil {
+		return 0
+	}
+
+	inserted := 0
+	for _, se := range symEdges {
+		// Resolve source
+		sourceKey := se.SourceFile + ":" + se.SourceSymbol
+		sourceID, ok := symMap[sourceKey]
+		if !ok {
+			continue
+		}
+
+		// Resolve target (target file may be empty = same file)
+		targetFile := se.TargetFile
+		if targetFile == "" {
+			targetFile = se.SourceFile
+		}
+		targetKey := targetFile + ":" + se.TargetSymbol
+		targetID, ok := symMap[targetKey]
+		if !ok {
+			continue
+		}
+
+		if sourceID == targetID {
+			continue // skip self-edges
+		}
+
+		_, err := store.InsertEdge(Edge{
+			SourceID: sourceID,
+			TargetID: targetID,
+			Relation: se.Relation,
+			Weight:   se.Weight,
+		})
+		if err == nil {
+			inserted++
+		}
+	}
+
+	return inserted
+}
+
+// extractSymbolicEdges scans the chunks from a file and produces symbolic edges.
+// For each function/method chunk, it looks for references to other symbols defined
+// in the same file (same-file calls/uses) and produces SymbolicEdge entries.
+func extractSymbolicEdges(filePath string, chunks []Chunk) []SymbolicEdge {
+	if len(chunks) <= 1 {
+		return nil
+	}
+
+	// Collect all symbol names defined in this file
+	symbols := make(map[string]bool, len(chunks))
+	for _, c := range chunks {
+		if c.SymbolName != "" && c.Kind != "file" {
+			symbols[c.SymbolName] = true
+		}
+	}
+
+	var edges []SymbolicEdge
+	for _, c := range chunks {
+		if c.Kind != "function" && c.Kind != "method" {
+			continue
+		}
+		if c.SymbolName == "" || c.Content == "" {
+			continue
+		}
+
+		for targetSym := range symbols {
+			if targetSym == c.SymbolName {
+				continue // no self-edge
+			}
+
+			// Check if the function/method body references this symbol.
+			// For bare functions (e.g. "NewHandler"), look for the bare name.
+			// For method targets (e.g. "Handler.Serve"), the receiver type name
+			// is also a candidate -- we check both the short name and the full name.
+			shortName := targetSym
+			if idx := strings.Index(targetSym, "."); idx >= 0 {
+				shortName = targetSym[idx+1:]
+			}
+
+			// Use word-boundary matching: the symbol name should appear as a
+			// standalone identifier, not as a substring of a larger token.
+			if containsIdentifier(c.Content, targetSym) || containsIdentifier(c.Content, shortName) {
+				relation := "calls"
+				if strings.HasPrefix(targetSym, c.SymbolName) {
+					continue
+				}
+				edges = append(edges, SymbolicEdge{
+					SourceFile:   filePath,
+					SourceSymbol: c.SymbolName,
+					TargetSymbol: targetSym,
+					Relation:     relation,
+					Weight:       1.0,
+				})
+			}
+		}
+	}
+
+	return edges
+}
+
+// containsIdentifier checks if the identifier appears as a standalone token in
+// the content. It avoids matching substrings by checking that the identifier is
+// preceded and followed by a non-identifier character (or is at the boundary).
+func containsIdentifier(content, ident string) bool {
+	if len(ident) == 0 {
+		return false
+	}
+	idx := 0
+	for {
+		pos := strings.Index(content[idx:], ident)
+		if pos < 0 {
+			return false
+		}
+		absPos := idx + pos
+
+		// Check character before the match
+		if absPos > 0 {
+			ch := content[absPos-1]
+			if isIdentChar(ch) {
+				idx = absPos + len(ident)
+				continue
+			}
+		}
+
+		// Check character after the match
+		afterPos := absPos + len(ident)
+		if afterPos < len(content) {
+			ch := content[afterPos]
+			if isIdentChar(ch) {
+				idx = absPos + len(ident)
+				continue
+			}
+		}
+
+		return true
+	}
+}
+
+// isIdentChar returns true if the byte is a valid Go identifier character.
+func isIdentChar(ch byte) bool {
+	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+		(ch >= '0' && ch <= '9') || ch == '_'
 }

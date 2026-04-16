@@ -1,6 +1,7 @@
 package index
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -434,4 +435,184 @@ func ServeHTTP() error {
 		found = true
 	}
 	assert.True(t, found, "FTS should find ServeHTTP")
+}
+
+// --- Issue 1: Edge Extraction Tests ---
+
+func TestColdBuild_ProducesEdges(t *testing.T) {
+	repoPath := createTestRepo(t)
+
+	result, err := ColdBuild(BuildOptions{RepoPath: repoPath})
+	require.NoError(t, err)
+
+	// handler.go has: ErrNotFound, Handler, NewHandler, Handler.Serve
+	// NewHandler references Handler -> calls edge
+	// Handler.Serve references ErrNotFound -> calls edge
+	assert.Greater(t, result.TotalEdges, 0, "should produce edges from cross-symbol references")
+}
+
+func TestColdBuild_EdgesHaveValidIDs(t *testing.T) {
+	repoPath := createTestRepo(t)
+
+	result, err := ColdBuild(BuildOptions{RepoPath: repoPath})
+	require.NoError(t, err)
+
+	s, err := OpenStore(result.DBPath)
+	require.NoError(t, err)
+	defer s.Close()
+
+	// Verify edges have valid source_id and target_id referencing real chunks
+	rows, err := s.db.Query(`
+		SELECT e.id, e.source_id, e.target_id, e.relation
+		FROM edges e`)
+	require.NoError(t, err)
+	defer rows.Close()
+
+	for rows.Next() {
+		var id, sourceID, targetID int64
+		var relation string
+		require.NoError(t, rows.Scan(&id, &sourceID, &targetID, &relation))
+		assert.Greater(t, id, int64(0))
+		assert.Greater(t, sourceID, int64(0))
+		assert.Greater(t, targetID, int64(0))
+		assert.NotEqual(t, sourceID, targetID, "edges should not be self-referencing")
+
+		// Verify the referenced chunks exist
+		srcChunk, err := s.GetChunk(sourceID)
+		assert.NoError(t, err, "source chunk %d should exist", sourceID)
+		assert.NotNil(t, srcChunk)
+
+		tgtChunk, err := s.GetChunk(targetID)
+		assert.NoError(t, err, "target chunk %d should exist", targetID)
+		assert.NotNil(t, tgtChunk)
+
+		assert.Contains(t, []string{"calls", "uses", "implements"}, relation)
+	}
+}
+
+func TestExtractSymbolicEdges_FunctionCalls(t *testing.T) {
+	chunks := []Chunk{
+		{FilePath: "a.go", SymbolName: "Helper", Kind: "function", Content: "func Helper() int { return 42 }"},
+		{FilePath: "a.go", SymbolName: "Main", Kind: "function", Content: "func Main() { x := Helper() }"},
+	}
+
+	edges := extractSymbolicEdges("a.go", chunks)
+	assert.NotEmpty(t, edges, "should detect Main calling Helper")
+
+	found := false
+	for _, e := range edges {
+		if e.SourceSymbol == "Main" && e.TargetSymbol == "Helper" {
+			found = true
+			assert.Equal(t, "calls", e.Relation)
+		}
+	}
+	assert.True(t, found, "should find Main -> Helper edge")
+}
+
+func TestExtractSymbolicEdges_MethodReferences(t *testing.T) {
+	chunks := []Chunk{
+		{FilePath: "handler.go", SymbolName: "ErrNotFound", Kind: "var", Content: "var ErrNotFound = errors.New(\"not found\")"},
+		{FilePath: "handler.go", SymbolName: "Handler", Kind: "type", Content: "type Handler struct { Name string }"},
+		{FilePath: "handler.go", SymbolName: "Handler.Serve", Kind: "method", Content: "func (h *Handler) Serve() error { return ErrNotFound }"},
+	}
+
+	edges := extractSymbolicEdges("handler.go", chunks)
+	assert.NotEmpty(t, edges, "Handler.Serve should reference ErrNotFound")
+
+	// Handler.Serve should reference ErrNotFound
+	foundErr := false
+	for _, e := range edges {
+		if e.SourceSymbol == "Handler.Serve" && e.TargetSymbol == "ErrNotFound" {
+			foundErr = true
+		}
+	}
+	assert.True(t, foundErr, "Handler.Serve should have edge to ErrNotFound")
+}
+
+func TestExtractSymbolicEdges_NoSelfEdges(t *testing.T) {
+	chunks := []Chunk{
+		{FilePath: "a.go", SymbolName: "Foo", Kind: "function", Content: "func Foo() { Foo() }"},
+	}
+
+	edges := extractSymbolicEdges("a.go", chunks)
+	for _, e := range edges {
+		assert.NotEqual(t, e.SourceSymbol, e.TargetSymbol, "should not create self-edges")
+	}
+}
+
+func TestExtractSymbolicEdges_SingleChunkNoEdges(t *testing.T) {
+	chunks := []Chunk{
+		{FilePath: "a.go", SymbolName: "Only", Kind: "function", Content: "func Only() {}"},
+	}
+
+	edges := extractSymbolicEdges("a.go", chunks)
+	assert.Empty(t, edges, "single chunk should produce no edges")
+}
+
+func TestContainsIdentifier(t *testing.T) {
+	assert.True(t, containsIdentifier("x := Helper()", "Helper"))
+	assert.True(t, containsIdentifier("return ErrNotFound", "ErrNotFound"))
+	assert.False(t, containsIdentifier("return ErrNotFoundWrapped", "ErrNotFound"))
+	assert.False(t, containsIdentifier("myHelper()", "Helper"))
+	assert.True(t, containsIdentifier("Handler.Serve()", "Handler"))
+	assert.True(t, containsIdentifier("Handler{Name: name}", "Handler"))
+}
+
+// --- Issue 2: Error Collection Tests ---
+
+func TestBuildResult_HasErrorField(t *testing.T) {
+	result := &BuildResult{}
+	assert.Empty(t, result.Errors)
+	result.Errors = append(result.Errors, fmt.Errorf("test error"))
+	assert.Len(t, result.Errors, 1)
+}
+
+func TestRefreshResult_HasErrorField(t *testing.T) {
+	result := &RefreshResult{}
+	assert.Empty(t, result.Errors)
+	result.Errors = append(result.Errors, fmt.Errorf("test error"))
+	assert.Len(t, result.Errors, 1)
+}
+
+// --- Issue 3: Transaction Safety Tests ---
+
+func TestStore_BeginCommit(t *testing.T) {
+	s := openTestStore(t)
+
+	tx, err := s.Begin()
+	require.NoError(t, err)
+
+	_, err = InsertChunkTx(tx, Chunk{
+		FilePath: "tx.go", Kind: "function", Language: "go",
+		LineStart: 1, LineEnd: 1, Content: "func Tx() {}", Hash: "h1",
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, CommitTx(tx))
+
+	// Chunk should be visible
+	var count int
+	require.NoError(t, s.db.QueryRow("SELECT COUNT(*) FROM chunks WHERE file_path = 'tx.go'").Scan(&count))
+	assert.Equal(t, 1, count)
+}
+
+func TestStore_TransactionRollback(t *testing.T) {
+	s := openTestStore(t)
+
+	tx, err := s.Begin()
+	require.NoError(t, err)
+
+	_, err = InsertChunkTx(tx, Chunk{
+		FilePath: "rb.go", Kind: "function", Language: "go",
+		LineStart: 1, LineEnd: 1, Content: "func Rb() {}", Hash: "h1",
+	})
+	require.NoError(t, err)
+
+	// Rollback instead of commit
+	RollbackTx(tx)
+
+	// Chunk should NOT be visible
+	var count int
+	require.NoError(t, s.db.QueryRow("SELECT COUNT(*) FROM chunks WHERE file_path = 'rb.go'").Scan(&count))
+	assert.Equal(t, 0, count)
 }

@@ -33,6 +33,18 @@ type Edge struct {
 	Weight   float64 `json:"weight"`
 }
 
+// SymbolicEdge represents a relationship between two symbols by name rather than ID.
+// It is produced by the parser and resolved to ID-based Edge values after all chunks
+// for the repository have been inserted into the database.
+type SymbolicEdge struct {
+	SourceFile   string  // relative file path of the source symbol
+	SourceSymbol string  // e.g. "Handler.Serve"
+	TargetFile   string  // relative file path of the target symbol (empty for same-file)
+	TargetSymbol string  // e.g. "ErrNotFound"
+	Relation     string  // calls, uses, implements
+	Weight       float64
+}
+
 // FileMeta holds per-file metadata for incremental indexing.
 type FileMeta struct {
 	Path         string `json:"path"`
@@ -79,6 +91,7 @@ type BuildResult struct {
 	Duration    time.Duration `json:"duration"`
 	Languages   []string      `json:"languages"`
 	DBPath      string        `json:"db_path"`
+	Errors      []error       `json:"-"`
 }
 
 // BuildOptions configures the cold build behavior.
@@ -123,6 +136,8 @@ type RefreshResult struct {
 	Duration time.Duration `json:"duration"`
 	// DBPath is the path to the index database.
 	DBPath string `json:"db_path"`
+	// Errors holds non-fatal errors encountered during refresh.
+	Errors []error `json:"-"`
 }
 
 // ── Manifest Types ──────────────────────────────────────────────────
