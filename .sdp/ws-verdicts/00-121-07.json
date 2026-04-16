@@ -1,0 +1,48 @@
+{
+  "ws_id": "00-121-07",
+  "feature_id": "F121",
+  "verdict": "PASS",
+  "commit": "15e2ece",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": 92.0,
+    "coverage_threshold": 80,
+    "max_file_loc": 189,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {
+      "ac": "P95 percentile uses int(float64(len(lifetimes)) * 0.95) or equivalent correct formula",
+      "met": true,
+      "evidence": "percentile() function in internal/metrics/gitflow.go:174-185 uses float index"
+    },
+    {
+      "ac": "CollectWithContext returns non-nil error when any of collectTags/collectBranches/countMerges encounters a git failure",
+      "met": true,
+      "evidence": "collector.go:52-74 propagates errors; TestCollectPropagatesGitErrors in gitflow_test.go:202"
+    },
+    {
+      "ac": "Test verifies that git error in tags/branches/merges produces error from CollectWithContext",
+      "met": true,
+      "evidence": "TestCollectPropagatesGitErrors in gitflow_test.go:202, TestCollectNonGitDirPropagatesError in gitflow_test.go:216"
+    },
+    {
+      "ac": "Release quality uses strict !c.Date.Before(windowEnd) to avoid double-counting at tag boundaries",
+      "met": true,
+      "evidence": "release.go:48 changed from c.Date.After(windowEnd) to !c.Date.Before(windowEnd); TestReleaseQualityNoDoubleCountAtBoundary in gitflow_test.go:166"
+    },
+    {
+      "ac": "go build ./... passes",
+      "met": true,
+      "evidence": "go build ./... — success"
+    },
+    {
+      "ac": "go test ./internal/metrics/... passes",
+      "met": true,
+      "evidence": "92 tests passed"
+    }
+  ],
+  "existing_work_summary": "Found gitflow.go with broken P95 index, collector.go with 3 error-swallowing funcs, release.go with boundary double-count. All existing tests passed before changes."
+}

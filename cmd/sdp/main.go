@@ -59,6 +59,8 @@ func main() {
 		runArchitect(os.Args[2:])
 	case "scout":
 		runScout(os.Args[2:])
+	case "metrics":
+		runMetrics(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)

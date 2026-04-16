@@ -1,0 +1,228 @@
+package metrics
+
+import (
+	"bufio"
+	"log"
+	"regexp"
+	"strings"
+	"time"
+)
+
+const gitDelim = "COMMIT_BOUNDARY_9F2A"
+const gitLogFormat = "COMMIT_BOUNDARY_9F2A%H%nAUTHOR:%an%nDATE:%aI%nSUBJECT:%s%nBODY:%b%nNUMSTAT"
+
+// parseCommits parses the raw git log output into RawCommit structs.
+// Returns the parsed commits and a count of scanner truncation warnings.
+func parseCommits(raw string) ([]RawCommit, int) {
+	var commits []RawCommit
+	var warnings int
+	blocks := strings.Split(raw, gitDelim)
+
+	for _, block := range blocks {
+		block = strings.TrimSpace(block)
+		if block == "" {
+			continue
+		}
+		c, ok, truncated := parseOneCommit(block)
+		if truncated {
+			warnings++
+		}
+		if !ok {
+			continue
+		}
+		commits = append(commits, c)
+	}
+	return commits, warnings
+}
+
+func parseOneCommit(block string) (RawCommit, bool, bool) {
+	var c RawCommit
+	scanner := bufio.NewScanner(strings.NewReader(block))
+	// Expand buffer beyond 64KB default to handle long numstat lines
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024) // 1MB max
+	inNumstat := false
+	inBody := false
+	var numstatLines []string
+	var bodyLines []string
+	var truncated bool
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		if line == "NUMSTAT" {
+			inNumstat = true
+			inBody = false
+			continue
+		}
+
+		if inNumstat {
+			if strings.HasPrefix(line, "COMMIT_BOUNDARY") || strings.HasPrefix(line, "AUTHOR:") {
+				continue
+			}
+			numstatLines = append(numstatLines, line)
+			continue
+		}
+
+		if strings.HasPrefix(line, "AUTHOR:") {
+			inBody = false
+			c.Author = strings.TrimSpace(strings.TrimPrefix(line, "AUTHOR:"))
+		} else if strings.HasPrefix(line, "DATE:") {
+			inBody = false
+			ds := strings.TrimSpace(strings.TrimPrefix(line, "DATE:"))
+			t, err := time.Parse(time.RFC3339, ds)
+			if err == nil {
+				c.Date = t
+			}
+		} else if strings.HasPrefix(line, "SUBJECT:") {
+			inBody = false
+			c.Subject = strings.TrimSpace(strings.TrimPrefix(line, "SUBJECT:"))
+		} else if strings.HasPrefix(line, "BODY:") {
+			inBody = true
+			first := strings.TrimSpace(strings.TrimPrefix(line, "BODY:"))
+			if first != "" {
+				bodyLines = append(bodyLines, first)
+			}
+		} else if strings.HasPrefix(line, "COMMIT_BOUNDARY") {
+			inBody = false
+		} else if inBody {
+			bodyLines = append(bodyLines, line)
+		} else if len(line) == 40 && isHex(line) && c.Hash == "" {
+			c.Hash = line
+		} else if c.Hash == "" && len(line) > 0 && len(line) <= 40 && isHex(line) {
+			c.Hash = line
+		}
+	}
+	c.Body = strings.Join(bodyLines, "\n")
+
+	// Check for scanner truncation
+	if err := scanner.Err(); err != nil {
+		log.Printf("metrics: scanner error parsing commit %s: %v", c.Hash, err)
+		truncated = true
+	}
+
+	for _, nl := range numstatLines {
+		fc, ok := parseNumstatLine(nl)
+		if ok {
+			c.Files = append(c.Files, fc)
+		}
+	}
+
+	if c.Hash == "" {
+		return c, false, truncated
+	}
+	return c, true, truncated
+}
+
+func parseNumstatLine(line string) (FileChange, bool) {
+	parts := strings.SplitN(line, "\t", 3)
+	if len(parts) != 3 {
+		return FileChange{}, false
+	}
+	added := parseNumOrNeg(parts[0])
+	deleted := parseNumOrNeg(parts[1])
+	path := parts[2]
+	if added < 0 || deleted < 0 {
+		return FileChange{Path: path}, false
+	}
+	return FileChange{Added: added, Deleted: deleted, Path: path}, true
+}
+
+func parseNumOrNeg(s string) int {
+	s = strings.TrimSpace(s)
+	if s == "-" {
+		return -1
+	}
+	var n int
+	for _, c := range s {
+		if c >= '0' && c <= '9' {
+			n = n*10 + int(c-'0')
+		} else {
+			return -1
+		}
+	}
+	return n
+}
+
+var semverRe = regexp.MustCompile(`^v?\d+\.\d+\.\d+`)
+
+func parseTags(raw string) []TagInfo {
+	var tags []TagInfo
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		tag, dateStr := splitTagLine(line)
+		ti := TagInfo{
+			Tag:      tag,
+			IsSemver: semverRe.MatchString(tag),
+		}
+		if dateStr != "" {
+			if t, err := time.Parse(time.RFC3339, dateStr); err == nil {
+				ti.Date = t
+			}
+		}
+		tags = append(tags, ti)
+	}
+	return tags
+}
+
+// splitTagLine splits "tagname ISOdate" from git for-each-ref output.
+// Falls back to entire line as tag name if no date found.
+func splitTagLine(line string) (tag, date string) {
+	// Format from git for-each-ref: "tagname 2026-04-01T10:00:00+00:00"
+	// Find last space — everything before is tag, after is date
+	idx := strings.LastIndex(line, " ")
+	if idx < 0 {
+		return line, ""
+	}
+	candidate := line[idx+1:]
+	// Verify it looks like a date (starts with digit)
+	if len(candidate) > 0 && candidate[0] >= '0' && candidate[0] <= '9' {
+		return line[:idx], candidate
+	}
+	return line, ""
+}
+
+// parseBranchesBatch parses output from git for-each-ref (single call).
+func parseBranchesBatch(raw string) []BranchInfo {
+	var branches []BranchInfo
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.Contains(line, "->") {
+			continue
+		}
+		idx := strings.LastIndex(line, " ")
+		if idx < 0 {
+			branches = append(branches, BranchInfo{Name: line})
+			continue
+		}
+		name := line[:idx]
+		dateStr := line[idx+1:]
+		bi := BranchInfo{Name: name}
+		if t, err := time.Parse(time.RFC3339, dateStr); err == nil {
+			bi.LastCommit = &t
+		}
+		branches = append(branches, bi)
+	}
+	return branches
+}
+
+func isHex(s string) bool {
+	for _, c := range s {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+			return false
+		}
+	}
+	return true
+}
+
+func countNonEmptyLines(s string) int {
+	n := 0
+	for _, l := range strings.Split(s, "\n") {
+		if strings.TrimSpace(l) != "" {
+			n++
+		}
+	}
+	return n
+}

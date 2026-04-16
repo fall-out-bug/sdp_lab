@@ -1,0 +1,43 @@
+{
+  "ws_id": "00-121-03",
+  "feature_id": "F121",
+  "verdict": "PASS",
+  "commit": "9a8fad3",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": 93.3,
+    "coverage_threshold": 80,
+    "max_file_loc": 237,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {
+      "ac": "release stabilization, knowledge risk, and code decay categories are computed from the shared collector output",
+      "met": true,
+      "evidence": "AnalyzeStabilization in internal/metrics/release.go:90, AnalyzeKnowledge in internal/metrics/knowledge.go:14, AnalyzeDecay in internal/metrics/decay.go:10. All consume GitData from shared collector. Tests: TestAnalyzeStabilizationMultiplePatches, TestAnalyzeKnowledgeBusFactor, TestAnalyzeDecayShotgunSurgery"
+    },
+    {
+      "ac": "traffic-light thresholds are explicit and testable",
+      "met": true,
+      "evidence": "Threshold functions in internal/metrics/thresholds.go:12-76 — RateTicketLinkedRatio, RateFixToFeature, RateChurnRatio, RateRevertRate, RateBusFactor, RateShotgunRatio. Tests in thresholds_test.go: TestRateTicketLinkedRatio, TestRateFixToFeature, TestRateChurnRatio, TestRateRevertRate, TestRateBusFactor, TestRateShotgunRatio"
+    },
+    {
+      "ac": "CLI supports machine-readable output plus human-readable text or markdown",
+      "met": true,
+      "evidence": "cmd/sdp/cmd_metrics.go updated with --format json|text|markdown flags. renderText() and renderMarkdown() functions with traffic-light ratings. Text format tested via build, markdown via build"
+    },
+    {
+      "ac": "output has enough stable shape for later @understand and index enrichment",
+      "met": true,
+      "evidence": "MetricsReport JSON now includes all 7 categories: Hygiene, Waste, GitFlow, ReleaseQuality, Stabilization, KnowledgeRisk, Decay — with stable field names and JSON tags suitable for downstream consumption"
+    },
+    {
+      "ac": "metrics do not require architect or LLM output to be useful",
+      "met": true,
+      "evidence": "sdp metrics --format text renders human-readable output with traffic-light ratings (green/yellow/red) directly from git data. No external dependencies. cmd/sdp/cmd_metrics.go:104-173"
+    }
+  ],
+  "existing_work_summary": "types.go had Hygiene, Waste, GitFlow, ReleaseQuality structs and string helpers from WS-01/02. Added KnowledgeRisk, Decay, Stabilization, TrafficLight threshold system. cmd_metrics.go had JSON/text output for 4 categories — extended to all 7 with markdown support. release.go had AnalyzeReleaseQuality — added AnalyzeStabilization. Split Is* helpers to helpers.go, thresholds to thresholds.go."
+}

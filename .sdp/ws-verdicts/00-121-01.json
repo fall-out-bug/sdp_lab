@@ -1,0 +1,23 @@
+{
+  "ws_id": "00-121-01",
+  "feature_id": "F121",
+  "verdict": "PASS",
+  "commit": "dec4278",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": 87.0,
+    "coverage_threshold": 80,
+    "max_file_loc": 274,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {"ac": "one collector pass captures the raw commit/change data needed by all seven categories", "met": true, "evidence": "TestCollectCapturesCommitsWithFiles in internal/metrics/collector_test.go:48 — Collect() returns GitData with Commits[] containing Hash,Author,Date,Subject,Body,Files"},
+    {"ac": "generated, bot, and formatting-only noise can be filtered consistently", "met": true, "evidence": "TestFilterRemovesBotCommits, TestFilterRemovesGeneratedFiles, TestFilterRemovesCIOnlyCommits, TestFilterRemovesFormattingOnlyCommits in collector_test.go:112-202"},
+    {"ac": "MetricsReport contract is stable enough for JSON and markdown rendering", "met": true, "evidence": "TestMetricsReportJSONRoundTrip in collector_test.go:206 — verifies version, period, commits_analyzed serialize correctly"},
+    {"ac": "collector tests cover empty repos, single-author repos, and repos without tags", "met": true, "evidence": "TestCollectEmptyRepo:262, TestCollectSingleAuthorRepo:273, TestCollectRepoWithoutTags:289"},
+    {"ac": "metrics respect shared exclusion rules where filesystem views matter", "met": true, "evidence": "TestFilterRespectsVendorExclusion, TestFilterRespectsNodeModulesExclusion in collector_test.go:302-336; filter.go uses same patterns as scout's common.DefaultMatcher"}
+  ],
+  "existing_work_summary": "No prior internal/metrics/ package existed. Reused git command patterns from internal/scout/activity.go (gitCmdWithContext, context timeout). Filter patterns aligned with internal/common/exclude.go (DefaultExcludes, generatedPatterns, lockSuffixes)."
+}
