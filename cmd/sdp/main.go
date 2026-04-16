@@ -61,6 +61,8 @@ func main() {
 		runScout(os.Args[2:])
 	case "metrics":
 		runMetrics(os.Args[2:])
+	case "index":
+		runIndex(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -118,4 +120,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Scout commands:")
 	fmt.Fprintln(os.Stderr, "  sdp scout [--format json|text|card] [--output DIR] <repo-path>")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Index commands:")
+	fmt.Fprintln(os.Stderr, "  sdp index manifest [--output DIR] <repo-path>")
 }
