@@ -1,0 +1,24 @@
+{
+  "ws_id": "00-121-14",
+  "feature_id": "F121",
+  "verdict": "PASS",
+  "commit": "HEAD",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": 93.7,
+    "coverage_threshold": 80,
+    "max_file_loc": 120,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {"ac": "WS-09 frontmatter changed from status: backlog to status: done", "met": true, "evidence": "docs/workstreams/backlog/00-121-09.md:4"},
+    {"ac": "WS-10 frontmatter changed from status: backlog to status: done", "met": true, "evidence": "docs/workstreams/backlog/00-121-10.md:4"},
+    {"ac": "INDEX.md updated: WS-09, WS-10, WS-11 all show Done", "met": true, "evidence": "docs/workstreams/INDEX.md:665-670 — WS-09/10/11/12/13/14 all Done"},
+    {"ac": "guard/SKILL.md frontmatter has version field", "met": true, "evidence": ".claude/skills/guard/SKILL.md:3 — version: 1.0.0"},
+    {"ac": "build passes", "met": true, "evidence": "go build ./... — success"},
+    {"ac": "tests pass", "met": true, "evidence": "go test ./internal/metrics/... — 103 passed"}
+  ],
+  "existing_work_summary": "WS-09/10 frontmatter was backlog (stale); WS-11 was already done. guard/SKILL.md had no version field. INDEX.md had WS-09..14 as Backlog."
+}
