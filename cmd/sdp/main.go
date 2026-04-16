@@ -59,6 +59,8 @@ func main() {
 		runArchitect(os.Args[2:])
 	case "scout":
 		runScout(os.Args[2:])
+	case "spec":
+		runSpec(os.Args[2:])
 	case "metrics":
 		runMetrics(os.Args[2:])
 	case "index":
@@ -120,6 +122,9 @@ func usage() {
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Scout commands:")
 	fmt.Fprintln(os.Stderr, "  sdp scout [--format json|text|card] [--output DIR] <repo-path>")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Spec commands:")
+	fmt.Fprintln(os.Stderr, "  sdp spec [--format json|text] [--category api|rules|invariants|sla] [--output DIR] [--enrich] [--diff] <repo-path>")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Index commands:")
 	fmt.Fprintln(os.Stderr, "  sdp index build [--format json|text] <repo-path>")

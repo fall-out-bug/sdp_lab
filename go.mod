@@ -3,13 +3,17 @@ module sdp_dev
 go 1.26
 
 require (
+	github.com/gomarkdown/markdown v0.0.0-20260217112301-37c66b85d6ab
 	github.com/google/uuid v1.6.0
 	github.com/in-toto/in-toto-golang v0.10.0
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
 	github.com/mattn/go-sqlite3 v1.14.34
+	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/sigstore/sigstore-go v1.1.4
 	github.com/stretchr/testify v1.11.1
+	golang.org/x/sync v0.20.0
+	golang.org/x/sys v0.43.0
 	golang.org/x/time v0.15.0
 	golang.org/x/tools v0.44.0
 	google.golang.org/protobuf v1.36.11
@@ -51,7 +55,6 @@ require (
 	github.com/go-openapi/swag/yamlutils v0.25.4 // indirect
 	github.com/go-openapi/validate v0.25.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
-	github.com/gomarkdown/markdown v0.0.0-20260217112301-37c66b85d6ab // indirect
 	github.com/google/certificate-transparency-go v1.3.2 // indirect
 	github.com/google/go-containerregistry v0.20.7 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
@@ -61,7 +64,6 @@ require (
 	github.com/in-toto/attestation v1.1.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jedisct1/go-minisign v0.0.0-20211028175153-1c139d1cc84b // indirect
-	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
@@ -91,8 +93,6 @@ require (
 	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/oauth2 v0.33.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
 	golang.org/x/term v0.42.0 // indirect
 	golang.org/x/text v0.36.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20251029180050-ab9386a59fda // indirect

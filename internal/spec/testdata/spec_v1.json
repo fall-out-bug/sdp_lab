@@ -1,0 +1,47 @@
+{
+  "version": "1.0.0",
+  "repo": "test-repo",
+  "generated_at": "2025-01-01T00:00:00Z",
+  "duration_ms": 100,
+  "api_contracts": {
+    "http_endpoints": [
+      {"method": "GET", "path": "/api/users", "handler": "ListUsers", "source_file": "routes.go", "source_line": 10},
+      {"method": "POST", "path": "/api/users", "handler": "CreateUser", "source_file": "routes.go", "source_line": 11},
+      {"method": "GET", "path": "/api/orders", "handler": "ListOrders", "source_file": "routes.go", "source_line": 12}
+    ],
+    "total": 3
+  },
+  "business_rules": {
+    "validations": [
+      {"category": "required", "description": "name is required", "enforcement": "runtime", "location": "handler.go", "field": "name"},
+      {"category": "format", "description": "email must be valid", "enforcement": "runtime", "location": "handler.go", "field": "email"}
+    ],
+    "total": 2
+  },
+  "invariants": {
+    "database": [
+      {"table": "users", "column": "id", "constraint": "PRIMARY KEY", "detail": "PRIMARY KEY", "location": "migrations/001.sql"},
+      {"table": "users", "column": "email", "constraint": "UNIQUE", "detail": "UNIQUE", "location": "migrations/001.sql"}
+    ],
+    "type_system": [],
+    "concurrency": [],
+    "architectural": [],
+    "total": 2
+  },
+  "sla_parameters": {
+    "timeouts": [
+      {"category": "timeout", "component": "http_server", "value": "30s", "location": "config.yaml"}
+    ],
+    "retries": [],
+    "rate_limits": [],
+    "circuit_breakers": [],
+    "resource_pools": [],
+    "health_checks": [],
+    "total": 1
+  },
+  "coverage": {
+    "files_scanned": 10,
+    "files_with_specs": 5,
+    "spec_density": 0.5
+  }
+}
