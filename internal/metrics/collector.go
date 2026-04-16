@@ -124,7 +124,8 @@ func collectCommits(ctx context.Context, dir string) ([]RawCommit, error) {
 	if raw == "" {
 		return nil, nil
 	}
-	return parseCommits(raw), nil
+	commits, _ := parseCommits(raw)
+	return commits, nil
 }
 
 // isEmptyRepoError reports whether a git error is just "no commits yet".
@@ -171,8 +172,12 @@ func countMerges(ctx context.Context, dir string) (int, error) {
 	}
 	raw, err := gitCmdErr(ctx, dir, "log", "--merges", "--first-parent", branch, "--format=%H")
 	if err != nil {
-		// No branch found or empty repo — not an error, just 0 merges
-		return 0, nil
+		// "unknown revision" means no such branch — not an error, just 0 merges
+		if isEmptyRepoError(err) {
+			return 0, nil
+		}
+		// Real git failure — propagate
+		return 0, fmt.Errorf("count merges: %w", err)
 	}
 	return countNonEmptyLines(raw), nil
 }

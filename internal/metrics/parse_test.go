@@ -12,7 +12,7 @@ func TestParseOneCommitLongNumstatLine(t *testing.T) {
 	longPath := strings.Repeat("a", 100*1024) // 100KB path
 	block := "abc123def456abc123def456abc123def456abc1\nAUTHOR:Alice\nDATE:2026-04-01T10:00:00Z\nSUBJECT:test\nBODY:\nNUMSTAT\n1\t2\t" + longPath + "\n"
 
-	c, ok := parseOneCommit(block)
+	c, ok, _ := parseOneCommit(block)
 	if !ok {
 		t.Fatal("expected commit to parse despite long numstat line")
 	}
@@ -33,7 +33,7 @@ func TestParseOneCommitMultipleLongLines(t *testing.T) {
 	}
 	block := "abc123def456abc123def456abc123def456abc1\nAUTHOR:Bob\nDATE:2026-04-01T10:00:00Z\nSUBJECT:big\nBODY:\nNUMSTAT\n" + numstatLines
 
-	c, ok := parseOneCommit(block)
+	c, ok, _ := parseOneCommit(block)
 	if !ok {
 		t.Fatal("expected commit to parse")
 	}
@@ -84,4 +84,17 @@ func TestParseTagsNameOnly(t *testing.T) {
 		t.Error("tags[0].IsSemver = false, want true")
 	}
 	// Date will be zero for legacy format — acceptable fallback
+}
+
+// WS-13: parseCommits returns warning count for truncated data
+func TestParseCommitsWarningCount(t *testing.T) {
+	// Normal parse should return 0 warnings
+	raw := gitDelim + "abc123def456abc123def456abc123def456abc1\nAUTHOR:Alice\nDATE:2026-04-01T10:00:00Z\nSUBJECT:test\nBODY:\nNUMSTAT\n"
+	commits, warnings := parseCommits(raw)
+	if warnings > 0 {
+		t.Errorf("warnings = %d, want 0 for valid input", warnings)
+	}
+	if len(commits) != 1 {
+		t.Fatalf("commits = %d, want 1", len(commits))
+	}
 }

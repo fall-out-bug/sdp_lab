@@ -12,8 +12,10 @@ const gitDelim = "COMMIT_BOUNDARY_9F2A"
 const gitLogFormat = "COMMIT_BOUNDARY_9F2A%H%nAUTHOR:%an%nDATE:%aI%nSUBJECT:%s%nBODY:%b%nNUMSTAT"
 
 // parseCommits parses the raw git log output into RawCommit structs.
-func parseCommits(raw string) []RawCommit {
+// Returns the parsed commits and a count of scanner truncation warnings.
+func parseCommits(raw string) ([]RawCommit, int) {
 	var commits []RawCommit
+	var warnings int
 	blocks := strings.Split(raw, gitDelim)
 
 	for _, block := range blocks {
@@ -21,22 +23,26 @@ func parseCommits(raw string) []RawCommit {
 		if block == "" {
 			continue
 		}
-		c, ok := parseOneCommit(block)
+		c, ok, truncated := parseOneCommit(block)
+		if truncated {
+			warnings++
+		}
 		if !ok {
 			continue
 		}
 		commits = append(commits, c)
 	}
-	return commits
+	return commits, warnings
 }
 
-func parseOneCommit(block string) (RawCommit, bool) {
+func parseOneCommit(block string) (RawCommit, bool, bool) {
 	var c RawCommit
 	scanner := bufio.NewScanner(strings.NewReader(block))
 	// Expand buffer beyond 64KB default to handle long numstat lines
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024) // 1MB max
 	inNumstat := false
 	var numstatLines []string
+	var truncated bool
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -78,6 +84,7 @@ func parseOneCommit(block string) (RawCommit, bool) {
 	// Check for scanner truncation
 	if err := scanner.Err(); err != nil {
 		log.Printf("metrics: scanner error parsing commit %s: %v", c.Hash, err)
+		truncated = true
 	}
 
 	for _, nl := range numstatLines {
@@ -88,9 +95,9 @@ func parseOneCommit(block string) (RawCommit, bool) {
 	}
 
 	if c.Hash == "" {
-		return c, false
+		return c, false, truncated
 	}
-	return c, true
+	return c, true, truncated
 }
 
 func parseNumstatLine(line string) (FileChange, bool) {

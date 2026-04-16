@@ -103,3 +103,21 @@ func TestAnalyzeWasteAbandonedBranches(t *testing.T) {
 		t.Fatalf("expected 2 abandoned branches got %d", w.AbandonedBranches)
 	}
 }
+
+// WS-13: AbandonedLinesEst must be populated
+func TestAnalyzeWasteAbandonedLinesEst(t *testing.T) {
+	old := time.Now().AddDate(0, 0, -60)
+	data := &GitData{
+		Commits: []RawCommit{
+			{Subject: "x", Date: time.Now(), Files: []FileChange{{Path: "f.go", Added: 1}}},
+			{Subject: "y", Date: old, Files: []FileChange{{Path: "f.go", Added: 100, Deleted: 10}}},
+		},
+		Branches: []BranchInfo{
+			{Name: "feature/old", LastCommit: &old},
+		},
+	}
+	w := AnalyzeWaste(data)
+	if w.AbandonedLinesEst <= 0 {
+		t.Errorf("AbandonedLinesEst = %d, want > 0 when abandoned branches exist", w.AbandonedLinesEst)
+	}
+}

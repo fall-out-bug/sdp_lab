@@ -98,5 +98,19 @@ func AnalyzeWaste(data *GitData) *Waste {
 	}
 	w.AbandonedBranches = abandoned
 
+	// Estimate abandoned lines: total added in commits older than 30 days
+	// that landed on branches with no recent activity
+	if abandoned > 0 {
+		var abandonedLines int64
+		for _, c := range data.Commits {
+			if c.Date.Before(cutoff) {
+				for _, f := range c.Files {
+					abandonedLines += int64(f.Added)
+				}
+			}
+		}
+		w.AbandonedLinesEst = abandonedLines
+	}
+
 	return w
 }

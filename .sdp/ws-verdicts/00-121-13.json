@@ -1,0 +1,24 @@
+{
+  "ws_id": "00-121-13",
+  "feature_id": "F121",
+  "verdict": "PASS",
+  "commit": "dcba034",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": 93.7,
+    "coverage_threshold": 80,
+    "max_file_loc": 195,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {"ac": "AbandonedLinesEst populated with estimated abandoned lines", "met": true, "evidence": "waste.go:102-111: computes total added lines from commits older than 30d when abandoned branches > 0"},
+    {"ac": "parseCommits returns error or warning count when scanner encounters truncation", "met": true, "evidence": "parse.go:15: signature changed to ()([]RawCommit, int); parseOneCommit returns (RawCommit, bool, bool) truncated flag"},
+    {"ac": "countMerges distinguishes no branch found from git command failed", "met": true, "evidence": "collector.go:173-180: isEmptyRepoError check returns (0,nil), real errors propagated via fmt.Errorf"},
+    {"ac": "All existing tests pass", "met": true, "evidence": "103 passed, 0 failed"},
+    {"ac": "build passes", "met": true, "evidence": "go build ./... clean"},
+    {"ac": "tests pass", "met": true, "evidence": "go test ./internal/metrics/ — 103 passed"}
+  ],
+  "existing_work_summary": "AbandonedLinesEst declared in types.go:91 but never computed in waste.go. parseCommits returned []RawCommit with no error/warning channel. countMerges swallowed all git errors as (0,nil)."
+}
