@@ -14,13 +14,17 @@ import (
 
 func runIndex(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: sdp index <build|refresh|stats|manifest> [flags]")
+		fmt.Fprintln(os.Stderr, "usage: sdp index <subcommand> [flags]")
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "Commands:")
 		fmt.Fprintln(os.Stderr, "  sdp index build <repo-path>              Full index (cold start)")
 		fmt.Fprintln(os.Stderr, "  sdp index refresh <repo-path>            Incremental update (changed files only)")
 		fmt.Fprintln(os.Stderr, "  sdp index stats <repo-path>              Show index statistics")
 		fmt.Fprintln(os.Stderr, "  sdp index manifest <repo-path>           Generate .sdp/manifest.md")
+		fmt.Fprintln(os.Stderr, "  sdp index query <repo-path> <query>      Semantic search (FTS + optional vectors)")
+		fmt.Fprintln(os.Stderr, "  sdp index deps <repo-path> <module>      Dependency traversal")
+		fmt.Fprintln(os.Stderr, "  sdp index find <repo-path> <term>        Exact identifier/keyword lookup")
+		fmt.Fprintln(os.Stderr, "  sdp index rank <repo-path>               Compute PageRank scores")
 		os.Exit(2)
 	}
 	switch args[0] {
@@ -32,9 +36,17 @@ func runIndex(args []string) {
 		runIndexStats(args[1:])
 	case "manifest":
 		runIndexManifest(args[1:])
+	case "query":
+		runIndexQuery(args[1:])
+	case "deps":
+		runIndexDeps(args[1:])
+	case "find":
+		runIndexFind(args[1:])
+	case "rank":
+		runIndexRank(args[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown index subcommand: %s\n", args[0])
-		fmt.Fprintln(os.Stderr, "usage: sdp index <build|refresh|stats|manifest> [flags]")
+		fmt.Fprintln(os.Stderr, "usage: sdp index <build|refresh|stats|manifest|query|deps|find|rank> [flags]")
 		os.Exit(2)
 	}
 }
@@ -238,4 +250,214 @@ func runIndexManifest(args []string) {
 	}
 
 	fmt.Fprintf(os.Stderr, "manifest: %s\n", path)
+}
+
+func runIndexQuery(args []string) {
+	fs := flag.NewFlagSet("index query", flag.ExitOnError)
+	format := fs.String("format", "text", "output format: json, text")
+	limit := fs.Int("limit", 10, "maximum results to return")
+	_ = fs.Parse(args)
+
+	if fs.NArg() < 2 {
+		fmt.Fprintln(os.Stderr, "usage: sdp index query [--format json|text] [--limit N] <repo-path> <query>")
+		os.Exit(2)
+	}
+	repoPath := fs.Arg(0)
+	query := fs.Arg(1)
+
+	store, err := openIndexStore(repoPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	defer store.Close()
+
+	resp, err := index.SemanticSearch(store, query, *limit, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: query failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	switch *format {
+	case "json":
+		out, jerr := json.MarshalIndent(resp, "", "  ")
+		if jerr != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", jerr)
+			os.Exit(1)
+		}
+		fmt.Print(string(out) + "\n")
+	case "text":
+		fmt.Fprintf(os.Stdout, " Query: %s (%d results in %s)\n", resp.Query, resp.Total, resp.Duration)
+		for i, r := range resp.Results {
+			fmt.Fprintf(os.Stdout, "\n  %d. %s (%s) [%s]\n", i+1, r.Chunk.SymbolName, r.Chunk.Kind, r.Chunk.FilePath)
+			fmt.Fprintf(os.Stdout, "     Lines %d-%d | Score: %.4f | Match: %s\n",
+				r.Chunk.LineStart, r.Chunk.LineEnd, r.Score, r.MatchSrc)
+			snippet := r.Chunk.Content
+			if len(snippet) > 120 {
+				snippet = snippet[:120] + "..."
+			}
+			fmt.Fprintf(os.Stdout, "     %s\n", strings.ReplaceAll(snippet, "\n", " "))
+		}
+	default:
+		fmt.Fprintf(os.Stderr, "error: unknown format %q (use json or text)\n", *format)
+		os.Exit(2)
+	}
+}
+
+func runIndexDeps(args []string) {
+	fs := flag.NewFlagSet("index deps", flag.ExitOnError)
+	format := fs.String("format", "text", "output format: json, text")
+	reverse := fs.Bool("reverse", false, "show reverse dependencies (who depends on this module)")
+	depth := fs.Int("depth", 3, "maximum traversal depth")
+	_ = fs.Parse(args)
+
+	if fs.NArg() < 2 {
+		fmt.Fprintln(os.Stderr, "usage: sdp index deps [--reverse] [--depth N] <repo-path> <module>")
+		os.Exit(2)
+	}
+	repoPath := fs.Arg(0)
+	module := fs.Arg(1)
+
+	store, err := openIndexStore(repoPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	defer store.Close()
+
+	resp, err := index.DepsSearch(store, module, *reverse, *depth)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: deps failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	switch *format {
+	case "json":
+		out, jerr := json.MarshalIndent(resp, "", "  ")
+		if jerr != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", jerr)
+			os.Exit(1)
+		}
+		fmt.Print(string(out) + "\n")
+	case "text":
+		direction := "forward"
+		if *reverse {
+			direction = "reverse"
+		}
+		fmt.Fprintf(os.Stdout, " Module: %s (%s, depth %d)\n", resp.Module, direction, resp.Depth)
+		if len(resp.Results) == 0 {
+			fmt.Fprintln(os.Stdout, " No dependencies found.")
+		}
+		for _, r := range resp.Results {
+			hotspot := ""
+			if r.IsHotspot {
+				hotspot = " [HOTSPOT]"
+			}
+			fmt.Fprintf(os.Stdout, "  %s%s (%s) LOC:%d BF:%d\n",
+				r.ModuleName, hotspot, r.Relation, r.LOC, r.BusFactor)
+		}
+	default:
+		fmt.Fprintf(os.Stderr, "error: unknown format %q (use json or text)\n", *format)
+		os.Exit(2)
+	}
+}
+
+func runIndexFind(args []string) {
+	fs := flag.NewFlagSet("index find", flag.ExitOnError)
+	format := fs.String("format", "text", "output format: json, text")
+	limit := fs.Int("limit", 20, "maximum results to return")
+	regex := fs.Bool("regex", false, "treat query as regex pattern")
+	_ = fs.Parse(args)
+
+	if fs.NArg() < 2 {
+		fmt.Fprintln(os.Stderr, "usage: sdp index find [--regex] [--limit N] <repo-path> <term>")
+		os.Exit(2)
+	}
+	repoPath := fs.Arg(0)
+	term := fs.Arg(1)
+
+	store, err := openIndexStore(repoPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	defer store.Close()
+
+	resp, err := index.FindSearch(store, term, *regex, *limit)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: find failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	switch *format {
+	case "json":
+		out, jerr := json.MarshalIndent(resp, "", "  ")
+		if jerr != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", jerr)
+			os.Exit(1)
+		}
+		fmt.Print(string(out) + "\n")
+	case "text":
+		fmt.Fprintf(os.Stdout, " Find: %s (%d results in %s)\n", resp.Query, resp.Total, resp.Duration)
+		for i, r := range resp.Results {
+			fmt.Fprintf(os.Stdout, "  %d. %s (%s) %s:%d-%d\n",
+				i+1, r.Chunk.SymbolName, r.Chunk.Kind,
+				r.Chunk.FilePath, r.Chunk.LineStart, r.Chunk.LineEnd)
+		}
+	default:
+		fmt.Fprintf(os.Stderr, "error: unknown format %q (use json or text)\n", *format)
+		os.Exit(2)
+	}
+}
+
+func runIndexRank(args []string) {
+	fs := flag.NewFlagSet("index rank", flag.ExitOnError)
+	format := fs.String("format", "text", "output format: json, text")
+	_ = fs.Parse(args)
+
+	if fs.NArg() < 1 {
+		fmt.Fprintln(os.Stderr, "usage: sdp index rank <repo-path>")
+		os.Exit(2)
+	}
+	repoPath := fs.Arg(0)
+
+	store, err := openIndexStore(repoPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	defer store.Close()
+
+	updated, err := index.ComputePageRank(store)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: pagerank failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	switch *format {
+	case "json":
+		type rankResult struct {
+			Updated int `json:"updated"`
+		}
+		out, jerr := json.MarshalIndent(rankResult{Updated: updated}, "", "  ")
+		if jerr != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", jerr)
+			os.Exit(1)
+		}
+		fmt.Print(string(out) + "\n")
+	case "text":
+		fmt.Fprintf(os.Stdout, " PageRank: updated %d chunks\n", updated)
+	default:
+		fmt.Fprintf(os.Stderr, "error: unknown format %q (use json or text)\n", *format)
+		os.Exit(2)
+	}
+}
+
+// openIndexStore opens the index database for a given repo path.
+func openIndexStore(repoPath string) (*index.SQLiteStore, error) {
+	dbPath := filepath.Join(repoPath, ".sdp", "index.db")
+	if _, err := os.Stat(dbPath); err != nil {
+		return nil, fmt.Errorf("index not found at %s (run 'sdp index build' first)", dbPath)
+	}
+	return index.OpenStore(dbPath)
 }
