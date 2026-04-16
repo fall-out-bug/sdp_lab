@@ -63,6 +63,8 @@ func main() {
 		runSpec(os.Args[2:])
 	case "metrics":
 		runMetrics(os.Args[2:])
+	case "index":
+		runIndex(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -123,4 +125,9 @@ func usage() {
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Spec commands:")
 	fmt.Fprintln(os.Stderr, "  sdp spec [--format json|text] [--category api|rules|invariants|sla] [--output DIR] [--enrich] [--diff] <repo-path>")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Index commands:")
+	fmt.Fprintln(os.Stderr, "  sdp index build [--format json|text] <repo-path>")
+	fmt.Fprintln(os.Stderr, "  sdp index stats <repo-path>")
+	fmt.Fprintln(os.Stderr, "  sdp index manifest [--output DIR] <repo-path>")
 }

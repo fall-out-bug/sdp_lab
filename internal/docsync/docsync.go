@@ -147,6 +147,23 @@ func checkMarkdownLinks(projectRoot string, strict bool) ([]Issue, error) {
 		return nil, err
 	}
 
+	// Also scan top-level .md files (README, AGENTS, CLAUDE, CONTRIBUTING, VISION, RTK, etc).
+	// These are operator-facing and drift frequently. Limit to the repo root (non-recursive)
+	// to avoid scanning the sdp/ submodule, .claude/, .opencode/, .cursor/, archive/, etc.
+	rootEntries, err := os.ReadDir(projectRoot)
+	if err != nil {
+		return nil, fmt.Errorf("read project root: %w", err)
+	}
+	for _, e := range rootEntries {
+		if e.IsDir() {
+			continue
+		}
+		if !strings.HasSuffix(strings.ToLower(e.Name()), ".md") {
+			continue
+		}
+		files = append(files, filepath.Join(projectRoot, e.Name()))
+	}
+
 	re := regexp.MustCompile(`\[[^\]]+\]\(([^)]+)\)`)
 	for _, path := range files {
 		relPath := rel(projectRoot, path)
@@ -171,6 +188,11 @@ func checkMarkdownLinks(projectRoot string, strict bool) ([]Issue, error) {
 				target = target[:i]
 			}
 			resolved := filepath.Clean(filepath.Join(filepath.Dir(path), target))
+			// Links into the sdp/ submodule cannot be validated without submodule init.
+			// Skip them unless the submodule content is present.
+			if resolvedInUninitSubmodule(projectRoot, resolved) {
+				continue
+			}
 			if _, err := os.Stat(resolved); err != nil {
 				sev := "warning"
 				if strict {
@@ -214,6 +236,25 @@ func rel(projectRoot, path string) string {
 		return p
 	}
 	return path
+}
+
+// resolvedInUninitSubmodule reports whether resolved path lives inside the
+// sdp/ submodule and the submodule is not initialized (so links inside it
+// cannot be validated locally). When the submodule has been initialized
+// (e.g., .git file/dir present), links are validated normally.
+func resolvedInUninitSubmodule(projectRoot, resolved string) bool {
+	submoduleRoot := filepath.Join(projectRoot, "sdp")
+	rel, err := filepath.Rel(submoduleRoot, resolved)
+	if err != nil {
+		return false
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return false
+	}
+	if _, err := os.Stat(filepath.Join(submoduleRoot, ".git")); err == nil {
+		return false
+	}
+	return true
 }
 
 func skipLinkCheck(relPath string) bool {

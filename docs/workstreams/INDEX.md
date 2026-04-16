@@ -25,10 +25,10 @@
 
 | Feature | Description | Workstreams | Status | Priority |
 |---------|-------------|-------------|--------|----------|
-| **F106** | agentloop Integration — wire Harness into ServeBridge | 00-106-01 ... 00-106-06 | Backlog | P0 |
+| **F106** | agentloop Integration — wire Harness into ServeBridge | 00-106-01 ... 00-106-07 | Backlog | P0 |
 
 > **Source:** [agentloop Integration Spec](../plans/2026-04-11-agentloop-integration-spec.md), [Council Validation](../plans/2026-04-11-council-sdp-full.md)  
-> **DAG:** 01→02→03→04→05 sequential; 06 independent
+> **DAG:** 01→02→03→04→05 sequential; 06 independent; 07 (autonomous loop, added 2026-04-16 via F129) depends on 00-129-01
 
 ### Phase Architect: AI Architecture Analysis
 
@@ -59,14 +59,25 @@
 | **F121** | Toolkit Metrics — git-derived process health | 00-121-01 ... 00-121-14 | Done | P1 |
 | **F122** | Toolkit Index — persistent codebase memory | 00-122-01 ... 00-122-04 | Backlog | P1 |
 | **F123** | Toolkit Spec Recovery — recover implicit contracts from code | 00-123-01 ... 00-123-03 | Backlog | P2 |
-| **F124** | Toolkit Bootstrap — brownfield-safe agent setup | 00-124-01 ... 00-124-04 | Backlog | P1 |
-| **F125** | Toolkit UX — intent-routed skills over composable tools | 00-125-01 ... 00-125-04 | Backlog | P1 |
+| **F124** | Toolkit Bootstrap — brownfield-safe agent setup | 00-124-01 ... 00-124-05 | Backlog | P1 |
+| **F125** | Toolkit UX — intent-routed skills over composable tools | 00-125-01 ... 00-125-05 | Backlog | P1 |
 | **F126** | Toolkit MCP — universal agent interface | 00-126-01 ... 00-126-04 | Backlog | P2 |
 
 > **Source:** [Toolkit Vision](../plans/2026-04-13-sdp-toolkit-vision-design.md), [Implementation Plan](../plans/2026-04-13-sdp-toolkit-implementation-plan.md), [Skill Architecture](../plans/2026-04-13-sdp-skill-architecture-design.md), [MCP Design](../plans/2026-04-13-sdp-mcp-design.md)
 > **Beads:** `F120` `sdplab-7uke`, `F121` `sdplab-rswa`, `F122` `sdplab-8v75`, `F123` `sdplab-uoht`, `F124` `sdplab-yeqt`, `F125` `sdplab-pr3h`, `F126` `sdplab-efmf`
 > **DAG:** 120→121; 120→122; 120→123; 120+121+122→124; 120+121+122+123+124→125; 120..125→126
 > **Important:** this lane consumes the existing `sdp architect` surface and absorbs `@landscape` + `@plan` into `F125`.
+
+### Phase Autonomy & Regression Hardening
+
+| Feature | Description | Workstreams | Status | Priority |
+|---------|-------------|-------------|--------|----------|
+| **F129** | Autonomous Operations & Regression Hardening — subagent default, skill-gap vs superpowers, doc-auto-sync, regression gates | 00-129-01 ... 00-129-10 | Backlog | P1 |
+
+> **Source:** [F129 Design](../plans/2026-04-16-f129-autonomy-regression-design.md)
+> **DAG:** 01 → 106-07 (autonomous loop); 02+03 → 125-05 (review readiness); 04 → 06 (link fix consolidated); 07 → 10 (flaky advisory)
+> **Cross-lane additions:** `00-106-07` (autonomous loop) in F106; `00-124-05` (post-close hook) in F124; `00-125-05` (review readiness) in F125
+> **Downstream:** F126 implementation should expose new skills (`parallel-dispatch`, `git-worktree`) as MCP tools.
 
 ### Phase UX: Product Truth and Adoption (Current Priority)
 

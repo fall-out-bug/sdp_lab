@@ -9,8 +9,10 @@ SDP — AI-управляемая платформа полного цикла �
 реализуют через структурированные фазы и gates → фича задеплоена с доказательствами.
 
 Две первоклассные фазы:
-- **Discovery**: `sdp discover` / `sdp architect` / `llm-council` → spec + scope decision
+- **Discovery**: `sdp discover` + `llm-council` skill → spec + scope decision
 - **Delivery**: `agentloop` FSM (Discover→Plan→Build→Review→Eval) → PR + evidence
+
+Аналитические инструменты верхнего уровня (ортогонально фазам): `sdp architect` (C4 / структурный анализ), `sdp scout` (быстрая карта незнакомого репо), `sdp metrics` (git-derived process health), `sdp tower` (control plane). Эти команды не выводятся в `sdp --help`; сверяйся с `cmd/sdp/main.go`.
 
 Полный vision: [VISION.md](VISION.md)  
 Архитектура: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)  
@@ -18,31 +20,25 @@ SDP — AI-управляемая платформа полного цикла �
 
 ## Start Here
 
-Use these entrypoints before diving into older plans or runbooks:
-
-1. [docs/reference/project-map.md](docs/reference/project-map.md) — project identity, source-of-truth split, read order
-2. [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md) — parent repo vs submodule workflow
-3. [docs/architecture/REPO-BOUNDARY.md](docs/architecture/REPO-BOUNDARY.md) — what belongs in `sdp_lab` vs `sdp`
-4. [docs/roadmap/ROADMAP.md](docs/roadmap/ROADMAP.md) — current platform-first direction
+**Read order is canonical in [docs/reference/project-map.md](docs/reference/project-map.md)** — там `## Read Order` и `## Source Of Truth Split`. Не дублируй тут.
 
 ## Cold Start For Development Agents
 
-If you enter this repo cold, answer these before doing real work:
+Перед реальной работой ответь:
 
-1. Am I changing `sdp_lab`, or am I actually being asked to adopt or publish through `sdp/`?
-2. Is the user asking for platform work, or for "use SDP in my project" onboarding?
-3. Which single `feature`, `workstream`, or `beads issue` owns this task?
-4. Which doc is canonical for this question, instead of a historical plan?
-5. Is this a Discovery-задача (исследование, council, spec) или Delivery-задача (реализация)?
+1. Я меняю `sdp_lab`, или задача на самом деле про `sdp/` (submodule)?
+2. Это platform work или «use SDP in my project» onboarding?
+3. Какая одна `feature` / `workstream` / `beads issue` владеет этой задачей?
+4. Какой doc — canonical для этого вопроса (не исторический план)?
+5. Это Discovery (исследование, council, spec) или Delivery (реализация)?
 
-Minimum first pass:
+Минимальный first pass:
 
 1. `git status --short --branch`
-2. read [docs/reference/project-map.md](docs/reference/project-map.md)
-3. if this is execution work, run `scripts/beads_transport.sh fetch` and `bd ready --json`
-4. if the request is about greenfield or brownfield SDP adoption, stop reading private-lab process docs and jump to [sdp/docs/QUICKSTART.md](sdp/docs/QUICKSTART.md)
-5. if the path starts with `sdp/`, read [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md) before editing anything
-6. прочитай [VISION.md](VISION.md) чтобы понять контекст системы
+2. прочитай [docs/reference/project-map.md](docs/reference/project-map.md)
+3. если это execution, запусти `scripts/beads_transport.sh fetch` и `bd ready --json`
+4. если запрос про greenfield / brownfield adoption — сразу в [sdp/docs/QUICKSTART.md](sdp/docs/QUICKSTART.md) (требует submodule init)
+5. если путь начинается с `sdp/`, прочитай [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md) перед правкой
 
 ## Project Structure
 
@@ -97,17 +93,13 @@ This project has **two repos** with different roles:
 
 ## Issue Tracking (beads)
 
-```bash
-bd ready              # Find available work
-bd ready --json       # Find available work (JSON output)
-bd show <id>          # View issue details
-bd update <id> --status in_progress  # Claim work
-bd close <id> -r "reason"  # Complete work with reason
-scripts/beads_transport.sh fetch   # Restore Beads state before work
-scripts/beads_transport.sh export  # Publish Beads state after work
-```
+Full command reference — секция **"Issue Tracking with bd (beads)"** ниже в этом файле (auto-generated между `<!-- BEGIN BEADS INTEGRATION -->` / `<!-- END BEADS INTEGRATION -->`). Ту секцию не редактируй вручную — её обновляет генератор beads integration.
 
-`bd sync` is removed in `bd 0.61.0`. This repo uses `scripts/beads_transport.sh`, which prefers `bd dolt pull/push` when a real Dolt remote is configured and otherwise publishes an archival `bd export` snapshot through `origin/beads-backup` with plain git worktrees. In git-backup mode, `fetch` is intentionally a no-op.
+Canonical rules для этого репо (поверх стандартного bd workflow):
+
+- Claim атомарно: `bd update <id> --claim` (не `--status in_progress` — подвержен race в параллельной работе).
+- Create: `bd create --title="…" --description="…" --type=task|bug|feature --priority=0-4`.
+- Transport: **не** используй `bd sync` (удалён в 0.61.0). Используй `scripts/beads_transport.sh fetch` до работы и `scripts/beads_transport.sh export` перед финишем. Helper берёт `bd dolt pull/push`, если есть реальный Dolt-remote; иначе публикует архивный `bd export` snapshot через `origin/beads-backup`. В git-backup режиме `fetch` — no-op.
 
 ### Beads ↔ Workstream Sync
 
@@ -367,10 +359,10 @@ sdp-doc-sync --mode changelog --since HEAD~3..HEAD
 ## Execution Kernel: agentloop
 
 `internal/agentloop` — FSM для Delivery фазы. Phases: Discover → Plan → Build → Review → Eval.
-Запускается через `sdp-harness new/run`. Gates принудительны — FSM не переходит без прохождения gate.
+Запускается через `sdp-harness` (subcommands: `new`, `run`, `compile-lock`, `release`, `events`). Gates принудительны — FSM не переходит без прохождения gate.
 Production gateway (F106): подключается через `agentloop.ModelGateway` → LiveGateway → OpenRouter.
 
-Статус: логика завершена; нет production callers до завершения F106 (WS-01: LiveGateway).
+Статус: LiveGateway подключён и используется. F110 leaf sessions уже ходят через live dispatch claims (`internal/agentloop/livegw`). Для текущего состояния см. `cmd/sdp-harness/main.go` и свежие коммиты по F110/F111.
 
 Reference: [docs/phases/DELIVERY.md](docs/phases/DELIVERY.md)
 
@@ -437,7 +429,9 @@ The `@oneshot` skill uses `sdp-orchestrate` as the outer loop. Run it either way
 
 **"Продолжай F053"** = `go run ./cmd/sdp-orchestrate --feature F053 --next-action` (or `sdp-orchestrate --feature F053 --next-action`). Convention: "продолжай {feature}" means run the next action for that feature.
 
-**Status:** `go run ./cmd/sdp-orchestrate --feature F053 --status` (or `sdp status --feature F053`) — outputs pending workstreams, open beads count (`bd ready`), and next action. Use when checking "Проверь beads" or "Найди оставшиеся".
+**Status:** `go run ./cmd/sdp-orchestrate --feature F053 --status` (or `sdp-orchestrate --feature F053 --status`) — outputs pending workstreams, open beads count (`bd ready`), and next action. Use when checking "Проверь beads" or "Найди оставшиеся".
+
+> Note: `sdp status` (top-level CLI) принимает `<card-id>`, а не `--feature`. Для feature-level статуса используй `sdp-orchestrate --feature FXXX --status`.
 
 Example: `go run ./cmd/sdp-orchestrate --feature F053 --next-action`
 
@@ -460,9 +454,13 @@ Example: `go run ./cmd/sdp-orchestrate --feature F053 --next-action`
 | `docs/roadmap/ROADMAP.md` | Features F001-F013, phases, dependencies |
 | `docs/workstreams/INDEX.md` | All workstreams with status |
 | `docs/workstreams/backlog/00-XXX-YY.md` | Individual workstream: goal, scope, acceptance criteria |
-| `docs/plans/2026-02-22-dream-swarm-design.md` | Architecture decisions for the dream swarm |
 | `.beads-sdp-mapping.jsonl` | WS ID ↔ beads ID mapping |
 | `docs/MANIFESTO.md` | What SDP is and where it fits |
+| `docs/reference/project-map.md` | Canonical project entrypoint / SOT split |
+| `docs/reference/multi-agent-patterns.md` | Когда использовать Generator-Verifier / Orchestrator-Subagent / Agent Teams / Message Bus / Shared State |
+| `docs/reference/harness-integration.md` | Status per harness (Claude Code, Codex, OpenCode, Cursor); OpenCode Sisyphus fix |
+| `docs/reference/skill-authoring.md` | SKILL.md frontmatter policy, body template, versioning |
+| `.agents/skills/README.md` | Multi-harness skills layout |
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:full hash:d4f96305 -->
 ## Issue Tracking with bd (beads)

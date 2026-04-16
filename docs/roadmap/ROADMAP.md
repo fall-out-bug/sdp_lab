@@ -1,18 +1,21 @@
 # sdp_lab Roadmap — Agent Platform + Trust Lane
 
+> **Status: CANONICAL (active roadmap)** — this is the current source of truth. Other files in `docs/roadmap/` are supporting context; see [docs/roadmap/README.md](README.md).
 > **Updated:** 2026-04-13
 > **Repo naming:** GitHub repo is `sdp_lab`; historical workstreams and bead IDs may still use `sdp_dev` as a legacy label for the same codebase
 > **Direction:** Reusable agent platform (`kernel`, `adapters`, `augmentation`, `evals`) with standards-based trust and evidence as a secondary lane
-> **Platform Reset:** [AGENT_PLATFORM_ROADMAP_2026-03-31.md](AGENT_PLATFORM_ROADMAP_2026-03-31.md) + [2026-03-31-platform-backlog-reset.md](../plans/2026-03-31-platform-backlog-reset.md)
-> **Pivot:** [ADR-002 Standards Pivot](../decisions/ADR-002-standards-pivot.md) — why we moved from custom to standards
-> **Research:** [Enforcement Hypotheses](../plans/2026-02-24-enforcement-hypotheses.md) — SLSA, in-toto, MI9, AgentSpec
-> **Audit:** [Phase 0 Enforcement Audit](../plans/2026-02-24-phase0-enforcement-audit.md) — why Phase 0 tools didn't enforce
-> **K8s Archive:** `archive/k8s-v0` branch — domain knowledge for future K8s rebuild
-> **Synergies:** [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md) — OhMyOpenCode, Gas Town, Beads integration analysis
-> **Unified Plan:** [UNIFIED_VISION_ROADMAP_2026-03-03.md](UNIFIED_VISION_ROADMAP_2026-03-03.md) — consolidated execution model across roadmap/index/beads
-> **Market Loop:** [MARKET_INTELLIGENCE_OPERATING_LOOP.md](MARKET_INTELLIGENCE_OPERATING_LOOP.md) — recurring market-driven prioritization
-> **Consistency Policy:** [CONSISTENCY_MITIGATION_POLICY.md](CONSISTENCY_MITIGATION_POLICY.md) — mandatory drift checks before feature planning
-> **A* Alignment Stream:** [STATE_ALIGNMENT_STREAM_ASTAR.md](STATE_ALIGNMENT_STREAM_ASTAR.md) — stabilization-first execution before new features
+
+Supporting context (read on demand, not required for orientation):
+
+- Platform Reset: [AGENT_PLATFORM_ROADMAP_2026-03-31.md](AGENT_PLATFORM_ROADMAP_2026-03-31.md) + [2026-03-31-platform-backlog-reset.md](../plans/2026-03-31-platform-backlog-reset.md)
+- Pivot rationale: [ADR-002 Standards Pivot](../decisions/ADR-002-standards-pivot.md)
+- Research: [Enforcement Hypotheses](../plans/2026-02-24-enforcement-hypotheses.md), [Phase 0 Enforcement Audit](../plans/2026-02-24-phase0-enforcement-audit.md)
+- K8s Archive: `archive/k8s-v0` branch (domain knowledge for future rebuild)
+- Synergies: [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md)
+- Unified Plan: [UNIFIED_VISION_ROADMAP_2026-03-03.md](UNIFIED_VISION_ROADMAP_2026-03-03.md)
+- Market Loop: [MARKET_INTELLIGENCE_OPERATING_LOOP.md](MARKET_INTELLIGENCE_OPERATING_LOOP.md)
+- Consistency Policy: [CONSISTENCY_MITIGATION_POLICY.md](CONSISTENCY_MITIGATION_POLICY.md)
+- A* Alignment Stream: [STATE_ALIGNMENT_STREAM_ASTAR.md](STATE_ALIGNMENT_STREAM_ASTAR.md)
 
 ---
 
