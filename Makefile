@@ -3,23 +3,25 @@
 .PHONY: build-sdp build-sdp-orchestrate build-sdp-guard build-sdp-eval build-sdp-ci-loop build-sdp-evidence
 .PHONY: install-hooks
 
+GO_TAGS = -tags "sqlite_fts5"
+
 test:
-	go test ./... -count=1
+	go test ./... -count=1 $(GO_TAGS)
 
 test-scripts:
 	@./scripts/feature_to_pr_test.sh
 	@./scripts/oneshot-stop-gate_test.sh
 
 test-internal:
-	go test ./internal/... -count=1
+	go test ./internal/... -count=1 $(GO_TAGS)
 
 coverage:
-	go test ./internal/... -coverprofile=coverage.out -covermode=atomic
+	go test ./internal/... -coverprofile=coverage.out -covermode=atomic $(GO_TAGS)
 	go tool cover -func=coverage.out | tail -5
 
 # Coverage for internal only (excludes cmd) - used for 80% gate
 coverage-internal:
-	@go test ./internal/... -coverprofile=coverage_internal.out -covermode=atomic 2>/dev/null
+	@go test ./internal/... -coverprofile=coverage_internal.out -covermode=atomic $(GO_TAGS) 2>/dev/null
 	@go tool cover -func=coverage_internal.out | grep total
 
 lint:
@@ -49,7 +51,7 @@ sync-skills:
 
 # Phase 0 CLI builds (for local dev)
 build-sdp:
-	go build -o bin/sdp ./cmd/sdp
+	go build -o bin/sdp $(GO_TAGS) ./cmd/sdp
 
 build-sdp-orchestrate:
 	go build -o bin/sdp-orchestrate ./cmd/sdp-orchestrate
