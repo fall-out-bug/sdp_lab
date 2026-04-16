@@ -11,7 +11,7 @@ import (
 func buildTestBinary(t *testing.T) string {
 	tmpDir := t.TempDir()
 	binPath := filepath.Join(tmpDir, "sdp-test")
-	cmd := exec.Command("go", "build", "-o", binPath, ".")
+	cmd := exec.Command("go", "build", "-tags", "sqlite_fts5", "-o", binPath, ".")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("failed to build test binary: %v\n%s", err, out)
 	}

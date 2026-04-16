@@ -122,5 +122,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  sdp scout [--format json|text|card] [--output DIR] <repo-path>")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Index commands:")
+	fmt.Fprintln(os.Stderr, "  sdp index build [--format json|text] <repo-path>")
+	fmt.Fprintln(os.Stderr, "  sdp index stats <repo-path>")
 	fmt.Fprintln(os.Stderr, "  sdp index manifest [--output DIR] <repo-path>")
 }

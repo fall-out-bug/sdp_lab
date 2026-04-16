@@ -1,0 +1,488 @@
+package index
+
+import (
+	"database/sql"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	_ "github.com/mattn/go-sqlite3"
+)
+
+// schemaSQL is the SQLite schema for the index database.
+const schemaSQL = `
+CREATE TABLE IF NOT EXISTS chunks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_path TEXT NOT NULL,
+    symbol_name TEXT,
+    kind TEXT NOT NULL,
+    scope TEXT,
+    language TEXT NOT NULL,
+    line_start INTEGER NOT NULL,
+    line_end INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    description TEXT,
+    pagerank REAL DEFAULT 0,
+    hash TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_chunks_file ON chunks(file_path);
+CREATE INDEX IF NOT EXISTS idx_chunks_kind ON chunks(kind);
+CREATE INDEX IF NOT EXISTS idx_chunks_symbol ON chunks(symbol_name);
+
+-- Full-text index for keyword/navigational search
+CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
+    file_path, symbol_name, content, scope,
+    content='chunks', content_rowid='id'
+);
+
+-- Triggers to keep FTS in sync
+CREATE TRIGGER IF NOT EXISTS chunks_ai AFTER INSERT ON chunks BEGIN
+    INSERT INTO chunks_fts(rowid, file_path, symbol_name, content, scope)
+    VALUES (new.id, new.file_path, new.symbol_name, new.content, new.scope);
+END;
+
+CREATE TRIGGER IF NOT EXISTS chunks_ad AFTER DELETE ON chunks BEGIN
+    INSERT INTO chunks_fts(chunks_fts, rowid, file_path, symbol_name, content, scope)
+    VALUES ('delete', old.id, old.file_path, old.symbol_name, old.content, old.scope);
+END;
+
+CREATE TRIGGER IF NOT EXISTS chunks_au AFTER UPDATE ON chunks BEGIN
+    INSERT INTO chunks_fts(chunks_fts, rowid, file_path, symbol_name, content, scope)
+    VALUES ('delete', old.id, old.file_path, old.symbol_name, old.content, old.scope);
+    INSERT INTO chunks_fts(rowid, file_path, symbol_name, content, scope)
+    VALUES (new.id, new.file_path, new.symbol_name, new.content, new.scope);
+END;
+
+-- Structural edges (dependency graph)
+CREATE TABLE IF NOT EXISTS edges (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_id INTEGER NOT NULL REFERENCES chunks(id) ON DELETE CASCADE,
+    target_id INTEGER NOT NULL REFERENCES chunks(id) ON DELETE CASCADE,
+    relation TEXT NOT NULL,
+    weight REAL DEFAULT 1.0
+);
+
+CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id);
+CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id);
+
+-- File metadata for incremental indexing
+CREATE TABLE IF NOT EXISTS files (
+    path TEXT PRIMARY KEY,
+    hash TEXT NOT NULL,
+    last_indexed TEXT NOT NULL,
+    language TEXT,
+    loc INTEGER,
+    is_test BOOLEAN DEFAULT FALSE,
+    is_generated BOOLEAN DEFAULT FALSE
+);
+
+-- Module metadata (aggregated)
+CREATE TABLE IF NOT EXISTS modules (
+    name TEXT PRIMARY KEY,
+    path TEXT NOT NULL,
+    purpose TEXT,
+    owner TEXT,
+    bus_factor INTEGER DEFAULT 0,
+    files_count INTEGER DEFAULT 0,
+    loc INTEGER DEFAULT 0,
+    is_hotspot BOOLEAN DEFAULT FALSE
+);
+
+-- Index metadata (key-value store)
+CREATE TABLE IF NOT EXISTS meta (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
+
+-- Schema version marker
+INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', '%d');
+`
+
+// SQLiteStore wraps a SQLite database for the index.
+// It implements the Store interface used by manifest and enrichment.
+type SQLiteStore struct {
+	db   *sql.DB
+	path string
+}
+
+// OpenStore creates or opens an index database at the given path.
+// It creates the directory and schema if they do not exist.
+func OpenStore(dbPath string) (*SQLiteStore, error) {
+	dir := filepath.Dir(dbPath)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, fmt.Errorf("create db directory: %w", err)
+	}
+
+	db, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL&_foreign_keys=1")
+	if err != nil {
+		return nil, fmt.Errorf("open sqlite: %w", err)
+	}
+
+	// Enable WAL mode and foreign keys
+	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("set WAL mode: %w", err)
+	}
+	if _, err := db.Exec("PRAGMA foreign_keys=ON"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("enable foreign keys: %w", err)
+	}
+
+	// Create schema
+	finalSQL := fmt.Sprintf(schemaSQL, SchemaVersion)
+	if _, err := db.Exec(finalSQL); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("create schema: %w", err)
+	}
+
+	return &SQLiteStore{db: db, path: dbPath}, nil
+}
+
+// Close closes the underlying database connection.
+func (s *SQLiteStore) Close() {
+	if s.db != nil {
+		s.db.Close()
+	}
+}
+
+// DBPath returns the filesystem path to the database file.
+func (s *SQLiteStore) DBPath() string {
+	return s.path
+}
+
+// SetMeta stores a key-value pair in the meta table.
+func (s *SQLiteStore) SetMeta(key, value string) error {
+	_, err := s.db.Exec(
+		"INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", key, value)
+	return err
+}
+
+// GetMeta retrieves a value from the meta table. Returns empty string if not found.
+func (s *SQLiteStore) GetMeta(key string) (string, error) {
+	var val string
+	err := s.db.QueryRow("SELECT value FROM meta WHERE key = ?", key).Scan(&val)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return val, err
+}
+
+// InsertChunk inserts a chunk and returns its ID.
+func (s *SQLiteStore) InsertChunk(c Chunk) (int64, error) {
+	res, err := s.db.Exec(`
+		INSERT INTO chunks (file_path, symbol_name, kind, scope, language,
+			line_start, line_end, content, description, pagerank, hash)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		c.FilePath, c.SymbolName, c.Kind, c.Scope, c.Language,
+		c.LineStart, c.LineEnd, c.Content, c.Description, c.PageRank, c.Hash)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+// GetChunk retrieves a chunk by ID.
+func (s *SQLiteStore) GetChunk(id int64) (*Chunk, error) {
+	c := &Chunk{}
+	err := s.db.QueryRow(`
+		SELECT id, file_path, symbol_name, kind, scope, language,
+			line_start, line_end, content, description, pagerank, hash
+		FROM chunks WHERE id = ?`, id,
+	).Scan(&c.ID, &c.FilePath, &c.SymbolName, &c.Kind, &c.Scope, &c.Language,
+		&c.LineStart, &c.LineEnd, &c.Content, &c.Description, &c.PageRank, &c.Hash)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+// InsertEdge inserts a structural edge and returns its ID.
+func (s *SQLiteStore) InsertEdge(e Edge) (int64, error) {
+	res, err := s.db.Exec(`
+		INSERT INTO edges (source_id, target_id, relation, weight)
+		VALUES (?, ?, ?, ?)`, e.SourceID, e.TargetID, e.Relation, e.Weight)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+// UpsertFileMeta inserts or updates file metadata.
+func (s *SQLiteStore) UpsertFileMeta(fm FileMeta) error {
+	_, err := s.db.Exec(`
+		INSERT OR REPLACE INTO files (path, hash, last_indexed, language, loc, is_test, is_generated)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		fm.Path, fm.Hash, fm.LastIndexed, fm.Language, fm.Loc, fm.IsTest, fm.IsGenerated)
+	return err
+}
+
+// GetFileMeta retrieves file metadata by path.
+func (s *SQLiteStore) GetFileMeta(path string) (*FileMeta, error) {
+	fm := &FileMeta{}
+	err := s.db.QueryRow(`
+		SELECT path, hash, last_indexed, language, loc, is_test, is_generated
+		FROM files WHERE path = ?`, path,
+	).Scan(&fm.Path, &fm.Hash, &fm.LastIndexed, &fm.Language, &fm.Loc, &fm.IsTest, &fm.IsGenerated)
+	if err != nil {
+		return nil, err
+	}
+	return fm, nil
+}
+
+// DeleteFileMeta removes file metadata by path.
+func (s *SQLiteStore) DeleteFileMeta(path string) error {
+	_, err := s.db.Exec("DELETE FROM files WHERE path = ?", path)
+	return err
+}
+
+// UpsertModuleMeta inserts or updates module metadata.
+func (s *SQLiteStore) UpsertModuleMeta(mm ModuleMeta) error {
+	_, err := s.db.Exec(`
+		INSERT OR REPLACE INTO modules (name, path, purpose, owner, bus_factor, files_count, loc, is_hotspot)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		mm.Name, mm.Path, mm.Purpose, mm.Owner, mm.BusFactor, mm.FilesCount, mm.Loc, mm.IsHotspot)
+	return err
+}
+
+// GetModuleMeta retrieves module metadata by name.
+func (s *SQLiteStore) GetModuleMeta(name string) (*ModuleMeta, error) {
+	mm := &ModuleMeta{}
+	err := s.db.QueryRow(`
+		SELECT name, path, purpose, owner, bus_factor, files_count, loc, is_hotspot
+		FROM modules WHERE name = ?`, name,
+	).Scan(&mm.Name, &mm.Path, &mm.Purpose, &mm.Owner, &mm.BusFactor, &mm.FilesCount, &mm.Loc, &mm.IsHotspot)
+	if err != nil {
+		return nil, err
+	}
+	return mm, nil
+}
+
+// DeleteChunksByFile removes all chunks for a given file path.
+// Returns the number of chunks deleted.
+func (s *SQLiteStore) DeleteChunksByFile(filePath string) (int, error) {
+	res, err := s.db.Exec("DELETE FROM chunks WHERE file_path = ?", filePath)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	return int(n), nil
+}
+
+// Stats returns summary statistics about the index.
+func (s *SQLiteStore) Stats() (*IndexStats, error) {
+	stats := &IndexStats{}
+
+	err := s.db.QueryRow("SELECT COUNT(*) FROM chunks").Scan(&stats.TotalChunks)
+	if err != nil {
+		return nil, err
+	}
+	err = s.db.QueryRow("SELECT COUNT(*) FROM files").Scan(&stats.TotalFiles)
+	if err != nil {
+		return nil, err
+	}
+	err = s.db.QueryRow("SELECT COUNT(*) FROM edges").Scan(&stats.TotalEdges)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get distinct languages
+	rows, err := s.db.Query("SELECT DISTINCT language FROM chunks WHERE language != ''")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	langSet := map[string]bool{}
+	for rows.Next() {
+		var lang string
+		if err := rows.Scan(&lang); err != nil {
+			return nil, err
+		}
+		langSet[lang] = true
+	}
+	for lang := range langSet {
+		stats.Languages = append(stats.Languages, lang)
+	}
+	sort.Strings(stats.Languages)
+
+	return stats, nil
+}
+
+// EnsureSdpDir creates the .sdp directory under repoPath and returns the
+// path to index.db inside it.
+func EnsureSdpDir(repoPath string) (string, error) {
+	sdpDir := filepath.Join(repoPath, ".sdp")
+	if err := os.MkdirAll(sdpDir, 0o755); err != nil {
+		return "", fmt.Errorf("create .sdp dir: %w", err)
+	}
+	return filepath.Join(sdpDir, "index.db"), nil
+}
+
+// IsBinaryFile returns true if the file content appears to be binary.
+// Uses the same heuristic as git: a NUL byte in the first 8KB means binary.
+func IsBinaryFile(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return true
+	}
+	defer f.Close()
+
+	buf := make([]byte, 8192)
+	n, err := f.Read(buf)
+	if err != nil {
+		return true
+	}
+
+	for i := 0; i < n; i++ {
+		if buf[i] == 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// IsSecretFile returns true if the file path looks like a secrets file.
+func IsSecretFile(path string) bool {
+	secretPatterns := []string{
+		".env",
+		".pem",
+		".key",
+		".p12",
+		".pfx",
+		"credentials.",
+		"secret",
+		"password",
+		"token",
+	}
+	base := strings.ToLower(filepath.Base(path))
+	for _, pat := range secretPatterns {
+		if strings.Contains(base, pat) {
+			return true
+		}
+	}
+	// Exact match for .env files
+	if base == ".env" || strings.HasPrefix(base, ".env.") {
+		return true
+	}
+	return false
+}
+
+// --- ManifestStore interface methods ---
+
+// LoadModules returns all modules from the modules table.
+func (s *SQLiteStore) LoadModules() ([]ModuleMeta, error) {
+	rows, err := s.db.Query(`
+		SELECT name, path, purpose, owner, bus_factor, files_count, loc, is_hotspot
+		FROM modules ORDER BY loc DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var modules []ModuleMeta
+	for rows.Next() {
+		var m ModuleMeta
+		if err := rows.Scan(&m.Name, &m.Path, &m.Purpose, &m.Owner,
+			&m.BusFactor, &m.FilesCount, &m.Loc, &m.IsHotspot); err != nil {
+			return nil, err
+		}
+		modules = append(modules, m)
+	}
+	return modules, nil
+}
+
+// LoadMeta retrieves multiple meta values by key. Returns a map with found keys.
+func (s *SQLiteStore) LoadMeta(keys ...string) (map[string]string, error) {
+	result := make(map[string]string)
+	for _, k := range keys {
+		val, err := s.GetMeta(k)
+		if err != nil {
+			return nil, err
+		}
+		if val != "" {
+			result[k] = val
+		}
+	}
+	return result, nil
+}
+
+// LoadMetaPrefix retrieves all meta entries whose key starts with prefix.
+func (s *SQLiteStore) LoadMetaPrefix(prefix string) (map[string]string, error) {
+	rows, err := s.db.Query("SELECT key, value FROM meta WHERE key LIKE ?", prefix+"%")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make(map[string]string)
+	for rows.Next() {
+		var k, v string
+		if err := rows.Scan(&k, &v); err != nil {
+			return nil, err
+		}
+		result[k] = v
+	}
+	return result, nil
+}
+
+// SaveMeta stores a key-value pair (alias for SetMeta for interface compat).
+func (s *SQLiteStore) SaveMeta(key, value string) error {
+	return s.SetMeta(key, value)
+}
+
+// UpdateModules replaces all modules with the given slice.
+func (s *SQLiteStore) UpdateModules(modules []ModuleMeta) error {
+	if _, err := s.db.Exec("DELETE FROM modules"); err != nil {
+		return err
+	}
+	for _, m := range modules {
+		if err := s.UpsertModuleMeta(m); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// LoadEntryPoints returns file paths containing main functions or CLI entry points.
+func (s *SQLiteStore) LoadEntryPoints() ([]string, error) {
+	rows, err := s.db.Query(`
+		SELECT DISTINCT file_path FROM chunks
+		WHERE symbol_name = 'main' AND kind = 'function'
+		UNION
+		SELECT DISTINCT file_path FROM files
+		WHERE path LIKE 'cmd/%'`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var paths []string
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			return nil, err
+		}
+		paths = append(paths, p)
+	}
+	return paths, nil
+}
+
+// LoadStats returns index statistics for manifest generation.
+func (s *SQLiteStore) LoadStats() (*IndexStats, error) {
+	stats, err := s.Stats()
+	if err != nil {
+		return nil, err
+	}
+	repoName, _ := s.GetMeta("repo_name")
+	stats.RepoName = repoName
+	return stats, nil
+}
+
+// ListModules returns all modules (alias for LoadModules for interface compat).
+func (s *SQLiteStore) ListModules() ([]ModuleMeta, error) {
+	return s.LoadModules()
+}
+
+// ListEntryPoints returns entry point paths (alias for LoadEntryPoints for interface compat).
+func (s *SQLiteStore) ListEntryPoints() ([]string, error) {
+	return s.LoadEntryPoints()
+}
