@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -71,6 +72,9 @@ func RunWithOptions(repoPath string, opts RunOptions) (*SpecReport, error) {
 			Enforcement: "database", Location: sc.SourceFile,
 			Field: sc.Column, Constraints: sqlToRules(sc),
 		})
+		if !slices.Contains(rulesFiles, sc.SourceFile) {
+			rulesFiles = append(rulesFiles, sc.SourceFile)
+		}
 	}
 	rules.Total = len(rules.Validations)
 	select {
