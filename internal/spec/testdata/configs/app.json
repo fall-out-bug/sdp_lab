@@ -1,0 +1,28 @@
+{
+  "server": {
+    "http_timeout": "30s",
+    "request_timeout": "60s",
+    "max_connections": 25
+  },
+  "database": {
+    "pool_size": 10,
+    "max_open_conns": 25,
+    "database_url": "postgres://admin:password123@db.example.com:5432/prod"
+  },
+  "retry": {
+    "max_retries": 3,
+    "retry_delay_ms": 100
+  },
+  "rate_limit": {
+    "requests_per_second": 100,
+    "burst": 20
+  },
+  "auth": {
+    "api_key": "secret-key-json",
+    "password": "hunter2"
+  },
+  "feature_flags": {
+    "dark_mode": true,
+    "new_checkout": false
+  }
+}

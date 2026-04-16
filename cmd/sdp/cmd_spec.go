@@ -17,7 +17,7 @@ func runSpec(args []string) {
 	_ = fs.Parse(args)
 
 	if fs.NArg() < 1 {
-		fmt.Fprintln(os.Stderr, "usage: sdp spec [--format json|text] [--category api|rules] [--output DIR] <repo-path>")
+		fmt.Fprintln(os.Stderr, "usage: sdp spec [--format json|text] [--category api|rules|invariants|sla] [--output DIR] <repo-path>")
 		os.Exit(2)
 	}
 	repoPath := fs.Arg(0)
@@ -39,12 +39,24 @@ func runSpec(args []string) {
 	switch *category {
 	case "api":
 		report.BusinessRules = spec.BusinessRules{}
+		report.Invariants = spec.Invariants{}
+		report.SLAParameters = spec.SLAParameters{}
 	case "rules":
 		report.APIContracts = spec.APIContracts{}
+		report.Invariants = spec.Invariants{}
+		report.SLAParameters = spec.SLAParameters{}
+	case "invariants":
+		report.APIContracts = spec.APIContracts{}
+		report.BusinessRules = spec.BusinessRules{}
+		report.SLAParameters = spec.SLAParameters{}
+	case "sla":
+		report.APIContracts = spec.APIContracts{}
+		report.BusinessRules = spec.BusinessRules{}
+		report.Invariants = spec.Invariants{}
 	case "":
 		// no filter
 	default:
-		fmt.Fprintf(os.Stderr, "error: unknown category %q (use api, rules, or leave empty)\n", *category)
+		fmt.Fprintf(os.Stderr, "error: unknown category %q (use api, rules, invariants, sla, or leave empty)\n", *category)
 		os.Exit(2)
 	}
 

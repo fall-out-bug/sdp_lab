@@ -43,6 +43,18 @@ func FormatText(report *SpecReport) string {
 	for cat, n := range cats {
 		fmt.Fprintf(&b, "    %-20s %d\n", cat, n)
 	}
+	fmt.Fprintf(&b, "\nInvariants:\n  Total: %d\n", report.Invariants.Total)
+	fmt.Fprintf(&b, "    %-20s %d\n", "database", len(report.Invariants.Database))
+	fmt.Fprintf(&b, "    %-20s %d\n", "type_system", len(report.Invariants.TypeSystem))
+	fmt.Fprintf(&b, "    %-20s %d\n", "concurrency", len(report.Invariants.Concurrency))
+	fmt.Fprintf(&b, "    %-20s %d\n", "architectural", len(report.Invariants.Architectural))
+	fmt.Fprintf(&b, "\nSLA Parameters:\n  Total: %d\n", report.SLAParameters.Total)
+	fmt.Fprintf(&b, "    %-20s %d\n", "timeouts", len(report.SLAParameters.Timeouts))
+	fmt.Fprintf(&b, "    %-20s %d\n", "retries", len(report.SLAParameters.Retries))
+	fmt.Fprintf(&b, "    %-20s %d\n", "rate_limits", len(report.SLAParameters.RateLimits))
+	fmt.Fprintf(&b, "    %-20s %d\n", "circuit_breakers", len(report.SLAParameters.CircuitBreakers))
+	fmt.Fprintf(&b, "    %-20s %d\n", "resource_pools", len(report.SLAParameters.ResourcePools))
+	fmt.Fprintf(&b, "    %-20s %d\n", "health_checks", len(report.SLAParameters.HealthChecks))
 	fmt.Fprintf(&b, "\nCoverage:\n  Files scanned:    %d\n  Files with specs: %d\n  Spec density:     %.1f%%\n",
 		report.Coverage.FilesScanned, report.Coverage.FilesWithSpecs, report.Coverage.SpecDensity*100)
 	return b.String()

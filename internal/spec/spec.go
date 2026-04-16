@@ -37,6 +37,10 @@ func Run(repoPath string) (*SpecReport, error) {
 		})
 	}
 	rules.Total = len(rules.Validations)
+	inv, _ := ExtractInvariants(abs)
+	sla, _ := ExtractSLAParameters(abs)
+	cfgParams, _ := ExtractConfigParameters(abs)
+	mergeConfigSLA(&sla, cfgParams)
 	var density float64
 	if scanned > 0 {
 		density = float64(withSpecs) / float64(scanned)
@@ -46,8 +50,31 @@ func Run(repoPath string) (*SpecReport, error) {
 		DurationMs:    time.Since(start).Milliseconds(),
 		APIContracts:  *api,
 		BusinessRules: *rules,
+		Invariants:    inv,
+		SLAParameters: sla,
 		Coverage:      Coverage{FilesScanned: scanned, FilesWithSpecs: withSpecs, SpecDensity: density},
 	}, nil
+}
+
+// mergeConfigSLA folds config-extracted parameters into the SLA struct.
+func mergeConfigSLA(sla *SLAParameters, params []SLAParam) {
+	for _, p := range params {
+		if p.Category == "secret" {
+			continue
+		}
+		switch p.Category {
+		case "timeout":
+			sla.Timeouts = append(sla.Timeouts, p)
+		case "retry":
+			sla.Retries = append(sla.Retries, p)
+		case "rate_limit":
+			sla.RateLimits = append(sla.RateLimits, p)
+		case "resource_pool":
+			sla.ResourcePools = append(sla.ResourcePools, p)
+		}
+	}
+	sla.Total = len(sla.Timeouts) + len(sla.Retries) + len(sla.RateLimits) +
+		len(sla.CircuitBreakers) + len(sla.ResourcePools) + len(sla.HealthChecks)
 }
 
 func extractAllRules(root string) (*BusinessRules, int, int, error) {

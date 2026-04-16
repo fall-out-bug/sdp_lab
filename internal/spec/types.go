@@ -10,6 +10,8 @@ type SpecReport struct {
 	DurationMs    int64         `json:"duration_ms"`
 	APIContracts  APIContracts  `json:"api_contracts"`
 	BusinessRules BusinessRules `json:"business_rules"`
+	Invariants    Invariants    `json:"invariants"`
+	SLAParameters SLAParameters `json:"sla_parameters"`
 	Coverage      Coverage      `json:"coverage"`
 }
 
@@ -67,4 +69,65 @@ type Coverage struct {
 	FilesScanned   int     `json:"files_scanned"`
 	FilesWithSpecs int     `json:"files_with_specs"`
 	SpecDensity    float64 `json:"spec_density"`
+}
+
+// Invariants holds all extracted system invariants.
+type Invariants struct {
+	Database      []DBInvariant    `json:"database"`
+	TypeSystem    []TypeInvariant  `json:"type_system"`
+	Concurrency   []ConcInvariant  `json:"concurrency"`
+	Architectural []ArchInvariant  `json:"architectural"`
+	Total         int              `json:"total"`
+}
+
+// DBInvariant represents a database-level invariant.
+type DBInvariant struct {
+	Table      string `json:"table"`
+	Column     string `json:"column"`
+	Constraint string `json:"constraint"`
+	Detail     string `json:"detail"`
+	Location   string `json:"location"`
+}
+
+// TypeInvariant represents a type-system invariant.
+type TypeInvariant struct {
+	Category string `json:"category"` // type_assertion, interface_compliance
+	Detail   string `json:"detail"`
+	Location string `json:"location"`
+}
+
+// ConcInvariant represents a concurrency invariant.
+type ConcInvariant struct {
+	Category string `json:"category"` // mutex_guard, channel_sync
+	Detail   string `json:"detail"`
+	Location string `json:"location"`
+}
+
+// ArchInvariant represents an architectural boundary.
+type ArchInvariant struct {
+	Category string `json:"category"` // build_constraint, interface_boundary
+	Detail   string `json:"detail"`
+	Location string `json:"location"`
+}
+
+// SLAParameters holds all extracted SLA-related configuration.
+type SLAParameters struct {
+	Timeouts        []SLAParam `json:"timeouts"`
+	Retries         []SLAParam `json:"retries"`
+	RateLimits      []SLAParam `json:"rate_limits"`
+	CircuitBreakers []SLAParam `json:"circuit_breakers"`
+	ResourcePools   []SLAParam `json:"resource_pools"`
+	HealthChecks    []SLAParam `json:"health_checks"`
+	Total           int        `json:"total"`
+}
+
+// SLAParam describes a single SLA-related parameter.
+type SLAParam struct {
+	Category     string `json:"category"`
+	Component    string `json:"component"`
+	Value        string `json:"value"`
+	Location     string `json:"location"`
+	Context      string `json:"context,omitempty"`
+	Configurable bool   `json:"configurable"`
+	EnvVar       string `json:"env_var,omitempty"`
 }
