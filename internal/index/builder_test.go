@@ -830,14 +830,131 @@ func TestResolveCrossFileTarget(t *testing.T) {
 	}
 
 	// Looking up "NewDispatcher" from cmd/app/main.go should find it in dispatch
-	id := resolveCrossFileTarget("NewDispatcher", "cmd/app/main.go", symMap, symNameIndex)
+	imports := []string{"example.com/repo/internal/dispatch"}
+	id := resolveCrossFileTarget("NewDispatcher", "cmd/app/main.go", imports, symMap, symNameIndex)
 	assert.Equal(t, int64(2), id, "should resolve NewDispatcher to dispatch package")
 
 	// Looking up "Dispatcher" should find the type in dispatch
-	id = resolveCrossFileTarget("Dispatcher", "cmd/app/main.go", symMap, symNameIndex)
+	id = resolveCrossFileTarget("Dispatcher", "cmd/app/main.go", imports, symMap, symNameIndex)
 	assert.Equal(t, int64(3), id, "should resolve Dispatcher type to dispatch package")
 
 	// Looking up a non-existent symbol should return 0
-	id = resolveCrossFileTarget("NonExistent", "cmd/app/main.go", symMap, symNameIndex)
+	id = resolveCrossFileTarget("NonExistent", "cmd/app/main.go", imports, symMap, symNameIndex)
 	assert.Equal(t, int64(0), id, "should return 0 for non-existent symbol")
+}
+
+func TestExtractSymbolicEdgesSingleChunk(t *testing.T) {
+	// Bug fix: a file with a single function (e.g. cmd/app/main.go with just main())
+	// must still produce cross-file edges when it references external symbols.
+	chunks := []Chunk{
+		{
+			SymbolName: "main",
+			Kind:       "function",
+			Content:    "func main() {\n\td := NewDispatcher()\n\td.Start()\n}",
+		},
+	}
+
+	edges := extractSymbolicEdges("cmd/app/main.go", chunks)
+
+	// Should produce cross-file edges for NewDispatcher and Start
+	var crossFileEdges []SymbolicEdge
+	for _, e := range edges {
+		if e.TargetFile == "" {
+			crossFileEdges = append(crossFileEdges, e)
+		}
+	}
+	assert.True(t, len(crossFileEdges) >= 1,
+		"single-chunk file should produce cross-file edges, got %d edges total", len(edges))
+
+	// Verify NewDispatcher is among the cross-file references
+	foundNewDisp := false
+	for _, e := range crossFileEdges {
+		if e.TargetSymbol == "NewDispatcher" {
+			foundNewDisp = true
+			break
+		}
+	}
+	assert.True(t, foundNewDisp, "should find cross-file edge for NewDispatcher")
+}
+
+func TestResolveCrossFileTargetImportDisambiguation(t *testing.T) {
+	// Bug fix: when two packages define the same symbol name, the resolver must
+	// prefer the one matching the source file's imports.
+	symMap := map[string]int64{
+		"cmd/app/main.go:main":                       1,
+		"internal/dispatch/dispatcher.go:RouteTask":   2,
+		"internal/other/handler.go:RouteTask":         3,
+	}
+
+	symNameIndex := make(map[string][]string)
+	for key := range symMap {
+		idx := strings.Index(key, ":")
+		symName := key[idx+1:]
+		symNameIndex[symName] = append(symNameIndex[symName], key)
+	}
+
+	// cmd/app/main.go imports internal/other, NOT internal/dispatch.
+	// RouteTask should resolve to internal/other/handler.go (id=3), not dispatch (id=2).
+	imports := []string{"example.com/repo/internal/other"}
+	id := resolveCrossFileTarget("RouteTask", "cmd/app/main.go", imports, symMap, symNameIndex)
+	assert.Equal(t, int64(3), id, "should prefer symbol from imported package internal/other")
+
+	// With no imports, falls back to first different-file candidate (dispatch)
+	id = resolveCrossFileTarget("RouteTask", "cmd/app/main.go", nil, symMap, symNameIndex)
+	assert.Equal(t, int64(2), id, "without imports, should pick first different-file candidate")
+}
+
+func TestExtractGoImports(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		expected []string
+	}{
+		{
+			name: "single import",
+			content: `package main
+
+import "fmt"
+
+func main() { fmt.Println("hi") }`,
+			expected: []string{"fmt"},
+		},
+		{
+			name: "grouped imports",
+			content: `package main
+
+import (
+	"fmt"
+	"strings"
+
+	"example.com/repo/internal/dispatch"
+)
+
+func main() {}`,
+			expected: []string{"fmt", "strings", "example.com/repo/internal/dispatch"},
+		},
+		{
+			name: "aliased import",
+			content: `package main
+
+import (
+	dispatch "example.com/repo/internal/dispatch"
+)
+
+func main() {}`,
+			expected: []string{"example.com/repo/internal/dispatch"},
+		},
+		{
+			name:     "no imports",
+			content:  "package main\n\nfunc main() {}",
+			expected: nil,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			imports := extractGoImports(tc.content)
+			assert.Equal(t, tc.expected, imports)
+		})
+	}
 }

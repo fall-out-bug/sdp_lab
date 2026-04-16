@@ -53,6 +53,7 @@ func ColdBuild(opts BuildOptions) (*BuildResult, error) {
 
 	// Collect symbolic edges for resolution after all files are inserted.
 	var allSymEdges []SymbolicEdge
+	fileImports := make(map[string][]string) // filePath -> import paths
 
 	// Begin a transaction wrapping the entire walk phase.
 	tx, txErr := store.Begin()
@@ -132,6 +133,11 @@ func ColdBuild(opts BuildOptions) (*BuildResult, error) {
 		symEdges := extractSymbolicEdges(relPath, chunks)
 		allSymEdges = append(allSymEdges, symEdges...)
 
+		// Extract imports for cross-file resolution disambiguation
+		if language == "go" {
+			fileImports[relPath] = extractGoImports(string(data))
+		}
+
 		// Insert chunks within the transaction
 		for _, chunk := range chunks {
 			_, insertErr := InsertChunkTx(tx, chunk)
@@ -177,7 +183,7 @@ func ColdBuild(opts BuildOptions) (*BuildResult, error) {
 
 	// Resolve symbolic edges to ID-based edges and insert them.
 	// This must happen after commit so all chunks have assigned IDs.
-	resolvedCount := resolveAndInsertEdges(store, allSymEdges)
+	resolvedCount := resolveAndInsertEdges(store, allSymEdges, fileImports)
 	result.TotalEdges = resolvedCount
 
 	// Store metadata (outside the main transaction, these are simple writes)
@@ -318,6 +324,7 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 
 	// Collect all symbolic edges across changed/added files for batch resolution.
 	var allSymEdges []SymbolicEdge
+	fileImports := make(map[string][]string) // filePath -> import paths
 
 	// Begin a transaction wrapping the walk phase.
 	tx, txErr := store.Begin()
@@ -417,6 +424,11 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 		symEdges := extractSymbolicEdges(relPath, chunks)
 		allSymEdges = append(allSymEdges, symEdges...)
 
+		// Extract imports for cross-file resolution disambiguation
+		if language == "go" {
+			fileImports[relPath] = extractGoImports(string(data))
+		}
+
 		// Insert chunks within transaction
 		for _, chunk := range chunks {
 			_, insertErr := InsertChunkTx(tx, chunk)
@@ -467,7 +479,7 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 	}
 
 	// Resolve symbolic edges for all changed/added files.
-	resolveAndInsertEdges(store, allSymEdges)
+	resolveAndInsertEdges(store, allSymEdges, fileImports)
 
 	// Get final counts
 	result.TotalChunks, _ = store.CountChunks()
@@ -499,7 +511,7 @@ func buildIndexedFileMap(store *SQLiteStore) (map[string]string, error) {
 // For edges where TargetFile is set (same-file edges), it resolves directly.
 // For edges where TargetFile is empty (cross-file edges), it searches the
 // full symbol map for any file that defines the target symbol.
-func resolveAndInsertEdges(store *SQLiteStore, symEdges []SymbolicEdge) int {
+func resolveAndInsertEdges(store *SQLiteStore, symEdges []SymbolicEdge, fileImports map[string][]string) int {
 	if len(symEdges) == 0 {
 		return 0
 	}
@@ -551,8 +563,8 @@ func resolveAndInsertEdges(store *SQLiteStore, symEdges []SymbolicEdge) int {
 			}
 		} else {
 			// Cross-file edge: TargetFile is empty, search across all files.
-			// First try exact symbol name match, then try as short name.
-			targetID = resolveCrossFileTarget(se.TargetSymbol, se.SourceFile, symMap, symNameIndex)
+			imports := fileImports[se.SourceFile]
+			targetID = resolveCrossFileTarget(se.TargetSymbol, se.SourceFile, imports, symMap, symNameIndex)
 			if targetID == 0 {
 				continue
 			}
@@ -577,13 +589,34 @@ func resolveAndInsertEdges(store *SQLiteStore, symEdges []SymbolicEdge) int {
 }
 
 // resolveCrossFileTarget finds a chunk ID for a symbol across all files.
-// It prefers matches from files different from sourceFile, and picks the
-// first such match.
-func resolveCrossFileTarget(targetSymbol, sourceFile string, symMap map[string]int64, symNameIndex map[string][]string) int64 {
-	// Try exact symbol name first
+// It uses the source file's import list to disambiguate when multiple files
+// define the same symbol name. Candidates whose directory matches an import
+// path suffix are preferred over arbitrary matches.
+func resolveCrossFileTarget(targetSymbol, sourceFile string, imports []string, symMap map[string]int64, symNameIndex map[string][]string) int64 {
 	candidates := symNameIndex[targetSymbol]
 
-	// Prefer candidates from a different file
+	// Phase 1: prefer candidates from imported packages
+	if len(imports) > 0 {
+		for _, key := range candidates {
+			id := symMap[key]
+			if id == 0 {
+				continue
+			}
+			idx := strings.Index(key, ":")
+			if idx < 0 {
+				continue
+			}
+			candidateFile := key[:idx]
+			if candidateFile == sourceFile {
+				continue
+			}
+			if fileMatchesImport(candidateFile, imports) {
+				return id
+			}
+		}
+	}
+
+	// Phase 2: prefer any candidate from a different file
 	for _, key := range candidates {
 		id := symMap[key]
 		if id == 0 {
@@ -609,6 +642,29 @@ func resolveCrossFileTarget(targetSymbol, sourceFile string, symMap map[string]i
 	return 0
 }
 
+// fileMatchesImport checks if a candidate file's directory path matches
+// any of the source file's import paths. Import paths like
+// "example.com/internal/dispatch" should match files in "internal/dispatch/".
+func fileMatchesImport(candidateFile string, imports []string) bool {
+	candidateDir := candidateFile
+	if idx := strings.LastIndex(candidateFile, "/"); idx >= 0 {
+		candidateDir = candidateFile[:idx]
+	}
+
+	for _, imp := range imports {
+		// Match import path suffix: "example.com/internal/dispatch" matches
+		// candidate directory "internal/dispatch"
+		if strings.HasSuffix(imp, "/"+candidateDir) || imp == candidateDir {
+			return true
+		}
+		// Also check if the import path ends with the candidate dir
+		if strings.HasSuffix(imp, candidateDir) {
+			return true
+		}
+	}
+	return false
+}
+
 // extractSymbolicEdges scans the chunks from a file and produces symbolic edges.
 // For each function/method chunk, it looks for:
 //   - references to other symbols defined in the same file (same-file calls/uses)
@@ -617,7 +673,7 @@ func resolveCrossFileTarget(targetSymbol, sourceFile string, symMap map[string]i
 // Cross-file edges have TargetFile="" and are resolved later by
 // resolveAndInsertEdges using the full symbol map across all files.
 func extractSymbolicEdges(filePath string, chunks []Chunk) []SymbolicEdge {
-	if len(chunks) <= 1 {
+	if len(chunks) == 0 {
 		return nil
 	}
 
@@ -716,6 +772,42 @@ func extractSymbolicEdges(filePath string, chunks []Chunk) []SymbolicEdge {
 	}
 
 	return edges
+}
+
+// goImportRe matches quoted strings in import declarations.
+var goImportRe = regexp.MustCompile(`"([^"]+)"`)
+
+// extractGoImports parses import paths from Go source content.
+// Returns the import paths (e.g. "example.com/internal/dispatch").
+func extractGoImports(content string) []string {
+	var imports []string
+	inImportBlock := false
+
+	for _, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if !inImportBlock {
+			if strings.HasPrefix(trimmed, "import") {
+				matches := goImportRe.FindAllStringSubmatch(trimmed, -1)
+				for _, m := range matches {
+					imports = append(imports, m[1])
+				}
+				if strings.Contains(trimmed, "(") && !strings.Contains(trimmed, ")") {
+					inImportBlock = true
+				}
+				continue
+			}
+			continue
+		}
+		if strings.Contains(trimmed, ")") {
+			inImportBlock = false
+		}
+		matches := goImportRe.FindAllStringSubmatch(trimmed, -1)
+		for _, m := range matches {
+			imports = append(imports, m[1])
+		}
+	}
+
+	return imports
 }
 
 // externalIdentRe matches capitalized identifiers (exported symbols) followed
