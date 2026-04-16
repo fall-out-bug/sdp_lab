@@ -39,7 +39,7 @@ func CollectWithContext(ctx context.Context, repoPath string) (*GitData, error) 
 	}
 
 	// Call 1: git log --numstat (rich commit data)
-	commits, err := collectCommits(ctx, repoPath)
+	commits, parseWarnings, err := collectCommits(ctx, repoPath)
 	if err != nil {
 		return nil, fmt.Errorf("collect commits: %w", err)
 	}
@@ -75,10 +75,11 @@ func CollectWithContext(ctx context.Context, repoPath string) (*GitData, error) 
 	}
 
 	return &GitData{
-		Commits:    commits,
-		Tags:       tags,
-		Branches:   branches,
-		MergeCount: mergeCount,
+		Commits:       commits,
+		Tags:          tags,
+		Branches:      branches,
+		MergeCount:    mergeCount,
+		ParseWarnings: parseWarnings,
 	}, nil
 }
 
@@ -100,32 +101,32 @@ func validateRepoPath(repoPath string) error {
 	return nil
 }
 
-func collectCommits(ctx context.Context, dir string) ([]RawCommit, error) {
+func collectCommits(ctx context.Context, dir string) ([]RawCommit, int, error) {
 	raw, err := gitCmdErr(ctx, dir, "log", "--numstat", "--no-merges",
 		"--since=2 years ago",
 		"--format="+gitLogFormat)
 	if err != nil {
 		// Empty repo or no matching commits — not an error for callers
 		if isEmptyRepoError(err) {
-			return nil, nil
+			return nil, 0, nil
 		}
-		return nil, fmt.Errorf("git log (2y window): %w", err)
+		return nil, 0, fmt.Errorf("git log (2y window): %w", err)
 	}
 	if raw == "" {
 		raw, err = gitCmdErr(ctx, dir, "log", "--numstat", "--no-merges",
 			"--format="+gitLogFormat)
 		if err != nil {
 			if isEmptyRepoError(err) {
-				return nil, nil
+				return nil, 0, nil
 			}
-			return nil, fmt.Errorf("git log (full history): %w", err)
+			return nil, 0, fmt.Errorf("git log (full history): %w", err)
 		}
 	}
 	if raw == "" {
-		return nil, nil
+		return nil, 0, nil
 	}
-	commits, _ := parseCommits(raw)
-	return commits, nil
+	commits, warnings := parseCommits(raw)
+	return commits, warnings, nil
 }
 
 // isEmptyRepoError reports whether a git error is just "no commits yet".

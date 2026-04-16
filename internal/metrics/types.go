@@ -63,10 +63,11 @@ type BranchInfo struct {
 // GitData is the complete raw dataset produced by the collector.
 // All seven analyzers consume this single structure.
 type GitData struct {
-	Commits    []RawCommit `json:"commits"`
-	Tags       []TagInfo   `json:"tags"`
-	Branches   []BranchInfo `json:"branches"`
-	MergeCount int         `json:"merge_count"`
+	Commits       []RawCommit  `json:"commits"`
+	Tags          []TagInfo    `json:"tags"`
+	Branches      []BranchInfo `json:"branches"`
+	MergeCount    int          `json:"merge_count"`
+	ParseWarnings int          `json:"parse_warnings,omitempty"` // >0 when git log was truncated
 }
 
 // ── Category Result Types ─────────────────────────────────────────
