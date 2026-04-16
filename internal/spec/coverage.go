@@ -1,20 +1,37 @@
 package spec
 
+import (
+	"os"
+	"path/filepath"
+	"strings"
+)
+
 // coverage.go — helpers for computing cross-source coverage metrics.
 
-// filesWithSpecs counts unique files that contributed specs across all extraction sources.
-func filesWithSpecs(api *APIContracts, inv Invariants, sla SLAParameters, rulesWithSpecs int) int {
-	total := rulesWithSpecs
+// filesWithSpecs counts globally-unique files that contributed specs across all
+// extraction sources. Deduplicates across sources so a file with both routes
+// and validation tags counts once, not twice.
+func filesWithSpecs(api *APIContracts, inv Invariants, sla SLAParameters, rulesFiles []string) int {
+	seen := map[string]bool{}
+	mark := func(files []string) {
+		for _, f := range files {
+			if idx := strings.Index(f, ":"); idx >= 0 {
+				f = f[:idx]
+			}
+			seen[f] = true
+		}
+	}
+	mark(rulesFiles)
 	if len(api.HTTPEndpoints) > 0 {
-		total += countUniqueFiles(apiFiles(api.HTTPEndpoints))
+		mark(apiFiles(api.HTTPEndpoints))
 	}
 	if inv.Total > 0 {
-		total += countUniqueFiles(invFiles(inv))
+		mark(invFiles(inv))
 	}
 	if sla.Total > 0 {
-		total += countUniqueFiles(slaLocationFiles(sla))
+		mark(slaLocationFiles(sla))
 	}
-	return total
+	return len(seen)
 }
 
 func apiFiles(eps []Endpoint) []string {
@@ -75,4 +92,33 @@ func countUniqueFiles(files []string) int {
 		seen[f] = true
 	}
 	return len(seen)
+}
+
+// specExts lists file extensions that can contribute specs.
+var specExts = map[string]bool{
+	".go": true, ".sql": true, ".yaml": true, ".yml": true, ".json": true,
+}
+
+// countScannedFiles walks root and counts files with spec-capable extensions,
+// skipping _test.go and files >10MB.
+func countScannedFiles(root string) int {
+	n := 0
+	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		ext := strings.ToLower(filepath.Ext(path))
+		if !specExts[ext] {
+			return nil
+		}
+		if strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		if fi, e := d.Info(); e == nil && fi.Size() > 10*1024*1024 {
+			return nil
+		}
+		n++
+		return nil
+	})
+	return n
 }

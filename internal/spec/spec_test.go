@@ -29,6 +29,10 @@ func TestRun_APIContracts(t *testing.T) {
 	assert.Greater(t, report.APIContracts.Total, 0)
 	assert.Greater(t, report.BusinessRules.Total, 0)
 	assert.Greater(t, report.Coverage.FilesScanned, 0)
+	assert.LessOrEqual(t, report.Coverage.FilesWithSpecs, report.Coverage.FilesScanned,
+		"files_with_specs must not exceed files_scanned")
+	assert.LessOrEqual(t, report.Coverage.SpecDensity, 1.0,
+		"spec density must not exceed 100%%")
 }
 
 func TestRun_NonexistentDir(t *testing.T) {

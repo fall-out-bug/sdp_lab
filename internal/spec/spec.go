@@ -56,7 +56,7 @@ func RunWithOptions(repoPath string, opts RunOptions) (*SpecReport, error) {
 		return nil, ctx.Err()
 	default:
 	}
-	rules, scanned, rulesWithSpecs, rulesErr := extractAllRules(abs)
+	rules, _, rulesFiles, rulesErr := extractAllRules(abs)
 	if rulesErr != nil {
 		warnings = append(warnings, fmt.Sprintf("rules: %v", rulesErr))
 	}
@@ -91,7 +91,8 @@ func RunWithOptions(repoPath string, opts RunOptions) (*SpecReport, error) {
 		warnings = append(warnings, fmt.Sprintf("config: %v", cfgErr))
 	}
 	mergeConfigSLA(&sla, cfgParams)
-	withSpecs := filesWithSpecs(api, inv, sla, rulesWithSpecs)
+	scanned := countScannedFiles(abs)
+	withSpecs := filesWithSpecs(api, inv, sla, rulesFiles)
 	var density float64
 	if scanned > 0 {
 		density = float64(withSpecs) / float64(scanned)
@@ -137,9 +138,10 @@ func mergeConfigSLA(sla *SLAParameters, params []SLAParam) {
 		len(sla.CircuitBreakers) + len(sla.ResourcePools) + len(sla.HealthChecks)
 }
 
-func extractAllRules(root string) (*BusinessRules, int, int, error) {
+func extractAllRules(root string) (*BusinessRules, int, []string, error) {
 	var all []ValidationRule
-	scanned, withSpecs := 0, 0
+	var filesWithRules []string
+	scanned := 0
 	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 			return nil
@@ -150,12 +152,12 @@ func extractAllRules(root string) (*BusinessRules, int, int, error) {
 		scanned++
 		rules, _ := ExtractBusinessRules(path)
 		if len(rules) > 0 {
-			withSpecs++
+			filesWithRules = append(filesWithRules, filepath.Base(path))
 			all = append(all, rules...)
 		}
 		return nil
 	})
-	return &BusinessRules{Validations: all, Total: len(all)}, scanned, withSpecs, nil
+	return &BusinessRules{Validations: all, Total: len(all)}, scanned, filesWithRules, nil
 }
 
 func extractAllSQL(root string) ([]SQLConstraint, error) {
