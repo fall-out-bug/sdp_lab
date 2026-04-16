@@ -26,28 +26,30 @@ type VerifyResult struct {
 
 // VerifyCommands runs each non-empty command from cmds with a timeout and
 // returns the results. Commands that are empty strings are skipped.
-func VerifyCommands(ctx context.Context, cmds BuildCommands) []VerifyResult {
-	return VerifyCommandsWithTimeout(ctx, cmds, defaultVerifyTimeout)
+// Commands are executed in repoPath.
+func VerifyCommands(ctx context.Context, cmds BuildCommands, repoPath string) []VerifyResult {
+	return VerifyCommandsWithTimeout(ctx, cmds, defaultVerifyTimeout, repoPath)
 }
 
 // VerifyCommandsWithTimeout runs each command with the specified per-command timeout.
-func VerifyCommandsWithTimeout(ctx context.Context, cmds BuildCommands, timeout time.Duration) []VerifyResult {
+// Commands are executed in repoPath.
+func VerifyCommandsWithTimeout(ctx context.Context, cmds BuildCommands, timeout time.Duration, repoPath string) []VerifyResult {
 	var results []VerifyResult
 
 	for _, cmd := range []string{cmds.Build, cmds.Test, cmds.Lint} {
 		if cmd == "" {
 			continue
 		}
-		results = append(results, runVerifyCommand(ctx, cmd, timeout))
+		results = append(results, runVerifyCommand(ctx, cmd, timeout, repoPath))
 	}
 
 	return results
 }
 
-// runVerifyCommand executes a single command string with a timeout.
-// It splits the command into name + args, runs it via os/exec, and captures
-// the combined output.
-func runVerifyCommand(ctx context.Context, command string, timeout time.Duration) VerifyResult {
+// runVerifyCommand executes a single command string with a timeout in the
+// specified repoPath directory. It splits the command into name + args,
+// runs it via os/exec, and captures the combined output.
+func runVerifyCommand(ctx context.Context, command string, timeout time.Duration, repoPath string) VerifyResult {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -64,6 +66,7 @@ func runVerifyCommand(ctx context.Context, command string, timeout time.Duration
 	args := parts[1:]
 
 	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Dir = repoPath
 	out, err := cmd.CombinedOutput()
 
 	result := VerifyResult{
@@ -207,8 +210,8 @@ func truncateString(s string, maxLen int) string {
 	return s[:maxLen] + "..."
 }
 
-// contentHash returns a quick fingerprint of content for idempotency comparison.
-// Samples prefix, middle, and suffix to detect changes anywhere in large content.
+// contentHash returns a full-content FNV-1a hash for idempotency comparison.
+// Iterates all bytes so that any change anywhere in the content is detected.
 func contentHash(content string) uint64 {
 	const (
 		prime  = 1099511628211
@@ -218,32 +221,8 @@ func contentHash(content string) uint64 {
 	h := uint64(offset)
 	data := []byte(content)
 
-	// Hash length.
-	h ^= uint64(len(data))
-	h *= prime
-
-	// Hash first 256 bytes.
-	for i := 0; i < len(data) && i < 256; i++ {
-		h ^= uint64(data[i])
-		h *= prime
-	}
-
-	// Hash middle 256 bytes (catches changes outside prefix/suffix).
-	if len(data) > 512 {
-		mid := len(data) / 2
-		for i := mid; i < len(data) && i < mid+256; i++ {
-			h ^= uint64(data[i])
-			h *= prime
-		}
-	}
-
-	// Hash last 256 bytes.
-	start := len(data) - 256
-	if start < 256 {
-		start = 256
-	}
-	for i := start; i < len(data); i++ {
-		h ^= uint64(data[i])
+	for _, b := range data {
+		h ^= uint64(b)
 		h *= prime
 	}
 

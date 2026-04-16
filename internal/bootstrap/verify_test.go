@@ -22,7 +22,7 @@ func TestVerifyCommands_AllPass(t *testing.T) {
 		Lint:  "echo lint-ok",
 	}
 
-	results := VerifyCommands(context.Background(), cmds)
+	results := VerifyCommands(context.Background(), cmds, t.TempDir())
 	require.Len(t, results, 3)
 
 	for _, r := range results {
@@ -46,7 +46,7 @@ func TestVerifyCommands_OneFails(t *testing.T) {
 		Lint:  "echo lint-ok",
 	}
 
-	results := VerifyCommands(context.Background(), cmds)
+	results := VerifyCommands(context.Background(), cmds, t.TempDir())
 	require.Len(t, results, 3)
 
 	assert.Equal(t, 0, results[0].ExitCode)
@@ -69,7 +69,7 @@ func TestVerifyCommands_Timeout(t *testing.T) {
 		Build: "sleep 60",
 	}
 
-	results := VerifyCommandsWithTimeout(context.Background(), cmds, 100*time.Millisecond)
+	results := VerifyCommandsWithTimeout(context.Background(), cmds, 100*time.Millisecond, t.TempDir())
 	require.Len(t, results, 1)
 
 	assert.True(t, results[0].TimedOut)
@@ -93,14 +93,14 @@ func TestVerifyCommands_EmptyCommandsSkipped(t *testing.T) {
 		Lint:  "",
 	}
 
-	results := VerifyCommands(context.Background(), cmds)
+	results := VerifyCommands(context.Background(), cmds, t.TempDir())
 	assert.Len(t, results, 1)
 	assert.Equal(t, "echo ok", results[0].Command)
 }
 
 func TestVerifyCommands_AllEmpty(t *testing.T) {
 	cmds := BuildCommands{}
-	results := VerifyCommands(context.Background(), cmds)
+	results := VerifyCommands(context.Background(), cmds, t.TempDir())
 	assert.Empty(t, results)
 }
 
@@ -109,7 +109,7 @@ func TestVerifyCommands_CommandNotFound(t *testing.T) {
 		Build: "nonexistent_command_xyz_12345",
 	}
 
-	results := VerifyCommands(context.Background(), cmds)
+	results := VerifyCommands(context.Background(), cmds, t.TempDir())
 	require.Len(t, results, 1)
 
 	assert.NotEqual(t, 0, results[0].ExitCode)
@@ -125,7 +125,7 @@ func TestVerifyCommands_GoSpecificRecoveryHints(t *testing.T) {
 		Test: "go test ./nonexistent/...",
 	}
 
-	results := VerifyCommands(context.Background(), cmds)
+	results := VerifyCommands(context.Background(), cmds, t.TempDir())
 	require.Len(t, results, 1)
 
 	assert.NotEqual(t, 0, results[0].ExitCode)
@@ -148,7 +148,7 @@ func TestVerifyCommands_MakeSpecificRecoveryHints(t *testing.T) {
 		Build: "make nonexistent-target",
 	}
 
-	results := VerifyCommands(context.Background(), cmds)
+	results := VerifyCommands(context.Background(), cmds, t.TempDir())
 	require.Len(t, results, 1)
 
 	assert.NotEqual(t, 0, results[0].ExitCode)

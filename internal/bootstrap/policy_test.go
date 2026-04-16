@@ -404,3 +404,14 @@ func TestPolicyGeneration_ScoutOnlyMode(t *testing.T) {
 	// TestRequiredDirs should be empty set.
 	assert.Contains(t, content, "set()")
 }
+
+func TestEscapeRegoString(t *testing.T) {
+	// Backslashes should be escaped.
+	assert.Equal(t, `C:\\Users\\dev`, escapeRegoString(`C:\Users\dev`))
+	// Double quotes should be escaped.
+	assert.Equal(t, `say \"hello\"`, escapeRegoString(`say "hello"`))
+	// Both together.
+	assert.Equal(t, `path\\with \"quotes\"`, escapeRegoString(`path\with "quotes"`))
+	// No escaping needed.
+	assert.Equal(t, "normal/path", escapeRegoString("normal/path"))
+}

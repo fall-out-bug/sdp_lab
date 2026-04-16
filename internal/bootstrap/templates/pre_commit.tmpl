@@ -4,8 +4,8 @@
 # Run linter on staged files
 {{.LintCommand}} || exit 1
 
-# Check for sensitive files
-for f in $(git diff --cached --name-only); do
+# Check for sensitive files (NUL-safe to handle filenames with spaces)
+git diff --cached --name-only -z | while IFS= read -r -d '' f; do
   case "$f" in
     .env*|*.pem|*.key|credentials.*|secrets.*)
       echo "ERROR: Sensitive file staged: $f"
@@ -13,3 +13,7 @@ for f in $(git diff --cached --name-only); do
       ;;
   esac
 done
+# Propagate exit from subshell if a sensitive file was found
+if [ "$?" -ne 0 ]; then
+  exit 1
+fi

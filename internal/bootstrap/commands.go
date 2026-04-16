@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"bufio"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -83,7 +84,8 @@ func parseMakefileCommands(path string) (BuildCommands, bool) {
 	return cmds, found
 }
 
-// detectFromPackageJSON checks for npm/pnpm/yarn scripts.
+// detectFromPackageJSON checks for npm/pnpm/yarn scripts by parsing
+// the package.json scripts object properly.
 func detectFromPackageJSON(repoPath string) (BuildCommands, bool) {
 	path := filepath.Join(repoPath, "package.json")
 	data, err := os.ReadFile(path)
@@ -91,29 +93,32 @@ func detectFromPackageJSON(repoPath string) (BuildCommands, bool) {
 		return BuildCommands{}, false
 	}
 
-	// Simple JSON parsing for scripts — avoid importing encoding/json for a
-	// lightweight check. We look for "build", "test", "lint" keys in the
-	// "scripts" section.
-	content := string(data)
-	if !strings.Contains(content, `"scripts"`) {
+	// Parse the JSON to extract the scripts object.
+	var pkg struct {
+		Scripts map[string]string `json:"scripts"`
+	}
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return BuildCommands{}, false
+	}
+	if len(pkg.Scripts) == 0 {
 		return BuildCommands{}, false
 	}
 
 	var cmds BuildCommands
 	found := false
-	if strings.Contains(content, `"build"`) {
+	if _, ok := pkg.Scripts["build"]; ok {
 		cmds.Build = "npm run build"
 		found = true
 	}
-	if strings.Contains(content, `"test"`) {
+	if _, ok := pkg.Scripts["test"]; ok {
 		cmds.Test = "npm test"
 		found = true
 	}
-	if strings.Contains(content, `"lint"`) {
+	if _, ok := pkg.Scripts["lint"]; ok {
 		cmds.Lint = "npm run lint"
 		found = true
 	}
-	if strings.Contains(content, `"start"`) {
+	if _, ok := pkg.Scripts["start"]; ok {
 		cmds.Run = "npm start"
 		found = true
 	}

@@ -189,13 +189,13 @@ func (p *Planner) Execute() (*BootstrapReport, error) {
 		}
 		cmds := DetectBuildCommands(p.Config.RepoPath, lang)
 		if cmds.Build != "" || cmds.Test != "" || cmds.Lint != "" {
-			results := VerifyCommands(context.Background(), cmds)
+			results := VerifyCommands(context.Background(), cmds, p.Config.RepoPath)
 			report.Verification = results
 
 			if !AllPassed(results) {
 				failed := UnverifiedCommands(results)
 				report.Notes = append(report.Notes,
-					fmt.Sprintf("VERIFICATION WARNING: %d command(s) failed: %s",
+					fmt.Sprintf("VERIFICATION FAILED: %d command(s) failed: %s",
 						len(failed), strings.Join(failed, ", ")))
 				report.Notes = append(report.Notes,
 					"See verification results for recovery steps")
@@ -203,6 +203,10 @@ func (p *Planner) Execute() (*BootstrapReport, error) {
 					"Rollback: git checkout -- CLAUDE.md AGENTS.md .sdp/policies .claude/hooks")
 				report.Notes = append(report.Notes,
 					"Re-run with --no-verify to skip verification")
+
+					report.DurationMs = time.Since(start).Milliseconds()
+					return report, fmt.Errorf("verification failed: %d command(s) did not pass: %s",
+						len(failed), strings.Join(failed, ", "))
 			}
 		}
 	}
@@ -246,8 +250,16 @@ func (p *Planner) Status() (*BootstrapStatus, error) {
 	}{
 		{"CLAUDE.md", "CLAUDE.md"},
 		{"AGENTS.md", "AGENTS.md"},
+		{".sdp/policies", ".sdp/policies"},
 		{".claude/hooks", ".claude/hooks"},
-		{".beads", ".beads"},
+	}
+
+	// Only count .beads when beads is opted-in.
+	if p.Config.Beads {
+		expected = append(expected, struct {
+			path string
+			name string
+		}{".beads", ".beads"})
 	}
 
 	var existingFiles, missingFiles []string

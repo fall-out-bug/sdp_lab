@@ -170,6 +170,14 @@ func BuildPolicyInput(ds *DataSourceInfo, repoPath string, cmds BuildCommands) *
 	sensitivePaths := DetectSensitivePaths(repoPath)
 	generatedPaths := DetectGeneratedPaths(repoPath)
 
+	// Escape special characters in paths for safe Rego string interpolation.
+	for i, p := range sensitivePaths {
+		sensitivePaths[i] = escapeRegoString(p)
+	}
+	for i, p := range generatedPaths {
+		generatedPaths[i] = escapeRegoString(p)
+	}
+
 	// Build test-required dirs set literal.
 	testRequiredDirs := buildTestRequiredDirsRego(ds)
 
@@ -272,10 +280,18 @@ func buildTestRequiredDirsRego(ds *DataSourceInfo) string {
 
 	var parts []string
 	for _, comp := range ds.Architect.Components {
-		// Convert component paths to directory format.
-		parts = append(parts, fmt.Sprintf("%q", comp))
+		// Escape special characters for Rego string safety, then wrap in quotes.
+		parts = append(parts, `"`+escapeRegoString(comp)+`"`)
 	}
 	return "{" + strings.Join(parts, ", ") + "}"
+}
+
+// escapeRegoString escapes backslashes and double-quote characters in a string
+// so it can be safely interpolated into a Rego string literal.
+func escapeRegoString(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `"`, `\"`)
+	return s
 }
 
 // parseCODEOWNERS reads a CODEOWNERS file (if present) and returns the
