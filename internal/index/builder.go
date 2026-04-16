@@ -358,7 +358,6 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 		if len(langFilter) > 0 && !langFilter[language] {
 			return nil
 		}
-		result.FilesChecked++
 		seenOnDisk[relPath] = true
 
 		data, readErr := os.ReadFile(path)
