@@ -12,17 +12,6 @@ func TestExtractRoutes_Chi(t *testing.T) {
 	endpoints := extractRoutesFromTestdata(t, "routes_chi.go")
 	require.NotEmpty(t, endpoints, "should find chi routes")
 
-	// chi uses .Get/.Post/.Put/.Delete calls
-	methods := map[string]bool{}
-	for _, e := range endpoints {
-		methods[e.Method] = true
-	}
-	assert.True(t, methods["GET"], "should find GET routes")
-	assert.True(t, methods["POST"], "should find POST routes")
-	assert.True(t, methods["PUT"], "should find PUT routes")
-	assert.True(t, methods["DELETE"], "should find DELETE routes")
-
-	// Check specific path+method combinations exist
 	type pathMethod struct{ path, method string }
 	seen := map[pathMethod]bool{}
 	for _, e := range endpoints {
@@ -31,39 +20,53 @@ func TestExtractRoutes_Chi(t *testing.T) {
 	assert.True(t, seen[pathMethod{"/users", "GET"}])
 	assert.True(t, seen[pathMethod{"/users", "POST"}])
 	assert.True(t, seen[pathMethod{"/users/{id}", "PUT"}])
+	assert.True(t, seen[pathMethod{"/users/{id}", "DELETE"}])
+
+	// Nested Route() prefix composition: /admin/settings
+	assert.True(t, seen[pathMethod{"/admin/settings", "GET"}],
+		"chi Route() should compose /admin/settings GET")
+	assert.True(t, seen[pathMethod{"/admin/settings", "POST"}],
+		"chi Route() should compose /admin/settings POST")
 }
 
 func TestExtractRoutes_Gin(t *testing.T) {
 	endpoints := extractRoutesFromTestdata(t, "routes_gin.go")
 	require.NotEmpty(t, endpoints, "should find gin routes")
 
-	methods := map[string]bool{}
+	byHandler := map[string]Endpoint{}
 	for _, e := range endpoints {
-		methods[e.Method] = true
+		byHandler[e.Handler] = e
 	}
-	assert.True(t, methods["GET"], "should find GET routes")
-	assert.True(t, methods["POST"], "should find POST routes")
-	assert.True(t, methods["PUT"], "should find PUT routes")
-	assert.True(t, methods["DELETE"], "should find DELETE routes")
+	// Group("/api/v1") prefix composition
+	assert.Equal(t, "/api/v1/health", byHandler["healthCheck"].Path,
+		"gin Group() should compose /api/v1/health")
+	assert.Equal(t, "/api/v1/deploy", byHandler["deployHandler"].Path,
+		"gin Group() should compose /api/v1/deploy")
+	// Top-level routes unchanged
+	assert.Equal(t, "/ping", byHandler["pingHandler"].Path)
 }
 
 func TestExtractRoutes_Echo(t *testing.T) {
 	endpoints := extractRoutesFromTestdata(t, "routes_echo.go")
 	require.NotEmpty(t, endpoints, "should find echo routes")
 
-	methods := map[string]bool{}
+	byHandler := map[string]Endpoint{}
 	for _, e := range endpoints {
-		methods[e.Method] = true
+		byHandler[e.Handler] = e
 	}
-	assert.True(t, methods["GET"], "should find GET routes")
-	assert.True(t, methods["POST"], "should find POST routes")
+	// Group("/api") prefix composition
+	assert.Equal(t, "/api/status", byHandler["statusHandler"].Path,
+		"echo Group() should compose /api/status")
+	assert.Equal(t, "/api/webhook", byHandler["webhookHandler"].Path,
+		"echo Group() should compose /api/webhook")
+	// Top-level routes unchanged
+	assert.Equal(t, "/", byHandler["homeHandler"].Path)
 }
 
 func TestExtractRoutes_Stdlib(t *testing.T) {
 	endpoints := extractRoutesFromTestdata(t, "routes_stdlib.go")
 	require.NotEmpty(t, endpoints, "should find stdlib routes")
 
-	// stdlib uses HandleFunc/Handle, methods default to "" or we detect the pattern
 	paths := map[string]bool{}
 	for _, e := range endpoints {
 		paths[e.Path] = true
@@ -76,14 +79,19 @@ func TestExtractRoutes_Gorilla(t *testing.T) {
 	endpoints := extractRoutesFromTestdata(t, "routes_gorilla.go")
 	require.NotEmpty(t, endpoints, "should find gorilla/mux routes")
 
-	methods := map[string]bool{}
+	byHandler := map[string]Endpoint{}
 	for _, e := range endpoints {
-		methods[e.Method] = true
+		byHandler[e.Handler] = e
 	}
-	assert.True(t, methods["GET"], "should find GET routes")
-	assert.True(t, methods["POST"], "should find POST routes")
-	assert.True(t, methods["PUT"], "should find PUT routes")
-	assert.True(t, methods["DELETE"], "should find DELETE routes")
+	// PathPrefix("/admin").Subrouter() prefix composition
+	assert.Equal(t, "/admin/users", byHandler["adminListUsers"].Path,
+		"gorilla Subrouter() should compose /admin/users")
+	assert.Equal(t, "GET", byHandler["adminListUsers"].Method)
+	assert.Equal(t, "/admin/users", byHandler["adminCreateUser"].Path,
+		"gorilla Subrouter() should compose /admin/users for POST")
+	assert.Equal(t, "POST", byHandler["adminCreateUser"].Method)
+	// Top-level routes unchanged
+	assert.Equal(t, "/products", byHandler["listProducts"].Path)
 }
 
 func TestExtractRoutes_EmptyFile(t *testing.T) {

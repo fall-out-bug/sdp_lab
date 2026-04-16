@@ -106,11 +106,13 @@ func endpointIndex(eps []Endpoint) map[string]Endpoint {
 func diffRules(old, nw BusinessRules) []Change {
 	oi := make(map[string]string, len(old.Validations))
 	for _, r := range old.Validations {
-		oi[r.Location+"#"+r.Field] = r.Description
+		key := r.Location + "#" + r.Field + "#" + r.Enforcement
+		oi[key] = r.Description
 	}
 	ni := make(map[string]string, len(nw.Validations))
 	for _, r := range nw.Validations {
-		ni[r.Location+"#"+r.Field] = r.Description
+		key := r.Location + "#" + r.Field + "#" + r.Enforcement
+		ni[key] = r.Description
 	}
 	return diffMaps("", "description changed", oi, ni)
 }

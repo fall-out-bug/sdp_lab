@@ -151,6 +151,34 @@ func TestDiffSpecs_FixtureFiles(t *testing.T) {
 	assert.True(t, diff.Summary.Added > 0 || diff.Summary.Removed > 0 || diff.Summary.Modified > 0)
 }
 
+func TestDiffRules_MultipleEnforcementsOnSameField(t *testing.T) {
+	old := &SpecReport{
+		BusinessRules: BusinessRules{Validations: []ValidationRule{
+			{Location: "user.go:10", Field: "Email", Enforcement: "validate", Description: "email validation"},
+			{Location: "user.go:10", Field: "Email", Enforcement: "binding", Description: "email binding"},
+		}},
+	}
+	nw := &SpecReport{
+		BusinessRules: BusinessRules{Validations: []ValidationRule{
+			{Location: "user.go:10", Field: "Email", Enforcement: "validate", Description: "email validation"},
+			{Location: "user.go:10", Field: "Email", Enforcement: "binding", Description: "email binding changed"},
+		}},
+	}
+	p1 := writeSnapshot(t, "old", old)
+	p2 := writeSnapshot(t, "new", nw)
+	diff, err := DiffSpecs(p1, p2)
+	require.NoError(t, err)
+	modified := 0
+	for _, c := range diff.RuleChanges {
+		if c.Category == "modified" {
+			modified++
+		}
+	}
+	assert.Equal(t, 1, modified, "should detect exactly 1 modified rule (binding), not lose validate")
+	require.NotEmpty(t, diff.RuleChanges)
+	assert.Equal(t, "user.go:10#Email#binding", diff.RuleChanges[0].Key)
+}
+
 func assertHasChange(t *testing.T, ch []Change, cat, prefix string) {
 	t.Helper()
 	for _, c := range ch {
