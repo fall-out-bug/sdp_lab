@@ -16,7 +16,7 @@ func openTestStore(t *testing.T) *SQLiteStore {
 	dbPath := filepath.Join(dir, "test.db")
 	s, err := OpenStore(dbPath)
 	require.NoError(t, err)
-	t.Cleanup(func() { s.Close() })
+	t.Cleanup(func() { _ = s.Close() })
 	return s
 }
 
@@ -270,8 +270,8 @@ func TestStore_CloseIdempotent(t *testing.T) {
 	s, err := OpenStore(dbPath)
 	require.NoError(t, err)
 	// Double close should not panic
-	s.Close()
-	s.Close()
+	_ = s.Close()
+	_ = s.Close()
 }
 
 func TestStore_DeleteFileMeta(t *testing.T) {

@@ -52,7 +52,7 @@ def hello():
 
 	store, err := OpenStore(result.DBPath)
 	require.NoError(t, err)
-	t.Cleanup(func() { store.Close() })
+	t.Cleanup(func() { _ = store.Close() })
 
 	return dir, result.DBPath, store
 }

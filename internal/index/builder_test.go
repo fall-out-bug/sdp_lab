@@ -143,7 +143,7 @@ func TestColdBuild_ExcludesVendorAndGit(t *testing.T) {
 	// Open the store and verify no vendor/node_modules/.git chunks
 	s, err := OpenStore(result.DBPath)
 	require.NoError(t, err)
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	// Check no chunks from excluded directories
 	var excludedChunks int
@@ -165,7 +165,7 @@ func TestColdBuild_ExcludesSecrets(t *testing.T) {
 
 	s, err := OpenStore(result.DBPath)
 	require.NoError(t, err)
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	var secretChunks int
 	err = s.db.QueryRow(`
@@ -185,7 +185,7 @@ func TestColdBuild_ExcludesBinaries(t *testing.T) {
 
 	s, err := OpenStore(result.DBPath)
 	require.NoError(t, err)
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	var binaryChunks int
 	err = s.db.QueryRow(`SELECT COUNT(*) FROM chunks WHERE file_path LIKE '%binary.dat%'`).Scan(&binaryChunks)
@@ -201,7 +201,7 @@ func TestColdBuild_ExcludesLargeFiles(t *testing.T) {
 
 	s, err := OpenStore(result.DBPath)
 	require.NoError(t, err)
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	var largeChunks int
 	err = s.db.QueryRow(`SELECT COUNT(*) FROM chunks WHERE file_path LIKE '%large.log%'`).Scan(&largeChunks)
@@ -217,7 +217,7 @@ func TestColdBuild_ExcludesGeneratedFiles(t *testing.T) {
 
 	s, err := OpenStore(result.DBPath)
 	require.NoError(t, err)
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	var genChunks int
 	err = s.db.QueryRow(`SELECT COUNT(*) FROM chunks WHERE file_path LIKE '%.pb.go%'`).Scan(&genChunks)
@@ -244,7 +244,7 @@ func TestColdBuild_StoresFileMetadata(t *testing.T) {
 
 	s, err := OpenStore(result.DBPath)
 	require.NoError(t, err)
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	// Check that file metadata was stored
 	fm, err := s.GetFileMeta("internal/foo/handler.go")
@@ -262,7 +262,7 @@ func TestColdBuild_StoresMeta(t *testing.T) {
 
 	s, err := OpenStore(result.DBPath)
 	require.NoError(t, err)
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	version, err := s.GetMeta("schema_version")
 	require.NoError(t, err)
@@ -295,7 +295,7 @@ func Same() int { return 42 }
 
 	s, err := OpenStore(result.DBPath)
 	require.NoError(t, err)
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	// Both files should have their own chunks (different paths), but same content hash
 	fmA, err := s.GetFileMeta("dup/a.go")
@@ -360,7 +360,7 @@ func TestSomething(t *testing.T) {}
 
 	s, err := OpenStore(result.DBPath)
 	require.NoError(t, err)
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	fm, err := s.GetFileMeta("handler_test.go")
 	require.NoError(t, err)
@@ -382,7 +382,7 @@ func Hello() string {
 
 	s, err := OpenStore(result.DBPath)
 	require.NoError(t, err)
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	// Get chunks and verify fields
 	stats, err := s.Stats()
@@ -423,7 +423,7 @@ func ServeHTTP() error {
 
 	s, err := OpenStore(result.DBPath)
 	require.NoError(t, err)
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	// Search via FTS
 	rows, err := s.db.Query("SELECT rowid FROM chunks_fts WHERE chunks_fts MATCH ?", "ServeHTTP")
@@ -459,7 +459,7 @@ func TestColdBuild_EdgesHaveValidIDs(t *testing.T) {
 
 	s, err := OpenStore(result.DBPath)
 	require.NoError(t, err)
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	// Verify edges have valid source_id and target_id referencing real chunks
 	rows, err := s.db.Query(`

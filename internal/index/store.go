@@ -146,11 +146,15 @@ func OpenStore(dbPath string) (*SQLiteStore, error) {
 }
 
 // Close performs a WAL checkpoint and closes the underlying database connection.
-func (s *SQLiteStore) Close() {
-	if s.db != nil {
-		_, _ = s.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
-		s.db.Close()
+func (s *SQLiteStore) Close() error {
+	if s.db == nil {
+		return nil
 	}
+	if _, err := s.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+		s.db.Close()
+		return fmt.Errorf("wal checkpoint: %w", err)
+	}
+	return s.db.Close()
 }
 
 // DBPath returns the filesystem path to the database file.

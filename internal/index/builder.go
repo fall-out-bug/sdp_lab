@@ -43,7 +43,7 @@ func ColdBuild(opts BuildOptions) (*BuildResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open store: %w", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	result := &BuildResult{DBPath: dbPath}
 
@@ -302,7 +302,7 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open store: %w", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	result := &RefreshResult{DBPath: dbPath}
 
