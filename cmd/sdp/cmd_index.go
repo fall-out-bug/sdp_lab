@@ -14,10 +14,11 @@ import (
 
 func runIndex(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: sdp index <build|stats|manifest> [flags]")
+		fmt.Fprintln(os.Stderr, "usage: sdp index <build|refresh|stats|manifest> [flags]")
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "Commands:")
 		fmt.Fprintln(os.Stderr, "  sdp index build <repo-path>              Full index (cold start)")
+		fmt.Fprintln(os.Stderr, "  sdp index refresh <repo-path>            Incremental update (changed files only)")
 		fmt.Fprintln(os.Stderr, "  sdp index stats <repo-path>              Show index statistics")
 		fmt.Fprintln(os.Stderr, "  sdp index manifest <repo-path>           Generate .sdp/manifest.md")
 		os.Exit(2)
@@ -25,13 +26,15 @@ func runIndex(args []string) {
 	switch args[0] {
 	case "build":
 		runIndexBuild(args[1:])
+	case "refresh":
+		runIndexRefresh(args[1:])
 	case "stats":
 		runIndexStats(args[1:])
 	case "manifest":
 		runIndexManifest(args[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown index subcommand: %s\n", args[0])
-		fmt.Fprintln(os.Stderr, "usage: sdp index <build|stats|manifest> [flags]")
+		fmt.Fprintln(os.Stderr, "usage: sdp index <build|refresh|stats|manifest> [flags]")
 		os.Exit(2)
 	}
 }
@@ -89,6 +92,68 @@ func runIndexBuild(args []string) {
 		fmt.Fprintf(os.Stdout, " Indexed %d files, %d chunks, %d edges\n",
 			result.TotalFiles, result.TotalChunks, result.TotalEdges)
 		fmt.Fprintf(os.Stdout, " Languages: %v\n", result.Languages)
+		fmt.Fprintf(os.Stdout, " Duration: %s\n", result.Duration.Round(time.Millisecond))
+		fmt.Fprintf(os.Stdout, " Database: %s\n", result.DBPath)
+	default:
+		fmt.Fprintf(os.Stderr, "error: unknown format %q (use json or text)\n", *format)
+		os.Exit(2)
+	}
+}
+
+func runIndexRefresh(args []string) {
+	fs := flag.NewFlagSet("index refresh", flag.ExitOnError)
+	format := fs.String("format", "text", "output format: json, text")
+	dbPath := fs.String("db", "", "custom database path (default: <repo>/.sdp/index.db)")
+	maxSize := fs.Int64("max-size", 100*1024, "max file size in bytes (default 100KB)")
+	langList := fs.String("languages", "", "comma-separated language filter (default: all)")
+	_ = fs.Parse(args)
+
+	if fs.NArg() < 1 {
+		fmt.Fprintln(os.Stderr, "usage: sdp index refresh [--format json|text] <repo-path>")
+		os.Exit(2)
+	}
+	repoPath := fs.Arg(0)
+
+	info, err := os.Stat(repoPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	if !info.IsDir() {
+		fmt.Fprintf(os.Stderr, "error: %q is not a directory\n", repoPath)
+		os.Exit(1)
+	}
+
+	opts := index.RefreshOptions{
+		RepoPath:         repoPath,
+		DBPath:           *dbPath,
+		MaxFileSizeBytes: *maxSize,
+	}
+	if *langList != "" {
+		opts.Languages = strings.Split(*langList, ",")
+	}
+
+	start := time.Now()
+	result, err := index.Refresh(opts)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: index refresh failed: %v\n", err)
+		os.Exit(1)
+	}
+	result.Duration = time.Since(start)
+
+	switch *format {
+	case "json":
+		out, jerr := json.MarshalIndent(result, "", "  ")
+		if jerr != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", jerr)
+			os.Exit(1)
+		}
+		fmt.Print(string(out) + "\n")
+	case "text":
+		fmt.Fprintf(os.Stdout, " Refreshed: %d checked, %d updated, %d added, %d removed\n",
+			result.FilesChecked, result.FilesUpdated, result.FilesAdded, result.FilesRemoved)
+		fmt.Fprintf(os.Stdout, " Index: %d files, %d chunks\n",
+			result.TotalFiles, result.TotalChunks)
 		fmt.Fprintf(os.Stdout, " Duration: %s\n", result.Duration.Round(time.Millisecond))
 		fmt.Fprintf(os.Stdout, " Database: %s\n", result.DBPath)
 	default:

@@ -93,6 +93,38 @@ type BuildOptions struct {
 	Languages []string
 }
 
+// RefreshOptions configures incremental refresh behavior.
+type RefreshOptions struct {
+	// RepoPath is the root of the repository to refresh.
+	RepoPath string
+	// DBPath is the existing index database. Defaults to <RepoPath>/.sdp/index.db.
+	DBPath string
+	// MaxFileSizeBytes skips files larger than this threshold. Default 100KB.
+	MaxFileSizeBytes int64
+	// Languages restricts indexing to these languages. Empty means all supported.
+	Languages []string
+}
+
+// RefreshResult holds the output of an incremental refresh operation.
+type RefreshResult struct {
+	// FilesChecked is the total number of source files examined.
+	FilesChecked int `json:"files_checked"`
+	// FilesUpdated is the number of files whose content changed and were re-indexed.
+	FilesUpdated int `json:"files_updated"`
+	// FilesAdded is the number of new files not previously in the index.
+	FilesAdded int `json:"files_added"`
+	// FilesRemoved is the number of files that were deleted from disk but still in the index.
+	FilesRemoved int `json:"files_removed"`
+	// TotalChunks is the total number of chunks in the index after refresh.
+	TotalChunks int `json:"total_chunks"`
+	// TotalFiles is the total number of files in the index after refresh.
+	TotalFiles int `json:"total_files"`
+	// Duration is the wall-clock time for the refresh.
+	Duration time.Duration `json:"duration"`
+	// DBPath is the path to the index database.
+	DBPath string `json:"db_path"`
+}
+
 // ── Manifest Types ──────────────────────────────────────────────────
 
 // ManifestData holds all data needed to render the manifest.md template.
@@ -171,6 +203,41 @@ type ScoutEnrichment struct {
 	TestFiles       int
 	TotalFiles      int
 	EntryPoints     []string
+}
+
+// ── Query Types ────────────────────────────────────────────────────────
+
+// SearchResult represents a single matched chunk from a query.
+type SearchResult struct {
+	Chunk    Chunk   `json:"chunk"`
+	Score    float64 `json:"score"`
+	MatchSrc string  `json:"match_src"` // "fts", "vector", "fused"
+}
+
+// SearchResponse is the unified response for all query modes.
+type SearchResponse struct {
+	Query    string         `json:"query"`
+	Mode     string         `json:"mode"` // "semantic", "deps", "find"
+	Results  []SearchResult `json:"results"`
+	Total    int            `json:"total"`
+	Duration string         `json:"duration,omitempty"`
+}
+
+// DepsResult represents a module-level dependency entry.
+type DepsResult struct {
+	ModuleName string `json:"module_name"`
+	Path       string `json:"path"`
+	LOC        int    `json:"loc"`
+	IsHotspot  bool   `json:"is_hotspot"`
+	BusFactor  int    `json:"bus_factor"`
+	Relation   string `json:"relation"` // "forward" or "reverse"
+}
+
+// DepsResponse is the response for dependency queries.
+type DepsResponse struct {
+	Module  string       `json:"module"`
+	Depth   int          `json:"depth"`
+	Results []DepsResult `json:"results"`
 }
 
 // ── Store Interface for manifest/enrichment ──────────────────────────

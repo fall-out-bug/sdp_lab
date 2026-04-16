@@ -486,3 +486,35 @@ func (s *SQLiteStore) ListModules() ([]ModuleMeta, error) {
 func (s *SQLiteStore) ListEntryPoints() ([]string, error) {
 	return s.LoadEntryPoints()
 }
+
+// ListIndexedFilePaths returns all file paths currently tracked in the files table.
+func (s *SQLiteStore) ListIndexedFilePaths() ([]string, error) {
+	rows, err := s.db.Query("SELECT path FROM files")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var paths []string
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			return nil, err
+		}
+		paths = append(paths, p)
+	}
+	return paths, nil
+}
+
+// CountChunks returns the total number of chunks in the index.
+func (s *SQLiteStore) CountChunks() (int, error) {
+	var count int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM chunks").Scan(&count)
+	return count, err
+}
+
+// CountFiles returns the total number of files in the files table.
+func (s *SQLiteStore) CountFiles() (int, error) {
+	var count int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM files").Scan(&count)
+	return count, err
+}

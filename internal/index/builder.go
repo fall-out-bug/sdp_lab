@@ -223,3 +223,217 @@ func isGeneratedFile(path string) bool {
 	}
 	return false
 }
+
+// Refresh performs an incremental index update. It compares file hashes on disk
+// with those stored in the index and re-indexes only changed, added, or removed files.
+// The index database must already exist (run ColdBuild first).
+//
+// Algorithm:
+//  1. Walk all source files, compute SHA256 hash.
+//  2. Compare with stored hash in the files table.
+//  3. For changed/added files: parse, delete old chunks (CASCADE edges), insert new chunks.
+//  4. For deleted files: remove file metadata and chunks.
+//  5. Update index metadata.
+func Refresh(opts RefreshOptions) (*RefreshResult, error) {
+	start := time.Now()
+
+	// Determine DB path
+	dbPath := opts.DBPath
+	if dbPath == "" {
+		dbPath = filepath.Join(opts.RepoPath, ".sdp", "index.db")
+	}
+
+	// Verify the index exists
+	if _, err := os.Stat(dbPath); err != nil {
+		return nil, fmt.Errorf("index database not found at %s (run 'sdp index build' first): %w", dbPath, err)
+	}
+
+	// Default max file size: 100KB
+	maxSize := opts.MaxFileSizeBytes
+	if maxSize <= 0 {
+		maxSize = 100 * 1024
+	}
+
+	// Build language filter set
+	langFilter := map[string]bool{}
+	for _, l := range opts.Languages {
+		langFilter[l] = true
+	}
+
+	// Open existing store
+	store, err := OpenStore(dbPath)
+	if err != nil {
+		return nil, fmt.Errorf("open store: %w", err)
+	}
+	defer store.Close()
+
+	result := &RefreshResult{DBPath: dbPath}
+
+	// Build map of currently indexed files: path -> hash
+	indexedFiles, err := buildIndexedFileMap(store)
+	if err != nil {
+		return nil, fmt.Errorf("load indexed files: %w", err)
+	}
+
+	// Track which indexed files we see on disk
+	seenOnDisk := map[string]bool{}
+
+	// Walk the repo and detect changes
+	err = filepath.Walk(opts.RepoPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // skip inaccessible files
+		}
+
+		// Get relative path
+		relPath, relErr := filepath.Rel(opts.RepoPath, path)
+		if relErr != nil {
+			return nil
+		}
+		relPath = filepath.ToSlash(relPath)
+
+		// Skip .sdp directory itself
+		if relPath == ".sdp" && info.IsDir() {
+			return filepath.SkipDir
+		}
+
+		// Directory exclusion
+		if info.IsDir() {
+			if common.DefaultMatcher.Match(relPath, true) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Apply exclusion rules (secrets, binary, size, generated)
+		if shouldExcludeFile(path, relPath, info, maxSize) {
+			return nil
+		}
+
+		// Detect language
+		language := DetectLanguage(relPath)
+		if language == "" {
+			return nil
+		}
+
+		// Apply language filter
+		if len(langFilter) > 0 && !langFilter[language] {
+			return nil
+		}
+
+		result.FilesChecked++
+		seenOnDisk[relPath] = true
+
+		// Read file content and compute hash
+		data, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return nil
+		}
+		fileHash := contentHash(string(data))
+
+		// Check if file is already indexed with same hash
+		storedHash, wasIndexed := indexedFiles[relPath]
+		if wasIndexed && storedHash == fileHash {
+			return nil // unchanged, skip
+		}
+
+		// File is new or changed — re-index it
+		if wasIndexed {
+			result.FilesUpdated++
+		} else {
+			result.FilesAdded++
+		}
+
+		// Delete old chunks for this file (CASCADE handles edges)
+		if _, delErr := store.DeleteChunksByFile(relPath); delErr != nil {
+			return nil // skip problematic files
+		}
+
+		// Parse file
+		chunks, edges, parseErr := ParseFile(path, language)
+		if parseErr != nil {
+			return nil
+		}
+
+		// Fix chunk file paths to be relative
+		for i := range chunks {
+			chunks[i].FilePath = relPath
+			if chunks[i].Scope != "" && strings.Contains(chunks[i].Scope, path) {
+				chunks[i].Scope = strings.Replace(chunks[i].Scope, path, relPath, 1)
+			}
+		}
+
+		// Insert chunks
+		for _, chunk := range chunks {
+			_, insertErr := store.InsertChunk(chunk)
+			if insertErr != nil {
+				continue
+			}
+		}
+
+		// Insert edges
+		for _, edge := range edges {
+			if edge.SourceID > 0 && edge.TargetID > 0 {
+				_, _ = store.InsertEdge(edge)
+			}
+		}
+
+		// Update file metadata
+		loc := len(strings.Split(string(data), "\n"))
+		fm := FileMeta{
+			Path:        relPath,
+			Hash:        fileHash,
+			LastIndexed: time.Now().UTC().Format(time.RFC3339),
+			Language:    language,
+			Loc:         loc,
+			IsTest:      IsTestFile(relPath),
+			IsGenerated: isGeneratedFile(relPath),
+		}
+		_ = store.UpsertFileMeta(fm)
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("walk repo: %w", err)
+	}
+
+	// Detect files removed from disk but still in the index
+	for relPath := range indexedFiles {
+		if !seenOnDisk[relPath] {
+			// File was deleted or now excluded — remove from index
+			if _, delErr := store.DeleteChunksByFile(relPath); delErr != nil {
+				continue
+			}
+			_ = store.DeleteFileMeta(relPath)
+			result.FilesRemoved++
+		}
+	}
+
+	// Get final counts
+	result.TotalChunks, _ = store.CountChunks()
+	result.TotalFiles, _ = store.CountFiles()
+
+	// Update metadata
+	_ = store.SetMeta("indexed_at", time.Now().UTC().Format(time.RFC3339))
+	_ = store.SetMeta("total_chunks", fmt.Sprintf("%d", result.TotalChunks))
+	_ = store.SetMeta("total_files", fmt.Sprintf("%d", result.TotalFiles))
+
+	result.Duration = time.Since(start)
+	return result, nil
+}
+
+// buildIndexedFileMap returns a map of file_path -> hash from the files table.
+func buildIndexedFileMap(store *SQLiteStore) (map[string]string, error) {
+	paths, err := store.ListIndexedFilePaths()
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]string, len(paths))
+	for _, p := range paths {
+		fm, err := store.GetFileMeta(p)
+		if err != nil {
+			continue
+		}
+		result[p] = fm.Hash
+	}
+	return result, nil
+}
