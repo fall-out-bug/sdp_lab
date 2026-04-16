@@ -7,6 +7,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -123,9 +124,14 @@ func callHealthChecks(call *ast.CallExpr, rel string) []SLAParam {
 	}}
 }
 
+var healthPaths = []string{"/health", "/healthz", "/ready", "/readyz", "/alive"}
+
 func isHealthPath(p string) bool {
-	for _, h := range []string{"/health", "/healthz", "/ready", "/readyz", "/alive"} {
-		if p == h || strings.HasPrefix(p, h+"/") {
+	if slices.Contains(healthPaths, p) {
+		return true
+	}
+	for _, h := range healthPaths {
+		if strings.HasPrefix(p, h+"/") {
 			return true
 		}
 	}

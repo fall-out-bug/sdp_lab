@@ -16,3 +16,7 @@ type OrderItem struct {
 	Quantity  int     `json:"quantity" validate:"required,min=1,max=100"`
 	Price     float64 `json:"price" validate:"required,gt=0"`
 }
+
+type EmbedsType struct {
+	int `validate:"min=1"`
+}

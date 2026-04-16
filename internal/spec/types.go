@@ -14,6 +14,7 @@ type SpecReport struct {
 	SLAParameters SLAParameters  `json:"sla_parameters"`
 	Coverage      Coverage       `json:"coverage"`
 	Enrichment    *EnrichmentInfo `json:"enrichment,omitempty"`
+	Warnings      []string       `json:"warnings,omitempty"`
 }
 
 // EnrichmentInfo records whether optional LLM enrichment was attempted.

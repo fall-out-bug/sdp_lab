@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"unicode"
 )
@@ -96,13 +97,10 @@ func colName(low string) string {
 	return parts[0]
 }
 
+var tableKeywords = []string{"constraint", "primary", "unique", "check", "foreign", "index", "create", ")"}
+
 func isTableKeyword(s string) bool {
-	for _, k := range []string{"constraint", "primary", "unique", "check", "foreign", "index", "create", ")"} {
-		if s == k {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(tableKeywords, s)
 }
 
 func tblConstraints(low, table, rel string, ln int) []SQLConstraint {

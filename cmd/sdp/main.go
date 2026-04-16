@@ -122,5 +122,5 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  sdp scout [--format json|text|card] [--output DIR] <repo-path>")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Spec commands:")
-	fmt.Fprintln(os.Stderr, "  sdp spec [--format json|text] [--category api|rules] [--output DIR] <repo-path>")
+	fmt.Fprintln(os.Stderr, "  sdp spec [--format json|text] [--category api|rules|invariants|sla] [--output DIR] [--enrich] [--diff] <repo-path>")
 }

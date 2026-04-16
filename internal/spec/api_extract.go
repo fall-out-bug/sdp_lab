@@ -27,6 +27,9 @@ func ExtractAPIContracts(dir string) (*APIContracts, error) {
 		if d.IsDir() {
 			return nil
 		}
+		if fi, e := d.Info(); e == nil && fi.Size() > 10*1024*1024 {
+			return nil
+		}
 		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 			return nil
 		}

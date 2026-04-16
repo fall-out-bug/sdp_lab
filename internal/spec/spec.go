@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,7 +11,15 @@ import (
 
 // RunOptions controls optional behaviour in the spec extraction pipeline.
 type RunOptions struct {
-	Enrich bool // opt-in: attempt LLM enrichment (stub, not implemented)
+	Enrich bool            // opt-in: attempt LLM enrichment (stub, not implemented)
+	Ctx    context.Context // optional: cancellation support (nil means background)
+}
+
+func (o RunOptions) ctx() context.Context {
+	if o.Ctx != nil {
+		return o.Ctx
+	}
+	return context.Background()
 }
 
 // Run executes the full deterministic spec extraction pipeline on a directory.
@@ -32,13 +41,29 @@ func RunWithOptions(repoPath string, opts RunOptions) (*SpecReport, error) {
 	if !info.IsDir() {
 		return nil, fmt.Errorf("spec: %q is not a directory", repoPath)
 	}
+	ctx := opts.ctx()
+	var warnings []string
 	start := time.Now()
-	api, _ := ExtractAPIContracts(abs)
+	api, apiErr := ExtractAPIContracts(abs)
+	if apiErr != nil {
+		warnings = append(warnings, fmt.Sprintf("api: %v", apiErr))
+	}
 	if api == nil {
 		api = &APIContracts{}
 	}
-	rules, scanned, withSpecs, _ := extractAllRules(abs)
-	sql, _ := extractAllSQL(abs)
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+	rules, scanned, withSpecs, rulesErr := extractAllRules(abs)
+	if rulesErr != nil {
+		warnings = append(warnings, fmt.Sprintf("rules: %v", rulesErr))
+	}
+	sql, sqlErr := extractAllSQL(abs)
+	if sqlErr != nil {
+		warnings = append(warnings, fmt.Sprintf("sql: %v", sqlErr))
+	}
 	for _, sc := range sql {
 		rules.Validations = append(rules.Validations, ValidationRule{
 			Category: "sql_constraint",
@@ -48,9 +73,23 @@ func RunWithOptions(repoPath string, opts RunOptions) (*SpecReport, error) {
 		})
 	}
 	rules.Total = len(rules.Validations)
-	inv, _ := ExtractInvariants(abs)
-	sla, _ := ExtractSLAParameters(abs)
-	cfgParams, _ := ExtractConfigParameters(abs)
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+	inv, invErr := ExtractInvariants(abs)
+	if invErr != nil {
+		warnings = append(warnings, fmt.Sprintf("invariants: %v", invErr))
+	}
+	sla, slaErr := ExtractSLAParameters(abs)
+	if slaErr != nil {
+		warnings = append(warnings, fmt.Sprintf("sla: %v", slaErr))
+	}
+	cfgParams, cfgErr := ExtractConfigParameters(abs)
+	if cfgErr != nil {
+		warnings = append(warnings, fmt.Sprintf("config: %v", cfgErr))
+	}
 	mergeConfigSLA(&sla, cfgParams)
 	var density float64
 	if scanned > 0 {
@@ -64,6 +103,7 @@ func RunWithOptions(repoPath string, opts RunOptions) (*SpecReport, error) {
 		Invariants:    inv,
 		SLAParameters: sla,
 		Coverage:      Coverage{FilesScanned: scanned, FilesWithSpecs: withSpecs, SpecDensity: density},
+		Warnings:      warnings,
 	}
 	if opts.Enrich {
 		report.Enrichment = &EnrichmentInfo{
@@ -103,6 +143,9 @@ func extractAllRules(root string) (*BusinessRules, int, int, error) {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
+		if fi, e := d.Info(); e == nil && fi.Size() > 10*1024*1024 {
+			return nil
+		}
 		scanned++
 		rules, _ := ExtractBusinessRules(path)
 		if len(rules) > 0 {
@@ -118,6 +161,9 @@ func extractAllSQL(root string) ([]SQLConstraint, error) {
 	var all []SQLConstraint
 	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".sql") {
+			return nil
+		}
+		if fi, e := d.Info(); e == nil && fi.Size() > 10*1024*1024 {
 			return nil
 		}
 		cs, _ := ParseSQLFile(path)

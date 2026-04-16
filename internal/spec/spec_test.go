@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -26,17 +27,7 @@ func TestRun_APIContracts(t *testing.T) {
 	report, err := Run(td())
 	require.NoError(t, err)
 	assert.Greater(t, report.APIContracts.Total, 0)
-}
-
-func TestRun_BusinessRules(t *testing.T) {
-	report, err := Run(td())
-	require.NoError(t, err)
 	assert.Greater(t, report.BusinessRules.Total, 0)
-}
-
-func TestRun_Coverage(t *testing.T) {
-	report, err := Run(td())
-	require.NoError(t, err)
 	assert.Greater(t, report.Coverage.FilesScanned, 0)
 }
 
@@ -45,25 +36,21 @@ func TestRun_NonexistentDir(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, report)
 }
-
 func TestRun_SQLConstraints(t *testing.T) {
 	report, err := Run(td())
 	require.NoError(t, err)
 	assert.NotNil(t, report)
 }
-
 func TestRun_Invariants(t *testing.T) {
 	report, err := Run(td())
 	require.NoError(t, err)
 	assert.Greater(t, report.Invariants.Total, 0)
 }
-
 func TestRun_SLAParameters(t *testing.T) {
 	report, err := Run(td())
 	require.NoError(t, err)
 	assert.Greater(t, report.SLAParameters.Total, 0)
 }
-
 func TestRun_InvariantCategories(t *testing.T) {
 	report, err := Run(td())
 	require.NoError(t, err)
@@ -71,13 +58,11 @@ func TestRun_InvariantCategories(t *testing.T) {
 	assert.NotEmpty(t, report.Invariants.Concurrency)
 	assert.NotEmpty(t, report.Invariants.Architectural)
 }
-
 func TestRun_SLATimeouts(t *testing.T) {
 	report, err := Run(td())
 	require.NoError(t, err)
 	assert.NotEmpty(t, report.SLAParameters.Timeouts)
 }
-
 func TestRun_SecretRedaction(t *testing.T) {
 	report, err := Run(td())
 	require.NoError(t, err)
@@ -112,27 +97,22 @@ func TestRun_DeterministicJSON(t *testing.T) {
 	require.NoError(t, err)
 	j1, _ := json.Marshal(r1)
 	j2, _ := json.Marshal(r2)
-	var m1, m2 map[string]interface{}
+	var m1, m2 map[string]any
 	require.NoError(t, json.Unmarshal(j1, &m1))
 	require.NoError(t, json.Unmarshal(j2, &m2))
 	assert.Equal(t, m1["version"], m2["version"])
 	assert.Equal(t, m1["repo"], m2["repo"])
 }
-
-// --- Enrichment tests ---
-
 func TestRun_NoEnrichmentByDefault(t *testing.T) {
 	report, err := Run(td())
 	require.NoError(t, err)
 	assert.Nil(t, report.Enrichment)
 }
-
 func TestRunWithOptions_EnrichmentOff(t *testing.T) {
 	report, err := RunWithOptions(td(), RunOptions{Enrich: false})
 	require.NoError(t, err)
 	assert.Nil(t, report.Enrichment)
 }
-
 func TestRunWithOptions_EnrichmentOn(t *testing.T) {
 	report, err := RunWithOptions(td(), RunOptions{Enrich: true})
 	require.NoError(t, err)
@@ -153,9 +133,6 @@ func TestRunWithOptions_EnrichmentDoesNotChangeDeterministicOutput(t *testing.T)
 	assert.Equal(t, plain.SLAParameters.Total, enriched.SLAParameters.Total)
 	assert.Equal(t, plain.Coverage.FilesScanned, enriched.Coverage.FilesScanned)
 }
-
-// --- Diff integration tests ---
-
 func TestDiffSpecs_Integration(t *testing.T) {
 	v1 := filepath.Join("testdata", "spec_v1.json")
 	v2 := filepath.Join("testdata", "spec_v2.json")
@@ -194,4 +171,26 @@ func TestWriteArtifact(t *testing.T) {
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
 	assert.Contains(t, string(data), `"version": "1.0.0"`)
+}
+
+func TestFormatText(t *testing.T) {
+	report := &SpecReport{
+		Version: "1.0.0", Repo: "test", DurationMs: 42, GeneratedAt: time.Now(),
+		APIContracts:  APIContracts{Total: 1, HTTPEndpoints: []Endpoint{{Method: "GET", Path: "/api/test", Handler: "testHandler"}}},
+		BusinessRules: BusinessRules{Total: 2, Validations: []ValidationRule{{Category: "validation_tag", Field: "Name"}}},
+		Invariants: Invariants{Total: 3, Database: []DBInvariant{{Table: "users"}}, TypeSystem: []TypeInvariant{{}}, Concurrency: []ConcInvariant{{}}, Architectural: []ArchInvariant{{}}},
+		SLAParameters: SLAParameters{Total: 4, Timeouts: []SLAParam{{}}, RateLimits: []SLAParam{{}}},
+		Coverage:      Coverage{FilesScanned: 10, FilesWithSpecs: 5, SpecDensity: 0.5},
+	}
+	out := FormatText(report)
+	assert.Contains(t, out, "Spec Report")
+	assert.Contains(t, out, "GET")
+	assert.Contains(t, out, "/api/test")
+	assert.Contains(t, out, "validation_tag")
+	assert.Contains(t, out, "42ms")
+}
+
+func TestWriteArtifact_ErrorBadPath(t *testing.T) {
+	_, err := WriteArtifact("/dev/null/impossible/path", &SpecReport{Version: "1.0.0"})
+	assert.Error(t, err)
 }

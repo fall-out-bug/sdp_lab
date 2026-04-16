@@ -66,17 +66,16 @@ func tagRules(tagStr string, field *ast.Field, rel string) []ValidationRule {
 }
 
 func tagVal(tag, key string) string {
-	n := key + `:"`
-	i := strings.Index(tag, n)
-	if i < 0 {
+	prefix := key + `:"`
+	_, after, ok := strings.Cut(tag, prefix)
+	if !ok {
 		return ""
 	}
-	s := i + len(n)
-	e := strings.Index(tag[s:], `"`)
-	if e < 0 {
+	val, _, ok := strings.Cut(after, `"`)
+	if !ok {
 		return ""
 	}
-	return tag[s : s+e]
+	return val
 }
 
 func parseCS(val string) []Constraint {

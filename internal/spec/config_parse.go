@@ -28,6 +28,9 @@ func ExtractConfigParameters(root string) ([]SLAParam, error) {
 		if err != nil || d.IsDir() {
 			return nil
 		}
+		if fi, e := d.Info(); e == nil && fi.Size() > 10*1024*1024 {
+			return nil
+		}
 		ext := strings.ToLower(filepath.Ext(path))
 		switch ext {
 		case ".yaml", ".yml":
@@ -47,11 +50,11 @@ func parseYAMLFile(path string) ([]SLAParam, error) {
 	if err != nil {
 		return nil, err
 	}
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return nil, err
 	}
-	return flattenConfig(raw, filepath.Base(path), ""), nil
+	return flattenConfig(raw, filepath.Base(path), "", 0), nil
 }
 
 func parseJSONFile(path string) ([]SLAParam, error) {
@@ -59,15 +62,19 @@ func parseJSONFile(path string) ([]SLAParam, error) {
 	if err != nil {
 		return nil, err
 	}
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, err
 	}
-	return flattenConfig(raw, filepath.Base(path), ""), nil
+	return flattenConfig(raw, filepath.Base(path), "", 0), nil
 }
 
 // flattenConfig recursively walks a config map and extracts SLA parameters.
-func flattenConfig(m map[string]interface{}, rel, prefix string) []SLAParam {
+// depth limits recursion to prevent stack overflow on deeply nested configs.
+func flattenConfig(m map[string]any, rel, prefix string, depth int) []SLAParam {
+	if depth > 20 {
+		return nil
+	}
 	var params []SLAParam
 	for key, val := range m {
 		fullKey := key
@@ -84,8 +91,8 @@ func flattenConfig(m map[string]interface{}, rel, prefix string) []SLAParam {
 			})
 			continue
 		}
-		if sub, ok := val.(map[string]interface{}); ok {
-			params = append(params, flattenConfig(sub, rel, fullKey)...)
+		if sub, ok := val.(map[string]any); ok {
+			params = append(params, flattenConfig(sub, rel, fullKey, depth+1)...)
 			continue
 		}
 		p := classifyConfigParam(fullKey, val, rel)
@@ -106,7 +113,7 @@ func isSecretKey(key string) bool {
 	return false
 }
 
-func classifyConfigParam(key string, val interface{}, rel string) *SLAParam {
+func classifyConfigParam(key string, val any, rel string) *SLAParam {
 	low := strings.ToLower(key)
 	strVal := fmt.Sprintf("%v", val)
 	p := &SLAParam{Component: key, Value: strVal, Location: rel, Configurable: true}
