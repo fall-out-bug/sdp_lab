@@ -98,3 +98,30 @@ func TestParseCommitsWarningCount(t *testing.T) {
 		t.Fatalf("commits = %d, want 1", len(commits))
 	}
 }
+
+// Multi-line body: BODY: prefix followed by continuation lines
+func TestParseOneCommitMultiLineBody(t *testing.T) {
+	block := "abc123def456abc123def456abc123def456abc1\nAUTHOR:Alice\nDATE:2026-04-01T10:00:00Z\nSUBJECT:test\nBODY:\nline one\nline two\nline three\nNUMSTAT\n"
+	c, ok, _ := parseOneCommit(block)
+	if !ok {
+		t.Fatal("expected commit to parse")
+	}
+	want := "line one\nline two\nline three"
+	if c.Body != want {
+		t.Errorf("Body = %q, want %q", c.Body, want)
+	}
+}
+
+func TestParseOneCommitBodyWithTicketRef(t *testing.T) {
+	block := "abc123def456abc123def456abc123def456abc1\nAUTHOR:Bob\nDATE:2026-04-01T10:00:00Z\nSUBJECT:feat: add feature\nBODY:\nThis adds the new feature.\nFixes #42\nSee PROJ-123 for details.\nNUMSTAT\n1\t2\tmain.go\n"
+	c, ok, _ := parseOneCommit(block)
+	if !ok {
+		t.Fatal("expected commit to parse")
+	}
+	if !strings.Contains(c.Body, "Fixes #42") {
+		t.Errorf("Body should contain 'Fixes #42', got %q", c.Body)
+	}
+	if !strings.Contains(c.Body, "PROJ-123") {
+		t.Errorf("Body should contain 'PROJ-123', got %q", c.Body)
+	}
+}

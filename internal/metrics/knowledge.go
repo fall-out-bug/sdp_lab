@@ -21,22 +21,30 @@ func AnalyzeKnowledge(data *GitData) *KnowledgeRisk {
 
 	// ── Per-module bus factor ──
 	moduleCommits := make(map[string]map[string]int) // module -> author -> count
-	moduleFiles := make(map[string]int)               // module -> unique file count
+	moduleFiles := make(map[string]map[string]bool)   // module -> unique file paths
 
 	for _, c := range data.Commits {
-		mod := topModule(c.Files)
-		if mod == "" {
-			mod = "<root>"
+		// Collect all top-level modules touched by this commit
+		mods := modulesFromFiles(c.Files)
+		if len(mods) == 0 {
+			mods = map[string]bool{"<root>": true}
 		}
-		if moduleCommits[mod] == nil {
-			moduleCommits[mod] = make(map[string]int)
+		for mod := range mods {
+			if moduleCommits[mod] == nil {
+				moduleCommits[mod] = make(map[string]int)
+				moduleFiles[mod] = make(map[string]bool)
+			}
+			moduleCommits[mod][c.Author]++
 		}
-		moduleCommits[mod][c.Author]++
-		fileSet := make(map[string]bool)
 		for _, f := range c.Files {
-			fileSet[f.Path] = true
+			mod := topModuleSingle(f.Path)
+			if mod == "" {
+				mod = "<root>"
+			}
+			if moduleFiles[mod] != nil {
+				moduleFiles[mod][f.Path] = true
+			}
 		}
-		moduleFiles[mod] += len(fileSet)
 	}
 
 	// Compute bus factor per module
@@ -65,7 +73,7 @@ func AnalyzeKnowledge(data *GitData) *KnowledgeRisk {
 			BusFactor:          bf,
 			PrimaryAuthor:      primary,
 			PrimaryAuthorRatio: primaryRatio,
-			FilesCount:         moduleFiles[mod],
+			FilesCount:         len(moduleFiles[mod]),
 		})
 	}
 
@@ -153,6 +161,25 @@ func gini(vals []float64) float64 {
 		weightedSum += float64(i+1) * v
 	}
 	return (2*weightedSum)/(float64(n)*sum) - (float64(n)+1)/float64(n)
+}
+
+func modulesFromFiles(files []FileChange) map[string]bool {
+	mods := make(map[string]bool)
+	for _, f := range files {
+		if idx := strings.IndexByte(f.Path, '/'); idx >= 0 {
+			mods[f.Path[:idx]] = true
+		} else {
+			mods[f.Path] = true
+		}
+	}
+	return mods
+}
+
+func topModuleSingle(path string) string {
+	if idx := strings.IndexByte(path, '/'); idx >= 0 {
+		return path[:idx]
+	}
+	return path
 }
 
 func topModule(files []FileChange) string {

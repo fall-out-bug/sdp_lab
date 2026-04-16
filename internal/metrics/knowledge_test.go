@@ -138,3 +138,54 @@ func TestBusFactorEdgeCases(t *testing.T) {
 		t.Fatal("expected 0 for zero total")
 	}
 }
+
+// Multi-module commit: one commit touching api/ and db/ should count toward both modules
+func TestAnalyzeKnowledgeMultiModuleCommit(t *testing.T) {
+	now := time.Now()
+	data := &GitData{
+		Commits: []RawCommit{
+			{Author: "Alice", Date: now, Files: []FileChange{
+				{Path: "api/server.go"},
+				{Path: "db/model.go"},
+			}},
+		},
+	}
+	kr := AnalyzeKnowledge(data)
+	modMap := make(map[string]ModuleRisk)
+	for _, m := range kr.BusFactorByModule {
+		modMap[m.Module] = m
+	}
+	api, hasAPI := modMap["api"]
+	db, hasDB := modMap["db"]
+	if !hasAPI {
+		t.Fatal("expected 'api' module from multi-module commit")
+	}
+	if !hasDB {
+		t.Fatal("expected 'db' module from multi-module commit")
+	}
+	if api.BusFactor != 1 {
+		t.Errorf("api bus factor = %d, want 1", api.BusFactor)
+	}
+	if db.BusFactor != 1 {
+		t.Errorf("db bus factor = %d, want 1", db.BusFactor)
+	}
+}
+
+// files_count should reflect unique files, not accumulated touched count
+func TestAnalyzeKnowledgeFilesCountUnique(t *testing.T) {
+	now := time.Now()
+	// Same file modified in 3 commits — files_count should be 1, not 3
+	data := &GitData{
+		Commits: []RawCommit{
+			{Author: "Alice", Date: now, Files: []FileChange{{Path: "core/main.go"}}},
+			{Author: "Alice", Date: now, Files: []FileChange{{Path: "core/main.go"}}},
+			{Author: "Alice", Date: now, Files: []FileChange{{Path: "core/main.go"}}},
+		},
+	}
+	kr := AnalyzeKnowledge(data)
+	for _, m := range kr.BusFactorByModule {
+		if m.Module == "core" && m.FilesCount != 1 {
+			t.Errorf("core FilesCount = %d, want 1 (unique files, not touched count)", m.FilesCount)
+		}
+	}
+}

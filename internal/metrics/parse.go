@@ -41,7 +41,9 @@ func parseOneCommit(block string) (RawCommit, bool, bool) {
 	// Expand buffer beyond 64KB default to handle long numstat lines
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024) // 1MB max
 	inNumstat := false
+	inBody := false
 	var numstatLines []string
+	var bodyLines []string
 	var truncated bool
 
 	for scanner.Scan() {
@@ -49,6 +51,7 @@ func parseOneCommit(block string) (RawCommit, bool, bool) {
 
 		if line == "NUMSTAT" {
 			inNumstat = true
+			inBody = false
 			continue
 		}
 
@@ -61,25 +64,35 @@ func parseOneCommit(block string) (RawCommit, bool, bool) {
 		}
 
 		if strings.HasPrefix(line, "AUTHOR:") {
+			inBody = false
 			c.Author = strings.TrimSpace(strings.TrimPrefix(line, "AUTHOR:"))
 		} else if strings.HasPrefix(line, "DATE:") {
+			inBody = false
 			ds := strings.TrimSpace(strings.TrimPrefix(line, "DATE:"))
 			t, err := time.Parse(time.RFC3339, ds)
 			if err == nil {
 				c.Date = t
 			}
 		} else if strings.HasPrefix(line, "SUBJECT:") {
+			inBody = false
 			c.Subject = strings.TrimSpace(strings.TrimPrefix(line, "SUBJECT:"))
 		} else if strings.HasPrefix(line, "BODY:") {
-			c.Body = strings.TrimSpace(strings.TrimPrefix(line, "BODY:"))
+			inBody = true
+			first := strings.TrimSpace(strings.TrimPrefix(line, "BODY:"))
+			if first != "" {
+				bodyLines = append(bodyLines, first)
+			}
 		} else if strings.HasPrefix(line, "COMMIT_BOUNDARY") {
-			// Skip boundary markers
+			inBody = false
+		} else if inBody {
+			bodyLines = append(bodyLines, line)
 		} else if len(line) == 40 && isHex(line) && c.Hash == "" {
 			c.Hash = line
 		} else if c.Hash == "" && len(line) > 0 && len(line) <= 40 && isHex(line) {
 			c.Hash = line
 		}
 	}
+	c.Body = strings.Join(bodyLines, "\n")
 
 	// Check for scanner truncation
 	if err := scanner.Err(); err != nil {
