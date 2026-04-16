@@ -41,8 +41,8 @@ func TestReadyCommand(t *testing.T) {
 		if issue.Status == "" {
 			t.Error("Issue status is empty")
 		}
-		if issue.Priority < 1 {
-			t.Error("Issue priority should be >= 1")
+		if issue.Priority < 0 || issue.Priority > 4 {
+			t.Errorf("Issue priority should be between 0 and 4, got %d", issue.Priority)
 		}
 	}
 
