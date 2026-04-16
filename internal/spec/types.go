@@ -4,15 +4,24 @@ import "time"
 
 // SpecReport is the top-level output of deterministic spec extraction.
 type SpecReport struct {
-	Version       string        `json:"version"`
-	Repo          string        `json:"repo"`
-	GeneratedAt   time.Time     `json:"generated_at"`
-	DurationMs    int64         `json:"duration_ms"`
-	APIContracts  APIContracts  `json:"api_contracts"`
-	BusinessRules BusinessRules `json:"business_rules"`
-	Invariants    Invariants    `json:"invariants"`
-	SLAParameters SLAParameters `json:"sla_parameters"`
-	Coverage      Coverage      `json:"coverage"`
+	Version       string         `json:"version"`
+	Repo          string         `json:"repo"`
+	GeneratedAt   time.Time      `json:"generated_at"`
+	DurationMs    int64          `json:"duration_ms"`
+	APIContracts  APIContracts   `json:"api_contracts"`
+	BusinessRules BusinessRules  `json:"business_rules"`
+	Invariants    Invariants     `json:"invariants"`
+	SLAParameters SLAParameters  `json:"sla_parameters"`
+	Coverage      Coverage       `json:"coverage"`
+	Enrichment    *EnrichmentInfo `json:"enrichment,omitempty"`
+}
+
+// EnrichmentInfo records whether optional LLM enrichment was attempted.
+// Enrichment is always opt-in and never the default path.
+type EnrichmentInfo struct {
+	Attempted bool   `json:"attempted"`
+	Status    string `json:"status"` // "not_configured", "available"
+	Note      string `json:"note"`
 }
 
 // APIContracts holds all extracted HTTP endpoint definitions.
@@ -130,4 +139,33 @@ type SLAParam struct {
 	Context      string `json:"context,omitempty"`
 	Configurable bool   `json:"configurable"`
 	EnvVar       string `json:"env_var,omitempty"`
+}
+
+// SpecDiff holds the result of comparing two spec snapshots.
+type SpecDiff struct {
+	Version     string      `json:"version"`
+	OldSnapshot string      `json:"old_snapshot"`
+	NewSnapshot string      `json:"new_snapshot"`
+	GeneratedAt time.Time   `json:"generated_at"`
+	APIChanges  []Change    `json:"api_changes"`
+	RuleChanges []Change    `json:"rule_changes"`
+	InvChanges  []Change    `json:"invariant_changes"`
+	SLAChanges  []Change    `json:"sla_changes"`
+	Summary     DiffSummary `json:"summary"`
+}
+
+// Change represents a single difference between two spec snapshots.
+type Change struct {
+	Category string `json:"category"` // "added", "removed", "modified"
+	Key      string `json:"key"`      // e.g. "POST /api/users"
+	Old      string `json:"old,omitempty"`
+	New      string `json:"new,omitempty"`
+	Detail   string `json:"detail,omitempty"`
+}
+
+// DiffSummary counts changes by category.
+type DiffSummary struct {
+	Added    int `json:"added"`
+	Removed  int `json:"removed"`
+	Modified int `json:"modified"`
 }

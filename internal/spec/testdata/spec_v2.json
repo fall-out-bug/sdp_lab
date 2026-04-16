@@ -1,0 +1,47 @@
+{
+  "version": "1.0.0",
+  "repo": "test-repo",
+  "generated_at": "2025-02-01T00:00:00Z",
+  "duration_ms": 120,
+  "api_contracts": {
+    "http_endpoints": [
+      {"method": "GET", "path": "/api/users", "handler": "ListUsers", "source_file": "routes.go", "source_line": 10},
+      {"method": "POST", "path": "/api/users", "handler": "CreateUserV2", "source_file": "routes.go", "source_line": 11},
+      {"method": "DELETE", "path": "/api/users/:id", "handler": "DeleteUser", "source_file": "routes.go", "source_line": 15}
+    ],
+    "total": 3
+  },
+  "business_rules": {
+    "validations": [
+      {"category": "required", "description": "name is required", "enforcement": "runtime", "location": "handler.go", "field": "name"},
+      {"category": "format", "description": "email must be valid format", "enforcement": "runtime", "location": "handler.go", "field": "email"},
+      {"category": "required", "description": "phone is required", "enforcement": "runtime", "location": "handler.go", "field": "phone"}
+    ],
+    "total": 3
+  },
+  "invariants": {
+    "database": [
+      {"table": "users", "column": "id", "constraint": "PRIMARY KEY", "detail": "PRIMARY KEY", "location": "migrations/001.sql"}
+    ],
+    "type_system": [],
+    "concurrency": [],
+    "architectural": [],
+    "total": 1
+  },
+  "sla_parameters": {
+    "timeouts": [
+      {"category": "timeout", "component": "http_server", "value": "60s", "location": "config.yaml"}
+    ],
+    "retries": [],
+    "rate_limits": [],
+    "circuit_breakers": [],
+    "resource_pools": [],
+    "health_checks": [],
+    "total": 1
+  },
+  "coverage": {
+    "files_scanned": 12,
+    "files_with_specs": 6,
+    "spec_density": 0.5
+  }
+}

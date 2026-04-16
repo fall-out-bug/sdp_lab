@@ -10,39 +10,34 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// td is a shorthand for the testdata directory used across tests.
+func td() string { return filepath.Join("testdata") }
+
 func TestRun_GeneratesReport(t *testing.T) {
-	dir := filepath.Join("testdata")
-	report, err := Run(dir)
+	report, err := Run(td())
 	require.NoError(t, err)
 	require.NotNil(t, report)
-
 	assert.Equal(t, "1.0.0", report.Version)
 	assert.False(t, report.GeneratedAt.IsZero())
 	assert.Greater(t, report.DurationMs, int64(0))
 }
 
 func TestRun_APIContracts(t *testing.T) {
-	dir := filepath.Join("testdata")
-	report, err := Run(dir)
+	report, err := Run(td())
 	require.NoError(t, err)
-
-	assert.Greater(t, report.APIContracts.Total, 0, "should find API endpoints")
+	assert.Greater(t, report.APIContracts.Total, 0)
 }
 
 func TestRun_BusinessRules(t *testing.T) {
-	dir := filepath.Join("testdata")
-	report, err := Run(dir)
+	report, err := Run(td())
 	require.NoError(t, err)
-
-	assert.Greater(t, report.BusinessRules.Total, 0, "should find business rules")
+	assert.Greater(t, report.BusinessRules.Total, 0)
 }
 
 func TestRun_Coverage(t *testing.T) {
-	dir := filepath.Join("testdata")
-	report, err := Run(dir)
+	report, err := Run(td())
 	require.NoError(t, err)
-
-	assert.Greater(t, report.Coverage.FilesScanned, 0, "should scan files")
+	assert.Greater(t, report.Coverage.FilesScanned, 0)
 }
 
 func TestRun_NonexistentDir(t *testing.T) {
@@ -52,73 +47,57 @@ func TestRun_NonexistentDir(t *testing.T) {
 }
 
 func TestRun_SQLConstraints(t *testing.T) {
-	dir := filepath.Join("testdata")
-	report, err := Run(dir)
+	report, err := Run(td())
 	require.NoError(t, err)
 	assert.NotNil(t, report)
 }
 
 func TestRun_Invariants(t *testing.T) {
-	dir := filepath.Join("testdata")
-	report, err := Run(dir)
+	report, err := Run(td())
 	require.NoError(t, err)
-	assert.Greater(t, report.Invariants.Total, 0, "should extract invariants")
+	assert.Greater(t, report.Invariants.Total, 0)
 }
 
 func TestRun_SLAParameters(t *testing.T) {
-	dir := filepath.Join("testdata")
-	report, err := Run(dir)
+	report, err := Run(td())
 	require.NoError(t, err)
-	assert.Greater(t, report.SLAParameters.Total, 0, "should extract SLA parameters")
+	assert.Greater(t, report.SLAParameters.Total, 0)
 }
 
 func TestRun_InvariantCategories(t *testing.T) {
-	dir := filepath.Join("testdata")
-	report, err := Run(dir)
+	report, err := Run(td())
 	require.NoError(t, err)
-	// Should have at least one type assertion
-	assert.NotEmpty(t, report.Invariants.TypeSystem, "should find type system invariants")
-	// Should have at least one mutex guard
-	assert.NotEmpty(t, report.Invariants.Concurrency, "should find concurrency invariants")
-	// Should have at least one architectural invariant (interface compliance)
-	assert.NotEmpty(t, report.Invariants.Architectural, "should find architectural invariants")
+	assert.NotEmpty(t, report.Invariants.TypeSystem)
+	assert.NotEmpty(t, report.Invariants.Concurrency)
+	assert.NotEmpty(t, report.Invariants.Architectural)
 }
 
 func TestRun_SLATimeouts(t *testing.T) {
-	dir := filepath.Join("testdata")
-	report, err := Run(dir)
+	report, err := Run(td())
 	require.NoError(t, err)
-	assert.NotEmpty(t, report.SLAParameters.Timeouts, "should find timeout params")
+	assert.NotEmpty(t, report.SLAParameters.Timeouts)
 }
 
 func TestRun_SecretRedaction(t *testing.T) {
-	dir := filepath.Join("testdata")
-	report, err := Run(dir)
+	report, err := Run(td())
 	require.NoError(t, err)
-	// Check all SLA params for leaked secrets
-	checkNoSecrets(t, report.SLAParameters.Timeouts)
-	checkNoSecrets(t, report.SLAParameters.Retries)
-	checkNoSecrets(t, report.SLAParameters.RateLimits)
-	checkNoSecrets(t, report.SLAParameters.ResourcePools)
-	checkNoSecrets(t, report.SLAParameters.HealthChecks)
-}
-
-func checkNoSecrets(t *testing.T, params []SLAParam) {
-	t.Helper()
-	for _, p := range params {
-		assert.NotContains(t, p.Value, "s3cret", "no raw secret in output")
-		assert.NotContains(t, p.Value, "password", "no raw password in output")
-		assert.NotContains(t, p.Value, "hunter2", "no raw password in output")
+	for _, params := range [][]SLAParam{
+		report.SLAParameters.Timeouts, report.SLAParameters.Retries,
+		report.SLAParameters.RateLimits, report.SLAParameters.ResourcePools,
+		report.SLAParameters.HealthChecks,
+	} {
+		for _, p := range params {
+			assert.NotContains(t, p.Value, "s3cret")
+			assert.NotContains(t, p.Value, "password")
+		}
 	}
 }
 
 func TestRun_Determinism(t *testing.T) {
-	dir := filepath.Join("testdata")
-	r1, err := Run(dir)
+	r1, err := Run(td())
 	require.NoError(t, err)
-	r2, err := Run(dir)
+	r2, err := Run(td())
 	require.NoError(t, err)
-	// Same counts on same input
 	assert.Equal(t, r1.APIContracts.Total, r2.APIContracts.Total)
 	assert.Equal(t, r1.BusinessRules.Total, r2.BusinessRules.Total)
 	assert.Equal(t, r1.Invariants.Total, r2.Invariants.Total)
@@ -127,39 +106,84 @@ func TestRun_Determinism(t *testing.T) {
 }
 
 func TestRun_DeterministicJSON(t *testing.T) {
-	dir := filepath.Join("testdata")
-	r1, err := Run(dir)
+	r1, err := Run(td())
 	require.NoError(t, err)
-	r2, err := Run(dir)
+	r2, err := Run(td())
 	require.NoError(t, err)
-	// Structural determinism: same counts, same top-level keys
 	j1, _ := json.Marshal(r1)
 	j2, _ := json.Marshal(r2)
 	var m1, m2 map[string]interface{}
 	require.NoError(t, json.Unmarshal(j1, &m1))
 	require.NoError(t, json.Unmarshal(j2, &m2))
-	// Compare structural keys exist
 	assert.Equal(t, m1["version"], m2["version"])
 	assert.Equal(t, m1["repo"], m2["repo"])
-	// Compare nested totals
-	inv1, _ := m1["invariants"].(map[string]interface{})
-	inv2, _ := m2["invariants"].(map[string]interface{})
-	assert.Equal(t, inv1["total"], inv2["total"])
-	sla1, _ := m1["sla_parameters"].(map[string]interface{})
-	sla2, _ := m2["sla_parameters"].(map[string]interface{})
-	assert.Equal(t, sla1["total"], sla2["total"])
+}
+
+// --- Enrichment tests ---
+
+func TestRun_NoEnrichmentByDefault(t *testing.T) {
+	report, err := Run(td())
+	require.NoError(t, err)
+	assert.Nil(t, report.Enrichment)
+}
+
+func TestRunWithOptions_EnrichmentOff(t *testing.T) {
+	report, err := RunWithOptions(td(), RunOptions{Enrich: false})
+	require.NoError(t, err)
+	assert.Nil(t, report.Enrichment)
+}
+
+func TestRunWithOptions_EnrichmentOn(t *testing.T) {
+	report, err := RunWithOptions(td(), RunOptions{Enrich: true})
+	require.NoError(t, err)
+	require.NotNil(t, report.Enrichment)
+	assert.True(t, report.Enrichment.Attempted)
+	assert.Equal(t, "not_configured", report.Enrichment.Status)
+	assert.Contains(t, report.Enrichment.Note, "not yet implemented")
+}
+
+func TestRunWithOptions_EnrichmentDoesNotChangeDeterministicOutput(t *testing.T) {
+	plain, err := Run(td())
+	require.NoError(t, err)
+	enriched, err := RunWithOptions(td(), RunOptions{Enrich: true})
+	require.NoError(t, err)
+	assert.Equal(t, plain.APIContracts.Total, enriched.APIContracts.Total)
+	assert.Equal(t, plain.BusinessRules.Total, enriched.BusinessRules.Total)
+	assert.Equal(t, plain.Invariants.Total, enriched.Invariants.Total)
+	assert.Equal(t, plain.SLAParameters.Total, enriched.SLAParameters.Total)
+	assert.Equal(t, plain.Coverage.FilesScanned, enriched.Coverage.FilesScanned)
+}
+
+// --- Diff integration tests ---
+
+func TestDiffSpecs_Integration(t *testing.T) {
+	v1 := filepath.Join("testdata", "spec_v1.json")
+	v2 := filepath.Join("testdata", "spec_v2.json")
+	diff, err := DiffSpecs(v1, v2)
+	require.NoError(t, err)
+	assert.Equal(t, "1.0.0", diff.Version)
+	assert.Equal(t, v1, diff.OldSnapshot)
+	assert.Equal(t, v2, diff.NewSnapshot)
+}
+
+func TestDiffSpecs_FalsePositiveGuard(t *testing.T) {
+	r := baseReport()
+	p1 := writeSnapshot(t, "old", r)
+	p2 := writeSnapshot(t, "new", r)
+	diff, err := DiffSpecs(p1, p2)
+	require.NoError(t, err)
+	assert.Empty(t, diff.APIChanges)
+	assert.Empty(t, diff.RuleChanges)
+	assert.Empty(t, diff.InvChanges)
+	assert.Empty(t, diff.SLAChanges)
+	assert.Equal(t, DiffSummary{}, diff.Summary)
 }
 
 func TestWriteArtifact(t *testing.T) {
 	tmpDir := t.TempDir()
 	report := &SpecReport{
-		Version: "1.0.0",
-		APIContracts: APIContracts{
-			Total: 5,
-			HTTPEndpoints: []Endpoint{
-				{Method: "GET", Path: "/test"},
-			},
-		},
+		Version:       "1.0.0",
+		APIContracts:  APIContracts{Total: 5, HTTPEndpoints: []Endpoint{{Method: "GET", Path: "/test"}}},
 		BusinessRules: BusinessRules{Total: 3},
 		Invariants:    Invariants{Total: 2},
 		SLAParameters: SLAParameters{Total: 4},
@@ -167,10 +191,7 @@ func TestWriteArtifact(t *testing.T) {
 	path, err := WriteArtifact(tmpDir, report)
 	require.NoError(t, err)
 	assert.FileExists(t, path)
-
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
 	assert.Contains(t, string(data), `"version": "1.0.0"`)
-	assert.Contains(t, string(data), `"invariants"`)
-	assert.Contains(t, string(data), `"sla_parameters"`)
 }

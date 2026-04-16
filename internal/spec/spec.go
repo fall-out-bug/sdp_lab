@@ -8,8 +8,19 @@ import (
 	"time"
 )
 
+// RunOptions controls optional behaviour in the spec extraction pipeline.
+type RunOptions struct {
+	Enrich bool // opt-in: attempt LLM enrichment (stub, not implemented)
+}
+
 // Run executes the full deterministic spec extraction pipeline on a directory.
 func Run(repoPath string) (*SpecReport, error) {
+	return RunWithOptions(repoPath, RunOptions{})
+}
+
+// RunWithOptions executes the spec pipeline with optional enrichment.
+// Without opts.Enrich the output is identical to Run().
+func RunWithOptions(repoPath string, opts RunOptions) (*SpecReport, error) {
 	abs, err := filepath.Abs(repoPath)
 	if err != nil {
 		return nil, fmt.Errorf("spec: resolve path: %w", err)
@@ -45,7 +56,7 @@ func Run(repoPath string) (*SpecReport, error) {
 	if scanned > 0 {
 		density = float64(withSpecs) / float64(scanned)
 	}
-	return &SpecReport{
+	report := &SpecReport{
 		Version: "1.0.0", Repo: filepath.Base(abs), GeneratedAt: start.UTC(),
 		DurationMs:    time.Since(start).Milliseconds(),
 		APIContracts:  *api,
@@ -53,7 +64,15 @@ func Run(repoPath string) (*SpecReport, error) {
 		Invariants:    inv,
 		SLAParameters: sla,
 		Coverage:      Coverage{FilesScanned: scanned, FilesWithSpecs: withSpecs, SpecDensity: density},
-	}, nil
+	}
+	if opts.Enrich {
+		report.Enrichment = &EnrichmentInfo{
+			Attempted: true,
+			Status:    "not_configured",
+			Note:      "enrichment is not yet implemented; output is deterministic-only",
+		}
+	}
+	return report, nil
 }
 
 // mergeConfigSLA folds config-extracted parameters into the SLA struct.
