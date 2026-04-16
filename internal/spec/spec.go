@@ -56,7 +56,7 @@ func RunWithOptions(repoPath string, opts RunOptions) (*SpecReport, error) {
 		return nil, ctx.Err()
 	default:
 	}
-	rules, scanned, withSpecs, rulesErr := extractAllRules(abs)
+	rules, scanned, rulesWithSpecs, rulesErr := extractAllRules(abs)
 	if rulesErr != nil {
 		warnings = append(warnings, fmt.Sprintf("rules: %v", rulesErr))
 	}
@@ -91,6 +91,7 @@ func RunWithOptions(repoPath string, opts RunOptions) (*SpecReport, error) {
 		warnings = append(warnings, fmt.Sprintf("config: %v", cfgErr))
 	}
 	mergeConfigSLA(&sla, cfgParams)
+	withSpecs := filesWithSpecs(api, inv, sla, rulesWithSpecs)
 	var density float64
 	if scanned > 0 {
 		density = float64(withSpecs) / float64(scanned)

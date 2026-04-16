@@ -42,6 +42,9 @@ func TestExtractRoutes_Gin(t *testing.T) {
 		"gin Group() should compose /api/v1/health")
 	assert.Equal(t, "/api/v1/deploy", byHandler["deployHandler"].Path,
 		"gin Group() should compose /api/v1/deploy")
+	// Nested group: api.Group("/v2") should compose to /api/v1/v2
+	assert.Equal(t, "/api/v1/v2/status", byHandler["v2StatusHandler"].Path,
+		"nested gin Group() should compose /api/v1/v2/status")
 	// Top-level routes unchanged
 	assert.Equal(t, "/ping", byHandler["pingHandler"].Path)
 }

@@ -6,7 +6,6 @@ import (
 	"go/parser"
 	"go/token"
 	"path/filepath"
-	"strings"
 )
 
 // ExtractGoRoutes parses a single Go file and extracts HTTP route registrations,
@@ -34,16 +33,14 @@ func extractRoutesWithPrefixes(node ast.Node, fset *token.FileSet, relPath strin
 	prefixes := map[string]string{} // varName -> prefix
 	var endpoints []Endpoint
 
-	// Collect gorilla method chains: map from HandleFunc line to method.
 	chainedMethods := collectChainedMethods(node, fset)
 
-	// Single pass: collect prefixes and extract route registrations.
 	ast.Inspect(node, func(n ast.Node) bool {
 		// Track short variable assignments: api := r.Group("/prefix")
 		if assign, ok := n.(*ast.AssignStmt); ok {
 			if len(assign.Lhs) == 1 && len(assign.Rhs) == 1 {
 				if id, ok := assign.Lhs[0].(*ast.Ident); ok {
-					if pfx := extractGroupPrefix(assign.Rhs[0]); pfx != "" {
+					if pfx := resolveGroupPrefix(assign.Rhs[0], prefixes); pfx != "" {
 						prefixes[id.Name] = pfx
 					}
 				}
@@ -73,7 +70,7 @@ func extractRoutesWithPrefixes(node ast.Node, fset *token.FileSet, relPath strin
 					inner := extractEndpointsFromBlock(fn.Body, fset, relPath,
 						innerPrefixes, chainedMethods)
 					endpoints = append(endpoints, inner...)
-					return false // don't double-process
+					return false
 				}
 			}
 		}
@@ -118,8 +115,7 @@ func extractRoutesWithPrefixes(node ast.Node, fset *token.FileSet, relPath strin
 	return endpoints
 }
 
-// extractEndpointsFromBlock extracts route registrations from a block statement
-// (used for chi Route() closure bodies), using the provided prefix map.
+// extractEndpointsFromBlock extracts routes from a chi Route() closure body.
 func extractEndpointsFromBlock(body *ast.BlockStmt, fset *token.FileSet,
 	relPath string, prefixes map[string]string, chainedMethods map[int]string,
 ) []Endpoint {
@@ -133,7 +129,6 @@ func extractEndpointsFromBlock(body *ast.BlockStmt, fset *token.FileSet,
 		if !ok {
 			return true
 		}
-
 		if method, found := isHTTPMethodCall(sel); found && len(call.Args) >= 1 {
 			path := extractStringLit(call.Args[0])
 			handler := extractIdentName(call.Args, 1)
@@ -149,125 +144,4 @@ func extractEndpointsFromBlock(body *ast.BlockStmt, fset *token.FileSet,
 		return true
 	})
 	return endpoints
-}
-
-// prefixForReceiver looks up the prefix for the receiver variable of sel.X.
-func prefixForReceiver(sel *ast.SelectorExpr, prefixes map[string]string) string {
-	if id, ok := sel.X.(*ast.Ident); ok {
-		return prefixes[id.Name]
-	}
-	return ""
-}
-
-// extractGroupPrefix detects Group("...") and PathPrefix("...").Subrouter()
-// patterns and returns the prefix string.
-func extractGroupPrefix(expr ast.Expr) string {
-	call, ok := expr.(*ast.CallExpr)
-	if !ok {
-		return ""
-	}
-	sel, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok {
-		return ""
-	}
-	switch sel.Sel.Name {
-	case "Group":
-		if len(call.Args) >= 1 {
-			return extractStringLit(call.Args[0])
-		}
-	case "Subrouter":
-		if inner, ok := sel.X.(*ast.CallExpr); ok {
-			if innerSel, ok := inner.Fun.(*ast.SelectorExpr); ok &&
-				innerSel.Sel.Name == "PathPrefix" {
-				if len(inner.Args) >= 1 {
-					return extractStringLit(inner.Args[0])
-				}
-			}
-		}
-	}
-	return ""
-}
-
-// collectChainedMethods walks the AST to find .Methods("GET") chains
-// from gorilla/mux HandleFunc calls. Returns a map of HandleFunc line -> method.
-func collectChainedMethods(node ast.Node, fset *token.FileSet) map[int]string {
-	result := make(map[int]string)
-	ast.Inspect(node, func(n ast.Node) bool {
-		call, ok := n.(*ast.CallExpr)
-		if !ok {
-			return true
-		}
-		sel, ok := call.Fun.(*ast.SelectorExpr)
-		if !ok || sel.Sel == nil || sel.Sel.Name != "Methods" {
-			return true
-		}
-		if len(call.Args) < 1 {
-			return true
-		}
-		method := extractStringLit(call.Args[0])
-		if method == "" {
-			return true
-		}
-		handleFuncLine := findHandleFuncLine(sel.X, fset)
-		if handleFuncLine > 0 {
-			result[handleFuncLine] = strings.ToUpper(method)
-		}
-		return true
-	})
-	return result
-}
-
-// findHandleFuncLine walks a chain of selector/call expressions to find
-// the HandleFunc/Handle call and returns its line number.
-func findHandleFuncLine(expr ast.Expr, fset *token.FileSet) int {
-	for {
-		call, ok := expr.(*ast.CallExpr)
-		if !ok {
-			return 0
-		}
-		sel, ok := call.Fun.(*ast.SelectorExpr)
-		if !ok {
-			return 0
-		}
-		if sel.Sel != nil && (sel.Sel.Name == "HandleFunc" || sel.Sel.Name == "Handle") {
-			return fset.Position(call.Lparen).Line
-		}
-		expr = sel.X
-	}
-}
-
-// isHTTPMethodCall returns the HTTP method if the selector is a method registration.
-func isHTTPMethodCall(sel *ast.SelectorExpr) (string, bool) {
-	if sel.Sel == nil {
-		return "", false
-	}
-	upper := strings.ToUpper(sel.Sel.Name)
-	switch upper {
-	case "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS":
-		return upper, true
-	}
-	return "", false
-}
-
-// extractStringLit extracts a string literal from an AST expression.
-func extractStringLit(expr ast.Expr) string {
-	lit, ok := expr.(*ast.BasicLit)
-	if !ok || lit.Kind != token.STRING {
-		return ""
-	}
-	return strings.Trim(lit.Value, `"`)
-}
-
-// extractIdentName extracts a function/identifier name from call arguments.
-func extractIdentName(args []ast.Expr, idx int) string {
-	if len(args) <= idx {
-		return ""
-	}
-	switch arg := args[idx].(type) {
-	case *ast.Ident:
-		return arg.Name
-	case *ast.SelectorExpr:
-		return arg.Sel.Name
-	}
-	return ""
 }
