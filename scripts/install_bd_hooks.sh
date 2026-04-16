@@ -24,6 +24,7 @@ MARKER="# SDP: bd_wrapper alias"
 create_wrapper() {
   cat > "$WRAPPER_SRC" <<'WRAPPER'
 #!/usr/bin/env bash
+# SDP: bd_wrapper.sh
 # bd_wrapper.sh — Intercept `bd close` and run bd_post_close.sh afterwards
 #
 # This wrapper proxies ALL bd commands.  When the command is `bd close`,
@@ -59,16 +60,20 @@ if [ "${1:-}" != "close" ]; then
 fi
 
 # --- bd close handling ---
-# Run the real `bd close` and capture output
-_output=$("$_BD_BIN" "$@" 2>&1) || true
+# Run the real `bd close` and capture output + exit code
+_output=$("$_BD_BIN" "$@" 2>&1)
+_rc=$?
 echo "$_output"
 
-# Extract bead IDs from the output and pipe to bd_post_close.sh
-if [ -x "$_POST_CLOSE" ]; then
-  echo "$_output" | REPO_ROOT="${REPO_ROOT:-}" "$_POST_CLOSE" || true
-else
-  echo "[bd-wrapper] WARN: bd_post_close.sh not found or not executable: $_POST_CLOSE" >&2
+# Only run post-close sync when bd close succeeded
+if [ "$_rc" -eq 0 ]; then
+  if [ -x "$_POST_CLOSE" ]; then
+    echo "$_output" | REPO_ROOT="${REPO_ROOT:-}" "$_POST_CLOSE" || true
+  else
+    echo "[bd-wrapper] WARN: bd_post_close.sh not found or not executable: $_POST_CLOSE" >&2
+  fi
 fi
+exit $_rc
 WRAPPER
 
   chmod +x "$WRAPPER_SRC"

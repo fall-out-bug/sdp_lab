@@ -241,7 +241,7 @@ func trackKeptOrUpdated(result *ArtifactResult, report *BootstrapReport) {
 
 // Status reports the current bootstrap state of the repository.
 func (p *Planner) Status() (*BootstrapStatus, error) {
-	existing := p.Collector.ExistingConfig()
+	_ = p.Collector.ExistingConfig()
 	avail := p.Collector.DataSourcesAvailable()
 
 	expected := []struct {
@@ -283,9 +283,24 @@ func (p *Planner) Status() (*BootstrapStatus, error) {
 		suggestions = append(suggestions, "Run 'sdp bootstrap <repo>' to generate missing files")
 	}
 
+	// Bootstrapped requires at least CLAUDE.md + one other required artifact
+	// (AGENTS.md, policies, or hooks). .beads is only counted when opted-in.
+	bootstrapped := false
+	var hasClaudeMD bool
+	var hasOtherRequired bool
+	for _, name := range existingFiles {
+		switch name {
+		case "CLAUDE.md":
+			hasClaudeMD = true
+		case "AGENTS.md", ".sdp/policies", ".claude/hooks", ".beads":
+			hasOtherRequired = true
+		}
+	}
+	bootstrapped = hasClaudeMD && hasOtherRequired
+
 	return &BootstrapStatus{
 		RepoPath:      p.Config.RepoPath,
-		Bootstrapped:  len(existing) >= 2, // at least CLAUDE.md + AGENTS.md
+		Bootstrapped:  bootstrapped,
 		ExistingFiles: existingFiles,
 		MissingFiles:  missingFiles,
 		DataSources:   avail,
