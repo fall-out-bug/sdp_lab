@@ -130,6 +130,10 @@ func OpenStore(dbPath string) (*SQLiteStore, error) {
 		db.Close()
 		return nil, fmt.Errorf("enable foreign keys: %w", err)
 	}
+	if _, err := db.Exec("PRAGMA busy_timeout=5000"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("set busy timeout: %w", err)
+	}
 
 	// Create schema
 	finalSQL := fmt.Sprintf(schemaSQL, SchemaVersion)
@@ -141,9 +145,10 @@ func OpenStore(dbPath string) (*SQLiteStore, error) {
 	return &SQLiteStore{db: db, path: dbPath}, nil
 }
 
-// Close closes the underlying database connection.
+// Close performs a WAL checkpoint and closes the underlying database connection.
 func (s *SQLiteStore) Close() {
 	if s.db != nil {
+		_, _ = s.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
 		s.db.Close()
 	}
 }
@@ -151,6 +156,23 @@ func (s *SQLiteStore) Close() {
 // DBPath returns the filesystem path to the database file.
 func (s *SQLiteStore) DBPath() string {
 	return s.path
+}
+
+// Begin starts a new database transaction.
+func (s *SQLiteStore) Begin() (*sql.Tx, error) {
+	return s.db.Begin()
+}
+
+// CommitTx commits a transaction and returns any error encountered.
+func CommitTx(tx *sql.Tx) error {
+	return tx.Commit()
+}
+
+// RollbackTx rolls back a transaction. Safe to call in defer blocks even
+// after commit (rollback of a committed tx is a no-op in most drivers,
+// but the error is silently discarded regardless).
+func RollbackTx(tx *sql.Tx) {
+	_ = tx.Rollback()
 }
 
 // SetMeta stores a key-value pair in the meta table.
@@ -505,6 +527,63 @@ func (s *SQLiteStore) ListIndexedFilePaths() ([]string, error) {
 	return paths, nil
 }
 
+// LoadFileHashMap returns a map of file_path -> hash for all indexed files.
+// This replaces separate ListIndexedFilePaths + GetFileMeta calls to avoid N+1 queries.
+func (s *SQLiteStore) LoadFileHashMap() (map[string]string, error) {
+	rows, err := s.db.Query("SELECT path, hash FROM files")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make(map[string]string)
+	for rows.Next() {
+		var p, h string
+		if err := rows.Scan(&p, &h); err != nil {
+			continue
+		}
+		result[p] = h
+	}
+	return result, nil
+}
+
+// LoadChunksByIDs retrieves multiple chunks by their IDs in a single query.
+// Returns a map of chunk ID -> Chunk. Missing IDs are silently omitted.
+func (s *SQLiteStore) LoadChunksByIDs(ids []int64) (map[int64]*Chunk, error) {
+	if len(ids) == 0 {
+		return map[int64]*Chunk{}, nil
+	}
+
+	// Build parameterized IN clause
+	placeholders := make([]string, len(ids))
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	query := fmt.Sprintf(`
+		SELECT id, file_path, symbol_name, kind, scope, language,
+			line_start, line_end, content, description, pagerank, hash
+		FROM chunks WHERE id IN (%s)`, strings.Join(placeholders, ","))
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[int64]*Chunk, len(ids))
+	for rows.Next() {
+		c := &Chunk{}
+		if err := rows.Scan(&c.ID, &c.FilePath, &c.SymbolName, &c.Kind, &c.Scope,
+			&c.Language, &c.LineStart, &c.LineEnd, &c.Content,
+			&c.Description, &c.PageRank, &c.Hash); err != nil {
+			continue
+		}
+		result[c.ID] = c
+	}
+	return result, nil
+}
+
 // CountChunks returns the total number of chunks in the index.
 func (s *SQLiteStore) CountChunks() (int, error) {
 	var count int
@@ -517,4 +596,82 @@ func (s *SQLiteStore) CountFiles() (int, error) {
 	var count int
 	err := s.db.QueryRow("SELECT COUNT(*) FROM files").Scan(&count)
 	return count, err
+}
+
+// InsertChunkTx inserts a chunk within an existing transaction.
+func InsertChunkTx(tx *sql.Tx, c Chunk) (int64, error) {
+	res, err := tx.Exec(`
+		INSERT INTO chunks (file_path, symbol_name, kind, scope, language,
+			line_start, line_end, content, description, pagerank, hash)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		c.FilePath, c.SymbolName, c.Kind, c.Scope, c.Language,
+		c.LineStart, c.LineEnd, c.Content, c.Description, c.PageRank, c.Hash)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+// InsertEdgeTx inserts an edge within an existing transaction.
+func InsertEdgeTx(tx *sql.Tx, e Edge) (int64, error) {
+	res, err := tx.Exec(`
+		INSERT INTO edges (source_id, target_id, relation, weight)
+		VALUES (?, ?, ?, ?)`, e.SourceID, e.TargetID, e.Relation, e.Weight)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+// UpsertFileMetaTx inserts or updates file metadata within an existing transaction.
+func UpsertFileMetaTx(tx *sql.Tx, fm FileMeta) error {
+	_, err := tx.Exec(`
+		INSERT OR REPLACE INTO files (path, hash, last_indexed, language, loc, is_test, is_generated)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		fm.Path, fm.Hash, fm.LastIndexed, fm.Language, fm.Loc, fm.IsTest, fm.IsGenerated)
+	return err
+}
+
+// SetMetaTx stores a key-value pair in the meta table within an existing transaction.
+func SetMetaTx(tx *sql.Tx, key, value string) error {
+	_, err := tx.Exec("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", key, value)
+	return err
+}
+
+// DeleteChunksByFileTx removes all chunks for a given file path within a transaction.
+func DeleteChunksByFileTx(tx *sql.Tx, filePath string) (int, error) {
+	res, err := tx.Exec("DELETE FROM chunks WHERE file_path = ?", filePath)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	return int(n), nil
+}
+
+// DeleteFileMetaTx removes file metadata by path within a transaction.
+func DeleteFileMetaTx(tx *sql.Tx, path string) error {
+	_, err := tx.Exec("DELETE FROM files WHERE path = ?", path)
+	return err
+}
+
+// BuildSymbolIDMap queries all chunks and returns a map from "file_path:symbol_name" to chunk ID.
+// This is used for resolving symbolic edges to ID-based edges after all chunks are inserted.
+func BuildSymbolIDMap(store *SQLiteStore) (map[string]int64, error) {
+	rows, err := store.db.Query("SELECT id, file_path, symbol_name FROM chunks WHERE symbol_name IS NOT NULL AND symbol_name != ''")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	m := make(map[string]int64)
+	for rows.Next() {
+		var id int64
+		var fp, sym string
+		if err := rows.Scan(&id, &fp, &sym); err != nil {
+			continue
+		}
+		key := fp + ":" + sym
+		m[key] = id
+	}
+	return m, nil
 }

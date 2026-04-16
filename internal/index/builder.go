@@ -423,17 +423,5 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 
 // buildIndexedFileMap returns a map of file_path -> hash from the files table.
 func buildIndexedFileMap(store *SQLiteStore) (map[string]string, error) {
-	paths, err := store.ListIndexedFilePaths()
-	if err != nil {
-		return nil, err
-	}
-	result := make(map[string]string, len(paths))
-	for _, p := range paths {
-		fm, err := store.GetFileMeta(p)
-		if err != nil {
-			continue
-		}
-		result[p] = fm.Hash
-	}
-	return result, nil
+	return store.LoadFileHashMap()
 }

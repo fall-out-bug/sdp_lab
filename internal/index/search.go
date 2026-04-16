@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 	"time"
 )
@@ -251,22 +252,28 @@ func rrfFuse(store *SQLiteStore, fts, vec []rankedItem, limit int) []SearchResul
 	}
 
 	// Sort by score descending
-	for i := 0; i < len(scoredItems); i++ {
-		for j := i + 1; j < len(scoredItems); j++ {
-			if scoredItems[j].score > scoredItems[i].score {
-				scoredItems[i], scoredItems[j] = scoredItems[j], scoredItems[i]
-			}
-		}
-	}
+	sort.Slice(scoredItems, func(i, j int) bool {
+		return scoredItems[i].score > scoredItems[j].score
+	})
 
 	if len(scoredItems) > limit {
 		scoredItems = scoredItems[:limit]
 	}
 
+	// Batch-load chunks to avoid N+1 queries
+	ids := make([]int64, len(scoredItems))
+	for i, item := range scoredItems {
+		ids[i] = item.id
+	}
+	chunkMap, err := store.LoadChunksByIDs(ids)
+	if err != nil {
+		return nil
+	}
+
 	results := make([]SearchResult, 0, len(scoredItems))
 	for _, item := range scoredItems {
-		chunk, err := store.GetChunk(item.id)
-		if err != nil {
+		chunk, ok := chunkMap[item.id]
+		if !ok {
 			continue
 		}
 		results = append(results, SearchResult{
@@ -279,15 +286,26 @@ func rrfFuse(store *SQLiteStore, fts, vec []rankedItem, limit int) []SearchResul
 }
 
 // expandRankedItems fetches full chunk data for ranked items and returns SearchResults.
+// Uses a single batch query instead of N individual GetChunk calls.
 func expandRankedItems(store *SQLiteStore, items []rankedItem, limit int, matchSrc string) []SearchResult {
 	if len(items) > limit {
 		items = items[:limit]
 	}
 
+	ids := make([]int64, len(items))
+	for i, item := range items {
+		ids[i] = item.chunkID
+	}
+
+	chunkMap, err := store.LoadChunksByIDs(ids)
+	if err != nil {
+		return nil
+	}
+
 	results := make([]SearchResult, 0, len(items))
 	for _, item := range items {
-		chunk, err := store.GetChunk(item.chunkID)
-		if err != nil {
+		chunk, ok := chunkMap[item.chunkID]
+		if !ok {
 			continue
 		}
 		results = append(results, SearchResult{
