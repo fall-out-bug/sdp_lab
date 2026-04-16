@@ -20,31 +20,25 @@ SDP — AI-управляемая платформа полного цикла �
 
 ## Start Here
 
-Use these entrypoints before diving into older plans or runbooks:
-
-1. [docs/reference/project-map.md](docs/reference/project-map.md) — project identity, source-of-truth split, read order
-2. [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md) — parent repo vs submodule workflow
-3. [docs/architecture/REPO-BOUNDARY.md](docs/architecture/REPO-BOUNDARY.md) — what belongs in `sdp_lab` vs `sdp`
-4. [docs/roadmap/ROADMAP.md](docs/roadmap/ROADMAP.md) — current platform-first direction
+**Read order is canonical in [docs/reference/project-map.md](docs/reference/project-map.md)** — там `## Read Order` и `## Source Of Truth Split`. Не дублируй тут.
 
 ## Cold Start For Development Agents
 
-If you enter this repo cold, answer these before doing real work:
+Перед реальной работой ответь:
 
-1. Am I changing `sdp_lab`, or am I actually being asked to adopt or publish through `sdp/`?
-2. Is the user asking for platform work, or for "use SDP in my project" onboarding?
-3. Which single `feature`, `workstream`, or `beads issue` owns this task?
-4. Which doc is canonical for this question, instead of a historical plan?
-5. Is this a Discovery-задача (исследование, council, spec) или Delivery-задача (реализация)?
+1. Я меняю `sdp_lab`, или задача на самом деле про `sdp/` (submodule)?
+2. Это platform work или «use SDP in my project» onboarding?
+3. Какая одна `feature` / `workstream` / `beads issue` владеет этой задачей?
+4. Какой doc — canonical для этого вопроса (не исторический план)?
+5. Это Discovery (исследование, council, spec) или Delivery (реализация)?
 
-Minimum first pass:
+Минимальный first pass:
 
 1. `git status --short --branch`
-2. read [docs/reference/project-map.md](docs/reference/project-map.md)
-3. if this is execution work, run `scripts/beads_transport.sh fetch` and `bd ready --json`
-4. if the request is about greenfield or brownfield SDP adoption, stop reading private-lab process docs and jump to [sdp/docs/QUICKSTART.md](sdp/docs/QUICKSTART.md)
-5. if the path starts with `sdp/`, read [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md) before editing anything
-6. прочитай [VISION.md](VISION.md) чтобы понять контекст системы
+2. прочитай [docs/reference/project-map.md](docs/reference/project-map.md)
+3. если это execution, запусти `scripts/beads_transport.sh fetch` и `bd ready --json`
+4. если запрос про greenfield / brownfield adoption — сразу в [sdp/docs/QUICKSTART.md](sdp/docs/QUICKSTART.md) (требует submodule init)
+5. если путь начинается с `sdp/`, прочитай [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md) перед правкой
 
 ## Project Structure
 

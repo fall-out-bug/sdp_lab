@@ -63,6 +63,73 @@ depends_on: []
 	}
 }
 
+func TestCheckConsistencyRootLevelBrokenLink(t *testing.T) {
+	root := t.TempDir()
+	mkdir(t, filepath.Join(root, "docs", "workstreams", "backlog"))
+	mkdir(t, filepath.Join(root, "docs", "workstreams"))
+	mkdir(t, filepath.Join(root, "docs", "roadmap"))
+
+	// Minimum workstream/roadmap scaffolding so ValidateProtocol does not fail.
+	write(t, filepath.Join(root, "docs", "workstreams", "INDEX.md"), `# Workstream Index
+
+| Feature | Description | Workstreams | Status |
+|---------|-------------|-------------|--------|
+| **F100** | Example | 00-100-01 | Backlog |
+
+## Workstream Status
+
+| WS | Feature | Title | Status |
+|----|---------|-------|--------|
+| 00-100-01 | F100 | Example | Backlog |
+`)
+
+	write(t, filepath.Join(root, "docs", "roadmap", "ROADMAP.md"), `# Roadmap
+
+- **F100** — Example
+`)
+
+	write(t, filepath.Join(root, "docs", "workstreams", "backlog", "00-100-01.md"), `---
+ws_id: 00-100-01
+feature_id: F100
+status: backlog
+priority: P1
+size: S
+depends_on: []
+---
+
+# 00-100-01: Example
+
+## Beads
+
+- sdplab-123: Example
+
+## Acceptance Criteria
+
+- [ ] Example AC
+`)
+
+	// Root-level README.md with broken link — must be caught.
+	write(t, filepath.Join(root, "README.md"), `# Root README
+
+See [broken](./does-not-exist.md) for details.
+`)
+
+	report, err := CheckConsistency(root, true)
+	if err != nil {
+		t.Fatalf("CheckConsistency error: %v", err)
+	}
+	var sawRoot bool
+	for _, i := range report.Issues {
+		if i.File == "README.md" && strings.Contains(i.Message, "does-not-exist.md") {
+			sawRoot = true
+			break
+		}
+	}
+	if !sawRoot {
+		t.Fatalf("expected broken link in root README.md to be reported, got: %+v", report.Issues)
+	}
+}
+
 func TestUpdateChangelog(t *testing.T) {
 	root := t.TempDir()
 	mkdir(t, filepath.Join(root, "docs"))
