@@ -9,8 +9,10 @@ SDP — AI-управляемая платформа полного цикла �
 реализуют через структурированные фазы и gates → фича задеплоена с доказательствами.
 
 Две первоклассные фазы:
-- **Discovery**: `sdp discover` / `sdp architect` / `llm-council` → spec + scope decision
+- **Discovery**: `sdp discover` + `llm-council` skill → spec + scope decision
 - **Delivery**: `agentloop` FSM (Discover→Plan→Build→Review→Eval) → PR + evidence
+
+Аналитические инструменты верхнего уровня (ортогонально фазам): `sdp architect` (C4 / структурный анализ), `sdp scout` (быстрая карта незнакомого репо), `sdp metrics` (git-derived process health), `sdp tower` (control plane). Эти команды не выводятся в `sdp --help`; сверяйся с `cmd/sdp/main.go`.
 
 Полный vision: [VISION.md](VISION.md)  
 Архитектура: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)  
@@ -97,17 +99,13 @@ This project has **two repos** with different roles:
 
 ## Issue Tracking (beads)
 
-```bash
-bd ready              # Find available work
-bd ready --json       # Find available work (JSON output)
-bd show <id>          # View issue details
-bd update <id> --status in_progress  # Claim work
-bd close <id> -r "reason"  # Complete work with reason
-scripts/beads_transport.sh fetch   # Restore Beads state before work
-scripts/beads_transport.sh export  # Publish Beads state after work
-```
+Full command reference — секция **"Issue Tracking with bd (beads)"** ниже в этом файле (auto-generated между `<!-- BEGIN BEADS INTEGRATION -->` / `<!-- END BEADS INTEGRATION -->`). Ту секцию не редактируй вручную — её обновляет генератор beads integration.
 
-`bd sync` is removed in `bd 0.61.0`. This repo uses `scripts/beads_transport.sh`, which prefers `bd dolt pull/push` when a real Dolt remote is configured and otherwise publishes an archival `bd export` snapshot through `origin/beads-backup` with plain git worktrees. In git-backup mode, `fetch` is intentionally a no-op.
+Canonical rules для этого репо (поверх стандартного bd workflow):
+
+- Claim атомарно: `bd update <id> --claim` (не `--status in_progress` — подвержен race в параллельной работе).
+- Create: `bd create --title="…" --description="…" --type=task|bug|feature --priority=0-4`.
+- Transport: **не** используй `bd sync` (удалён в 0.61.0). Используй `scripts/beads_transport.sh fetch` до работы и `scripts/beads_transport.sh export` перед финишем. Helper берёт `bd dolt pull/push`, если есть реальный Dolt-remote; иначе публикует архивный `bd export` snapshot через `origin/beads-backup`. В git-backup режиме `fetch` — no-op.
 
 ### Beads ↔ Workstream Sync
 
@@ -367,10 +365,10 @@ sdp-doc-sync --mode changelog --since HEAD~3..HEAD
 ## Execution Kernel: agentloop
 
 `internal/agentloop` — FSM для Delivery фазы. Phases: Discover → Plan → Build → Review → Eval.
-Запускается через `sdp-harness new/run`. Gates принудительны — FSM не переходит без прохождения gate.
+Запускается через `sdp-harness` (subcommands: `new`, `run`, `compile-lock`, `release`, `events`). Gates принудительны — FSM не переходит без прохождения gate.
 Production gateway (F106): подключается через `agentloop.ModelGateway` → LiveGateway → OpenRouter.
 
-Статус: логика завершена; нет production callers до завершения F106 (WS-01: LiveGateway).
+Статус: LiveGateway подключён и используется. F110 leaf sessions уже ходят через live dispatch claims (`internal/agentloop/livegw`). Для текущего состояния см. `cmd/sdp-harness/main.go` и свежие коммиты по F110/F111.
 
 Reference: [docs/phases/DELIVERY.md](docs/phases/DELIVERY.md)
 
@@ -437,7 +435,9 @@ The `@oneshot` skill uses `sdp-orchestrate` as the outer loop. Run it either way
 
 **"Продолжай F053"** = `go run ./cmd/sdp-orchestrate --feature F053 --next-action` (or `sdp-orchestrate --feature F053 --next-action`). Convention: "продолжай {feature}" means run the next action for that feature.
 
-**Status:** `go run ./cmd/sdp-orchestrate --feature F053 --status` (or `sdp status --feature F053`) — outputs pending workstreams, open beads count (`bd ready`), and next action. Use when checking "Проверь beads" or "Найди оставшиеся".
+**Status:** `go run ./cmd/sdp-orchestrate --feature F053 --status` (or `sdp-orchestrate --feature F053 --status`) — outputs pending workstreams, open beads count (`bd ready`), and next action. Use when checking "Проверь beads" or "Найди оставшиеся".
+
+> Note: `sdp status` (top-level CLI) принимает `<card-id>`, а не `--feature`. Для feature-level статуса используй `sdp-orchestrate --feature FXXX --status`.
 
 Example: `go run ./cmd/sdp-orchestrate --feature F053 --next-action`
 
@@ -460,9 +460,9 @@ Example: `go run ./cmd/sdp-orchestrate --feature F053 --next-action`
 | `docs/roadmap/ROADMAP.md` | Features F001-F013, phases, dependencies |
 | `docs/workstreams/INDEX.md` | All workstreams with status |
 | `docs/workstreams/backlog/00-XXX-YY.md` | Individual workstream: goal, scope, acceptance criteria |
-| `docs/plans/2026-02-22-dream-swarm-design.md` | Architecture decisions for the dream swarm |
 | `.beads-sdp-mapping.jsonl` | WS ID ↔ beads ID mapping |
 | `docs/MANIFESTO.md` | What SDP is and where it fits |
+| `docs/reference/project-map.md` | Canonical project entrypoint / SOT split |
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:full hash:d4f96305 -->
 ## Issue Tracking with bd (beads)

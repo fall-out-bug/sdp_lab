@@ -1,3 +1,39 @@
+# sdp_lab — Claude Code Project Instructions
+
+Этот файл — первый, что Claude Code подгружает при входе в репозиторий. Держи коротким; детали — в `AGENTS.md` и `docs/reference/project-map.md`.
+
+## Что это за репо
+
+`sdp_lab` — приватный build/planning workspace платформы SDP. Go-код, orchestration, evals, K8s-манифесты, roadmap. Публичные артефакты протокола (prompts, hooks, schemas) живут в submodule `sdp/`.
+
+Base branch: `main`. Легаси-имя Go-модуля (`sdp_dev` в `go.mod`) — это тот же репо.
+
+## Read Order (cold start)
+
+1. **`AGENTS.md`** — операторные правила, workflow, команды, политика редактирования
+2. **`docs/reference/project-map.md`** — canonical SOT split, входные точки
+3. **`docs/MULTI-REPO-WORKFLOW.md`** — когда задача трогает `sdp/` submodule
+4. **`docs/roadmap/ROADMAP.md`** — текущее продуктовое направление
+
+## Hard Rules
+
+- **Issue tracking — только beads (`bd`).** Не используй TodoWrite/markdown-TODO. Полная референс-секция — в `AGENTS.md`.
+- **Claim атомарно:** `bd update <id> --claim` (не `--status in_progress`).
+- **Session close:** `scripts/beads_transport.sh export` → `git push`. Работа не закончена, пока не запушена.
+- **sdp/ submodule** — отдельный git/CI. Перед редактированием `sdp/*` читай `docs/MULTI-REPO-WORKFLOW.md`.
+- **Submodule init:** клонируй с `--recurse-submodules` или запусти `git submodule update --init`. Иначе симлинки `.claude/agents`, `.claude/hooks`, пути `sdp/docs/*` ломаются.
+
+## Quality Gates (перед push)
+
+```bash
+./scripts/run_go_quality_gates.sh     # build + test + vet (контейнер)
+SDP_GO_QUALITY_MODE=host ./scripts/run_go_quality_gates.sh   # fallback без Docker
+```
+
+## Token-Optimized Shell (RTK)
+
+Все shell-команды префиксируй `rtk`. Подробности — в `AGENTS.md` (в конце через `@RTK.md`) и в `RTK.md`.
+
 <!-- rtk-instructions v2 -->
 # RTK (Rust Token Killer) - Token-Optimized Commands
 
