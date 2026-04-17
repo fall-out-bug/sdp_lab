@@ -54,7 +54,11 @@ Time budget overrides: "quick look"→scout only regardless of focus.
 
 ## Legacy Aliases
 
-@scout→quick, @architect/@metrics→standard, @spec/@index→deep, @landscape→standard/deep
+@scout → quick mode, @architect/@metrics → standard mode, @spec/@index → deep mode, @landscape → standard/deep mode
+
+## Embedded Practices
+
+**@guard:** Automatic quality gate via hooks. NOT a user-facing skill.
 
 ## Artifacts Created
 

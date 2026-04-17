@@ -59,7 +59,7 @@ Mode based on: (1) Context: PR merged?→deploy, CI red?→triage, insights gath
 
 ## Legacy Aliases
 
-@deploy→deploy mode, @ci-triage→triage mode, @plan→plan mode (NOT standalone planning session)
+@deploy → deploy mode, @ci-triage → triage mode, @plan → plan mode (NOT standalone planning session)
 
 **@guard:** Pre-deployment quality gate. All tests pass, no critical security findings, docs updated, rollback plan exists. Automatic via hooks — NOT a user-facing skill.
 

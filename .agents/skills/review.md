@@ -26,7 +26,7 @@ Absorbs: @review (all roles), @reality-check, @verify-workstream.
 
 PR ready for engineering review, before merging to main, architecture/security concerns, release readiness.
 
-## Review Dimensions
+## Modes
 
 **code (default):** Correctness, style, maintainability, error handling, test coverage, docs. For standard PRs.
 **architecture:** Design patterns, coupling/cohesion, scalability, integration points, tech debt. For structural changes.
@@ -37,26 +37,26 @@ PR ready for engineering review, before merging to main, architecture/security c
 
 ## Routing Rules
 
-Dimensions based on: (1) Diff size: small (<50 lines) → code only, large → multiple dimensions.
+Mode based on: (1) Diff size: small (<50 lines) → code only, large → multiple modes.
 (2) Risk profile: auth/system → security+architecture, UI → code+readiness.
-(3) Explicit request: `@review --security`, `@review --arch`, `@review --dimension readiness`.
+(3) Explicit request: `@review --security`, `@review --arch`, `@review --mode readiness`.
 (4) Context: production deployment? → readiness, new API? → security+performance.
-(5) Default: code dimension only unless context suggests otherwise.
+(5) Default: code mode only unless context suggests otherwise.
 
-**One skill, one entry point.** Dimensions are parameters, not separate skills.
+**One skill, one entry point.** Modes are parameters, not separate skills.
 
 ## Input Expectations
 
 - **Target:** PR URL, branch, or diff (required)
-- **Dimensions:** Optional — auto-detected from change type and risk profile. Override with `--dimension <name>`.
+- **Mode:** Optional — auto-detected from change type and risk profile. Override with `--mode <name>`.
 - **Severity threshold:** Optional — default warn on low/medium, block on critical/high. Override with `--severity <level>`.
-- **Context:** Production deployment? Breaking change? API change? Helps auto-select dimensions.
+- **Context:** Production deployment? Breaking change? API change? Helps auto-select modes.
 
 ## Legacy Aliases
 
-@review→code dimension, @review --arch→architecture dimension, @review --security→security dimension, @reality-check→reality dimension, @verify-workstream→readiness dimension.
+@review → code mode, @review --arch → architecture mode, @review --security → security mode, @reality-check → reality mode, @verify-workstream → readiness mode.
 
-All these route to ONE @review skill with dimension parameters.
+All these route to ONE @review skill with mode parameters.
 
 ## Severity Levels
 
@@ -65,9 +65,13 @@ All these route to ONE @review skill with dimension parameters.
 **medium (warn):** Style inconsistencies, minor performance issues, documentation gaps, tech debt. Track in backlog if persistent.
 **low (nit):** Formatting, naming suggestions, non-blocking optimizations. Optional improvements.
 
+## Embedded Practices
+
+**@guard:** Pre-commit quality gate runs automatically via hooks. NOT invoked manually.
+
 ## Artifacts Created
 
-**Pass/fail verdict** with findings by dimension and severity, blocking items list, non-blocking suggestions.
+**Pass/fail verdict** with findings by mode and severity, blocking items list, non-blocking suggestions.
 **For failures:** Beads issues created, specific remediation steps, re-review criteria.
 
 ## Acceptance Boundaries

@@ -40,7 +40,7 @@ Scope based on: (1) Request type: "Design..."→idea, "Implement..."→feature, 
 
 ## Input Expectations
 
-- **Requirement:** Clear description (1-3 sentences minimum)
+- **Requirement:** Clear description of what to build
 - **Context:** Design docs (optional), codebase context (auto-detected)
 - **Mode:** Optional — auto-detected from request language
 - **Acceptance criteria:** Optional — generated if not provided
@@ -52,6 +52,8 @@ Scope based on: (1) Request type: "Design..."→idea, "Implement..."→feature, 
 ## Embedded Practices
 
 **@tdd:** Test-first DEFAULT workflow. Write failing test → verify fails → implement → verify passes → refactor. NEVER skipped for production code. NOT a separate skill — embedded in @build and @fix.
+
+**@guard:** Pre-commit quality gate runs automatically via hooks. NOT invoked manually.
 
 **@go-modern:** Language style convention (documented in CLAUDE.md). Applied automatically during implementation. NOT a skill entry point.
 

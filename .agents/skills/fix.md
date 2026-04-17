@@ -45,7 +45,7 @@ Approach based on: (1) Severity: `--severity critical` → quick mode (fast path
 
 ## Legacy Aliases
 
-@hotfix→quick + critical, @bugfix→systematic, @issue→systematic + issue tracker, @debug→investigate
+@hotfix → quick mode, @bugfix → systematic mode, @issue → systematic mode + issue tracker, @debug → investigate mode
 
 ## Embedded Practices
 
