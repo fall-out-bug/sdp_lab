@@ -494,7 +494,7 @@ func TestHandleIndexDeps_HappyPath(t *testing.T) {
 	assert.False(t, result.IsError)
 	assert.Contains(t, mock.lastArgs, "internal/scout")
 	assert.Contains(t, mock.lastArgs, "--depth")
-	assert.Contains(t, mock.lastArgs, "1")
+	assert.Contains(t, mock.lastArgs, "3")
 }
 
 func TestHandleIndexDeps_Reverse(t *testing.T) {

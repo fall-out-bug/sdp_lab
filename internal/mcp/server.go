@@ -312,6 +312,9 @@ func (s *Server) handleIndexBuild(ctx context.Context, req mcp.CallToolRequest) 
 func (s *Server) registerIndexQuery() {
 	tool := mcp.NewTool("sdp_index_query",
 		mcp.WithDescription("Semantic search across the indexed codebase using full-text search."),
+		mcp.WithString("path",
+			mcp.Description("Repository root path (default: server --repo)"),
+		),
 		mcp.WithString("query",
 			mcp.Required(),
 			mcp.Description("Search query string"),
@@ -343,6 +346,9 @@ func (s *Server) handleIndexQuery(ctx context.Context, req mcp.CallToolRequest) 
 func (s *Server) registerIndexFind() {
 	tool := mcp.NewTool("sdp_index_find",
 		mcp.WithDescription("Fast symbol/keyword search in the indexed codebase."),
+		mcp.WithString("path",
+			mcp.Description("Repository root path (default: server --repo)"),
+		),
 		mcp.WithString("symbol",
 			mcp.Required(),
 			mcp.Description("Symbol or keyword to search for"),
@@ -380,6 +386,9 @@ func (s *Server) handleIndexFind(ctx context.Context, req mcp.CallToolRequest) (
 func (s *Server) registerIndexDeps() {
 	tool := mcp.NewTool("sdp_index_deps",
 		mcp.WithDescription("Dependency graph queries: forward or reverse dependency traversal."),
+		mcp.WithString("path",
+			mcp.Description("Repository root path (default: server --repo)"),
+		),
 		mcp.WithString("module",
 			mcp.Required(),
 			mcp.Description("Module path to query dependencies for"),
@@ -389,7 +398,7 @@ func (s *Server) registerIndexDeps() {
 			mcp.Enum("forward", "reverse"),
 		),
 		mcp.WithNumber("depth",
-			mcp.Description("Maximum traversal depth (default: 1)"),
+			mcp.Description("Maximum traversal depth (default: 3)"),
 		),
 	)
 	s.inner.AddTool(tool, s.handleIndexDeps)
@@ -402,7 +411,7 @@ func (s *Server) handleIndexDeps(ctx context.Context, req mcp.CallToolRequest) (
 	}
 	path := s.repoPath(req.GetString("path", ""))
 	direction := req.GetString("direction", "forward")
-	depth := req.GetInt("depth", 1)
+	depth := req.GetInt("depth", 3)
 
 	args := []string{"index", "deps", "--format", "json", "--depth", fmt.Sprintf("%d", depth)}
 	if direction == "reverse" {
@@ -421,7 +430,7 @@ func (s *Server) handleIndexDeps(ctx context.Context, req mcp.CallToolRequest) (
 
 func (s *Server) registerDispatch() {
 	tool := mcp.NewTool("sdp_dispatch",
-		mcp.WithDescription("Route a task to the best agent/model combination, or manage dispatch state."),
+		mcp.WithDescription("Route a task description to the best available agent based on the configured dispatch rules."),
 		mcp.WithString("task",
 			mcp.Description("Task description to route (for routing)"),
 		),

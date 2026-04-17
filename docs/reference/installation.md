@@ -213,10 +213,10 @@ Ask the AI agent to list available SDP tools. You should see these registered to
 Ask the agent:
 
 ```
-Run sdp_scout on this project.
+Run sdp_scout on this project with format=json.
 ```
 
-If the tool executes and returns a project card, the server is correctly configured and the `sdp` CLI is reachable.
+If the tool executes and returns a JSON project report, the server is correctly configured and the `sdp` CLI is reachable. To get a human-readable card instead, use `format=card`.
 
 ### Method 3: Version check from the harness
 
