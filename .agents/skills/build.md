@@ -28,9 +28,9 @@ Implementing features, creating designs, prototyping, user-facing work with acce
 
 ## Modes
 
-**idea:** Problem → design doc (no implementation). Output: design with requirements, approach.
-**feature:** Idea → design → implement → test → PR (full cycle). Output: complete feature with tests.
-**prototype:** Skip design, build quickly, mark experimental. Output: working prototype + TODO list.
+**idea:** Problem → design doc (no implementation). Output: design with requirements, approach, tradeoffs. For: "design a...", "how should we...", planning phase.
+**feature:** Idea → design → implement → test → PR (full cycle). Output: complete feature with tests. For: "implement...", "build...", "add...".
+**prototype:** Skip design, build quickly, mark experimental. Output: working prototype + TODO list. For: "prototype...", "quick mock...", "proof of concept".
 
 ## Routing Rules
 
@@ -51,7 +51,9 @@ Scope based on: (1) Request type: "Design..."→idea, "Implement..."→feature, 
 
 ## Embedded Practices
 
-**@tdd:** Test-first DEFAULT. Write test → fail → implement → pass → refactor. Never skip for production.
+**@tdd:** Test-first DEFAULT workflow. Write failing test → verify fails → implement → verify passes → refactor. NEVER skipped for production code. NOT a separate skill — embedded in @build and @fix.
+
+**@go-modern:** Language style convention (documented in CLAUDE.md). Applied automatically during implementation. NOT a skill entry point.
 
 ## Artifacts Created
 

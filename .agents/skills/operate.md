@@ -30,7 +30,7 @@ Deploying to production/staging, CI failures need investigation, system monitori
 
 **deploy:** Release prep and execution. Pre-deploy checks, rollback plan, deployment, smoke tests, monitoring verification.
 **triage:** CI failure diagnosis. Log analysis, test categorization (flaky/dep/env/code), CI health.
-**plan:** Convert insights to structured backlog. Workstream decomposition, beads issue creation, dependency mapping.
+**plan:** Convert insights to structured backlog. Workstream decomposition, beads issue creation, dependency mapping. Replaces standalone @plan skill.
 
 ## Routing Rules
 
@@ -43,15 +43,25 @@ Mode based on: (1) Context: PR merged?→deploy, CI red?→triage, insights gath
 
 **deploy:** Target environment, version/commit, release notes (optional), rollback plan (optional)
 **triage:** CI failure logs/job ID, failure description, recent changes context
-**plan:** Insights to organize, existing backlog (optional), timebox/scope constraints
+**plan:** Design docs, investigation findings, raw insights, existing backlog (optional), scope constraints
+
+## Plan Mode Details
+
+**Purpose:** Convert raw insights into structured backlog (replaces standalone @plan skill).
+
+**Inputs:** Design docs, investigation findings, architecture decisions, team notes, tech debt discoveries, feature requests.
+
+**Process:** Gather insights → identify work items → group into workstreams → create beads issues → assign priorities/sizes → map to SDP stages.
+
+**Outputs:** Workstream files, beads issues with dependencies, priority-ranked backlog, size estimates.
+
+**Not for:** Initial brainstorming (@build idea mode), understanding codebase (@understand).
 
 ## Legacy Aliases
 
 @deploy→deploy mode, @ci-triage→triage mode, @plan→plan mode (NOT standalone planning session)
 
-## Embedded Practices
-
-**@guard:** Pre-deployment quality gate. All tests pass, no critical security findings, docs updated, rollback plan exists.
+**@guard:** Pre-deployment quality gate. All tests pass, no critical security findings, docs updated, rollback plan exists. Automatic via hooks — NOT a user-facing skill.
 
 ## Artifacts Created
 

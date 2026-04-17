@@ -28,14 +28,13 @@ Known bugs with reproduction steps, test failures, CI breaks, production inciden
 
 ## Modes
 
-**quick:** Known cause, minimal change, instant PR. Output: minimal fix + regression test.
-**investigate:** Unknown cause, needs diagnosis. Output: root cause, reproduction steps, proposed fix.
-**systematic:** Known issue, planned fix with full investigation. Output: complete fix + tests + docs + RCA.
+**quick:** Known cause, minimal change, instant PR. Output: minimal fix + regression test. For: hotfixes, trivial bugs, known workarounds.
+**investigate:** Unknown cause, needs diagnosis. Output: root cause, reproduction steps, proposed fix. For: "debug this...", "why is...", unclear failures.
+**systematic:** Known issue, planned fix with full investigation. Output: complete fix + tests + docs + RCA. For: tracked issues, complex bugs, production incidents.
 
 ## Routing Rules
 
-Approach based on: (1) Severity: `--severity critical` → quick mode. (2) Known vs unknown cause.
-(3) Reproduction available? (4) User preference: "just fix it"→quick, "proper fix"→systematic.
+Approach based on: (1) Severity: `--severity critical` → quick mode (fast path to resolution). (2) Known vs unknown cause. (3) Reproduction available? (4) User preference: "just fix it"→quick, "proper fix"→systematic. (5) Issue tracking: beads issue exists?→systematic.
 
 ## Input Expectations
 
@@ -50,14 +49,18 @@ Approach based on: (1) Severity: `--severity critical` → quick mode. (2) Known
 
 ## Embedded Practices
 
-**@tdd:** Regression test BEFORE fix. Write failing test → verify fails → implement → verify passes → check regressions.
+**@tdd:** Regression test BEFORE fix. Write failing test → verify fails → implement → verify passes → check regressions. NOT a separate skill — embedded in @fix workflow.
+
+**@guard:** Pre-commit quality gate runs automatically via hooks. NOT invoked manually.
 
 ## Severity Levels
 
-**critical:** Production outage, data loss, security vuln, blocking all users.
-**high:** Major feature broken, significant user impact, CI completely blocked.
-**medium:** Single feature affected, workarounds available, partial CI failure.
-**low:** Minor issues, edge cases, nice-to-have.
+**critical:** Production outage, data loss, security vuln, blocking all users. Forces quick mode with minimal fix first.
+**high:** Major feature broken, significant user impact, CI completely blocked. Defaults to systematic unless urgency specified.
+**medium:** Single feature affected, workarounds available, partial CI failure. Mode based on context.
+**low:** Minor issues, edge cases, nice-to-have. Can backlog via @operate plan mode.
+
+**Severity as parameter:** `@fix --severity critical "production 500"`, `@fix --severity low "cosmetic issue"`
 
 ## Artifacts Created
 
