@@ -1,5 +1,5 @@
 ---
-name: review-readiness-mode
+name: review-readiness
 description: Extends @review with --mode readiness: verify-before-completion gate returning a structured JSON report.
 version: 1.0.0
 tags:

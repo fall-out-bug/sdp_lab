@@ -1,44 +1,44 @@
-# Skill Authoring — SDP Multi-Harness
+# Skill Authoring -- SDP Multi-Harness
 
-> **Audience:** Authors создающие новый SDP skill.
-> **Canonical location:** `.agents/skills/<name>.md` (multi-harness; см. `.agents/skills/README.md`).
+> **Audience:** Authors creating a new SDP skill.
+> **Canonical location:** `.agents/skills/<name>.md` (multi-harness; see `.agents/skills/README.md`).
 > **Policy source:** F127-03 (`docs/plans/2026-04-16-f127-multi-harness-modernization-design.md`).
 
 ## Why a policy
 
-SDP-skills должны одинаково работать во всех основных harness'ах (Claude Code, OpenCode, Cursor, Codex) без переписывания. Единый формат делает skill:
-- индексируемым (marketplace, lint, search);
-- версионируемым (semver → breaking changes видны);
-- переносимым между harness'ами без модификаций.
+SDP-skills must work identically in all major harnesses (Claude Code, OpenCode, Cursor, Codex) without rewriting. A unified format makes a skill:
+- indexable (marketplace, lint, search);
+- versionable (semver → breaking changes are visible);
+- portable between harnesses without modifications.
 
 ## File location
 
-**Канон:** `.agents/skills/<skill-name>.md`.
+**Canonical:** `.agents/skills/<skill-name>.md`.
 
-**Нельзя** класть реальные файлы в:
-- `skills/` (старый корневой каталог — зарезервирован под compat-симлинки);
-- `.claude/skills/` (симлинк на `.agents/skills/`);
-- `sdp/prompts/skills/` (submodule-publish путь — только для публикуемых артефактов, проходит через отдельный PR в `sdp` repo).
+**Do not** put real files in:
+- `skills/` (old root directory -- reserved for compat symlinks);
+- `.claude/skills/` (symlink to `.agents/skills/`);
+- `sdp/prompts/skills/` (submodule-publish path -- only for published artifacts, goes via separate PR to `sdp` repo).
 
-Имя файла — `<kebab-case>.md`, совпадает с `name:` во frontmatter.
+Filename is `<kebab-case>.md`, matches `name:` in frontmatter.
 
-## YAML Frontmatter — required
+## YAML Frontmatter -- required
 
 ```yaml
 ---
 name: short-kebab-name
-description: одно предложение, 60-120 символов, что делает skill
+description: one sentence, 60-120 characters, what the skill does
 version: 1.0.0
 ---
 ```
 
-| Поле | Обязательно | Правило |
-|------|-------------|---------|
-| `name` | да | kebab-case, совпадает с именем файла без расширения. Никаких пробелов, префиксов вроде `sdp-`. |
-| `description` | да | Одно предложение, 60-120 символов. Начинается с глагола или существительного, не «This is a skill that…». |
-| `version` | да | Semver. Стартуй с `1.0.0`. Breaking changes → bump major. Non-breaking content updates → bump patch/minor. |
+| Field | Required | Rule |
+|------|----------|------|
+| `name` | yes | kebab-case, matches filename without extension. No spaces, prefixes like `sdp-`. |
+| `description` | yes | One sentence, 60-120 characters. Starts with a verb or noun, not "This is a skill that…". |
+| `version` | yes | Semver. Start with `1.0.0`. Breaking changes → bump major. Non-breaking content updates → bump patch/minor. |
 
-## YAML Frontmatter — recommended
+## YAML Frontmatter -- recommended
 
 ```yaml
 compatibility:
@@ -46,19 +46,19 @@ compatibility:
   - opencode
   - cursor
   - codex
-requires_mcp: []           # список MCP-серверов если skill ожидает MCP-tools
-requires_cli: []           # список CLI-бинарей на PATH (sdp, bd, gh, …)
-tags: [discovery, review]  # свободные теги для поиска
+requires_mcp: []           # list of MCP servers if skill expects MCP-tools
+requires_cli: []           # list of CLI binaries on PATH (sdp, bd, gh, …)
+tags: [discovery, review]  # free tags for search
 ```
 
-| Поле | Когда указывать |
+| Field | When to specify |
 |------|-----------------|
-| `compatibility` | Всегда, кроме явно Claude-only skills. Список harness'ов, где skill протестирован. |
-| `requires_mcp` | Если skill ожидает конкретный MCP-сервер (например, `beads`, `claude-api`). Пустой массив = нет требований. |
-| `requires_cli` | CLI-бинари, без которых skill не запустится (пример: `[sdp, bd]`). |
-| `tags` | Для lint/search/marketplace индексации. |
+| `compatibility` | Always, except for explicitly Claude-only skills. List of harnesses where the skill is tested. |
+| `requires_mcp` | If skill expects a specific MCP server (e.g., `beads`, `claude-api`). Empty array = no requirements. |
+| `requires_cli` | CLI binaries without which the skill will not run (example: `[sdp, bd]`). |
+| `tags` | For lint/search/marketplace indexing. |
 
-## Body structure (рекомендуемый)
+## Body structure (recommended)
 
 ```markdown
 ---
@@ -68,52 +68,52 @@ version: 1.0.0
 compatibility: [claude-code, opencode, cursor, codex]
 ---
 
-# My Skill — <human-readable title>
+# My Skill -- <human-readable title>
 
 ## Purpose
-1-3 параграфа. Что делает, какой outcome.
+1-3 paragraphs. What it does, what outcome.
 
 ## Use When
-- bullet-list ситуаций, когда применять
-- и когда НЕ применять (anti-patterns)
+- bullet-list of situations when to apply
+- and when NOT to apply (anti-patterns)
 
 ## Inputs / Outputs
-Что skill ожидает на входе (context, файлы, args), что возвращает.
+What skill expects on input (context, files, args), what it returns.
 
 ## Process
-Шаги выполнения. Если >5 шагов — разбей на подсекции.
+Execution steps. If >5 steps -- break into subsections.
 
 ## References
-- связанные skills
+- related skills
 - design docs (docs/plans/YYYY-MM-DD-*.md)
-- внешние источники
+- external sources
 ```
 
-Не дублируй общие правила (beads rules, git workflow) — ссылкой на `AGENTS.md`.
+Do not duplicate common rules (beads rules, git workflow) -- reference `AGENTS.md`.
 
 ## Length limit
 
-По [ADR-007 `docs/decisions/007-skill-length-limit.md`](../decisions/007-skill-length-limit.md) целевая длина — ≤100 строк. Исключения (`llm-council.md`, ~330 строк) допустимы, если skill реально требует таблиц/протоколов. Если превысил — проверь, можно ли вынести детали в отдельный reference doc.
+Per [ADR-007 `docs/decisions/007-skill-length-limit.md`](../decisions/007-skill-length-limit.md) target length is ≤100 lines. Exceptions (`llm-council.md`, ~330 lines) are acceptable if the skill really requires tables/protocols. If exceeded -- check if details can be moved to a separate reference doc.
 
-## Harness-neutral прозе
+## Harness-neutral prose
 
-- **Не пиши** «In Claude Code, use the Task tool to…» — вместо этого «To dispatch a sub-agent, use your harness's native sub-agent mechanism (Task tool в Claude Code, `@agent` в OpenCode, и т. д.).».
-- **Не хардкодь** команды harness'а без обёртки «если этот harness применим».
-- **MCP-tools** указывай через `requires_mcp`, а не через «you need the Beads MCP server» в body.
+- **Do not write** "In Claude Code, use the Task tool to…" -- instead "To dispatch a sub-agent, use your harness's native sub-agent mechanism (Task tool in Claude Code, `@agent` in OpenCode, etc.).".
+- **Do not hardcode** harness commands without a wrapper "if this harness applies".
+- **MCP-tools** specify via `requires_mcp`, not "you need the Beads MCP server" in body.
 
 ## Versioning
 
 - Stable release skills: `1.x.y+`.
 - Experimental / draft: `0.x.y`.
-- Breaking change = новый major. Документируй breaking в body в `## Changelog` секции или вынеси в git history.
-- Для marketplace-подобного tooling (claudemarketplaces.com, будущий SDP registry) важны exactly semver-совместимые теги.
+- Breaking change = new major. Document breaking in body in `## Changelog` section or move to git history.
+- For marketplace-like tooling (claudemarketplaces.com, future SDP registry) exactly semver-compatible tags are important.
 
-## Example — minimal valid skill
+## Example -- minimal valid skill
 
 ```markdown
 ---
 name: repo-scout
-description: 30-second project card for unknown repo — file counts, languages, recent activity, primary build system.
+description: 30-second project card for unknown repo -- file counts, languages, recent activity, primary build system.
 version: 1.2.0
 compatibility: [claude-code, opencode, cursor, codex]
 requires_cli: [sdp]
@@ -137,26 +137,26 @@ Run `sdp scout .`; read `scout.json`; summarize for the user.
 
 ## Validation
 
-F127-08 добавил `sdp-protocol-check --lint-skills` — скан `.agents/skills/*.md`:
+F127-08 added `sdp-protocol-check --lint-skills` -- scan `.agents/skills/*.md`:
 
 ```bash
-# Локально
+# Locally
 go run ./cmd/sdp-protocol-check --lint-skills
 
-# JSON output для CI
+# JSON output for CI
 go run ./cmd/sdp-protocol-check --lint-skills --format json
 ```
 
 **Errors (exit code 2):**
-- отсутствует обязательный frontmatter-ключ `name`, `description` или `version`.
+- missing required frontmatter key `name`, `description` or `version`.
 
 **Warnings (exit code 0):**
-- отсутствует `compatibility` — skill не декларирует harness-переносимость.
-- `name` не совпадает с `<filename>.md` (kebab-case).
-- `description` вне окна 60-120 символов.
-- body содержит hardcoded harness-specific фразы (например, "In Claude Code,", "Use the Task tool", "Claude Code only").
+- missing `compatibility` -- skill does not declare harness-portability.
+- `name` does not match `<filename>.md` (kebab-case).
+- `description` outside 60-120 character window.
+- body contains hardcoded harness-specific phrases (e.g., "In Claude Code,", "Use the Task tool", "Claude Code only").
 
-В CI (`.github/workflows/ci.yml`, `consistency-gate` job) запускается non-blocking — findings пишутся в `.sdp/findings/sdp-skill-lint-*.json`.
+In CI (`.github/workflows/ci.yml`, `consistency-gate` job) runs non-blocking -- findings are written to `.sdp/findings/sdp-skill-lint-*.json`.
 
 ## References
 

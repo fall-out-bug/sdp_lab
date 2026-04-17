@@ -1,44 +1,50 @@
-# SDP Skills — Multi-Harness Skill Directory
+# SDP Skills -- Multi-Harness Skill Directory
 
-Канонический путь для SDP-skills, читаемый всеми основными agent-harness'ами.
+Canonical path for SDP-skills, read by all major agent harnesses.
 
-## Почему `.agents/skills/`
+## Why `.agents/skills/`
 
-На апрель 2026 `.agents/skills/` — единственная директория, которую **нативно читают**:
+As of April 2026 `.agents/skills/` is the only directory that is **natively read by**:
 
-| Harness | Путь, который harness сканирует |
+| Harness | Path that the harness scans |
 |---|---|
-| Claude Code | `.claude/skills/` (у нас симлинк → `.agents/skills/`) |
+| Claude Code | `.claude/skills/` (we have a symlink → `.agents/skills/`) |
 | OpenCode | `.agents/skills/` (native) + `.claude/skills/` (fallback) |
 | Cursor | `.agents/skills/` (native) + `.claude/skills/` (fallback) |
-| Codex CLI | читает через AGENTS.md + explicit path |
+| Codex CLI | reads via AGENTS.md + explicit path |
 
-См. [OpenCode Skills docs](https://opencode.ai/docs/skills/).
+See [OpenCode Skills docs](https://opencode.ai/docs/skills/).
 
 ## Layout
 
 ```
 sdp_lab/
-├── .agents/skills/           ← canonical source (здесь живут реальные файлы)
-│   ├── README.md             ← этот файл
+├── .agents/skills/           ← canonical source (real files live here)
+│   ├── README.md             ← this file
+│   ├── git-worktree.md
 │   ├── llm-council.md
+│   ├── parallel-dispatch.md
+│   ├── review-readiness.md
 │   └── strataudit.md
-├── skills/                   ← compat симлинки на .agents/skills/*.md
-│   ├── llm-council.md  →  ../.agents/skills/llm-council.md
-│   └── strataudit.md   →  ../.agents/skills/strataudit.md
-└── .claude/skills → ../.agents/skills   (весь каталог симлинкой)
+├── skills/                   ← compat symlinks → .agents/skills/*.md
+│   ├── git-worktree.md     → ../.agents/skills/git-worktree.md
+│   ├── llm-council.md      → ../.agents/skills/llm-council.md
+│   ├── parallel-dispatch.md → ../.agents/skills/parallel-dispatch.md
+│   ├── review-readiness.md → ../.agents/skills/review-readiness.md
+│   └── strataudit.md       → ../.agents/skills/strataudit.md
+└── .claude/skills → ../.agents/skills   (entire directory symlink)
 ```
 
-Старые пути (`skills/*.md` и `.claude/skills/*.md`) продолжают резолвиться — `.claude/commands.json` и ссылки в `docs/` не ломаются.
+Old paths (`skills/*.md` and `.claude/skills/*.md`) continue to resolve -- `.claude/commands.json` and links in `docs/` are not broken.
 
-## SKILL.md frontmatter (ожидается)
+## SKILL.md frontmatter (expected)
 
-YAML frontmatter обязательные поля:
+YAML frontmatter required fields:
 
 ```yaml
 ---
 name: short-kebab-name
-description: one-line что делает skill (60-120 символов)
+description: one-line what the skill does (60-120 characters)
 version: 1.0.0                # semver
 compatibility:                 # optional but recommended
   - claude-code
@@ -48,11 +54,11 @@ compatibility:                 # optional but recommended
 ---
 ```
 
-Полный гайд по авторингу: `docs/reference/skill-authoring.md` (F127-03).
+Full authoring guide: `docs/reference/skill-authoring.md` (F127-03).
 
-## Почему не `sdp/prompts/skills/`
+## Why not `sdp/prompts/skills/`
 
-`sdp/prompts/skills/` — submodule-publish путь для artifacts, которые релизятся в публичный `sdp` protocol repo. Внутренние build/lab skills лежат в `.agents/skills/`. Публикация — отдельным PR в submodule (см. `docs/MULTI-REPO-WORKFLOW.md`).
+`sdp/prompts/skills/` is the submodule-publish path for artifacts that are released to the public `sdp` protocol repo. Internal build/lab skills live in `.agents/skills/`. Publication is via a separate PR in the submodule (see `docs/MULTI-REPO-WORKFLOW.md`).
 
 ## References
 

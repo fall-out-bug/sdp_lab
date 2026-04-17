@@ -837,6 +837,7 @@ Hook реализовать как middleware вокруг tool dispatcher — �
 
 ### References
 
+- [The 2026 MCP Roadmap](https://blog.modelcontextprotocol.io/posts/2026-mcp-roadmap/) — priority areas: Transport Evolution, Agent Communication, Governance Maturation, Enterprise Readiness
 - [MCP Specification 2026-03-01 draft](https://modelcontextprotocol.io/specification/draft)
 - SEP-1932 DPoP (Demonstrating Proof-of-Possession) — draft
 - SEP-1933 Workload Identity Federation — draft
