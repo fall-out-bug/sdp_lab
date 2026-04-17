@@ -327,6 +327,11 @@ func (rc *ReadinessChecker) checkTODOs() CheckResult {
 func (rc *ReadinessChecker) addedMarkerLines(file string) []string {
 	cmd := exec.Command("git", "diff", "--unified=0", "main...HEAD", "--", file)
 	cmd.Dir = rc.ProjectRoot
+	// Prevent git from discovering repos above ProjectRoot.
+	// Without this, git may traverse up from a temp dir and find an
+	// enclosing repo, returning exit-0 with empty diff for an untracked
+	// file instead of failing — which skips the file-scan fallback.
+	cmd.Env = append(os.Environ(), "GIT_CEILING_DIRECTORIES="+rc.ProjectRoot)
 	out, err := cmd.Output()
 	if err != nil {
 		// Not a git repo or no diff available; fall back to scanning the file.
