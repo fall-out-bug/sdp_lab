@@ -9,7 +9,7 @@
 
 | Requirement | Minimum | Notes |
 |-------------|---------|-------|
-| Go | 1.24+ | Required to build `sdp-mcp` and the `sdp` CLI |
+| Go | 1.26+ | Required to build `sdp-mcp` and the `sdp` CLI |
 | Git | 2.30+ | Used by `sdp metrics` and `sdp scout` for repository analysis |
 | `sdp` CLI | built from this repo | `sdp-mcp` wraps the CLI, not the other way around |
 
@@ -151,11 +151,11 @@ Note the structural difference: VS Code uses `"servers"` (not `"mcpServers"`) an
 
 **Config locations:**
 
-- **Project-scoped:** `.opencode/opencode.json` in the project root.
+- **Project-scoped:** `opencode.json` in the project root.
 - **Global:** `~/.config/opencode/opencode.json`.
 
 ```jsonc
-// .opencode/opencode.json
+// opencode.json (project root)
 {
   "mcp": {
     "sdp": {
@@ -199,7 +199,7 @@ Ask the AI agent to list available SDP tools. You should see these registered to
 | `sdp_metrics` | Git-derived process health metrics |
 | `sdp_spec` | Specification recovery from code |
 | `sdp_bootstrap` | Generate agent-ready setup artifacts |
-| `sdp_index_build` | Build or refresh codebase index |
+| `sdp_index_build` | Build codebase index |
 | `sdp_index_query` | Semantic search across indexed codebase |
 | `sdp_index_find` | Fast symbol/keyword search |
 | `sdp_index_deps` | Dependency graph queries |
@@ -283,7 +283,7 @@ Only the following harnesses have verified MCP integration configs in this repos
 | Claude Code | `.mcp.json` (project) or `~/.claude.json` (user/local) | config only |
 | Cursor | `.cursor/mcp.json` | config only |
 | VS Code (Copilot) | `.vscode/mcp.json` | config only |
-| OpenCode | `.opencode/opencode.json` (project) or `~/.config/opencode/opencode.json` (global) | config only |
+| OpenCode | `opencode.json` (project root) or `~/.config/opencode/opencode.json` (global) | config only |
 
 Other MCP-capable clients may work with the `stdio` transport but are not tested. See [WS-04](../../docs/workstreams/backlog/00-126-04.md) for the cross-harness verification plan.
 
@@ -314,7 +314,7 @@ This section documents what the MCP layer can and cannot access, its security bo
 - **No network access.** The server communicates exclusively over stdio (JSON-RPC 2.0). No HTTP, no TCP, no DNS.
 - **No auth tokens.** The server does not store, read, or transmit authentication tokens, API keys, or credentials.
 - **No privilege escalation.** All tool handlers use `exec.Command` (same-user process spawn). No `sudo`, `doas`, `setuid`, or privilege-elevation mechanisms.
-- **No secrets exposure.** Resource handlers read only from `.sdp/` directory files. Files like `.env`, `credentials.json`, SSH keys, or any file outside `.sdp/` are not accessible through the MCP resource interface.
+- **No secrets exposure.** Resource handlers read only from `.sdp/` directory files. Files like `.env`, `credentials.json`, SSH keys, or any file outside `.sdp/` are not accessible through the MCP resource interface. If `.sdp/` itself is a symlink pointing outside the repository, the server will reject the read.
 - **No shell interpretation.** Tool arguments are passed to the CLI binary as individual arguments via `exec.Command(binary, args...)`. Shell metacharacters (`;`, `&&`, `|`, `$()`, etc.) are not expanded.
 
 ### stdio Transport Security Model

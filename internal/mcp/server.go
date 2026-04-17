@@ -289,7 +289,7 @@ func (s *Server) handleBootstrap(ctx context.Context, req mcp.CallToolRequest) (
 
 func (s *Server) registerIndexBuild() {
 	tool := mcp.NewTool("sdp_index_build",
-		mcp.WithDescription("Build or refresh the codebase index for semantic search and dependency queries."),
+		mcp.WithDescription("Build the codebase index for semantic search and dependency queries."),
 		mcp.WithString("path",
 			mcp.Description("Repository root path (default: server --repo)"),
 		),

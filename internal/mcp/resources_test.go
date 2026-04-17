@@ -648,3 +648,46 @@ func TestSecurity_Resources_SymlinkWithinSDP(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, realContent, textContent.Text)
 }
+
+// TestSecurity_Resources_SymlinkSDPItself verifies that if .sdp/ itself is a
+// symlink pointing outside the repository, the read is rejected.
+func TestSecurity_Resources_SymlinkSDPItself(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create an external directory with a fake .sdp-like structure.
+	outsideDir := t.TempDir()
+	outsideSDP := filepath.Join(outsideDir, ".sdp")
+	require.NoError(t, os.MkdirAll(outsideSDP, 0o755))
+
+	// Write a sensitive file in the external .sdp/.
+	sensitiveContent := "LEAKED_SECRET=should_never_be_exposed"
+	require.NoError(t, os.WriteFile(
+		filepath.Join(outsideSDP, "scout.json"),
+		[]byte(sensitiveContent),
+		0o644,
+	))
+
+	// Make .sdp/ inside tmpDir a symlink to the external .sdp/.
+	require.NoError(t, os.Symlink(outsideSDP, filepath.Join(tmpDir, ".sdp")))
+
+	srv := NewServer(ServerConfig{RepoRoot: tmpDir})
+
+	rd := resourceDef{
+		uri:      "sdp://scout",
+		relPath:  ".sdp/scout.json",
+		mimeType: "application/json",
+		hintTool: "sdp_scout",
+	}
+
+	req := mcp.ReadResourceRequest{
+		Params: mcp.ReadResourceParams{URI: "sdp://scout"},
+	}
+
+	contents, err := srv.handleFileResource(context.Background(), req, rd)
+	require.Error(t, err, ".sdp/ symlink pointing outside repo should be rejected")
+	assert.Nil(t, contents, ".sdp/ symlink escape should not return contents")
+	assert.Contains(t, err.Error(), "repository boundary",
+		"error should mention repository boundary violation")
+	assert.NotContains(t, err.Error(), sensitiveContent,
+		"error must not expose contents of external symlink target")
+}
