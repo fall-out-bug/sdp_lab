@@ -117,7 +117,9 @@ func TestCheckTODOsPass(t *testing.T) {
 	rc.ChangedFiles = []string{filepath.Join(root, "clean.go")}
 
 	// Write a file with no TODOs.
-	os.WriteFile(filepath.Join(root, "clean.go"), []byte("package main\n"), 0o644)
+	if err := os.WriteFile(filepath.Join(root, "clean.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatalf("write clean.go: %v", err)
+	}
 
 	result := rc.checkTODOs()
 	if result.Status != StatusPass {
@@ -130,7 +132,9 @@ func TestCheckTODOsFail(t *testing.T) {
 	rc := NewChecker(root)
 	rc.ChangedFiles = []string{filepath.Join(root, "dirty.go")}
 
-	os.WriteFile(filepath.Join(root, "dirty.go"), []byte("package main\n// TODO fix this\n"), 0o644)
+	if err := os.WriteFile(filepath.Join(root, "dirty.go"), []byte("package main\n// TODO fix this\n"), 0o644); err != nil {
+		t.Fatalf("write dirty.go: %v", err)
+	}
 
 	result := rc.checkTODOs()
 	if result.Status != StatusFail {
@@ -191,7 +195,9 @@ func TestCheckDocsArtifactsNoChangelog(t *testing.T) {
 func TestCheckDocsArtifactsStaleChangelog(t *testing.T) {
 	root := scaffoldProject(t)
 	// Write a CHANGELOG.md without today's date.
-	os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("# Changelog\n\n## 2020-01-01\n- old entry\n"), 0o644)
+	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("# Changelog\n\n## 2020-01-01\n- old entry\n"), 0o644); err != nil {
+		t.Fatalf("write CHANGELOG.md: %v", err)
+	}
 	rc := NewChecker(root)
 
 	result := rc.checkDocsArtifacts()
@@ -204,7 +210,9 @@ func TestCheckDocsArtifactsCurrentChangelog(t *testing.T) {
 	root := scaffoldProject(t)
 	today := time.Now().Format("2006-01-02")
 	content := "# Changelog\n\n## " + today + "\n- Updated something\n"
-	os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte(content), 0o644)
+	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte(content), 0o644); err != nil {
+		t.Fatalf("write CHANGELOG.md: %v", err)
+	}
 	rc := NewChecker(root)
 
 	result := rc.checkDocsArtifacts()
@@ -217,7 +225,9 @@ func TestCheckDocsArtifactsChangelogWithChangedFile(t *testing.T) {
 	root := scaffoldProject(t)
 	today := time.Now().Format("2006-01-02")
 	content := "# Changelog\n\n## " + today + "\n- Updated foo.go for clarity\n"
-	os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte(content), 0o644)
+	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte(content), 0o644); err != nil {
+		t.Fatalf("write CHANGELOG.md: %v", err)
+	}
 	rc := NewChecker(root)
 	rc.ChangedFiles = []string{"foo.go"}
 
@@ -231,7 +241,9 @@ func TestCheckDocsArtifactsChangelogMissingChangedFile(t *testing.T) {
 	root := scaffoldProject(t)
 	today := time.Now().Format("2006-01-02")
 	content := "# Changelog\n\n## " + today + "\n- Unrelated change\n"
-	os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte(content), 0o644)
+	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte(content), 0o644); err != nil {
+		t.Fatalf("write CHANGELOG.md: %v", err)
+	}
 	rc := NewChecker(root)
 	rc.ChangedFiles = []string{"bar.go"}
 
@@ -256,7 +268,9 @@ func TestCheckTODOsSkipWithoutContext(t *testing.T) {
 
 func TestCheckCoverageBaselineFile(t *testing.T) {
 	root := scaffoldProject(t)
-	os.WriteFile(filepath.Join(root, ".coverage-baseline"), []byte("50.0"), 0o644)
+	if err := os.WriteFile(filepath.Join(root, ".coverage-baseline"), []byte("50.0"), 0o644); err != nil {
+		t.Fatalf("write .coverage-baseline: %v", err)
+	}
 	rc := NewChecker(root)
 
 	baseline := rc.loadBaseline()
@@ -293,7 +307,9 @@ func scaffoldProject(t *testing.T) string {
 	root := t.TempDir()
 
 	// Minimal go.mod so go tools can function.
-	os.WriteFile(filepath.Join(root, "go.mod"), []byte("module test_proj\ngo 1.26\n"), 0o644)
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module test_proj\ngo 1.26\n"), 0o644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
 
 	// Minimal docs structure for docsync/workstream validation.
 	dirs := []string{

@@ -23,13 +23,6 @@ type FlakeReport struct {
 	IsFlaky   bool   `json:"is_flaky"`
 }
 
-// testResult captures the outcome of a single test execution from go test -json.
-type testResult struct {
-	Package string
-	Test    string
-	Action  string // "pass", "fail", "skip"
-}
-
 // DetectFlakes analyzes combined test output from multiple `go test` runs
 // and returns reports for tests that both passed and failed.
 //

@@ -1,10 +1,10 @@
 package docsync
 
 import (
-	"context"
 	"bufio"
 	"bytes"
 	"cmp"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -29,7 +29,7 @@ type ConsistencyReport struct {
 
 type FixAction struct {
 	File   string `json:"file"`
-	Fix    string `json:"fix"`    // "trailing-slash", "fence-tag", "relative-link"
+	Fix    string `json:"fix"` // "trailing-slash", "fence-tag", "relative-link"
 	Before string `json:"before"`
 	After  string `json:"after"`
 }
@@ -371,7 +371,6 @@ func FixTrailingSlashes(projectRoot string) ([]FixAction, []Issue, error) {
 			start int
 			end   int
 			new   string
-			fix   FixAction
 		}
 		var replacements []replace
 
@@ -500,10 +499,7 @@ func FixCodeFenceTags(projectRoot string) ([]FixAction, []Issue, error) {
 // isUntaggedFence reports whether line is an opening code fence with no language tag.
 func isUntaggedFence(line string) bool {
 	trimmed := strings.TrimRight(line, " \t")
-	if trimmed != "```" {
-		return false
-	}
-	return true
+	return trimmed == "```"
 }
 
 // inferCodeLanguage uses content heuristics to detect the programming language
@@ -596,7 +592,6 @@ func FixRelativeLinks(projectRoot string) ([]FixAction, []Issue, error) {
 			start int
 			end   int
 			new   string
-			fix   FixAction
 		}
 		var replacements []replace
 

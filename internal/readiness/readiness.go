@@ -44,10 +44,10 @@ type Report struct {
 
 // ReadinessChecker runs all readiness checks against a project root.
 type ReadinessChecker struct {
-	ProjectRoot    string
-	CoverageDelta  float64 // max allowed coverage regression in percentage points (default 2.0)
-	TestCommand    string  // override for test command (default "go test ./...")
-	ChangedFiles   []string // if non-nil, TODO check is scoped to these files
+	ProjectRoot   string
+	CoverageDelta float64  // max allowed coverage regression in percentage points (default 2.0)
+	TestCommand   string   // override for test command (default "go test ./...")
+	ChangedFiles  []string // if non-nil, TODO check is scoped to these files
 }
 
 // NewChecker returns a ReadinessChecker with sensible defaults.
@@ -350,24 +350,6 @@ func (rc *ReadinessChecker) addedMarkerLines(file string) []string {
 		}
 	}
 	return matches
-}
-
-// --- helpers ---
-
-func (rc *ReadinessChecker) trackedGoFiles() ([]string, error) {
-	cmd := exec.Command("git", "ls-files", "--", "*.go")
-	cmd.Dir = rc.ProjectRoot
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("git ls-files: %w", err)
-	}
-	var files []string
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		if line != "" {
-			files = append(files, line)
-		}
-	}
-	return files, nil
 }
 
 const defaultCoverageBaseline = 70.0
