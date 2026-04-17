@@ -245,27 +245,37 @@ func (p *Planner) Status() (*BootstrapStatus, error) {
 	avail := p.Collector.DataSourcesAvailable()
 
 	expected := []struct {
-		path string
-		name string
+		path       string
+		name       string
+		isDir      bool
 	}{
-		{"CLAUDE.md", "CLAUDE.md"},
-		{"AGENTS.md", "AGENTS.md"},
-		{".sdp/policies", ".sdp/policies"},
-		{".claude/hooks", ".claude/hooks"},
+		{"CLAUDE.md", "CLAUDE.md", false},
+		{"AGENTS.md", "AGENTS.md", false},
+		{".sdp/policies", ".sdp/policies", true},
+		{".claude/hooks", ".claude/hooks", true},
 	}
 
 	// Only count .beads when beads is opted-in.
 	if p.Config.Beads {
 		expected = append(expected, struct {
-			path string
-			name string
-		}{".beads", ".beads"})
+			path       string
+			name       string
+			isDir      bool
+		}{".beads", ".beads", true})
 	}
 
 	var existingFiles, missingFiles []string
 	for _, exp := range expected {
 		full := filepath.Join(p.Config.RepoPath, exp.path)
-		if _, err := os.Stat(full); err == nil {
+		present := false
+		if exp.isDir {
+			// For directory artifacts, only count if directory has files
+			present = dirHasFiles(full)
+		} else {
+			_, err := os.Stat(full)
+			present = err == nil
+		}
+		if present {
 			existingFiles = append(existingFiles, exp.name)
 		} else {
 			missingFiles = append(missingFiles, exp.name)
@@ -309,9 +319,16 @@ func (p *Planner) Status() (*BootstrapStatus, error) {
 }
 
 // planArtifact adds a planned artifact to the appropriate list (create/merge/skip).
+// For directory-based artifacts (hook, policy, beads), an empty directory
+// is treated as non-existent so bootstrap will generate files into it.
 func (p *Planner) planArtifact(plan *BootstrapPlan, artifactType, relPath, desc string) {
 	fullPath := filepath.Join(p.Config.RepoPath, relPath)
+
+	// For directory-based artifacts, only count as existing if the dir has files.
 	exists := pathExists(fullPath)
+	if exists && (artifactType == "hook" || artifactType == "policy" || artifactType == "beads") {
+		exists = dirHasFiles(fullPath)
+	}
 
 	artifact := PlannedArtifact{
 		Type:        artifactType,

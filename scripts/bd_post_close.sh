@@ -87,8 +87,15 @@ update_index() {
   local ws_id="${ws_file%.md}"  # e.g. "00-124-05"
   local feature_id
 
-  # Extract feature_id from the moved workstream file's frontmatter
-  feature_id=$(grep -m1 '^feature_id:' "${WS_DONE}/${ws_file}" 2>/dev/null | sed 's/feature_id:[[:space:]]*//' || true)
+  # Extract feature_id from the workstream file's frontmatter.
+  # In dry-run mode the file is still in backlog/; after move it's in done/.
+  local ws_src
+  if dry; then
+    ws_src="${WS_BACKLOG}/${ws_file}"
+  else
+    ws_src="${WS_DONE}/${ws_file}"
+  fi
+  feature_id=$(grep -m1 '^feature_id:' "$ws_src" 2>/dev/null | sed 's/feature_id:[[:space:]]*//' || true)
   if [ -z "$feature_id" ]; then
     warn "Cannot determine feature_id for ${ws_id}; skipping INDEX.md update"
     return 0
