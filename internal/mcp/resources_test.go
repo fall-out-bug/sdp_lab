@@ -81,7 +81,7 @@ func TestHandleFileResource_MissingArtifact(t *testing.T) {
 	require.Error(t, err, "missing artifact should return an error")
 	assert.Nil(t, contents)
 	assert.Contains(t, err.Error(), "resource not available")
-	assert.Contains(t, err.Error(), "call sdp_scout MCP tool to generate it")
+	assert.Contains(t, err.Error(), "generate it by running the corresponding CLI command")
 }
 
 func TestHandleFileResource_PartialArtifacts(t *testing.T) {
@@ -136,7 +136,7 @@ func TestHandleFileResource_PartialArtifacts(t *testing.T) {
 		require.Error(t, err, "missing artifact should return an error")
 		assert.Nil(t, contents)
 		assert.Contains(t, err.Error(), "resource not available")
-		assert.Contains(t, err.Error(), "call sdp_architect MCP tool to generate it")
+		assert.Contains(t, err.Error(), "generate it by running the corresponding CLI command")
 	})
 
 	t.Run("missing metrics resource returns error", func(t *testing.T) {
@@ -154,7 +154,7 @@ func TestHandleFileResource_PartialArtifacts(t *testing.T) {
 		require.Error(t, err, "missing artifact should return an error")
 		assert.Nil(t, contents)
 		assert.Contains(t, err.Error(), "resource not available")
-		assert.Contains(t, err.Error(), "call sdp_metrics MCP tool to generate it")
+		assert.Contains(t, err.Error(), "generate it by running the corresponding CLI command")
 	})
 
 	t.Run("missing spec resource returns error", func(t *testing.T) {
@@ -172,7 +172,7 @@ func TestHandleFileResource_PartialArtifacts(t *testing.T) {
 		require.Error(t, err, "missing artifact should return an error")
 		assert.Nil(t, contents)
 		assert.Contains(t, err.Error(), "resource not available")
-		assert.Contains(t, err.Error(), "call sdp_spec MCP tool to generate it")
+		assert.Contains(t, err.Error(), "generate it by running the corresponding CLI command")
 	})
 
 	t.Run("missing bootstrap resource returns error", func(t *testing.T) {

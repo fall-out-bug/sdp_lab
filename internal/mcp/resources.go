@@ -188,7 +188,7 @@ func (s *Server) handleFileResource(_ context.Context, req mcp.ReadResourceReque
 		if rd.forward {
 			return nil, fmt.Errorf("resource not available: %s — %s", rd.relPath, rd.hintTool)
 		}
-		return nil, fmt.Errorf("resource not available: %s not found — call %s MCP tool to generate it", rd.relPath, rd.hintTool)
+		return nil, fmt.Errorf("resource not available: %s not found — generate it by running the corresponding CLI command (MCP tools do not persist artifacts; see installation docs for details)", rd.relPath)
 	}
 	return []mcp.ResourceContents{
 		mcp.TextResourceContents{

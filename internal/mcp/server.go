@@ -430,9 +430,10 @@ func (s *Server) handleIndexDeps(ctx context.Context, req mcp.CallToolRequest) (
 
 func (s *Server) registerDispatch() {
 	tool := mcp.NewTool("sdp_dispatch",
-		mcp.WithDescription("Route a task description to the best available agent based on the configured dispatch rules."),
+		mcp.WithDescription("Route a task description to the appropriate agent using the project's dispatch configuration."),
 		mcp.WithString("task",
-			mcp.Description("Task description to route (for routing)"),
+			mcp.Description("Task description to route"),
+			mcp.Required(),
 		),
 	)
 	s.inner.AddTool(tool, s.handleDispatch)
