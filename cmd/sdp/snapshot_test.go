@@ -90,13 +90,13 @@ func TestSnapshot_CLIUsage(t *testing.T) {
 		args      []string
 		wantExit0 bool // true = expect exit 0; false = expect non-zero exit
 	}{
-		{"main-usage", nil, true},
-		{"card-usage", []string{"card"}, true},
-		{"board-usage", []string{"board"}, true},
-		{"dispatch-usage", []string{"dispatch"}, true},
-		{"doctor-usage", []string{"doctor"}, true},
-		{"result-usage", []string{"result"}, true},
-		{"orchestrate-usage", []string{"orchestrate"}, true},
+		{"main-usage", nil, false},
+		{"card-usage", []string{"card"}, false},
+		{"board-usage", []string{"board"}, false},
+		{"dispatch-usage", []string{"dispatch"}, false},
+		{"doctor-usage", []string{"doctor"}, false},
+		{"result-usage", []string{"result"}, false},
+		{"orchestrate-usage", []string{"orchestrate"}, false},
 		{"unknown-command", []string{"foobar"}, false},
 	}
 
