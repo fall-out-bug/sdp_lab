@@ -325,22 +325,19 @@ func (rc *ReadinessChecker) checkTODOs() CheckResult {
 // addedMarkerLines returns lines added in <file> that contain a TODO/FIXME/HACK
 // marker, derived from `git diff --unified=0 main...HEAD -- <file>`.
 func (rc *ReadinessChecker) addedMarkerLines(file string) []string {
+	// Only use git diff when ProjectRoot is actually a git repo (.git dir or file).
+	// Without this guard, git may traverse up from a temp dir, discover an
+	// unrelated repo, and return exit-0 with empty diff — silently skipping the
+	// file-scan fallback and producing false-negative results.
+	if _, err := os.Stat(filepath.Join(rc.ProjectRoot, ".git")); err != nil {
+		return rc.scanFileMarkers(file)
+	}
+
 	cmd := exec.Command("git", "diff", "--unified=0", "main...HEAD", "--", file)
 	cmd.Dir = rc.ProjectRoot
-	// Prevent git from discovering repos above ProjectRoot.
-	// Without this, git may traverse up from a temp dir and find an
-	// enclosing repo, returning exit-0 with empty diff for an untracked
-	// file instead of failing — which skips the file-scan fallback.
-	cmd.Env = append(os.Environ(), "GIT_CEILING_DIRECTORIES="+rc.ProjectRoot)
 	out, err := cmd.Output()
 	if err != nil {
-		// Not a git repo or no diff available; fall back to scanning the file.
-		path := filepath.Join(rc.ProjectRoot, file)
-		b, rerr := os.ReadFile(path)
-		if rerr != nil {
-			return nil
-		}
-		return todoRe.FindAllString(string(b), -1)
+		return rc.scanFileMarkers(file)
 	}
 
 	var matches []string
@@ -355,6 +352,16 @@ func (rc *ReadinessChecker) addedMarkerLines(file string) []string {
 		}
 	}
 	return matches
+}
+
+// scanFileMarkers reads a file and returns all TODO/FIXME/HACK markers.
+func (rc *ReadinessChecker) scanFileMarkers(file string) []string {
+	path := filepath.Join(rc.ProjectRoot, file)
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	return todoRe.FindAllString(string(b), -1)
 }
 
 const defaultCoverageBaseline = 70.0
