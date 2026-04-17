@@ -51,6 +51,8 @@ func NewServer(cfg ServerConfig) *Server {
 		ServerName,
 		ServerVersion,
 		mcpserver.WithToolCapabilities(true),
+		mcpserver.WithResourceCapabilities(true, true),
+		mcpserver.WithPromptCapabilities(true),
 	)
 
 	s := &Server{
@@ -60,6 +62,8 @@ func NewServer(cfg ServerConfig) *Server {
 	}
 
 	s.registerTools()
+	s.registerResources()
+	s.registerPrompts()
 	return s
 }
 

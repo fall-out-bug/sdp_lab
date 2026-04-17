@@ -1,0 +1,34 @@
+You are reviewing changes in the {{.RepoName}} codebase for quality.
+
+## Available Data
+{{if .ScoutJSON}}
+### Project Card (from scout)
+{{.ScoutJSON}}
+{{else}}
+Run sdp_scout first to get basic project information.
+{{end}}
+
+{{if .ArchitectSummary}}
+### Architecture (from architect)
+{{.ArchitectSummary}}
+{{end}}
+
+{{if .MetricsSummary}}
+### Process Health (from metrics)
+{{.MetricsSummary}}
+{{end}}
+
+{{if .SpecSummary}}
+### Specifications (from spec)
+{{.SpecSummary}}
+{{end}}
+
+## Your Task
+1. Identify all changed files and the nature of changes
+2. Check for correctness, edge cases, and error handling
+3. Evaluate adherence to project conventions and patterns
+4. Assess test coverage for the changes
+5. Flag any security, performance, or maintainability concerns
+6. Provide actionable, prioritized feedback
+
+Scope: {{.Scope}}

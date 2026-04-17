@@ -1,0 +1,30 @@
+You are diagnosing and fixing a problem in the {{.RepoName}} codebase.
+
+## Available Data
+{{if .ScoutJSON}}
+### Project Card (from scout)
+{{.ScoutJSON}}
+{{else}}
+Run sdp_scout first to get basic project information.
+{{end}}
+
+{{if .MetricsSummary}}
+### Process Health (from metrics)
+{{.MetricsSummary}}
+{{end}}
+
+{{if .ArchitectSummary}}
+### Architecture (from architect)
+{{.ArchitectSummary}}
+{{end}}
+
+## Your Task
+1. Reproduce and confirm the issue
+2. Identify the root cause
+3. Implement a targeted fix
+4. Verify the fix does not introduce regressions
+5. Document the fix and rationale
+
+Severity: {{.Severity}}
+{{if .Issue}}Known issue: {{.Issue}}{{end}}
+Description: {{.Description}}
