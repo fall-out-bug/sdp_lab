@@ -91,14 +91,14 @@ func TestRepoPathResolution(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Cross-harness consistency tests (WS-04)
+// Protocol consistency tests (WS-04)
 // ---------------------------------------------------------------------------
 //
 // These tests verify that the MCP protocol surface (tools, resources, prompts)
-// is identical regardless of which harness connects. Since MCP is a standard
-// protocol (JSON-RPC over stdio), every harness sees the same server. We prove
-// consistency by creating independent server instances and checking that their
-// surfaces are structurally identical.
+// is deterministic across independent server instances. They do NOT test actual
+// harness behavior (Claude Code, Cursor, VS Code, OpenCode). End-to-end
+// harness validation is a separate concern tracked as a deferred item in
+// WS-04 acceptance criteria and noted in installation.md.
 
 // expectedToolCount is the number of MCP tools the server must register.
 // Update this constant only when adding or removing a tool.
@@ -110,7 +110,7 @@ const expectedResourceCount = 8
 // expectedPromptCount is the number of MCP prompts the server must register.
 const expectedPromptCount = 5
 
-func TestCrossHarness_ToolSurfaceIsStable(t *testing.T) {
+func TestProtocolConsistency_ToolSurfaceIsStable(t *testing.T) {
 	// Create two independent servers and verify both register the same tools.
 	srv1 := NewServer(ServerConfig{RepoRoot: "."})
 	srv2 := NewServer(ServerConfig{RepoRoot: "."})
@@ -197,7 +197,7 @@ func TestCrossHarness_ToolSurfaceIsStable(t *testing.T) {
 	}
 }
 
-func TestCrossHarness_ResourceSurfaceIsConsistent(t *testing.T) {
+func TestProtocolConsistency_ResourceSurfaceIsConsistent(t *testing.T) {
 	// Create two servers with identical setups; verify they expose the same
 	// set of resources.
 	srv1 := NewServer(ServerConfig{RepoRoot: "."})
@@ -220,7 +220,7 @@ func TestCrossHarness_ResourceSurfaceIsConsistent(t *testing.T) {
 	}
 }
 
-func TestCrossHarness_PromptSurfaceIsConsistent(t *testing.T) {
+func TestProtocolConsistency_PromptSurfaceIsConsistent(t *testing.T) {
 	// All five prompts must be registered and respond identically for the
 	// same inputs.
 	tmpDir := t.TempDir()
@@ -294,7 +294,7 @@ func callPromptHandler(srv *Server, name string, req mcp.GetPromptRequest) (*mcp
 	}
 }
 
-func TestCrossHarness_ErrorFormatConsistency(t *testing.T) {
+func TestProtocolConsistency_ErrorFormatConsistency(t *testing.T) {
 	// All tool handlers must return errors in the same format:
 	//   - IsError = true
 	//   - Content[0] is TextContent
@@ -386,6 +386,8 @@ func callToolHandler(srv *Server, req mcp.CallToolRequest) (*mcp.CallToolResult,
 // ---------------------------------------------------------------------------
 // Performance budget tests (WS-04)
 // ---------------------------------------------------------------------------
+// Note: these measure protocol handler overhead using mock executors, not
+// real harness round-trips.
 
 func TestPerf_ToolCallOverhead(t *testing.T) {
 	// Measure the MCP overhead for a tool call (mock executor, no real I/O).

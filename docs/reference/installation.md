@@ -287,7 +287,7 @@ Only the following harnesses have verified MCP integration configs in this repos
 | VS Code (Copilot) | `.vscode/mcp.json` | config only |
 | OpenCode | `opencode.json` (project root) or `~/.config/opencode/opencode.json` (global) | config only |
 
-Other MCP-capable clients may work with the `stdio` transport but are not tested. See [WS-04](../../docs/workstreams/backlog/00-126-04.md) for the cross-harness verification plan.
+Other MCP-capable clients may work with the `stdio` transport but are not tested. See [WS-04](../../docs/workstreams/backlog/00-126-04.md) for the protocol consistency verification status and the deferred end-to-end harness testing plan.
 
 ## Related Documentation
 
