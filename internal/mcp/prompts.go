@@ -52,10 +52,10 @@ func (s *Server) collectAvailableData() promptData {
 	}
 
 	data.ScoutJSON = readFile(".sdp/scout.json")
-	data.ArchitectSummary = readFile(".sdp/architecture/report.json")
+	data.ArchitectSummary = readFile(".sdp/architect/report.json")
 	data.MetricsSummary = readFile(".sdp/metrics/report.json")
-	data.SpecSummary = readFile(".sdp/specs/report.json")
-	data.BootstrapSummary = readFile(".sdp/bootstrap-report.json")
+	data.SpecSummary = readFile(".sdp/specs/spec.json")
+	data.BootstrapSummary = readFile(".sdp/bootstrap/report.json")
 
 	return data
 }

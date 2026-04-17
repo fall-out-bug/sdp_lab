@@ -326,14 +326,14 @@ func TestPromptTemplate_MissingArtifacts(t *testing.T) {
 func TestPromptTemplate_WithAllArtifacts(t *testing.T) {
 	tmpDir := t.TempDir()
 	sdpDir := filepath.Join(tmpDir, ".sdp")
-	require.NoError(t, os.MkdirAll(filepath.Join(sdpDir, "architecture"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(sdpDir, "architect"), 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(sdpDir, "metrics"), 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(sdpDir, "specs"), 0o755))
 
 	require.NoError(t, os.WriteFile(filepath.Join(sdpDir, "scout.json"), []byte(`{"name":"full-project"}`), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(sdpDir, "architecture", "report.json"), []byte(`{"components":10}`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(sdpDir, "architect", "report.json"), []byte(`{"components":10}`), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(sdpDir, "metrics", "report.json"), []byte(`{"commits":500}`), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(sdpDir, "specs", "report.json"), []byte(`{"apis":25}`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(sdpDir, "specs", "spec.json"), []byte(`{"apis":25}`), 0o644))
 
 	srv := NewServer(ServerConfig{RepoRoot: tmpDir})
 

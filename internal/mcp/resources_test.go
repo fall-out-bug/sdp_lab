@@ -40,7 +40,7 @@ func TestHandleFileResource_HappyPath(t *testing.T) {
 		uri:      "sdp://manifest",
 		relPath:  ".sdp/manifest.md",
 		mimeType: "text/markdown",
-		hintTool: "sdp_index_build",
+		hintTool: "sdp_index_manifest",
 	}
 
 	req := mcp.ReadResourceRequest{
@@ -124,7 +124,7 @@ func TestHandleFileResource_PartialArtifacts(t *testing.T) {
 	t.Run("missing architect resource returns error", func(t *testing.T) {
 		rd := resourceDef{
 			uri:      "sdp://architect",
-			relPath:  ".sdp/architecture/report.json",
+			relPath:  ".sdp/architect/report.json",
 			mimeType: "application/json",
 			hintTool: "sdp_architect",
 		}
@@ -160,7 +160,7 @@ func TestHandleFileResource_PartialArtifacts(t *testing.T) {
 	t.Run("missing spec resource returns error", func(t *testing.T) {
 		rd := resourceDef{
 			uri:      "sdp://spec",
-			relPath:  ".sdp/specs/report.json",
+			relPath:  ".sdp/specs/spec.json",
 			mimeType: "application/json",
 			hintTool: "sdp_spec",
 		}
@@ -178,7 +178,7 @@ func TestHandleFileResource_PartialArtifacts(t *testing.T) {
 	t.Run("missing bootstrap resource returns error", func(t *testing.T) {
 		rd := resourceDef{
 			uri:      "sdp://bootstrap",
-			relPath:  ".sdp/bootstrap-report.json",
+			relPath:  ".sdp/bootstrap/report.json",
 			mimeType: "application/json",
 			hintTool: "sdp_bootstrap",
 		}
@@ -196,7 +196,7 @@ func TestHandleFileResource_PartialArtifacts(t *testing.T) {
 
 func TestHandleFileResource_NestedArtifact(t *testing.T) {
 	tmpDir := t.TempDir()
-	archDir := filepath.Join(tmpDir, ".sdp", "architecture")
+	archDir := filepath.Join(tmpDir, ".sdp", "architect")
 	require.NoError(t, os.MkdirAll(archDir, 0o755))
 
 	archContent := `{"components": 5, "quality": "good"}`
@@ -210,7 +210,7 @@ func TestHandleFileResource_NestedArtifact(t *testing.T) {
 
 	rd := resourceDef{
 		uri:      "sdp://architect",
-		relPath:  ".sdp/architecture/report.json",
+		relPath:  ".sdp/architect/report.json",
 		mimeType: "application/json",
 		hintTool: "sdp_architect",
 	}
@@ -574,7 +574,7 @@ func TestSecurity_Resources_SymlinkEscape_Nested(t *testing.T) {
 	))
 
 	// Create nested .sdp/architecture/ directory.
-	archDir := filepath.Join(tmpDir, ".sdp", "architecture")
+	archDir := filepath.Join(tmpDir, ".sdp", "architect")
 	require.NoError(t, os.MkdirAll(archDir, 0o755))
 
 	// Symlink the report to the sensitive file.
@@ -587,7 +587,7 @@ func TestSecurity_Resources_SymlinkEscape_Nested(t *testing.T) {
 
 	rd := resourceDef{
 		uri:      "sdp://architect",
-		relPath:  ".sdp/architecture/report.json",
+		relPath:  ".sdp/architect/report.json",
 		mimeType: "application/json",
 		hintTool: "sdp_architect",
 	}
