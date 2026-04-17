@@ -65,9 +65,11 @@ sdp-mcp --version
 The MCP server delegates tool execution to the `sdp` CLI binary. Build and install it:
 
 ```bash
-go build -o sdp ./cmd/sdp/      # or the appropriate entry point
-mv sdp /usr/local/bin/           # same PATH strategy as above
+go build -tags sqlite_fts5 -o sdp ./cmd/sdp/   # FTS5 tag required for index tools
+mv sdp /usr/local/bin/                          # same PATH strategy as above
 ```
+
+> **Why `-tags sqlite_fts5`?** The `sdp` CLI uses SQLite with the FTS5 (Full-Text Search 5) extension for index operations (`sdp index build`, `sdp index query`, `sdp index find`, `sdp index deps`). Without this build tag, the binary compiles but index tools will fail at runtime. The CI pipeline, Makefile, and quality gate scripts all use this tag.
 
 If `sdp` is installed under a different name or path, use the `--binary` flag when configuring `sdp-mcp`:
 
