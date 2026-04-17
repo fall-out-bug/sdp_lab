@@ -18,9 +18,11 @@ Mode note:
 - `Local Mode` may use skills without a full shared queue
 - full board-backed `Operator Mode` still depends on Beads-backed operational truth
 
-## The Five Intents (F125)
+## ⚡ Quick Start: The Five Intents (F125)
 
-SDP now uses **intent-based skills** instead of a flat skill list. The five intents are:
+**New to SDP?** Start here. SDP uses **intent-based skills** instead of a flat skill list.
+
+The five intents answer "what do you want to do?":
 
 1. **@understand** — "What is this codebase?" — Discovery, architecture, health, documentation
 2. **@build** — "Create something new" — Features, prototypes, designs with TDD
@@ -28,37 +30,48 @@ SDP now uses **intent-based skills** instead of a flat skill list. The five inte
 4. **@review** — "Is this good enough?" — Code, architecture, security, readiness
 5. **@operate** — "Keep it running" — Deploy, triage, backlog planning
 
+**That's it.** Five intents cover 90% of workflows. Each intent has modes for fine-tuned control.
+
 See `docs/plans/2026-04-13-sdp-skill-architecture-design.md` for the complete intent model.
 
-## Legacy Skill Mapping
+## ⚠️ Legacy Skill Mapping (Deprecated)
 
-Old skills have been absorbed into the five intents:
+> **STATUS:** Legacy skill names are deprecated (2026-04-17 → 2026-06-01).
+> **MIGRATION:** See `docs/reference/migration-guide.md` for complete migration guide.
+> **ACTION:** Use the five intents above — all legacy skills have 1:1 equivalents.
 
-| Old Skill | Routes To | Intent Mode |
-|-----------|-----------|-------------|
-| @scout | @understand | quick |
-| @architect | @understand | standard |
-| @metrics | @understand | standard |
-| @spec | @understand | deep |
-| @landscape | @understand | standard/deep |
-| @index query | @understand | deep |
-| @feature | @build | feature |
-| @idea | @build | idea |
-| @design | @build | idea |
-| @ux | @build | idea |
-| @vision | @build | idea |
-| @oneshot | @build | feature |
-| @prototype | @build | prototype |
-| @hotfix | @fix | quick |
-| @bugfix | @fix | systematic |
-| @issue | @fix | systematic |
-| @debug | @fix | investigate |
-| @review | @review | code |
-| @reality-check | @review | reality |
-| @verify-workstream | @review | readiness |
-| @deploy | @operate | deploy |
-| @ci-triage | @operate | triage |
-| @plan | @operate | plan |
+Old skills have been absorbed into the five intents. During the deprecation period, legacy names still work but will show warnings.
+
+| Old Skill | Routes To | Intent Mode | Deprecation Warning |
+|-----------|-----------|-------------|---------------------|
+| @scout | @understand | quick | Use `@understand` (auto-detects quick) |
+| @architect | @understand | standard | Use `@understand --mode standard` |
+| @metrics | @understand | standard | Use `@understand --mode standard` |
+| @spec | @understand | deep | Use `@understand --mode deep` |
+| @landscape | @understand | standard/deep | Use `@understand` (auto-detects depth) |
+| @index query | @understand | deep | Use `@understand --mode deep` |
+| @feature | @build | feature | Use `@build` (auto-detects feature) |
+| @idea | @build | idea | Use `@build --mode idea` |
+| @design | @build | idea | Use `@build --mode idea` |
+| @ux | @build | idea | Use `@build --mode idea` |
+| @vision | @build | idea | Use `@build --mode idea` |
+| @oneshot | @build | feature | Use `@build --mode feature` |
+| @prototype | @build | prototype | Use `@build --mode prototype` |
+| @hotfix | @fix | quick | Use `@fix` (auto-detects quick) |
+| @bugfix | @fix | systematic | Use `@fix --mode systematic` |
+| @issue | @fix | systematic | Use `@fix --mode systematic` |
+| @debug | @fix | investigate | Use `@fix --mode investigate` |
+| @reality-check | @review | reality | Use `@review --dimension reality` |
+| @verify-workstream | @review | readiness | Use `@review --dimension readiness` |
+| @deploy | @operate | deploy | Use `@operate --mode deploy` |
+| @ci-triage | @operate | triage | Use `@operate --mode triage` |
+| @plan | @operate | plan | Use `@operate --mode plan` |
+
+**Note:** `@review` is **not deprecated** — it's the primary intent. Only dimension-specific aliases (`@reality-check`, `@verify-workstream`) are deprecated.
+
+For the complete deprecation mapping and implementation guidance, see:
+- `docs/reference/migration-guide.md` — Full migration guide with examples
+- `.agents/skills/deprecated-aliases.md` — Machine-readable alias mapping
 
 ## Practices vs Skills
 
@@ -73,6 +86,8 @@ Some things are **NOT skills** — they're practices or policies that apply acro
 | @beads | All intents | Issue tracker (`bd` commands), not a skill |
 
 These are **not invoked** — they're embedded in how intents work.
+
+> **Migration note:** If you were using `@tdd` as a standalone skill, just use `@build` or `@fix` — test-first is now the default behavior. See `docs/reference/migration-guide.md`.
 
 ## Canonical Public Surface
 
