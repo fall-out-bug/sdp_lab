@@ -7,6 +7,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/in-toto/in-toto-golang v0.10.0
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
+	github.com/mark3labs/mcp-go v0.48.0
 	github.com/mattn/go-sqlite3 v1.14.34
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
@@ -57,6 +58,7 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/google/certificate-transparency-go v1.3.2 // indirect
 	github.com/google/go-containerregistry v0.20.7 // indirect
+	github.com/google/jsonschema-go v0.4.2 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.3 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
@@ -77,12 +79,14 @@ require (
 	github.com/sigstore/rekor-tiles/v2 v2.0.1 // indirect
 	github.com/sigstore/sigstore v1.10.0 // indirect
 	github.com/sigstore/timestamp-authority/v2 v2.0.3 // indirect
+	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/theupdateframework/go-tuf v0.7.0 // indirect
 	github.com/theupdateframework/go-tuf/v2 v2.3.0 // indirect
 	github.com/transparency-dev/formats v0.0.0-20251017110053-404c0d5b696c // indirect
 	github.com/transparency-dev/merkle v0.0.2 // indirect
+	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.mongodb.org/mongo-driver v1.17.6 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.38.0 // indirect

@@ -1,0 +1,29 @@
+You are analyzing the {{.RepoName}} codebase to build a comprehensive understanding.
+
+## Available Data
+{{if .ScoutJSON}}
+### Project Card (from scout)
+{{.ScoutJSON}}
+{{else}}
+Run sdp_scout first to get basic project information.
+{{end}}
+
+{{if .ArchitectSummary}}
+### Architecture (from architect)
+{{.ArchitectSummary}}
+{{end}}
+
+{{if .MetricsSummary}}
+### Process Health (from metrics)
+{{.MetricsSummary}}
+{{end}}
+
+## Your Task
+1. If any analysis data is missing for the requested depth, run the appropriate tools
+2. Synthesize findings into a coherent narrative
+3. Highlight the top 3 risks and top 3 strengths
+4. Generate actionable recommendations
+5. Suggest updates to .sdp/manifest.md if current understanding has changed
+
+Depth: {{.Depth}}
+{{if .Focus}}Focus area: {{.Focus}}{{end}}

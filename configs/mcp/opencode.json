@@ -1,0 +1,9 @@
+{
+  "mcp": {
+    "sdp": {
+      "type": "local",
+      "command": ["sdp-mcp", "--repo", "."],
+      "environment": {}
+    }
+  }
+}

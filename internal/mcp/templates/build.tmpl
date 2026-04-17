@@ -1,0 +1,28 @@
+You are building a new feature or component in the {{.RepoName}} codebase.
+
+## Available Data
+{{if .ScoutJSON}}
+### Project Card (from scout)
+{{.ScoutJSON}}
+{{else}}
+Run sdp_scout first to get basic project information.
+{{end}}
+
+{{if .ArchitectSummary}}
+### Architecture (from architect)
+{{.ArchitectSummary}}
+{{end}}
+
+{{if .SpecSummary}}
+### Specifications (from spec)
+{{.SpecSummary}}
+{{end}}
+
+## Your Task
+1. Understand the existing codebase structure and conventions
+2. Design the new feature to fit the existing architecture
+3. Follow existing patterns for testing, error handling, and documentation
+4. Ensure backward compatibility
+
+Scope: {{.Scope}}
+Description: {{.Description}}
