@@ -650,7 +650,7 @@ func TestSecurity_Resources_SymlinkWithinSDP(t *testing.T) {
 }
 
 // TestSecurity_Resources_SymlinkSDPItself verifies that if .sdp/ itself is a
-// symlink pointing outside the repository, the read is rejected.
+// symlink (even pointing to another directory inside the repo), the read is rejected.
 func TestSecurity_Resources_SymlinkSDPItself(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -684,10 +684,10 @@ func TestSecurity_Resources_SymlinkSDPItself(t *testing.T) {
 	}
 
 	contents, err := srv.handleFileResource(context.Background(), req, rd)
-	require.Error(t, err, ".sdp/ symlink pointing outside repo should be rejected")
-	assert.Nil(t, contents, ".sdp/ symlink escape should not return contents")
-	assert.Contains(t, err.Error(), "repository boundary",
-		"error should mention repository boundary violation")
+	require.Error(t, err, ".sdp/ symlink should be rejected")
+	assert.Nil(t, contents, ".sdp/ symlink should not return contents")
+	assert.Contains(t, err.Error(), "symlink",
+		"error should mention symlink rejection")
 	assert.NotContains(t, err.Error(), sensitiveContent,
-		"error must not expose contents of external symlink target")
+		"error must not expose contents of symlink target")
 }

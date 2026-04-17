@@ -15,6 +15,12 @@ import (
 // This prevents symlink-based path escapes where a symlink inside .sdp/ points
 // outside the repository (e.g. .sdp/scout.json -> ../../.env).
 func safeReadFile(repoRoot, relPath string) ([]byte, error) {
+	// Reject if .sdp/ itself is a symlink. Use Lstat which does not follow symlinks.
+	sdpRoot := filepath.Join(repoRoot, ".sdp")
+	if info, err := os.Lstat(sdpRoot); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		return nil, fmt.Errorf("resource path rejected: .sdp/ is a symlink; only real directories are accepted for security")
+	}
+
 	absPath := filepath.Join(repoRoot, relPath)
 
 	// Resolve all symlinks in the path.
@@ -23,23 +29,10 @@ func safeReadFile(repoRoot, relPath string) ([]byte, error) {
 		return nil, fmt.Errorf("resource not available: %s not found — symlink resolution failed: %w", relPath, err)
 	}
 
-	// Compute the expected .sdp/ root after symlink resolution.
-	sdpRoot := filepath.Join(repoRoot, ".sdp")
+	// Compute the expected .sdp/ root after symlink resolution for boundary check.
 	evalSdpRoot, err := filepath.EvalSymlinks(sdpRoot)
 	if err != nil {
-		// .sdp/ itself may not exist or contain symlinks; fall back to the
-		// lexical path.
 		evalSdpRoot = filepath.Clean(sdpRoot)
-	}
-
-	// Reject if .sdp/ itself is a symlink pointing outside repoRoot.
-	evalRepoRoot := filepath.Clean(repoRoot)
-	if repoRootEval, evalErr := filepath.EvalSymlinks(repoRoot); evalErr == nil {
-		evalRepoRoot = repoRootEval
-	}
-	if !strings.HasPrefix(filepath.Clean(evalSdpRoot), evalRepoRoot+string(filepath.Separator)) &&
-		filepath.Clean(evalSdpRoot) != evalRepoRoot {
-		return nil, fmt.Errorf("resource path escapes repository boundary: .sdp/ resolves to %s which is outside repo root %s", evalSdpRoot, evalRepoRoot)
 	}
 
 	// Verify the evaluated path is still under .sdp/.
@@ -191,7 +184,7 @@ func (s *Server) handleFileResource(_ context.Context, req mcp.ReadResourceReque
 		// Propagate security-relevant boundary errors as-is (they contain
 		// diagnostics about escape attempts). Wrap all other errors (file not
 		// found, etc.) with a hint about which tool to run.
-		if strings.Contains(err.Error(), "escapes .sdp/") || strings.Contains(err.Error(), "escapes repository boundary") {
+		if strings.Contains(err.Error(), "escapes .sdp/") || strings.Contains(err.Error(), "escapes repository boundary") || strings.Contains(err.Error(), "is a symlink") {
 			return nil, err
 		}
 		if rd.forward {

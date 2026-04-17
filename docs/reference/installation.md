@@ -330,7 +330,7 @@ The `sdp-mcp` server uses stdio transport: the parent process (the harness) spaw
 
 - Tool `path` parameters are passed verbatim to the CLI binary. The MCP server does not resolve, normalize, or validate paths.
 - Resource URIs use the `sdp://` scheme and are mapped to hardcoded relative paths under `.sdp/`. There is no mechanism for an MCP client to request arbitrary file paths through resources.
-- The `filepath.Join` in resource handlers combines the repo root with a fixed `.sdp/...` relative path. Even if the repo root is unusual, the resolved path is always within the `.sdp/` subtree of the configured repository.
+- Resource paths are hardcoded to `.sdp/...` relative paths. The server resolves symlinks and rejects any path that escapes the `.sdp/` subtree. If `.sdp/` itself is a symlink (even within the repo), the server rejects the read.
 
 ### Rate Limiting Considerations
 
