@@ -3,6 +3,8 @@
 !.sdp/pipeline-hooks.yaml.example
 !.sdp/policies/
 !.sdp/agent-constraints.yaml
+!.sdp/metrics/
+!.sdp/metrics/coverage.txt
 
 # opencode-mem storage
 .sdp/mem/
@@ -85,3 +87,5 @@ sdp-beads-bridge
 
 # Local RTK config
 .rtk/
+sdp-doc-sync
+sdp-doc-sync
