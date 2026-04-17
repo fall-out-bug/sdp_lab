@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "sdp": {
+      "type": "stdio",
+      "command": "sdp-mcp",
+      "args": ["--repo", "."],
+      "env": []
+    }
+  }
+}

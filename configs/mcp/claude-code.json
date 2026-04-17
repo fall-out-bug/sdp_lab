@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "sdp": {
+      "command": "sdp-mcp",
+      "args": ["--repo", "."],
+      "env": {
+        "SDP_LOG_LEVEL": "warn"
+      }
+    }
+  }
+}
