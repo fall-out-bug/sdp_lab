@@ -58,7 +58,7 @@ func NewServer(cfg ServerConfig) *Server {
 	s := &Server{
 		config:   cfg,
 		inner:    inner,
-		executor: &realExecutor{binaryPath: cfg.BinaryPath},
+		executor: &realExecutor{binaryPath: cfg.BinaryPath, workDir: cfg.RepoRoot},
 	}
 
 	s.registerTools()
@@ -130,11 +130,8 @@ func (s *Server) registerArchitect() {
 			mcp.Description("Repository root path (default: server --repo)"),
 		),
 		mcp.WithString("section",
-			mcp.Description("Analysis section: all, analyze, c4, render"),
-			mcp.Enum("all", "analyze", "c4", "render"),
-		),
-		mcp.WithBoolean("fast",
-			mcp.Description("Enable fast mode (skip expensive analysis steps)"),
+			mcp.Description("Output section filter: profile, report, model, diagrams, summary (default: all)"),
+			mcp.Enum("profile", "report", "model", "diagrams", "summary"),
 		),
 	)
 	s.inner.AddTool(tool, s.handleArchitect)
@@ -142,12 +139,11 @@ func (s *Server) registerArchitect() {
 
 func (s *Server) handleArchitect(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	path := s.repoPath(req.GetString("path", ""))
-	section := req.GetString("section", "analyze")
-	fast := req.GetBool("fast", false)
+	section := req.GetString("section", "")
 
-	args := []string{"architect", section, "--format", "json"}
-	if fast {
-		args = append(args, "--fast")
+	args := []string{"architect", "analyze", "--format", "json"}
+	if section != "" {
+		args = append(args, "--section", section)
 	}
 	args = append(args, path)
 
@@ -305,9 +301,6 @@ func (s *Server) registerIndexQuery() {
 		mcp.WithNumber("limit",
 			mcp.Description("Maximum number of results to return (default: 10)"),
 		),
-		mcp.WithString("kind",
-			mcp.Description("Filter by symbol kind (default: all)"),
-		),
 	)
 	s.inner.AddTool(tool, s.handleIndexQuery)
 }
@@ -414,9 +407,6 @@ func (s *Server) registerDispatch() {
 		mcp.WithString("task",
 			mcp.Description("Task description to route (for routing)"),
 		),
-		mcp.WithString("model",
-			mcp.Description("Preferred model override"),
-		),
 	)
 	s.inner.AddTool(tool, s.handleDispatch)
 }
@@ -426,16 +416,12 @@ func (s *Server) handleDispatch(ctx context.Context, req mcp.CallToolRequest) (*
 	// subcommands: route, limits, profile, bench, compare, status.
 	// For MCP, the primary use case is "route".
 	task := req.GetString("task", "")
-	model := req.GetString("model", "")
 
 	if task == "" {
 		return mcp.NewToolResultError("dispatch requires a 'task' parameter"), nil
 	}
 
-	args := []string{"route", "--task", task}
-	if model != "" {
-		args = append(args, "--model", model)
-	}
+	args := []string{"route", "--task", task, "--json"}
 
 	out, err := s.executor.RunCustom(ctx, "sdp-dispatch", args...)
 	if err != nil {
@@ -460,7 +446,7 @@ func (s *Server) registerBeadsCreate() {
 			mcp.Description("Issue type (task, bug, feature, epic)"),
 		),
 		mcp.WithNumber("priority",
-			mcp.Description("Priority level (1-5, where 1 is highest)"),
+			mcp.Description("Priority level (0-4, where 0 is highest)"),
 		),
 	)
 	s.inner.AddTool(tool, s.handleBeadsCreate)
@@ -482,8 +468,10 @@ func (s *Server) handleBeadsCreate(ctx context.Context, req mcp.CallToolRequest)
 	if typ := req.GetString("type", ""); typ != "" {
 		args = append(args, "--type", typ)
 	}
-	if priority := req.GetInt("priority", 0); priority > 0 {
-		args = append(args, "--priority", fmt.Sprintf("%d", priority))
+	if priority, ok := req.Params.Arguments.(map[string]interface{}); ok {
+		if p, exists := priority["priority"]; exists {
+			args = append(args, "--priority", fmt.Sprintf("%v", p))
+		}
 	}
 
 	out, execErr := s.executor.RunCustom(ctx, "bd", args...)
@@ -525,7 +513,7 @@ func (s *Server) registerBeadsList() {
 	tool := mcp.NewTool("sdp_beads_list",
 		mcp.WithDescription("List tracked issues (beads) with optional status and assignee filters."),
 		mcp.WithString("status",
-			mcp.Description("Filter by status (open, in-progress, closed)"),
+			mcp.Description("Filter by status (open, in_progress, closed)"),
 		),
 		mcp.WithString("assignee",
 			mcp.Description("Filter by assignee"),

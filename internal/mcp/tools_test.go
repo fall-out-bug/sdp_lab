@@ -1,5 +1,12 @@
 package mcp
 
+// NOTE: Tests in this file use a mock executor (mockExecutor) to verify MCP
+// tool handler logic — argument parsing, CLI invocation shape, and error
+// handling. Full integration tests that exercise the real CLI binaries (sdp,
+// sdp-dispatch, bd) are out of scope for this test suite because they require
+// building the full CLI toolchain and a valid git repository. Those tests
+// belong in cmd/sdp/, cmd/sdp-dispatch/, and the beads test suite respectively.
+
 import (
 	"context"
 	"fmt"
@@ -308,13 +315,13 @@ func TestHandleArchitect_HappyPath(t *testing.T) {
 	result, err := srv.handleArchitect(context.Background(), req)
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
-	// Default section is "analyze"
+	// Uses "analyze" subcommand
 	assert.Contains(t, mock.lastArgs, "analyze")
 	assert.Contains(t, mock.lastArgs, "--format")
 	assert.Contains(t, mock.lastArgs, "json")
 }
 
-func TestHandleArchitect_WithFast(t *testing.T) {
+func TestHandleArchitect_WithSection(t *testing.T) {
 	srv, mock := newTestServer()
 	mock.response = []byte(`{}`)
 
@@ -322,14 +329,15 @@ func TestHandleArchitect_WithFast(t *testing.T) {
 		Params: mcp.CallToolParams{
 			Name: "sdp_architect",
 			Arguments: map[string]interface{}{
-				"fast": true,
+				"section": "diagrams",
 			},
 		},
 	}
 
 	_, err := srv.handleArchitect(context.Background(), req)
 	require.NoError(t, err)
-	assert.Contains(t, mock.lastArgs, "--fast")
+	assert.Contains(t, mock.lastArgs, "--section")
+	assert.Contains(t, mock.lastArgs, "diagrams")
 }
 
 func TestHandleArchitect_Error(t *testing.T) {
@@ -554,24 +562,7 @@ func TestHandleDispatch_HappyPath(t *testing.T) {
 	assert.Equal(t, "sdp-dispatch", mock.lastBinary)
 	assert.Contains(t, mock.lastArgs, "route")
 	assert.Contains(t, mock.lastArgs, "refactor auth module")
-}
-
-func TestHandleDispatch_WithModel(t *testing.T) {
-	srv, mock := newTestServer()
-	mock.response = []byte(`{}`)
-
-	_, err := srv.handleDispatch(context.Background(), mcp.CallToolRequest{
-		Params: mcp.CallToolParams{
-			Name: "sdp_dispatch",
-			Arguments: map[string]interface{}{
-				"task":  "write tests",
-				"model": "claude-3",
-			},
-		},
-	})
-	require.NoError(t, err)
-	assert.Contains(t, mock.lastArgs, "--model")
-	assert.Contains(t, mock.lastArgs, "claude-3")
+	assert.Contains(t, mock.lastArgs, "--json")
 }
 
 func TestHandleDispatch_MissingTask(t *testing.T) {
@@ -631,6 +622,27 @@ func TestHandleBeadsCreate_Minimal(t *testing.T) {
 	assert.False(t, result.IsError)
 	assert.NotContains(t, mock.lastArgs, "--description")
 	assert.NotContains(t, mock.lastArgs, "--type")
+	assert.NotContains(t, mock.lastArgs, "--priority")
+}
+
+func TestHandleBeadsCreate_PriorityZero(t *testing.T) {
+	srv, mock := newTestServer()
+	mock.response = []byte("WS-44")
+
+	result, err := srv.handleBeadsCreate(context.Background(), mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name: "sdp_beads_create",
+			Arguments: map[string]interface{}{
+				"title":    "Critical issue",
+				"priority": float64(0),
+			},
+		},
+	})
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	// Priority 0 should be forwarded (it's the highest priority in bd)
+	assert.Contains(t, mock.lastArgs, "--priority")
+	assert.Contains(t, mock.lastArgs, "0")
 }
 
 func TestHandleBeadsCreate_MissingTitle(t *testing.T) {
@@ -766,7 +778,7 @@ func TestHandleBeadsList_Error(t *testing.T) {
 // --- Executor tests ---
 
 func TestRealExecutor_BinaryNotFound(t *testing.T) {
-	exec := &realExecutor{binaryPath: "nonexistent-binary-xyz"}
+	exec := &realExecutor{binaryPath: "nonexistent-binary-xyz", workDir: "."}
 	_, err := exec.Run(context.Background(), "test")
 	assert.Error(t, err)
 }
@@ -959,7 +971,7 @@ func TestSecurity_CommandInjection_BeadsCloseID(t *testing.T) {
 // exec.Command (same-user process spawn), not setuid, sudo, or anything
 // that would escalate privileges.
 func TestSecurity_NoPrivilegeEscalation(t *testing.T) {
-	exec := &realExecutor{binaryPath: "echo"}
+	exec := &realExecutor{binaryPath: "echo", workDir: "."}
 
 	// echo is a safe binary that exists on all systems.
 	out, err := exec.Run(context.Background(), "hello")

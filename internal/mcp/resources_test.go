@@ -463,15 +463,47 @@ func TestSecurity_Resources_CannotAccessOutsideSDP(t *testing.T) {
 		Params: mcp.ReadResourceParams{URI: "sdp://malicious"},
 	}
 
-	contents, err := srv.handleFileResource(context.Background(), req, maliciousRD)
-	require.NoError(t, err)
+	_, err := srv.handleFileResource(context.Background(), req, maliciousRD)
 
-	// The handler reads the file and returns its content. This demonstrates
-	// why all relPath values MUST start with ".sdp/":
-	// the defense is in the hardcoded staticResources table, not in the handler.
-	text := contents[0].(mcp.TextResourceContents).Text
-	assert.Equal(t, repoFileContent, text,
-		"handler read file outside .sdp/ — the staticResources table is the boundary")
+	// The handler now enforces the .sdp/ boundary as defense in depth.
+	// Even if a resource definition had a bad relPath, the handler would reject it.
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), ".sdp/ boundary",
+		"handler must reject resources outside .sdp/ boundary")
+}
+
+// TestSecurity_Resources_PathTraversal verifies that relPath with ../ cannot
+// escape the .sdp/ boundary.
+func TestSecurity_Resources_PathTraversal(t *testing.T) {
+	tmpDir := t.TempDir()
+	srv := NewServer(ServerConfig{RepoRoot: tmpDir})
+
+	traversalPaths := []struct {
+		name   string
+		relPath string
+	}{
+		{"dotdot", "../etc/passwd"},
+		{"nested_dotdot", ".sdp/../../etc/passwd"},
+		{"double_dotdot", "../../.env"},
+	}
+
+	for _, tc := range traversalPaths {
+		t.Run(tc.name, func(t *testing.T) {
+			maliciousRD := resourceDef{
+				uri:      "sdp://malicious",
+				relPath:  tc.relPath,
+				mimeType: "text/plain",
+				hintTool: "sdp_scout",
+			}
+
+			req := mcp.ReadResourceRequest{
+				Params: mcp.ReadResourceParams{URI: "sdp://malicious"},
+			}
+
+			_, err := srv.handleFileResource(context.Background(), req, maliciousRD)
+			require.Error(t, err, "path traversal %q should be rejected", tc.relPath)
+		})
+	}
 }
 
 // TestSecurity_Resources_FixedURIScheme verifies that resource URIs use the
