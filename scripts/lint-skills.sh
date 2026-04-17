@@ -34,6 +34,10 @@
 # The Go-based equivalent (for richer output):
 #   go run ./cmd/sdp-protocol-check --lint-skills
 #   go run ./cmd/sdp-protocol-check --lint-skills --format json
+#
+# Note: fm_value extracts only the first line of YAML values. Multi-line YAML values
+# (> or | syntax) are not fully supported. For full YAML validation, use the Go-based
+# sdp-protocol-check.
 
 set -euo pipefail
 

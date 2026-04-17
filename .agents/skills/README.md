@@ -1,4 +1,4 @@
-# SDP Skills — Multi-Harness Skill Directory
+# SDP Skills -- Multi-Harness Skill Directory
 
 Canonical path for SDP-skills, read by all major agent harnesses.
 
@@ -35,7 +35,7 @@ sdp_lab/
 └── .claude/skills → ../.agents/skills   (entire directory symlink)
 ```
 
-Old paths (`skills/*.md` and `.claude/skills/*.md`) continue to resolve — `.claude/commands.json` and links in `docs/` are not broken.
+Old paths (`skills/*.md` and `.claude/skills/*.md`) continue to resolve -- `.claude/commands.json` and links in `docs/` are not broken.
 
 ## SKILL.md frontmatter (expected)
 

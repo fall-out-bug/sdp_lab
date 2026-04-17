@@ -36,6 +36,8 @@ CLAUDE.md    AGENTS.md  .cursorrules  AGENTS.md
 | Cursor | `~/.local/bin/agent` (CLI) or IDE | `.cursorrules` (imports `AGENTS.md`) | `.agents/skills/` (native), `.cursor/rules/*.mdc` | Experimental, untested in dispatch |
 | Codex CLI | `/opt/homebrew/bin/codex` | `AGENTS.md` (native) | Via `AGENTS.md` + explicit path | Secondary, high reliability for edits |
 
+**Excluded:** Pi (Inflection) is not a coding assistant as of 2026.
+
 ## OpenCode Integration
 
 ### Quick start
@@ -265,7 +267,7 @@ To add support for a new coding-agent harness to SDP:
 - ColdStartStrategy: `capability-heuristic` (default), `round-robin`, `fallback-chain`.
 - Profile is considered stale after 30 days (warning on dispatch).
 
-Full design: `docs/OPENCODE_HARNESS_GATES_TELEMETRY_SPEC.md`.
+Full design: [OpenCode harness gates telemetry spec](../OPENCODE_HARNESS_GATES_TELEMETRY_SPEC.md).
 
 ## Common Troubleshooting
 
@@ -276,6 +278,7 @@ Full design: `docs/OPENCODE_HARNESS_GATES_TELEMETRY_SPEC.md`.
 | Claude Code does not see a skill | Symlink broken | `git submodule update --init`; check `.claude/skills/` target |
 | Cursor Agent hangs | Untested surface (April 2026) | Fallback to Claude Code |
 | Skills not found by any harness | `.agents/skills/` missing | Check that `.agents/skills/` exists and has real files, not dangling symlinks |
+| Dispatch routes target Pi | Legacy config | Remove Pi from profile; Pi is not a coding agent |
 
 ## References
 
