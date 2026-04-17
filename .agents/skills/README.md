@@ -19,14 +19,20 @@
 
 ```
 sdp_lab/
-├── .agents/skills/           ← canonical source (здесь живут реальные файлы)
-│   ├── README.md             ← этот файл
+├── .agents/skills/           <- canonical source (real files live here)
+│   ├── README.md             <- this file
+│   ├── git-worktree.md
 │   ├── llm-council.md
+│   ├── parallel-dispatch.md
+│   ├── review-readiness.md
 │   └── strataudit.md
-├── skills/                   ← compat симлинки на .agents/skills/*.md
-│   ├── llm-council.md  →  ../.agents/skills/llm-council.md
-│   └── strataudit.md   →  ../.agents/skills/strataudit.md
-└── .claude/skills → ../.agents/skills   (весь каталог симлинкой)
+├── skills/                   <- compat symlinks -> .agents/skills/*.md
+│   ├── git-worktree.md     -> ../.agents/skills/git-worktree.md
+│   ├── llm-council.md      -> ../.agents/skills/llm-council.md
+│   ├── parallel-dispatch.md -> ../.agents/skills/parallel-dispatch.md
+│   ├── review-readiness.md -> ../.agents/skills/review-readiness.md
+│   └── strataudit.md       -> ../.agents/skills/strataudit.md
+└── .claude/skills -> ../.agents/skills   (entire directory symlink)
 ```
 
 Старые пути (`skills/*.md` и `.claude/skills/*.md`) продолжают резолвиться — `.claude/commands.json` и ссылки в `docs/` не ломаются.
