@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestCheckReturnsAllChecks(t *testing.T) {
@@ -15,10 +16,10 @@ func TestCheckReturnsAllChecks(t *testing.T) {
 	rc := NewChecker(root)
 	report := rc.Check(context.Background())
 
-	if len(report.Checks) != 5 {
-		t.Fatalf("expected 5 checks, got %d", len(report.Checks))
+	if len(report.Checks) != 6 {
+		t.Fatalf("expected 6 checks, got %d", len(report.Checks))
 	}
-	expected := []string{"tests", "coverage", "docs", "orphans", "todos"}
+	expected := []string{"tests", "coverage", "docs", "docs-artifacts", "orphans", "todos"}
 	for i, name := range expected {
 		if report.Checks[i].Name != name {
 			t.Errorf("check[%d]: expected name %q, got %q", i, name, report.Checks[i].Name)
@@ -50,7 +51,7 @@ func TestReportSummaryAllPass(t *testing.T) {
 func TestReportToJSON(t *testing.T) {
 	report := Report{
 		Ready:   true,
-		Checks:  []CheckResult{{Name: "tests", Status: StatusPass, Detail: "1 tests passed"}},
+		Checks:  []CheckResult{{Name: "tests", Status: StatusPass, Detail: "1 packages passed"}},
 		Summary: "All checks pass",
 	}
 	raw := report.ToJSON()
@@ -155,6 +156,104 @@ func TestExtractCoveragePct(t *testing.T) {
 	}
 }
 
+func TestParseCoverageTotal(t *testing.T) {
+	tests := []struct {
+		input string
+		want  float64
+	}{
+		{"total:                                          (statements)            78.3%\n", 78.3},
+		{"total: (statements) 100%\n", 100.0},
+		{"total: (statements)   0.0%\n", 0.0},
+		{"no total line here", 0},
+		{"some/path/file.go:3:  Func  50.0%\ntotal: (statements)   84.5%\n", 84.5},
+	}
+	for _, tt := range tests {
+		got := parseCoverageTotal(tt.input)
+		if got != tt.want {
+			t.Errorf("parseCoverageTotal(%q) = %v, want %v", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestCheckDocsArtifactsNoChangelog(t *testing.T) {
+	root := scaffoldProject(t)
+	rc := NewChecker(root)
+
+	result := rc.checkDocsArtifacts()
+	if result.Status != StatusFail {
+		t.Errorf("expected fail when CHANGELOG.md missing, got %q", result.Status)
+	}
+	if result.Name != "docs-artifacts" {
+		t.Errorf("expected name 'docs-artifacts', got %q", result.Name)
+	}
+}
+
+func TestCheckDocsArtifactsStaleChangelog(t *testing.T) {
+	root := scaffoldProject(t)
+	// Write a CHANGELOG.md without today's date.
+	os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte("# Changelog\n\n## 2020-01-01\n- old entry\n"), 0o644)
+	rc := NewChecker(root)
+
+	result := rc.checkDocsArtifacts()
+	if result.Status != StatusFail {
+		t.Errorf("expected fail with stale changelog, got %q: %s", result.Status, result.Detail)
+	}
+}
+
+func TestCheckDocsArtifactsCurrentChangelog(t *testing.T) {
+	root := scaffoldProject(t)
+	today := time.Now().Format("2006-01-02")
+	content := "# Changelog\n\n## " + today + "\n- Updated something\n"
+	os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte(content), 0o644)
+	rc := NewChecker(root)
+
+	result := rc.checkDocsArtifacts()
+	if result.Status != StatusPass {
+		t.Errorf("expected pass with current changelog, got %q: %s", result.Status, result.Detail)
+	}
+}
+
+func TestCheckDocsArtifactsChangelogWithChangedFile(t *testing.T) {
+	root := scaffoldProject(t)
+	today := time.Now().Format("2006-01-02")
+	content := "# Changelog\n\n## " + today + "\n- Updated foo.go for clarity\n"
+	os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte(content), 0o644)
+	rc := NewChecker(root)
+	rc.ChangedFiles = []string{"foo.go"}
+
+	result := rc.checkDocsArtifacts()
+	if result.Status != StatusPass {
+		t.Errorf("expected pass with changed file in changelog, got %q: %s", result.Status, result.Detail)
+	}
+}
+
+func TestCheckDocsArtifactsChangelogMissingChangedFile(t *testing.T) {
+	root := scaffoldProject(t)
+	today := time.Now().Format("2006-01-02")
+	content := "# Changelog\n\n## " + today + "\n- Unrelated change\n"
+	os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte(content), 0o644)
+	rc := NewChecker(root)
+	rc.ChangedFiles = []string{"bar.go"}
+
+	result := rc.checkDocsArtifacts()
+	if result.Status != StatusFail {
+		t.Errorf("expected fail when changed file not in changelog, got %q: %s", result.Status, result.Detail)
+	}
+}
+
+func TestCheckTODOsSkipWithoutContext(t *testing.T) {
+	root := scaffoldProject(t)
+	rc := NewChecker(root)
+	// ChangedFiles is nil/empty — should skip.
+	result := rc.checkTODOs()
+	if result.Status != StatusPass {
+		t.Errorf("expected pass when no change context, got %q: %s", result.Status, result.Detail)
+	}
+	if !strings.Contains(result.Detail, "skipped") {
+		t.Errorf("expected skip message, got %q", result.Detail)
+	}
+}
+
 func TestCheckCoverageBaselineFile(t *testing.T) {
 	root := scaffoldProject(t)
 	os.WriteFile(filepath.Join(root, ".coverage-baseline"), []byte("50.0"), 0o644)
@@ -162,7 +261,18 @@ func TestCheckCoverageBaselineFile(t *testing.T) {
 
 	baseline := rc.loadBaseline()
 	if baseline != 50.0 {
-		t.Errorf("expected baseline 50.0, got %v", baseline)
+		t.Errorf("expected baseline 50.0 from local file, got %v", baseline)
+	}
+}
+
+func TestCheckCoverageBaselineDefault(t *testing.T) {
+	root := scaffoldProject(t)
+	// No .coverage-baseline file and git show won't have .sdp/metrics/coverage.txt.
+	rc := NewChecker(root)
+
+	baseline := rc.loadBaseline()
+	if baseline != defaultCoverageBaseline {
+		t.Errorf("expected default baseline %.1f, got %v", defaultCoverageBaseline, baseline)
 	}
 }
 

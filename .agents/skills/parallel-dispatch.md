@@ -1,6 +1,6 @@
 ---
 name: parallel-dispatch
-description: Harness-neutral pattern for dispatching independent subtasks to parallel subagents — decision tree, safety, and result aggregation.
+description: Harness-neutral parallel subtask dispatch — decision tree, safety guards, and result aggregation.
 version: 1.0.0
 tags:
   - orchestration

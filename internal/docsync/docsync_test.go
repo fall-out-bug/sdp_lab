@@ -1388,3 +1388,137 @@ func TestInferCodeLanguage(t *testing.T) {
 		})
 	}
 }
+
+// -----------------------------------------------------------------------
+// Regression tests for F125 fixes
+// -----------------------------------------------------------------------
+
+// TestFixRelativeLinks_SkipsUninitSubmodule verifies that FixRelativeLinks
+// does not attempt to resolve links into an uninitialized sdp/ submodule.
+func TestFixRelativeLinks_SkipsUninitSubmodule(t *testing.T) {
+	root := t.TempDir()
+	mkdir(t, filepath.Join(root, "docs"))
+	mkdir(t, filepath.Join(root, "sdp")) // empty dir = uninitialized submodule
+
+	write(t, filepath.Join(root, "docs", "guide.md"), `See [sdp docs](../sdp/docs/readme.md).`)
+
+	fixes, issues, err := FixRelativeLinks(root)
+	if err != nil {
+		t.Fatalf("FixRelativeLinks error: %v", err)
+	}
+	if len(fixes) != 0 {
+		t.Errorf("expected no fixes for submodule links, got %d: %+v", len(fixes), fixes)
+	}
+	for _, iss := range issues {
+		if strings.Contains(iss.Message, "sdp") {
+			t.Errorf("submodule link should be skipped, got issue: %+v", iss)
+		}
+	}
+}
+
+// TestDeduplicateIssues verifies that deduplicateIssues removes duplicates
+// while preserving order of first occurrence.
+func TestDeduplicateIssues(t *testing.T) {
+	issues := []Issue{
+		{Severity: "warning", File: "a.md", Message: "broken local link: ./x.md"},
+		{Severity: "warning", File: "a.md", Message: "broken local link: ./x.md"},
+		{Severity: "error", File: "b.md", Message: "broken local link: ./y.md"},
+		{Severity: "warning", File: "a.md", Message: "broken local link: ./x.md"},
+		{Severity: "error", File: "b.md", Message: "broken local link: ./z.md"},
+	}
+	deduped := deduplicateIssues(issues)
+	if len(deduped) != 3 {
+		t.Fatalf("expected 3 unique issues, got %d: %+v", len(deduped), deduped)
+	}
+	if deduped[0].Message != "broken local link: ./x.md" {
+		t.Errorf("first issue unexpected: %+v", deduped[0])
+	}
+	if deduped[1].Message != "broken local link: ./y.md" {
+		t.Errorf("second issue unexpected: %+v", deduped[1])
+	}
+	if deduped[2].Message != "broken local link: ./z.md" {
+		t.Errorf("third issue unexpected: %+v", deduped[2])
+	}
+}
+
+// TestDeduplicateIssues_Empty verifies dedup on empty and single-element slices.
+func TestDeduplicateIssues_Empty(t *testing.T) {
+	if got := deduplicateIssues(nil); len(got) != 0 {
+		t.Errorf("expected empty, got %d", len(got))
+	}
+	if got := deduplicateIssues([]Issue{}); len(got) != 0 {
+		t.Errorf("expected empty, got %d", len(got))
+	}
+	single := []Issue{{Severity: "warning", File: "a.md", Message: "msg"}}
+	if got := deduplicateIssues(single); len(got) != 1 {
+		t.Errorf("expected 1, got %d", len(got))
+	}
+}
+
+// TestFixConsistency_NoDuplicateUnresolved verifies that FixConsistency does not
+// produce duplicate unresolved issues for the same broken link.
+func TestFixConsistency_NoDuplicateUnresolved(t *testing.T) {
+	root := t.TempDir()
+	mkdir(t, filepath.Join(root, "docs"))
+	mkdir(t, filepath.Join(root, "docs", "workstreams", "backlog"))
+	mkdir(t, filepath.Join(root, "docs", "workstreams"))
+	mkdir(t, filepath.Join(root, "docs", "roadmap"))
+
+	// Minimal protocol scaffolding
+	write(t, filepath.Join(root, "docs", "workstreams", "INDEX.md"), `# Workstream Index
+
+| Feature | Description | Workstreams | Status |
+|---------|-------------|-------------|--------|
+| **F100** | Example | 00-100-01 | Backlog |
+
+## Workstream Status
+
+| WS | Feature | Title | Status |
+|----|---------|-------|--------|
+| 00-100-01 | F100 | Example | Backlog |
+`)
+
+	write(t, filepath.Join(root, "docs", "roadmap", "ROADMAP.md"), `# Roadmap
+
+- **F100** — Example
+`)
+
+	write(t, filepath.Join(root, "docs", "workstreams", "backlog", "00-100-01.md"), `---
+ws_id: 00-100-01
+feature_id: F100
+status: backlog
+priority: P1
+size: S
+depends_on: []
+---
+
+# 00-100-01: Example
+
+## Beads
+
+- sdplab-123: Example
+
+## Acceptance Criteria
+
+- [ ] Example AC
+`)
+
+	// A file with a broken link that will be reported by both FixRelativeLinks and CheckConsistency
+	write(t, filepath.Join(root, "docs", "guide.md"), `See [broken](./nonexistent.md).`)
+
+	report, err := FixConsistency(root, false)
+	if err != nil {
+		t.Fatalf("FixConsistency error: %v", err)
+	}
+
+	// Count occurrences of the broken link message
+	count := 0
+	for _, iss := range report.Unresolved {
+		if strings.Contains(iss.Message, "nonexistent.md") {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("expected exactly 1 unresolved issue for nonexistent.md, got %d: %+v", count, report.Unresolved)
+	}
+}

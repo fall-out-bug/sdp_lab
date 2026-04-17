@@ -314,7 +314,23 @@ func FixConsistency(projectRoot string, strict bool) (FixReport, error) {
 		}
 	}
 
+	report.Unresolved = deduplicateIssues(report.Unresolved)
+
 	return report, nil
+}
+
+// deduplicateIssues removes duplicate issues identified by (severity, file, message).
+func deduplicateIssues(issues []Issue) []Issue {
+	seen := make(map[string]bool)
+	result := make([]Issue, 0, len(issues))
+	for _, iss := range issues {
+		key := iss.Severity + "\x00" + iss.File + "\x00" + iss.Message
+		if !seen[key] {
+			seen[key] = true
+			result = append(result, iss)
+		}
+	}
+	return result
 }
 
 func issueAlreadyResolved(fixed []FixAction, issue Issue) bool {
@@ -600,6 +616,11 @@ func FixRelativeLinks(projectRoot string) ([]FixAction, []Issue, error) {
 			}
 
 			resolved := filepath.Clean(filepath.Join(filepath.Dir(path), linkPath))
+			// Links into the sdp/ submodule cannot be validated without submodule init.
+			// Skip them unless the submodule content is present.
+			if resolvedInUninitSubmodule(projectRoot, resolved) {
+				continue
+			}
 			if _, err := os.Stat(resolved); err == nil {
 				continue // link is valid
 			}
@@ -663,7 +684,7 @@ func findRenamedFile(projectRoot, relPath string) (string, error) {
 
 	// For each current markdown file, check if it was renamed from relPath using --follow.
 	for _, current := range currentFiles {
-		logOut, err := gitOutput(projectRoot, "log", "--follow", "--diff-filter=R", "--name-status", "--max-count=10", "--format=%H", "--", current)
+		logOut, err := gitOutput(projectRoot, "log", "--follow", "--diff-filter=R", "--name-status", "--max-count=100", "--format=%H", "--", current)
 		if err != nil || strings.TrimSpace(logOut) == "" {
 			continue
 		}

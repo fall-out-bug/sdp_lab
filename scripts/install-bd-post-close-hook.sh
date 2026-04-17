@@ -23,12 +23,21 @@ HOOK_SCRIPT="${SCRIPT_DIR}/hooks/post-bd-close-sync.sh"
 MARKER_BEGIN="# --- BEGIN BD POST-CLOSE HOOK ---"
 MARKER_END="# --- END BD POST-CLOSE HOOK ---"
 
+# Resolve the REAL bd binary path BEFORE defining the alias.
+# Using type -P avoids resolving the alias we are about to create.
+_BD_BIN="$(type -P bd 2>/dev/null || true)"
+if [[ -z "$_BD_BIN" ]]; then
+  _BD_BIN="$(which bd 2>/dev/null || true)"
+fi
+
 # The shell function that wraps bd
-read -r -d '' HOOK_FUNCTION <<'FUNC' || true
+read -r -d '' HOOK_FUNCTION <<FUNC || true
 _bd_with_post_close() {
-  local bd_bin
-  bd_bin="$(command -v bd 2>/dev/null)" || true
-  if [[ -z "$bd_bin" ]]; then
+  local bd_bin="\${_BD_BIN:-}"
+  if [[ -z "\$bd_bin" || ! -x "\$bd_bin" ]]; then
+    bd_bin="\$(type -P bd 2>/dev/null || true)"
+  fi
+  if [[ -z "\$bd_bin" ]]; then
     echo "bd: command not found" >&2
     return 127
   fi

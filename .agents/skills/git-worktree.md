@@ -1,6 +1,6 @@
 ---
 name: git-worktree
-description: Safety-first git worktree setup for parallel feature branches — directory selection, gitignore verification, baseline check, cleanup.
+description: Safety-first git worktree setup — directory selection, gitignore, baseline checks, and cleanup.
 version: 1.0.0
 tags:
   - git

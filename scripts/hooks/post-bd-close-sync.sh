@@ -72,7 +72,8 @@ resolve_ws_id() {
     for candidate in "$BACKLOG_DIR"/*.md; do
       [[ -f "$candidate" ]] || continue
       # Look for the beads issue ID in the Beads section of the workstream
-      if grep -q "^- ${issue_id}$" "$candidate" 2>/dev/null; then
+      # Match "- <issue_id>" or "- <issue_id>: ..."
+      if grep -q "^- ${issue_id}\(:\|$\)" "$candidate" 2>/dev/null; then
         ws_id="$(basename "$candidate" .md)"
         break
       fi
@@ -110,9 +111,9 @@ move_workstream() {
   mkdir -p "$DONE_DIR"
 
   # Update the status field in frontmatter before moving
+  # Match: open, in_progress, in-progress, backlog → done
   if command -v sed >/dev/null 2>&1; then
-    sed -i.bak 's/^status: open$/status: done/' "$src" 2>/dev/null && rm -f "${src}.bak" || true
-    sed -i.bak 's/^status: in_progress$/status: done/' "$src" 2>/dev/null && rm -f "${src}.bak" || true
+    sed -i.bak -E 's/^status: (open|in_progress|in-progress|backlog)$/status: done/' "$src" 2>/dev/null && rm -f "${src}.bak" || true
   fi
 
   mv "$src" "$dst"
