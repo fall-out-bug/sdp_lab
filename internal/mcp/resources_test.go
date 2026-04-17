@@ -40,7 +40,7 @@ func TestHandleFileResource_HappyPath(t *testing.T) {
 		uri:      "sdp://manifest",
 		relPath:  ".sdp/manifest.md",
 		mimeType: "text/markdown",
-		hintTool: "sdp_index_manifest",
+		hintTool: "sdp_index_build",
 	}
 
 	req := mcp.ReadResourceRequest{
@@ -81,7 +81,7 @@ func TestHandleFileResource_MissingArtifact(t *testing.T) {
 	require.Error(t, err, "missing artifact should return an error")
 	assert.Nil(t, contents)
 	assert.Contains(t, err.Error(), "resource not available")
-	assert.Contains(t, err.Error(), "sdp_scout")
+	assert.Contains(t, err.Error(), "run 'sdp <command>' via CLI to generate it")
 }
 
 func TestHandleFileResource_PartialArtifacts(t *testing.T) {
@@ -136,7 +136,7 @@ func TestHandleFileResource_PartialArtifacts(t *testing.T) {
 		require.Error(t, err, "missing artifact should return an error")
 		assert.Nil(t, contents)
 		assert.Contains(t, err.Error(), "resource not available")
-		assert.Contains(t, err.Error(), "sdp_architect")
+		assert.Contains(t, err.Error(), "run 'sdp <command>' via CLI to generate it")
 	})
 
 	t.Run("missing metrics resource returns error", func(t *testing.T) {
@@ -154,7 +154,7 @@ func TestHandleFileResource_PartialArtifacts(t *testing.T) {
 		require.Error(t, err, "missing artifact should return an error")
 		assert.Nil(t, contents)
 		assert.Contains(t, err.Error(), "resource not available")
-		assert.Contains(t, err.Error(), "sdp_metrics")
+		assert.Contains(t, err.Error(), "run 'sdp <command>' via CLI to generate it")
 	})
 
 	t.Run("missing spec resource returns error", func(t *testing.T) {
@@ -172,7 +172,7 @@ func TestHandleFileResource_PartialArtifacts(t *testing.T) {
 		require.Error(t, err, "missing artifact should return an error")
 		assert.Nil(t, contents)
 		assert.Contains(t, err.Error(), "resource not available")
-		assert.Contains(t, err.Error(), "sdp_spec")
+		assert.Contains(t, err.Error(), "run 'sdp <command>' via CLI to generate it")
 	})
 
 	t.Run("missing bootstrap resource returns error", func(t *testing.T) {
@@ -181,6 +181,7 @@ func TestHandleFileResource_PartialArtifacts(t *testing.T) {
 			relPath:  ".sdp/bootstrap/report.json",
 			mimeType: "application/json",
 			hintTool: "sdp_bootstrap",
+			forward:  true,
 		}
 		req := mcp.ReadResourceRequest{
 			Params: mcp.ReadResourceParams{URI: "sdp://bootstrap"},
@@ -190,7 +191,7 @@ func TestHandleFileResource_PartialArtifacts(t *testing.T) {
 		require.Error(t, err, "missing artifact should return an error")
 		assert.Nil(t, contents)
 		assert.Contains(t, err.Error(), "resource not available")
-		assert.Contains(t, err.Error(), "sdp_bootstrap")
+		assert.Contains(t, err.Error(), "future CLI enhancement")
 	})
 }
 
@@ -260,6 +261,7 @@ func TestHandleFileResource_DynamicIndexResources(t *testing.T) {
 			relPath:  ".sdp/index/modules.json",
 			mimeType: "application/json",
 			hintTool: "sdp_index_build",
+			forward:  true,
 		}
 		req := mcp.ReadResourceRequest{
 			Params: mcp.ReadResourceParams{URI: "sdp://index/modules"},
@@ -283,6 +285,7 @@ func TestHandleFileResource_DynamicIndexResources(t *testing.T) {
 			relPath:  ".sdp/index/modules.json",
 			mimeType: "application/json",
 			hintTool: "sdp_index_build",
+			forward:  true,
 		}
 		req := mcp.ReadResourceRequest{
 			Params: mcp.ReadResourceParams{URI: "sdp://index/modules"},
@@ -292,7 +295,7 @@ func TestHandleFileResource_DynamicIndexResources(t *testing.T) {
 		require.Error(t, err, "missing index modules should return an error")
 		assert.Nil(t, contents)
 		assert.Contains(t, err.Error(), "resource not available")
-		assert.Contains(t, err.Error(), "sdp_index_build")
+		assert.Contains(t, err.Error(), "future CLI enhancement")
 	})
 
 	t.Run("index stats happy path", func(t *testing.T) {
@@ -313,6 +316,7 @@ func TestHandleFileResource_DynamicIndexResources(t *testing.T) {
 			relPath:  ".sdp/index/stats.json",
 			mimeType: "application/json",
 			hintTool: "sdp_index_build",
+			forward:  true,
 		}
 		req := mcp.ReadResourceRequest{
 			Params: mcp.ReadResourceParams{URI: "sdp://index/stats"},
@@ -336,6 +340,7 @@ func TestHandleFileResource_DynamicIndexResources(t *testing.T) {
 			relPath:  ".sdp/index/stats.json",
 			mimeType: "application/json",
 			hintTool: "sdp_index_build",
+			forward:  true,
 		}
 		req := mcp.ReadResourceRequest{
 			Params: mcp.ReadResourceParams{URI: "sdp://index/stats"},
@@ -345,7 +350,7 @@ func TestHandleFileResource_DynamicIndexResources(t *testing.T) {
 		require.Error(t, err, "missing index stats should return an error")
 		assert.Nil(t, contents)
 		assert.Contains(t, err.Error(), "resource not available")
-		assert.Contains(t, err.Error(), "sdp_index_build")
+		assert.Contains(t, err.Error(), "future CLI enhancement")
 	})
 }
 

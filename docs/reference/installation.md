@@ -1,7 +1,7 @@
 # SDP MCP Server -- Installation and Configuration
 
 > **Scope:** building, installing, and configuring the `sdp-mcp` MCP server for supported AI coding harnesses.
-> **Tested matrix:** Claude Code, Cursor, VS Code (Copilot), OpenCode.
+> **Tested matrix:** Config formats verified; end-to-end harness testing pending.
 
 ---
 
@@ -84,7 +84,8 @@ Reference configuration files live in `configs/mcp/` in the repository. Copy or 
 **Config locations:**
 
 - **Project-scoped (shared):** `.mcp.json` in the project root. This is the recommended location because it can be checked into version control and shared with the team.
-- **User-scoped:** `.claude/settings.json` (project-local) or `~/.claude/settings.json` (global). Use this for personal preferences.
+- **Local-scoped:** Stored in `~/.claude.json` under the project's path. Private to you and the current project.
+- **User-scoped:** `~/.claude.json`. Available across all projects, private to your user account.
 
 ```jsonc
 // .mcp.json (project-scoped, recommended)
@@ -148,22 +149,26 @@ Note the structural difference: VS Code uses `"servers"` (not `"mcpServers"`) an
 
 ### OpenCode
 
-**Config location:** `.opencode.json` in the project root, or `~/.opencode.json` globally.
+**Config locations:**
+
+- **Project-scoped:** `.opencode.json` in the project root.
+- **Global:** `~/.opencode.json` or `~/.config/opencode/.opencode.json` (XDG).
 
 ```jsonc
 // .opencode.json
 {
-  "mcp": {
+  "mcpServers": {
     "sdp": {
-      "type": "local",
-      "command": ["sdp-mcp", "--repo", "."],
-      "environment": {}
+      "type": "stdio",
+      "command": "sdp-mcp",
+      "args": ["--repo", "."],
+      "env": []
     }
   }
 }
 ```
 
-OpenCode uses a `mcp` object (not `mcpServers`) with `"type": "local"` and `"command"` as an array. The `"environment"` field is an object for env vars.
+OpenCode uses `mcpServers` (same key as Claude Code) with `"type": "stdio"`, `"command"` as a string, and `"args"` as an array. The `"env"` field is a string array of `KEY=VALUE` pairs.
 
 **Reference config:** [`configs/mcp/opencode.json`](../../configs/mcp/opencode.json)
 
@@ -276,10 +281,10 @@ Only the following harnesses have verified MCP integration configs in this repos
 
 | Harness | Config Format | Verified |
 |---------|---------------|----------|
-| Claude Code | `.mcp.json` (project) or `.claude/settings.json` (user) | config only |
+| Claude Code | `.mcp.json` (project) or `~/.claude.json` (user/local) | config only |
 | Cursor | `.cursor/mcp.json` | config only |
 | VS Code (Copilot) | `.vscode/mcp.json` | config only |
-| OpenCode | `.opencode.json` | config only |
+| OpenCode | `.opencode.json` (project) or `~/.opencode.json` (global) | config only |
 
 Other MCP-capable clients may work with the `stdio` transport but are not tested. See [WS-04](../../docs/workstreams/backlog/00-126-04.md) for the cross-harness verification plan.
 
