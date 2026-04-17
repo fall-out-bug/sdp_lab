@@ -91,6 +91,29 @@ This project has **two repos** with different roles:
 
 **Ambiguous examples:** "разобраться" (analyze or fix until done?), "займись X" (just do it or push + CI green?), "исправить" (root cause or workaround OK?), "почини CI" (в sdp или в sdp_lab?). When in doubt — one short clarifying question.
 
+## Subagent Dispatch Policy
+
+**Harness-neutral.** Действует для всех harness'ов: Claude Code (Agent tool / TaskDispatch), OpenCode (`@agent <role>`), Codex CLI, Cursor, и т.д.
+
+**Принцип:** чистый контекст = более сфокусированный результат. Для нетривиальных задач — делегируй в subagent по умолчанию.
+
+### Когда делегировать (default)
+
+- Задача требует исследования **≥3 файлов** для ответа.
+- Задача содержит **≥2 независимых подзадачи** (можно распараллелить).
+- Код-ревью или анализ, где нужен fresh look без контекста основного диалога.
+- Реализация атомарной подзадачи из плана с чётким scope.
+
+### Когда НЕ делегировать
+
+- Одиночная правка (single edit, one file).
+- Тривиальный lookup (прочитать один файл, проверить тип).
+- Контекст основного диалога критичен для задачи (multistep refactor с зависимостями между шагами).
+
+### Decision tree
+
+Если задача подходит под оба критерия (≥3 файла И ≥2 подзадачи) — используй `parallel-dispatch` skill (F129-02) для параллельного запуска. Если только один критерий — делегируй в один subagent.
+
 ## Issue Tracking (beads)
 
 Full command reference — секция **"Issue Tracking with bd (beads)"** ниже в этом файле (auto-generated между `<!-- BEGIN BEADS INTEGRATION -->` / `<!-- END BEADS INTEGRATION -->`). Ту секцию не редактируй вручную — её обновляет генератор beads integration.
