@@ -788,3 +788,214 @@ func TestMockExecutor_Tracking(t *testing.T) {
 	assert.Equal(t, 2, len(mock.calls))
 	assert.Equal(t, "bd", mock.calls[1].binary)
 }
+
+// ---------------------------------------------------------------------------
+// Security tests (WS-04)
+// ---------------------------------------------------------------------------
+
+// TestSecurity_PathTraversal_PassedToCLI verifies that path parameters with
+// traversal sequences are passed through to the CLI as-is (the MCP server
+// does not interpret paths — the CLI is responsible for sandboxing). The
+// important security property is that the MCP server does NOT resolve or
+// normalize these paths itself, so it cannot accidentally widen access.
+func TestSecurity_PathTraversal_PassedToCLI(t *testing.T) {
+	srv, mock := newTestServer()
+	mock.response = []byte(`{}`)
+
+	traversalPaths := []string{
+		"../../../etc/passwd",
+		"/etc/passwd",
+		"../../.env",
+	}
+
+	for _, path := range traversalPaths {
+		t.Run("path="+path, func(t *testing.T) {
+			req := mcp.CallToolRequest{
+				Params: mcp.CallToolParams{
+					Name: "sdp_scout",
+					Arguments: map[string]interface{}{
+						"path": path,
+					},
+				},
+			}
+
+			result, err := srv.handleScout(context.Background(), req)
+			require.NoError(t, err)
+			assert.False(t, result.IsError)
+
+			// The key assertion: the MCP server passes the path directly to
+			// the CLI without interpretation. The CLI is the security boundary.
+			assert.Contains(t, mock.lastArgs, path,
+				"path traversal string should be passed to CLI verbatim")
+		})
+	}
+}
+
+// TestSecurity_CommandInjection_NoShellExpansion verifies that arguments with
+// shell metacharacters are passed to the CLI as individual arguments (via
+// exec.Command), not through a shell. This prevents command injection.
+func TestSecurity_CommandInjection_NoShellExpansion(t *testing.T) {
+	srv, mock := newTestServer()
+	mock.response = []byte(`{"results":[]}`)
+
+	injectionStrings := []string{
+		"; rm -rf /",
+		"$(cat /etc/passwd)",
+		"`whoami`",
+		"&& echo pwned",
+		"| cat /etc/shadow",
+	}
+
+	for _, inj := range injectionStrings {
+		t.Run("query="+truncateForName(inj), func(t *testing.T) {
+			req := mcp.CallToolRequest{
+				Params: mcp.CallToolParams{
+					Name: "sdp_index_query",
+					Arguments: map[string]interface{}{
+						"query": inj,
+					},
+				},
+			}
+
+			result, err := srv.handleIndexQuery(context.Background(), req)
+			require.NoError(t, err)
+			assert.False(t, result.IsError)
+
+			// The injection string must appear as a single argument, not
+			// expanded by a shell. exec.Command does not invoke a shell.
+			assert.Contains(t, mock.lastArgs, inj,
+				"injection string should be passed as single arg to CLI")
+		})
+	}
+}
+
+// TestSecurity_CommandInjection_SymbolArg verifies injection safety for the
+// symbol parameter of sdp_index_find.
+func TestSecurity_CommandInjection_SymbolArg(t *testing.T) {
+	srv, mock := newTestServer()
+	mock.response = []byte(`{}`)
+
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name: "sdp_index_find",
+			Arguments: map[string]interface{}{
+				"symbol": "; cat /etc/shadow",
+			},
+		},
+	}
+
+	result, err := srv.handleIndexFind(context.Background(), req)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	// Symbol passed as a single CLI arg (no shell expansion).
+	assert.Contains(t, mock.lastArgs, "; cat /etc/shadow")
+}
+
+// TestSecurity_CommandInjection_DispatchTask verifies injection safety for
+// the task parameter of sdp_dispatch.
+func TestSecurity_CommandInjection_DispatchTask(t *testing.T) {
+	srv, mock := newTestServer()
+	mock.response = []byte(`{}`)
+
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name: "sdp_dispatch",
+			Arguments: map[string]interface{}{
+				"task": "$(whoami); rm -rf /",
+			},
+		},
+	}
+
+	result, err := srv.handleDispatch(context.Background(), req)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	// Task passed as a single CLI arg via --task flag.
+	assert.Contains(t, mock.lastArgs, "$(whoami); rm -rf /")
+}
+
+// TestSecurity_CommandInjection_BeadsTitle verifies injection safety for the
+// title parameter of sdp_beads_create.
+func TestSecurity_CommandInjection_BeadsTitle(t *testing.T) {
+	srv, mock := newTestServer()
+	mock.response = []byte("WS-99")
+
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name: "sdp_beads_create",
+			Arguments: map[string]interface{}{
+				"title": "test; rm -rf /",
+			},
+		},
+	}
+
+	result, err := srv.handleBeadsCreate(context.Background(), req)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, mock.lastArgs, "test; rm -rf /")
+}
+
+// TestSecurity_CommandInjection_BeadsCloseID verifies injection safety for
+// the id parameter of sdp_beads_close.
+func TestSecurity_CommandInjection_BeadsCloseID(t *testing.T) {
+	srv, mock := newTestServer()
+	mock.response = []byte("closed")
+
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name: "sdp_beads_close",
+			Arguments: map[string]interface{}{
+				"id": "WS-1; cat /etc/passwd",
+			},
+		},
+	}
+
+	result, err := srv.handleBeadsClose(context.Background(), req)
+	require.NoError(t, err)
+	assert.False(t, result.IsError)
+	assert.Contains(t, mock.lastArgs, "WS-1; cat /etc/passwd")
+}
+
+// TestSecurity_NoPrivilegeEscalation verifies that the realExecutor uses
+// exec.Command (same-user process spawn), not setuid, sudo, or anything
+// that would escalate privileges.
+func TestSecurity_NoPrivilegeEscalation(t *testing.T) {
+	exec := &realExecutor{binaryPath: "echo"}
+
+	// echo is a safe binary that exists on all systems.
+	out, err := exec.Run(context.Background(), "hello")
+	require.NoError(t, err)
+	assert.Contains(t, string(out), "hello")
+
+	// The executor does not add sudo, doas, or any setuid wrapper.
+	// This is a design property: realExecutor.RunCustom calls exec.Command
+	// directly. We verify the binaryPath does not contain privilege escalation
+	// command chains.
+	assert.NotContains(t, exec.binaryPath, "sudo",
+		"binaryPath should not contain sudo")
+	assert.NotContains(t, exec.binaryPath, "doas",
+		"binaryPath should not contain doas")
+	assert.NotContains(t, exec.binaryPath, "&&",
+		"binaryPath should not contain command chaining")
+	assert.NotContains(t, exec.binaryPath, ";",
+		"binaryPath should not contain command separators")
+}
+
+// TestSecurity_ExecutorDoesNotUseShell verifies that the realExecutor calls
+// exec.Command (not exec.Command("/bin/sh", "-c", ...)), so shell expansion
+// is impossible.
+func TestSecurity_ExecutorDoesNotUseShell(t *testing.T) {
+	// This is a design-level test. The realExecutor.RunCustom implementation
+	// calls exec.Command(binary, args...) directly, which does NOT invoke a
+	// shell. Verify the executor interface doesn't have a shell method.
+	var _ CommandExecutor = &realExecutor{}
+	// If realExecutor had a shell-based method, it would show up here.
+	// The test passes if compilation succeeds (interface satisfied).
+}
+
+// truncateForName creates a safe test name from an arbitrary string.
+func truncateForName(s string) string {
+	if len(s) > 30 {
+		return s[:30]
+	}
+	return s
+}

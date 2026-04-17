@@ -259,3 +259,61 @@ Other MCP-capable clients may work with the `stdio` transport but are not tested
 - [MCP Implementation Plan](../plans/2026-04-13-sdp-mcp-implementation-plan.md)
 - [Project Map](project-map.md)
 - [Installation Profiles](#) (broader packaging model)
+
+---
+
+## Security
+
+This section documents what the MCP layer can and cannot access, its security boundaries, and the threat model it operates under.
+
+### What the MCP Layer Can Access
+
+| Capability | Mechanism | Scope |
+|------------|-----------|-------|
+| Repository files | Tool handlers wrap `sdp` CLI commands | Files the `sdp` binary can read (same user) |
+| `.sdp/` artifacts | Resource handlers read from disk | Only files under `<repo>/.sdp/` |
+| Intent templates | Prompt handlers render embedded `.tmpl` files | Data from `.sdp/` artifacts only |
+| Shell commands | `exec.Command` via tool handlers | Same process user, no shell expansion |
+
+### What the MCP Layer Cannot Access
+
+- **No network access.** The server communicates exclusively over stdio (JSON-RPC 2.0). No HTTP, no TCP, no DNS.
+- **No auth tokens.** The server does not store, read, or transmit authentication tokens, API keys, or credentials.
+- **No privilege escalation.** All tool handlers use `exec.Command` (same-user process spawn). No `sudo`, `doas`, `setuid`, or privilege-elevation mechanisms.
+- **No secrets exposure.** Resource handlers read only from `.sdp/` directory files. Files like `.env`, `credentials.json`, SSH keys, or any file outside `.sdp/` are not accessible through the MCP resource interface.
+- **No shell interpretation.** Tool arguments are passed to the CLI binary as individual arguments via `exec.Command(binary, args...)`. Shell metacharacters (`;`, `&&`, `|`, `$()`, etc.) are not expanded.
+
+### stdio Transport Security Model
+
+The `sdp-mcp` server uses stdio transport: the parent process (the harness) spawns the server as a child process and communicates over stdin/stdout. This means:
+
+1. **Parent controls access.** Only processes that can spawn `sdp-mcp` can use it. There is no network listener to attack.
+2. **No remote attack surface.** The server is not reachable from the network. An attacker would need local code execution to interact with it.
+3. **Process lifecycle tied to parent.** When the harness session ends, the server exits. No orphaned background processes.
+4. **Same user permissions.** The server runs with the same UID/GID as the harness. It cannot escalate privileges beyond what the user can already do.
+
+### Path Handling Guarantees
+
+- Tool `path` parameters are passed verbatim to the CLI binary. The MCP server does not resolve, normalize, or validate paths.
+- Resource URIs use the `sdp://` scheme and are mapped to hardcoded relative paths under `.sdp/`. There is no mechanism for an MCP client to request arbitrary file paths through resources.
+- The `filepath.Join` in resource handlers combines the repo root with a fixed `.sdp/...` relative path. Even if the repo root is unusual, the resolved path is always within the `.sdp/` subtree of the configured repository.
+
+### Rate Limiting Considerations
+
+The current implementation does not include built-in rate limiting. However:
+
+- The MCP protocol itself is request-response: the harness controls how frequently it calls tools.
+- Expensive tools (e.g., `sdp_architect`) naturally limit themselves through execution time.
+- If runaway agent loops are a concern, configure the harness's own rate limiting or request budget.
+- Future work (see MCP design doc) may add optional per-session rate limiting as middleware.
+
+### Threat Model Summary
+
+| Threat | Mitigation |
+|--------|-----------|
+| Path traversal via tool arguments | Not applicable: the CLI is the security boundary, and the MCP server passes paths through without interpretation |
+| Command injection via tool arguments | `exec.Command` does not invoke a shell; arguments are passed as-is to the binary |
+| Secrets leak via resources | Resource handlers read only from `.sdp/`; the `staticResources` table is hardcoded and cannot be modified by MCP clients |
+| Privilege escalation | No setuid/sudo/doas; process runs with parent's UID |
+| Remote code execution | No network listener; stdio-only transport |
+| Template injection in prompts | Go `text/template` does not double-evaluate; arguments are data, not template code |

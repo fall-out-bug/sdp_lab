@@ -399,3 +399,138 @@ func TestCollectAvailableData(t *testing.T) {
 		assert.Empty(t, data.ArchitectSummary) // no architect file
 	})
 }
+
+// ---------------------------------------------------------------------------
+// Security tests (WS-04)
+// ---------------------------------------------------------------------------
+
+// TestSecurity_Prompts_NoSecretsInOutput verifies that prompt templates do
+// not leak sensitive files. Prompts only read from .sdp/ artifacts.
+func TestSecurity_Prompts_NoSecretsInOutput(t *testing.T) {
+	tmpDir := t.TempDir()
+	sdpDir := filepath.Join(tmpDir, ".sdp")
+	require.NoError(t, os.MkdirAll(sdpDir, 0o755))
+
+	// Write scout.json with normal data.
+	require.NoError(t, os.WriteFile(
+		filepath.Join(sdpDir, "scout.json"),
+		[]byte(`{"name":"safe-project","languages":["Go"]}`),
+		0o644,
+	))
+
+	// Write a sensitive file OUTSIDE .sdp/ that should never appear in prompts.
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, ".env"),
+		[]byte("DATABASE_URL=postgres://admin:secret@db:5432/prod\nAWS_SECRET_KEY=abc123xyz"),
+		0o644,
+	))
+
+	// Write a sensitive file INSIDE .sdp/ to verify it is NOT treated specially.
+	require.NoError(t, os.WriteFile(
+		filepath.Join(sdpDir, "credentials.json"),
+		[]byte(`{"api_key":"sk-live-12345"}`),
+		0o644,
+	))
+
+	srv := NewServer(ServerConfig{RepoRoot: tmpDir})
+
+	// Collect data and verify it only contains .sdp/ artifacts.
+	data := srv.collectAvailableData()
+	assert.NotContains(t, data.ScoutJSON, "secret", "scout data should not contain secrets")
+	assert.NotContains(t, data.ScoutJSON, "api_key", "scout data should not contain API keys")
+
+	// Render all prompts and verify none contain secrets.
+	promptTests := []struct {
+		name string
+		args map[string]string
+	}{
+		{"understand", map[string]string{"depth": "deep"}},
+		{"build", map[string]string{"description": "add auth"}},
+		{"fix", map[string]string{"description": "security bug"}},
+		{"review", map[string]string{"scope": "security"}},
+		{"operate", map[string]string{"mode": "triage"}},
+	}
+
+	for _, pt := range promptTests {
+		t.Run(pt.name+"_no_secrets", func(t *testing.T) {
+			req := mcp.GetPromptRequest{
+				Params: mcp.GetPromptParams{
+					Name:      pt.name,
+					Arguments: pt.args,
+				},
+			}
+
+			result, err := callPromptHandler(srv, pt.name, req)
+			require.NoError(t, err)
+
+			text := result.Messages[0].Content.(mcp.TextContent).Text
+
+			// The rendered prompt must not contain secrets from files outside .sdp/.
+			assert.NotContains(t, text, "DATABASE_URL",
+				"prompt %s should not expose .env contents", pt.name)
+			assert.NotContains(t, text, "AWS_SECRET_KEY",
+				"prompt %s should not expose .env contents", pt.name)
+			assert.NotContains(t, text, "sk-live-12345",
+				"prompt %s should not expose credentials.json", pt.name)
+		})
+	}
+}
+
+// TestSecurity_Prompts_ArgumentInjection verifies that prompt arguments cannot
+// inject template directives. Arguments are passed as data, not evaluated as
+// template code.
+func TestSecurity_Prompts_ArgumentInjection(t *testing.T) {
+	tmpDir := t.TempDir()
+	sdpDir := filepath.Join(tmpDir, ".sdp")
+	require.NoError(t, os.MkdirAll(sdpDir, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(sdpDir, "scout.json"),
+		[]byte(`{"name":"injection-test"}`),
+		0o644,
+	))
+
+	srv := NewServer(ServerConfig{RepoRoot: tmpDir})
+
+	// Template injection attempt in the description argument.
+	req := mcp.GetPromptRequest{
+		Params: mcp.GetPromptParams{
+			Name: "build",
+			Arguments: map[string]string{
+				"description": "{{.ScoutJSON}}",
+			},
+		},
+	}
+
+	result, err := srv.handleBuildPrompt(context.Background(), req)
+	require.NoError(t, err)
+
+	text := result.Messages[0].Content.(mcp.TextContent).Text
+
+	// The literal string "{{.ScoutJSON}}" should appear in the output, NOT
+	// the evaluated template. Go's text/template does not double-evaluate.
+	assert.Contains(t, text, "{{.ScoutJSON}}",
+		"template injection should appear as literal text, not evaluated")
+}
+
+// TestSecurity_Prompts_ReadsOnlySDPDirectory verifies that collectAvailableData
+// only reads from the .sdp/ directory and does not access arbitrary paths.
+func TestSecurity_Prompts_ReadsOnlySDPDirectory(t *testing.T) {
+	tmpDir := t.TempDir()
+	sdpDir := filepath.Join(tmpDir, ".sdp")
+	require.NoError(t, os.MkdirAll(sdpDir, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(sdpDir, "scout.json"),
+		[]byte(`{"name":"boundary-test"}`),
+		0o644,
+	))
+
+	srv := NewServer(ServerConfig{RepoRoot: tmpDir})
+	data := srv.collectAvailableData()
+
+	// Verify only .sdp/ paths were read.
+	assert.Equal(t, `{"name":"boundary-test"}`, data.ScoutJSON)
+	assert.Empty(t, data.ArchitectSummary)
+	assert.Empty(t, data.MetricsSummary)
+	assert.Empty(t, data.SpecSummary)
+	assert.Empty(t, data.BootstrapSummary)
+}
