@@ -54,6 +54,8 @@ func logInfo(format string, args ...interface{}) {
 	}
 }
 
+// logWarn is provided for callers that may need structured warning output
+// (e.g., future middleware). Not currently called in main but kept for API completeness.
 func logWarn(format string, args ...interface{}) {
 	if currentLevel <= levelWarn {
 		log.Printf(format, args...)
@@ -93,7 +95,6 @@ func main() {
 
 	if err := mcpserver.ServeStdio(srv.Inner()); err != nil {
 		logError("server error: %v", err)
-		fmt.Fprintf(os.Stderr, "server error: %v\n", err)
 		os.Exit(1)
 	}
 }

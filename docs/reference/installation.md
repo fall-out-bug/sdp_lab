@@ -227,7 +227,7 @@ Common causes:
 
 ### Environment variable SDP_LOG_LEVEL has no effect
 
-This variable controls the MCP server's own logging (written to stderr). It does not affect tool output. Valid values: `debug`, `info`, `warn`, `error`. Default: `info`.
+This variable controls the MCP server's own logging (written to stderr). It does not affect tool output. Valid values: `debug`, `info`, `warn`, `error`. Default: `warn`.
 
 ### Multiple projects
 
