@@ -89,3 +89,6 @@ sdp-beads-bridge
 .rtk/
 sdp-doc-sync
 sdp-doc-sync
+
+# MCP server binary (rebuilt from source)
+sdp-mcp
