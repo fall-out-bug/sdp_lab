@@ -65,6 +65,8 @@ func main() {
 		runMetrics(os.Args[2:])
 	case "index":
 		runIndex(os.Args[2:])
+	case "bootstrap":
+		runBootstrap(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -72,7 +74,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention> <subcommand> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention|bootstrap> <subcommand> [flags]")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Card commands:")
 	fmt.Fprintln(os.Stderr, "  sdp card <create|show|clarify|needs-input|ready|park|execute|heartbeat|feedback|feedback-export|message-export|resume|resume-import|reply-ingest|deliver>")
@@ -130,4 +132,8 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  sdp index build [--format json|text] <repo-path>")
 	fmt.Fprintln(os.Stderr, "  sdp index stats <repo-path>")
 	fmt.Fprintln(os.Stderr, "  sdp index manifest [--output DIR] <repo-path>")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Bootstrap commands:")
+	fmt.Fprintln(os.Stderr, "  sdp bootstrap [--dry-run] [--force] [--only TYPES] <repo-path>")
+	fmt.Fprintln(os.Stderr, "  sdp bootstrap status <repo-path>")
 }
