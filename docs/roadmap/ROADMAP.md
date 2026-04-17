@@ -1,7 +1,7 @@
 # sdp_lab Roadmap — Agent Platform + Trust Lane
 
 > **Status: CANONICAL (active roadmap)** — this is the current source of truth. Other files in `docs/roadmap/` are supporting context; see [docs/roadmap/README.md](README.md).
-> **Updated:** 2026-04-13
+> **Updated:** 2026-04-17
 > **Repo naming:** GitHub repo is `sdp_lab`; historical workstreams and bead IDs may still use `sdp_dev` as a legacy label for the same codebase
 > **Direction:** Reusable agent platform (`kernel`, `adapters`, `augmentation`, `evals`) with standards-based trust and evidence as a secondary lane
 
@@ -46,10 +46,20 @@ and multilingual source preservation.
 
 This lane is not an exclusive ready queue. `bd ready` remains the live source of executable work, and older ecosystem tasks can still coexist in Beads until they are explicitly triaged or deprioritized.
 
-A second active lane exists for toolkit-led brownfield adoption. `F120`..`F126`
-turn the toolkit vision into executable backlog: scout first, then metrics and
-index, then bootstrap, intent UX, and MCP. This is the current next lane after
-the P0 UX/runtime work and is the canonical plan for "unknown repo -> AI-native workspace".
+Toolkit foundations for brownfield adoption are now partly shipped, not just planned:
+
+- `F120` scout is merged
+- `F121` metrics is merged
+- `F122` index is merged
+- `F123` spec recovery is merged
+- `F124` bootstrap is merged
+
+The remaining toolkit lane is therefore smaller and more concrete:
+
+- `F125` — finish the intent-routed UX migration
+- `F126` — ship the MCP server on top of the stabilized toolkit surfaces
+
+This is the current next lane after the P0 UX/runtime work and remains the canonical plan for "unknown repo -> AI-native workspace".
 
 Deferred unless explicitly revived as `P3+` work:
 
@@ -278,7 +288,7 @@ in-toto Envelope (DSSE)
 
 ---
 
-## Phase Toolkit: Unknown Codebase -> AI-Native Adoption (planned)
+## Phase Toolkit: Unknown Codebase -> AI-Native Adoption
 
 **Goal:** make SDP useful the moment it enters an unknown brownfield repo, without
 forcing a full operator workflow or a slow architecture pass as the first step.
@@ -303,10 +313,12 @@ it; it does not create a second architect backlog on top of `F105`.
 
 **Execution slices:**
 
-- Slice A: `F120` + `F121` -> first-look repo understanding
-- Slice B: `F122` + `F123` -> persistent context and recovered contracts
-- Slice C: `F124` + `F125` -> safe adoption and smaller skill surface
-- Slice D: `F126` -> universal harness interface
+- Slice A: `F120` + `F121` -> shipped first-look repo understanding
+- Slice B: `F122` + `F123` -> shipped persistent context and recovered contracts
+- Slice C: `F124` -> shipped brownfield-safe setup; `F125` remains the unfinished UX migration
+- Slice D: `F126` -> universal harness interface, still not implemented
+
+**Status note:** feature merges already landed for `F120` (#75), `F122` (#77), `F123` (#78), and `F124` (#79). `F125` has only partial shipped work through `F125-05` in #80. `F126` remains design-only.
 
 **Canonical plan:** [2026-04-13-sdp-toolkit-implementation-plan.md](../plans/2026-04-13-sdp-toolkit-implementation-plan.md)
 **Detailed child plans:** [F120 Scout](../plans/2026-04-13-sdp-scout-implementation-plan.md), [F121 Metrics](../plans/2026-04-13-sdp-metrics-implementation-plan.md), [F122 Index](../plans/2026-04-13-sdp-index-implementation-plan.md), [F123 Spec](../plans/2026-04-13-sdp-spec-implementation-plan.md), [F124 Bootstrap](../plans/2026-04-13-sdp-bootstrap-implementation-plan.md), [F126 MCP](../plans/2026-04-13-sdp-mcp-implementation-plan.md)
