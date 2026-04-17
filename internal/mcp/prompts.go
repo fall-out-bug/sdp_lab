@@ -38,6 +38,9 @@ type promptData struct {
 // with whatever content is available. Missing artifacts result in empty strings
 // (templates conditionally omit those sections). Uses safeReadFile to prevent
 // symlink-based path escapes.
+//
+// NOTE: Artifacts are produced by CLI commands as a side effect, not by MCP tool
+// handlers directly. See the Server struct doc comment for the full contract.
 func (s *Server) collectAvailableData() promptData {
 	data := promptData{
 		RepoName: filepath.Base(s.config.RepoRoot),

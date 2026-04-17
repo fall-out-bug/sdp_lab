@@ -478,7 +478,7 @@ func (s *Server) handleBeadsCreate(ctx context.Context, req mcp.CallToolRequest)
 
 	// Beads uses shell commands via 'bd' CLI.
 	// Map MCP params to the bd create CLI.
-	args := []string{"create", "--title", title}
+	args := []string{"create", "--json", "--title", title}
 
 	if desc := req.GetString("description", ""); desc != "" {
 		args = append(args, "--description", desc)
@@ -518,7 +518,7 @@ func (s *Server) handleBeadsClose(ctx context.Context, req mcp.CallToolRequest) 
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	out, execErr := s.executor.RunCustom(ctx, "bd", "close", id)
+	out, execErr := s.executor.RunCustom(ctx, "bd", "close", "--json", id)
 	if execErr != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("beads close failed: %v", execErr)), nil
 	}
@@ -541,7 +541,7 @@ func (s *Server) registerBeadsList() {
 }
 
 func (s *Server) handleBeadsList(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args := []string{"list"}
+	args := []string{"list", "--json"}
 	if status := req.GetString("status", ""); status != "" {
 		args = append(args, "--status", status)
 	}
