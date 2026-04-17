@@ -45,8 +45,8 @@ bin/
 # Execution state
 .oneshot/
 
-# SDP (sdp is submodule; skills/agents are symlinks)
-.claude/skills
+# SDP (sdp is submodule; agents are symlinks)
+# Note: .claude/skills is now a tracked symlink → ../.agents/skills (F127-02)
 .claude/agents
 .cursor/skills
 .cursor/agents
