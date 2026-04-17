@@ -5,6 +5,9 @@ on:
     branches: [master, main, feature/*]
   pull_request:
     branches: [master, main, feature/*]
+  schedule:
+    - cron: '17 3 * * 1'  # Weekly Monday 03:17 UTC (F129-10 flaky advisory)
+  workflow_dispatch: {}    # Manual trigger for flaky advisory
 
 jobs:
   build-test:
@@ -27,6 +30,26 @@ jobs:
         run: |
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.0
           golangci-lint run ./...
+
+  snapshot-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+
+      - name: Run snapshot tests
+        run: |
+          set -euo pipefail
+          if [ "${UPDATE_SNAPSHOTS:-0}" = "1" ]; then
+            UPDATE_SNAPSHOTS=1 go test -tags "sqlite_fts5" ./internal/snapshot/ ./cmd/sdp/ -run TestSnapshot -v -count=1 -timeout 15m
+            echo "ERROR: snapshots were updated locally — review changes before merging"
+            exit 1
+          fi
+          go test -tags "sqlite_fts5" ./internal/snapshot/ ./cmd/sdp/ -run TestSnapshot -v -count=1 -timeout 15m
 
   push-protection:
     runs-on: ubuntu-latest
@@ -57,6 +80,20 @@ jobs:
           echo "ERROR: direct pushes to master/main bypass PR-only compliance gates."
           echo "Use pull requests for protected branches."
           exit 1
+
+  architect-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+
+      - name: Run architect tests
+        run: |
+          go test -tags "sqlite_fts5" ./tests/architect/... -v -count=1
 
   contract-compat:
     runs-on: ubuntu-latest
@@ -723,11 +760,166 @@ jobs:
           GITHUB_REF_NAME: ${{ github.ref_name }}
         run: bash scripts/update-changelog.sh
 
+  # F129-10: Flaky detection + mutation advisory (non-blocking, weekly schedule)
+  flaky-advisory:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+
+      - name: Run flaky detection (3 runs)
+        id: flaky
+        run: |
+          set -uo pipefail
+          RUNS=3
+          COMBINED=""
+          FAIL_RUNS=0
+
+          for i in $(seq 1 "$RUNS"); do
+            echo "--- Run ${i}/${RUNS} ---"
+            if OUTPUT=$(go test -tags "sqlite_fts5" ./... -json -count=1 2>&1); then
+              COMBINED="${COMBINED}${OUTPUT}"$'\n'
+            else
+              COMBINED="${COMBINED}${OUTPUT}"$'\n'
+              FAIL_RUNS=$((FAIL_RUNS + 1))
+            fi
+          done
+
+          # Simple grep-based flake detection.
+          PASS_TESTS=$(echo "$COMBINED" | grep '"Action":"pass"' | grep -v '"Test":""' || true)
+          FAIL_TESTS=$(echo "$COMBINED" | grep '"Action":"fail"' | grep -v '"Test":""' || true)
+
+          PASS_NAMES=$(echo "$PASS_TESTS" | sed -n 's/.*"Package":"\([^"]*\)".*"Test":"\([^"]*\)".*/\1.\2/p' | sort -u || true)
+          FAIL_NAMES=$(echo "$FAIL_TESTS" | sed -n 's/.*"Package":"\([^"]*\)".*"Test":"\([^"]*\)".*/\1.\2/p' | sort -u || true)
+
+          FLAKY=$(comm -12 <(echo "$PASS_NAMES") <(echo "$FAIL_NAMES") 2>/dev/null || true)
+
+          {
+            echo "## Flaky Detection Advisory (F129-10)"
+            echo ""
+            echo "Runs: ${RUNS} | Runs with failures: ${FAIL_RUNS}"
+            echo ""
+            if [ -n "$FLAKY" ]; then
+              echo "### Potentially Flaky Tests"
+              echo ""
+              echo '```'
+              echo "$FLAKY"
+              echo '```'
+              echo ""
+              echo "Advisory: investigate tests above. Not a CI gate."
+            else
+              echo "No flaky tests detected across ${RUNS} run(s)."
+            fi
+            echo ""
+            echo "---"
+            echo "This is advisory-only (P2). Not a CI gate."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Mutation advisory
+        if: always()
+        run: |
+          {
+            echo "## Mutation Testing Advisory (F129-10)"
+            echo ""
+            echo "YAGNI for mutation testing infrastructure at this stage."
+            echo "Consider adding \`go-mutesting\` when coverage exceeds 80%."
+            echo ""
+            echo "---"
+            echo "Advisory-only. Not a CI gate."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # F129-07: Coverage enforcement gate (blocking)
+  coverage-gate:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    needs: [build-test]
+    continue-on-error: false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+
+      - name: Run tests with coverage
+        run: go test -tags "sqlite_fts5" -coverprofile=cov.out ./... -count=1
+
+      - name: Extract coverage percentage
+        id: coverage
+        run: |
+          set -euo pipefail
+          TOTAL_LINE=$(go tool cover -func=cov.out | grep total)
+          CUR_PCT=$(echo "$TOTAL_LINE" | awk '{print $NF}' | tr -d '%')
+          echo "pct=${CUR_PCT}" >> "$GITHUB_OUTPUT"
+          echo "Current coverage: ${CUR_PCT}%"
+
+      - name: Compare against baseline
+        run: |
+          set -euo pipefail
+          BASE_REF="${{ github.base_ref }}"
+          if [ -z "$BASE_REF" ]; then
+            BASE_REF="${{ github.ref_name }}"
+          fi
+
+          # Read baseline from origin/$BASE_REF or fallback to local file
+          BASE_PCT=$(git show "origin/${BASE_REF}:.sdp/metrics/coverage.txt" 2>/dev/null | tr -d '[:space:]' || echo "")
+          if [ -z "$BASE_PCT" ]; then
+            if [ -f .sdp/metrics/coverage.txt ]; then
+              BASE_PCT=$(cat .sdp/metrics/coverage.txt | tr -d '[:space:]')
+            fi
+          fi
+          if [ -z "$BASE_PCT" ]; then
+            BASE_PCT="0.0"
+            echo "No baseline found, using 0.0%"
+          fi
+
+          CUR_PCT="${{ steps.coverage.outputs.pct }}"
+          THRESHOLD=2.0
+
+          echo "Baseline: ${BASE_PCT}%"
+          echo "Current:  ${CUR_PCT}%"
+          echo "Threshold: -${THRESHOLD}pp"
+
+          DELTA=$(python3 -c "print(round(float('${CUR_PCT}') - float('${BASE_PCT}'), 1))")
+          echo "Delta: ${DELTA}pp"
+
+          python3 -c "
+          import sys
+          cur = float('${CUR_PCT}')
+          base = float('${BASE_PCT}')
+          threshold = float('${THRESHOLD}')
+          delta = cur - base
+          if delta < -threshold:
+              print(f'ERROR: Coverage dropped from {base}% to {cur}% (delta {delta}pp exceeds -{threshold}pp threshold)')
+              sys.exit(1)
+          else:
+              print(f'OK: Coverage {cur}% (baseline {base}%, delta {delta}pp)')
+          "
+
+      - name: Update baseline on main
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        run: |
+          set -euo pipefail
+          CUR_PCT="${{ steps.coverage.outputs.pct }}"
+          mkdir -p .sdp/metrics
+          echo "${CUR_PCT}" > .sdp/metrics/coverage.txt
+          echo "Updated .sdp/metrics/coverage.txt to ${CUR_PCT}%"
+
   required-checks:
     runs-on: ubuntu-latest
     if: always()
     needs:
       - build-test
+      - architect-tests
       - push-protection
       - contract-compat
       - evidence-gate
@@ -736,10 +928,12 @@ jobs:
       - consistency-gate
       - policy-gate
       - auto-attestation
+      - coverage-gate
     steps:
       - name: Validate all required CI jobs
         env:
           BUILD_TEST: ${{ needs.build-test.result }}
+          ARCHITECT_TESTS: ${{ needs.architect-tests.result }}
           PUSH_PROTECTION: ${{ needs.push-protection.result }}
           CONTRACT_COMPAT: ${{ needs.contract-compat.result }}
           EVIDENCE_GATE: ${{ needs.evidence-gate.result }}
@@ -748,6 +942,7 @@ jobs:
           CONSISTENCY_GATE: ${{ needs.consistency-gate.result }}
           POLICY_GATE: ${{ needs.policy-gate.result }}
           AUTO_ATTESTATION: ${{ needs.auto-attestation.result }}
+          COVERAGE_GATE: ${{ needs.coverage-gate.result }}
         run: |
           set -euo pipefail
 
@@ -762,6 +957,7 @@ jobs:
           }
 
           check_result "build-test" "$BUILD_TEST"
+          check_result "architect-tests" "$ARCHITECT_TESTS"
           check_result "push-protection" "$PUSH_PROTECTION"
           check_result "contract-compat" "$CONTRACT_COMPAT"
           check_result "evidence-gate" "$EVIDENCE_GATE"
@@ -770,3 +966,4 @@ jobs:
           check_result "consistency-gate" "$CONSISTENCY_GATE"
           check_result "policy-gate" "$POLICY_GATE"
           check_result "auto-attestation" "$AUTO_ATTESTATION"
+          check_result "coverage-gate" "$COVERAGE_GATE"
