@@ -34,11 +34,13 @@ for i in $(seq 1 "$RUNS"); do
   fi
 done
 
-# Simple grep-based flake detection from combined JSON output.
+# Flaky detection using fully qualified Package/Test identifiers.
+# Using Package+Test avoids false positives when the same test name exists
+# in different packages.
 echo ""
 echo "==> Analyzing results..."
-PASS_TESTS=$(echo "$COMBINED" | grep '"Action":"pass"' | grep -v '"Test":""' | sed 's/.*"Test":"\([^"]*\)".*/\1/' | sort -u)
-FAIL_TESTS=$(echo "$COMBINED" | grep '"Action":"fail"' | grep -v '"Test":""' | sed 's/.*"Test":"\([^"]*\)".*/\1/' | sort -u)
+PASS_TESTS=$(echo "$COMBINED" | grep '"Action":"pass"' | grep -v '"Test":""' | sed 's/.*"Package":"\([^"]*\)".*"Test":"\([^"]*\)".*/\1\/\2/' | sort -u)
+FAIL_TESTS=$(echo "$COMBINED" | grep '"Action":"fail"' | grep -v '"Test":""' | sed 's/.*"Package":"\([^"]*\)".*"Test":"\([^"]*\)".*/\1\/\2/' | sort -u)
 
 FLAKY=$(comm -12 <(echo "$PASS_TESTS") <(echo "$FAIL_TESTS") || true)
 if [ -n "$FLAKY" ]; then
@@ -61,12 +63,36 @@ if COV_RAW=$(go test -tags "$TAGS" -coverprofile=/tmp/flaky-cov.out $PACKAGES 2>
   fi
 fi
 # Rough test count from JSON output.
-TEST_COUNT=$(echo "$COMBINED" | grep '"Action":"pass"' | grep -v '"Test":""' | sed 's/.*"Test":"\([^"]*\)".*/\1/' | sort -u | wc -l | tr -d ' ')
+TEST_COUNT=$(echo "$COMBINED" | grep '"Action":"pass"' | grep -v '"Test":""' | sed 's/.*"Package":"\([^"]*\)".*"Test":"\([^"]*\)".*/\1\/\2/' | sort -u | wc -l | tr -d ' ')
 
 echo ""
-echo "==> Mutation Testing Advisory (F129-10)"
-echo "    Coverage: ${COV_PCT}% | Unique passing tests: ${TEST_COUNT}"
-echo "    Advisory-only. Not a CI gate."
+# Use the Go mutation advisory package for consistent guidance.
+TMPFILE=$(mktemp /tmp/mutation-advisory-XXXXXX.go)
+cat > "$TMPFILE" <<'GOSRC'
+package main
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+
+	"sdp_dev/internal/mutation"
+)
+
+func main() {
+	cov, _ := strconv.ParseFloat(os.Args[1], 64)
+	tests, _ := strconv.Atoi(os.Args[2])
+	fmt.Print(mutation.GenerateAdvisory(cov, tests))
+}
+GOSRC
+if go run -tags "$TAGS" "$TMPFILE" "$COV_PCT" "$TEST_COUNT" 2>/dev/null; then
+  : # advisory printed by Go package
+else
+  echo "==> Mutation Testing Advisory (F129-10)"
+  echo "    Coverage: ${COV_PCT}% | Unique passing tests: ${TEST_COUNT}"
+  echo "    Advisory-only. Not a CI gate."
+fi
+rm -f "$TMPFILE"
 echo ""
 
 echo "==> Flaky detection complete. Runs with failures: ${FAIL_COUNT}/${RUNS}"

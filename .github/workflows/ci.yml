@@ -12,6 +12,7 @@ on:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v6
 
@@ -33,6 +34,7 @@ jobs:
 
   snapshot-test:
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v6
 
@@ -83,6 +85,7 @@ jobs:
 
   architect-tests:
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v6
 
@@ -97,6 +100,7 @@ jobs:
 
   contract-compat:
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v6
 
@@ -824,15 +828,49 @@ jobs:
       - name: Mutation advisory
         if: always()
         run: |
-          {
-            echo "## Mutation Testing Advisory (F129-10)"
-            echo ""
-            echo "YAGNI for mutation testing infrastructure at this stage."
-            echo "Consider adding \`go-mutesting\` when coverage exceeds 80%."
-            echo ""
-            echo "---"
-            echo "Advisory-only. Not a CI gate."
-          } >> "$GITHUB_STEP_SUMMARY"
+          # Collect coverage and test count for the Go mutation advisory package.
+          COV_PCT="0.0"
+          if COV_RAW=$(go test -tags "sqlite_fts5" -coverprofile=/tmp/flaky-mutation-cov.out ./... 2>/dev/null); then
+            if COV_LINE=$(echo "$COV_RAW" | grep '^total:' | awk '{print $NF}' | tr -d '%'); then
+              COV_PCT="${COV_LINE}"
+            fi
+          fi
+          TEST_COUNT=$(echo "${COMBINED:-}" | grep '"Action":"pass"' | grep -v '"Test":""' | sed 's/.*"Test":"\([^"]*\)".*/\1/' | sort -u | wc -l | tr -d ' ' || echo "0")
+          # Generate advisory via Go mutation package (internal/mutation).
+          TMPDIR=$(mktemp -d)
+          cat > "${TMPDIR}/main.go" <<'GOSRC'
+          package main
+
+          import (
+                  "fmt"
+                  "os"
+                  "strconv"
+
+                  "sdp_dev/internal/mutation"
+          )
+
+          func main() {
+                  cov, _ := strconv.ParseFloat(os.Args[1], 64)
+                  tests, _ := strconv.Atoi(os.Args[2])
+                  fmt.Print(mutation.GenerateAdvisory(cov, tests))
+          }
+          GOSRC
+          if go run -tags "sqlite_fts5" "${TMPDIR}/main.go" "${COV_PCT}" "${TEST_COUNT}" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null; then
+            echo "Mutation advisory generated via Go package."
+          else
+            {
+              echo "## Mutation Testing Advisory (F129-10)"
+              echo ""
+              echo "Coverage: ${COV_PCT}% | Tests: ${TEST_COUNT}"
+              echo ""
+              echo "YAGNI for mutation testing infrastructure at this stage."
+              echo "Consider adding \`go-mutesting\` when coverage exceeds 80%."
+              echo ""
+              echo "---"
+              echo "Advisory-only. Not a CI gate."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          rm -rf "${TMPDIR}"
 
   # F129-07: Coverage enforcement gate (blocking)
   coverage-gate:
@@ -840,10 +878,13 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     needs: [build-test]
     continue-on-error: false
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -870,16 +911,15 @@ jobs:
             BASE_REF="${{ github.ref_name }}"
           fi
 
-          # Read baseline from origin/$BASE_REF or fallback to local file
+          # Read baseline from origin/$BASE_REF first, then local fallback
           BASE_PCT=$(git show "origin/${BASE_REF}:.sdp/metrics/coverage.txt" 2>/dev/null | tr -d '[:space:]' || echo "")
-          if [ -z "$BASE_PCT" ]; then
-            if [ -f .sdp/metrics/coverage.txt ]; then
-              BASE_PCT=$(cat .sdp/metrics/coverage.txt | tr -d '[:space:]')
-            fi
+          if [ -z "$BASE_PCT" ] && [ -f .sdp/metrics/coverage.txt ]; then
+            BASE_PCT=$(cat .sdp/metrics/coverage.txt | tr -d '[:space:]')
           fi
           if [ -z "$BASE_PCT" ]; then
-            BASE_PCT="0.0"
-            echo "No baseline found, using 0.0%"
+            echo "ERROR: No coverage baseline found in .sdp/metrics/coverage.txt (checked origin/${BASE_REF} and local)."
+            echo "Commit a baseline file with a coverage percentage (e.g. '76.1') to resolve."
+            exit 1
           fi
 
           CUR_PCT="${{ steps.coverage.outputs.pct }}"
@@ -913,12 +953,24 @@ jobs:
           mkdir -p .sdp/metrics
           echo "${CUR_PCT}" > .sdp/metrics/coverage.txt
           echo "Updated .sdp/metrics/coverage.txt to ${CUR_PCT}%"
+          # Commit and push the updated baseline so PRs can compare against it.
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .sdp/metrics/coverage.txt
+          if git diff --cached --quiet; then
+            echo "No baseline change to commit."
+          else
+            git commit -m "chore(metrics): update coverage baseline to ${CUR_PCT}%"
+            git push
+            echo "Pushed updated coverage baseline."
+          fi
 
   required-checks:
     runs-on: ubuntu-latest
     if: always()
     needs:
       - build-test
+      - snapshot-test
       - architect-tests
       - push-protection
       - contract-compat
@@ -933,6 +985,7 @@ jobs:
       - name: Validate all required CI jobs
         env:
           BUILD_TEST: ${{ needs.build-test.result }}
+          SNAPSHOT_TEST: ${{ needs.snapshot-test.result }}
           ARCHITECT_TESTS: ${{ needs.architect-tests.result }}
           PUSH_PROTECTION: ${{ needs.push-protection.result }}
           CONTRACT_COMPAT: ${{ needs.contract-compat.result }}
@@ -957,6 +1010,7 @@ jobs:
           }
 
           check_result "build-test" "$BUILD_TEST"
+          check_result "snapshot-test" "$SNAPSHOT_TEST"
           check_result "architect-tests" "$ARCHITECT_TESTS"
           check_result "push-protection" "$PUSH_PROTECTION"
           check_result "contract-compat" "$CONTRACT_COMPAT"

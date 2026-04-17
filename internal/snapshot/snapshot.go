@@ -6,6 +6,8 @@
 package snapshot
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -53,12 +55,29 @@ func (s *Snapshotter) Compare(name, actual string) error {
 }
 
 // Update writes (or overwrites) the snapshot file for name with actual content.
+// It writes to a temporary file first, then renames atomically to avoid
+// corrupted reads from concurrent writers.
 func (s *Snapshotter) Update(name, actual string) error {
 	path := s.snapshotPath(name)
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("create snapshot dir: %w", err)
 	}
-	return os.WriteFile(path, []byte(actual), 0o644)
+	// Use a random suffix so concurrent writers don't collide on the same temp path.
+	rnd := make([]byte, 4)
+	if _, err := rand.Read(rnd); err != nil {
+		return fmt.Errorf("generate temp suffix: %w", err)
+	}
+	tmp := filepath.Join(dir, ".snap-"+name+"-"+hex.EncodeToString(rnd)+".tmp")
+	if err := os.WriteFile(tmp, []byte(actual), 0o644); err != nil {
+		return fmt.Errorf("write temp snapshot: %w", err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		// Clean up temp file on rename failure.
+		os.Remove(tmp)
+		return fmt.Errorf("rename snapshot: %w", err)
+	}
+	return nil
 }
 
 func (s *Snapshotter) snapshotPath(name string) string {

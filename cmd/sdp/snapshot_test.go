@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -41,15 +42,34 @@ func getSnapBinary(t *testing.T) string {
 	return snapBinPath
 }
 
-// runSnapCLI executes the sdp binary and returns combined stdout+stderr.
-func runSnapCLI(t *testing.T, binPath string, args ...string) string {
+// CLIResult holds the combined output and exit error from a CLI invocation.
+type CLIResult struct {
+	Output string // combined stdout+stderr
+	Err    error  // non-nil if the command exited with a non-zero status
+}
+
+// runSnapCLI executes the sdp binary and returns combined output and error.
+func runSnapCLI(t *testing.T, binPath string, args ...string) CLIResult {
 	t.Helper()
 	cmd := exec.Command(binPath, args...)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
-	_ = cmd.Run()
-	return out.String()
+	err := cmd.Run()
+	return CLIResult{Output: out.String(), Err: err}
+}
+
+// exitCode extracts the exit code from a CLIResult error, or returns 0 on success.
+func exitCode(res CLIResult) int {
+	if res.Err == nil {
+		return 0
+	}
+	var exitErr *exec.ExitError
+	if errors.As(res.Err, &exitErr) {
+		return exitErr.ExitCode()
+	}
+	// Non-exit error (e.g. exec not found) — treat as code 1.
+	return 1
 }
 
 func newSnapSnapshotter(t *testing.T) *snapshot.Snapshotter {
@@ -66,23 +86,34 @@ func TestSnapshot_CLIUsage(t *testing.T) {
 	s := newSnapSnapshotter(t)
 
 	tests := []struct {
-		name string
-		args []string
+		name      string
+		args      []string
+		wantExit0 bool // true = expect exit 0; false = expect non-zero exit
 	}{
-		{"main-usage", nil},
-		{"card-usage", []string{"card"}},
-		{"board-usage", []string{"board"}},
-		{"dispatch-usage", []string{"dispatch"}},
-		{"doctor-usage", []string{"doctor"}},
-		{"result-usage", []string{"result"}},
-		{"orchestrate-usage", []string{"orchestrate"}},
-		{"unknown-command", []string{"foobar"}},
+		{"main-usage", nil, true},
+		{"card-usage", []string{"card"}, true},
+		{"board-usage", []string{"board"}, true},
+		{"dispatch-usage", []string{"dispatch"}, true},
+		{"doctor-usage", []string{"doctor"}, true},
+		{"result-usage", []string{"result"}, true},
+		{"orchestrate-usage", []string{"orchestrate"}, true},
+		{"unknown-command", []string{"foobar"}, false},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			output := runSnapCLI(t, bin, tc.args...)
-			if err := s.Compare(tc.name, output); err != nil {
+			res := runSnapCLI(t, bin, tc.args...)
+
+			// Validate exit status.
+			code := exitCode(res)
+			if tc.wantExit0 && code != 0 {
+				t.Fatalf("expected exit 0, got %d; output:\n%s", code, res.Output)
+			}
+			if !tc.wantExit0 && code == 0 {
+				t.Fatalf("expected non-zero exit for %q, got 0; output:\n%s", tc.name, res.Output)
+			}
+
+			if err := s.Compare(tc.name, res.Output); err != nil {
 				t.Fatal(err)
 			}
 		})

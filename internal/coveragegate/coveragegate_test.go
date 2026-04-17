@@ -3,6 +3,7 @@ package coveragegate
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -436,5 +437,59 @@ func writeMetrics(t *testing.T, projectRoot, content string) {
 	path := filepath.Join(dir, "coverage.txt")
 	if err := os.WriteFile(path, []byte(content+"\n"), 0o644); err != nil {
 		t.Fatalf("write metrics: %v", err)
+	}
+}
+
+func TestParseCoverprofile_MalformedLines(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		errSub  string // substring expected in error message
+	}{
+		{
+			name: "too few fields",
+			content: `mode: set
+internal/foo/bar.go:10.1,12.16 3
+`,
+			errSub: "expected at least 3 fields",
+		},
+		{
+			name: "missing colon in file:range",
+			content: `mode: set
+internal/foo/bar.go 3 1
+`,
+			errSub: "missing colon in file:range",
+		},
+		{
+			name: "non-numeric statement count",
+			content: `mode: set
+internal/foo/bar.go:10.1,12.16 abc 1
+`,
+			errSub: "invalid statement count",
+		},
+		{
+			name: "non-numeric hit count",
+			content: `mode: set
+internal/foo/bar.go:10.1,12.16 3 xyz
+`,
+			errSub: "invalid hit count",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmp := t.TempDir()
+			covFile := filepath.Join(tmp, "cov.out")
+			if err := os.WriteFile(covFile, []byte(tt.content), 0o644); err != nil {
+				t.Fatalf("write: %v", err)
+			}
+			_, _, _, err := ParseCoverprofile(covFile)
+			if err == nil {
+				t.Fatalf("expected error containing %q, got nil", tt.errSub)
+			}
+			if !strings.Contains(err.Error(), tt.errSub) {
+				t.Fatalf("error %q should contain %q", err.Error(), tt.errSub)
+			}
+		})
 	}
 }

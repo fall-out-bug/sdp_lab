@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -154,5 +155,41 @@ func TestDiffLines(t *testing.T) {
 	d := diffLines("a\nb\nc\n", "a\nx\nc\n")
 	if !strings.Contains(d, "- b") || !strings.Contains(d, "+ x") {
 		t.Fatalf("unexpected diff: %s", d)
+	}
+}
+
+func TestUpdate_ConcurrentWrites(t *testing.T) {
+	dir := t.TempDir()
+	s := New(filepath.Join(dir, ".snapshots"))
+
+	// Spawn multiple goroutines writing to the same snapshot name.
+	const writers = 20
+	var wg sync.WaitGroup
+	wg.Add(writers)
+	errCh := make(chan error, writers)
+
+	for i := 0; i < writers; i++ {
+		go func(i int) {
+			defer wg.Done()
+			content := strings.Repeat("x", 1000) + string(rune('A'+i%26))
+			if err := s.Update("concurrent", content); err != nil {
+				errCh <- err
+			}
+		}(i)
+	}
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Errorf("concurrent Update failed: %v", err)
+	}
+
+	// Verify the file exists and is non-empty (one of the writes won).
+	raw, err := os.ReadFile(s.snapshotPath("concurrent"))
+	if err != nil {
+		t.Fatalf("ReadFile after concurrent writes: %v", err)
+	}
+	if len(raw) == 0 {
+		t.Fatal("snapshot file is empty after concurrent writes")
 	}
 }

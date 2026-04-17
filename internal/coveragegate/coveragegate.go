@@ -126,8 +126,10 @@ func ParseCoverprofile(path string) ([]CoverageFunc, int, int, error) {
 	var order []fileKey // preserve insertion order for deterministic output
 
 	scanner := bufio.NewScanner(f)
+	lineNum := 0
 	for scanner.Scan() {
 		line := scanner.Text()
+		lineNum++
 		// Skip mode line and empty lines.
 		if line == "" || strings.HasPrefix(line, "mode:") {
 			continue
@@ -137,25 +139,25 @@ func ParseCoverprofile(path string) ([]CoverageFunc, int, int, error) {
 		// Fields are space-separated; file:range is one token.
 		parts := strings.Fields(line)
 		if len(parts) < 3 {
-			continue
+			return nil, 0, 0, fmt.Errorf("coverprofile line %d: expected at least 3 fields, got %d: %q", lineNum, len(parts), line)
 		}
 
 		// Parse file path from file:range token.
 		fileAndRange := parts[0]
 		lastColon := strings.LastIndex(fileAndRange, ":")
 		if lastColon < 0 {
-			continue
+			return nil, 0, 0, fmt.Errorf("coverprofile line %d: missing colon in file:range token %q", lineNum, fileAndRange)
 		}
 		filePath := fileAndRange[:lastColon]
 
 		numStmts, err := strconv.Atoi(parts[1])
 		if err != nil {
-			continue
+			return nil, 0, 0, fmt.Errorf("coverprofile line %d: invalid statement count %q: %w", lineNum, parts[1], err)
 		}
 
 		count, err := strconv.Atoi(parts[2])
 		if err != nil {
-			continue
+			return nil, 0, 0, fmt.Errorf("coverprofile line %d: invalid hit count %q: %w", lineNum, parts[2], err)
 		}
 
 		key := fileKey{file: filePath}
