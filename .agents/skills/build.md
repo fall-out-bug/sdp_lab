@@ -67,4 +67,6 @@ Scope based on: (1) Request type: "Design..."→idea, "Implement..."→feature, 
 
 NOT for: understanding code (@understand), fixing bugs (@fix), review (@review), deployment (@operate)
 
+@build may internally call @understand for context without explicit user invocation when work spans multiple intents.
+
 Quality gates: all tests pass, follows conventions, docs updated, PR ready

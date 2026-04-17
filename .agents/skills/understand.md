@@ -42,6 +42,10 @@ Question focus triggers targeted tools: "how healthy"→scout+metrics, "architec
 
 Time budget overrides: "quick look"→scout only regardless of focus.
 
+## Architect Output
+
+Required: new codebase, >10K LOC, architecture questions. Optional: quick mode, <5K LOC, health-only focus, recent scout.json.
+
 ## Output Format
 
 **Quick:** Plain text project card (language, LOC, health, risk). **Standard:** Markdown report (architecture, components, health, risks). **Deep:** Complete knowledge base (`.sdp/manifest.md` context primer, `.sdp/index.db` for queries, `.sdp/spec.json` specs).
