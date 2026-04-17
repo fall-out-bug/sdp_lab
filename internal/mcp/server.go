@@ -6,6 +6,8 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -34,12 +36,12 @@ type ServerConfig struct {
 
 // Server is the MCP server wrapping SDP CLI commands.
 //
-// Artifact generation contract: MCP tools do NOT directly persist artifacts to
-// .sdp/. Each tool delegates to the sdp CLI binary, and the CLI decides what to
-// write to disk as a side effect. The MCP resource handlers then read those
-// artifacts. This means that running an MCP tool will populate .sdp/ files only
-// if the underlying CLI command produces them. Tools pass through CLI output to
-// the MCP client regardless of whether artifacts are persisted.
+// Artifact persistence contract: MCP tool handlers persist CLI output to .sdp/
+// so that MCP resource handlers can serve those artifacts. Each tool handler
+// that has a corresponding resource (scout, architect, metrics, spec) passes
+// --output to the CLI (or writes stdout to disk after the call). The handler
+// still returns the CLI stdout as the MCP tool result. If persistence fails,
+// a warning is logged but the tool call does not fail.
 type Server struct {
 	config   ServerConfig
 	inner    *mcpserver.MCPServer
@@ -132,7 +134,13 @@ func (s *Server) handleScout(ctx context.Context, req mcp.CallToolRequest) (*mcp
 	path := s.repoPath(req.GetString("path", ""))
 	format := req.GetString("format", "json")
 
-	out, err := s.executor.Run(ctx, "scout", "--format", format, path)
+	// Persist artifact to .sdp/scout.json so the sdp://scout resource can read it.
+	artifactDir := filepath.Join(path, ".sdp")
+	if mkdirErr := os.MkdirAll(artifactDir, 0o755); mkdirErr != nil {
+		log.Printf("warning: could not create .sdp dir: %v", mkdirErr)
+	}
+
+	out, err := s.executor.Run(ctx, "scout", "--format", format, "--output", artifactDir, path)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("scout failed: %v", err)), nil
 	}
@@ -159,16 +167,33 @@ func (s *Server) handleArchitect(ctx context.Context, req mcp.CallToolRequest) (
 	path := s.repoPath(req.GetString("path", ""))
 	section := req.GetString("section", "")
 
+	// Persist artifact to .sdp/architect/report.json so the sdp://architect
+	// resource can read it. Architect's --output flag takes a file path.
+	artifactFile := filepath.Join(path, ".sdp", "architect", "report.json")
+	artifactDir := filepath.Dir(artifactFile)
+	if mkdirErr := os.MkdirAll(artifactDir, 0o755); mkdirErr != nil {
+		log.Printf("warning: could not prepare architect artifact dir: %v", mkdirErr)
+	}
+
 	args := []string{"architect", "analyze", "--format", "json"}
 	if section != "" {
 		args = append(args, "--section", section)
 	}
-	args = append(args, path)
+	args = append(args, "--output", artifactFile, path)
 
 	out, err := s.executor.Run(ctx, args...)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("architect failed: %v", err)), nil
 	}
+
+	// Architect --output writes formatted output to the file. When using json
+	// format with no section filter, the CLI writes the full JSON there.
+	// When a section filter is active, the CLI writes only that section, so
+	// also persist the raw stdout as a fallback for the resource.
+	if section != "" {
+		persistArtifact(artifactFile, out)
+	}
+
 	return mcp.NewToolResultText(string(out)), nil
 }
 
@@ -192,7 +217,15 @@ func (s *Server) handleMetrics(ctx context.Context, req mcp.CallToolRequest) (*m
 	path := s.repoPath(req.GetString("path", ""))
 	format := req.GetString("format", "json")
 
-	out, err := s.executor.Run(ctx, "metrics", "--format", format, path)
+	// Persist artifact to .sdp/metrics/report.json so the sdp://metrics
+	// resource can read it. Metrics --output takes a directory.
+	artifactDir := filepath.Join(path, ".sdp", "metrics")
+	if mkdirErr := os.MkdirAll(artifactDir, 0o755); mkdirErr != nil {
+		log.Printf("warning: could not create .sdp/metrics dir: %v", mkdirErr)
+	}
+
+	args := []string{"metrics", "--format", format, "--output", artifactDir, path}
+	out, err := s.executor.Run(ctx, args...)
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("metrics failed: %v", err)), nil
 	}
@@ -223,6 +256,13 @@ func (s *Server) handleSpec(ctx context.Context, req mcp.CallToolRequest) (*mcp.
 	category := req.GetString("category", "all")
 	enrich := req.GetBool("enrich", false)
 
+	// Persist artifact to .sdp/specs/spec.json so the sdp://spec resource
+	// can read it. Spec --output takes a directory.
+	artifactDir := filepath.Join(path, ".sdp", "specs")
+	if mkdirErr := os.MkdirAll(artifactDir, 0o755); mkdirErr != nil {
+		log.Printf("warning: could not create .sdp/specs dir: %v", mkdirErr)
+	}
+
 	args := []string{"spec", "--format", "json"}
 	if category != "all" {
 		args = append(args, "--category", category)
@@ -230,7 +270,7 @@ func (s *Server) handleSpec(ctx context.Context, req mcp.CallToolRequest) (*mcp.
 	if enrich {
 		args = append(args, "--enrich")
 	}
-	args = append(args, path)
+	args = append(args, "--output", artifactDir, path)
 
 	out, err := s.executor.Run(ctx, args...)
 	if err != nil {
@@ -573,6 +613,32 @@ func (s *Server) repoPath(toolPath string) string {
 		return toolPath
 	}
 	return s.config.RepoRoot
+}
+
+// artifactPath returns the absolute path for a .sdp/ artifact relative to the
+// effective repo root. It also creates all parent directories.
+func (s *Server) artifactPath(toolPath, relPath string) (string, error) {
+	root := s.repoPath(toolPath)
+	absPath := filepath.Join(root, relPath)
+	dir := filepath.Dir(absPath)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("create artifact dir %s: %w", dir, err)
+	}
+	return absPath, nil
+}
+
+// persistArtifact writes data to the given path, creating parent directories
+// as needed. On failure it logs a warning but does not return an error, so the
+// MCP tool result is still delivered.
+func persistArtifact(path string, data []byte) {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		log.Printf("warning: failed to create artifact dir %s: %v", dir, err)
+		return
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		log.Printf("warning: failed to persist artifact to %s: %v", path, err)
+	}
 }
 
 // MeasureStartup measures the time to create a server instance.

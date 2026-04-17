@@ -10,6 +10,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -84,8 +85,8 @@ func TestHandleScout_HappyPath(t *testing.T) {
 	assert.False(t, result.IsError)
 	assert.Contains(t, result.Content[0].(mcp.TextContent).Text, "languages")
 
-	// Verify correct CLI invocation
-	assert.Equal(t, []string{"scout", "--format", "json", "/test/repo"}, mock.lastArgs)
+	// Verify correct CLI invocation with --output for artifact persistence
+	assert.Equal(t, []string{"scout", "--format", "json", "--output", "/test/repo/.sdp", "/test/repo"}, mock.lastArgs)
 }
 
 func TestHandleScout_CustomFormat(t *testing.T) {
@@ -105,7 +106,7 @@ func TestHandleScout_CustomFormat(t *testing.T) {
 	result, err := srv.handleScout(context.Background(), req)
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
-	assert.Equal(t, []string{"scout", "--format", "text", "/custom/path"}, mock.lastArgs)
+	assert.Equal(t, []string{"scout", "--format", "text", "--output", "/custom/path/.sdp", "/custom/path"}, mock.lastArgs)
 }
 
 func TestHandleScout_Error(t *testing.T) {
@@ -141,7 +142,7 @@ func TestHandleMetrics_HappyPath(t *testing.T) {
 	result, err := srv.handleMetrics(context.Background(), req)
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
-	assert.Equal(t, []string{"metrics", "--format", "json", "/test/repo"}, mock.lastArgs)
+	assert.Equal(t, []string{"metrics", "--format", "json", "--output", "/test/repo/.sdp/metrics", "/test/repo"}, mock.lastArgs)
 }
 
 func TestHandleMetrics_Error(t *testing.T) {
@@ -174,7 +175,7 @@ func TestHandleSpec_HappyPath(t *testing.T) {
 	result, err := srv.handleSpec(context.Background(), req)
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
-	assert.Equal(t, []string{"spec", "--format", "json", "--category", "api", "/test/repo"}, mock.lastArgs)
+	assert.Equal(t, []string{"spec", "--format", "json", "--category", "api", "--output", "/test/repo/.sdp/specs", "/test/repo"}, mock.lastArgs)
 }
 
 func TestHandleSpec_AllCategory(t *testing.T) {
@@ -194,7 +195,7 @@ func TestHandleSpec_AllCategory(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	// "all" should not pass --category flag
-	assert.Equal(t, []string{"spec", "--format", "json", "/test/repo"}, mock.lastArgs)
+	assert.Equal(t, []string{"spec", "--format", "json", "--output", "/test/repo/.sdp/specs", "/test/repo"}, mock.lastArgs)
 }
 
 func TestHandleSpec_WithEnrich(t *testing.T) {
@@ -319,6 +320,17 @@ func TestHandleArchitect_HappyPath(t *testing.T) {
 	assert.Contains(t, mock.lastArgs, "analyze")
 	assert.Contains(t, mock.lastArgs, "--format")
 	assert.Contains(t, mock.lastArgs, "json")
+	// Verify --output flag for artifact persistence (always present)
+	assert.Contains(t, mock.lastArgs, "--output")
+	// The output path should be .sdp/architect/report.json under the repo
+	outputIdx := -1
+	for i, a := range mock.lastArgs {
+		if a == "--output" && i+1 < len(mock.lastArgs) {
+			outputIdx = i + 1
+		}
+	}
+	require.NotEqual(t, -1, outputIdx)
+	assert.Contains(t, mock.lastArgs[outputIdx], ".sdp/architect/report.json")
 }
 
 func TestHandleArchitect_WithSection(t *testing.T) {
@@ -338,6 +350,8 @@ func TestHandleArchitect_WithSection(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, mock.lastArgs, "--section")
 	assert.Contains(t, mock.lastArgs, "diagrams")
+	// --output should still be present
+	assert.Contains(t, mock.lastArgs, "--output")
 }
 
 func TestHandleArchitect_Error(t *testing.T) {
@@ -1010,4 +1024,192 @@ func truncateForName(s string) string {
 		return s[:30]
 	}
 	return s
+}
+
+// ---------------------------------------------------------------------------
+// Artifact persistence tests (sdplab-3vj)
+// ---------------------------------------------------------------------------
+
+// TestArtifactPath_CreatesParentDir verifies that artifactPath creates the
+// necessary parent directories under the repo root.
+func TestArtifactPath_CreatesParentDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	srv := NewServer(ServerConfig{RepoRoot: tmpDir})
+
+	path, err := srv.artifactPath("", ".sdp/architect/report.json")
+	require.NoError(t, err)
+	assert.Equal(t, tmpDir+"/.sdp/architect/report.json", path)
+
+	// Verify the parent directory was created
+	info, statErr := os.Stat(tmpDir + "/.sdp/architect")
+	require.NoError(t, statErr)
+	assert.True(t, info.IsDir())
+}
+
+// TestArtifactPath_CustomToolPath verifies artifactPath uses the tool-level
+// path when provided.
+func TestArtifactPath_CustomToolPath(t *testing.T) {
+	tmpDir := t.TempDir()
+	srv := NewServer(ServerConfig{RepoRoot: "/default/repo"})
+
+	path, err := srv.artifactPath(tmpDir, ".sdp/scout.json")
+	require.NoError(t, err)
+	assert.Equal(t, tmpDir+"/.sdp/scout.json", path)
+
+	// Verify .sdp/ was created under the custom path, not the default
+	info, statErr := os.Stat(tmpDir + "/.sdp")
+	require.NoError(t, statErr)
+	assert.True(t, info.IsDir())
+}
+
+// TestPersistArtifact_WritesFile verifies that persistArtifact creates a file.
+func TestPersistArtifact_WritesFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := tmpDir + "/.sdp/test.json"
+
+	persistArtifact(path, []byte(`{"test": true}`))
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"test": true}`, string(data))
+}
+
+// TestPersistArtifact_DoesNotFailOnBadPath verifies that persistArtifact logs
+// a warning but does not panic or return an error on failure.
+func TestPersistArtifact_DoesNotFailOnBadPath(t *testing.T) {
+	// Use a path with a null byte, which is invalid on all platforms.
+	// persistArtifact should log a warning and return without panicking.
+	badPath := "/tmp/\x00invalid/path/file.json"
+	// Should not panic
+	persistArtifact(badPath, []byte(`{}`))
+
+	// File should not have been created
+	_, err := os.Stat(badPath)
+	assert.Error(t, err)
+}
+
+// TestScout_OutputDirCreated verifies that handleScout creates the .sdp/
+// directory before invoking the CLI.
+func TestScout_OutputDirCreated(t *testing.T) {
+	tmpDir := t.TempDir()
+	srv := NewServer(ServerConfig{RepoRoot: tmpDir})
+	mock := &mockExecutor{response: []byte(`{"languages":["Go"]}`)}
+	srv.executor = mock
+
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name: "sdp_scout",
+			Arguments: map[string]interface{}{
+				"path": tmpDir,
+			},
+		},
+	}
+
+	_, err := srv.handleScout(context.Background(), req)
+	require.NoError(t, err)
+
+	// .sdp/ directory should have been created
+	info, statErr := os.Stat(tmpDir + "/.sdp")
+	require.NoError(t, statErr)
+	assert.True(t, info.IsDir())
+
+	// Verify --output was passed with the correct dir
+	assert.Contains(t, mock.lastArgs, "--output")
+	idx := -1
+	for i, a := range mock.lastArgs {
+		if a == "--output" && i+1 < len(mock.lastArgs) {
+			idx = i + 1
+		}
+	}
+	require.NotEqual(t, -1, idx)
+	assert.Equal(t, tmpDir+"/.sdp", mock.lastArgs[idx])
+}
+
+// TestMetrics_OutputDirCreated verifies that handleMetrics creates the
+// .sdp/metrics/ directory before invoking the CLI.
+func TestMetrics_OutputDirCreated(t *testing.T) {
+	tmpDir := t.TempDir()
+	srv := NewServer(ServerConfig{RepoRoot: tmpDir})
+	mock := &mockExecutor{response: []byte(`{"commits_analyzed":0}`)}
+	srv.executor = mock
+
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name: "sdp_metrics",
+			Arguments: map[string]interface{}{
+				"path": tmpDir,
+			},
+		},
+	}
+
+	_, err := srv.handleMetrics(context.Background(), req)
+	require.NoError(t, err)
+
+	// .sdp/metrics/ directory should have been created
+	info, statErr := os.Stat(tmpDir + "/.sdp/metrics")
+	require.NoError(t, statErr)
+	assert.True(t, info.IsDir())
+}
+
+// TestSpec_OutputDirCreated verifies that handleSpec creates the .sdp/specs/
+// directory before invoking the CLI.
+func TestSpec_OutputDirCreated(t *testing.T) {
+	tmpDir := t.TempDir()
+	srv := NewServer(ServerConfig{RepoRoot: tmpDir})
+	mock := &mockExecutor{response: []byte(`{}`)}
+	srv.executor = mock
+
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name: "sdp_spec",
+			Arguments: map[string]interface{}{
+				"path": tmpDir,
+			},
+		},
+	}
+
+	_, err := srv.handleSpec(context.Background(), req)
+	require.NoError(t, err)
+
+	// .sdp/specs/ directory should have been created
+	info, statErr := os.Stat(tmpDir + "/.sdp/specs")
+	require.NoError(t, statErr)
+	assert.True(t, info.IsDir())
+}
+
+// TestArchitect_OutputDirCreated verifies that handleArchitect creates the
+// .sdp/architect/ directory before invoking the CLI.
+func TestArchitect_OutputDirCreated(t *testing.T) {
+	tmpDir := t.TempDir()
+	srv := NewServer(ServerConfig{RepoRoot: tmpDir})
+	mock := &mockExecutor{response: []byte(`{}`)}
+	srv.executor = mock
+
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name: "sdp_architect",
+			Arguments: map[string]interface{}{
+				"path": tmpDir,
+			},
+		},
+	}
+
+	_, err := srv.handleArchitect(context.Background(), req)
+	require.NoError(t, err)
+
+	// .sdp/architect/ directory should have been created
+	info, statErr := os.Stat(tmpDir + "/.sdp/architect")
+	require.NoError(t, statErr)
+	assert.True(t, info.IsDir())
+
+	// Verify --output points to the report.json file
+	assert.Contains(t, mock.lastArgs, "--output")
+	idx := -1
+	for i, a := range mock.lastArgs {
+		if a == "--output" && i+1 < len(mock.lastArgs) {
+			idx = i + 1
+		}
+	}
+	require.NotEqual(t, -1, idx)
+	assert.Equal(t, tmpDir+"/.sdp/architect/report.json", mock.lastArgs[idx])
 }
