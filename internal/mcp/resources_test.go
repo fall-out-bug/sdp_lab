@@ -514,3 +514,132 @@ func TestSecurity_Resources_FixedURIScheme(t *testing.T) {
 			"resource URI %q must use sdp:// scheme", rd.uri)
 	}
 }
+
+// TestSecurity_Resources_SymlinkEscape verifies that symlinks inside .sdp/
+// that point outside the .sdp/ directory are rejected by safeReadFile.
+func TestSecurity_Resources_SymlinkEscape(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a sensitive file outside .sdp/.
+	sensitiveContent := "SECRET_VALUE=should_not_be_exposed"
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, ".env"),
+		[]byte(sensitiveContent),
+		0o644,
+	))
+
+	// Create .sdp/ directory.
+	sdpDir := filepath.Join(tmpDir, ".sdp")
+	require.NoError(t, os.MkdirAll(sdpDir, 0o755))
+
+	// Create a symlink inside .sdp/ that points to the sensitive file.
+	require.NoError(t, os.Symlink(
+		filepath.Join(tmpDir, ".env"),
+		filepath.Join(sdpDir, "scout.json"),
+	))
+
+	srv := NewServer(ServerConfig{RepoRoot: tmpDir})
+
+	rd := resourceDef{
+		uri:      "sdp://scout",
+		relPath:  ".sdp/scout.json",
+		mimeType: "application/json",
+		hintTool: "sdp_scout",
+	}
+
+	req := mcp.ReadResourceRequest{
+		Params: mcp.ReadResourceParams{URI: "sdp://scout"},
+	}
+
+	contents, err := srv.handleFileResource(context.Background(), req, rd)
+	require.Error(t, err, "symlink escaping .sdp/ should be rejected")
+	assert.Nil(t, contents, "symlink escaping .sdp/ should not return contents")
+	assert.Contains(t, err.Error(), ".sdp/",
+		"error should mention .sdp/ boundary violation")
+	assert.NotContains(t, err.Error(), sensitiveContent,
+		"error must not expose contents of symlink target")
+}
+
+// TestSecurity_Resources_SymlinkEscape_Nested verifies that a symlink in a
+// nested .sdp/ subdirectory that escapes upward is also rejected.
+func TestSecurity_Resources_SymlinkEscape_Nested(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a sensitive file at the repo root.
+	sensitiveContent := "DATABASE_URL=postgres://admin:secret@db:5432"
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "credentials.json"),
+		[]byte(sensitiveContent),
+		0o644,
+	))
+
+	// Create nested .sdp/architecture/ directory.
+	archDir := filepath.Join(tmpDir, ".sdp", "architecture")
+	require.NoError(t, os.MkdirAll(archDir, 0o755))
+
+	// Symlink the report to the sensitive file.
+	require.NoError(t, os.Symlink(
+		filepath.Join(tmpDir, "credentials.json"),
+		filepath.Join(archDir, "report.json"),
+	))
+
+	srv := NewServer(ServerConfig{RepoRoot: tmpDir})
+
+	rd := resourceDef{
+		uri:      "sdp://architect",
+		relPath:  ".sdp/architecture/report.json",
+		mimeType: "application/json",
+		hintTool: "sdp_architect",
+	}
+
+	req := mcp.ReadResourceRequest{
+		Params: mcp.ReadResourceParams{URI: "sdp://architect"},
+	}
+
+	contents, err := srv.handleFileResource(context.Background(), req, rd)
+	require.Error(t, err, "nested symlink escaping .sdp/ should be rejected")
+	assert.Nil(t, contents)
+}
+
+// TestSecurity_Resources_SymlinkWithinSDP verifies that a symlink that stays
+// within .sdp/ (e.g., aliasing one artifact to another) is allowed.
+func TestSecurity_Resources_SymlinkWithinSDP(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	sdpDir := filepath.Join(tmpDir, ".sdp")
+	require.NoError(t, os.MkdirAll(sdpDir, 0o755))
+
+	// Write a real scout.json.
+	realContent := `{"name":"symlink-test","languages":["Go"]}`
+	require.NoError(t, os.WriteFile(
+		filepath.Join(sdpDir, "scout_real.json"),
+		[]byte(realContent),
+		0o644,
+	))
+
+	// Symlink scout.json -> scout_real.json (both inside .sdp/).
+	require.NoError(t, os.Symlink(
+		filepath.Join(sdpDir, "scout_real.json"),
+		filepath.Join(sdpDir, "scout.json"),
+	))
+
+	srv := NewServer(ServerConfig{RepoRoot: tmpDir})
+
+	rd := resourceDef{
+		uri:      "sdp://scout",
+		relPath:  ".sdp/scout.json",
+		mimeType: "application/json",
+		hintTool: "sdp_scout",
+	}
+
+	req := mcp.ReadResourceRequest{
+		Params: mcp.ReadResourceParams{URI: "sdp://scout"},
+	}
+
+	contents, err := srv.handleFileResource(context.Background(), req, rd)
+	require.NoError(t, err, "symlink within .sdp/ should be allowed")
+	require.Len(t, contents, 1)
+	textContent, ok := contents[0].(mcp.TextResourceContents)
+	require.True(t, ok)
+	assert.Equal(t, realContent, textContent.Text)
+}

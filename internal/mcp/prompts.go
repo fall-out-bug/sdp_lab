@@ -5,7 +5,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"os"
 	"path/filepath"
 	"text/template"
 
@@ -37,14 +36,15 @@ type promptData struct {
 
 // collectAvailableData reads .sdp/ artifacts from disk and returns a promptData
 // with whatever content is available. Missing artifacts result in empty strings
-// (templates conditionally omit those sections).
+// (templates conditionally omit those sections). Uses safeReadFile to prevent
+// symlink-based path escapes.
 func (s *Server) collectAvailableData() promptData {
 	data := promptData{
 		RepoName: filepath.Base(s.config.RepoRoot),
 	}
 
 	readFile := func(relPath string) string {
-		content, err := os.ReadFile(filepath.Join(s.config.RepoRoot, relPath))
+		content, err := safeReadFile(s.config.RepoRoot, relPath)
 		if err != nil {
 			return ""
 		}

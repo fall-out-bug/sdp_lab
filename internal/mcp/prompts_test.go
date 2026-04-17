@@ -534,3 +534,33 @@ func TestSecurity_Prompts_ReadsOnlySDPDirectory(t *testing.T) {
 	assert.Empty(t, data.SpecSummary)
 	assert.Empty(t, data.BootstrapSummary)
 }
+
+// TestSecurity_Prompts_SymlinkEscape verifies that collectAvailableData rejects
+// symlinks inside .sdp/ that point outside the .sdp/ directory.
+func TestSecurity_Prompts_SymlinkEscape(t *testing.T) {
+	tmpDir := t.TempDir()
+	sdpDir := filepath.Join(tmpDir, ".sdp")
+	require.NoError(t, os.MkdirAll(sdpDir, 0o755))
+
+	// Write a sensitive file outside .sdp/.
+	sensitiveContent := "AWS_SECRET_KEY=abc123xyz"
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, ".env"),
+		[]byte(sensitiveContent),
+		0o644,
+	))
+
+	// Create a symlink inside .sdp/ pointing to the sensitive file.
+	require.NoError(t, os.Symlink(
+		filepath.Join(tmpDir, ".env"),
+		filepath.Join(sdpDir, "scout.json"),
+	))
+
+	srv := NewServer(ServerConfig{RepoRoot: tmpDir})
+	data := srv.collectAvailableData()
+
+	// The symlink should be rejected; ScoutJSON should be empty (safeReadFile
+	// returns error for symlinks escaping .sdp/).
+	assert.Empty(t, data.ScoutJSON,
+		"scout data should be empty when symlink escapes .sdp/")
+}

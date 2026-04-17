@@ -6,6 +6,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -32,6 +33,13 @@ type ServerConfig struct {
 }
 
 // Server is the MCP server wrapping SDP CLI commands.
+//
+// Artifact generation contract: MCP tools do NOT directly persist artifacts to
+// .sdp/. Each tool delegates to the sdp CLI binary, and the CLI decides what to
+// write to disk as a side effect. The MCP resource handlers then read those
+// artifacts. This means that running an MCP tool will populate .sdp/ files only
+// if the underlying CLI command produces them. Tools pass through CLI output to
+// the MCP client regardless of whether artifacts are persisted.
 type Server struct {
 	config   ServerConfig
 	inner    *mcpserver.MCPServer
@@ -43,6 +51,16 @@ func NewServer(cfg ServerConfig) *Server {
 	if cfg.RepoRoot == "" {
 		cfg.RepoRoot = "."
 	}
+	// Resolve RepoRoot to an absolute path so that filepath.Base and
+	// filepath.Join produce correct results even when the caller passes "."
+	// (which would otherwise make the repo name "." and break relative path
+	// resolution).
+	absRepo, err := filepath.Abs(cfg.RepoRoot)
+	if err != nil {
+		absRepo = cfg.RepoRoot // fall back to the caller-provided value
+	}
+	cfg.RepoRoot = absRepo
+
 	if cfg.BinaryPath == "" {
 		cfg.BinaryPath = DefaultBinary
 	}

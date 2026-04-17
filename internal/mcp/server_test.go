@@ -15,7 +15,9 @@ import (
 func TestNewServer(t *testing.T) {
 	srv := NewServer(ServerConfig{RepoRoot: "."})
 	require.NotNil(t, srv)
-	assert.Equal(t, ".", srv.config.RepoRoot)
+	// RepoRoot is resolved to absolute path.
+	assert.True(t, filepath.IsAbs(srv.config.RepoRoot),
+		"RepoRoot should be absolute, got %q", srv.config.RepoRoot)
 	assert.Equal(t, DefaultBinary, srv.config.BinaryPath)
 	assert.NotNil(t, srv.inner)
 	assert.NotNil(t, srv.executor)
@@ -23,8 +25,25 @@ func TestNewServer(t *testing.T) {
 
 func TestNewServerDefaults(t *testing.T) {
 	srv := NewServer(ServerConfig{})
-	assert.Equal(t, ".", srv.config.RepoRoot, "default repo root should be '.'")
+	// Default RepoRoot "." is resolved to an absolute path.
+	assert.True(t, filepath.IsAbs(srv.config.RepoRoot),
+		"default repo root should be resolved to absolute, got %q", srv.config.RepoRoot)
 	assert.Equal(t, DefaultBinary, srv.config.BinaryPath, "default binary should be 'sdp'")
+}
+
+func TestNewServer_DotRepoRoot_ResolvesToAbsolute(t *testing.T) {
+	srv := NewServer(ServerConfig{RepoRoot: "."})
+	require.NotNil(t, srv)
+
+	absCwd, err := filepath.Abs(".")
+	require.NoError(t, err)
+	assert.Equal(t, absCwd, srv.config.RepoRoot,
+		"RepoRoot '.' should resolve to absolute CWD")
+
+	// RepoName (used in prompts) should not be ".".
+	repoName := filepath.Base(srv.config.RepoRoot)
+	assert.NotEqual(t, ".", repoName,
+		"filepath.Base of absolute RepoRoot should not be '.'")
 }
 
 func TestNewServerCustomBinary(t *testing.T) {
