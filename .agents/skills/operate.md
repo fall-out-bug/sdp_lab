@@ -1,0 +1,72 @@
+---
+name: operate
+description: Deploy, monitor, and maintain systems — CI/CD, triage, and operational tasks.
+version: 1.0.0
+tags:
+  - devops
+  - deployment
+  - ci-cd
+requires_cli:
+  - sdp
+compatibility:
+  - claude-code
+  - opencode
+  - cursor
+  - codex
+---
+
+# operate
+
+## Purpose
+
+Keep it running. Deployment, CI triage, monitoring, backlog planning.
+Absorbs: @deploy, @ci-triage, @plan.
+
+## When to Use
+
+Deploying to production/staging, CI failures need investigation, system monitoring/alerts, converting insights to backlog.
+
+## Modes
+
+**deploy:** Release prep and execution. Pre-deploy checks, rollback plan, deployment, smoke tests, monitoring verification.
+**triage:** CI failure diagnosis. Log analysis, test categorization (flaky/dep/env/code), CI health.
+**plan:** Convert insights to structured backlog. Workstream decomposition, beads issue creation, dependency mapping.
+
+## Routing Rules
+
+Mode based on: (1) Context: PR merged?→deploy, CI red?→triage, insights gathered?→plan.
+(2) Explicit request: "Deploy"→deploy, "Triaging CI"→triage.
+(3) System state: production alert?→deploy (rollback) or triage (investigate).
+(4) Work completion: feature done?→plan or deploy.
+
+## Input Expectations
+
+**deploy:** Target environment, version/commit, release notes (optional), rollback plan (optional)
+**triage:** CI failure logs/job ID, failure description, recent changes context
+**plan:** Insights to organize, existing backlog (optional), timebox/scope constraints
+
+## Legacy Aliases
+
+@deploy→deploy mode, @ci-triage→triage mode, @plan→plan mode (NOT standalone planning session)
+
+## Embedded Practices
+
+**@guard:** Pre-deployment quality gate. All tests pass, no critical security findings, docs updated, rollback plan exists.
+
+## Artifacts Created
+
+**deploy:** Deployment record, smoke test results, monitoring baseline, rollback plan
+**triage:** Failure categorization, assigned issues (code→@fix, flaky→infrastructure), CI health metrics
+**plan:** Beads issues with dependencies, workstream breakdown, priority assignments, size estimates
+
+## Acceptance Boundaries
+
+NOT for: understanding (@understand), building (@build), fixing code bugs (@fix), code review (@review)
+
+Quality gates for deploy: all quality gates pass, review approved, tests passing, documentation complete, rollback plan documented
+
+## Success Criteria
+
+**deploy:** System deployed, smoke tests pass, monitoring confirms health
+**triage:** Failures categorized, issues assigned, CI health improved/degraded identified
+**plan:** Backlog structured, dependencies mapped, priorities clear
