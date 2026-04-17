@@ -7,9 +7,9 @@
 
 Supporting context (read on demand, not required for orientation):
 
-- Platform Reset: [AGENT_PLATFORM_ROADMAP_2026-03-31.md](AGENT_PLATFORM_ROADMAP_2026-03-31.md) + [2026-03-31-platform-backlog-reset.md](../plans/2026-03-31-platform-backlog-reset.md)
+- Platform Reset: [AGENT_PLATFORM_ROADMAP_2026-03-31.md](AGENT_PLATFORM_ROADMAP_2026-03-31.md) + [2026-03-31-platform-backlog-reset.md](../archive/plans/2026-03-31-platform-backlog-reset.md)
 - Pivot rationale: [ADR-002 Standards Pivot](../decisions/ADR-002-standards-pivot.md)
-- Research: [Enforcement Hypotheses](../plans/2026-02-24-enforcement-hypotheses.md), [Phase 0 Enforcement Audit](../plans/2026-02-24-phase0-enforcement-audit.md)
+- Research: [Enforcement Hypotheses](../archive/plans/2026-02-24-enforcement-hypotheses.md), [Phase 0 Enforcement Audit](../archive/plans/2026-02-24-phase0-enforcement-audit.md)
 - K8s Archive: `archive/k8s-v0` branch (domain knowledge for future rebuild)
 - Synergies: [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md)
 - Unified Plan: [UNIFIED_VISION_ROADMAP_2026-03-03.md](UNIFIED_VISION_ROADMAP_2026-03-03.md)
@@ -23,14 +23,18 @@ Supporting context (read on demand, not required for orientation):
 
 Execution priority has changed.
 
-Current planning priority is the platform reset lane:
+Current execution priority is the UX, delivery-runtime, and toolkit lane:
 
-- `F091` backlog reset and canonical doc sync
-- `F092` kernel contract surface
-- `F093` adapter gateway layer
-- `F094` augmentation engine
-- `F095` behavioral eval system
-- `F096` legacy drift cleanup support lane
+- `F097`..`F101` — product truth, progressive disclosure, adoption safety, and release discipline
+- `F105` — architect core engine
+- `F106` — real `agentloop` integration into the delivery path
+- `F108` — architecture normalization and missing production gaps
+
+The platform reset lane established the base rather than remaining the active queue:
+
+- `F091`, `F093`, `F094`, `F095` are done
+- `F092` remains the only active platform-reset feature
+- `F096` remains a blocked support lane, not a primary execution target
 
 Trust, evidence, and enterprise governance remain in the roadmap.
 They are now the `trust lane`, not the whole product story.
@@ -42,10 +46,16 @@ and multilingual source preservation.
 
 This lane is not an exclusive ready queue. `bd ready` remains the live source of executable work, and older ecosystem tasks can still coexist in Beads until they are explicitly triaged or deprioritized.
 
-A second planned lane now exists for toolkit-led brownfield adoption. `F120`..`F126`
+A second active lane exists for toolkit-led brownfield adoption. `F120`..`F126`
 turn the toolkit vision into executable backlog: scout first, then metrics and
-index, then bootstrap, intent UX, and MCP. This is not the current `P0` queue, but
-it is now the canonical plan for "unknown repo -> AI-native workspace".
+index, then bootstrap, intent UX, and MCP. This is the current next lane after
+the P0 UX/runtime work and is the canonical plan for "unknown repo -> AI-native workspace".
+
+Deferred unless explicitly revived as `P3+` work:
+
+- historical placeholder range `F031`..`F049`, `F052`
+- ecosystem side lanes `F060`, `F062`, `F063`, `F068`, `F070`
+- enterprise and long-horizon tails `F072`..`F085`
 
 Two horizons. Phases 1-7 build the trust layer as CLI tools with CI enforcement. Phases 8-9 extend the same standards into K8s for autonomous swarm execution. The dream (issue in, PR with proof out) doesn't change — the path becomes standards-based.
 
@@ -109,7 +119,7 @@ graph LR
 
 ## Done: Phase 0 (Agent Loop Reliability)
 
-14 features completed. Established outer-loop/inner-loop architecture. See [full Phase 0 details](../plans/2026-02-23-agent-loop-reliability.md).
+14 features completed. Established outer-loop/inner-loop architecture. See [full Phase 0 details](../archive/plans/2026-02-23-agent-loop-reliability.md).
 
 **Key outcomes kept:**
 - `sdp-orchestrate` — outer loop state machine (build → review → PR → CI → done)
@@ -327,13 +337,14 @@ These IDs are kept for historical continuity and are not active roadmap items.
 This roadmap focuses active strategy phases. Full feature coverage is maintained in `docs/workstreams/INDEX.md` and includes:
 
 - Archived pre-pivot features: `F001`..`F013`
-- Phase 0/7 completed bootstrap features: `F014`..`F030`
-- Auto-generated planning ranges: `F031`..`F052`
+- Phase 0 completed bootstrap features: `F014`..`F029`
+- Remaining Phase 7 bootstrap backlog: `F030`
+- Auto-generated planning ranges: `F031`..`F052` (historical placeholders; only revive explicitly)
 - Historical protocol and workflow hardening tracks: `F053`..`F056`
 - Active strategy and ecosystem ranges: `F059`..`F085`
 - Parked long-horizon ideas: `F086`..`F089`
 - Canonical alignment and platform reset lanes: `F090`..`F096`
-- Product truth, integration, architect, analyst, and toolkit backlog: `F097`..`F126`
+- Product truth, integration, architect, analyst, toolkit, and autonomy backlog: `F097`..`F129`
 
 ### Standards & Tools
 - [in-toto attestation](https://github.com/in-toto/attestation) — envelope format
@@ -372,10 +383,10 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 
 ### Ongoing
 - **F059** — OhMyOpenCode Evidence Integration (00-059-01 … 00-059-04). Pre-tool-call guard, session evidence emitter, permission↔guard bridge, stuck detection. Phase 5. **Status: DONE** (sdp-omc-guard, sdp-ready implemented).
-- **F060** — Gas Town Adapter (00-060-01 … 00-060-04). Convoy→WS bridge, hook→guard, witness escalation, Agent CV→provenance. Phase 8-9 target. Source: [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md).
+- **F060** — Gas Town Adapter (00-060-01 … 00-060-04). Convoy→WS bridge, hook→guard, witness escalation, Agent CV→provenance. Phase 8-9 target. Deferred unless explicitly revived. Source: [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md).
 **F061** — Beads Graph Integration (00-061-01 … 00-061-04). SQL dep query, `sdp ready` bridge, formula templates, wisps. Phase 5 target. **Status: DONE** (sdp-ready, beads client implemented, opencode-beads plugin installed).
-- **F062** — vibe-kanban Integration. Kanban-style task orchestration for coding agents. Evaluate for SDP swarm orchestration layer. Phase 8-9 target.
-- **F063** — opencode-mem Integration. Persistent memory for session continuity, user preference learning, project-specific context. Phase 5 target. **Recommendation: INTEGRATE** (9/10 synergy score).
+- **F062** — vibe-kanban Integration. Kanban-style task orchestration for coding agents. Evaluate for SDP swarm orchestration layer. Deferred unless explicitly revived.
+- **F063** — opencode-mem Integration. Persistent memory for session continuity, user preference learning, project-specific context. Deferred unless explicitly revived or merged into toolkit memory work.
 
 ### Phase 4: Auto-Attestation
 
@@ -387,9 +398,9 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 ### Phase 6-8: Dual-Surface Productization (Planned)
 
 - **F068** — Unified Integration Contracts (00-068-01 ... 00-068-05). Standard contracts for orchestration/runtime/policy/evidence plus status/instructions/import payload surfaces across adapters.
-- **F069** — Control Tower Pack + Spec-Driven Pipeline (00-069-01 ... 00-069-15). ~~One-command setup for OhMyOpenCode + Beads + Gas Town + SDP demo flow~~ **Extended to full spec-driven pipeline**: Control Store MVP, Beads Bridge, Orchestrator Loop, Human/Admin Surface, Dispatch Bridge (OmO transport), Auto-Contract Generation, Provenance Unification, A2A HTTP Interface, Constitution Layer, Advanced Execution (daemon + findings routing). See `docs/SDP_SPEC_DRIVEN_PIPELINE_CANON.md`.
+- **F069** — Control Tower Pack + Spec-Driven Pipeline (00-069-01 ... 00-069-15). ~~One-command setup for OhMyOpenCode + Beads + Gas Town + SDP demo flow~~ **Extended to full spec-driven pipeline**: Control Store MVP, Beads Bridge, Orchestrator Loop, Human/Admin Surface, Dispatch Bridge (OmO transport), Auto-Contract Generation, Provenance Unification, A2A HTTP Interface, Constitution Layer, Advanced Execution (daemon + findings routing). **Status: DONE.** See `docs/SDP_SPEC_DRIVEN_PIPELINE_CANON.md`.
 - **F070** — OSS Observability and Explainability (00-070-01 ... 00-070-03). Live event stream, allow/deny explanations, minimal audit export.
-- **F071** — Ralph Decommission and Orchestrator V2 (00-071-01 ... 00-071-03). Remove primitive Ralph loop from enterprise profile and migrate to typed FSM orchestration.
+- **F071** — Ralph Decommission and Orchestrator V2 (00-071-01 ... 00-071-03). Remove primitive Ralph loop from enterprise profile and migrate to typed FSM orchestration. **Status: DONE.** Runtime `agentloop` wiring remains tracked separately in `F106`.
 - **F072** — Advanced Agent Architecture for AI SDLC (00-072-01 ... 00-072-06). Hierarchical planning, parallel branches, verifier quorum, uncertainty escalation, and OpenSpec import into the planning graph.
 - **F073** — BYOM Model Gateway (00-073-01 ... 00-073-03). Provider abstraction and policy-based model routing for customer-selected models.
 - **F074** — Enterprise Governance Pack (00-074-01 ... 00-074-03). Multi-tenant RBAC, signed evidence gates, SIEM/compliance exports.
@@ -418,9 +429,9 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 - **F088** — Autonomous Backlog Synthesis from findings telemetry.
 - **F089** — Adaptive Gate Tuning based on historical signal quality.
 
-### Phase 6B: Canonical SDP Workflow (In Progress)
+### Phase 6B: Canonical SDP Workflow (Done)
 
-- **F090** — Canonical SDP Workflow and Orchestrator Alignment. Tighten SDP around one canonical loop (`feature -> workstream -> beads issue -> early draft PR -> review findings -> QA/UAT -> clean PR`) and align orchestrator runtime, verdict artifacts, and operator surfaces to that loop.
+- **F090** — Canonical SDP Workflow and Orchestrator Alignment. Tighten SDP around one canonical loop (`feature -> workstream -> beads issue -> early draft PR -> review findings -> QA/UAT -> clean PR`) and align orchestrator runtime, verdict artifacts, and operator surfaces to that loop. **Status: DONE.**
 
 ### Phase Analyst: Evidence-Backed Strategy Audit (Planned)
 
@@ -455,9 +466,9 @@ Reference: `docs/vision/SDP_LAYERED_VISION.md`
 
 
 ### Project History
-- [Agent Loop Reliability](../plans/2026-02-23-agent-loop-reliability.md)
-- [Stripe Minions Comparison](../plans/2026-02-23-stripe-minions-comparison.md)
-- [Phase 0 Enforcement Audit](../plans/2026-02-24-phase0-enforcement-audit.md)
-- [Enforcement Hypotheses](../plans/2026-02-24-enforcement-hypotheses.md)
+- [Agent Loop Reliability](../archive/plans/2026-02-23-agent-loop-reliability.md)
+- [Stripe Minions Comparison](../archive/plans/2026-02-23-stripe-minions-comparison.md)
+- [Phase 0 Enforcement Audit](../archive/plans/2026-02-24-phase0-enforcement-audit.md)
+- [Enforcement Hypotheses](../archive/plans/2026-02-24-enforcement-hypotheses.md)
 - [ADR-002 Standards Pivot](../decisions/ADR-002-standards-pivot.md)
 - K8s domain knowledge: `archive/k8s-v0` branch
