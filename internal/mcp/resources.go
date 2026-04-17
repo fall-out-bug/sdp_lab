@@ -70,6 +70,22 @@ var staticResources = []resourceDef{
 		mimeType:    "application/json",
 		hintTool:    "sdp_bootstrap",
 	},
+	{
+		uri:         "sdp://index/modules",
+		name:        "Index Module List",
+		description: "Module list with metadata from the codebase index.",
+		relPath:     ".sdp/index/modules.json",
+		mimeType:    "application/json",
+		hintTool:    "sdp_index_build",
+	},
+	{
+		uri:         "sdp://index/stats",
+		name:        "Index Statistics",
+		description: "Index statistics: file counts, symbol counts, index freshness.",
+		relPath:     ".sdp/index/stats.json",
+		mimeType:    "application/json",
+		hintTool:    "sdp_index_build",
+	},
 }
 
 // registerResources registers all .sdp/ artifact resources with the MCP server.
@@ -87,23 +103,12 @@ func (s *Server) registerResources() {
 }
 
 // handleFileResource reads a .sdp/ artifact file and returns it as an MCP resource.
-// If the file does not exist, it returns a helpful error message suggesting which
-// tool to run to generate it.
+// If the file does not exist, it returns an MCP error indicating which tool to run.
 func (s *Server) handleFileResource(_ context.Context, req mcp.ReadResourceRequest, rd resourceDef) ([]mcp.ResourceContents, error) {
 	absPath := filepath.Join(s.config.RepoRoot, rd.relPath)
 	content, err := os.ReadFile(absPath)
 	if err != nil {
-		hint := fmt.Sprintf(
-			"Artifact not found at %s. Run the %q tool first to generate it.",
-			rd.relPath, rd.hintTool,
-		)
-		return []mcp.ResourceContents{
-			mcp.TextResourceContents{
-				URI:      req.Params.URI,
-				MIMEType: "text/plain",
-				Text:     hint,
-			},
-		}, nil
+		return nil, fmt.Errorf("resource not available: %s not found — run %s to generate it", rd.relPath, rd.hintTool)
 	}
 	return []mcp.ResourceContents{
 		mcp.TextResourceContents{

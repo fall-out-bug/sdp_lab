@@ -985,7 +985,7 @@ func TestSecurity_NoPrivilegeEscalation(t *testing.T) {
 // is impossible.
 func TestSecurity_ExecutorDoesNotUseShell(t *testing.T) {
 	// This is a design-level test. The realExecutor.RunCustom implementation
-	// calls exec.Command(binary, args...) directly, which does NOT invoke a
+	// calls exec.CommandContext(ctx, binary, args...) directly, which does NOT invoke a
 	// shell. Verify the executor interface doesn't have a shell method.
 	var _ CommandExecutor = &realExecutor{}
 	// If realExecutor had a shell-based method, it would show up here.

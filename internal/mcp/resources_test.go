@@ -78,13 +78,10 @@ func TestHandleFileResource_MissingArtifact(t *testing.T) {
 	}
 
 	contents, err := srv.handleFileResource(context.Background(), req, rd)
-	require.NoError(t, err)
-	require.Len(t, contents, 1)
-
-	textContent, ok := contents[0].(mcp.TextResourceContents)
-	require.True(t, ok, "expected TextResourceContents")
-	assert.Contains(t, textContent.Text, "Artifact not found")
-	assert.Contains(t, textContent.Text, "sdp_scout")
+	require.Error(t, err, "missing artifact should return an error")
+	assert.Nil(t, contents)
+	assert.Contains(t, err.Error(), "resource not available")
+	assert.Contains(t, err.Error(), "sdp_scout")
 }
 
 func TestHandleFileResource_PartialArtifacts(t *testing.T) {
@@ -124,7 +121,7 @@ func TestHandleFileResource_PartialArtifacts(t *testing.T) {
 		assert.Equal(t, "application/json", textContent.MIMEType)
 	})
 
-	t.Run("missing architect resource", func(t *testing.T) {
+	t.Run("missing architect resource returns error", func(t *testing.T) {
 		rd := resourceDef{
 			uri:      "sdp://architect",
 			relPath:  ".sdp/architecture/report.json",
@@ -136,16 +133,13 @@ func TestHandleFileResource_PartialArtifacts(t *testing.T) {
 		}
 
 		contents, err := srv.handleFileResource(context.Background(), req, rd)
-		require.NoError(t, err)
-		require.Len(t, contents, 1)
-
-		textContent, ok := contents[0].(mcp.TextResourceContents)
-		require.True(t, ok)
-		assert.Contains(t, textContent.Text, "Artifact not found")
-		assert.Contains(t, textContent.Text, "sdp_architect")
+		require.Error(t, err, "missing artifact should return an error")
+		assert.Nil(t, contents)
+		assert.Contains(t, err.Error(), "resource not available")
+		assert.Contains(t, err.Error(), "sdp_architect")
 	})
 
-	t.Run("missing metrics resource", func(t *testing.T) {
+	t.Run("missing metrics resource returns error", func(t *testing.T) {
 		rd := resourceDef{
 			uri:      "sdp://metrics",
 			relPath:  ".sdp/metrics/report.json",
@@ -157,16 +151,13 @@ func TestHandleFileResource_PartialArtifacts(t *testing.T) {
 		}
 
 		contents, err := srv.handleFileResource(context.Background(), req, rd)
-		require.NoError(t, err)
-		require.Len(t, contents, 1)
-
-		textContent, ok := contents[0].(mcp.TextResourceContents)
-		require.True(t, ok)
-		assert.Contains(t, textContent.Text, "Artifact not found")
-		assert.Contains(t, textContent.Text, "sdp_metrics")
+		require.Error(t, err, "missing artifact should return an error")
+		assert.Nil(t, contents)
+		assert.Contains(t, err.Error(), "resource not available")
+		assert.Contains(t, err.Error(), "sdp_metrics")
 	})
 
-	t.Run("missing spec resource", func(t *testing.T) {
+	t.Run("missing spec resource returns error", func(t *testing.T) {
 		rd := resourceDef{
 			uri:      "sdp://spec",
 			relPath:  ".sdp/specs/report.json",
@@ -178,16 +169,13 @@ func TestHandleFileResource_PartialArtifacts(t *testing.T) {
 		}
 
 		contents, err := srv.handleFileResource(context.Background(), req, rd)
-		require.NoError(t, err)
-		require.Len(t, contents, 1)
-
-		textContent, ok := contents[0].(mcp.TextResourceContents)
-		require.True(t, ok)
-		assert.Contains(t, textContent.Text, "Artifact not found")
-		assert.Contains(t, textContent.Text, "sdp_spec")
+		require.Error(t, err, "missing artifact should return an error")
+		assert.Nil(t, contents)
+		assert.Contains(t, err.Error(), "resource not available")
+		assert.Contains(t, err.Error(), "sdp_spec")
 	})
 
-	t.Run("missing bootstrap resource", func(t *testing.T) {
+	t.Run("missing bootstrap resource returns error", func(t *testing.T) {
 		rd := resourceDef{
 			uri:      "sdp://bootstrap",
 			relPath:  ".sdp/bootstrap-report.json",
@@ -199,13 +187,10 @@ func TestHandleFileResource_PartialArtifacts(t *testing.T) {
 		}
 
 		contents, err := srv.handleFileResource(context.Background(), req, rd)
-		require.NoError(t, err)
-		require.Len(t, contents, 1)
-
-		textContent, ok := contents[0].(mcp.TextResourceContents)
-		require.True(t, ok)
-		assert.Contains(t, textContent.Text, "Artifact not found")
-		assert.Contains(t, textContent.Text, "sdp_bootstrap")
+		require.Error(t, err, "missing artifact should return an error")
+		assert.Nil(t, contents)
+		assert.Contains(t, err.Error(), "resource not available")
+		assert.Contains(t, err.Error(), "sdp_bootstrap")
 	})
 }
 
@@ -256,6 +241,114 @@ func TestAllResourcesHaveValidDefs(t *testing.T) {
 	}
 }
 
+func TestHandleFileResource_DynamicIndexResources(t *testing.T) {
+	t.Run("index modules happy path", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		indexDir := filepath.Join(tmpDir, ".sdp", "index")
+		require.NoError(t, os.MkdirAll(indexDir, 0o755))
+
+		modulesContent := `[{"name":"internal/mcp","symbols":42}]`
+		require.NoError(t, os.WriteFile(
+			filepath.Join(indexDir, "modules.json"),
+			[]byte(modulesContent),
+			0o644,
+		))
+
+		srv := NewServer(ServerConfig{RepoRoot: tmpDir})
+		rd := resourceDef{
+			uri:      "sdp://index/modules",
+			relPath:  ".sdp/index/modules.json",
+			mimeType: "application/json",
+			hintTool: "sdp_index_build",
+		}
+		req := mcp.ReadResourceRequest{
+			Params: mcp.ReadResourceParams{URI: "sdp://index/modules"},
+		}
+
+		contents, err := srv.handleFileResource(context.Background(), req, rd)
+		require.NoError(t, err)
+		require.Len(t, contents, 1)
+
+		textContent, ok := contents[0].(mcp.TextResourceContents)
+		require.True(t, ok)
+		assert.Equal(t, modulesContent, textContent.Text)
+		assert.Equal(t, "application/json", textContent.MIMEType)
+	})
+
+	t.Run("index modules missing returns error", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		srv := NewServer(ServerConfig{RepoRoot: tmpDir})
+		rd := resourceDef{
+			uri:      "sdp://index/modules",
+			relPath:  ".sdp/index/modules.json",
+			mimeType: "application/json",
+			hintTool: "sdp_index_build",
+		}
+		req := mcp.ReadResourceRequest{
+			Params: mcp.ReadResourceParams{URI: "sdp://index/modules"},
+		}
+
+		contents, err := srv.handleFileResource(context.Background(), req, rd)
+		require.Error(t, err, "missing index modules should return an error")
+		assert.Nil(t, contents)
+		assert.Contains(t, err.Error(), "resource not available")
+		assert.Contains(t, err.Error(), "sdp_index_build")
+	})
+
+	t.Run("index stats happy path", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		indexDir := filepath.Join(tmpDir, ".sdp", "index")
+		require.NoError(t, os.MkdirAll(indexDir, 0o755))
+
+		statsContent := `{"total_files":100,"total_symbols":500,"index_age_seconds":42}`
+		require.NoError(t, os.WriteFile(
+			filepath.Join(indexDir, "stats.json"),
+			[]byte(statsContent),
+			0o644,
+		))
+
+		srv := NewServer(ServerConfig{RepoRoot: tmpDir})
+		rd := resourceDef{
+			uri:      "sdp://index/stats",
+			relPath:  ".sdp/index/stats.json",
+			mimeType: "application/json",
+			hintTool: "sdp_index_build",
+		}
+		req := mcp.ReadResourceRequest{
+			Params: mcp.ReadResourceParams{URI: "sdp://index/stats"},
+		}
+
+		contents, err := srv.handleFileResource(context.Background(), req, rd)
+		require.NoError(t, err)
+		require.Len(t, contents, 1)
+
+		textContent, ok := contents[0].(mcp.TextResourceContents)
+		require.True(t, ok)
+		assert.Equal(t, statsContent, textContent.Text)
+		assert.Equal(t, "application/json", textContent.MIMEType)
+	})
+
+	t.Run("index stats missing returns error", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		srv := NewServer(ServerConfig{RepoRoot: tmpDir})
+		rd := resourceDef{
+			uri:      "sdp://index/stats",
+			relPath:  ".sdp/index/stats.json",
+			mimeType: "application/json",
+			hintTool: "sdp_index_build",
+		}
+		req := mcp.ReadResourceRequest{
+			Params: mcp.ReadResourceParams{URI: "sdp://index/stats"},
+		}
+
+		contents, err := srv.handleFileResource(context.Background(), req, rd)
+		require.Error(t, err, "missing index stats should return an error")
+		assert.Nil(t, contents)
+		assert.Contains(t, err.Error(), "resource not available")
+		assert.Contains(t, err.Error(), "sdp_index_build")
+	})
+}
+
 // ---------------------------------------------------------------------------
 // Security tests (WS-04)
 // ---------------------------------------------------------------------------
@@ -286,19 +379,19 @@ func TestSecurity_Resources_NoPathTraversal(t *testing.T) {
 	))
 
 	// All resource handlers use hardcoded relPath values from staticResources,
-	// which all start with ".sdp/". There is no way for an MCP client to
-	// request an arbitrary path — the URI is mapped to a fixed relPath.
+	// which all start with ".sdp/". Since files don't exist on disk, they will
+	// return errors (not text content), so we verify the error does not leak
+	// the .env content.
 	for _, rd := range staticResources {
 		req := mcp.ReadResourceRequest{
 			Params: mcp.ReadResourceParams{URI: rd.uri},
 		}
 
 		contents, err := srv.handleFileResource(context.Background(), req, rd)
-		require.NoError(t, err, "resource %s should not error", rd.uri)
-
-		text := contents[0].(mcp.TextResourceContents).Text
-		assert.NotContains(t, text, sensitiveContent,
-			"resource %s should not expose .env contents", rd.uri)
+		require.Error(t, err, "resource %s should error (file missing)", rd.uri)
+		assert.Nil(t, contents, "resource %s should return nil contents", rd.uri)
+		assert.NotContains(t, err.Error(), sensitiveContent,
+			"resource %s error should not expose .env contents", rd.uri)
 	}
 }
 

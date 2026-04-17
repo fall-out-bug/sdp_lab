@@ -44,9 +44,8 @@ func TestToolRegistration(t *testing.T) {
 	inner := srv.Inner()
 	require.NotNil(t, inner)
 
-	// We verify registration by checking that the handler functions are wired.
-	// The MCP SDK doesn't expose a public list of registered tools from
-	// MCPServer, so we check indirectly via the server object state.
+	assert.Equal(t, expectedToolCount, srv.ToolCount(),
+		"expected %d registered tools, got %d", expectedToolCount, srv.ToolCount())
 	assert.NotNil(t, srv.executor, "executor should be set")
 	assert.NotNil(t, srv.inner, "inner MCP server should be set")
 }
@@ -87,7 +86,7 @@ func TestRepoPathResolution(t *testing.T) {
 const expectedToolCount = 13
 
 // expectedResourceCount is the number of static MCP resources the server must register.
-const expectedResourceCount = 6
+const expectedResourceCount = 8
 
 // expectedPromptCount is the number of MCP prompts the server must register.
 const expectedPromptCount = 5
@@ -105,6 +104,12 @@ func TestCrossHarness_ToolSurfaceIsStable(t *testing.T) {
 	// two servers will always have the same tool surface.
 	require.NotNil(t, srv1.inner)
 	require.NotNil(t, srv2.inner)
+
+	// Assert both servers register exactly the expected number of tools.
+	assert.Equal(t, expectedToolCount, srv1.ToolCount(),
+		"srv1: expected %d tools, got %d", expectedToolCount, srv1.ToolCount())
+	assert.Equal(t, expectedToolCount, srv2.ToolCount(),
+		"srv2: expected %d tools, got %d", expectedToolCount, srv2.ToolCount())
 
 	// Smoke-test: call each tool handler through the mock executor to verify
 	// they are wired and respond deterministically.
@@ -131,6 +136,15 @@ func TestCrossHarness_ToolSurfaceIsStable(t *testing.T) {
 		{"sdp_index_build", func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			return srv1.handleIndexBuild(ctx, req)
 		}, map[string]interface{}{}},
+		{"sdp_index_query", func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return srv1.handleIndexQuery(ctx, req)
+		}, map[string]interface{}{"query": "test"}},
+		{"sdp_index_find", func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return srv1.handleIndexFind(ctx, req)
+		}, map[string]interface{}{"symbol": "Test"}},
+		{"sdp_index_deps", func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return srv1.handleIndexDeps(ctx, req)
+		}, map[string]interface{}{"module": "internal/mcp"}},
 		{"sdp_dispatch", func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			return srv1.handleDispatch(ctx, req)
 		}, map[string]interface{}{"task": "test"}},

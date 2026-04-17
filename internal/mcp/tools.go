@@ -27,8 +27,8 @@ func (r *realExecutor) Run(ctx context.Context, args ...string) ([]byte, error) 
 	return r.RunCustom(ctx, r.binaryPath, args...)
 }
 
-func (r *realExecutor) RunCustom(_ context.Context, binary string, args ...string) ([]byte, error) {
-	cmd := exec.Command(binary, args...)
+func (r *realExecutor) RunCustom(ctx context.Context, binary string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, binary, args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

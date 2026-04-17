@@ -72,6 +72,11 @@ func (s *Server) Inner() *mcpserver.MCPServer {
 	return s.inner
 }
 
+// ToolCount returns the number of registered tools. Intended for testing.
+func (s *Server) ToolCount() int {
+	return len(s.inner.ListTools())
+}
+
 // registerTools registers all SDP MCP tools with the server.
 func (s *Server) registerTools() {
 	s.registerScout()
