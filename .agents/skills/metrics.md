@@ -13,6 +13,6 @@ compatibility:
 
 # @metrics → @understand
 
-**Deprecated.** Use `@understand --mode standard` instead.
+**Deprecated.** Use `@understand --depth standard` instead.
 
 See: `.agents/skills/understand.md`
