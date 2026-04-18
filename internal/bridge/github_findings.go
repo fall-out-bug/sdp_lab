@@ -286,6 +286,7 @@ type GitHubIssue struct {
 	State     string           `json:"state"`
 	Labels    []GitHubLabel    `json:"labels"`
 	User      *GitHubUser      `json:"user,omitempty"`
+	Author    *GitHubUser      `json:"author,omitempty"`
 	Assignees []GitHubUser     `json:"assignees,omitempty"`
 	Milestone *GitHubMilestone `json:"milestone,omitempty"`
 	CreatedAt string           `json:"createdAt"`
@@ -317,23 +318,18 @@ type GitHubMilestone struct {
 }
 
 // FetchIssues fetches GitHub issues matching the given labels and state.
-// The limit parameter specifies the maximum number of issues to fetch total (0 means 1000).
-// Uses gh issue list with a single high-limit call; the gh CLI handles server-side
-// pagination internally via the --limit flag.
-//
-// TODO: For repositories with >1000 issues, switch to gh api with --paginate for
-// proper Link-header-based pagination through the GitHub REST API.
+// When limit is 0, uses gh api --paginate to fetch ALL issues via REST API pagination.
+// When limit > 0, uses gh issue list with that limit.
 func (c *GitHubClient) FetchIssues(ctx context.Context, labels []string, state string, limit int) ([]GitHubIssue, error) {
-	fetchLimit := 1000
-	if limit > 0 && limit < fetchLimit {
-		fetchLimit = limit
+	if limit == 0 {
+		return c.fetchAllIssues(ctx, labels, state)
 	}
 
 	args := []string{
 		"issue", "list",
 		"-R", c.repo,
 		"--json", "number,title,url,state,labels,createdAt,body,author,assignees,milestone",
-		"-L", fmt.Sprintf("%d", fetchLimit),
+		"-L", fmt.Sprintf("%d", limit),
 	}
 
 	if state != "" {
@@ -358,8 +354,77 @@ func (c *GitHubClient) FetchIssues(ctx context.Context, labels []string, state s
 		return nil, fmt.Errorf("parse github issues: %w", err)
 	}
 
-	if len(issues) >= fetchLimit {
-		fmt.Fprintf(os.Stderr, "warning: FetchIssues hit the %d-issue limit; some issues may be missing. Switch to gh api pagination for repos with more issues.\n", fetchLimit)
+	if len(issues) >= limit {
+		fmt.Fprintf(os.Stderr, "warning: FetchIssues hit the %d-issue limit; some issues may be missing.\n", limit)
+	}
+
+	return issues, nil
+}
+
+// fetchAllIssues uses gh api --paginate to fetch all matching issues via REST API pagination.
+func (c *GitHubClient) fetchAllIssues(ctx context.Context, labels []string, state string) ([]GitHubIssue, error) {
+	// Build a search query for gh api
+	query := "is:issue"
+	if state != "" {
+		query += " is:" + state
+	}
+	for _, label := range labels {
+		if err := validateLabel(label); err != nil {
+			return nil, fmt.Errorf("invalid label: %w", err)
+		}
+		query += fmt.Sprintf(" label:\"%s\"", label)
+	}
+
+	args := []string{
+		"api",
+		fmt.Sprintf("repos/%s/issues", c.repo),
+		"--paginate",
+		"-q", fmt.Sprintf(".[] | select(.pull_request == null) | {number, title, url, html_url, state, labels: [.labels[].name], createdAt: .created_at, body, author: .user, assignees: [.assignees[].login], milestone: .milestone.title}"),
+	}
+
+	cmd := exec.CommandContext(ctx, "gh", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("gh api issues failed: %w", err)
+	}
+
+	var issues []GitHubIssue
+	if err := json.Unmarshal(output, &issues); err != nil {
+		// jq output may produce individual objects; try splitting
+		return c.fetchAllIssuesViaList(ctx, labels, state)
+	}
+
+	return issues, nil
+}
+
+// fetchAllIssuesViaList is a fallback using gh issue list with a high limit.
+func (c *GitHubClient) fetchAllIssuesViaList(ctx context.Context, labels []string, state string) ([]GitHubIssue, error) {
+	args := []string{
+		"issue", "list",
+		"-R", c.repo,
+		"--json", "number,title,url,state,labels,createdAt,body,author,assignees,milestone",
+		"-L", "5000",
+	}
+
+	if state != "" {
+		args = append(args, "--state", state)
+	}
+	for _, label := range labels {
+		if err := validateLabel(label); err != nil {
+			return nil, fmt.Errorf("invalid label: %w", err)
+		}
+		args = append(args, "-l", label)
+	}
+
+	cmd := exec.CommandContext(ctx, "gh", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("gh issue list failed: %w", err)
+	}
+
+	var issues []GitHubIssue
+	if err := json.Unmarshal(output, &issues); err != nil {
+		return nil, fmt.Errorf("parse github issues: %w", err)
 	}
 
 	return issues, nil

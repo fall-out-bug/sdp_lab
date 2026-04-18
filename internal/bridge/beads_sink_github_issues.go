@@ -135,8 +135,12 @@ func buildGitHubIssueDescription(issue *GitHubIssue, repo string) string {
 	fmt.Fprintf(&buf, "**Repository:** %s\n", repo)
 	fmt.Fprintf(&buf, "**State:** %s\n", issue.State)
 
-	if issue.User != nil && issue.User.Login != "" {
-		fmt.Fprintf(&buf, "**Author:** @%s\n", issue.User.Login)
+	author := issue.Author
+	if author == nil {
+		author = issue.User // fallback for REST API responses
+	}
+	if author != nil && author.Login != "" {
+		fmt.Fprintf(&buf, "**Author:** @%s\n", author.Login)
 	}
 
 	if len(issue.Assignees) > 0 {
