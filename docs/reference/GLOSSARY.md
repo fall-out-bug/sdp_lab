@@ -315,15 +315,24 @@ r'^\d{2}-\d{3}-\d{2}$'
 **Location:** `.claude/skills/{skill-name}/SKILL.md`
 
 **Types:**
-- **User-invocable:** `@feature`, `@idea`, `@design`, `@build`, `@review`, `@deploy`, `@hotfix`, `@bugfix`, `@issue`, `@oneshot`
+- **User-invocable:** `@build`, `@review`, `@fix`, `@understand`, `@operate`
+- **Legacy (deprecated):** `@feature` (use `@build`), `@idea` (use `@build`), `@design` (use `@build`), `@deploy` (use `@operate`), `@hotfix` (use `@fix`), `@bugfix` (use `@fix`), `@issue` (use `@fix`), `@oneshot` (use `@build --mode prototype`)
 - **Internal:** `/tdd` (called by `@build`)
 
 **Invocation:**
 ```bash
-@feature "Add payment processing"
-@design idea-payments
-@build WS-001-01
+@build --dimension idea "Add payment processing"
+@build --dimension design idea-payments
+@build 00-001-01
 ```
+
+**Migration from Legacy Skills:**
+- `@feature` → `@build --dimension feature`
+- `@idea` → `@build --dimension idea`
+- `@design` → `@build --dimension design`
+- `@oneshot` → `@build --mode prototype` (quick builds) or `@operate --mode plan` (session management)
+- `@hotfix` → `@fix --priority P0`
+- `@bugfix` → `@fix --priority P1`
 
 **See Also:** @ Command Prefix, Command, Prompt
 
@@ -467,9 +476,15 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 ---
 
-### @oneshot (Skill)
+### @oneshot (Legacy - Deprecated)
 
-**Definition:** Autonomous execution of all workstreams for a feature using Task-based multi-agent orchestration.
+**Definition:** **DEPRECATED** - Use `@build --mode prototype` for quick builds or `@operate --mode plan` for session management.
+
+**Migration:**
+- `@oneshot F01` → `@build --mode prototype 00-001-XX` (for quick prototyping)
+- `@oneshot F01` → `@operate --mode plan` (for autonomous session management)
+
+**Purpose:** Execute entire feature without human intervention.
 
 **Purpose:** Execute entire feature without human intervention.
 
@@ -480,10 +495,14 @@ r'^\d{2}-\d{3}-\d{2}$'
 4. Send Telegram notifications
 5. Resume from interruption if needed
 
-**Options:**
-- `@oneshot F01` - Normal execution
-- `@oneshot F01 --background` - Background execution
-- `@oneshot F01 --resume {agent-id}` - Resume from interruption
+**Modern Equivalent:**
+```bash
+# For quick prototyping
+@build --mode prototype 00-001-01
+
+# For autonomous session management
+@operate --mode plan
+```
 
 **Example:**
 ```bash
@@ -495,7 +514,21 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 **Output:** Completed feature with UAT guide
 
-**See Also:** Orchestrator Agent, Task Tool, Checkpoint
+**See Also:** @build, @operate, Orchestrator Agent, Task Tool, Checkpoint
+
+---
+
+### @build (Intent Skill)
+
+**Definition:** Primary execution skill with multiple dimensions for different workflows.
+
+**Dimensions:**
+- `@build --dimension idea` - Requirements gathering (replaces `@idea`)
+- `@build --dimension design` - Workstream planning (replaces `@design`)
+- `@build --dimension feature` - Feature development (replaces `@feature`)
+- `@build --mode prototype` - Quick prototyping (replaces `@oneshot`)
+
+**See Also:** @review, @fix, @understand, @operate
 
 ---
 

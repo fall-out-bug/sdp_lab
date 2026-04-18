@@ -51,19 +51,19 @@ Skill → event types emitted. Use for pipeline verification and `sdp log show -
 
 | Skill      | plan | generation | verification | approval | Notes                          |
 |------------|------|------------|--------------|----------|--------------------------------|
-| @vision    | ✓    |            |              |          | `sdp skill record --skill vision --type plan` |
-| @reality   |      |            | ✓            |          | `sdp skill record --skill reality --type verification` |
-| @idea      | ✓    |            |              |          | `sdp idea record`             |
-| @design    | ✓    |            |              |          | `sdp design record`, `sdp parse` |
+| @vision    | ✓    |            |              |          | `sdp skill record --skill vision --type plan` (legacy, use @understand) |
+| @reality   |      |            | ✓            |          | `sdp skill record --skill reality --type verification` (legacy, use @review) |
+| @idea      | ✓    |            |              |          | `sdp idea record` (legacy, use @build --dimension idea) |
+| @design    | ✓    |            |              |          | `sdp design record`, `sdp parse` (legacy, use @build --dimension design) |
 | @build     |      | ✓          |              |          | Evidence layer (F054)          |
 | @review    |      |            | ✓            |          | `sdp verify` (per gate)       |
-| @deploy    |      |            |              | ✓        | `sdp deploy`                  |
-| @oneshot   | ✓    |            |              | ✓        | `sdp orchestrate` (plan start, approval end) |
+| @deploy    |      |            |              | ✓        | `sdp deploy` (legacy, use @operate) |
+| @oneshot   | ✓    |            |              | ✓        | `sdp orchestrate` (legacy, use @build --mode prototype) |
 | @prototype |      | ✓          |              |          | `sdp prototype` (after WS gen) |
-| @hotfix    |      | ✓          |              | ✓        | `sdp skill record` (2 calls)  |
-| @bugfix    |      | ✓          | ✓            |          | `sdp skill record` (gen + verification) |
-| @issue     | ✓    |            |              |          | `sdp skill record --skill issue --type plan` |
-| @debug     |      |            | ✓            |          | `sdp skill record --skill debug --type verification` |
+| @hotfix    |      | ✓          |              | ✓        | `sdp skill record` (2 calls) (legacy, use @fix) |
+| @bugfix    |      | ✓          | ✓            |          | `sdp skill record` (gen + verification) (legacy, use @fix) |
+| @issue     | ✓    |            |              |          | `sdp skill record --skill issue --type plan` (legacy, use @fix) |
+| @debug     |      |            | ✓            |          | `sdp skill record --skill debug --type verification` (legacy, use @fix) |
 
 ## Commands
 

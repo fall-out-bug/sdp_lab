@@ -95,7 +95,7 @@
       "phase": "strategic"
     },
     "reality": {
-      "file": ".agents/skills/review.md",
+      "file": ".agents/skills/reality-check.md",
       "cli": "sdp drift detect",
       "mode": "hybrid",
       "llm_subagents": ["analyst", "architect"],
