@@ -21,16 +21,25 @@ See [OpenCode Skills docs](https://opencode.ai/docs/skills/).
 sdp_lab/
 ├── .agents/skills/           ← canonical source (real files live here)
 │   ├── README.md             ← this file
-│   ├── git-worktree.md
+│   ├── build.md              ← F125 intent skills
+│   ├── fix.md
+│   ├── operate.md
+│   ├── review.md
+│   ├── understand.md
+│   ├── git-worktree.md       ← pre-F125 skills
 │   ├── llm-council.md
 │   ├── parallel-dispatch.md
-│   ├── review-readiness.md
-│   └── strataudit.md
+│   ├── strataudit.md
+│   ├── architect.md          ← F125 legacy redirect stubs (deprecated)
+│   ├── bugfix.md
+│   ├── ... (20 stubs total)
+│   └── vision.md
+├── docs/reference/internal/  ← non-skill artifacts
+│   ├── deprecated-aliases.md ← machine-readable mapping (NOT a skill)
+│   └── review-readiness.md   ← @review dimension extension (NOT standalone)
 ├── skills/                   ← compat symlinks → .agents/skills/*.md
-│   ├── git-worktree.md     → ../.agents/skills/git-worktree.md
-│   ├── llm-council.md      → ../.agents/skills/llm-council.md
-│   ├── parallel-dispatch.md → ../.agents/skills/parallel-dispatch.md
-│   ├── review-readiness.md → ../.agents/skills/review-readiness.md
+│   ├── build.md            → ../.agents/skills/build.md
+│   ├── ... (symlinks per skill)
 │   └── strataudit.md       → ../.agents/skills/strataudit.md
 └── .claude/skills → ../.agents/skills   (entire directory symlink)
 ```

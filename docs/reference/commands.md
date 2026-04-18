@@ -213,7 +213,7 @@ SDP v1.0+ is organized around 5 core intents. These are the primary commands you
 
 **Note:** This is invoked via `@review --dimension readiness`. The standalone `@review-readiness` alias is deprecated.
 
-**See:** [.agents/skills/review-readiness.md](../../.agents/skills/review-readiness.md)
+**See:** [review-readiness](../../docs/reference/internal/review-readiness.md)
 
 ---
 
@@ -414,7 +414,7 @@ The following legacy commands are deprecated but still work. They redirect to th
 - [skills.md](skills.md) - Skill system details
 - [quality-gates.md](quality-gates.md) - Quality standards
 - [beginner/02-common-tasks.md](../beginner/02-common-tasks.md) - Common workflows
-- [deprecated-aliases.md](../../.agents/skills/deprecated-aliases.md) - Complete alias mapping
+- [deprecated-aliases.md](../../docs/reference/internal/deprecated-aliases.md) - Complete alias mapping
 
 ---
 

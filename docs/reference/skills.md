@@ -71,7 +71,7 @@ Old skills have been absorbed into the five intents. During the deprecation peri
 
 For the complete deprecation mapping and implementation guidance, see:
 - `docs/reference/migration-guide.md` — Full migration guide with examples
-- `.agents/skills/deprecated-aliases.md` — Machine-readable alias mapping
+- `docs/reference/internal/deprecated-aliases.md` — Machine-readable alias mapping
 
 ## Practices vs Skills
 
