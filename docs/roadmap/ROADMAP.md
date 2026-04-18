@@ -301,24 +301,24 @@ This lane intentionally overrides two stale assumptions inside the vision doc:
 `sdp architect` remains an existing dependency surface. Toolkit planning consumes
 it; it does not create a second architect backlog on top of `F105`.
 
-| Feature | Priority | Outcome | Depends On |
-|--------|----------|---------|------------|
-| `F120` Toolkit Scout | P1 | 30-second repo card with stable `scout.json` and shared exclusions | - |
-| `F121` Toolkit Metrics | P1 | git-derived health report for hygiene, flow, risk, and decay | `F120` |
-| `F122` Toolkit Index | P1 | persistent `.sdp/index.db` + `.sdp/manifest.md` | `F120` |
-| `F123` Toolkit Spec Recovery | P2 | recovered contracts, rules, invariants, and SLA signals | `F120` |
-| `F124` Toolkit Bootstrap | P1 | brownfield-safe context docs, policies, hooks, and beads setup | `F120`, `F121`, `F122` |
-| `F125` Toolkit UX | P1 | five intent-based skills over composable toolkit tools | `F120`, `F121`, `F122`, `F123`, `F124` |
-| `F126` Toolkit MCP | P2 | one MCP server exposing toolkit tools, resources, and prompts | `F120`..`F125` |
+| Feature | Priority | Outcome | Depends On | Status |
+|--------|----------|---------|------------|--------|
+| `F120` Toolkit Scout | P1 | 30-second repo card with stable `scout.json` and shared exclusions | - | Done |
+| `F121` Toolkit Metrics | P1 | git-derived health report for hygiene, flow, risk, and decay | `F120` | Done |
+| `F122` Toolkit Index | P1 | persistent `.sdp/index.db` + `.sdp/manifest.md` | `F120` | Done |
+| `F123` Toolkit Spec Recovery | P2 | recovered contracts, rules, invariants, and SLA signals | `F120` | Done |
+| `F124` Toolkit Bootstrap | P1 | brownfield-safe context docs, policies, hooks, and beads setup | `F120`, `F121`, `F122` | Done |
+| `F125` Toolkit UX | P1 | five intent-based skills over composable toolkit tools | `F120`, `F121`, `F122`, `F123`, `F124` | Backlog |
+| `F126` Toolkit MCP | P2 | one MCP server exposing toolkit tools, resources, and prompts | `F120`..`F125` | Done |
 
 **Execution slices:**
 
 - Slice A: `F120` + `F121` -> shipped first-look repo understanding
 - Slice B: `F122` + `F123` -> shipped persistent context and recovered contracts
 - Slice C: `F124` -> shipped brownfield-safe setup; `F125` remains the unfinished UX migration
-- Slice D: `F126` -> universal harness interface, still not implemented
+- Slice D: `F126` -> shipped MCP server (tools, resources, prompts, harness configs, security hardening)
 
-**Status note:** feature merges already landed for `F120` (#75), `F122` (#77), `F123` (#78), and `F124` (#79). `F125` has only partial shipped work through `F125-05` in #80. `F126` remains design-only.
+**Status note:** feature merges landed for `F120` (#75), `F122` (#77), `F123` (#78), `F124` (#79), `F126` (branch `feature/F126`). `F121` shipped directly. `F125` has only partial work through `F125-05` in #80. The toolkit lane is complete except for the UX intent-routing surface.
 
 **Canonical plan:** [2026-04-13-sdp-toolkit-implementation-plan.md](../plans/2026-04-13-sdp-toolkit-implementation-plan.md)
 **Detailed child plans:** [F120 Scout](../plans/2026-04-13-sdp-scout-implementation-plan.md), [F121 Metrics](../plans/2026-04-13-sdp-metrics-implementation-plan.md), [F122 Index](../plans/2026-04-13-sdp-index-implementation-plan.md), [F123 Spec](../plans/2026-04-13-sdp-spec-implementation-plan.md), [F124 Bootstrap](../plans/2026-04-13-sdp-bootstrap-implementation-plan.md), [F126 MCP](../plans/2026-04-13-sdp-mcp-implementation-plan.md)
