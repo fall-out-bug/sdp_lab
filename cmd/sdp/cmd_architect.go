@@ -161,8 +161,9 @@ func runArchitectAnalyze(args []string) {
 		fmt.Println(output)
 	}
 
-	// Write artifact files only when explicitly requested via --output or --write-artifacts
-	if *outputFlag != "" || *writeArtifacts {
+	// Write artifact files only when --write-artifacts is explicitly set.
+	// --output alone should only write to the specified file, not mutate the repo.
+	if *writeArtifacts {
 		if err := writeArtifactFiles(repoRoot, result, diagrams); err != nil {
 			log.Printf("Warning: failed to write artifact files: %v", err)
 		}
