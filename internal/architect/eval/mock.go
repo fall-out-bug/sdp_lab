@@ -111,9 +111,9 @@ func (m *MockExtractor) applyVariation(fragment *architect.ProfileFragment) *arc
 	if result.Infra != nil && len(result.Infra.Containers) > 1 {
 		newContainers := make([]architect.ContainerInfo, len(result.Infra.Containers)-1)
 		copy(newContainers, result.Infra.Containers[:len(result.Infra.Containers)-1])
-		result.Infra.Containers = newContainers
-		// Create a copy of InfraInfo
+		// Create a copy of InfraInfo with new containers
 		newInfra := *result.Infra
+		newInfra.Containers = newContainers
 		result.Infra = &newInfra
 	}
 
