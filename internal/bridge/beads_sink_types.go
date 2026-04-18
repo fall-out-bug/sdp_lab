@@ -77,6 +77,7 @@ type SyncStats struct {
 	Updated   int `json:"updated"`
 	Skipped   int `json:"skipped"`
 	Failed    int `json:"failed"`
+	Closed    int `json:"closed"`
 }
 
 type beadsIssueSummary struct {

@@ -18,6 +18,12 @@ func TestValidateLabel_Valid(t *testing.T) {
 		"team_backend",
 		"sdp.v2",
 		"release/1.0",
+		"help wanted",       // space
+		"severity:error",    // colon
+		"good first issue",  // spaces
+		"bug (critical)",    // parentheses
+		"priority+=urgent",  // plus and equals
+		"area(v2):backend",  // parens, colon
 	}
 	for _, label := range valid {
 		if err := validateLabel(label); err != nil {
@@ -46,13 +52,14 @@ func TestValidateLabel_NullBytes(t *testing.T) {
 
 func TestValidateLabel_InvalidChars(t *testing.T) {
 	invalid := []string{
-		"bug injection",     // space
-		"label;rm -rf /",    // semicolon and spaces
-		"$(whoami)",         // shell expansion
-		"`cmd`",             // backtick
-		"label's",           // single quote
-		"label\"s",          // double quote
-		"bug&flag",          // ampersand
+		"label;rm -rf /",  // semicolon and spaces
+		"$(whoami)",       // shell expansion
+		"`cmd`",           // backtick
+		"label's",         // single quote
+		"label\"s",        // double quote
+		"bug&flag",        // ampersand
+		"foo|bar",         // pipe
+		"foo!bar",         // exclamation
 	}
 	for _, label := range invalid {
 		if err := validateLabel(label); err == nil {
@@ -307,5 +314,115 @@ func TestWorkflowRun_UnmarshalJSON(t *testing.T) {
 	}
 	if r.CreatedAt != "2026-04-18T10:00:00Z" {
 		t.Errorf("expected createdAt \"2026-04-18T10:00:00Z\", got %q", r.CreatedAt)
+	}
+}
+
+// --- GitHubIssue contract tests ---
+
+func TestGitHubIssue_UnmarshalGHCLOutput(t *testing.T) {
+	// Simulates realistic output from: gh issue list --json number,title,url,state,labels,createdAt
+	input := `[
+		{
+			"number": 42,
+			"title": "Fix broken CI pipeline",
+			"url": "https://github.com/org/repo/issues/42",
+			"state": "OPEN",
+			"labels": [
+				{"name": "bug", "color": "d73a4a"},
+				{"name": "severity:high", "color": "ff0000"}
+			],
+			"createdAt": "2026-04-15T08:30:00Z"
+		},
+		{
+			"number": 17,
+			"title": "Update documentation",
+			"url": "https://github.com/org/repo/issues/17",
+			"state": "CLOSED",
+			"labels": [
+				{"name": "good first issue", "color": "7057ff"}
+			],
+			"createdAt": "2026-04-10T12:00:00Z"
+		}
+	]`
+
+	var issues []GitHubIssue
+	if err := json.Unmarshal([]byte(input), &issues); err != nil {
+		t.Fatalf("json.Unmarshal error: %v", err)
+	}
+	if len(issues) != 2 {
+		t.Fatalf("expected 2 issues, got %d", len(issues))
+	}
+
+	// Verify first issue
+	i0 := issues[0]
+	if i0.Number != 42 {
+		t.Errorf("issue[0].Number: expected 42, got %d", i0.Number)
+	}
+	if i0.Title != "Fix broken CI pipeline" {
+		t.Errorf("issue[0].Title: expected \"Fix broken CI pipeline\", got %q", i0.Title)
+	}
+	if i0.URL != "https://github.com/org/repo/issues/42" {
+		t.Errorf("issue[0].URL: expected \"https://github.com/org/repo/issues/42\", got %q", i0.URL)
+	}
+	if i0.State != "OPEN" {
+		t.Errorf("issue[0].State: expected \"OPEN\", got %q", i0.State)
+	}
+	if len(i0.Labels) != 2 {
+		t.Fatalf("issue[0].Labels: expected 2, got %d", len(i0.Labels))
+	}
+	if i0.Labels[0].Name != "bug" {
+		t.Errorf("issue[0].Labels[0].Name: expected \"bug\", got %q", i0.Labels[0].Name)
+	}
+	if i0.Labels[1].Name != "severity:high" {
+		t.Errorf("issue[0].Labels[1].Name: expected \"severity:high\", got %q", i0.Labels[1].Name)
+	}
+	if i0.CreatedAt != "2026-04-15T08:30:00Z" {
+		t.Errorf("issue[0].CreatedAt: expected \"2026-04-15T08:30:00Z\", got %q", i0.CreatedAt)
+	}
+
+	// Verify second issue
+	i1 := issues[1]
+	if i1.Number != 17 {
+		t.Errorf("issue[1].Number: expected 17, got %d", i1.Number)
+	}
+	if len(i1.Labels) != 1 {
+		t.Fatalf("issue[1].Labels: expected 1, got %d", len(i1.Labels))
+	}
+	if i1.Labels[0].Name != "good first issue" {
+		t.Errorf("issue[1].Labels[0].Name: expected \"good first issue\", got %q", i1.Labels[0].Name)
+	}
+}
+
+func TestGitHubIssue_EmptyArray(t *testing.T) {
+	input := `[]`
+	var issues []GitHubIssue
+	if err := json.Unmarshal([]byte(input), &issues); err != nil {
+		t.Fatalf("json.Unmarshal error: %v", err)
+	}
+	if len(issues) != 0 {
+		t.Errorf("expected 0 issues, got %d", len(issues))
+	}
+}
+
+func TestGitHubIssue_MinimalFields(t *testing.T) {
+	// Verify unmarshaling when only required fields are present
+	input := `[{
+		"number": 1,
+		"title": "Test issue",
+		"url": "https://github.com/org/repo/issues/1",
+		"state": "OPEN",
+		"labels": [],
+		"createdAt": "2026-04-01T00:00:00Z"
+	}]`
+
+	var issues []GitHubIssue
+	if err := json.Unmarshal([]byte(input), &issues); err != nil {
+		t.Fatalf("json.Unmarshal error: %v", err)
+	}
+	if issues[0].Number != 1 {
+		t.Errorf("expected Number 1, got %d", issues[0].Number)
+	}
+	if len(issues[0].Labels) != 0 {
+		t.Errorf("expected empty labels, got %d", len(issues[0].Labels))
 	}
 }

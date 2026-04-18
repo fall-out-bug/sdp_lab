@@ -3,8 +3,14 @@ package bridge
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 )
+
+// wsidPattern matches the exact workstream ID format: 2 digits, hyphen,
+// 3 digits, hyphen, 2 digits (e.g., 00-077-01).  Dates like 2026-04-18
+// (4-2-2 digits) are correctly rejected.
+var wsidPattern = regexp.MustCompile(`^\d{2}-\d{3}-\d{2}$`)
 
 // SyncGitHubIssues converts GitHub issues into Beads tasks.
 // It extracts feature/workstream tags from issue labels and title.
@@ -16,6 +22,17 @@ func (s *BeadsSink) SyncGitHubIssues(ctx context.Context, repo string, issues []
 	s.mu.Unlock()
 
 	for i := range issues {
+		// Handle closed issues: close the matching Beads issue if one exists.
+		// Do not create new Beads issues just to close them.
+		if strings.EqualFold(issues[i].State, "closed") {
+			if err := s.syncClosedGitHubIssue(ctx, repo, &issues[i]); err != nil {
+				s.mu.Lock()
+				s.stats.Failed++
+				s.mu.Unlock()
+			}
+			continue
+		}
+
 		severity := extractSeverityFromLabels(&issues[i])
 		if severity == "info" || severity == "hint" {
 			s.mu.Lock()
@@ -49,7 +66,7 @@ func (s *BeadsSink) syncGitHubIssue(ctx context.Context, repo string, issue *Git
 		Summary:     truncate(issue.Title, 100),
 		Description: buildGitHubIssueDescription(issue, repo),
 		Severity:    severity,
-		PRURL:       issue.HTMLURL,
+		PRURL:       issue.issueURL(),
 		DedupKey:    fmt.Sprintf("gh-issue:%s:%d", repo, issue.Number),
 	}
 
@@ -57,10 +74,60 @@ func (s *BeadsSink) syncGitHubIssue(ctx context.Context, repo string, issue *Git
 	return err
 }
 
+// syncClosedGitHubIssue closes the Beads issue that corresponds to a closed
+// GitHub issue.  It looks up the dedup key in the DedupeStore; if no matching
+// Beads issue exists it simply skips — we never create an issue just to close it.
+func (s *BeadsSink) syncClosedGitHubIssue(ctx context.Context, repo string, issue *GitHubIssue) error {
+	dedupKey := fmt.Sprintf("gh-issue:%s:%d", repo, issue.Number)
+	findingHash, _ := TypedFindingHashes(TypedFinding{
+		Source:   FindingSourceGitHub,
+		DedupKey: dedupKey,
+		Title:    issue.Title,
+	})
+
+	s.dedupe.mu.RLock()
+	record, exists := s.dedupe.records[findingHash]
+	s.dedupe.mu.RUnlock()
+
+	if !exists || record.IssueID == "" {
+		s.mu.Lock()
+		s.stats.Skipped++
+		s.mu.Unlock()
+		return nil
+	}
+
+	// Already closed — nothing to do.
+	if isClosedStatus(record.Status) {
+		s.mu.Lock()
+		s.stats.Skipped++
+		s.mu.Unlock()
+		return nil
+	}
+
+	if s.dryRun {
+		fmt.Printf("[DRY-RUN] Would close GitHub issue %s/%d -> Beads %s\n", repo, issue.Number, record.IssueID)
+		s.dedupe.RecordClosed(findingHash)
+		s.mu.Lock()
+		s.stats.Closed++
+		s.mu.Unlock()
+		return nil
+	}
+
+	if err := s.closeBeadsIssue(ctx, record.IssueID, fmt.Sprintf("GitHub issue %s/%d closed", repo, issue.Number)); err != nil {
+		return err
+	}
+
+	s.dedupe.RecordClosed(findingHash)
+	s.mu.Lock()
+	s.stats.Closed++
+	s.mu.Unlock()
+	return nil
+}
+
 func buildGitHubIssueDescription(issue *GitHubIssue, repo string) string {
 	var buf strings.Builder
 
-	fmt.Fprintf(&buf, "**GitHub Issue:** %s\n", issue.HTMLURL)
+	fmt.Fprintf(&buf, "**GitHub Issue:** %s\n", issue.issueURL())
 	fmt.Fprintf(&buf, "**Repository:** %s\n", repo)
 	fmt.Fprintf(&buf, "**State:** %s\n", issue.State)
 
@@ -101,7 +168,8 @@ func extractFeatureID(issue *GitHubIssue) string {
 	for _, label := range issue.Labels {
 		name := strings.TrimSpace(label.Name)
 		if strings.HasPrefix(strings.ToLower(name), "feature/") {
-			return strings.TrimPrefix(name, "feature/")
+			// Slice the original string to preserve the case of the feature ID.
+			return name[len("feature/"):]
 		}
 		if looksLikeFeatureID(name) {
 			return name
@@ -117,7 +185,9 @@ func extractWSID(issue *GitHubIssue) string {
 	for _, label := range issue.Labels {
 		name := strings.TrimSpace(label.Name)
 		if strings.HasPrefix(strings.ToLower(name), "workstream/") {
-			return strings.TrimPrefix(name, "workstream/")
+			// TrimPrefix must operate on the lowercased string to match the
+			// case-insensitive HasPrefix check above.
+			return strings.TrimPrefix(strings.ToLower(name), "workstream/")
 		}
 		if isWSID(name) {
 			return name
@@ -171,21 +241,12 @@ func extractFeatureIDFromText(text string) string {
 	return ""
 }
 
-// isWSID checks if a string looks like a workstream ID (##-###-##).
+// isWSID checks if a string matches the exact workstream ID format (##-###-##).
+// The regex enforces exactly 2-3-2 digits so that dates like 2026-04-18 (4-2-2)
+// are correctly rejected.
 func isWSID(s string) bool {
 	s = strings.TrimSpace(s)
-	parts := strings.Split(s, "-")
-	if len(parts) != 3 {
-		return false
-	}
-	for _, part := range parts {
-		for _, c := range part {
-			if c < '0' || c > '9' {
-				return false
-			}
-		}
-	}
-	return true
+	return wsidPattern.MatchString(s)
 }
 
 // extractWSIDFromText extracts ##-###-## pattern from text.

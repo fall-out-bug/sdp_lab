@@ -359,3 +359,235 @@ func TestBuildGitHubIssueDescription(t *testing.T) {
 		}
 	}
 }
+
+// --- Issue 3: Closed GitHub issues reconciliation ---
+
+func TestSyncGitHubIssuesClosedIssueSkipsIfNoMatch(t *testing.T) {
+	// When a closed GitHub issue has no corresponding Beads issue, it should
+	// be skipped (not created just to be closed).
+	sink := NewBeadsSink("sdplab", true, nil)
+	ctx := t.Context()
+
+	issues := []GitHubIssue{
+		{
+			Number:  1,
+			Title:   "Closed bug",
+			HTMLURL: "https://github.com/org/repo/issues/1",
+			State:   "closed",
+			Labels:  []GitHubLabel{{Name: "bug"}},
+		},
+	}
+
+	err := sink.SyncGitHubIssues(ctx, "org/repo", issues)
+	if err != nil {
+		t.Fatalf("SyncGitHubIssues returned error: %v", err)
+	}
+
+	stats := sink.GetStats()
+	if stats.Processed != 1 {
+		t.Fatalf("expected 1 processed, got %d", stats.Processed)
+	}
+	if stats.Skipped != 1 {
+		t.Fatalf("expected 1 skipped (no matching Beads issue), got %d", stats.Skipped)
+	}
+	if stats.Closed != 0 {
+		t.Fatalf("expected 0 closed, got %d", stats.Closed)
+	}
+	if stats.Created != 0 {
+		t.Fatalf("expected 0 created, got %d", stats.Created)
+	}
+}
+
+func TestSyncGitHubIssuesClosedIssueClosesExistingBeads(t *testing.T) {
+	// First sync an open issue to create a Beads item, then sync it as closed.
+	sink := NewBeadsSink("sdplab", true, nil)
+	ctx := t.Context()
+
+	issues := []GitHubIssue{
+		{
+			Number:  1,
+			Title:   "Bug: something broke",
+			HTMLURL: "https://github.com/org/repo/issues/1",
+			State:   "open",
+			Labels:  []GitHubLabel{{Name: "bug"}},
+		},
+	}
+
+	// First sync: open issue -> creates a Beads issue.
+	err := sink.SyncGitHubIssues(ctx, "org/repo", issues)
+	if err != nil {
+		t.Fatalf("first sync returned error: %v", err)
+	}
+	stats1 := sink.GetStats()
+	if stats1.Created != 1 {
+		t.Fatalf("expected 1 created on first run, got %d", stats1.Created)
+	}
+
+	// Second sync: same issue now closed -> should close the Beads issue.
+	closedIssues := []GitHubIssue{
+		{
+			Number:  1,
+			Title:   "Bug: something broke",
+			HTMLURL: "https://github.com/org/repo/issues/1",
+			State:   "closed",
+			Labels:  []GitHubLabel{{Name: "bug"}},
+		},
+	}
+
+	err = sink.SyncGitHubIssues(ctx, "org/repo", closedIssues)
+	if err != nil {
+		t.Fatalf("second sync returned error: %v", err)
+	}
+	stats2 := sink.GetStats()
+	if stats2.Closed != 1 {
+		t.Fatalf("expected 1 closed on second run, got %d", stats2.Closed)
+	}
+}
+
+func TestSyncGitHubIssuesClosedIssueAlreadyClosedSkips(t *testing.T) {
+	// If the Beads issue is already closed, syncing a closed GitHub issue
+	// should skip it (no double-close).
+	sink := NewBeadsSink("sdplab", true, nil)
+	ctx := t.Context()
+
+	issues := []GitHubIssue{
+		{
+			Number:  1,
+			Title:   "Bug: something broke",
+			HTMLURL: "https://github.com/org/repo/issues/1",
+			State:   "open",
+			Labels:  []GitHubLabel{{Name: "bug"}},
+		},
+	}
+
+	// Create the Beads issue.
+	_ = sink.SyncGitHubIssues(ctx, "org/repo", issues)
+
+	// Close it.
+	closedIssues := []GitHubIssue{
+		{
+			Number:  1,
+			Title:   "Bug: something broke",
+			HTMLURL: "https://github.com/org/repo/issues/1",
+			State:   "closed",
+			Labels:  []GitHubLabel{{Name: "bug"}},
+		},
+	}
+	_ = sink.SyncGitHubIssues(ctx, "org/repo", closedIssues)
+
+	// Sync closed again -> should skip (already closed).
+	statsBefore := sink.GetStats()
+	_ = sink.SyncGitHubIssues(ctx, "org/repo", closedIssues)
+	statsAfter := sink.GetStats()
+
+	// Closed count should not increase on third sync.
+	if statsAfter.Closed != statsBefore.Closed {
+		t.Fatalf("expected closed to remain %d, got %d", statsBefore.Closed, statsAfter.Closed)
+	}
+}
+
+// --- Issue 4: Case-insensitive feature/WSID extraction ---
+
+func TestExtractFeatureIDCaseInsensitiveLabel(t *testing.T) {
+	tests := []struct {
+		name     string
+		issue    GitHubIssue
+		expected string
+	}{
+		{
+			name:     "mixed case Feature/ prefix",
+			issue:    GitHubIssue{Labels: []GitHubLabel{{Name: "Feature/F077"}}},
+			expected: "F077",
+		},
+		{
+			name:     "uppercase FEATURE/ prefix",
+			issue:    GitHubIssue{Labels: []GitHubLabel{{Name: "FEATURE/F100"}}},
+			expected: "F100",
+		},
+		{
+			name:     "lowercase feature/ prefix",
+			issue:    GitHubIssue{Labels: []GitHubLabel{{Name: "feature/F200"}}},
+			expected: "F200",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractFeatureID(&tt.issue)
+			if got != tt.expected {
+				t.Fatalf("expected %q, got %q", tt.expected, got)
+			}
+		})
+	}
+}
+
+func TestExtractWSIDCaseInsensitiveLabel(t *testing.T) {
+	tests := []struct {
+		name     string
+		issue    GitHubIssue
+		expected string
+	}{
+		{
+			name:     "mixed case Workstream/ prefix",
+			issue:    GitHubIssue{Labels: []GitHubLabel{{Name: "Workstream/00-077-02"}}},
+			expected: "00-077-02",
+		},
+		{
+			name:     "uppercase WORKSTREAM/ prefix",
+			issue:    GitHubIssue{Labels: []GitHubLabel{{Name: "WORKSTREAM/00-077-03"}}},
+			expected: "00-077-03",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractWSID(&tt.issue)
+			if got != tt.expected {
+				t.Fatalf("expected %q, got %q", tt.expected, got)
+			}
+		})
+	}
+}
+
+// --- Issue 5: isWSID rejects dates ---
+
+func TestIsWSIDRejectsDates(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected bool
+	}{
+		{name: "valid WSID", input: "00-077-01", expected: true},
+		{name: "valid WSID 2", input: "12-345-67", expected: true},
+		{name: "date rejected (4-2-2 digits)", input: "2026-04-18", expected: false},
+		{name: "date rejected (4-2-2 other)", input: "2025-12-31", expected: false},
+		{name: "partial 1 digit", input: "0-077-01", expected: false},
+		{name: "partial 4 digits in middle", input: "00-0770-01", expected: false},
+		{name: "empty string", input: "", expected: false},
+		{name: "random text", input: "hello-world", expected: false},
+		{name: "2-2-2 digits", input: "00-77-01", expected: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isWSID(tt.input)
+			if got != tt.expected {
+				t.Fatalf("isWSID(%q) = %v, want %v", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestExtractWSIDFromTextRejectsDate(t *testing.T) {
+	// A title containing a date should not extract the date as a WSID.
+	got := extractWSIDFromText("Scheduled for 2026-04-18 deployment")
+	if got != "" {
+		t.Fatalf("expected no WSID extracted from date text, got %q", got)
+	}
+
+	// But a valid WSID in a title should still work.
+	got = extractWSIDFromText("00-077-03: sync daemon fix")
+	if got != "00-077-03" {
+		t.Fatalf("expected WSID 00-077-03, got %q", got)
+	}
+}

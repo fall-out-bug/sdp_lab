@@ -224,7 +224,8 @@ func syncGitHubIssues(ctx context.Context, sink *bridge.BeadsSink, repo string) 
 	client := bridge.NewGitHubClient(repo)
 
 	labels := parseLabels(*issueLabel)
-	ghIssues, err := client.FetchIssues(ctx, labels, *issueState, 100)
+	// Pass 0 as limit to fetch all issues with pagination
+	ghIssues, err := client.FetchIssues(ctx, labels, *issueState, 0)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error fetching GitHub issues: %v\n", err)
 		return

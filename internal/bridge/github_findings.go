@@ -15,7 +15,9 @@ import (
 )
 
 // validLabelPattern matches allowed characters in GitHub issue labels.
-var validLabelPattern = regexp.MustCompile(`^[a-zA-Z0-9._/\-]+$`)
+// Allows: letters, digits, spaces, dots, colons, underscores, slashes, hyphens,
+// parentheses, plus signs, and equals signs.
+var validLabelPattern = regexp.MustCompile(`^[a-zA-Z0-9 .:_/\-()+=]+$`)
 
 // validateLabel checks that a label value is safe to pass to the gh CLI.
 func validateLabel(label string) error {
@@ -29,7 +31,7 @@ func validateLabel(label string) error {
 		return fmt.Errorf("label %q must not contain null bytes", label)
 	}
 	if !validLabelPattern.MatchString(label) {
-		return fmt.Errorf("label %q contains invalid characters; allowed: alphanumeric, hyphens, underscores, slashes, dots", label)
+		return fmt.Errorf("label %q contains invalid characters; allowed: alphanumeric, spaces, hyphens, underscores, slashes, dots, colons, parentheses, plus, equals", label)
 	}
 	return nil
 }
@@ -270,19 +272,32 @@ func ParseFindingsFile(path string) (interface{}, string, error) {
 	}
 }
 
-// GitHubIssue represents a GitHub issue from the API.
+// GitHubIssue represents a GitHub issue from the gh CLI output.
+// Field names match the actual gh issue list --json output.
+// Legacy fields (HTMLURL, Body, User, Assignees, Milestone) are kept for
+// compatibility with REST API consumers and existing tests that set them via
+// struct literals.
 type GitHubIssue struct {
 	Number    int              `json:"number"`
 	Title     string           `json:"title"`
+	URL       string           `json:"url"`
+	HTMLURL   string           `json:"html_url"`
 	Body      string           `json:"body"`
 	State     string           `json:"state"`
 	Labels    []GitHubLabel    `json:"labels"`
-	HTMLURL   string           `json:"html_url"`
-	CreatedAt string           `json:"created_at"`
-	UpdatedAt string           `json:"updated_at"`
-	User      *GitHubUser      `json:"user"`
-	Assignees []GitHubUser     `json:"assignees"`
-	Milestone *GitHubMilestone `json:"milestone"`
+	User      *GitHubUser      `json:"user,omitempty"`
+	Assignees []GitHubUser     `json:"assignees,omitempty"`
+	Milestone *GitHubMilestone `json:"milestone,omitempty"`
+	CreatedAt string           `json:"createdAt"`
+}
+
+// issueURL returns the best available URL for the issue.
+// Prefers HTMLURL (REST API) when set, falls back to URL (gh CLI).
+func (i *GitHubIssue) issueURL() string {
+	if i.HTMLURL != "" {
+		return i.HTMLURL
+	}
+	return i.URL
 }
 
 // GitHubLabel represents a label on a GitHub issue.
@@ -301,38 +316,78 @@ type GitHubMilestone struct {
 	Title string `json:"title"`
 }
 
-// FetchIssues fetches GitHub issues matching the given labels and state.
+// FetchIssues fetches GitHub issues matching the given labels and state with pagination.
+// The limit parameter specifies the maximum number of issues to fetch total (0 for no limit).
+// Uses GitHub CLI's pagination with a page size of 100.
 func (c *GitHubClient) FetchIssues(ctx context.Context, labels []string, state string, limit int) ([]GitHubIssue, error) {
-	args := []string{
+	const pageSize = 100
+	var allIssues []GitHubIssue
+
+	// Build base args
+	baseArgs := []string{
 		"issue", "list",
 		"-R", c.repo,
-		"--json", "number,title,body,state,labels,html_url,created_at,updated_at,user,assignees,milestone",
-		"-L", fmt.Sprintf("%d", limit),
+		"--json", "number,title,url,state,labels,createdAt",
 	}
 
 	if state != "" {
-		args = append(args, "--state", state)
+		baseArgs = append(baseArgs, "--state", state)
 	}
 
 	for _, label := range labels {
 		if err := validateLabel(label); err != nil {
 			return nil, fmt.Errorf("invalid label: %w", err)
 		}
-		args = append(args, "-l", label)
+		baseArgs = append(baseArgs, "-l", label)
 	}
 
-	cmd := exec.CommandContext(ctx, "gh", args...)
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("gh issue list failed: %w", err)
+	// Paginate using gh CLI's --limit and --jq continuation
+	// gh issue list supports pagination by fetching pages until fewer than pageSize are returned
+	for {
+		// Calculate how many to fetch this page
+		fetchLimit := pageSize
+		if limit > 0 && len(allIssues)+pageSize > limit {
+			fetchLimit = limit - len(allIssues)
+		}
+
+		if fetchLimit <= 0 {
+			break
+		}
+
+		// Build args for this page
+		args := append([]string{}, baseArgs...)
+		args = append(args, "-L", fmt.Sprintf("%d", fetchLimit))
+
+		// Skip already fetched issues
+		if len(allIssues) > 0 {
+			args = append(args, "--search", fmt.Sprintf("skip:%d", len(allIssues)))
+		}
+
+		cmd := exec.CommandContext(ctx, "gh", args...)
+		output, err := cmd.Output()
+		if err != nil {
+			return nil, fmt.Errorf("gh issue list failed: %w", err)
+		}
+
+		var issues []GitHubIssue
+		if err := json.Unmarshal(output, &issues); err != nil {
+			return nil, fmt.Errorf("parse github issues: %w", err)
+		}
+
+		// No more issues
+		if len(issues) == 0 {
+			break
+		}
+
+		allIssues = append(allIssues, issues...)
+
+		// If we got fewer than pageSize, we've reached the end
+		if len(issues) < fetchLimit {
+			break
+		}
 	}
 
-	var issues []GitHubIssue
-	if err := json.Unmarshal(output, &issues); err != nil {
-		return nil, fmt.Errorf("parse github issues: %w", err)
-	}
-
-	return issues, nil
+	return allIssues, nil
 }
 
 // LoadLocalFindings loads findings from a local directory.
