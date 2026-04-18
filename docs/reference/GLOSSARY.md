@@ -337,7 +337,9 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 ---
 
-### @feature (Skill)
+### @feature (Skill) — DEPRECATED
+
+**Deprecated → @build --mode feature**
 
 **Definition:** Unified entry point for feature development with progressive disclosure.
 
@@ -366,7 +368,9 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 ---
 
-### @idea (Skill)
+### @idea (Skill) — DEPRECATED
+
+**Deprecated → @build --mode idea**
 
 **Definition:** Interactive requirements gathering using AskUserQuestion for deep interviewing.
 
@@ -393,7 +397,9 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 ---
 
-### @design (Skill)
+### @design (Skill) — DEPRECATED
+
+**Deprecated → @build --mode idea**
 
 **Definition:** Interactive planning using EnterPlanMode for codebase exploration.
 
@@ -554,7 +560,9 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 ---
 
-### @deploy (Skill)
+### @deploy (Skill) — DEPRECATED
+
+**Deprecated → @operate --mode deploy**
 
 **Definition:** Production deployment with artifact generation.
 
@@ -577,7 +585,9 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 ---
 
-### @hotfix (Skill)
+### @hotfix (Skill) — DEPRECATED
+
+**Deprecated → @fix --mode quick**
 
 **Definition:** Emergency fix for P0 (critical) issues with <2 hour turnaround.
 
@@ -598,7 +608,9 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 ---
 
-### @bugfix (Skill)
+### @bugfix (Skill) — DEPRECATED
+
+**Deprecated → @fix --mode systematic**
 
 **Definition:** Quality fix for P1/P2 issues with <24 hour turnaround.
 
@@ -618,7 +630,9 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 ---
 
-### @issue (Skill)
+### @issue (Skill) — DEPRECATED
+
+**Deprecated → @fix --mode systematic**
 
 **Definition:** Debug and route bugs to appropriate fix workflow.
 
@@ -642,7 +656,9 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 ---
 
-### /debug (Skill)
+### /debug (Skill) — DEPRECATED
+
+**Deprecated → @fix --mode systematic**
 
 **Definition:** Systematic debugging using scientific method for evidence-based root cause analysis.
 
@@ -1443,8 +1459,12 @@ task = Task("Execute feature F01", subagent_type="orchestrator")
 
 **Usage:**
 ```bash
+# Legacy (deprecated)
 @oneshot F01 --resume abc123xyz
-# Resumes from last checkpoint (00-001-03)
+
+# Modern equivalent
+@operate --mode plan F01
+# Automatically resumes from last checkpoint
 ```
 
 **See Also:** @oneshot, Task Tool, Agent
@@ -2301,13 +2321,19 @@ project/
 
 ---
 
-### Background Execution
+### Background Execution (DEPRECATED)
+
+**Deprecated → @operate --mode plan**
 
 **Definition:** Execution mode for long-running features that doesn't block user.
 
 **Usage:**
 ```bash
+# Legacy (deprecated)
 @oneshot F01 --background
+
+# Modern equivalent
+@operate --mode plan F01
 ```
 
 **Purpose:** Allow user to continue working while feature executes.

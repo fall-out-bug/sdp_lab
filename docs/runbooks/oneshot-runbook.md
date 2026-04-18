@@ -78,14 +78,17 @@ The orchestrator will:
 
 ### Phase 4: Checkpoint/Resume
 
-If execution fails, it can be resumed:
+**Note:** `@build --mode prototype` does NOT auto-resume. It's a fresh build each time. For session resumption with checkpoint management, use `@operate --mode plan`.
 
 ```bash
 # Check checkpoint file
 cat .sdp/checkpoint.json
 
-# Resume execution (automatic when @build --mode prototype is called again)
+# For fresh builds (no resume)
 @build --mode prototype 00-060-XX
+
+# For session resumption with checkpoint management
+@operate --mode plan 00-060-XX
 ```
 
 ## Checkpoint Format
