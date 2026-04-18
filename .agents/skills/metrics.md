@@ -1,6 +1,6 @@
 ---
 name: metrics
-description: "DEPRECATED: Legacy metrics skill. Redirects to @understand intent with standard mode for code metrics analysis."
+description: "DEPRECATED: Legacy metrics skill. Redirects to @understand intent with --depth standard for code metrics analysis."
 deprecated: true
 redirect: understand
 version: 0.0.0
