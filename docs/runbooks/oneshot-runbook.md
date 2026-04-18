@@ -1,6 +1,10 @@
-# /oneshot Runbook
+# /oneshot Runbook (Legacy - Deprecated)
 
-**Purpose:** Execute all workstreams of a feature autonomously with checkpoint/resume support.
+**Purpose:** **DEPRECATED** - Execute all workstreams of a feature autonomously with checkpoint/resume support.
+
+**Migration:**
+- Use `@build --mode prototype` for quick builds
+- Use `@operate --mode plan` for session management
 
 **Prerequisites:**
 - Feature designed with `/design`
@@ -29,22 +33,24 @@ ls tools/hw_checker/docs/workstreams/backlog/WS-060-*.md
 
 ### Phase 2: Execution (Autonomous)
 
+**Migration Note:** The `/oneshot` command is deprecated. Use `@build --mode prototype` instead.
+
 **In Claude Code:**
 ```
-/oneshot F60
+@build --mode prototype 00-060-XX
 ```
 
 **In Cursor:**
 ```
-/oneshot F60
+@build --mode prototype 00-060-XX
 ```
 
 **In OpenCode:**
 ```
-/oneshot F60
+@build --mode prototype 00-060-XX
 ```
 
-**Note:** If your local setup still has legacy command aliases, keep `/oneshot-simple` as a temporary fallback.
+**Note:** `/oneshot` is deprecated. Use `@build --mode prototype` for quick builds or `@operate --mode plan` for session management.
 
 ### Phase 3: What /oneshot Does
 
@@ -72,14 +78,17 @@ The orchestrator will:
 
 ### Phase 4: Checkpoint/Resume
 
-If execution fails, it can be resumed:
+**Note:** `@build --mode prototype` does NOT auto-resume. It's a fresh build each time. For session resumption with checkpoint management, use `@operate --mode plan`.
 
 ```bash
 # Check checkpoint file
 cat .sdp/checkpoint.json
 
-# Resume execution (automatic when /oneshot is called again)
-/oneshot F60
+# For fresh builds (no resume)
+@build --mode prototype 00-060-XX
+
+# For session resumption with checkpoint management
+@operate --mode plan 00-060-XX
 ```
 
 ## Checkpoint Format
@@ -145,10 +154,12 @@ git log --oneline --grep="WS-060"
 
 **Problem:** Command not found
 
-**Solution:**
-- Claude Code: Check `.claude/skills/oneshot/SKILL.md` exists
-- Cursor: Check `.cursor/commands/oneshot.md` exists
-- OpenCode: Check `.opencode/commands/oneshot-simple.md` exists
+**Solution:** Use `@build --mode prototype` instead:
+- Claude Code: Check `.claude/skills/build.md` exists
+- Cursor: Check `.cursor/commands/build.md` exists
+- OpenCode: Check `.opencode/commands/build.md` exists
+
+**Note:** `/oneshot` is deprecated and may not be available in your setup.
 
 ### PR approval hangs
 
@@ -162,13 +173,15 @@ git log --oneline --grep="WS-060"
 
 ### Checkpoint not resuming
 
-**Problem:** /oneshot starts from beginning instead of resuming
+**Problem:** `@build --mode prototype` starts from beginning instead of resuming
+
+**Note:** Checkpoint/resume is a feature of `@operate --mode plan` sessions, not `@build`. Use `@operate --mode plan` for complex workflows requiring checkpoint management.
 
 **Solution:**
 1. Check checkpoint exists: `cat .sdp/checkpoint.json`
 2. Verify feature ID matches
 3. Check orchestrator agent can read checkpoint
-4. Try manual resume: `/build WS-ID` for next WS
+4. Try manual resume: `@build WS-ID` for next WS
 
 ### Execution stuck on one WS
 
@@ -177,29 +190,27 @@ git log --oneline --grep="WS-060"
 **Solution:**
 1. Check error logs
 2. Verify issue is not HIGH severity (auto-retry loop)
-3. Manually fix issue: `/debug "WS stuck"`
+3. Manually fix issue: `@fix "WS stuck"`
 4. Manually skip WS: Mark WS completed in checkpoint
 
 ## Integration with Other Commands
 
 ```
-/idea "feature description"
+@build --mode idea "feature description"
     ↓
-/design idea-slug
+@build --mode feature 00-XXX-XX
     ↓
-/oneshot F{XX}
-    ↓
-/codereview F{XX}
+@review F{XX}
     ↓
 Human UAT
     ↓
-/deploy F{XX}
+@operate --mode deploy F{XX}
 ```
 
 ## Best Practices
 
-1. **Test manually first:** Execute first WS manually before using /oneshot
-2. **Small features:** /oneshot works best with 3-10 workstreams
+1. **Test manually first:** Execute first WS manually before using `@build --mode prototype`
+2. **Small features:** `@build --mode prototype` works best with 3-10 workstreams
 3. **Check dependencies:** Ensure all dependencies are clear before starting
 4. **Monitor progress:** Watch progress JSON for real-time status
 5. **Plan for errors:** Know how to resume if execution fails

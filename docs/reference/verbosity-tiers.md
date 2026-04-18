@@ -94,19 +94,19 @@ Level 3 (--debug):   Internal state + API calls
 # ✅ APPROVED
 ```
 
-### @feature Skill
+### @feature Skill (deprecated - use @build --mode feature)
 
 ```bash
 # Quiet mode
-@feature "Add OAuth2" --quiet
+@build --mode feature "Add OAuth2" --quiet
 # Output: ✅ (4 workstreams created)
 
 # Default mode
-@feature "Add OAuth2"
+@build --mode feature "Add OAuth2"
 # Output: ✅ Feature F051: OAuth2 Authentication (4 workstreams, 2.1h est.)
 
 # Verbose mode
-@feature "Add OAuth2" --verbose
+@build --mode feature "Add OAuth2" --verbose
 # Output:
 # → @idea phase: Requirements gathering (18 questions, 15m)
 # → @design phase: Architecture design (5 discovery blocks, 45m)
@@ -114,7 +114,7 @@ Level 3 (--debug):   Internal state + API calls
 # ✅ COMPLETE
 
 # Debug mode
-@feature "Add OAuth2" --debug
+@build --mode feature "Add OAuth2" --debug
 # Output:
 # [DEBUG] Feature description: "Add OAuth2"
 # [DEBUG] Starting @idea phase...
@@ -173,19 +173,19 @@ Level 3 (--debug):   Internal state + API calls
 # ✅ COMPLETE
 ```
 
-### @reality Skill
+### @reality Skill (deprecated - use @review --dimension reality)
 
 ```bash
 # Quiet mode
-@reality --quick --quiet
+@review --dimension reality --quick --quiet
 # Output: ✅ (Health: 72/100)
 
 # Default mode
-@reality --quick
+@review --dimension reality --quick
 # Output: ✅ Reality Check: 15K LOC, Health 72/100, 3 critical issues
 
 # Verbose mode
-@reality --quick --verbose
+@review --dimension reality --quick --verbose
 # Output:
 # → Project scan: 15,234 LOC, 127 files (Go)
 # → Architecture: Layer violations detected (2)
@@ -195,7 +195,7 @@ Level 3 (--debug):   Internal state + API calls
 # ✅ COMPLETE
 
 # Debug mode
-@reality --quick --debug
+@review --dimension reality --quick --debug
 # Output:
 # [DEBUG] Mode: quick
 # [DEBUG] Detecting project type...
@@ -291,9 +291,9 @@ For each skill:
 
 ## Rollout Plan
 
-1. **Phase 1:** Implement for core skills (@build, @review, @feature)
-2. **Phase 2:** Implement for planning skills (@idea, @design, @vision, @reality)
-3. **Phase 3:** Implement for utility skills (@deploy, @hotfix, @bugfix)
+1. **Phase 1:** Implement for core skills (@build, @review)
+2. **Phase 2:** Implement for planning skills (@build --mode idea, @understand)
+3. **Phase 3:** Implement for utility skills (@operate, @fix)
 4. **Phase 4:** Implement for remaining skills
 
 ## Version History

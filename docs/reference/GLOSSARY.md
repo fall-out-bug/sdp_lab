@@ -315,21 +315,31 @@ r'^\d{2}-\d{3}-\d{2}$'
 **Location:** `.claude/skills/{skill-name}/SKILL.md`
 
 **Types:**
-- **User-invocable:** `@feature`, `@idea`, `@design`, `@build`, `@review`, `@deploy`, `@hotfix`, `@bugfix`, `@issue`, `@oneshot`
+- **User-invocable:** `@build`, `@review`, `@fix`, `@understand`, `@operate`
+- **Legacy (deprecated):** `@feature` (use `@build`), `@idea` (use `@build`), `@design` (use `@build`), `@deploy` (use `@operate`), `@hotfix` (use `@fix`), `@bugfix` (use `@fix`), `@issue` (use `@fix`), `@oneshot` (use `@build --mode prototype`)
 - **Internal:** `/tdd` (called by `@build`)
 
 **Invocation:**
 ```bash
-@feature "Add payment processing"
-@design idea-payments
-@build WS-001-01
+@build --mode idea "Add payment processing"
+@build --mode idea 00-001-01
 ```
+
+**Migration from Legacy Skills:**
+- `@feature` → `@build --mode feature`
+- `@idea` → `@build --mode idea`
+- `@design` → `@build --mode idea`
+- `@oneshot` → `@build --mode prototype` (quick builds) or `@operate --mode plan` (session management)
+- `@hotfix` → `@fix --mode quick`
+- `@bugfix` → `@fix --mode systematic`
 
 **See Also:** @ Command Prefix, Command, Prompt
 
 ---
 
-### @feature (Skill)
+### @feature (Skill) — DEPRECATED
+
+**Deprecated → @build --mode feature**
 
 **Definition:** Unified entry point for feature development with progressive disclosure.
 
@@ -358,7 +368,9 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 ---
 
-### @idea (Skill)
+### @idea (Skill) — DEPRECATED
+
+**Deprecated → @build --mode idea**
 
 **Definition:** Interactive requirements gathering using AskUserQuestion for deep interviewing.
 
@@ -385,7 +397,9 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 ---
 
-### @design (Skill)
+### @design (Skill) — DEPRECATED
+
+**Deprecated → @build --mode idea**
 
 **Definition:** Interactive planning using EnterPlanMode for codebase exploration.
 
@@ -467,9 +481,15 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 ---
 
-### @oneshot (Skill)
+### @oneshot (Legacy - Deprecated)
 
-**Definition:** Autonomous execution of all workstreams for a feature using Task-based multi-agent orchestration.
+**Definition:** **DEPRECATED** - Use `@build --mode prototype` for quick builds or `@operate --mode plan` for session management.
+
+**Migration:**
+- `@oneshot F01` → `@build --mode prototype 00-001-XX` (for quick prototyping)
+- `@oneshot F01` → `@operate --mode plan` (for autonomous session management)
+
+**Purpose:** Execute entire feature without human intervention.
 
 **Purpose:** Execute entire feature without human intervention.
 
@@ -480,10 +500,14 @@ r'^\d{2}-\d{3}-\d{2}$'
 4. Send Telegram notifications
 5. Resume from interruption if needed
 
-**Options:**
-- `@oneshot F01` - Normal execution
-- `@oneshot F01 --background` - Background execution
-- `@oneshot F01 --resume {agent-id}` - Resume from interruption
+**Modern Equivalent:**
+```bash
+# For quick prototyping
+@build --mode prototype 00-001-01
+
+# For autonomous session management
+@operate --mode plan
+```
 
 **Example:**
 ```bash
@@ -495,7 +519,20 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 **Output:** Completed feature with UAT guide
 
-**See Also:** Orchestrator Agent, Task Tool, Checkpoint
+**See Also:** @build, @operate, Orchestrator Agent, Task Tool, Checkpoint
+
+---
+
+### @build (Intent Skill)
+
+**Definition:** Primary execution skill with multiple modes for different workflows.
+
+**Modes:**
+- `@build --mode idea` - Requirements gathering (replaces `@idea`, `@design`)
+- `@build --mode feature` - Feature development (replaces `@feature`)
+- `@build --mode prototype` - Quick prototyping (replaces `@oneshot`)
+
+**See Also:** @review, @fix, @understand, @operate
 
 ---
 
@@ -523,7 +560,9 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 ---
 
-### @deploy (Skill)
+### @deploy (Skill) — DEPRECATED
+
+**Deprecated → @operate --mode deploy**
 
 **Definition:** Production deployment with artifact generation.
 
@@ -546,7 +585,9 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 ---
 
-### @hotfix (Skill)
+### @hotfix (Skill) — DEPRECATED
+
+**Deprecated → @fix --mode quick**
 
 **Definition:** Emergency fix for P0 (critical) issues with <2 hour turnaround.
 
@@ -567,7 +608,9 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 ---
 
-### @bugfix (Skill)
+### @bugfix (Skill) — DEPRECATED
+
+**Deprecated → @fix --mode systematic**
 
 **Definition:** Quality fix for P1/P2 issues with <24 hour turnaround.
 
@@ -587,7 +630,9 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 ---
 
-### @issue (Skill)
+### @issue (Skill) — DEPRECATED
+
+**Deprecated → @fix --mode systematic**
 
 **Definition:** Debug and route bugs to appropriate fix workflow.
 
@@ -611,7 +656,9 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 ---
 
-### /debug (Skill)
+### /debug (Skill) — DEPRECATED
+
+**Deprecated → @fix --mode systematic**
 
 **Definition:** Systematic debugging using scientific method for evidence-based root cause analysis.
 
@@ -1412,8 +1459,12 @@ task = Task("Execute feature F01", subagent_type="orchestrator")
 
 **Usage:**
 ```bash
+# Legacy (deprecated)
 @oneshot F01 --resume abc123xyz
-# Resumes from last checkpoint (00-001-03)
+
+# Modern equivalent
+@operate --mode plan F01
+# Automatically resumes from last checkpoint
 ```
 
 **See Also:** @oneshot, Task Tool, Agent
@@ -2270,13 +2321,19 @@ project/
 
 ---
 
-### Background Execution
+### Background Execution (DEPRECATED)
+
+**Deprecated → @operate --mode plan**
 
 **Definition:** Execution mode for long-running features that doesn't block user.
 
 **Usage:**
 ```bash
+# Legacy (deprecated)
 @oneshot F01 --background
+
+# Modern equivalent
+@operate --mode plan F01
 ```
 
 **Purpose:** Allow user to continue working while feature executes.

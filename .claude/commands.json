@@ -8,15 +8,8 @@
     "hybrid": "CLI for setup/validation, LLM spawning for AI tasks"
   },
   "commands": {
-    "oneshot": {
-      "file": "skills/oneshot.md",
-      "cli": "sdp orchestrate",
-      "mode": "cli_only",
-      "description": "Autonomous feature execution",
-      "phase": "execution"
-    },
     "build": {
-      "file": "skills/build.md",
+      "file": ".agents/skills/build.md",
       "cli": "sdp apply --ws",
       "mode": "hybrid",
       "llm_subagents": ["implementer", "spec-reviewer", "quality-reviewer"],
@@ -24,123 +17,223 @@
       "phase": "execution"
     },
     "review": {
-      "file": "skills/review.md",
+      "file": ".agents/skills/review.md",
       "cli": "sdp quality all",
       "mode": "hybrid",
       "llm_subagents": ["qa", "security", "devops", "sre", "tech-lead", "documentation"],
       "description": "Multi-agent quality review",
       "phase": "execution"
     },
-    "deploy": {
-      "file": "skills/deploy.md",
-      "cli": "sdp deploy",
-      "mode": "cli_only",
-      "description": "Deployment orchestration",
-      "phase": "execution"
-    },
-    "bugfix": {
-      "file": "skills/bugfix.md",
+    "fix": {
+      "file": ".agents/skills/fix.md",
       "cli": "sdp apply --ws",
       "mode": "hybrid",
       "llm_subagents": ["implementer", "quality-reviewer"],
-      "description": "Quality bug fix (P1/P2)",
+      "description": "Quality bug fix (P1/P2) - systematic mode",
+      "phase": "debug"
+    },
+    "understand": {
+      "file": ".agents/skills/understand.md",
+      "cli": "sdp landscape",
+      "mode": "hybrid",
+      "llm_subagents": ["analyst", "architect"],
+      "description": "Codebase analysis - standard mode",
+      "phase": "analysis"
+    },
+    "operate": {
+      "file": ".agents/skills/operate.md",
+      "cli": "sdp deploy",
+      "mode": "hybrid",
+      "llm_subagents": ["devops", "sre", "planner"],
+      "description": "Deployment and operations",
+      "phase": "execution"
+    },
+    "deploy": {
+      "file": ".agents/skills/deploy.md",
+      "cli": "sdp deploy",
+      "mode": "cli_only",
+      "description": "Deployment orchestration (legacy alias for @operate)",
+      "phase": "execution"
+    },
+    "bugfix": {
+      "file": ".agents/skills/bugfix.md",
+      "cli": "sdp apply --ws",
+      "mode": "hybrid",
+      "llm_subagents": ["implementer", "quality-reviewer"],
+      "description": "Quality bug fix (P1/P2) - legacy alias for @fix",
       "phase": "debug"
     },
     "hotfix": {
-      "file": "skills/hotfix.md",
+      "file": ".agents/skills/hotfix.md",
       "cli": "sdp apply --ws",
       "mode": "hybrid",
       "llm_subagents": ["implementer"],
-      "description": "Emergency P0 fix",
+      "description": "Emergency P0 fix - legacy alias for @fix",
       "phase": "debug"
     },
     "issue": {
-      "file": "skills/issue.md",
+      "file": ".agents/skills/issue.md",
       "cli": "bd show",
       "mode": "llm_only",
       "llm_subagents": ["analyst"],
-      "description": "Bug analysis and routing",
+      "description": "Bug analysis and routing - legacy alias for @fix",
       "phase": "debug"
     },
     "debug": {
-      "file": "skills/debug.md",
+      "file": ".agents/skills/debug.md",
       "cli": null,
       "mode": "llm_only",
-      "description": "Systematic debugging",
+      "description": "Systematic debugging - legacy alias for @fix",
       "phase": "debug"
     },
-    "go-modern": {
-      "file": "skills/go-modern.md",
-      "cli": null,
-      "mode": "llm_only",
-      "description": "Modern Go style and review rules",
-      "phase": "execution"
-    },
     "vision": {
-      "file": "skills/vision.md",
+      "file": ".agents/skills/vision.md",
       "cli": "sdp prd generate",
       "mode": "hybrid",
       "llm_subagents": ["analyst", "architect", "product-manager"],
-      "description": "Strategic product planning",
+      "description": "Strategic product planning - legacy alias for @build",
       "phase": "strategic"
     },
     "reality": {
-      "file": "skills/reality.md",
+      "file": ".agents/skills/reality-check.md",
       "cli": "sdp drift detect",
       "mode": "hybrid",
       "llm_subagents": ["analyst", "architect"],
-      "description": "Codebase analysis",
+      "description": "Codebase analysis - legacy alias for @review",
       "phase": "analysis"
     },
     "feature": {
-      "file": "skills/feature.md",
+      "file": ".agents/skills/feature.md",
       "cli": "sdp plan",
       "mode": "hybrid",
       "llm_subagents": ["analyst", "architect", "planner"],
-      "description": "Feature planning",
+      "description": "Feature planning - legacy alias for @build",
       "phase": "planning"
     },
     "idea": {
-      "file": "skills/idea.md",
+      "file": ".agents/skills/idea.md",
       "cli": "sdp idea",
       "mode": "llm_only",
-      "description": "Requirements gathering",
+      "description": "Requirements gathering - legacy alias for @build",
       "phase": "planning"
     },
     "design": {
-      "file": "skills/design.md",
+      "file": ".agents/skills/design.md",
       "cli": "sdp design",
       "mode": "llm_only",
-      "description": "System design",
+      "description": "System design - legacy alias for @build",
       "phase": "planning"
     },
-    "init": {
-      "file": "skills/init.md",
-      "cli": "sdp init",
-      "mode": "cli_only",
-      "description": "Initialize SDP",
-      "phase": "setup"
+    "ux": {
+      "file": ".agents/skills/ux.md",
+      "cli": null,
+      "mode": "llm_only",
+      "description": "UX design - legacy alias for @build",
+      "phase": "planning"
     },
-    "tdd": {
-      "file": "skills/tdd.md",
-      "cli": "sdp tdd",
-      "mode": "cli_only",
-      "description": "TDD enforcement",
-      "internal": true
+    "prototype": {
+      "file": ".agents/skills/prototype.md",
+      "cli": "sdp prototype",
+      "mode": "hybrid",
+      "llm_subagents": ["implementer"],
+      "description": "Prototyping - legacy alias for @build",
+      "phase": "execution"
     },
-    "guard": {
-      "file": "skills/guard.md",
-      "cli": "sdp guard",
-      "mode": "cli_only",
-      "description": "Scope enforcement",
-      "internal": true
+    "oneshot": {
+      "file": ".agents/skills/oneshot.md",
+      "cli": "sdp apply --ws",
+      "mode": "hybrid",
+      "llm_subagents": ["implementer", "spec-reviewer", "quality-reviewer"],
+      "description": "Autonomous feature execution (legacy alias for @build)",
+      "phase": "execution"
     },
-    "beads": {
-      "file": "skills/beads.md",
-      "cli": "bd",
-      "mode": "cli_only",
-      "description": "Task tracking",
-      "phase": "tracking"
+    "landscape": {
+      "file": ".agents/skills/landscape.md",
+      "cli": "sdp landscape",
+      "mode": "hybrid",
+      "llm_subagents": ["analyst", "architect"],
+      "description": "Codebase landscape analysis - legacy alias for @understand",
+      "phase": "analysis"
+    },
+    "scout": {
+      "file": ".agents/skills/scout.md",
+      "cli": "sdp scout",
+      "mode": "hybrid",
+      "llm_subagents": ["analyst"],
+      "description": "Codebase reconnaissance - legacy alias for @understand",
+      "phase": "analysis"
+    },
+    "architect": {
+      "file": ".agents/skills/architect.md",
+      "cli": "sdp architect",
+      "mode": "hybrid",
+      "llm_subagents": ["architect", "analyst"],
+      "description": "Architecture analysis - legacy alias for @understand",
+      "phase": "analysis"
+    },
+    "metrics": {
+      "file": ".agents/skills/metrics.md",
+      "cli": "sdp metrics",
+      "mode": "hybrid",
+      "llm_subagents": ["analyst"],
+      "description": "Metrics analysis - legacy alias for @understand",
+      "phase": "analysis"
+    },
+    "ci-triage": {
+      "file": ".agents/skills/ci-triage.md",
+      "cli": "sdp ci-triage",
+      "mode": "hybrid",
+      "llm_subagents": ["devops", "sre"],
+      "description": "CI/CD triage - legacy alias for @operate",
+      "phase": "execution"
+    },
+    "plan": {
+      "file": ".agents/skills/plan.md",
+      "cli": "sdp plan",
+      "mode": "hybrid",
+      "llm_subagents": ["planner", "analyst"],
+      "description": "Planning - legacy alias for @operate",
+      "phase": "planning"
+    },
+    "reality-check": {
+      "file": ".agents/skills/reality-check.md",
+      "cli": "sdp reality-check",
+      "mode": "hybrid",
+      "llm_subagents": ["analyst", "architect"],
+      "description": "Reality checking - legacy alias for @review",
+      "phase": "analysis"
+    },
+    "verify-workstream": {
+      "file": ".agents/skills/verify-workstream.md",
+      "cli": "sdp verify",
+      "mode": "hybrid",
+      "llm_subagents": ["qa", "quality-reviewer"],
+      "description": "Workstream verification - legacy alias for @review",
+      "phase": "execution"
+    },
+    "git-worktree": {
+      "file": ".agents/skills/git-worktree.md",
+      "cli": null,
+      "mode": "llm_only",
+      "description": "Safety-first git worktree setup for parallel feature work"
+    },
+    "parallel-dispatch": {
+      "file": ".agents/skills/parallel-dispatch.md",
+      "cli": null,
+      "mode": "llm_only",
+      "description": "Delegate independent tasks to parallel subagent sessions"
+    },
+    "llm-council": {
+      "file": ".agents/skills/llm-council.md",
+      "cli": null,
+      "mode": "llm_only",
+      "description": "Multi-model synthesis for complex decisions"
+    },
+    "strataudit": {
+      "file": ".agents/skills/strataudit.md",
+      "cli": null,
+      "mode": "llm_only",
+      "description": "Document-backed strategy traceability audit"
     }
   },
   "patterns": {

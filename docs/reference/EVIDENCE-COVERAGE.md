@@ -37,33 +37,39 @@ Skill → event types emitted. Use for pipeline verification and `sdp log show -
 
 ---
 
-## Pipeline chain (idea → deploy)
+## Pipeline chain
 
-| Phase   | Skill     | Event type(s)     | CLI / trigger                          |
-|---------|-----------|-------------------|----------------------------------------|
-| Idea    | @idea     | plan              | `sdp idea record`, `sdp parse` (per WS) |
-| Design  | @design   | plan              | `sdp design record`, `sdp parse`       |
-| Build   | @build    | generation        | TDD runner (F054)                       |
-| Review  | @review   | verification      | `sdp verify` (per gate)                 |
-| Deploy  | @deploy   | approval          | `sdp deploy --target main`              |
+### Modern Intent Pipeline
+`@build --mode idea → @build --mode feature → @review → @operate --mode deploy`
+
+### Legacy Skill Pipeline (historical context)
+`idea → deploy`
+
+| Phase   | Skill     | Event type(s)     | CLI / trigger                          | Modern Intent Equivalent        |
+|---------|-----------|-------------------|----------------------------------------|---------------------------------|
+| Idea    | @idea     | plan              | `sdp idea record`, `sdp parse` (per WS) | `@build --mode idea`            |
+| Design  | @design   | plan              | `sdp design record`, `sdp parse`       | `@build --mode idea`            |
+| Build   | @build    | generation        | TDD runner (F054)                       | `@build --mode feature`         |
+| Review  | @review   | verification      | `sdp verify` (per gate)                 | `@review` (unchanged)           |
+| Deploy  | @deploy   | approval          | `sdp deploy --target main`              | `@operate --mode deploy`        |
 
 ## Skill × event types
 
-| Skill      | plan | generation | verification | approval | Notes                          |
-|------------|------|------------|--------------|----------|--------------------------------|
-| @vision    | ✓    |            |              |          | `sdp skill record --skill vision --type plan` |
-| @reality   |      |            | ✓            |          | `sdp skill record --skill reality --type verification` |
-| @idea      | ✓    |            |              |          | `sdp idea record`             |
-| @design    | ✓    |            |              |          | `sdp design record`, `sdp parse` |
-| @build     |      | ✓          |              |          | Evidence layer (F054)          |
-| @review    |      |            | ✓            |          | `sdp verify` (per gate)       |
-| @deploy    |      |            |              | ✓        | `sdp deploy`                  |
-| @oneshot   | ✓    |            |              | ✓        | `sdp orchestrate` (plan start, approval end) |
-| @prototype |      | ✓          |              |          | `sdp prototype` (after WS gen) |
-| @hotfix    |      | ✓          |              | ✓        | `sdp skill record` (2 calls)  |
-| @bugfix    |      | ✓          | ✓            |          | `sdp skill record` (gen + verification) |
-| @issue     | ✓    |            |              |          | `sdp skill record --skill issue --type plan` |
-| @debug     |      |            | ✓            |          | `sdp skill record --skill debug --type verification` |
+| Skill      | plan | generation | verification | approval | Notes                          | Intent Equivalent              |
+|------------|------|------------|--------------|----------|--------------------------------|--------------------------------|
+| @vision    | ✓    |            |              |          | `sdp skill record --skill vision --type plan` (legacy, use @understand) | N/A (understand skill)          |
+| @reality   |      |            | ✓            |          | `sdp skill record --skill reality --type verification` (legacy, use @review) | N/A (review skill)              |
+| @idea      | ✓    |            |              |          | `sdp idea record` (legacy, use @build --mode idea) | `@build --mode idea`            |
+| @design    | ✓    |            |              |          | `sdp design record`, `sdp parse` (legacy, use @build --mode idea) | `@build --mode idea`            |
+| @build     |      | ✓          |              |          | Evidence layer (F054)          | `@build --mode feature`         |
+| @review    |      |            | ✓            |          | `sdp verify` (per gate)       | `@review` (unchanged)           |
+| @deploy    |      |            |              | ✓        | `sdp deploy` (legacy, use @operate) | `@operate --mode deploy`        |
+| @oneshot   | ✓    |            |              | ✓        | `sdp orchestrate` (legacy, use @build --mode prototype) | `@build --mode prototype` or `@operate --mode plan` |
+| @prototype |      | ✓          |              |          | `sdp prototype` (after WS gen) | `@build --mode prototype`        |
+| @hotfix    |      | ✓          |              | ✓        | `sdp skill record` (2 calls) (legacy, use @fix) | `@fix --mode quick`             |
+| @bugfix    |      | ✓          | ✓            |          | `sdp skill record` (gen + verification) (legacy, use @fix) | `@fix --mode systematic`        |
+| @issue     | ✓    |            |              |          | `sdp skill record --skill issue --type plan` (legacy, use @fix) | `@fix --mode systematic`        |
+| @debug     |      |            | ✓            |          | `sdp skill record --skill debug --type verification` (legacy, use @fix) | `@fix --mode systematic`        |
 
 ## Commands
 
