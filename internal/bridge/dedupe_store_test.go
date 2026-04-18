@@ -510,3 +510,38 @@ func TestHashDeterminismAcrossMultipleCalls(t *testing.T) {
 		lastPayload = payload
 	}
 }
+
+// TestTypedFindingHashes_DedupKeyStable tests that when a DedupKey is set,
+// changing FeatureID/WSID does not change the identity hash.
+func TestTypedFindingHashes_DedupKeyStable(t *testing.T) {
+	base := TypedFinding{
+		Source:    FindingSourceGitHub,
+		DedupKey: "gh-issue:owner/repo:42",
+		Title:    "Bug: something broken",
+		Severity: "error",
+	}
+
+	hash1, _ := TypedFindingHashes(base)
+
+	modified := base
+	modified.FeatureID = "F077"
+	modified.WSID = "00-077-01"
+
+	hash2, _ := TypedFindingHashes(modified)
+
+	if hash1 != hash2 {
+		t.Errorf("identity hash changed when FeatureID/WSID added:\n  without: %s\n  with:    %s", hash1, hash2)
+	}
+
+	noKey1 := base
+	noKey1.DedupKey = ""
+	noKey2 := noKey1
+	noKey2.FeatureID = "F077"
+
+	hash3, _ := TypedFindingHashes(noKey1)
+	hash4, _ := TypedFindingHashes(noKey2)
+
+	if hash3 == hash4 {
+		t.Error("without DedupKey, identity hash should differ when FeatureID changes")
+	}
+}
