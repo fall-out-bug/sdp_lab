@@ -1,4 +1,4 @@
-// Package go tests for Go import graph extraction.
+// Package golang tests for Go import graph extraction.
 package golang
 
 import (
@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 // TestSimpleCLI tests extraction from a simple CLI project.
