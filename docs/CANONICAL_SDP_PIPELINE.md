@@ -1,6 +1,6 @@
 # Canonical SDP Pipeline
 
-> **Status:** Proposed
+> **Status:** Active v1.0 (council-validated 2026-04-11)
 > **Date:** 2026-03-25
 > **Owner:** Андрей + Клавдий
 > **Scope:** Intent → Production Deploy, full lifecycle
@@ -266,6 +266,26 @@ Parent issue (feature)
 ```
 
 Gates are Beads issues of `type=chore` with labels `sdp:gate:{type}`. Gate creates dependency on parent. `bd gate resolve` closes the gate.
+
+---
+
+## Gate Enforcement Status
+
+| Gate | Type | Enforcement |
+|------|------|-------------|
+| `contract-approve` | human | **Mandatory** — pipeline blocked without approval |
+| `scope-review` | human | **Mandatory** — if out-of-scope detected |
+| `review-pass` | automated | **Mandatory after F106** — GateEngine evaluates from tool evidence; Advisory before |
+| `qa-pass` | automated | **Mandatory after F106** — GateEngine evaluates from tool evidence; Advisory before |
+| `ci` | automated | **Mandatory** — CI pipeline enforces |
+| `staging-approve` | human | **Mandatory** |
+| `prod-approve` | human | **Mandatory** |
+
+> Prior to F106 (agentloop integration), automated gates (`review-pass`, `qa-pass`) 
+> evaluate evidence from stdout parsing only — advisory status.
+> After F106, these gates evaluate from real tool call evidence — mandatory status.
+
+> **Pipeline is law as of v1.0.** Amendments require explicit owner sign-off.
 
 ---
 

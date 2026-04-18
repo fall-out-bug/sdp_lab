@@ -64,7 +64,7 @@ func TestEvidenceAccumulator_onEditFile_recordsEvidence(t *testing.T) {
 	require.NoError(t, ea.OnToolResult(ToolResult{
 		ID:     "tc1",
 		Name:   "edit_file",
-		Output: "wrote internal/agentloop/session.go",
+		Output: "edited: internal/agentloop/session.go",
 	}))
 
 	snap := ea.Snapshot(RoleBuild)
@@ -77,7 +77,7 @@ func TestEvidenceAccumulator_onBdCreate_recordsEvidence(t *testing.T) {
 	require.NoError(t, ea.OnToolResult(ToolResult{
 		ID:     "tc1",
 		Name:   "bd_create",
-		Output: "created card PROJ-42",
+		Output: "card_created:PROJ-42",
 	}))
 
 	snap := ea.Snapshot(RolePlan)
@@ -96,7 +96,7 @@ func TestEvidenceAccumulator_reset_clearsAll(t *testing.T) {
 	require.NoError(t, ea.OnToolResult(ToolResult{
 		ID:   "tc2",
 		Name: "edit_file",
-		Output: "wrote foo.go",
+		Output: "edited: foo.go",
 	}))
 
 	snap := ea.Snapshot(RoleBuild)

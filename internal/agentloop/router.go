@@ -10,7 +10,7 @@ import (
 //   BuildLoopConfig adds it implicitly — ToolRegistry must never contain it.
 var DefaultPhaseMap = map[Role]PhaseConfig{
 	RoleDiscover: {
-		Models:          []string{"deepseek/deepseek-v3.2", "openai/gpt-4.1"},
+		Models:          []string{"glm-5", "glm-4.7"},
 		Tools:           []string{"web_search", "read_file", "bd_search"}, // no completion_signal (N6)
 		AllowedNext:     []Role{RolePlan},
 		RecoveryNext:    []Role{RoleDiscover},
@@ -18,28 +18,28 @@ var DefaultPhaseMap = map[Role]PhaseConfig{
 		MinOutputTokens: 200,
 	},
 	RolePlan: {
-		Models:       []string{"openai/gpt-4.1", "anthropic/claude-opus-4-5"},
+		Models:       []string{"glm-5", "glm-4.7"},
 		Tools:        []string{"read_file", "glob", "bd_create"}, // no completion_signal (N6)
 		AllowedNext:  []Role{RoleBuild},
 		RecoveryNext: []Role{RoleDiscover, RolePlan},
 		GateRequired: true,
 	},
 	RoleBuild: {
-		Models:       []string{"anthropic/claude-sonnet-4-6", "openai/gpt-4.1"},
+		Models:       []string{"glm-4.7", "openai/gpt-5.2-codex"},
 		Tools:        []string{"read_file", "edit_file", "bash", "glob"}, // no completion_signal (N6)
 		AllowedNext:  []Role{RoleReview},
 		RecoveryNext: []Role{RolePlan, RoleBuild},
 		GateRequired: true,
 	},
 	RoleReview: {
-		Models:       []string{"openai/gpt-4.1", "deepseek/deepseek-v3.2"},
+		Models:       []string{"anthropic/claude-sonnet-4.6", "anthropic/claude-opus-4.6"},
 		Tools:        []string{"read_file", "grep", "bd_comment"}, // no completion_signal (N6)
 		AllowedNext:  []Role{RoleEval, RoleBuild},
 		RecoveryNext: []Role{RoleBuild},
 		GateRequired: true,
 	},
 	RoleEval: {
-		Models:       []string{"anthropic/claude-sonnet-4-6", "openai/gpt-4.1"},
+		Models:       []string{"anthropic/claude-sonnet-4.6", "glm-4.7"},
 		Tools:        []string{"bash", "read_file"}, // no completion_signal (N6)
 		AllowedNext:  []Role{},                      // final phase — no transition
 		RecoveryNext: []Role{RoleBuild},

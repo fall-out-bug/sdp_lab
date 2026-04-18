@@ -85,3 +85,25 @@ func (sg *StubGateway) Call(ctx context.Context, msgs []Message, cfg LoopConfig)
 	close(ch)
 	return ch, nil
 }
+
+// BlockingGateway is a test double that blocks on Call() until ctx is cancelled.
+// Used for crash reconciliation tests: RunPhase calls Gateway.Call, which blocks;
+// ctx cancel triggers the error path, simulating a crashed or cancelled agent.
+type BlockingGateway struct{}
+
+// NewBlockingGateway creates a BlockingGateway.
+func NewBlockingGateway() *BlockingGateway { return &BlockingGateway{} }
+
+// IsAvailable always returns true.
+func (g *BlockingGateway) IsAvailable(model string) bool { return true }
+
+// Call blocks until ctx is cancelled, then sends an error event.
+func (g *BlockingGateway) Call(ctx context.Context, msgs []Message, cfg LoopConfig) (<-chan Event, error) {
+	ch := make(chan Event, 1)
+	go func() {
+		defer close(ch)
+		<-ctx.Done()
+		ch <- Event{Type: "error", Err: ctx.Err()}
+	}()
+	return ch, nil
+}

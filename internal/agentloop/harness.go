@@ -334,6 +334,15 @@ func (h *Harness) Stop(ctx context.Context, token string) error {
 	return nil
 }
 
+// IsAwaitingHuman reports whether the harness is waiting for a human gate decision.
+// Returns true if state is hStateAwaitingHuman (gate escalated, Decision Owner action required).
+// The harnessState type is intentionally unexported — callers use this accessor.
+func (h *Harness) IsAwaitingHuman() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.state == hStateAwaitingHuman
+}
+
 // RestoreHarness creates a Harness from a previously persisted session.
 //
 // Key fixes applied:

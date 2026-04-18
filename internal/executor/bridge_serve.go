@@ -15,6 +15,7 @@ package executor
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -22,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"sdp_dev/internal/agentloop"
+	"sdp_dev/internal/agentloop/livegw"
 	"sdp_dev/internal/control"
 	"sdp_dev/internal/deploy"
 	"sdp_dev/internal/kernel"
@@ -39,11 +42,20 @@ type ServeBridge struct {
 	Evaluator     EvaluatorConfig
 	Clarifier     ClarifierConfig
 	Planner       PlannerConfig
+
+	// Harness fields: when harnessRouter is non-nil, DispatchAndRun uses the
+	// internal agentloop.Harness path instead of the legacy OmO path.
+	harnessRouter *agentloop.PhaseRouter
+	harnessGate   *agentloop.GateEngine
+	harnessData   string // root dir for per-card SQLite databases
 }
 
 // NewServeBridge creates a new serve-mode bridge.
+// When OPENROUTER_API_KEY is set, the internal agentloop harness path is enabled.
+// If the LiveGateway cannot be created (missing API key), harnessRouter stays nil
+// and DispatchAndRun falls back to the legacy OmO path.
 func NewServeBridge(store *control.Store, projectRoot string) *ServeBridge {
-	return &ServeBridge{
+	sb := &ServeBridge{
 		Store:         store,
 		ProjectRoot:   projectRoot,
 		OmOServeURL:   os.Getenv("OMO_SERVE_URL"),
@@ -52,7 +64,26 @@ func NewServeBridge(store *control.Store, projectRoot string) *ServeBridge {
 		Evaluator:     DefaultEvaluatorConfig(),
 		Clarifier:     DefaultClarifierConfig(),
 		Planner:       DefaultPlannerConfig(),
+		harnessData:   filepath.Join(projectRoot, ".sdp", "sessions"),
 	}
+
+	// Attempt to initialize the harness path. Non-fatal if API key is missing —
+	// the legacy OmO path remains available.
+	if apiKey := os.Getenv("OPENROUTER_API_KEY"); apiKey != "" {
+		gw, err := livegw.New(apiKey, os.Getenv("OPENROUTER_BASE_URL"))
+		if err != nil {
+			slog.Warn("livegw init failed — harness path disabled", "error", err)
+			return sb
+		}
+		tools := agentloop.BuildLiveTools(projectRoot, store)
+		registry := agentloop.NewToolRegistry(tools)
+		sb.harnessRouter = agentloop.NewPhaseRouter(
+			agentloop.DefaultPhaseMap, registry, gw, nil,
+		)
+		sb.harnessGate = agentloop.NewGateEngine(nil, 0) // default timeout, nil contract for MVP
+	}
+
+	return sb
 }
 
 // serveURL returns the configured or default opencode serve URL.
@@ -88,12 +119,23 @@ func (b *ServeBridge) DispatchBeads(ctx context.Context) (string, error) {
 	return cardID, nil
 }
 
-// DispatchAndRun executes a card through OmO serve with full governance.
+// DispatchAndRun executes a card through the internal harness (if available) or OmO serve.
 func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID string) (*control.ExecutorResultPacket, error) {
 	if b == nil || b.Store == nil {
 		return nil, fmt.Errorf("nil serve bridge/store")
 	}
 
+	// If the harness path is available, use it as the primary execution path.
+	if b.harnessRouter != nil {
+		return b.runWithHarness(ctx, cardID)
+	}
+
+	// Legacy OmO path follows below.
+	return b.dispatchWithOmO(ctx, projectID, cardID)
+}
+
+// dispatchWithOmO is the legacy OmO serve execution path (extracted from DispatchAndRun).
+func (b *ServeBridge) dispatchWithOmO(ctx context.Context, projectID, cardID string) (*control.ExecutorResultPacket, error) {
 	// Load card from primary repo
 	card, err := b.Store.LoadCard(projectID, cardID)
 	if err != nil {
@@ -218,6 +260,150 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 	}
 
 	return result, invokeErr
+}
+
+// runWithHarness executes a card through the internal agentloop.Harness.
+// It creates a per-card SQLite store, restores (or creates) a Harness session,
+// runs one phase turn, and returns an ExecutorResultPacket.
+//
+// Spec §11 bug fix: if RestoreHarness returns ErrHarnessTerminated, the old
+// database is removed, a fresh store is created, and RestoreHarness is retried.
+func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*control.ExecutorResultPacket, error) {
+	// Ensure session data directory exists.
+	if err := os.MkdirAll(b.harnessData, 0o755); err != nil {
+		return nil, fmt.Errorf("harness mkdir: %w", err)
+	}
+
+	dbPath := filepath.Join(b.harnessData, cardID+".db")
+
+	h, store, err := b.restoreOrCreateHarness(cardID, dbPath)
+	if err != nil {
+		return nil, fmt.Errorf("harness restore: %w", err)
+	}
+	// Hold store reference for harness lifetime — closing it would break the SQLite session.
+	harnessStore := store
+	_ = harnessStore // prevent unused variable warning
+
+	// Crash reconciliation: when the agent crashes, panics, or the context
+	// is cancelled, the harness must be stopped so a terminal PhaseRecord
+	// is persisted in SQLite. Without this, RestoreHarness on the same cardID
+	// would resume a dirty session instead of detecting termination.
+	var succeeded bool
+	defer func() {
+		if r := recover(); r != nil {
+			_ = h.Stop(context.Background(), "")
+			panic(r) // re-panic after recording terminal state
+		}
+		if !succeeded {
+			_ = h.Stop(context.Background(), "")
+		}
+	}()
+
+	// Build governed prompt from card.
+	card, err := b.Store.LoadCardByID(cardID)
+	if err != nil {
+		return nil, fmt.Errorf("load card: %w", err)
+	}
+	governedPrompt := card.NormalizedIntent
+	if governedPrompt == "" {
+		governedPrompt = card.RawRequest
+	}
+
+	// Execute one phase turn.
+	runErr := h.RunPhase(ctx, governedPrompt, "")
+
+	// Check for gate-pending (awaiting human decision).
+	if runErr == nil && h.IsAwaitingHuman() {
+		succeeded = true // gate-pending is a valid live state — do NOT stop
+		return &control.ExecutorResultPacket{
+			ParentFeatureID: cardID,
+			Status:          control.ResultStatusNeedsReview,
+			Summary:         "gate escalated — awaiting human decision",
+		}, nil
+	}
+
+	if runErr != nil {
+		// succeeded stays false → defer will call h.Stop
+		return &control.ExecutorResultPacket{
+			ParentFeatureID: cardID,
+			Status:          control.ResultStatusFailed,
+			Summary:         runErr.Error(),
+		}, runErr
+	}
+
+	succeeded = true // prevents Stop on normal exit
+	return &control.ExecutorResultPacket{
+		ParentFeatureID: cardID,
+		Status:          control.ResultStatusSuccess,
+		Summary:         "phase completed",
+	}, nil
+}
+
+// restoreOrCreateHarness restores a Harness from the given dbPath, handling
+// ErrHarnessTerminated by removing the old DB and retrying (spec §11).
+// If the session does not exist yet (fresh card), a new session is created first.
+func (b *ServeBridge) restoreOrCreateHarness(cardID, dbPath string) (*agentloop.Harness, *agentloop.SQLiteStore, error) {
+	store, err := agentloop.NewSQLiteStore(dbPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("sqlite open: %w", err)
+	}
+
+	h, err := agentloop.RestoreHarness(cardID, "", store, b.harnessRouter, b.harnessGate, nil)
+	if err == nil {
+		return h, store, nil
+	}
+
+	// Spec §11: ErrHarnessTerminated means the session was Stop()'d.
+	// Remove the old DB, create a fresh store, and retry.
+	if errors.Is(err, agentloop.ErrHarnessTerminated) {
+		store.Close()
+		return b.recreateFromScratch(cardID, dbPath)
+	}
+
+	// Session not found — this is a fresh card. Create a new session and retry.
+	store.Close()
+	if isSessionNotFound(err) {
+		return b.createFreshHarness(cardID, dbPath)
+	}
+
+	return nil, nil, err
+}
+
+// createFreshHarness creates a new session in a fresh SQLite store and returns a Harness.
+func (b *ServeBridge) createFreshHarness(cardID, dbPath string) (*agentloop.Harness, *agentloop.SQLiteStore, error) {
+	store, err := agentloop.NewSQLiteStore(dbPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("sqlite open (fresh): %w", err)
+	}
+	if _, err := agentloop.NewSession(cardID, store); err != nil {
+		store.Close()
+		return nil, nil, fmt.Errorf("new session: %w", err)
+	}
+	h, err := agentloop.RestoreHarness(cardID, "", store, b.harnessRouter, b.harnessGate, nil)
+	if err != nil {
+		store.Close()
+		return nil, nil, err
+	}
+	return h, store, nil
+}
+
+// recreateFromScratch handles spec §11: removes the terminated DB and creates fresh.
+func (b *ServeBridge) recreateFromScratch(cardID, dbPath string) (*agentloop.Harness, *agentloop.SQLiteStore, error) {
+	if removeErr := os.Remove(dbPath); removeErr != nil && !os.IsNotExist(removeErr) {
+		return nil, nil, fmt.Errorf("remove terminated db: %w", removeErr)
+	}
+	return b.createFreshHarness(cardID, dbPath)
+}
+
+// isSessionNotFound checks if the error indicates a missing session.
+//
+// TODO(agentloop): Add exported sentinel error (e.g., ErrSessionNotFound) to
+// agentloop/store so clients can use errors.Is() instead of string matching.
+// The underlying store.Recover() returns fmt.Errorf("session %q not found", ...)
+// which is fragile for error checking.
+func isSessionNotFound(err error) bool {
+	return err != nil && (strings.Contains(err.Error(), "not found") ||
+		strings.Contains(err.Error(), "no rows"))
 }
 
 // buildPacket creates an ExecutionPacket from a FeatureCard.
