@@ -1,3 +1,83 @@
 {
   "$schema": "https://opencode.ai/config.json",
+
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama (local)",
+      "options": {
+        "baseURL": "http://127.0.0.1:11434/v1"
+      },
+      "models": {
+        "qwen2.5-coder:7b": {
+          "name": "Qwen2.5 Coder 7B (local 4.7GB)"
+        },
+        "deepseek-coder:6.7b": {
+          "name": "DeepSeek Coder 6.7B (local 3.8GB)"
+        }
+      }
+    }
+  },
+
+  "agent": {
+    "local-coder": {
+      "mode": "primary",
+      "description": "Local coding agent. Uses Ollama qwen2.5-coder:7b for self-contained Go tasks: boilerplate, simple features, test stubs. No network. Fast and private.",
+      "model": "ollama/qwen2.5-coder:7b",
+      "prompt": "@.opencode/system-prompt-local.md\n\nYou are a Go coding assistant for the sdp_lab project. Follow the rules above exactly. Write complete, compilable code only.",
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true,
+        "read": true,
+        "glob": true,
+        "grep": true,
+        "webfetch": false
+      }
+    },
+
+    "local-fast": {
+      "mode": "primary",
+      "description": "Minimal local agent. Uses deepseek-coder:6.7b for autocomplete-style tasks: function stubs, docstrings, simple refactors. Smallest model, fastest responses.",
+      "model": "ollama/deepseek-coder:6.7b",
+      "prompt": "@.opencode/system-prompt-local.md\n\nYou are a fast Go code completion assistant. Return only the requested code fragment. No explanations unless asked.",
+      "tools": {
+        "write": false,
+        "edit": true,
+        "read": true,
+        "glob": false,
+        "grep": false,
+        "webfetch": false
+      }
+    },
+
+    "builder": {
+      "mode": "primary",
+      "description": "TDD execution agent. Implements workstreams following Red-Green-Refactor cycle.",
+      "prompt": "See @sdp/prompts/commands/build.md for full TDD workflow and execution report template",
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true,
+        "read": true,
+        "glob": true,
+        "grep": true,
+        "webfetch": true
+      }
+    },
+
+    "reviewer": {
+      "mode": "primary",
+      "description": "Code review agent. Performs 17-point quality checks for workstreams.",
+      "prompt": "See @sdp/prompts/commands/codereview.md for full review workflow",
+      "tools": { "write": false, "edit": false }
+    },
+
+    "planner": {
+      "mode": "primary",
+      "description": "Planning agent. Analyzes requirements and creates workstream specifications.",
+      "prompt": "See @sdp/prompts/commands/design.md for full design workflow",
+      "tools": { "read": true, "glob": true, "grep": true }
+    }
+  }
 }
