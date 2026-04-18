@@ -292,10 +292,11 @@ func (h *Harness) ApproveGate(ctx context.Context, decisionID, token string) err
 		// state stays awaiting_human; decision intact — caller can retry.
 		return err
 	}
-	h.state = hStateIdle
+	// Clear decision BEFORE mutating in-memory state so caller can retry on failure.
 	if err := h.store.ClearDecision(h.session.ID, decisionID); err != nil {
 		return fmt.Errorf("clear decision after approve: %w", err)
 	}
+	h.state = hStateIdle
 	return nil
 }
 
@@ -321,10 +322,11 @@ func (h *Harness) Rollback(ctx context.Context, decisionID, token string) error 
 	if err := h.transitionTo(phase, h.router.RecoveryPhase(phase), true); err != nil {
 		return err
 	}
-	h.state = hStateIdle
+	// Clear decision BEFORE mutating in-memory state so caller can retry on failure.
 	if err := h.store.ClearDecision(h.session.ID, decisionID); err != nil {
 		return fmt.Errorf("clear decision after rollback: %w", err)
 	}
+	h.state = hStateIdle
 	return nil
 }
 
