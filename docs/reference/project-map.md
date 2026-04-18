@@ -60,12 +60,12 @@ The active direction has two lanes:
 
 **Toolkit lane (unknown repo → AI-native adoption):**
 
-- `F120` Toolkit Scout — instant repo card
+- `F120` Toolkit Scout — instant repo card (Done)
 - `F121` Toolkit Metrics — git-derived process health (Done)
-- `F122` Toolkit Index — persistent codebase memory
-- `F123` Toolkit Spec Recovery — recover implicit contracts
-- `F124` Toolkit Bootstrap — brownfield-safe agent setup
-- `F125` Toolkit UX — intent-routed skills
+- `F122` Toolkit Index — persistent codebase memory (Done)
+- `F123` Toolkit Spec Recovery — recover implicit contracts (Done)
+- `F124` Toolkit Bootstrap — brownfield-safe agent setup (Done)
+- `F125` Toolkit UX — intent-routed skills (In Progress)
 - `F126` Toolkit MCP — universal agent interface (Done)
 
 Trust, evidence, and governance still matter, but they are the secondary lane, not the whole story.
