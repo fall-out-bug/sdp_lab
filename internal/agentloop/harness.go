@@ -242,7 +242,9 @@ func (h *Harness) RunPhase(ctx context.Context, userPrompt, token string) error 
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.store.PersistGateResult(h.session.ID, result)
+	if err := h.store.PersistGateResult(h.session.ID, result); err != nil {
+		return fmt.Errorf("persist gate result: %w", err)
+	}
 
 	if result.Escalated {
 		// Fix N2: persist PendingDecision so ApproveGate/Rollback can validate decisionID.
@@ -253,7 +255,9 @@ func (h *Harness) RunPhase(ctx context.Context, userPrompt, token string) error 
 			GateResult:     result,
 			AllowedActions: []string{"approve", "rollback", "stop"},
 		}
-		h.store.PersistDecision(h.session.ID, decision)
+		if err := h.store.PersistDecision(h.session.ID, decision); err != nil {
+			return fmt.Errorf("persist decision: %w", err)
+		}
 		h.state = hStateAwaitingHuman // Fix N1: FSM → awaiting human
 		h.session.EmitEvent(Event{Type: "human_gate", Delta: decision.DecisionID})
 		return nil

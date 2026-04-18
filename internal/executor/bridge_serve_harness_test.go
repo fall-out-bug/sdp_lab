@@ -14,8 +14,8 @@ import (
 )
 
 // TestServeBridgeHarness_HappyPath verifies that DispatchAndRun uses the harness
-// path when harnessRouter is set, and returns success only when completion_signal
-// is emitted by the agent.
+// path when harnessRouter is set, and returns success only after the terminal
+// phase (RoleEval) completes. Intermediate phase completions return NeedsInput.
 func TestServeBridgeHarness_HappyPath(t *testing.T) {
 	store := setupStore(t)
 
@@ -30,10 +30,10 @@ func TestServeBridgeHarness_HappyPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Build a StubGateway that returns a completion_signal tool call, followed
-	// by a done. The Run() function will execute the completion_signal tool,
-	// make one more LLM call (acknowledgement), then exit. The second call
-	// gets the StubGateway's fallback {done} response.
+	// Build a StubGateway that returns a completion_signal tool call.
+	// New sessions start at RoleDiscover. After discover completes with
+	// completion_signal, it returns NeedsInput (intermediate phase),
+	// NOT Success. Only RoleEval completion returns Success.
 	gw := agentloop.NewStubGateway()
 	gw.AddResponse("glm-5", []agentloop.Event{
 		{Type: "text_delta", Delta: "discovery complete"},
@@ -61,8 +61,9 @@ func TestServeBridgeHarness_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DispatchAndRun error: %v", err)
 	}
-	if result.Status != control.ResultStatusSuccess {
-		t.Fatalf("status = %s, want %s; summary=%s", result.Status, control.ResultStatusSuccess, result.Summary)
+	// Discover is an intermediate phase — NOT terminal success.
+	if result.Status != control.ResultStatusNeedsInput {
+		t.Fatalf("status = %s, want %s; summary=%s", result.Status, control.ResultStatusNeedsInput, result.Summary)
 	}
 	if result.ParentFeatureID != card.ID {
 		t.Fatalf("ParentFeatureID = %s, want %s", result.ParentFeatureID, card.ID)
@@ -89,8 +90,8 @@ func TestServeBridgeHarness_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load updated card: %v", err)
 	}
-	if updatedCard.ExecutorRuntimeState != control.ExecutorRuntimeCompleted {
-		t.Fatalf("card.ExecutorRuntimeState = %s, want %s", updatedCard.ExecutorRuntimeState, control.ExecutorRuntimeCompleted)
+	if updatedCard.ExecutorRuntimeState != "awaiting_input" {
+		t.Fatalf("card.ExecutorRuntimeState = %s, want awaiting_input", updatedCard.ExecutorRuntimeState)
 	}
 	if updatedCard.ExecutorResult == nil {
 		t.Fatal("card.ExecutorResult should not be nil after execution")
@@ -378,8 +379,8 @@ func TestServeBridgeHarness_TerminatedSessionRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first dispatch error: %v", err)
 	}
-	if result.Status != control.ResultStatusSuccess {
-		t.Fatalf("first dispatch status = %s, want success", result.Status)
+	if result.Status != control.ResultStatusNeedsInput {
+		t.Fatalf("first dispatch status = %s, want needs_input (discover)", result.Status)
 	}
 
 	// Now simulate a Stop() on the session by writing a terminal phase record.
@@ -401,8 +402,8 @@ func TestServeBridgeHarness_TerminatedSessionRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second dispatch (recovery) error: %v", err)
 	}
-	if result.Status != control.ResultStatusSuccess {
-		t.Fatalf("second dispatch status = %s, want success", result.Status)
+	if result.Status != control.ResultStatusNeedsInput {
+		t.Fatalf("second dispatch status = %s, want needs_input (discover after recovery)", result.Status)
 	}
 }
 
@@ -566,8 +567,9 @@ func TestServeBridgeCrash_SuccessNoStop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DispatchAndRun error: %v", err)
 	}
-	if result.Status != control.ResultStatusSuccess {
-		t.Fatalf("status = %s, want success", result.Status)
+	// Discover is intermediate — returns NeedsInput, not terminal Success.
+	if result.Status != control.ResultStatusNeedsInput {
+		t.Fatalf("status = %s, want needs_input", result.Status)
 	}
 
 	// After successful RunPhase, h.Stop was NOT called, so RestoreHarness
@@ -590,8 +592,9 @@ func TestServeBridgeCrash_SuccessNoStop(t *testing.T) {
 
 // TestServeBridgeHarness_NilContractAutoPass verifies that when the gate engine
 // is created with a nil contract (production default), a completion_signal
-// still results in ResultStatusSuccess (not hard-block). This tests the MVP
-// bypass in GateEngine.Evaluate that auto-passes when contract is nil.
+// does NOT hard-block the harness. The gate auto-passes via bypassNilContract.
+// Since new sessions start at RoleDiscover (intermediate), the result is
+// NeedsInput, not NeedsReview (hard-block).
 func TestServeBridgeHarness_NilContractAutoPass(t *testing.T) {
 	store := setupStore(t)
 
@@ -635,7 +638,9 @@ func TestServeBridgeHarness_NilContractAutoPass(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DispatchAndRun error: %v", err)
 	}
-	if result.Status != control.ResultStatusSuccess {
-		t.Fatalf("nil-contract gate should auto-pass; status=%s summary=%s", result.Status, result.Summary)
+	// Discover is intermediate → NeedsInput (not hard-block NeedsReview).
+	// This confirms the nil-contract gate auto-passes instead of blocking.
+	if result.Status != control.ResultStatusNeedsInput {
+		t.Fatalf("nil-contract gate should auto-pass (intermediate phase); status=%s summary=%s", result.Status, result.Summary)
 	}
 }

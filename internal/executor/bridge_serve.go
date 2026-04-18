@@ -300,8 +300,12 @@ func (b *ServeBridge) dispatchWithOmO(ctx context.Context, projectID, cardID str
 	result := translateResult(packet, runtimeResult.Output, runtimeResult.ExitCode)
 
 	// Shared bookkeeping: write evidence, route findings, update card state.
+	// Treat bookkeeping as part of the success contract: if evidence cannot be
+	// persisted, downgrade the result to failure so downstream doesn't act on
+	// incomplete state.
 	if bkErr := b.recordExecutionResult(cardID, result, phase, agent); bkErr != nil {
-		slog.Warn("record omo execution result", "card", cardID, "error", bkErr)
+		result.Status = control.ResultStatusFailed
+		result.Summary = fmt.Sprintf("bookkeeping failed: %v", bkErr)
 	}
 
 	return result, invokeErr
@@ -407,13 +411,32 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 	}
 
 	succeeded = true // prevents Stop on normal exit
+
+	// Only return terminal Success after the final phase (RoleEval).
+	// Intermediate phase completions (discover→plan→build→review) are
+	// non-terminal: the harness session stays alive for the next phase,
+	// and the orchestration loop should NOT trigger evaluation/deploy.
+	if phase != string(agentloop.RoleEval) {
+		result := &control.ExecutorResultPacket{
+			ParentFeatureID: cardID,
+			Status:          control.ResultStatusNeedsInput,
+			Summary:         "intermediate phase completed — session continues",
+		}
+		if err := b.recordExecutionResult(cardID, result, phase, "harness"); err != nil {
+			result.Status = control.ResultStatusFailed
+			result.Summary = fmt.Sprintf("bookkeeping failed: %v", err)
+		}
+		return result, nil
+	}
+
 	result := &control.ExecutorResultPacket{
 		ParentFeatureID: cardID,
 		Status:          control.ResultStatusSuccess,
-		Summary:         "phase completed",
+		Summary:         "lifecycle completed — all phases done",
 	}
 	if err := b.recordExecutionResult(cardID, result, phase, "harness"); err != nil {
-		slog.Warn("record success result", "card", cardID, "error", err)
+		result.Status = control.ResultStatusFailed
+		result.Summary = fmt.Sprintf("bookkeeping failed: %v", err)
 	}
 	return result, nil
 }
