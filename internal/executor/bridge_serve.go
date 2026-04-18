@@ -209,6 +209,7 @@ func (b *ServeBridge) recordExecutionResult(cardID string, result *control.Execu
 		card.ExecutorRuntimeState = control.ExecutorRuntimeCompleted
 	case control.ResultStatusNeedsReview:
 		card.ExecutorRuntimeState = "awaiting_human"
+		card.Status = "awaiting_review" // prevent orchestrator redispatch
 	case control.ResultStatusNeedsInput:
 		card.ExecutorRuntimeState = "awaiting_input"
 	default:
@@ -373,9 +374,20 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 		return result, nil
 	}
 
-	governedPrompt := card.NormalizedIntent
+	// Build governed prompt from card — includes scope constraints, governance
+	// metadata, and provenance. This mirrors the OmO path's prompt construction
+	// so the harness agent also respects ScopeIn/ScopeOut and linked constraints.
+	envelope := b.cardToEnvelope(card)
+	promptBuilder := omoclient.NewGovernancePromptBuilder()
+	governedPrompt := promptBuilder.BuildFullPrompt(envelope, card.NormalizedIntent)
 	if governedPrompt == "" {
 		governedPrompt = card.RawRequest
+	}
+
+	// Record provenance for harness path (same as OmO).
+	packet, _ := b.buildPacket(card)
+	if packet != nil {
+		_ = RecordDispatchProvenance(b.ProjectRoot, card, packet, governedPrompt)
 	}
 
 	// Execute one phase turn.
