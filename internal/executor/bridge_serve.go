@@ -351,15 +351,32 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 	if err != nil {
 		return nil, fmt.Errorf("load card: %w", err)
 	}
+
+	// Capture the phase before any RunPhase call.
+	phase := string(h.Phase())
+
+	// Handle restored awaiting_human state: if the harness was restored with
+	// a pending gate decision (crash recovery), skip RunPhase and return
+	// the gate-pending result immediately. Without this, RunPhase would reject
+	// the non-idle state and the session would fall into generic failure.
+	if h.IsAwaitingHuman() {
+		succeeded = true // gate-pending is valid — do NOT stop
+		result := &control.ExecutorResultPacket{
+			ParentFeatureID: cardID,
+			Status:          control.ResultStatusNeedsReview,
+			Summary:         "gate restored — awaiting human decision (crash recovery)",
+		}
+		if bkErr := b.recordExecutionResult(cardID, result, phase, "harness"); bkErr != nil {
+			result.Status = control.ResultStatusFailed
+			result.Summary = fmt.Sprintf("bookkeeping failed: %v", bkErr)
+		}
+		return result, nil
+	}
+
 	governedPrompt := card.NormalizedIntent
 	if governedPrompt == "" {
 		governedPrompt = card.RawRequest
 	}
-
-	// Capture the phase BEFORE RunPhase — on success, RunPhase transitions
-	// to the next phase internally, so reading h.Phase() after would return
-	// the next phase, not the phase that actually executed.
-	phase := string(h.Phase())
 
 	// Execute one phase turn.
 	runErr := h.RunPhase(ctx, governedPrompt, "")
