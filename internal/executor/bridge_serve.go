@@ -430,10 +430,13 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 		governedPrompt = card.RawRequest
 	}
 
-	// Record provenance for harness path (same as OmO).
-	packet, _ := b.buildPacket(card)
-	if packet != nil {
-		_ = RecordDispatchProvenance(b.ProjectRoot, card, packet, governedPrompt)
+	// Record provenance for harness path (same contract as OmO — failure is fatal).
+	packet, pktErr := b.buildPacket(card)
+	if pktErr != nil {
+		return nil, fmt.Errorf("build dispatch packet: %w", pktErr)
+	}
+	if err := RecordDispatchProvenance(b.ProjectRoot, card, packet, governedPrompt); err != nil {
+		return nil, fmt.Errorf("record dispatch provenance: %w", err)
 	}
 
 	// Execute one phase turn.

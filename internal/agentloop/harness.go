@@ -286,18 +286,19 @@ func (h *Harness) ApproveGate(ctx context.Context, decisionID, token string) err
 		return fmt.Errorf("invalid decisionID: %w", err)
 	}
 
-	// Capture original phase for rollback on ClearDecision failure.
-	origPhase := h.session.Phase
-	if err := h.transitionTo(origPhase, h.router.NextPhase(origPhase), false); err != nil {
-		return err // state stays awaiting_human; decision intact — caller can retry
-	}
+	// Clear decision BEFORE persisting the phase transition.
+	// Ordering rationale: if ClearDecision fails, nothing has been mutated
+	// (in-memory or persisted), so the caller can safely retry.
+	// If ClearDecision succeeds but transitionTo fails, the decision is gone
+	// but the phase is unchanged — the session can be re-escalated.
+	// This avoids the crash-recovery double-advance bug where transitionTo
+	// persists NextPhase to SQLite, then ClearDecision fails, and a restart
+	// loads the advanced phase while the pending decision is still present.
 	if err := h.store.ClearDecision(h.session.ID, decisionID); err != nil {
-		// transitionTo already mutated h.session.Phase in memory and persisted to store.
-		// Restore in-memory phase so the caller's retry computes the correct transition.
-		// The persisted record from transitionTo is benign — RestoreHarness will load the
-		// advanced phase, and the cleared-pending decision means the session resumes normally.
-		h.session.Phase = origPhase
-		return fmt.Errorf("clear decision after approve: %w", err)
+		return fmt.Errorf("clear decision for approve: %w", err)
+	}
+	if err := h.transitionTo(h.session.Phase, h.router.NextPhase(h.session.Phase), false); err != nil {
+		return err
 	}
 	h.state = hStateIdle
 	return nil
@@ -320,15 +321,14 @@ func (h *Harness) Rollback(ctx context.Context, decisionID, token string) error 
 		return fmt.Errorf("invalid decisionID: %w", err)
 	}
 
-	// Capture original phase for rollback on ClearDecision failure.
-	origPhase := h.session.Phase
-	if err := h.transitionTo(origPhase, h.router.RecoveryPhase(origPhase), true); err != nil {
-		return err
-	}
+	// Clear decision BEFORE persisting the phase transition.
+	// Same ordering rationale as ApproveGate: ClearDecision first avoids
+	// crash-recovery double-advance on restart.
 	if err := h.store.ClearDecision(h.session.ID, decisionID); err != nil {
-		// Restore in-memory phase so the caller's retry computes the correct transition.
-		h.session.Phase = origPhase
-		return fmt.Errorf("clear decision after rollback: %w", err)
+		return fmt.Errorf("clear decision for rollback: %w", err)
+	}
+	if err := h.transitionTo(h.session.Phase, h.router.RecoveryPhase(h.session.Phase), true); err != nil {
+		return err
 	}
 	h.state = hStateIdle
 	return nil
