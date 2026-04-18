@@ -30,7 +30,7 @@ Deploying to production/staging, CI failures need investigation, system monitori
 
 **deploy:** Release prep and execution. Pre-deploy checks, rollback plan, deployment, smoke tests, monitoring verification.
 **triage:** CI failure diagnosis. Log analysis, test categorization (flaky/dep/env/code), CI health.
-**plan:** Convert insights to structured backlog. Workstream decomposition, beads issue creation, dependency mapping. Replaces standalone @plan skill.
+**plan:** Session & backlog management. Checkpoint work state, resume from checkpoint, decompose backlog, create beads issues, map dependencies. Replaces standalone @plan skill; absorbs @oneshot checkpoint/resume.
 
 ## Routing Rules
 

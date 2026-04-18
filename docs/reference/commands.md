@@ -24,8 +24,9 @@ SDP v1.0+ is organized around 5 core intents. These are the primary commands you
 
 **Usage:**
 ```bash
-@build "Feature description"
-@build WS-{ID}
+@build --mode idea "Feature description"
+@build --mode feature WS-{ID}
+@build --mode prototype "Quick spike"
 ```
 
 **What it does:**
@@ -42,10 +43,11 @@ SDP v1.0+ is organized around 5 core intents. These are the primary commands you
 - Files <200 LOC
 - No bare exceptions
 
-**Example:**
+**Examples:**
 ```bash
-@build "Add user authentication"
-@build WS-001-01
+@build --mode idea "Add user authentication"
+@build --mode feature WS-001-01
+@build --mode prototype "Quick spike"
 ```
 
 **See:** [.agents/skills/build.md](../../.agents/skills/build.md)
@@ -58,9 +60,9 @@ SDP v1.0+ is organized around 5 core intents. These are the primary commands you
 
 **Usage:**
 ```bash
-@fix "Bug description"
-@fix --hotfix "Critical issue"
-@fix --issue "Investigate problem"
+@fix --mode quick "Bug description"
+@fix --mode investigate "Complex problem"
+@fix --mode systematic "Investigate problem"
 ```
 
 **What it does:**
@@ -74,11 +76,11 @@ SDP v1.0+ is organized around 5 core intents. These are the primary commands you
 - Quality fixes for P1/P2 issues
 - Investigation for complex problems
 
-**Example:**
+**Examples:**
 ```bash
-@fix "Login fails on Firefox"
-@fix --hotfix "Production database connection fails"
-@fix --issue "Test fails unexpectedly"
+@fix --mode quick "Login fails on Firefox"
+@fix --mode investigate "Production database connection fails"
+@fix --mode systematic "Test fails unexpectedly"
 ```
 
 **See:** [.agents/skills/fix.md](../../.agents/skills/fix.md)
@@ -91,9 +93,9 @@ SDP v1.0+ is organized around 5 core intents. These are the primary commands you
 
 **Usage:**
 ```bash
-@operate deploy F{ID}
-@operate plan "Feature description"
-@operate ci-triage
+@operate --mode deploy F{ID}
+@operate --mode triage "CI failure"
+@operate --mode plan "Feature description"
 ```
 
 **What it does:**
@@ -103,9 +105,9 @@ SDP v1.0+ is organized around 5 core intents. These are the primary commands you
 
 **Examples:**
 ```bash
-@operate deploy F001
-@operate plan "Add user authentication"
-@operate ci-triage
+@operate --mode deploy F001
+@operate --mode plan "Add user authentication"
+@operate --mode triage
 ```
 
 **See:** [.agents/skills/operate.md](../../.agents/skills/operate.md)
@@ -118,10 +120,9 @@ SDP v1.0+ is organized around 5 core intents. These are the primary commands you
 
 **Usage:**
 ```bash
-@understand landscape
-@understand scout "query"
-@understand architect "component"
-@understand metrics
+@understand --depth quick
+@understand --depth standard
+@understand --depth deep
 ```
 
 **What it does:**
@@ -132,10 +133,9 @@ SDP v1.0+ is organized around 5 core intents. These are the primary commands you
 
 **Examples:**
 ```bash
-@understand landscape
-@understand scout "authentication flow"
-@understand architect "user service"
-@understand metrics
+@understand --depth quick
+@understand --depth standard
+@understand --depth deep
 ```
 
 **See:** [.agents/skills/understand.md](../../.agents/skills/understand.md)
@@ -148,9 +148,11 @@ SDP v1.0+ is organized around 5 core intents. These are the primary commands you
 
 **Usage:**
 ```bash
-@review F{ID}
-@review reality-check
-@review verify-workstream WS-{ID}
+@review --dimension code F{ID}
+@review --dimension architecture
+@review --dimension security
+@review --dimension performance
+@review --dimension readiness WS-{ID}
 ```
 
 **What it checks:**
@@ -163,9 +165,9 @@ SDP v1.0+ is organized around 5 core intents. These are the primary commands you
 
 **Examples:**
 ```bash
-@review F001
-@review reality-check
-@review verify-workstream WS-001-01
+@review --dimension code F001
+@review --dimension readiness WS-001-01
+@review --dimension security
 ```
 
 **See:** [.agents/skills/review.md](../../.agents/skills/review.md)
@@ -319,13 +321,13 @@ For long-running commands:
 
 ## Quick Reference
 
-| Command | Purpose | Intent |
-|---------|---------|--------|
-| `@build` | Build features | build |
-| `@fix` | Fix bugs | fix |
-| `@operate` | Deploy & manage | operate |
-| `@understand` | Analyze codebase | understand |
-| `@review` | Quality checks | review |
+| Command | Purpose | Modes |
+|---------|---------|-------|
+| `@understand` | Analyze codebase | `--depth quick\|standard\|deep` |
+| `@build` | Build features | `--mode idea\|feature\|prototype` |
+| `@fix` | Fix bugs | `--mode quick\|investigate\|systematic` |
+| `@review` | Quality checks | `--dimension code\|architecture\|security\|performance\|readiness` |
+| `@operate` | Deploy & manage | `--mode deploy\|triage\|plan` |
 
 ---
 

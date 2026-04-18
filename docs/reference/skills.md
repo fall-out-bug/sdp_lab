@@ -44,24 +44,24 @@ Old skills have been absorbed into the five intents. During the deprecation peri
 
 | Old Skill | Routes To | Intent Mode | Deprecation Warning |
 |-----------|-----------|-------------|---------------------|
-| @scout | @understand | quick | Use `@understand` (auto-detects quick) |
-| @architect | @understand | standard | Use `@understand --mode standard` |
-| @metrics | @understand | standard | Use `@understand --mode standard` |
-| @spec | @understand | deep | Use `@understand --mode deep` |
-| @landscape | @understand | standard/deep | Use `@understand` (auto-detects depth) |
-| @index query | @understand | deep | Use `@understand --mode deep` |
-| @feature | @build | feature | Use `@build` (auto-detects feature) |
+| @scout | @understand | quick | Use `@understand --depth quick` |
+| @architect | @understand | standard | Use `@understand --depth standard` |
+| @metrics | @understand | standard | Use `@understand --depth standard` |
+| @spec | @understand | deep | Use `@understand --depth deep` |
+| @landscape | @understand | standard/deep | Use `@understand --depth standard` (or `--depth deep`) |
+| @index query | @understand | deep | Use `@understand --depth deep` |
+| @feature | @build | feature | Use `@build --mode feature` |
 | @idea | @build | idea | Use `@build --mode idea` |
 | @design | @build | idea | Use `@build --mode idea` |
 | @ux | @build | idea | Use `@build --mode idea` |
 | @vision | @build | idea | Use `@build --mode idea` |
 | @oneshot | @build | prototype | Use `@build --mode prototype`. Note: Checkpoint/resume now via `@operate --mode plan` |
 | @prototype | @build | prototype | Use `@build --mode prototype` |
-| @hotfix | @fix | quick | Use `@fix` (auto-detects quick) |
+| @hotfix | @fix | quick | Use `@fix --mode quick` |
 | @bugfix | @fix | systematic | Use `@fix --mode systematic` |
 | @issue | @fix | systematic | Use `@fix --mode systematic` |
 | @debug | @fix | investigate | Use `@fix --mode investigate` |
-| @reality-check | @review | reality | Use `@review --dimension reality` |
+| @reality-check | @review | architecture | Use `@review --dimension architecture` |
 | @verify-workstream | @review | readiness | Use `@review --dimension readiness` |
 | @deploy | @operate | deploy | Use `@operate --mode deploy` |
 | @ci-triage | @operate | triage | Use `@operate --mode triage` |
@@ -311,9 +311,11 @@ How does the system pick the right intent?
 - Beads issue assigned → @fix or @build (from type)
 
 **Explicit override:**
-- `@understand --deep` → force specific intent + mode
+- `@understand --depth deep` → force specific intent + mode
 - `@build --mode prototype` → force specific mode
 - `@review --dimension security` → force specific dimension
+- `@fix --mode systematic` → force specific mode
+- `@operate --mode deploy` → force specific mode
 
 ## Skill Quality Rule
 
