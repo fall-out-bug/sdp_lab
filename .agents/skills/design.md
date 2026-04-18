@@ -1,9 +1,14 @@
 ---
 name: design
-description: "DEPRECATED: Use @build instead. Redirects to build intent."
+description: "DEPRECATED: Legacy design skill. Redirects to @build intent with idea mode for design brainstorming and specification."
 deprecated: true
 redirect: build
 version: 0.0.0
+compatibility:
+  - claude-code
+  - opencode
+  - cursor
+  - codex
 ---
 
 # @design → @build

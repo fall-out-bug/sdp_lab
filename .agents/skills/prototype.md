@@ -1,9 +1,14 @@
 ---
 name: prototype
-description: "DEPRECATED: Use @build instead. Redirects to build intent."
+description: "DEPRECATED: Legacy prototype skill. Redirects to @build intent with prototype mode for working prototypes."
 deprecated: true
 redirect: build
 version: 0.0.0
+compatibility:
+  - claude-code
+  - opencode
+  - cursor
+  - codex
 ---
 
 # @prototype → @build

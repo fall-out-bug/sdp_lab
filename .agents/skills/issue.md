@@ -1,9 +1,14 @@
 ---
 name: issue
-description: "DEPRECATED: Use @fix instead. Redirects to fix intent."
+description: "DEPRECATED: Legacy issue skill. Redirects to @fix intent with systematic mode for resolving reported issues and bugs."
 deprecated: true
 redirect: fix
 version: 0.0.0
+compatibility:
+  - claude-code
+  - opencode
+  - cursor
+  - codex
 ---
 
 # @issue → @fix

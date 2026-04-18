@@ -1,9 +1,14 @@
 ---
 name: verify-workstream
-description: "DEPRECATED: Use @review instead. Redirects to review intent."
+description: "DEPRECATED: Legacy verify-workstream skill. Redirects to @review intent with readiness dimension for completion checks."
 deprecated: true
 redirect: review
 version: 0.0.0
+compatibility:
+  - claude-code
+  - opencode
+  - cursor
+  - codex
 ---
 
 # @verify-workstream → @review

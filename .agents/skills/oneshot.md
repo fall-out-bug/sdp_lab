@@ -1,9 +1,14 @@
 ---
 name: oneshot
-description: "DEPRECATED: Use @build instead. Redirects to build intent."
+description: "DEPRECATED: Legacy oneshot skill. Redirects to @build intent with prototype mode for single-session prototypes."
 deprecated: true
 redirect: build
 version: 0.0.0
+compatibility:
+  - claude-code
+  - opencode
+  - cursor
+  - codex
 ---
 
 # @oneshot → @build

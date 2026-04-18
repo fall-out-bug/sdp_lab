@@ -1,9 +1,14 @@
 ---
 name: scout
-description: "DEPRECATED: Use @understand instead. Redirects to understand intent."
+description: "DEPRECATED: Legacy scout skill. Redirects to @understand intent with auto-detect for quick codebase reconnaissance."
 deprecated: true
 redirect: understand
 version: 0.0.0
+compatibility:
+  - claude-code
+  - opencode
+  - cursor
+  - codex
 ---
 
 # @scout → @understand

@@ -1,9 +1,14 @@
 ---
 name: ux
-description: "DEPRECATED: Use @build instead. Redirects to build intent."
+description: "DEPRECATED: Legacy ux skill. Redirects to @build intent with idea mode for UX design brainstorming."
 deprecated: true
 redirect: build
 version: 0.0.0
+compatibility:
+  - claude-code
+  - opencode
+  - cursor
+  - codex
 ---
 
 # @ux → @build

@@ -1,9 +1,14 @@
 ---
 name: plan
-description: "DEPRECATED: Use @operate instead. Redirects to operate intent."
+description: "DEPRECATED: Legacy plan skill. Redirects to @operate intent with plan mode for implementation planning."
 deprecated: true
 redirect: operate
 version: 0.0.0
+compatibility:
+  - claude-code
+  - opencode
+  - cursor
+  - codex
 ---
 
 # @plan → @operate

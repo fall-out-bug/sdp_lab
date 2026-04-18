@@ -1,9 +1,14 @@
 ---
 name: feature
-description: "DEPRECATED: Use @build instead. Redirects to build intent."
+description: "DEPRECATED: Legacy feature skill. Redirects to @build intent with feature mode for full feature implementation."
 deprecated: true
 redirect: build
 version: 0.0.0
+compatibility:
+  - claude-code
+  - opencode
+  - cursor
+  - codex
 ---
 
 # @feature → @build

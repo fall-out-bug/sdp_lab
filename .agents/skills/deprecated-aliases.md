@@ -1,3 +1,14 @@
+---
+name: deprecated-aliases
+description: "Machine-readable mapping of 26 deprecated legacy skills to 5 intent-based skills with routing and warning messages"
+version: 1.0.0
+compatibility:
+  - claude-code
+  - opencode
+  - cursor
+  - codex
+---
+
 # Deprecated Skill Aliases
 
 **Purpose:** Compatibility layer for legacy skill names during F125 migration.

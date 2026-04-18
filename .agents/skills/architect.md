@@ -1,9 +1,14 @@
 ---
 name: architect
-description: "DEPRECATED: Use @understand instead. Redirects to understand intent."
+description: "DEPRECATED: Legacy architect skill. Redirects to @understand intent with standard depth for architecture analysis."
 deprecated: true
 redirect: understand
 version: 0.0.0
+compatibility:
+  - claude-code
+  - opencode
+  - cursor
+  - codex
 ---
 
 # @architect → @understand

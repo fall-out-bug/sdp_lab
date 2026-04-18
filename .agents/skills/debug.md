@@ -1,9 +1,14 @@
 ---
 name: debug
-description: "DEPRECATED: Use @fix instead. Redirects to fix intent."
+description: "DEPRECATED: Legacy debug skill. Redirects to @fix intent with investigate mode for unknown causes and diagnosis."
 deprecated: true
 redirect: fix
 version: 0.0.0
+compatibility:
+  - claude-code
+  - opencode
+  - cursor
+  - codex
 ---
 
 # @debug → @fix

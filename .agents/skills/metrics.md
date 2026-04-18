@@ -1,9 +1,14 @@
 ---
 name: metrics
-description: "DEPRECATED: Use @understand instead. Redirects to understand intent."
+description: "DEPRECATED: Legacy metrics skill. Redirects to @understand intent with standard mode for code metrics analysis."
 deprecated: true
 redirect: understand
 version: 0.0.0
+compatibility:
+  - claude-code
+  - opencode
+  - cursor
+  - codex
 ---
 
 # @metrics → @understand

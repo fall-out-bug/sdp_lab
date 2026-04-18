@@ -1,9 +1,14 @@
 ---
 name: deploy
-description: "DEPRECATED: Use @operate instead. Redirects to operate intent."
+description: "DEPRECATED: Legacy deploy skill. Redirects to @operate intent with deploy mode for production deployments."
 deprecated: true
 redirect: operate
 version: 0.0.0
+compatibility:
+  - claude-code
+  - opencode
+  - cursor
+  - codex
 ---
 
 # @deploy → @operate
