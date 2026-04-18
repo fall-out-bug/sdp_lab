@@ -114,3 +114,51 @@ func TestSchemaHasVersionField(t *testing.T) {
 		t.Error("schema must declare a 'version' field for drift detection")
 	}
 }
+
+func TestParseSchemaInvalidJSON(t *testing.T) {
+	_, err := harnesscfg.ParseSchema([]byte(`not json`))
+	if err == nil {
+		t.Error("expected error for invalid JSON, got nil")
+	}
+}
+
+func TestValidateMissingConfigFile(t *testing.T) {
+	s := loadSchema(t)
+	m := harnesscfg.Manifest{
+		Version:        "1.0.0",
+		LifecycleStage: harnesscfg.StageGreenfieldStr,
+		Harnesses:      []harnesscfg.Harness{{Name: "claude-code", ConfigFile: ""}},
+	}
+	if err := harnesscfg.Validate(s, m); err == nil {
+		t.Error("expected error for empty config_file, got nil")
+	}
+}
+
+func TestValidateInvalidSemver(t *testing.T) {
+	s := loadSchema(t)
+	m := harnesscfg.Manifest{
+		Version:        "not-semver",
+		LifecycleStage: harnesscfg.StageGreenfieldStr,
+		Harnesses:      []harnesscfg.Harness{{Name: "cursor", ConfigFile: ".cursor/rules/project.mdc"}},
+	}
+	if err := harnesscfg.Validate(s, m); err == nil {
+		t.Error("expected error for invalid semver version, got nil")
+	}
+}
+
+func TestValidateOptionalFields(t *testing.T) {
+	s := loadSchema(t)
+	m := harnesscfg.Manifest{
+		Version:        "1.0.0",
+		LifecycleStage: harnesscfg.StageBrownfieldMatureStr,
+		Language:       "go",
+		RulesFile:      "docs/reference/go-patterns.md",
+		Harnesses: []harnesscfg.Harness{
+			{Name: "zed", ConfigFile: ".zed/settings.json"},
+			{Name: "warp", ConfigFile: ".warp/rules.md"},
+		},
+	}
+	if err := harnesscfg.Validate(s, m); err != nil {
+		t.Errorf("manifest with optional fields should be valid: %v", err)
+	}
+}

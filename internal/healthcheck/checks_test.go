@@ -79,3 +79,51 @@ func TestBeadsReadyChecker_MissingBinary(t *testing.T) {
 		t.Errorf("expected fail when bd not in PATH, got %s: %s", results[0].Status, results[0].Detail)
 	}
 }
+
+func TestBeadsReadyChecker_FakeBinary(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration: writes fake binary to temp dir")
+	}
+	dir := t.TempDir()
+	// Write a fake 'bd' script that exits 0 and prints two lines
+	fakeBD := filepath.Join(dir, "bd")
+	script := "#!/bin/sh\necho 'issue-1'\necho 'issue-2'\n"
+	if err := os.WriteFile(fakeBD, []byte(script), 0o755); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", dir+":"+origPath)
+	defer os.Setenv("PATH", origPath)
+
+	runner, _ := healthcheck.NewRunner(healthcheck.Config{ProjectRoot: t.TempDir(), Only: "beads-ready"})
+	results := runner.Run(context.Background())
+	if results[0].Status != healthcheck.StatusPass {
+		t.Errorf("expected pass with fake bd, got %s: %s", results[0].Status, results[0].Detail)
+	}
+	if results[0].Detail != "2 ready issues" {
+		t.Errorf("expected '2 ready issues', got %q", results[0].Detail)
+	}
+}
+
+func TestBeadsReadyChecker_EmptyOutput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration: writes fake binary to temp dir")
+	}
+	dir := t.TempDir()
+	fakeBD := filepath.Join(dir, "bd")
+	if err := os.WriteFile(fakeBD, []byte("#!/bin/sh\necho '[]'\n"), 0o755); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", dir+":"+origPath)
+	defer os.Setenv("PATH", origPath)
+
+	runner, _ := healthcheck.NewRunner(healthcheck.Config{ProjectRoot: t.TempDir(), Only: "beads-ready"})
+	results := runner.Run(context.Background())
+	if results[0].Status != healthcheck.StatusPass {
+		t.Errorf("expected pass with empty output, got %s: %s", results[0].Status, results[0].Detail)
+	}
+	if results[0].Detail != "0 ready issues" {
+		t.Errorf("expected '0 ready issues', got %q", results[0].Detail)
+	}
+}
