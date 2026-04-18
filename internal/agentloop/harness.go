@@ -286,27 +286,25 @@ func (h *Harness) ApproveGate(ctx context.Context, decisionID, token string) err
 		return fmt.Errorf("invalid decisionID: %w", err)
 	}
 
-	// Clear decision BEFORE persisting the phase transition.
-	// Ordering rationale: if ClearDecision fails, nothing has been mutated
-	// (in-memory or persisted), so the caller can safely retry.
-	// If ClearDecision succeeds but transitionTo fails, the decision is gone
-	// but the phase is unchanged — the session can be re-escalated.
-	// This avoids the crash-recovery double-advance bug where transitionTo
-	// persists NextPhase to SQLite, then ClearDecision fails, and a restart
-	// loads the advanced phase while the pending decision is still present.
-	if err := h.store.ClearDecision(h.session.ID, decisionID); err != nil {
-		return fmt.Errorf("clear decision for approve: %w", err)
+	// Atomically persist the phase transition AND clear the pending decision.
+	// Both operations execute in a single SQLite transaction, so a crash at any
+	// point leaves either both done or neither done — no partial state.
+	if err := h.store.TransitionAndClearDecision(h.session.ID, decisionID, PhaseRecord{
+		Phase:     h.session.Phase,
+		NextPhase: h.router.NextPhase(h.session.Phase),
+		StartedAt: time.Now().Add(-time.Second), // approximate
+		EndedAt:   time.Now(),
+	}); err != nil {
+		return fmt.Errorf("atomic approve transition: %w", err)
 	}
-	if err := h.transitionTo(h.session.Phase, h.router.NextPhase(h.session.Phase), false); err != nil {
-		return err
-	}
+	h.session.Phase = h.router.NextPhase(h.session.Phase)
+	h.accumulator.Reset()
 	h.state = hStateIdle
 	return nil
 }
 
 // Rollback is called by the Decision Owner to roll back to RecoveryNext.
 // Fix A2: requires ownerToken.
-// Fix P1: transitionTo (persists PhaseRecord) FIRST; ClearDecision only after success.
 func (h *Harness) Rollback(ctx context.Context, decisionID, token string) error {
 	if err := h.validateToken(token); err != nil {
 		return err
@@ -321,15 +319,17 @@ func (h *Harness) Rollback(ctx context.Context, decisionID, token string) error 
 		return fmt.Errorf("invalid decisionID: %w", err)
 	}
 
-	// Clear decision BEFORE persisting the phase transition.
-	// Same ordering rationale as ApproveGate: ClearDecision first avoids
-	// crash-recovery double-advance on restart.
-	if err := h.store.ClearDecision(h.session.ID, decisionID); err != nil {
-		return fmt.Errorf("clear decision for rollback: %w", err)
+	// Atomically persist the recovery transition AND clear the pending decision.
+	if err := h.store.TransitionAndClearDecision(h.session.ID, decisionID, PhaseRecord{
+		Phase:     h.session.Phase,
+		NextPhase: h.router.RecoveryPhase(h.session.Phase),
+		StartedAt: time.Now().Add(-time.Second),
+		EndedAt:   time.Now(),
+	}); err != nil {
+		return fmt.Errorf("atomic rollback transition: %w", err)
 	}
-	if err := h.transitionTo(h.session.Phase, h.router.RecoveryPhase(h.session.Phase), true); err != nil {
-		return err
-	}
+	h.session.Phase = h.router.RecoveryPhase(h.session.Phase)
+	h.accumulator.Reset()
 	h.state = hStateIdle
 	return nil
 }

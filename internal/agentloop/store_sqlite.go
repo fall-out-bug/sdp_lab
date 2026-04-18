@@ -484,3 +484,46 @@ func (st *SQLiteStore) LoadDecision(sessionID string) (*PendingDecision, error) 
 	}
 	return &d, nil
 }
+
+// TransitionAndClearDecision atomically persists a phase record and deletes the
+// pending decision within a single SQLite transaction. This prevents partial state
+// on crash: the phase is only advanced if the decision is successfully cleared,
+// and vice versa.
+func (st *SQLiteStore) TransitionAndClearDecision(sessionID, decisionID string, record PhaseRecord) error {
+	tx, err := st.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback() // no-op after commit
+
+	// 1. Validate the decision exists and matches.
+	var stored string
+	if err := tx.QueryRow(
+		`SELECT decision_id FROM decisions WHERE session_id = ?`, sessionID,
+	).Scan(&stored); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("no pending decision for session %q", sessionID)
+		}
+		return fmt.Errorf("validate decision in transaction: %w", err)
+	}
+	if stored != decisionID {
+		return fmt.Errorf("decision ID mismatch: want %q got %q", stored, decisionID)
+	}
+
+	// 2. Persist the phase record.
+	if _, err := tx.Exec(
+		`INSERT INTO phase_records (session_id, phase, next_phase, started_at, ended_at)
+		 VALUES (?, ?, ?, ?, ?)`,
+		sessionID, string(record.Phase), string(record.NextPhase),
+		record.StartedAt.UTC().Unix(), record.EndedAt.UTC().Unix(),
+	); err != nil {
+		return fmt.Errorf("persist phase record in transaction: %w", err)
+	}
+
+	// 3. Delete the decision.
+	if _, err := tx.Exec(`DELETE FROM decisions WHERE session_id = ?`, sessionID); err != nil {
+		return fmt.Errorf("clear decision in transaction: %w", err)
+	}
+
+	return tx.Commit()
+}

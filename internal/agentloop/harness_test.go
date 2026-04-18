@@ -182,6 +182,9 @@ func (f *failingPhaseStore) ClearDecision(id, did string) error {
 func (f *failingPhaseStore) LoadDecision(id string) (*PendingDecision, error) {
 	return f.inner.LoadDecision(id)
 }
+func (f *failingPhaseStore) TransitionAndClearDecision(sessionID, decisionID string, record PhaseRecord) error {
+	return errInjectFailure // always fail
+}
 
 // ---- RunPhase helpers ----
 
