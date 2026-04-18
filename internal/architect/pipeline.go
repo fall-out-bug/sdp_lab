@@ -133,7 +133,6 @@ func (p *Pipeline) Run(ctx context.Context) (*PipelineResult, error) {
 	if profile == nil {
 		return nil, fmt.Errorf("all extractors failed: %d errors", len(extractErrs))
 	}
-	result.Profile = profile
 
 	// Report timings
 	for _, t := range timings {
@@ -158,6 +157,7 @@ func (p *Pipeline) Run(ctx context.Context) (*PipelineResult, error) {
 	}
 	// Use sanitized profile for all subsequent stages
 	profile = sanitizedProfile
+	result.Profile = profile
 
 	// Stage 4: LLM enrichment (optional)
 	if p.config.AllowExternalLLM && !p.config.NoLLM {

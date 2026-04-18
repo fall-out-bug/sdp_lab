@@ -59,6 +59,11 @@ func runArchitectAnalyze(args []string) {
 	fs.BoolVar(verboseFlag, "v", false, "shorthand for --verbose")
 	skipGit := fs.Bool("skip-git", false, "skip git history analysis")
 	langFilter := fs.String("language", "", "comma-separated language filter (e.g. go,python)")
+	writeArtifacts := fs.Bool("write-artifacts", false, "write .sdp/architecture/ artifact files")
+
+	// Reorder args: move flags before positional args so flag.FlagSet
+	// doesn't stop parsing at the first non-flag argument.
+	args = reorderFlags(args)
 
 	if err := fs.Parse(args); err != nil {
 		log.Fatalf("flag parse error: %v", err)
@@ -156,9 +161,11 @@ func runArchitectAnalyze(args []string) {
 		fmt.Println(output)
 	}
 
-	// Write artifact files to .sdp/architecture/ directory
-	if err := writeArtifactFiles(repoRoot, result, diagrams); err != nil {
-		log.Printf("Warning: failed to write artifact files: %v", err)
+	// Write artifact files only when explicitly requested via --output or --write-artifacts
+	if *outputFlag != "" || *writeArtifacts {
+		if err := writeArtifactFiles(repoRoot, result, diagrams); err != nil {
+			log.Printf("Warning: failed to write artifact files: %v", err)
+		}
 	}
 
 	// Print verbose summary to stderr
@@ -178,6 +185,8 @@ func runArchitectC4(args []string) {
 	verboseFlag := fs.Bool("verbose", false, "show detailed output")
 	fs.BoolVar(verboseFlag, "v", false, "shorthand for --verbose")
 	formatFlag := fs.String("format", "mermaid", "output format: mermaid, json")
+
+	args = reorderFlags(args)
 
 	if err := fs.Parse(args); err != nil {
 		log.Fatalf("flag parse error: %v", err)
@@ -301,6 +310,8 @@ func runArchitectEval(args []string) {
 	timeoutFlag := fs.Duration("timeout", 5*time.Minute, "total session timeout")
 	verboseFlag := fs.Bool("verbose", false, "show per-extractor timing")
 	fs.BoolVar(verboseFlag, "v", false, "shorthand for --verbose")
+
+	args = reorderFlags(args)
 
 	if err := fs.Parse(args); err != nil {
 		log.Fatalf("flag parse error: %v", err)
@@ -768,6 +779,44 @@ func formatSummaryText(result *architect.PipelineResult, diagrams []*c4.DiagramR
 
 // --- Helper functions ---
 
+// reorderFlags moves flag arguments (starting with - or --) before positional
+// arguments so that flag.FlagSet.Parse doesn't stop at the first non-flag arg.
+// This allows both "sdp architect analyze --tier 3 ./repo" and
+// "sdp architect analyze ./repo --tier 3" to work correctly.
+func reorderFlags(args []string) []string {
+	var flags, positionals []string
+	for i := 0; i < len(args); i++ {
+		if strings.HasPrefix(args[i], "-") {
+			flags = append(flags, args[i])
+			// If this flag takes a value and the next arg is not a flag, grab it too
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+				// Check if it's a boolean flag like --verbose, --no-llm, --skip-git, --write-artifacts
+				// Boolean flags don't consume the next argument
+				if !isBoolFlag(args[i]) {
+					i++
+					flags = append(flags, args[i])
+				}
+			}
+		} else {
+			positionals = append(positionals, args[i])
+		}
+	}
+	return append(flags, positionals...)
+}
+
+// isBoolFlag returns true for flags that don't consume the next argument.
+func isBoolFlag(arg string) bool {
+	flags := map[string]bool{
+		"--allow-external-llm": true,
+		"--no-llm":            true,
+		"--verbose":           true,
+		"-v":                  true,
+		"--skip-git":          true,
+		"--write-artifacts":   true,
+	}
+	return flags[arg]
+}
+
 func filterExtractorsByName(extractors []architect.Extractor, names []string) []architect.Extractor {
 	if len(names) == 0 {
 		return extractors
@@ -870,6 +919,7 @@ func architectUsage() {
 	fmt.Fprintln(os.Stderr, "  --timeout <duration>          Total session timeout (default: 5m)")
 	fmt.Fprintln(os.Stderr, "  -o, --output <path>           Output file path (default: stdout)")
 	fmt.Fprintln(os.Stderr, "  -v, --verbose                 Show per-extractor timing")
+	fmt.Fprintln(os.Stderr, "  --write-artifacts             Write .sdp/architecture/ artifact files")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Render flags:")
 	fmt.Fprintln(os.Stderr, "  -o, --output <path>           Output HTML path (default: same name .html)")
