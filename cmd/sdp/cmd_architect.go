@@ -54,7 +54,9 @@ func runArchitectAnalyze(args []string) {
 	formatFlag := fs.String("format", "json", "output format: json, text, mermaid")
 	sectionFlag := fs.String("section", "", "output only specific section: profile, report, model, diagrams, summary")
 	timeoutFlag := fs.Duration("timeout", 5*time.Minute, "total session timeout")
-	outputFlag := fs.String("output", "", "output file path (default: stdout)")
+	var outputValue string
+	fs.StringVar(&outputValue, "output", "", "output file path (default: stdout)")
+	fs.StringVar(&outputValue, "o", "", "shorthand for --output")
 	verboseFlag := fs.Bool("verbose", false, "show per-extractor timing")
 	fs.BoolVar(verboseFlag, "v", false, "shorthand for --verbose")
 	skipGit := fs.Bool("skip-git", false, "skip git history analysis")
@@ -152,11 +154,11 @@ func runArchitectAnalyze(args []string) {
 	} else {
 		output = formatAnalyzeResult(result, diagrams, *formatFlag)
 	}
-	if *outputFlag != "" {
-		if err := os.WriteFile(*outputFlag, []byte(output), 0644); err != nil {
+	if outputValue != "" {
+		if err := os.WriteFile(outputValue, []byte(output), 0644); err != nil {
 			log.Fatalf("failed to write output: %v", err)
 		}
-		fmt.Fprintf(os.Stderr, "Output written to %s\n", *outputFlag)
+		fmt.Fprintf(os.Stderr, "Output written to %s\n", outputValue)
 	} else {
 		fmt.Println(output)
 	}
@@ -180,7 +182,9 @@ func runArchitectAnalyze(args []string) {
 func runArchitectC4(args []string) {
 	fs := flag.NewFlagSet("architect c4", flag.ExitOnError)
 	levelFlag := fs.Int("level", 0, "C4 diagram level: 1 (system), 2 (container), 3 (component). Default: all")
-	outputFlag := fs.String("output", "", "output directory for .mmd files (default: stdout)")
+	var c4OutputValue string
+	fs.StringVar(&c4OutputValue, "output", "", "output directory for .mmd files (default: stdout)")
+	fs.StringVar(&c4OutputValue, "o", "", "shorthand for --output")
 	extractorsFlag := fs.String("extractors", "", "comma-separated list of extractors (default: all)")
 	timeoutFlag := fs.Duration("timeout", 5*time.Minute, "total session timeout")
 	verboseFlag := fs.Bool("verbose", false, "show detailed output")
@@ -252,9 +256,9 @@ func runArchitectC4(args []string) {
 		os.Exit(0)
 	}
 
-	if *outputFlag != "" {
+	if c4OutputValue != "" {
 		// Write individual .mmd files
-		if err := os.MkdirAll(*outputFlag, 0755); err != nil {
+		if err := os.MkdirAll(c4OutputValue, 0755); err != nil {
 			log.Fatalf("failed to create output directory: %v", err)
 		}
 		for _, d := range diagrams {
@@ -262,14 +266,14 @@ func runArchitectC4(args []string) {
 			if d.Level == c4.Level3 {
 				filename = fmt.Sprintf("c4-L3-component-%d.mmd", d.NodeCount)
 			}
-			path := filepath.Join(*outputFlag, filename)
+			path := filepath.Join(c4OutputValue, filename)
 			if err := os.WriteFile(path, []byte(d.MermaidCode), 0644); err != nil {
 				log.Printf("failed to write %s: %v", path, err)
 			} else if *verboseFlag {
 				fmt.Fprintf(os.Stderr, "  wrote %s (%d nodes, %d edges)\n", path, d.NodeCount, d.EdgeCount)
 			}
 		}
-		fmt.Fprintf(os.Stderr, "C4 diagrams written to %s\n", *outputFlag)
+		fmt.Fprintf(os.Stderr, "C4 diagrams written to %s\n", c4OutputValue)
 	} else {
 		// Output to stdout
 		switch *formatFlag {
