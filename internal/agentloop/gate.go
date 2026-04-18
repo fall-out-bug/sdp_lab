@@ -70,6 +70,8 @@ func (g *GateEngine) Evaluate(ctx context.Context, snap PhaseSnapshot) GateResul
 	// contract. This prevents the production path from hard-blocking on every
 	// completion_signal when no contract is available.
 	if g.bypassNilContract {
+		// Advisory: nil contract means no compliance check. Log this so operators
+		// know the gate is in advisory mode. Production should wire a real TaskContract.
 		return GateResult{
 			Report:    harness.ComplianceReport{Blocked: false},
 			Escalated: false,

@@ -204,9 +204,14 @@ func (b *ServeBridge) recordExecutionResult(cardID string, result *control.Execu
 	card.LastExecutorHeartbeatAt = completedAt.Format(time.RFC3339)
 	card.ExecutorProgressSummary = result.Summary
 	card.ExecutorResult = summarizeResult(result, completedAt)
-	if result.Status == control.ResultStatusSuccess {
+	switch result.Status {
+	case control.ResultStatusSuccess:
 		card.ExecutorRuntimeState = control.ExecutorRuntimeCompleted
-	} else {
+	case control.ResultStatusNeedsReview:
+		card.ExecutorRuntimeState = "awaiting_human"
+	case control.ResultStatusNeedsInput:
+		card.ExecutorRuntimeState = "awaiting_input"
+	default:
 		card.ExecutorRuntimeState = "failed"
 	}
 	if err := b.Store.SaveCard(card); err != nil {
@@ -216,7 +221,12 @@ func (b *ServeBridge) recordExecutionResult(cardID string, result *control.Execu
 	// 5. Set final executor state in Beads
 	if beadsRepo != nil {
 		state := "completed"
-		if result.Status != control.ResultStatusSuccess {
+		switch result.Status {
+		case control.ResultStatusNeedsReview:
+			state = "awaiting_human"
+		case control.ResultStatusNeedsInput:
+			state = "awaiting_input"
+		case control.ResultStatusFailed:
 			state = "failed"
 		}
 		if err := beadsRepo.SetExecutorState(cardID, executorName, "", state); err != nil {
@@ -342,11 +352,13 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 		governedPrompt = card.RawRequest
 	}
 
+	// Capture the phase BEFORE RunPhase — on success, RunPhase transitions
+	// to the next phase internally, so reading h.Phase() after would return
+	// the next phase, not the phase that actually executed.
+	phase := string(h.Phase())
+
 	// Execute one phase turn.
 	runErr := h.RunPhase(ctx, governedPrompt, "")
-
-	// Derive the actual agentloop phase from the harness session.
-	phase := string(h.Phase())
 
 	// Check for gate-pending (awaiting human decision).
 	if runErr == nil && h.IsAwaitingHuman() {
@@ -357,7 +369,8 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 			Summary:         "gate escalated — awaiting human decision",
 		}
 		if err := b.recordExecutionResult(cardID, result, phase, "harness"); err != nil {
-			slog.Warn("record gate-pending result", "card", cardID, "error", err)
+			result.Status = control.ResultStatusFailed
+			result.Summary = fmt.Sprintf("bookkeeping failed: %v", err)
 		}
 		return result, nil
 	}
@@ -370,7 +383,7 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 			Summary:         runErr.Error(),
 		}
 		if err := b.recordExecutionResult(cardID, result, phase, "harness"); err != nil {
-			slog.Warn("record failed result", "card", cardID, "error", err)
+			slog.Error("bookkeeping failed on error path", "card", cardID, "error", err)
 		}
 		return result, runErr
 	}
@@ -387,7 +400,8 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 			Summary:         "phase turn completed — awaiting next prompt",
 		}
 		if err := b.recordExecutionResult(cardID, result, phase, "harness"); err != nil {
-			slog.Warn("record needs-input result", "card", cardID, "error", err)
+			result.Status = control.ResultStatusFailed
+			result.Summary = fmt.Sprintf("bookkeeping failed: %v", err)
 		}
 		return result, nil
 	}
