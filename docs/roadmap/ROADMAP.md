@@ -1,7 +1,7 @@
 # sdp_lab Roadmap — Agent Platform + Trust Lane
 
 > **Status: CANONICAL (active roadmap)** — this is the current source of truth. Other files in `docs/roadmap/` are supporting context; see [docs/roadmap/README.md](README.md).
-> **Updated:** 2026-04-17
+> **Updated:** 2026-04-18
 > **Repo naming:** GitHub repo is `sdp_lab`; historical workstreams and bead IDs may still use `sdp_dev` as a legacy label for the same codebase
 > **Direction:** Reusable agent platform (`kernel`, `adapters`, `augmentation`, `evals`) with standards-based trust and evidence as a secondary lane
 
@@ -23,12 +23,18 @@ Supporting context (read on demand, not required for orientation):
 
 Execution priority has changed.
 
-Current execution priority is the UX, delivery-runtime, and toolkit lane:
+Current execution priority is the remaining UX/runtime lane:
 
-- `F097`..`F101` — product truth, progressive disclosure, adoption safety, and release discipline
-- `F105` — architect core engine
+- `F098`..`F101` — progressive disclosure, adoption safety, and release discipline
 - `F106` — real `agentloop` integration into the delivery path
 - `F108` — architecture normalization and missing production gaps
+- `F125` — finish the intent-routed UX migration and close the remaining cutover tail
+
+Recently shipped on 2026-04-18:
+
+- `F077` — CI to Local Bridge for Improvement Loop
+- `F097` — Product Truth and Activation Loop
+- `F105` — AI Architect Phase A
 
 The platform reset lane established the base rather than remaining the active queue:
 
@@ -46,27 +52,27 @@ and multilingual source preservation.
 
 This lane is not an exclusive ready queue. `bd ready` remains the live source of executable work, and older ecosystem tasks can still coexist in Beads until they are explicitly triaged or deprioritized.
 
-Toolkit foundations for brownfield adoption are now partly shipped, not just planned:
+Toolkit foundations for brownfield adoption are now shipped, not just planned:
 
 - `F120` scout is merged
 - `F121` metrics is merged
 - `F122` index is merged
 - `F123` spec recovery is merged
 - `F124` bootstrap is merged
+- `F126` MCP server is merged
 
-The remaining toolkit lane is therefore smaller and more concrete:
+The remaining toolkit work is therefore smaller and more concrete:
 
-- `F125` — finish the intent-routed UX migration
-- `F126` — ship the MCP server on top of the stabilized toolkit surfaces
+- `F125` — finish the intent-routed UX migration and close the review-readiness/doc-sweep tail
 
 This is the current next lane after the P0 UX/runtime work and remains the canonical plan for "unknown repo -> AI-native workspace".
 
-Backlog triage 2026-04-18 (all features now tracked in beads for consistency — search with `bd search FNNN`):
+Backlog triage 2026-04-18 (active backlog features are tracked in beads for consistency — search with `bd search FNNN`):
 
 - **Closed (historical placeholders):** `F032`, `F034`, `F036`–`F049`, `F052` — closed with supersede reasons pointing to shipped tracks (F064–F067 auto-attestation, F134 Phase FSM, F108 drift).
 - **Superseded by active epics:** `F062` → F125/F134, `F063` → F124, `F068` → F091/F092, `F072` → F094/F095 + F134, `F073` → F093. Tracked as closed in beads with `bd supersede` reasons.
 - **Compliance lane (EU AI Act 2026-08 / Colorado AI Act 2026-06):** `F074`, `F078`, `F079`, `F080`, `F082` — open P2, all linked to `F134-03` (evidence enforcement) and/or `F134-04` (AI-vs-human attribution).
-- **Promoted to P1:** `F077` (CI→local bridge, blocks F129/F135 self-healing), `F081` (30-min production pilot, gating layer for F135 deploy gate).
+- **Critical path:** `F081` (30-min production pilot, gating layer for F135 deploy gate). Shipped prerequisite: `F077` (CI→local bridge, merged 2026-04-18) now unblocks F129/F135 self-healing.
 - **Reframe pending F134:** `F060` (gastown), `F070` (observability) — open with dependency on F134 evidence schema.
 - **Keep long-horizon:** `F075`, `F083`, `F084`, `F085` — open P3, gated on trust-lane completion.
 
@@ -311,7 +317,7 @@ it; it does not create a second architect backlog on top of `F105`.
 | `F122` Toolkit Index | P1 | persistent `.sdp/index.db` + `.sdp/manifest.md` | `F120` | Done |
 | `F123` Toolkit Spec Recovery | P2 | recovered contracts, rules, invariants, and SLA signals | `F120` | Done |
 | `F124` Toolkit Bootstrap | P1 | brownfield-safe context docs, policies, hooks, and beads setup | `F120`, `F121`, `F122` | Done |
-| `F125` Toolkit UX | P1 | five intent-based skills over composable toolkit tools | `F120`, `F121`, `F122`, `F123`, `F124` | Backlog |
+| `F125` Toolkit UX | P1 | five intent-based skills over composable toolkit tools | `F120`, `F121`, `F122`, `F123`, `F124` | In Progress |
 | `F126` Toolkit MCP | P2 | one MCP server exposing toolkit tools, resources, and prompts | `F120`..`F125` | Done |
 
 **Execution slices:**
@@ -321,7 +327,7 @@ it; it does not create a second architect backlog on top of `F105`.
 - Slice C: `F124` -> shipped brownfield-safe setup; `F125` remains the unfinished UX migration
 - Slice D: `F126` -> shipped MCP server (tools, resources, prompts, harness configs, security hardening)
 
-**Status note:** feature merges landed for `F120` (#75), `F122` (#77), `F123` (#78), `F124` (#79), `F126` (branch `feature/F126`). `F121` shipped directly. `F125` has only partial work through `F125-05` in #80. The toolkit lane is complete except for the UX intent-routing surface.
+**Status note:** feature merges landed for `F120` (#75), `F121` (#76), `F122` (#77), `F123` (#78), `F124` (#79), core `F125` intent migration (#83), and `F126` (#81). `00-125-05` remains partial via #80, so the toolkit lane is effectively complete except for the final review-readiness/doc-sweep follow-up.
 
 **Canonical plan:** [2026-04-13-sdp-toolkit-implementation-plan.md](../plans/2026-04-13-sdp-toolkit-implementation-plan.md)
 **Detailed child plans:** [F120 Scout](../plans/2026-04-13-sdp-scout-implementation-plan.md), [F121 Metrics](../plans/2026-04-13-sdp-metrics-implementation-plan.md), [F122 Index](../plans/2026-04-13-sdp-index-implementation-plan.md), [F123 Spec](../plans/2026-04-13-sdp-spec-implementation-plan.md), [F124 Bootstrap](../plans/2026-04-13-sdp-bootstrap-implementation-plan.md), [F126 MCP](../plans/2026-04-13-sdp-mcp-implementation-plan.md)
@@ -421,7 +427,7 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 - **F074** — Enterprise Governance Pack (00-074-01 ... 00-074-03). Multi-tenant RBAC, signed evidence gates, SIEM/compliance exports.
 - **F075** — Enterprise K8s Runtime Pack (00-075-01 ... 00-075-03). HA deployment, queue control, canary rollout for agent workflows.
 - **F076** — Documentation Agent Automation (00-076-01). Automatic changelog updates and documentation consistency checks on each commit.
-- **F077** — CI to Local Bridge for Improvement Loop (00-077-01 ... 00-077-04). **Promoted to P1 2026-04-18**: blocks F129 autonomous operations + F135-03 self-testing loop. GitHub CI findings are synchronized into local Beads queue for autonomous improvement agents.
+- **F077** — CI to Local Bridge for Improvement Loop (00-077-01 ... 00-077-04). **Status: DONE (merged in PR #88 on 2026-04-18).** GitHub CI findings are synchronized into the local Beads queue and now serve as a prerequisite for F129 autonomous operations + F135-03 self-testing loop.
 
 ### Phase 8C: Trust Surface and Enterprise Readiness (Compliance lane, coupled with F134)
 
