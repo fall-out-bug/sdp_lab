@@ -61,6 +61,14 @@ func (pv *PathValidator) ValidatePath(rawPath string) (io.ReadSeekCloser, error)
 	// Step 1: Clean the relative path
 	relPath := filepath.Clean(rawPath)
 
+	// Step 1.5: Reject empty paths
+	if rawPath == "" || relPath == "" || relPath == "." {
+		return nil, &PathValidationError{
+			Path:   rawPath,
+			Reason: "empty path not allowed",
+		}
+	}
+
 	// Step 2: Reject absolute paths — must be relative to repoRoot
 	if filepath.IsAbs(relPath) {
 		return nil, &PathValidationError{
@@ -242,10 +250,3 @@ func SafeOpenFile(rawPath, repoRoot string) (*os.File, error) {
 	return nil, fmt.Errorf("invalid file type")
 }
 
-// realPathFromFD gets the real path from a file descriptor.
-// This is implemented in platform-specific files (fdpath_linux.go, fdpath_darwin.go).
-func realPathFromFD(fd int) (string, error) {
-	// Implementation is in platform-specific files
-	// This is a placeholder for the build system
-	return "", fmt.Errorf("realPathFromFD not implemented for this platform")
-}

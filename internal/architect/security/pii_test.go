@@ -173,8 +173,11 @@ func TestPIIScrubber_APIKeyDetection(t *testing.T) {
 	ps := NewPIIScrubber()
 	ps.EnableType(PIITypeAPIKey)
 
-	// High entropy string should be detected
-	highEntropy := "aB3$xY7!mN9@qR2#kL5%pW8&jH4^fG6*dS0"
+	// High entropy alphanumeric string should be detected
+	// The regex matches alphanumeric strings 20+ chars, so we need
+	// a string with high entropy that matches this pattern
+	// Note: Using lowercase+uppercase+digits to avoid base64 allowlist
+	highEntropy := "aB3xY7mN9qR2kL5pW8jH4fG6dS0zX1vN2"
 	text := "API key: " + highEntropy
 
 	matches := ps.Scan(text)

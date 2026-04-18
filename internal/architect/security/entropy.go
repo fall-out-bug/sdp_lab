@@ -22,8 +22,8 @@ var highEntropyAllowlist = []*regexp.Regexp{
 	// MD5 hex (32 hex chars) - deprecated but still encountered
 	regexp.MustCompile(`^[0-9a-f]{32}$`),
 	// Base64 encoded data (common for non-secret binary data)
-	// 20+ chars of valid base64
-	regexp.MustCompile(`^[A-Za-z0-9+/]{20,}={0,2}$`),
+	// Only match strings with proper padding to reduce false positives
+	regexp.MustCompile(`^[A-Za-z0-9+/]{40,}={2}$`),
 }
 
 // HighEntropyCheck flags strings with Shannon entropy > 4.5 bits/char and

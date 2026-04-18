@@ -74,7 +74,7 @@ func TestScrubSecretsJSON_ScrubsValuesNotKeys(t *testing.T) {
 		"aws_key": "AKIAIOSFODNN7EXAMPLE",
 		"token":   "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij",
 		"config": map[string]interface{}{
-			"api_key": "sk-abcdefghijklmnopqrstuvwyxz123456789",
+			"api_key": "sk-4imeowDHvBXYHbCF1h4LAzl4nHPvYrBVQSGXytk3YYCVBFgp",
 		},
 	}
 
@@ -124,7 +124,7 @@ func TestScrubSecretsJSON_PreservesNonStringValues(t *testing.T) {
 	err = json.Unmarshal(scrubbed, &result)
 	require.NoError(t, err)
 
-	assert.Equal(t, 42, result["count"])
+	assert.Equal(t, float64(42), result["count"])
 	assert.Equal(t, true, result["flag"])
 	assert.Contains(t, result["secret"], "[REDACTED_aws_key]")
 }
@@ -247,7 +247,7 @@ func TestEstimateCharsetSize(t *testing.T) {
 	size := EstimateCharsetSize("abcabc")
 	assert.Equal(t, 3, size)
 
-	size = EstimateCharsetSize("a1! a1!")
+	size = EstimateCharsetSize("a1!a1!")
 	assert.Equal(t, 3, size)
 }
 
