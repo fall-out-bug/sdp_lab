@@ -284,14 +284,19 @@ func TestServeBridgeHarness_TerminatedSessionRecovery(t *testing.T) {
 }
 
 // TestServeBridgeHarness_ConstructWithoutAPIKey verifies that NewServeBridge
-// with no OPENROUTER_API_KEY results in nil harnessRouter (legacy path).
+// with no OPENROUTER_API_KEY results in nil harnessRouter (legacy path),
+// even when SDP_USE_HARNESS is set.
 func TestServeBridgeHarness_ConstructWithoutAPIKey(t *testing.T) {
 	store := setupStore(t)
 
-	// Ensure API key is unset.
+	// Ensure API key is unset but SDP_USE_HARNESS is set — should still be nil.
 	origKey := os.Getenv("OPENROUTER_API_KEY")
 	os.Unsetenv("OPENROUTER_API_KEY")
 	defer os.Setenv("OPENROUTER_API_KEY", origKey)
+
+	origHarness := os.Getenv("SDP_USE_HARNESS")
+	os.Setenv("SDP_USE_HARNESS", "1")
+	defer os.Setenv("SDP_USE_HARNESS", origHarness)
 
 	sb := NewServeBridge(store, store.ProjectRoot)
 	if sb.harnessRouter != nil {
@@ -299,6 +304,30 @@ func TestServeBridgeHarness_ConstructWithoutAPIKey(t *testing.T) {
 	}
 	if sb.harnessGate != nil {
 		t.Fatal("expected nil harnessGate when OPENROUTER_API_KEY is unset")
+	}
+}
+
+// TestServeBridgeHarness_ConstructWithoutFeatureFlag verifies that NewServeBridge
+// ignores the harness path when SDP_USE_HARNESS is not set, even if
+// OPENROUTER_API_KEY is present.
+func TestServeBridgeHarness_ConstructWithoutFeatureFlag(t *testing.T) {
+	store := setupStore(t)
+
+	// Set API key but NOT the feature flag.
+	origKey := os.Getenv("OPENROUTER_API_KEY")
+	os.Setenv("OPENROUTER_API_KEY", "test-key")
+	defer os.Setenv("OPENROUTER_API_KEY", origKey)
+
+	origHarness := os.Getenv("SDP_USE_HARNESS")
+	os.Unsetenv("SDP_USE_HARNESS")
+	defer os.Setenv("SDP_USE_HARNESS", origHarness)
+
+	sb := NewServeBridge(store, store.ProjectRoot)
+	if sb.harnessRouter != nil {
+		t.Fatal("expected nil harnessRouter when SDP_USE_HARNESS is unset (even with API key)")
+	}
+	if sb.harnessGate != nil {
+		t.Fatal("expected nil harnessGate when SDP_USE_HARNESS is unset")
 	}
 }
 

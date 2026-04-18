@@ -51,9 +51,12 @@ type ServeBridge struct {
 }
 
 // NewServeBridge creates a new serve-mode bridge.
-// When OPENROUTER_API_KEY is set, the internal agentloop harness path is enabled.
-// If the LiveGateway cannot be created (missing API key), harnessRouter stays nil
-// and DispatchAndRun falls back to the legacy OmO path.
+//
+// The internal agentloop harness path requires explicit opt-in via the
+// SDP_USE_HARNESS environment variable (set to "1" or "true"). When both
+// SDP_USE_HARNESS and OPENROUTER_API_KEY are present, the harness path is
+// activated. Otherwise, harnessRouter stays nil and DispatchAndRun falls back
+// to the legacy OmO path.
 func NewServeBridge(store *control.Store, projectRoot string) *ServeBridge {
 	sb := &ServeBridge{
 		Store:         store,
@@ -67,21 +70,29 @@ func NewServeBridge(store *control.Store, projectRoot string) *ServeBridge {
 		harnessData:   filepath.Join(projectRoot, ".sdp", "sessions"),
 	}
 
-	// Attempt to initialize the harness path. Non-fatal if API key is missing —
-	// the legacy OmO path remains available.
-	if apiKey := os.Getenv("OPENROUTER_API_KEY"); apiKey != "" {
-		gw, err := livegw.New(apiKey, os.Getenv("OPENROUTER_BASE_URL"))
-		if err != nil {
-			slog.Warn("livegw init failed — harness path disabled", "error", err)
-			return sb
-		}
-		tools := agentloop.BuildLiveTools(projectRoot, store)
-		registry := agentloop.NewToolRegistry(tools)
-		sb.harnessRouter = agentloop.NewPhaseRouter(
-			agentloop.DefaultPhaseMap, registry, gw, nil,
-		)
-		sb.harnessGate = agentloop.NewGateEngine(nil, 0) // default timeout, nil contract for MVP
+	// Harness path requires explicit opt-in via SDP_USE_HARNESS=1.
+	useHarness := os.Getenv("SDP_USE_HARNESS")
+	if useHarness != "1" && useHarness != "true" {
+		return sb
 	}
+
+	apiKey := os.Getenv("OPENROUTER_API_KEY")
+	if apiKey == "" {
+		slog.Warn("SDP_USE_HARNESS set but OPENROUTER_API_KEY missing — harness path disabled")
+		return sb
+	}
+
+	gw, err := livegw.New(apiKey, os.Getenv("OPENROUTER_BASE_URL"))
+	if err != nil {
+		slog.Warn("livegw init failed — harness path disabled", "error", err)
+		return sb
+	}
+	tools := agentloop.BuildLiveTools(projectRoot, store)
+	registry := agentloop.NewToolRegistry(tools)
+	sb.harnessRouter = agentloop.NewPhaseRouter(
+		agentloop.DefaultPhaseMap, registry, gw, nil,
+	)
+	sb.harnessGate = agentloop.NewGateEngine(nil, 0) // default timeout, nil contract for MVP
 
 	return sb
 }
