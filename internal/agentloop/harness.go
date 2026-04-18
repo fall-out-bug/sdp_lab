@@ -286,14 +286,17 @@ func (h *Harness) ApproveGate(ctx context.Context, decisionID, token string) err
 		return fmt.Errorf("invalid decisionID: %w", err)
 	}
 
-	phase := h.session.Phase
-	// Fix P1: transition FIRST — only after success do we clear the decision.
-	if err := h.transitionTo(phase, h.router.NextPhase(phase), false); err != nil {
-		// state stays awaiting_human; decision intact — caller can retry.
-		return err
+	// Capture original phase for rollback on ClearDecision failure.
+	origPhase := h.session.Phase
+	if err := h.transitionTo(origPhase, h.router.NextPhase(origPhase), false); err != nil {
+		return err // state stays awaiting_human; decision intact — caller can retry
 	}
-	// Clear decision BEFORE mutating in-memory state so caller can retry on failure.
 	if err := h.store.ClearDecision(h.session.ID, decisionID); err != nil {
+		// transitionTo already mutated h.session.Phase in memory and persisted to store.
+		// Restore in-memory phase so the caller's retry computes the correct transition.
+		// The persisted record from transitionTo is benign — RestoreHarness will load the
+		// advanced phase, and the cleared-pending decision means the session resumes normally.
+		h.session.Phase = origPhase
 		return fmt.Errorf("clear decision after approve: %w", err)
 	}
 	h.state = hStateIdle
@@ -317,13 +320,14 @@ func (h *Harness) Rollback(ctx context.Context, decisionID, token string) error 
 		return fmt.Errorf("invalid decisionID: %w", err)
 	}
 
-	phase := h.session.Phase
-	// Fix P1: transition FIRST.
-	if err := h.transitionTo(phase, h.router.RecoveryPhase(phase), true); err != nil {
+	// Capture original phase for rollback on ClearDecision failure.
+	origPhase := h.session.Phase
+	if err := h.transitionTo(origPhase, h.router.RecoveryPhase(origPhase), true); err != nil {
 		return err
 	}
-	// Clear decision BEFORE mutating in-memory state so caller can retry on failure.
 	if err := h.store.ClearDecision(h.session.ID, decisionID); err != nil {
+		// Restore in-memory phase so the caller's retry computes the correct transition.
+		h.session.Phase = origPhase
 		return fmt.Errorf("clear decision after rollback: %w", err)
 	}
 	h.state = hStateIdle
