@@ -318,18 +318,19 @@ type GitHubMilestone struct {
 }
 
 // FetchIssues fetches GitHub issues matching the given labels and state.
-// When limit is 0, uses gh api --paginate to fetch ALL issues via REST API pagination.
-// When limit > 0, uses gh issue list with that limit.
+// When limit is 0, fetches up to 5000 issues (gh issue list handles server-side pagination).
+// When limit > 0, fetches up to that many issues.
 func (c *GitHubClient) FetchIssues(ctx context.Context, labels []string, state string, limit int) ([]GitHubIssue, error) {
-	if limit == 0 {
-		return c.fetchAllIssues(ctx, labels, state)
+	fetchLimit := 5000
+	if limit > 0 {
+		fetchLimit = limit
 	}
 
 	args := []string{
 		"issue", "list",
 		"-R", c.repo,
 		"--json", "number,title,url,state,labels,createdAt,body,author,assignees,milestone",
-		"-L", fmt.Sprintf("%d", limit),
+		"-L", fmt.Sprintf("%d", fetchLimit),
 	}
 
 	if state != "" {
@@ -354,77 +355,8 @@ func (c *GitHubClient) FetchIssues(ctx context.Context, labels []string, state s
 		return nil, fmt.Errorf("parse github issues: %w", err)
 	}
 
-	if len(issues) >= limit {
-		fmt.Fprintf(os.Stderr, "warning: FetchIssues hit the %d-issue limit; some issues may be missing.\n", limit)
-	}
-
-	return issues, nil
-}
-
-// fetchAllIssues uses gh api --paginate to fetch all matching issues via REST API pagination.
-func (c *GitHubClient) fetchAllIssues(ctx context.Context, labels []string, state string) ([]GitHubIssue, error) {
-	// Build a search query for gh api
-	query := "is:issue"
-	if state != "" {
-		query += " is:" + state
-	}
-	for _, label := range labels {
-		if err := validateLabel(label); err != nil {
-			return nil, fmt.Errorf("invalid label: %w", err)
-		}
-		query += fmt.Sprintf(" label:\"%s\"", label)
-	}
-
-	args := []string{
-		"api",
-		fmt.Sprintf("repos/%s/issues", c.repo),
-		"--paginate",
-		"-q", fmt.Sprintf(".[] | select(.pull_request == null) | {number, title, url, html_url, state, labels: [.labels[].name], createdAt: .created_at, body, author: .user, assignees: [.assignees[].login], milestone: .milestone.title}"),
-	}
-
-	cmd := exec.CommandContext(ctx, "gh", args...)
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("gh api issues failed: %w", err)
-	}
-
-	var issues []GitHubIssue
-	if err := json.Unmarshal(output, &issues); err != nil {
-		// jq output may produce individual objects; try splitting
-		return c.fetchAllIssuesViaList(ctx, labels, state)
-	}
-
-	return issues, nil
-}
-
-// fetchAllIssuesViaList is a fallback using gh issue list with a high limit.
-func (c *GitHubClient) fetchAllIssuesViaList(ctx context.Context, labels []string, state string) ([]GitHubIssue, error) {
-	args := []string{
-		"issue", "list",
-		"-R", c.repo,
-		"--json", "number,title,url,state,labels,createdAt,body,author,assignees,milestone",
-		"-L", "5000",
-	}
-
-	if state != "" {
-		args = append(args, "--state", state)
-	}
-	for _, label := range labels {
-		if err := validateLabel(label); err != nil {
-			return nil, fmt.Errorf("invalid label: %w", err)
-		}
-		args = append(args, "-l", label)
-	}
-
-	cmd := exec.CommandContext(ctx, "gh", args...)
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("gh issue list failed: %w", err)
-	}
-
-	var issues []GitHubIssue
-	if err := json.Unmarshal(output, &issues); err != nil {
-		return nil, fmt.Errorf("parse github issues: %w", err)
+	if len(issues) >= fetchLimit {
+		fmt.Fprintf(os.Stderr, "warning: FetchIssues hit the %d-issue limit; some issues may be missing.\n", fetchLimit)
 	}
 
 	return issues, nil
