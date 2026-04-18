@@ -25,7 +25,7 @@ Execution priority has changed.
 
 Current execution priority is the remaining UX/runtime lane:
 
-- `F098`..`F101` — progressive disclosure, adoption safety, and release discipline
+- `F099`..`F101` — adoption safety, release discipline, and write boundaries
 - `F106` — real `agentloop` integration into the delivery path
 - `F108` — architecture normalization and missing production gaps
 - `F125` — finish the intent-routed UX migration and close the remaining cutover tail
@@ -34,7 +34,10 @@ Recently shipped on 2026-04-18:
 
 - `F077` — CI to Local Bridge for Improvement Loop
 - `F097` — Product Truth and Activation Loop
+- `F098` — Simplified Progressive Disclosure
 - `F105` — AI Architect Phase A
+
+`F098` is merged, but post-merge docs/security/SRE follow-up remains tracked in beads. Shipped status in this roadmap means merged implementation, not zero open findings.
 
 The platform reset lane established the base rather than remaining the active queue:
 
@@ -327,7 +330,7 @@ it; it does not create a second architect backlog on top of `F105`.
 - Slice C: `F124` -> shipped brownfield-safe setup; `F125` remains the unfinished UX migration
 - Slice D: `F126` -> shipped MCP server (tools, resources, prompts, harness configs, security hardening)
 
-**Status note:** feature merges landed for `F120` (#75), `F121` (#76), `F122` (#77), `F123` (#78), `F124` (#79), core `F125` intent migration (#83), and `F126` (#81). `00-125-05` remains partial via #80, so the toolkit lane is effectively complete except for the final review-readiness/doc-sweep follow-up.
+**Status note:** feature merges landed for `F120` (#75), `F121` (#76), `F122` (#77), `F123` (#78), `F124` (#79), core `F125` intent migration (#83), and `F126` (#81). `00-125-05` remains partial via #80, so the toolkit lane is effectively complete except for the final review-readiness/doc-sweep follow-up. `F121` still has one promptops evidence follow-up in beads, and `F122` still has index-hardening follow-ups in beads; merged status here means shipped implementation, not zero open findings.
 
 **Canonical plan:** [2026-04-13-sdp-toolkit-implementation-plan.md](../plans/2026-04-13-sdp-toolkit-implementation-plan.md)
 **Detailed child plans:** [F120 Scout](../plans/2026-04-13-sdp-scout-implementation-plan.md), [F121 Metrics](../plans/2026-04-13-sdp-metrics-implementation-plan.md), [F122 Index](../plans/2026-04-13-sdp-index-implementation-plan.md), [F123 Spec](../plans/2026-04-13-sdp-spec-implementation-plan.md), [F124 Bootstrap](../plans/2026-04-13-sdp-bootstrap-implementation-plan.md), [F126 MCP](../plans/2026-04-13-sdp-mcp-implementation-plan.md)
