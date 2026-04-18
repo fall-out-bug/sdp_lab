@@ -135,8 +135,8 @@ func (b *ServeBridge) DispatchBeads(ctx context.Context) (string, error) {
 			return cardID, nil // can't check state — let dispatch proceed
 		}
 		switch card.ExecutorRuntimeState {
-		case "awaiting_human", "awaiting_input":
-			slog.Info("skipping card in harness wait-state", "card", cardID, "state", card.ExecutorRuntimeState)
+		case "awaiting_human":
+			slog.Info("skipping card with pending gate decision", "card", cardID, "state", card.ExecutorRuntimeState)
 			// Remove from candidates and try next
 			ready = slices.DeleteFunc(ready, func(c control.FeatureCard) bool { return c.ID == cardID })
 			continue
@@ -257,7 +257,7 @@ func (b *ServeBridge) recordExecutionResult(cardID string, result *control.Execu
 		card.Status = "executing" // intermediate phase — card still being processed
 	default:
 		card.ExecutorRuntimeState = "failed"
-		card.Status = "executing" // failure recorded in state; orchestrator decides final status
+		// card.Status intentionally NOT reset — RouteFindingsToCard may have set "blocked"
 	}
 	if err := b.Store.SaveCard(card); err != nil {
 		return fmt.Errorf("save card after execution: %w", err)
