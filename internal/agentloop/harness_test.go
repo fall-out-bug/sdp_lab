@@ -249,6 +249,7 @@ func buildHarnessWithEscalatingGate(t *testing.T, events []Event) (*Harness, *Me
 
 	gate := NewGateEngine(nil, 5*time.Second)
 	gate.evalFn = alwaysEscalateEval
+	gate.bypassNilContract = false // custom evalFn overrides auto-pass
 
 	h := &Harness{
 		session:     session,
@@ -464,6 +465,7 @@ func TestRunPhase_turnRecord_persistedBeforeGate(t *testing.T) {
 
 	turnPersistedBeforeGate := false
 	gate := NewGateEngine(nil, 5*time.Second)
+	gate.bypassNilContract = false // custom evalFn overrides auto-pass
 	gate.evalFn = func(contract *harness.TaskContract, snap *harness.TaskSnapshot) harness.ComplianceReport {
 		// Check if TurnRecord was already persisted at gate evaluation time.
 		turns, _ := ms.LoadTurnRecords("sess-n3")

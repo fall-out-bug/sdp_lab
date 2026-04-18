@@ -73,6 +73,10 @@ func (h *Harness) validateToken(token string) error {
 //
 // recovery=true validates next against RecoveryNext; false validates against AllowedNext.
 // Uses slices.Contains for membership check.
+//
+// Terminal phase completion: when current==next and AllowedNext is empty,
+// the phase is a terminal (e.g., RoleEval). Self-transition is allowed so
+// the completion record is persisted. The accumulator is NOT reset (same phase).
 func (h *Harness) transitionTo(current, next Role, recovery bool) error {
 	cfg := h.router.phaseMap[current]
 	var allowed []Role
@@ -81,6 +85,22 @@ func (h *Harness) transitionTo(current, next Role, recovery bool) error {
 	} else {
 		allowed = cfg.AllowedNext
 	}
+
+	// Terminal phase: current==next with empty AllowedNext is a valid completion.
+	if !recovery && current == next && len(allowed) == 0 {
+		// Persist terminal completion record but keep phase unchanged.
+		if err := h.store.PersistPhaseRecord(h.session.ID, PhaseRecord{
+			Phase:     current,
+			NextPhase: next, // same as current — signals completion, not transition
+			EndedAt:   time.Now(),
+			Snapshot:  h.accumulator.Snapshot(current),
+		}); err != nil {
+			return fmt.Errorf("persist terminal phase record: %w", err)
+		}
+		// Do NOT reset accumulator — same phase continues.
+		return nil
+	}
+
 	if !slices.Contains(allowed, next) {
 		return fmt.Errorf("transition %s→%s not allowed (recovery=%v, allowed=%v)",
 			current, next, recovery, allowed)
@@ -354,6 +374,15 @@ func (h *Harness) IsAwaitingHuman() bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	return h.state == hStateAwaitingHuman
+}
+
+// Phase returns the current session phase. Thread-safe.
+// Bridge consumers use this to pass the actual agentloop phase into bookkeeping
+// instead of hardcoding "build".
+func (h *Harness) Phase() Role {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.session.Phase
 }
 
 // LastPhaseCompleted reports whether the most recent RunPhase call finished

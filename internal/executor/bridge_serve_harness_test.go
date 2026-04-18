@@ -587,3 +587,55 @@ func TestServeBridgeCrash_SuccessNoStop(t *testing.T) {
 		t.Fatal("RestoreHarness returned nil harness")
 	}
 }
+
+// TestServeBridgeHarness_NilContractAutoPass verifies that when the gate engine
+// is created with a nil contract (production default), a completion_signal
+// still results in ResultStatusSuccess (not hard-block). This tests the MVP
+// bypass in GateEngine.Evaluate that auto-passes when contract is nil.
+func TestServeBridgeHarness_NilContractAutoPass(t *testing.T) {
+	store := setupStore(t)
+
+	card, err := store.CreateCard("openclaw", "Test nil contract", "nil contract gate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	card.Status = "executing"
+	card.NormalizedIntent = "nil contract gate test"
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	// StubGateway emits completion_signal — triggers gate evaluation.
+	gw := agentloop.NewStubGateway()
+	gw.AddResponse("glm-5", []agentloop.Event{
+		{Type: "text_delta", Delta: "discovery done"},
+		{Type: "tool_call", ToolCalls: []agentloop.ToolCall{
+			{ID: "call-1", Name: "completion_signal", Arguments: json.RawMessage(`{"summary":"done"}`)},
+		}},
+		{Type: "done"},
+	})
+
+	registry := agentloop.NewToolRegistry(nil)
+	router := agentloop.NewPhaseRouter(
+		agentloop.DefaultPhaseMap, registry, gw, nil,
+	)
+	// Production default: nil contract (no TaskContract). This used to
+	// hard-block because EvaluateCompliance(nil, ...) blocked.
+	gate := agentloop.NewGateEngine(nil, 0)
+
+	sb := &ServeBridge{
+		Store:         store,
+		ProjectRoot:   store.ProjectRoot,
+		harnessRouter: router,
+		harnessGate:   gate,
+		harnessData:   filepath.Join(t.TempDir(), "sessions"),
+	}
+
+	result, err := sb.DispatchAndRun(context.Background(), card.ProjectID, card.ID)
+	if err != nil {
+		t.Fatalf("DispatchAndRun error: %v", err)
+	}
+	if result.Status != control.ResultStatusSuccess {
+		t.Fatalf("nil-contract gate should auto-pass; status=%s summary=%s", result.Status, result.Summary)
+	}
+}

@@ -95,6 +95,11 @@ func BashTool(workdir string) Tool {
 }
 
 // validateBashCommand blocks dangerous shell commands.
+//
+// NOTE: A regex deny-list is NOT a sandbox. Arbitrary code execution via
+// interpreters (python -c, node -e, perl -e) can bypass these checks.
+// This is an MVP mitigation; a proper sandbox (containers/seccomp) is
+// tracked as Phase 2 (bead sdplab-lm6).
 func validateBashCommand(cmd string) error {
 	dangerous := []struct {
 		pattern string
@@ -111,6 +116,17 @@ func validateBashCommand(cmd string) error {
 		{`(?i)cd\s+/`, "cd to absolute path is not allowed (workdir escape)"},
 		{`(?i)cd\s+~`, "cd to home directory is not allowed (workdir escape)"},
 		{`(?i)cd\s+\$HOME`, "cd to $HOME is not allowed (workdir escape)"},
+		// P0-1 fix: block interpreters that bypass regex deny-lists.
+		{`\bpython3?\s+-c\b`, "python -c is not allowed (use bash directly)"},
+		{`\bperl\s+-e\b`, "perl -e is not allowed (use bash directly)"},
+		{`\bnode\s+-e\b`, "node -e is not allowed (use bash directly)"},
+		{`\bruby\s+-e\b`, "ruby -e is not allowed (use bash directly)"},
+		// P0-1 fix: block dangerous git commands.
+		{`\bgit\s+clean\b`, "git clean is not allowed"},
+		{`\bgit\s+reset\s+--hard\b`, "git reset --hard is not allowed"},
+		// P0-1 fix: block pipe-to-shell patterns.
+		{`curl\b.*\|\s*(ba)?sh`, "curl | sh is not allowed"},
+		{`wget\b.*\|\s*(ba)?sh`, "wget | sh is not allowed"},
 	}
 
 	for _, d := range dangerous {
@@ -203,10 +219,12 @@ func EditFileTool(root string) Tool {
 				return "", fmt.Errorf("edit_file: %w", err)
 			}
 
-			// EVIDENCE CONTRACT: output must be "edited: <path>" — extractFilePath in
-			// evidence.go takes the last space-delimited token. Do not append anything
-			// after the path or change the prefix without updating evidence.go.
-			return "edited: " + a.Path, nil
+			// EVIDENCE CONTRACT: output must be "edited: <path>" where <path> is a
+			// cleaned, slash-normalized relative path. extractFilePath in evidence.go
+			// trims the "edited: " prefix. Equivalent paths (./foo, foo, sub/../foo)
+			// must produce the same evidence token, so we clean before emitting.
+			cleanRel := filepath.ToSlash(filepath.Clean(a.Path))
+			return "edited: " + cleanRel, nil
 		},
 	}
 }

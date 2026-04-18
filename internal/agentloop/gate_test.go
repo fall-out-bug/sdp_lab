@@ -108,16 +108,18 @@ func TestGateEngine_timeout(t *testing.T) {
 	assert.True(t, found, "timeout must produce a GateWarn violation with DriftProcessIncomplete type")
 }
 
-// TestGateEngine_nilContract: nil contract → Blocked=true (harness.EvaluateCompliance contract guard).
+// TestGateEngine_nilContract: nil contract → auto-pass (MVP bypass mode).
+// When no TaskContract is configured, the gate cannot evaluate compliance,
+// so it passes unconditionally. Production deployments should provide a contract.
 func TestGateEngine_nilContract(t *testing.T) {
 	engine := NewGateEngine(nil, 5*time.Second)
 
 	snap := emptySnapshot(RoleDiscover)
 	result := engine.Evaluate(context.Background(), snap)
 
-	// harness.EvaluateCompliance returns Blocked=true when contract is nil.
-	assert.True(t, result.Report.Blocked)
-	assert.True(t, result.Escalated)
+	// MVP bypass: nil contract auto-passes (not blocked, not escalated).
+	assert.False(t, result.Report.Blocked)
+	assert.False(t, result.Escalated)
 }
 
 // TestGateEngine_defaultTimeout: NewGateEngine with zero timeout uses 5s default.

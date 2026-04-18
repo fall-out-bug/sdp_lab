@@ -149,14 +149,20 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 // used by both the legacy OmO executor and the internal harness path.
 //
 // executorName identifies the source ("harness", agent name, etc.) for the
-// evidence file. projectID may be empty; when using Beads-backed storage the
-// card is resolved by ID alone.
-func (b *ServeBridge) recordExecutionResult(cardID string, result *control.ExecutorResultPacket, phase, executorName string) {
+// evidence file. projectID is resolved from the card when available.
+// Returns an error if mandatory bookkeeping fails (evidence write, card state).
+func (b *ServeBridge) recordExecutionResult(cardID string, result *control.ExecutorResultPacket, phase, executorName string) error {
 	beadsRepo := b.Store.BeadsRepo()
+
+	// Resolve projectID from card for RouteFindings.
+	var projectID string
+	if card, err := b.Store.LoadCardByID(cardID); err == nil && card != nil {
+		projectID = card.ProjectID
+	}
 
 	// 1. Write build.json evidence
 	evidencePath := filepath.Join(b.ProjectRoot, ".sdp", "artifacts", cardID, "build.json")
-	evidenceJSON, _ := json.MarshalIndent(map[string]any{
+	evidenceJSON, marshalErr := json.MarshalIndent(map[string]any{
 		"phase":         phase,
 		"card_id":       cardID,
 		"timestamp":     time.Now().UTC().Format(time.RFC3339),
@@ -167,10 +173,15 @@ func (b *ServeBridge) recordExecutionResult(cardID string, result *control.Execu
 		"artifacts":     result.Artifacts,
 		"findings":      result.Findings,
 	}, "", "  ")
-	if err := os.MkdirAll(filepath.Dir(evidencePath), 0o755); err != nil {
-		slog.Warn("create evidence dir", "card", cardID, "error", err)
+	if marshalErr != nil {
+		return fmt.Errorf("marshal evidence: %w", marshalErr)
 	}
-	_ = os.WriteFile(evidencePath, evidenceJSON, 0o644)
+	if err := os.MkdirAll(filepath.Dir(evidencePath), 0o755); err != nil {
+		return fmt.Errorf("create evidence dir: %w", err)
+	}
+	if err := os.WriteFile(evidencePath, evidenceJSON, 0o644); err != nil {
+		return fmt.Errorf("write evidence: %w", err)
+	}
 
 	// 2. Link evidence in Beads metadata
 	if beadsRepo != nil {
@@ -180,15 +191,14 @@ func (b *ServeBridge) recordExecutionResult(cardID string, result *control.Execu
 	}
 
 	// 3. Route findings to card
-	if err := RouteFindingsToCard(b.Store, "", cardID, result); err != nil {
+	if err := RouteFindingsToCard(b.Store, projectID, cardID, result); err != nil {
 		slog.Warn("route findings", "card", cardID, "error", err)
 	}
 
 	// 4. Update card state
 	card, loadErr := b.Store.LoadCardByID(cardID)
 	if loadErr != nil {
-		slog.Warn("load card for bookkeeping", "card", cardID, "error", loadErr)
-		return
+		return fmt.Errorf("load card for bookkeeping: %w", loadErr)
 	}
 	completedAt := time.Now().UTC()
 	card.LastExecutorHeartbeatAt = completedAt.Format(time.RFC3339)
@@ -200,7 +210,7 @@ func (b *ServeBridge) recordExecutionResult(cardID string, result *control.Execu
 		card.ExecutorRuntimeState = "failed"
 	}
 	if err := b.Store.SaveCard(card); err != nil {
-		slog.Warn("save card after execution", "card", cardID, "error", err)
+		return fmt.Errorf("save card after execution: %w", err)
 	}
 
 	// 5. Set final executor state in Beads
@@ -213,6 +223,7 @@ func (b *ServeBridge) recordExecutionResult(cardID string, result *control.Execu
 			slog.Warn("set final executor state", "card", cardID, "error", err)
 		}
 	}
+	return nil
 }
 
 // dispatchWithOmO is the legacy OmO serve execution path (extracted from DispatchAndRun).
@@ -279,7 +290,9 @@ func (b *ServeBridge) dispatchWithOmO(ctx context.Context, projectID, cardID str
 	result := translateResult(packet, runtimeResult.Output, runtimeResult.ExitCode)
 
 	// Shared bookkeeping: write evidence, route findings, update card state.
-	b.recordExecutionResult(cardID, result, phase, agent)
+	if bkErr := b.recordExecutionResult(cardID, result, phase, agent); bkErr != nil {
+		slog.Warn("record omo execution result", "card", cardID, "error", bkErr)
+	}
 
 	return result, invokeErr
 }
@@ -332,6 +345,9 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 	// Execute one phase turn.
 	runErr := h.RunPhase(ctx, governedPrompt, "")
 
+	// Derive the actual agentloop phase from the harness session.
+	phase := string(h.Phase())
+
 	// Check for gate-pending (awaiting human decision).
 	if runErr == nil && h.IsAwaitingHuman() {
 		succeeded = true // gate-pending is a valid live state — do NOT stop
@@ -340,7 +356,9 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 			Status:          control.ResultStatusNeedsReview,
 			Summary:         "gate escalated — awaiting human decision",
 		}
-		b.recordExecutionResult(cardID, result, "build", "harness")
+		if err := b.recordExecutionResult(cardID, result, phase, "harness"); err != nil {
+			slog.Warn("record gate-pending result", "card", cardID, "error", err)
+		}
 		return result, nil
 	}
 
@@ -351,7 +369,9 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 			Status:          control.ResultStatusFailed,
 			Summary:         runErr.Error(),
 		}
-		b.recordExecutionResult(cardID, result, "build", "harness")
+		if err := b.recordExecutionResult(cardID, result, phase, "harness"); err != nil {
+			slog.Warn("record failed result", "card", cardID, "error", err)
+		}
 		return result, runErr
 	}
 
@@ -366,7 +386,9 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 			Status:          control.ResultStatusNeedsInput,
 			Summary:         "phase turn completed — awaiting next prompt",
 		}
-		b.recordExecutionResult(cardID, result, "build", "harness")
+		if err := b.recordExecutionResult(cardID, result, phase, "harness"); err != nil {
+			slog.Warn("record needs-input result", "card", cardID, "error", err)
+		}
 		return result, nil
 	}
 
@@ -376,7 +398,9 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 		Status:          control.ResultStatusSuccess,
 		Summary:         "phase completed",
 	}
-	b.recordExecutionResult(cardID, result, "build", "harness")
+	if err := b.recordExecutionResult(cardID, result, phase, "harness"); err != nil {
+		slog.Warn("record success result", "card", cardID, "error", err)
+	}
 	return result, nil
 }
 
