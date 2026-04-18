@@ -458,6 +458,7 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 ### Phase Harness Config Provisioning (In Progress)
 
 - **F130** — AI Harness Config Auto-Provisioning (00-F130-01 ... 00-F130-05). SDP analyzes any repo at any lifecycle stage and generates harness-ready config files (CLAUDE.md sections, .cursorrules, AGENTS.md language rules, codex.yaml) from actual codebase patterns. Pipeline: Scout/Index/SpecRecovery → pattern extractor → rules generator → harness adapter → bootstrap integration. go-patterns.md (2026-04-18) is the reference output format. Depends on F120, F122, F123, F124, F127.
+- **F131** — Workflow Skill Provisioning (00-F131-01 ... 00-F131-03). SDP generates workflow skill files (bug-fix, research, feature-delivery) tailored to a repo's tech stack during bootstrap. Extends F130 harness adapter with per-language skill templates. Manual examples shipped 2026-04-18. Depends on F130, F127.
 
 ### Layer Rollout Matrix (Vision Alignment)
 
