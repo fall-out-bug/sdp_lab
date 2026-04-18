@@ -240,6 +240,10 @@ func (b *ServeBridge) recordExecutionResult(cardID string, result *control.Execu
 	case control.ResultStatusNeedsReview:
 		card.ExecutorRuntimeState = "awaiting_human"
 		card.Status = "needs_input" // canonical status; runtime state "awaiting_human" signals gate escalation
+		card.DecisionRequired = []string{"Gate approval required"}
+		card.FeedbackRequest = []string{"Review gate escalation and approve or rollback"}
+		card.NeedsFeedbackFrom = []string{"human"}
+		card.WaitingOn = []string{"human"}
 	case control.ResultStatusNeedsInput:
 		card.ExecutorRuntimeState = "awaiting_input"
 	default:
