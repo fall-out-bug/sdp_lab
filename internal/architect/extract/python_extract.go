@@ -1,3 +1,5 @@
+// Package extract provides language-specific code extractors for AI Architect.
+// This file contains Python-specific extraction logic for analyzing Python codebases.
 package extract
 
 import (

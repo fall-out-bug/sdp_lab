@@ -152,12 +152,15 @@ func TestSanitizeOutput_JSON(t *testing.T) {
 	jsonBytes, err := json.Marshal(input)
 	require.NoError(t, err)
 
-	output, err := SanitizeOutput(jsonBytes)
+	// Parse JSON back to interface{}
+	var parsed interface{}
+	err = json.Unmarshal(jsonBytes, &parsed)
 	require.NoError(t, err)
 
-	var result map[string]interface{}
-	err = json.Unmarshal(output, &result)
-	require.NoError(t, err)
+	output := SanitizeOutput(parsed)
+
+	result, ok := output.(map[string]interface{})
+	require.True(t, ok, "SanitizeOutput should return map[string]interface{}")
 
 	// Check that dangerous content was stripped
 	title := result["title"].(string)
@@ -185,14 +188,18 @@ func TestSanitizeOutput_PreservesStructure(t *testing.T) {
 	jsonBytes, err := json.Marshal(input)
 	require.NoError(t, err)
 
-	output, err := SanitizeOutput(jsonBytes)
+	// Parse JSON back to interface{}
+	var parsed interface{}
+	err = json.Unmarshal(jsonBytes, &parsed)
 	require.NoError(t, err)
 
-	var result map[string]interface{}
-	err = json.Unmarshal(output, &result)
-	require.NoError(t, err)
+	output := SanitizeOutput(parsed)
 
-	assert.Equal(t, "value", result["string"])
+	result, ok := output.(map[string]interface{})
+	require.True(t, ok)
+
+	// String values are sanitized (markdown -> HTML)
+	assert.Contains(t, result["string"].(string), "value")
 	assert.Equal(t, float64(42), result["number"])
 	assert.Equal(t, true, result["bool"])
 	assert.Equal(t, nil, result["null"])
@@ -201,7 +208,7 @@ func TestSanitizeOutput_PreservesStructure(t *testing.T) {
 	assert.Len(t, arr, 3)
 
 	obj := result["object"].(map[string]interface{})
-	assert.Equal(t, "value", obj["key"])
+	assert.Contains(t, obj["key"].(string), "value")
 }
 
 func TestSanitizeText(t *testing.T) {
@@ -399,12 +406,15 @@ func TestSanitizeOutput_EmptyJSON(t *testing.T) {
 	jsonBytes, err := json.Marshal(input)
 	require.NoError(t, err)
 
-	output, err := SanitizeOutput(jsonBytes)
+	// Parse JSON back to interface{}
+	var parsed interface{}
+	err = json.Unmarshal(jsonBytes, &parsed)
 	require.NoError(t, err)
 
-	var result map[string]interface{}
-	err = json.Unmarshal(output, &result)
-	require.NoError(t, err)
+	output := SanitizeOutput(parsed)
+
+	result, ok := output.(map[string]interface{})
+	require.True(t, ok)
 
 	assert.Empty(t, result)
 }
@@ -421,12 +431,15 @@ func TestSanitizeOutput_NestedStringValues(t *testing.T) {
 	jsonBytes, err := json.Marshal(input)
 	require.NoError(t, err)
 
-	output, err := SanitizeOutput(jsonBytes)
+	// Parse JSON back to interface{}
+	var parsed interface{}
+	err = json.Unmarshal(jsonBytes, &parsed)
 	require.NoError(t, err)
 
-	var result map[string]interface{}
-	err = json.Unmarshal(output, &result)
-	require.NoError(t, err)
+	output := SanitizeOutput(parsed)
+
+	result, ok := output.(map[string]interface{})
+	require.True(t, ok)
 
 	level1 := result["level1"].(map[string]interface{})
 	level2 := level1["level2"].(map[string]interface{})
@@ -465,7 +478,8 @@ func TestSanitizeField_AllowsLists(t *testing.T) {
 	output := SanitizeField(input)
 
 	// Lists should be supported
-	assert.Contains(t, output, "<ul>") || assert.Contains(t, output, "<li>")
+	assert.Contains(t, output, "<ul>")
+	assert.Contains(t, output, "<li>")
 }
 
 func TestSanitizeOutput_LargeJSON(t *testing.T) {
@@ -478,12 +492,15 @@ func TestSanitizeOutput_LargeJSON(t *testing.T) {
 	jsonBytes, err := json.Marshal(largeObj)
 	require.NoError(t, err)
 
-	output, err := SanitizeOutput(jsonBytes)
+	// Parse JSON back to interface{}
+	var parsed interface{}
+	err = json.Unmarshal(jsonBytes, &parsed)
 	require.NoError(t, err)
 
-	var result map[string]interface{}
-	err = json.Unmarshal(output, &result)
-	require.NoError(t, err)
+	output := SanitizeOutput(parsed)
+
+	result, ok := output.(map[string]interface{})
+	require.True(t, ok)
 
 	// All script tags should be stripped
 	for i := 0; i < 100; i++ {

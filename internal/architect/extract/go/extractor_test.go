@@ -8,7 +8,8 @@ import (
 	"sort"
 	"testing"
 
-	"sdp_dev/internal/assert"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestSimpleCLI tests extraction from a simple CLI project.

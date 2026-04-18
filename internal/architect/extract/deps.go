@@ -319,7 +319,10 @@ func scanCsprojFiles(ctx context.Context, repoRoot string) ([]architect.Dependen
 			return nil // Non-fatal
 		}
 
-		rel, _ := filepath.Rel(repoRoot, path)
+		rel, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			rel = path // Fallback to absolute path if Rel fails
+		}
 		deps = append(deps, architect.DependencyInfo{
 			File:     rel,
 			Language: "csharp",

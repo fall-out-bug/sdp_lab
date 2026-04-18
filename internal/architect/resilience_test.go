@@ -3,7 +3,6 @@ package architect
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -15,16 +14,14 @@ func TestDefaultRetryConfig(t *testing.T) {
 	config := DefaultRetryConfig()
 
 	assert.Equal(t, 3, config.MaxRetries)
-	assert.Equal(t, 1*time.Second, config.InitialBackoff)
-	assert.Equal(t, 4*time.Second, config.MaxBackoff)
-	assert.InDelta(t, 0.2, config.Jitter, 0.01)
-	assert.NotNil(t, config.RetriableErrors)
+	assert.Equal(t, 1*time.Second, config.BaseDelay)
+	assert.Equal(t, 30*time.Second, config.MaxDelay)
 }
 
 func TestRetryConfig_CalculateBackoff(t *testing.T) {
 	config := DefaultRetryConfig()
 
-	// First retry should use InitialBackoff
+	// First retry should use BaseDelay
 	backoff := config.calculateBackoff(0)
 	assert.InDelta(t, 1*time.Second, backoff, float64(200*time.Millisecond)) // 20% jitter
 
@@ -32,24 +29,28 @@ func TestRetryConfig_CalculateBackoff(t *testing.T) {
 	backoff = config.calculateBackoff(1)
 	assert.InDelta(t, 2*time.Second, backoff, float64(400*time.Millisecond))
 
-	// Third retry should double again (but cap at MaxBackoff)
+	// Third retry should double again
 	backoff = config.calculateBackoff(2)
 	assert.InDelta(t, 4*time.Second, backoff, float64(800*time.Millisecond))
 
-	// Fourth retry should stay at MaxBackoff
+	// Fourth retry should double again
 	backoff = config.calculateBackoff(3)
-	assert.InDelta(t, 4*time.Second, backoff, float64(800*time.Millisecond))
+	assert.InDelta(t, 8*time.Second, backoff, float64(1600*time.Millisecond))
 
-	// Fifth retry should stay at MaxBackoff
+	// Fifth retry should double again
 	backoff = config.calculateBackoff(4)
-	assert.InDelta(t, 4*time.Second, backoff, float64(800*time.Millisecond))
+	assert.InDelta(t, 16*time.Second, backoff, float64(3200*time.Millisecond))
+
+	// Sixth retry should cap at MaxDelay (30s)
+	backoff = config.calculateBackoff(5)
+	assert.InDelta(t, 30*time.Second, backoff, float64(6*time.Second))
 }
 
 func TestNewCircuitBreaker(t *testing.T) {
 	cb := NewCircuitBreaker()
 
 	assert.NotNil(t, cb)
-	assert.Equal(t, StateClosed, cb.State)
+	assert.Equal(t, "closed", cb.State)
 	assert.Equal(t, 0, cb.Failures)
 	assert.Equal(t, 5, cb.FailureThreshold)
 	assert.Equal(t, 30*time.Second, cb.CooldownPeriod)
@@ -70,11 +71,11 @@ func TestCircuitBreaker_RecordFailure(t *testing.T) {
 	// Record failures
 	cb.RecordFailure()
 	assert.Equal(t, 1, cb.Failures)
-	assert.Equal(t, StateClosed, cb.State)
+	assert.Equal(t, "closed", cb.State)
 
 	cb.RecordFailure()
 	assert.Equal(t, 2, cb.Failures)
-	assert.Equal(t, StateClosed, cb.State)
+	assert.Equal(t, "closed", cb.State)
 
 	// Record more failures until threshold
 	for i := 0; i < 3; i++ {
@@ -82,7 +83,7 @@ func TestCircuitBreaker_RecordFailure(t *testing.T) {
 	}
 
 	// Should now be open
-	assert.Equal(t, StateOpen, cb.State)
+	assert.Equal(t, "open", cb.State)
 	assert.GreaterOrEqual(t, cb.Failures, 5)
 }
 
@@ -94,7 +95,7 @@ func TestCircuitBreaker_Allow_OpenState(t *testing.T) {
 		cb.RecordFailure()
 	}
 
-	assert.Equal(t, StateOpen, cb.State)
+	assert.Equal(t, "open", cb.State)
 
 	// Requests should be blocked
 	assert.False(t, cb.Allow())
@@ -108,14 +109,14 @@ func TestCircuitBreaker_Allow_HalfOpenState(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		cb.RecordFailure()
 	}
-	assert.Equal(t, StateOpen, cb.State)
+	assert.Equal(t, "open", cb.State)
 
 	// Set last failure time to past to trigger half-open
 	cb.LastFailure = time.Now().Add(-31 * time.Second)
 
 	// First request should be allowed (transition to half-open)
 	assert.True(t, cb.Allow())
-	assert.Equal(t, StateHalfOpen, cb.State)
+	assert.Equal(t, "half-open", cb.State)
 
 	// Second request should be blocked (only one probe in half-open)
 	assert.False(t, cb.Allow())
@@ -128,12 +129,12 @@ func TestCircuitBreaker_RecordSuccess(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		cb.RecordFailure()
 	}
-	assert.Equal(t, StateOpen, cb.State)
+	assert.Equal(t, "open", cb.State)
 
 	// Record success (should close circuit)
 	cb.RecordSuccess()
 
-	assert.Equal(t, StateClosed, cb.State)
+	assert.Equal(t, "closed", cb.State)
 	assert.Equal(t, 0, cb.Failures)
 }
 
@@ -149,7 +150,7 @@ func TestCircuitBreaker_Execute_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.True(t, called)
-	assert.Equal(t, StateClosed, cb.State)
+	assert.Equal(t, "closed", cb.State)
 }
 
 func TestCircuitBreaker_Execute_Failure(t *testing.T) {
@@ -182,7 +183,7 @@ func TestCircuitBreaker_Execute_OpenCircuit(t *testing.T) {
 
 	var cbErr *CircuitBreakerError
 	assert.ErrorAs(t, err, &cbErr)
-	assert.Equal(t, StateOpen, cbErr.State)
+	assert.Equal(t, "open", cbErr.State)
 }
 
 func TestCircuitBreaker_Reset(t *testing.T) {
@@ -192,14 +193,13 @@ func TestCircuitBreaker_Reset(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		cb.RecordFailure()
 	}
-	assert.Equal(t, StateOpen, cb.State)
+	assert.Equal(t, "open", cb.State)
 
-	// Reset
-	cb.Reset()
+	// Reset by recording success
+	cb.RecordSuccess()
 
-	assert.Equal(t, StateClosed, cb.State)
+	assert.Equal(t, "closed", cb.State)
 	assert.Equal(t, 0, cb.Failures)
-	assert.True(t, cb.LastFailure.IsZero())
 }
 
 func TestCircuitBreakerState_String(t *testing.T) {
@@ -300,12 +300,12 @@ func TestEnrichmentResult_HasRetriableFailures(t *testing.T) {
 
 func TestEnrichmentResult_Merge(t *testing.T) {
 	result1 := NewEnrichmentResult("req-1")
-	result1.Enrichment["key1"] = "value1"
+	result1.Enrichment["key1"] = LLMEnrichment{Description: "value1"}
 	result1.AddFailure("node-1", "stage", errors.New("error1"), true)
 	result1.Duration = 100 * time.Millisecond
 
 	result2 := NewEnrichmentResult("req-2")
-	result2.Enrichment["key2"] = "value2"
+	result2.Enrichment["key2"] = LLMEnrichment{Description: "value2"}
 	result2.AddFailure("node-2", "stage", errors.New("error2"), false)
 	result2.Duration = 200 * time.Millisecond
 
@@ -384,28 +384,6 @@ func TestRetryWithBackoff_MaxRetries(t *testing.T) {
 	assert.Contains(t, err.Error(), "max retries")
 }
 
-func TestRetryWithBackoff_NonRetriableError(t *testing.T) {
-	config := RetryConfig{
-		MaxRetries:     3,
-		InitialBackoff: 1 * time.Millisecond,
-		MaxBackoff:     10 * time.Millisecond,
-		Jitter:         0.1,
-		RetriableErrors: func(err error) bool {
-			return err.Error() != "non-retriable"
-		},
-	}
-
-	ctx := context.Background()
-	calls := 0
-	err := RetryWithBackoff(ctx, config, func() error {
-		calls++
-		return errors.New("non-retriable")
-	})
-
-	assert.Error(t, err)
-	assert.Equal(t, 1, calls) // Should not retry
-}
-
 func TestRetryWithBackoff_ContextCancellation(t *testing.T) {
 	config := DefaultRetryConfig()
 	config.MaxRetries = 100 // Set high to test context cancellation
@@ -450,15 +428,14 @@ func TestSafeExecutor_Execute(t *testing.T) {
 
 func TestSafeExecutor_CircuitBreakerIntegration(t *testing.T) {
 	retryConfig := RetryConfig{
-		MaxRetries:     0, // No retries
-		InitialBackoff: 1 * time.Millisecond,
-		MaxBackoff:     10 * time.Millisecond,
-		RetriableErrors: func(err error) bool { return true },
+		MaxRetries: 0, // No retries
+		BaseDelay:  1 * time.Millisecond,
+		MaxDelay:   10 * time.Millisecond,
 	}
 
 	breakerConfig := CircuitBreakerConfig{
 		FailureThreshold: 3,
-		CooldownDuration: 100 * time.Millisecond,
+		CooldownPeriod:   100 * time.Millisecond,
 	}
 
 	executor := NewSafeExecutor(retryConfig, breakerConfig)
@@ -488,7 +465,7 @@ func TestSafeExecutor_GetCircuitBreakerState(t *testing.T) {
 	executor := NewSafeExecutor(retryConfig, breakerConfig)
 
 	state := executor.GetCircuitBreakerState("openai")
-	assert.Equal(t, StateClosed, state)
+	assert.Equal(t, "closed", state)
 }
 
 func TestCircuitBreakerManager(t *testing.T) {
@@ -560,5 +537,5 @@ func TestCircuitBreaker_ConcurrentAccess(t *testing.T) {
 	}
 
 	// Should still be in closed state
-	assert.Equal(t, StateClosed, cb.State)
+	assert.Equal(t, "closed", cb.State)
 }

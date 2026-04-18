@@ -116,7 +116,10 @@ func (FileTreeExtractor) Extract(ctx context.Context, repoRoot string) (*archite
 		default:
 		}
 
-		rel, _ := filepath.Rel(repoRoot, path)
+		rel, err := filepath.Rel(repoRoot, path)
+		if err != nil {
+			rel = path // Fallback to absolute path if Rel fails
+		}
 		if rel == "." {
 			return nil
 		}

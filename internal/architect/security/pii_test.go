@@ -141,6 +141,9 @@ func TestPIIScrubber_AddCustomPattern(t *testing.T) {
 	err := ps.AddCustomPattern(PIIType("employee_id"), `EMP-\d{4}`)
 	require.NoError(t, err)
 
+	// Enable the custom type
+	ps.EnableType(PIIType("employee_id"))
+
 	text := "Employee ID: EMP-1234"
 	matches := ps.Scan(text)
 

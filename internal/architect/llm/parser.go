@@ -1,3 +1,6 @@
+// Package llm provides utilities for parsing and processing LLM (Large Language Model) outputs.
+// It handles JSON extraction from markdown code blocks, response validation, and type coercion
+// for converting unstructured LLM responses into structured Go data.
 package llm
 
 import (

@@ -2,6 +2,7 @@ package architect
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -65,7 +66,7 @@ func (cb *CircuitBreaker) Allow() bool {
 	case "open":
 		if time.Since(cb.LastFailure) >= cb.CooldownPeriod {
 			cb.State = "half-open"
-			cb.halfOpenProbes = 0
+			cb.halfOpenProbes = 1 // Count the transition as a probe
 			return true
 		}
 		return false
@@ -419,6 +420,6 @@ func (se *SafeExecutor) GetCircuitBreakerState(provider string) string {
 
 // IsCircuitBreakerError checks if an error is a circuit breaker error.
 func IsCircuitBreakerError(err error) bool {
-	_, ok := err.(*CircuitBreakerError)
-	return ok
+	var cbErr *CircuitBreakerError
+	return errors.As(err, &cbErr)
 }
