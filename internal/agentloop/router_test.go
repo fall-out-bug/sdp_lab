@@ -43,29 +43,29 @@ func buildTestRegistry() *ToolRegistry {
 // TestPhaseRouter_resolveModel_picksFirst: first model in list is returned when available.
 func TestPhaseRouter_resolveModel_picksFirst(t *testing.T) {
 	sg := NewStubGateway()
-	sg.AddResponse("deepseek/deepseek-v3.2", []Event{{Type: "done"}})
-	sg.AddResponse("openai/gpt-4.1", []Event{{Type: "done"}})
+	sg.AddResponse("glm-5", []Event{{Type: "done"}})
+	sg.AddResponse("glm-4.7", []Event{{Type: "done"}})
 
 	router := NewPhaseRouter(DefaultPhaseMap, buildTestRegistry(), sg, nil)
 
 	model, err := router.ResolveModel(RoleDiscover)
 	require.NoError(t, err)
-	assert.Equal(t, "deepseek/deepseek-v3.2", model,
-		"first available model must be selected (deepseek is first in DefaultPhaseMap for discover)")
+	assert.Equal(t, "glm-5", model,
+		"first available model must be selected (glm-5 is first in DefaultPhaseMap for discover)")
 }
 
 // TestPhaseRouter_resolveModel_fallsBack: first model unavailable → second model used.
 func TestPhaseRouter_resolveModel_fallsBack(t *testing.T) {
 	sg := NewStubGateway()
 	// Only register the second model for discover phase.
-	sg.AddResponse("openai/gpt-4.1", []Event{{Type: "done"}})
-	// deepseek is NOT registered → IsAvailable returns false for it.
+	sg.AddResponse("glm-4.7", []Event{{Type: "done"}})
+	// glm-5 is NOT registered → IsAvailable returns false for it.
 
 	router := NewPhaseRouter(DefaultPhaseMap, buildTestRegistry(), sg, nil)
 
 	model, err := router.ResolveModel(RoleDiscover)
 	require.NoError(t, err)
-	assert.Equal(t, "openai/gpt-4.1", model,
+	assert.Equal(t, "glm-4.7", model,
 		"must fall back to second model when first is unavailable")
 }
 
@@ -86,7 +86,7 @@ func TestPhaseRouter_resolveModel_noneAvailable(t *testing.T) {
 // TestPhaseRouter_buildLoopConfig_injectsCompletionSignal: completion_signal always present (Fix N6).
 func TestPhaseRouter_buildLoopConfig_injectsCompletionSignal(t *testing.T) {
 	sg := NewStubGateway()
-	sg.AddResponse("deepseek/deepseek-v3.2", []Event{{Type: "done"}})
+	sg.AddResponse("glm-5", []Event{{Type: "done"}})
 
 	router := NewPhaseRouter(DefaultPhaseMap, buildTestRegistry(), sg, nil)
 	acc := NewEvidenceAccumulator()
@@ -119,7 +119,7 @@ func TestPhaseRouter_buildLoopConfig_completionSignalNotInRegistry(t *testing.T)
 // TestPhaseRouter_buildLoopConfig_wiresAfterToolCall: AfterToolCall is acc.OnToolResult.
 func TestPhaseRouter_buildLoopConfig_wiresAfterToolCall(t *testing.T) {
 	sg := NewStubGateway()
-	sg.AddResponse("deepseek/deepseek-v3.2", []Event{{Type: "done"}})
+	sg.AddResponse("glm-5", []Event{{Type: "done"}})
 
 	router := NewPhaseRouter(DefaultPhaseMap, buildTestRegistry(), sg, nil)
 	acc := NewEvidenceAccumulator()
@@ -141,7 +141,7 @@ func TestPhaseRouter_buildLoopConfig_wiresAfterToolCall(t *testing.T) {
 // TestPhaseRouter_buildLoopConfig_wiresContextManager: ContextManager from constructor is wired (Fix W2).
 func TestPhaseRouter_buildLoopConfig_wiresContextManager(t *testing.T) {
 	sg := NewStubGateway()
-	sg.AddResponse("deepseek/deepseek-v3.2", []Event{{Type: "done"}})
+	sg.AddResponse("glm-5", []Event{{Type: "done"}})
 
 	trimCallCount := 0
 	cm := &countingContextManager{count: &trimCallCount}
@@ -163,7 +163,7 @@ func TestPhaseRouter_buildLoopConfig_wiresContextManager(t *testing.T) {
 // TestPhaseRouter_buildLoopConfig_nilContextManager: nil cm → cfg.ContextManager is nil (passthrough).
 func TestPhaseRouter_buildLoopConfig_nilContextManager(t *testing.T) {
 	sg := NewStubGateway()
-	sg.AddResponse("deepseek/deepseek-v3.2", []Event{{Type: "done"}})
+	sg.AddResponse("glm-5", []Event{{Type: "done"}})
 
 	router := NewPhaseRouter(DefaultPhaseMap, buildTestRegistry(), sg, nil)
 	acc := NewEvidenceAccumulator()
@@ -177,7 +177,7 @@ func TestPhaseRouter_buildLoopConfig_nilContextManager(t *testing.T) {
 // TestPhaseRouter_buildLoopConfig_beforeToolCallWired: before func passed through to LoopConfig.
 func TestPhaseRouter_buildLoopConfig_beforeToolCallWired(t *testing.T) {
 	sg := NewStubGateway()
-	sg.AddResponse("deepseek/deepseek-v3.2", []Event{{Type: "done"}})
+	sg.AddResponse("glm-5", []Event{{Type: "done"}})
 
 	router := NewPhaseRouter(DefaultPhaseMap, buildTestRegistry(), sg, nil)
 	acc := NewEvidenceAccumulator()
@@ -317,12 +317,12 @@ func TestDefaultPhaseMap_noCompletionSignalInAllowlists(t *testing.T) {
 // TestNewPhaseRouter_gatewayWired: gateway is accessible via ResolveModel.
 func TestNewPhaseRouter_gatewayWired(t *testing.T) {
 	sg := NewStubGateway()
-	sg.AddResponse("openai/gpt-4.1", []Event{{Type: "done"}})
+	sg.AddResponse("glm-4.7", []Event{{Type: "done"}})
 
-	// plan phase: ["openai/gpt-4.1", "anthropic/claude-opus-4-5"]
+	// plan phase: ["glm-5", "glm-4.7"]
 	router := NewPhaseRouter(DefaultPhaseMap, buildTestRegistry(), sg, nil)
 
 	model, err := router.ResolveModel(RolePlan)
 	require.NoError(t, err)
-	assert.Equal(t, "openai/gpt-4.1", model)
+	assert.Equal(t, "glm-4.7", model)
 }

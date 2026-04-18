@@ -47,8 +47,8 @@ func buildTestHarness(t *testing.T) (*Harness, *MemStore) {
 	require.NoError(t, ms.Persist(session))
 
 	sg := NewStubGateway()
-	sg.AddResponse("deepseek/deepseek-v3.2", []Event{{Type: "done"}})
-	sg.AddResponse("openai/gpt-4.1", []Event{{Type: "done"}})
+	sg.AddResponse("glm-5", []Event{{Type: "done"}})
+	sg.AddResponse("glm-4.7", []Event{{Type: "done"}})
 
 	registry := NewToolRegistry(nil) // empty tools; router only used for phase map lookup
 	router := NewPhaseRouter(DefaultPhaseMap, registry, sg, nil)
@@ -182,6 +182,9 @@ func (f *failingPhaseStore) ClearDecision(id, did string) error {
 func (f *failingPhaseStore) LoadDecision(id string) (*PendingDecision, error) {
 	return f.inner.LoadDecision(id)
 }
+func (f *failingPhaseStore) TransitionAndClearDecision(sessionID, decisionID string, record PhaseRecord) error {
+	return errInjectFailure // always fail
+}
 
 // ---- RunPhase helpers ----
 
@@ -190,7 +193,7 @@ func (f *failingPhaseStore) LoadDecision(id string) (*PendingDecision, error) {
 // GateEngine is configured directly in buildHarnessWithGateway via gate.evalFn = alwaysPassEval.
 
 // buildHarnessWithGateway creates a full Harness with a scripted StubGateway.
-// The gateway model for discover phase is "deepseek/deepseek-v3.2".
+// The gateway model for discover phase is "glm-5".
 //
 // Fix R2: if events is nil, no responses are pre-registered — call sg.AddResponse
 // or registerSignalResponses after this helper to set up the desired sequence.
@@ -205,8 +208,8 @@ func buildHarnessWithGateway(t *testing.T, events []Event) (*Harness, *MemStore,
 	sg := NewStubGateway()
 	if events != nil {
 		// Fix R2: only pre-register when caller provides concrete events.
-		sg.AddResponse("deepseek/deepseek-v3.2", events)
-		sg.AddResponse("openai/gpt-4.1", events)
+		sg.AddResponse("glm-5", events)
+		sg.AddResponse("glm-4.7", events)
 	}
 
 	registry := NewToolRegistry(nil)
@@ -240,8 +243,8 @@ func buildHarnessWithEscalatingGate(t *testing.T, events []Event) (*Harness, *Me
 	sg := NewStubGateway()
 	if events != nil {
 		// Fix R2: only pre-register when caller provides concrete events.
-		sg.AddResponse("deepseek/deepseek-v3.2", events)
-		sg.AddResponse("openai/gpt-4.1", events)
+		sg.AddResponse("glm-5", events)
+		sg.AddResponse("glm-4.7", events)
 	}
 
 	registry := NewToolRegistry(nil)
@@ -249,6 +252,7 @@ func buildHarnessWithEscalatingGate(t *testing.T, events []Event) (*Harness, *Me
 
 	gate := NewGateEngine(nil, 5*time.Second)
 	gate.evalFn = alwaysEscalateEval
+	gate.bypassNilContract = false // custom evalFn overrides auto-pass
 
 	h := &Harness{
 		session:     session,
@@ -395,15 +399,15 @@ func TestRunPhase_turnRecord_hasToolCalls(t *testing.T) {
 	// Round 1: LLM calls two tools.
 	// Round 2: LLM acknowledges tool results, says done.
 	h, ms, sg := buildHarnessWithGateway(t, nil)
-	sg.AddResponse("deepseek/deepseek-v3.2", []Event{
+	sg.AddResponse("glm-5", []Event{
 		{Type: "tool_call", ToolCalls: []ToolCall{
 			{ID: "tc1", Name: "web_search", Arguments: []byte(`{"query":"foo"}`)},
 			{ID: "tc2", Name: "read_file", Arguments: []byte(`{"path":"bar"}`)},
 		}},
 		{Type: "done"},
 	})
-	sg.AddResponse("deepseek/deepseek-v3.2", []Event{{Type: "done"}}) // round 2: no more tools
-	sg.AddResponse("openai/gpt-4.1", []Event{{Type: "done"}})
+	sg.AddResponse("glm-5", []Event{{Type: "done"}}) // round 2: no more tools
+	sg.AddResponse("glm-4.7", []Event{{Type: "done"}})
 
 	_ = h.RunPhase(t.Context(), "search stuff", "")
 
@@ -421,14 +425,14 @@ func TestRunPhase_turnRecord_hasToolCalls(t *testing.T) {
 func TestRunPhase_turnRecord_toolID(t *testing.T) {
 	// Fix H2: gateway only scripts tool_call+done. Run() emits tool_end with ToolID=call.ID.
 	h, ms, sg := buildHarnessWithGateway(t, nil)
-	sg.AddResponse("deepseek/deepseek-v3.2", []Event{
+	sg.AddResponse("glm-5", []Event{
 		{Type: "tool_call", ToolCalls: []ToolCall{
 			{ID: "specific-id-99", Name: "web_search", Arguments: []byte(`{}`)},
 		}},
 		{Type: "done"},
 	})
-	sg.AddResponse("deepseek/deepseek-v3.2", []Event{{Type: "done"}}) // round 2
-	sg.AddResponse("openai/gpt-4.1", []Event{{Type: "done"}})
+	sg.AddResponse("glm-5", []Event{{Type: "done"}}) // round 2
+	sg.AddResponse("glm-4.7", []Event{{Type: "done"}})
 
 	_ = h.RunPhase(t.Context(), "find it", "")
 
@@ -456,14 +460,15 @@ func TestRunPhase_turnRecord_persistedBeforeGate(t *testing.T) {
 
 	sg := NewStubGateway()
 	// Script: completion_signal called → agent done. Fix H2: no tool_end in gateway responses.
-	registerSignalResponses(sg, "deepseek/deepseek-v3.2")
-	registerSignalResponses(sg, "openai/gpt-4.1")
+	registerSignalResponses(sg, "glm-5")
+	registerSignalResponses(sg, "glm-4.7")
 
 	registry := NewToolRegistry(nil)
 	router := NewPhaseRouter(DefaultPhaseMap, registry, sg, nil)
 
 	turnPersistedBeforeGate := false
 	gate := NewGateEngine(nil, 5*time.Second)
+	gate.bypassNilContract = false // custom evalFn overrides auto-pass
 	gate.evalFn = func(contract *harness.TaskContract, snap *harness.TaskSnapshot) harness.ComplianceReport {
 		// Check if TurnRecord was already persisted at gate evaluation time.
 		turns, _ := ms.LoadTurnRecords("sess-n3")
@@ -492,8 +497,8 @@ func TestRunPhase_turnRecord_persistedBeforeGate(t *testing.T) {
 // gate passes → transitionTo(discover→plan), state=idle.
 func TestRunPhase_completionSignal_gatePass_transitions(t *testing.T) {
 	h, ms, sg := buildHarnessWithGateway(t, nil) // nil = we'll register manually
-	registerSignalResponses(sg, "deepseek/deepseek-v3.2")
-	registerSignalResponses(sg, "openai/gpt-4.1")
+	registerSignalResponses(sg, "glm-5")
+	registerSignalResponses(sg, "glm-4.7")
 	_ = ms
 
 	err := h.RunPhase(t.Context(), "do the work", "")
@@ -520,8 +525,8 @@ func TestRunPhase_completionSignal_gatePass_transitions(t *testing.T) {
 // PendingDecision persisted, human_gate event emitted.
 func TestRunPhase_escalation_setsAwaitingHuman(t *testing.T) {
 	h, ms, sg := buildHarnessWithEscalatingGate(t, nil)
-	registerSignalResponses(sg, "deepseek/deepseek-v3.2")
-	registerSignalResponses(sg, "openai/gpt-4.1")
+	registerSignalResponses(sg, "glm-5")
+	registerSignalResponses(sg, "glm-4.7")
 
 	err := h.RunPhase(t.Context(), "do the work", "")
 	require.NoError(t, err)
@@ -558,8 +563,8 @@ func seedAwaitingHarness(t *testing.T) (*Harness, *MemStore) {
 	require.NoError(t, ms.PersistDecision("sess-gate", decision))
 
 	sg := NewStubGateway()
-	sg.AddResponse("deepseek/deepseek-v3.2", []Event{{Type: "done"}})
-	sg.AddResponse("openai/gpt-4.1", []Event{{Type: "done"}})
+	sg.AddResponse("glm-5", []Event{{Type: "done"}})
+	sg.AddResponse("glm-4.7", []Event{{Type: "done"}})
 
 	registry := NewToolRegistry(nil)
 	router := NewPhaseRouter(DefaultPhaseMap, registry, sg, nil)
@@ -822,9 +827,9 @@ func buildRestorable(t *testing.T, sessionID string, phaseRecords []PhaseRecord,
 	}
 
 	sg := NewStubGateway()
-	sg.AddResponse("deepseek/deepseek-v3.2", []Event{{Type: "done"}})
-	sg.AddResponse("openai/gpt-4.1", []Event{{Type: "done"}})
-	sg.AddResponse("anthropic/claude-sonnet-4-6", []Event{{Type: "done"}})
+	sg.AddResponse("glm-5", []Event{{Type: "done"}})
+	sg.AddResponse("glm-4.7", []Event{{Type: "done"}})
+	sg.AddResponse("anthropic/claude-sonnet-4.6", []Event{{Type: "done"}})
 	registry := NewToolRegistry(nil)
 	router := NewPhaseRouter(DefaultPhaseMap, registry, sg, nil)
 	return ms, router

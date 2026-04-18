@@ -28,6 +28,11 @@ type SessionStore interface {
 	ValidateDecision(sessionID, decisionID string) error // error if not found or already cleared
 	ClearDecision(sessionID, decisionID string) error
 	LoadDecision(sessionID string) (*PendingDecision, error) // nil if none pending (Fix A1)
+
+	// TransitionAndClearDecision atomically persists a phase record and clears the
+	// pending decision in a single transaction. Used by ApproveGate/Rollback to avoid
+	// partial state on crash: either both operations commit or neither does.
+	TransitionAndClearDecision(sessionID, decisionID string, record PhaseRecord) error
 }
 
 // MemStore is an in-memory SessionStore for tests.
@@ -134,4 +139,16 @@ func (m *MemStore) LoadDecision(sessionID string) (*PendingDecision, error) {
 	}
 	cp := *d
 	return &cp, nil
+}
+
+func (m *MemStore) TransitionAndClearDecision(sessionID, decisionID string, record PhaseRecord) error {
+	// Validate first — fail if decision is missing or mismatched.
+	if err := m.ValidateDecision(sessionID, decisionID); err != nil {
+		return err
+	}
+	if err := m.PersistPhaseRecord(sessionID, record); err != nil {
+		return err
+	}
+	m.decisions[sessionID] = nil
+	return nil
 }

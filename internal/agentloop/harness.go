@@ -46,6 +46,13 @@ type Harness struct {
 	state          harnessState
 	runID          uint64
 	beforeToolCall func(name string, args json.RawMessage) error // Fix U2: nil = no-op
+
+	// lastPhaseCompleted tracks whether the most recent RunPhase call detected
+	// a completion_signal from the agent. True only when the agent explicitly
+	// called the completion_signal tool; false when the agent responded with
+	// text only (phase turn incomplete). Bridge consumers (runWithHarness) use
+	// this to distinguish "phase done" from "agent still working".
+	lastPhaseCompleted bool
 }
 
 // validateToken enforces owner-token authorization on all mutating methods.
@@ -66,6 +73,10 @@ func (h *Harness) validateToken(token string) error {
 //
 // recovery=true validates next against RecoveryNext; false validates against AllowedNext.
 // Uses slices.Contains for membership check.
+//
+// Terminal phase completion: when current==next and AllowedNext is empty,
+// the phase is a terminal (e.g., RoleEval). Self-transition is allowed so
+// the completion record is persisted. The accumulator is NOT reset (same phase).
 func (h *Harness) transitionTo(current, next Role, recovery bool) error {
 	cfg := h.router.phaseMap[current]
 	var allowed []Role
@@ -74,6 +85,22 @@ func (h *Harness) transitionTo(current, next Role, recovery bool) error {
 	} else {
 		allowed = cfg.AllowedNext
 	}
+
+	// Terminal phase: current==next with empty AllowedNext is a valid completion.
+	if !recovery && current == next && len(allowed) == 0 {
+		// Persist terminal completion record but keep phase unchanged.
+		if err := h.store.PersistPhaseRecord(h.session.ID, PhaseRecord{
+			Phase:     current,
+			NextPhase: next, // same as current — signals completion, not transition
+			EndedAt:   time.Now(),
+			Snapshot:  h.accumulator.Snapshot(current),
+		}); err != nil {
+			return fmt.Errorf("persist terminal phase record: %w", err)
+		}
+		// Do NOT reset accumulator — same phase continues.
+		return nil
+	}
+
 	if !slices.Contains(allowed, next) {
 		return fmt.Errorf("transition %s→%s not allowed (recovery=%v, allowed=%v)",
 			current, next, recovery, allowed)
@@ -119,6 +146,7 @@ func (h *Harness) RunPhase(ctx context.Context, userPrompt, token string) error 
 	h.runID++
 	currentRunID := h.runID
 	phase := h.session.Phase
+	h.lastPhaseCompleted = false // default: phase not completed until signal
 
 	// Fix N3: build msgs from persisted TurnRecords — not from an in-memory buffer.
 	msgs := h.session.MessagesFromTurnRecords()
@@ -197,6 +225,11 @@ func (h *Harness) RunPhase(ctx context.Context, userPrompt, token string) error 
 		return nil // agent did not finish phase — wait for next prompt
 	}
 
+	// completion_signal detected — mark phase as completed for bridge consumers.
+	h.mu.Lock()
+	h.lastPhaseCompleted = true
+	h.mu.Unlock()
+
 	// Fix N7: warn on empty summary (non-blocking).
 	if summary == "" {
 		h.store.PersistEvent(h.session.ID, Event{Type: "warn",
@@ -209,7 +242,9 @@ func (h *Harness) RunPhase(ctx context.Context, userPrompt, token string) error 
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.store.PersistGateResult(h.session.ID, result)
+	if err := h.store.PersistGateResult(h.session.ID, result); err != nil {
+		return fmt.Errorf("persist gate result: %w", err)
+	}
 
 	if result.Escalated {
 		// Fix N2: persist PendingDecision so ApproveGate/Rollback can validate decisionID.
@@ -220,7 +255,9 @@ func (h *Harness) RunPhase(ctx context.Context, userPrompt, token string) error 
 			GateResult:     result,
 			AllowedActions: []string{"approve", "rollback", "stop"},
 		}
-		h.store.PersistDecision(h.session.ID, decision)
+		if err := h.store.PersistDecision(h.session.ID, decision); err != nil {
+			return fmt.Errorf("persist decision: %w", err)
+		}
 		h.state = hStateAwaitingHuman // Fix N1: FSM → awaiting human
 		h.session.EmitEvent(Event{Type: "human_gate", Delta: decision.DecisionID})
 		return nil
@@ -249,20 +286,25 @@ func (h *Harness) ApproveGate(ctx context.Context, decisionID, token string) err
 		return fmt.Errorf("invalid decisionID: %w", err)
 	}
 
-	phase := h.session.Phase
-	// Fix P1: transition FIRST — only after success do we clear the decision.
-	if err := h.transitionTo(phase, h.router.NextPhase(phase), false); err != nil {
-		// state stays awaiting_human; decision intact — caller can retry.
-		return err
+	// Atomically persist the phase transition AND clear the pending decision.
+	// Both operations execute in a single SQLite transaction, so a crash at any
+	// point leaves either both done or neither done — no partial state.
+	if err := h.store.TransitionAndClearDecision(h.session.ID, decisionID, PhaseRecord{
+		Phase:     h.session.Phase,
+		NextPhase: h.router.NextPhase(h.session.Phase),
+		StartedAt: time.Now().Add(-time.Second), // approximate
+		EndedAt:   time.Now(),
+	}); err != nil {
+		return fmt.Errorf("atomic approve transition: %w", err)
 	}
+	h.session.Phase = h.router.NextPhase(h.session.Phase)
+	h.accumulator.Reset()
 	h.state = hStateIdle
-	h.store.ClearDecision(h.session.ID, decisionID)
 	return nil
 }
 
 // Rollback is called by the Decision Owner to roll back to RecoveryNext.
 // Fix A2: requires ownerToken.
-// Fix P1: transitionTo (persists PhaseRecord) FIRST; ClearDecision only after success.
 func (h *Harness) Rollback(ctx context.Context, decisionID, token string) error {
 	if err := h.validateToken(token); err != nil {
 		return err
@@ -277,13 +319,18 @@ func (h *Harness) Rollback(ctx context.Context, decisionID, token string) error 
 		return fmt.Errorf("invalid decisionID: %w", err)
 	}
 
-	phase := h.session.Phase
-	// Fix P1: transition FIRST.
-	if err := h.transitionTo(phase, h.router.RecoveryPhase(phase), true); err != nil {
-		return err
+	// Atomically persist the recovery transition AND clear the pending decision.
+	if err := h.store.TransitionAndClearDecision(h.session.ID, decisionID, PhaseRecord{
+		Phase:     h.session.Phase,
+		NextPhase: h.router.RecoveryPhase(h.session.Phase),
+		StartedAt: time.Now().Add(-time.Second),
+		EndedAt:   time.Now(),
+	}); err != nil {
+		return fmt.Errorf("atomic rollback transition: %w", err)
 	}
+	h.session.Phase = h.router.RecoveryPhase(h.session.Phase)
+	h.accumulator.Reset()
 	h.state = hStateIdle
-	h.store.ClearDecision(h.session.ID, decisionID)
 	return nil
 }
 
@@ -332,6 +379,35 @@ func (h *Harness) Stop(ctx context.Context, token string) error {
 	h.state = hStateStopped
 	h.session.EmitEvent(Event{Type: "session_stopped"})
 	return nil
+}
+
+// IsAwaitingHuman reports whether the harness is waiting for a human gate decision.
+// Returns true if state is hStateAwaitingHuman (gate escalated, Decision Owner action required).
+// The harnessState type is intentionally unexported — callers use this accessor.
+func (h *Harness) IsAwaitingHuman() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.state == hStateAwaitingHuman
+}
+
+// Phase returns the current session phase. Thread-safe.
+// Bridge consumers use this to pass the actual agentloop phase into bookkeeping
+// instead of hardcoding "build".
+func (h *Harness) Phase() Role {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.session.Phase
+}
+
+// LastPhaseCompleted reports whether the most recent RunPhase call finished
+// with a completion_signal from the agent. Returns false when the agent
+// responded with text but did not call completion_signal (phase turn incomplete).
+// Bridge consumers use this to distinguish ResultStatusSuccess (phase done)
+// from ResultStatusNeedsInput (agent still working).
+func (h *Harness) LastPhaseCompleted() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.lastPhaseCompleted
 }
 
 // RestoreHarness creates a Harness from a previously persisted session.

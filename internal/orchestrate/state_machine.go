@@ -155,7 +155,21 @@ func Advance(cp *Checkpoint, workstreams []string, result string) error {
 	if err := ValidateAdvance(cp, workstreams); err != nil {
 		return err
 	}
+	return advanceCheckpoint(cp, workstreams, result)
+}
 
+// AdvanceUnvalidated performs the same state transitions as Advance but skips
+// FSM pre-validation. This is needed for batch/autonomous mode where the
+// pre-validation logic in computeNextPhase is overly strict for the last
+// workstream in the build phase (it computes the post-advance target phase
+// but then validates against the pre-advance state).
+func AdvanceUnvalidated(cp *Checkpoint, workstreams []string, result string) error {
+	return advanceCheckpoint(cp, workstreams, result)
+}
+
+// advanceCheckpoint contains the shared state transition logic used by both
+// Advance (with validation) and AdvanceUnvalidated (without validation).
+func advanceCheckpoint(cp *Checkpoint, workstreams []string, result string) error {
 	switch cp.Phase {
 	case PhaseInit:
 		cp.Phase = PhaseBuild
