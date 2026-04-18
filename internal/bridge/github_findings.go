@@ -316,78 +316,53 @@ type GitHubMilestone struct {
 	Title string `json:"title"`
 }
 
-// FetchIssues fetches GitHub issues matching the given labels and state with pagination.
-// The limit parameter specifies the maximum number of issues to fetch total (0 for no limit).
-// Uses GitHub CLI's pagination with a page size of 100.
+// FetchIssues fetches GitHub issues matching the given labels and state.
+// The limit parameter specifies the maximum number of issues to fetch total (0 means 1000).
+// Uses gh issue list with a single high-limit call; the gh CLI handles server-side
+// pagination internally via the --limit flag.
+//
+// TODO: For repositories with >1000 issues, switch to gh api with --paginate for
+// proper Link-header-based pagination through the GitHub REST API.
 func (c *GitHubClient) FetchIssues(ctx context.Context, labels []string, state string, limit int) ([]GitHubIssue, error) {
-	const pageSize = 100
-	var allIssues []GitHubIssue
+	fetchLimit := 1000
+	if limit > 0 && limit < fetchLimit {
+		fetchLimit = limit
+	}
 
-	// Build base args
-	baseArgs := []string{
+	args := []string{
 		"issue", "list",
 		"-R", c.repo,
-		"--json", "number,title,url,state,labels,createdAt",
+		"--json", "number,title,url,state,labels,createdAt,body,author,assignees,milestone",
+		"-L", fmt.Sprintf("%d", fetchLimit),
 	}
 
 	if state != "" {
-		baseArgs = append(baseArgs, "--state", state)
+		args = append(args, "--state", state)
 	}
 
 	for _, label := range labels {
 		if err := validateLabel(label); err != nil {
 			return nil, fmt.Errorf("invalid label: %w", err)
 		}
-		baseArgs = append(baseArgs, "-l", label)
+		args = append(args, "-l", label)
 	}
 
-	// Paginate using gh CLI's --limit and --jq continuation
-	// gh issue list supports pagination by fetching pages until fewer than pageSize are returned
-	for {
-		// Calculate how many to fetch this page
-		fetchLimit := pageSize
-		if limit > 0 && len(allIssues)+pageSize > limit {
-			fetchLimit = limit - len(allIssues)
-		}
-
-		if fetchLimit <= 0 {
-			break
-		}
-
-		// Build args for this page
-		args := append([]string{}, baseArgs...)
-		args = append(args, "-L", fmt.Sprintf("%d", fetchLimit))
-
-		// Skip already fetched issues
-		if len(allIssues) > 0 {
-			args = append(args, "--search", fmt.Sprintf("skip:%d", len(allIssues)))
-		}
-
-		cmd := exec.CommandContext(ctx, "gh", args...)
-		output, err := cmd.Output()
-		if err != nil {
-			return nil, fmt.Errorf("gh issue list failed: %w", err)
-		}
-
-		var issues []GitHubIssue
-		if err := json.Unmarshal(output, &issues); err != nil {
-			return nil, fmt.Errorf("parse github issues: %w", err)
-		}
-
-		// No more issues
-		if len(issues) == 0 {
-			break
-		}
-
-		allIssues = append(allIssues, issues...)
-
-		// If we got fewer than pageSize, we've reached the end
-		if len(issues) < fetchLimit {
-			break
-		}
+	cmd := exec.CommandContext(ctx, "gh", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("gh issue list failed: %w", err)
 	}
 
-	return allIssues, nil
+	var issues []GitHubIssue
+	if err := json.Unmarshal(output, &issues); err != nil {
+		return nil, fmt.Errorf("parse github issues: %w", err)
+	}
+
+	if len(issues) >= fetchLimit {
+		fmt.Fprintf(os.Stderr, "warning: FetchIssues hit the %d-issue limit; some issues may be missing. Switch to gh api pagination for repos with more issues.\n", fetchLimit)
+	}
+
+	return issues, nil
 }
 
 // LoadLocalFindings loads findings from a local directory.

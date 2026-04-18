@@ -78,11 +78,15 @@ func (s *BeadsSink) syncGitHubIssue(ctx context.Context, repo string, issue *Git
 // GitHub issue.  It looks up the dedup key in the DedupeStore; if no matching
 // Beads issue exists it simply skips — we never create an issue just to close it.
 func (s *BeadsSink) syncClosedGitHubIssue(ctx context.Context, repo string, issue *GitHubIssue) error {
+	featureID := extractFeatureID(issue)
+	wsID := extractWSID(issue)
 	dedupKey := fmt.Sprintf("gh-issue:%s:%d", repo, issue.Number)
 	findingHash, _ := TypedFindingHashes(TypedFinding{
-		Source:   FindingSourceGitHub,
-		DedupKey: dedupKey,
-		Title:    issue.Title,
+		Source:     FindingSourceGitHub,
+		FeatureID:  featureID,
+		WSID:       wsID,
+		DedupKey:   dedupKey,
+		Title:      issue.Title,
 	})
 
 	s.dedupe.mu.RLock()
@@ -174,6 +178,10 @@ func extractFeatureID(issue *GitHubIssue) string {
 		if looksLikeFeatureID(name) {
 			return name
 		}
+		// Case-insensitive bare feature ID (e.g., "f077" -> "F077").
+		if bareFeatureIDPattern.MatchString(name) {
+			return strings.ToUpper(name)
+		}
 	}
 
 	// Then check title for F### pattern
@@ -227,6 +235,9 @@ func looksLikeFeatureID(s string) bool {
 	return true
 }
 
+// bareFeatureIDPattern matches bare feature IDs in any case (e.g., "f077", "F077").
+var bareFeatureIDPattern = regexp.MustCompile(`(?i)^f\d{3}$`)
+
 // extractFeatureIDFromText extracts F### from text.
 func extractFeatureIDFromText(text string) string {
 	words := strings.Fields(text)
@@ -236,6 +247,10 @@ func extractFeatureIDFromText(text string) string {
 		w = strings.TrimRight(w, ":,;-")
 		if looksLikeFeatureID(w) {
 			return w
+		}
+		// Case-insensitive bare feature ID (e.g., "f077" -> "F077").
+		if bareFeatureIDPattern.MatchString(w) {
+			return strings.ToUpper(w)
 		}
 	}
 	return ""

@@ -486,6 +486,62 @@ func TestSyncGitHubIssuesClosedIssueAlreadyClosedSkips(t *testing.T) {
 	}
 }
 
+func TestSyncGitHubIssuesClosedWithTaggedIssueIsReconciled(t *testing.T) {
+	// When an issue was created with FeatureID and WSID labels, closing it
+	// must still find the original Beads issue.  The closed-issue path must
+	// extract the same FeatureID/WSID to compute the same hash.
+	sink := NewBeadsSink("sdplab", true, nil)
+	ctx := t.Context()
+
+	openIssue := []GitHubIssue{
+		{
+			Number:  55,
+			Title:   "F077: Fix reconciliation bug",
+			HTMLURL: "https://github.com/org/repo/issues/55",
+			State:   "open",
+			Labels: []GitHubLabel{
+				{Name: "bug"},
+				{Name: "feature/F077"},
+				{Name: "00-077-02"},
+			},
+		},
+	}
+
+	// Create the Beads issue with tags.
+	err := sink.SyncGitHubIssues(ctx, "org/repo", openIssue)
+	if err != nil {
+		t.Fatalf("open sync returned error: %v", err)
+	}
+	stats1 := sink.GetStats()
+	if stats1.Created != 1 {
+		t.Fatalf("expected 1 created, got %d", stats1.Created)
+	}
+
+	// Close the same issue (same labels so tags are extracted).
+	closedIssue := []GitHubIssue{
+		{
+			Number:  55,
+			Title:   "F077: Fix reconciliation bug",
+			HTMLURL: "https://github.com/org/repo/issues/55",
+			State:   "closed",
+			Labels: []GitHubLabel{
+				{Name: "bug"},
+				{Name: "feature/F077"},
+				{Name: "00-077-02"},
+			},
+		},
+	}
+
+	err = sink.SyncGitHubIssues(ctx, "org/repo", closedIssue)
+	if err != nil {
+		t.Fatalf("closed sync returned error: %v", err)
+	}
+	stats2 := sink.GetStats()
+	if stats2.Closed != 1 {
+		t.Fatalf("expected 1 closed, got %d (stats: %+v)", stats2.Closed, stats2)
+	}
+}
+
 // --- Issue 4: Case-insensitive feature/WSID extraction ---
 
 func TestExtractFeatureIDCaseInsensitiveLabel(t *testing.T) {
@@ -509,11 +565,54 @@ func TestExtractFeatureIDCaseInsensitiveLabel(t *testing.T) {
 			issue:    GitHubIssue{Labels: []GitHubLabel{{Name: "feature/F200"}}},
 			expected: "F200",
 		},
+		{
+			name:     "bare lowercase f077 label",
+			issue:    GitHubIssue{Labels: []GitHubLabel{{Name: "f077"}}},
+			expected: "F077",
+		},
+		{
+			name:     "bare uppercase F077 label (existing)",
+			issue:    GitHubIssue{Labels: []GitHubLabel{{Name: "F077"}}},
+			expected: "F077",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := extractFeatureID(&tt.issue)
+			if got != tt.expected {
+				t.Fatalf("expected %q, got %q", tt.expected, got)
+			}
+		})
+	}
+}
+
+func TestExtractFeatureIDFromTextCaseInsensitive(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		expected string
+	}{
+		{
+			name:     "bare lowercase f077 in title",
+			text:     "f077: fix something",
+			expected: "F077",
+		},
+		{
+			name:     "bare uppercase F077 in title",
+			text:     "F077: fix something",
+			expected: "F077",
+		},
+		{
+			name:     "no feature ID",
+			text:     "random issue title",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractFeatureIDFromText(tt.text)
 			if got != tt.expected {
 				t.Fatalf("expected %q, got %q", tt.expected, got)
 			}
