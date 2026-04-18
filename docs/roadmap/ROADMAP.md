@@ -455,6 +455,9 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 
 - **F110** — Work Atomicity Normalization — strict leaf execution contract (00-110-01 ... 00-110-05). First make `leaf workstream` the only executable workstream shape in runtime-facing surfaces: normalized frontmatter and `## Beads` roles, compiled `workgraph.lock.json`, stale-lock rejection in the mini-harness, and canonical skill/agent wording that no longer treats every workstream as directly runnable. Then wire live Beads query, claim, revalidation, and explicit claim release into bound leaf sessions. Finalize the runtime contract with counters and structured dispatch diagnostics instead of opaque wrapped CLI errors. Repair the broken `sdp` repo boundary so public protocol publishing is possible again through a real submodule checkout, then publish the public `sdp` prompt/skill/agent wording to match the implemented runtime contract.
 
+### Phase Agent Quality Standards (In Progress)
+
+- **F130** — Agent Code Quality Standards (00-F130-01 ... 00-F130-05). Canonical Go patterns reference for all AI harnesses, dev environment health check CLI, and rules-iteration protocol. 00-F130-01 (go-patterns.md) and 00-F130-02 (sdp-healthcheck) shipped in session 2026-04-18. Remaining: .cursorrules for Cursor, CI healthcheck gate, rules-iteration skill.
 
 ### Layer Rollout Matrix (Vision Alignment)
 

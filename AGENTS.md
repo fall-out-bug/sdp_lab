@@ -39,6 +39,7 @@ SDP — AI-управляемая платформа полного цикла �
 3. если это execution, запусти `scripts/beads_transport.sh fetch` и `bd ready --json`
 4. если запрос про greenfield / brownfield adoption — сразу в [sdp/docs/QUICKSTART.md](sdp/docs/QUICKSTART.md) (требует submodule init)
 5. если путь начинается с `sdp/`, прочитай [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md) перед правкой
+6. **если пишешь Go-код** — прочитай [docs/reference/go-patterns.md](docs/reference/go-patterns.md) (stack, naming, 5 примеров, 5 антипаттернов, шаблон файла)
 
 ## Project Structure
 
@@ -483,6 +484,7 @@ Example: `go run ./cmd/sdp-orchestrate --feature F053 --next-action`
 | `docs/reference/multi-agent-patterns.md` | Когда использовать Generator-Verifier / Orchestrator-Subagent / Agent Teams / Message Bus / Shared State |
 | `docs/reference/harness-integration.md` | Status per harness (Claude Code, Codex, OpenCode, Cursor); OpenCode Sisyphus fix |
 | `docs/reference/skill-authoring.md` | SKILL.md frontmatter policy, body template, versioning |
+| `docs/reference/go-patterns.md` | **Go code style** — stack, naming, 5 good examples, 5 antipatterns, typical file template |
 | `.agents/skills/README.md` | Multi-harness skills layout |
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:full hash:d4f96305 -->
