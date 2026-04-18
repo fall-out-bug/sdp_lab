@@ -234,6 +234,13 @@ func (b *ServeBridge) recordExecutionResult(cardID string, result *control.Execu
 	card.LastExecutorHeartbeatAt = completedAt.Format(time.RFC3339)
 	card.ExecutorProgressSummary = result.Summary
 	card.ExecutorResult = summarizeResult(result, completedAt)
+	// Clear stale gate-specific fields from any previous NeedsReview result.
+	// These are only meaningful when the card is actively awaiting human review.
+	card.DecisionRequired = nil
+	card.FeedbackRequest = nil
+	card.NeedsFeedbackFrom = nil
+	card.WaitingOn = nil
+
 	switch result.Status {
 	case control.ResultStatusSuccess:
 		card.ExecutorRuntimeState = control.ExecutorRuntimeCompleted
