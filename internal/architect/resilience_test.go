@@ -183,7 +183,7 @@ func TestCircuitBreaker_Execute_OpenCircuit(t *testing.T) {
 
 	var cbErr *CircuitBreakerError
 	assert.ErrorAs(t, err, &cbErr)
-	assert.Equal(t, "open", cbErr.State)
+	assert.Equal(t, StateOpen, cbErr.State)
 }
 
 func TestCircuitBreaker_Reset(t *testing.T) {
