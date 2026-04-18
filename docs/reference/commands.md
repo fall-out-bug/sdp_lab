@@ -208,8 +208,10 @@ SDP v1.0+ is organized around 5 core intents. These are the primary commands you
 
 **Usage:**
 ```bash
-@review-readiness
+@review --dimension readiness
 ```
+
+**Note:** This is invoked via `@review --dimension readiness`. The standalone `@review-readiness` alias is deprecated.
 
 **See:** [.agents/skills/review-readiness.md](../../.agents/skills/review-readiness.md)
 

@@ -32,6 +32,11 @@ Deploying to production/staging, CI failures need investigation, system monitori
 **triage:** CI failure diagnosis. Log analysis, test categorization (flaky/dep/env/code), CI health.
 **plan:** Session & backlog management. Checkpoint work state, resume from checkpoint, decompose backlog, create beads issues, map dependencies. Replaces standalone @plan skill; absorbs @oneshot checkpoint/resume.
 
+Session management:
+- checkpoint: Save current work state (branch, changed files, beads issues) to .sdp/checkpoint.json
+- resume: Restore work state from checkpoint, continue from last position
+- background: Execute plan steps in background, report progress
+
 ## Routing Rules
 
 Mode based on: (1) Context: PR merged?→deploy, CI red?→triage, insights gathered?→plan.
@@ -52,6 +57,11 @@ Mode based on: (1) Context: PR merged?→deploy, CI red?→triage, insights gath
 **Inputs:** Design docs, investigation findings, architecture decisions, team notes, tech debt discoveries, feature requests.
 
 **Process:** Gather insights → identify work items → group into workstreams → create beads issues → assign priorities/sizes → map to SDP stages.
+
+**Session management:**
+- checkpoint: Save current work state (branch, changed files, beads issues) to .sdp/checkpoint.json
+- resume: Restore work state from checkpoint, continue from last position
+- background: Execute plan steps in background, report progress
 
 **Outputs:** Workstream files, beads issues with dependencies, priority-ranked backlog, size estimates.
 

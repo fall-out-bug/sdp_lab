@@ -61,7 +61,7 @@ Old skills have been absorbed into the five intents. During the deprecation peri
 | @bugfix | @fix | systematic | Use `@fix --mode systematic` |
 | @issue | @fix | systematic | Use `@fix --mode systematic` |
 | @debug | @fix | investigate | Use `@fix --mode investigate` |
-| @reality-check | @review | architecture | Use `@review --dimension architecture` |
+| @reality-check | @review | reality | Use `@review --dimension reality` |
 | @verify-workstream | @review | readiness | Use `@review --dimension readiness` |
 | @deploy | @operate | deploy | Use `@operate --mode deploy` |
 | @ci-triage | @operate | triage | Use `@operate --mode triage` |
@@ -244,6 +244,8 @@ Purpose: verify workstream completion against acceptance criteria before PR subm
 Use when:
 - a workstream is nearly complete and needs final verification
 - pre-PR quality gate verification is needed
+
+Invocation: `@review --dimension readiness` (NOT as standalone `@review-readiness`)
 
 Must emit:
 - readiness verdict with any blocking items

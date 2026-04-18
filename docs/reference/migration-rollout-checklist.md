@@ -184,4 +184,4 @@ If critical issues arise:
 
 **Feature:** F125 (Toolkit UX — intent-routed skills over composable tools)
 **Workstream:** WS 00-125-04 (Migration Harness and Documentation Cutover)
-**Status:** Phase 1 ready — legacy stubs created, awaiting commands.json fix from other agent
+**Status:** Phase 1 complete — all documentation updated, commands.json fixed, deprecation warnings implemented

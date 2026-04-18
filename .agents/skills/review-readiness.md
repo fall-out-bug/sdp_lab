@@ -1,6 +1,6 @@
 ---
 name: review-readiness
-description: Extends @review with --mode readiness: verify-before-completion gate returning a structured JSON report.
+description: Extends @review with --dimension readiness: verify-before-completion gate returning a structured JSON report.
 version: 1.0.0
 tags:
   - review
@@ -15,10 +15,10 @@ compatibility:
 ---
 
 > **This is NOT a standalone skill.** It extends the `@review` intent with
-> `--mode readiness`. Invoke as `@review --mode readiness` — do not call it
-> directly as a standalone skill.
+> `--dimension readiness`. Invoke as `@review --dimension readiness` — do not call it
+> directly as a standalone skill. Standalone `@review-readiness` is a legacy alias.
 
-# @review --mode readiness
+# @review --dimension readiness
 
 ## Purpose
 
@@ -27,13 +27,13 @@ Produces a JSON pass/fail report across five dimensions before work is declared 
 
 ## Integration with @review
 
-When a harness processes `@review --mode readiness`, it should:
-1. Load this skill file as the mode-specific logic for the review intent.
+When a harness processes `@review --dimension readiness`, it should:
+1. Load this skill file as the dimension-specific logic for the review intent.
 2. Execute the checklist below instead of the default review flow.
 3. Return the JSON report as the review result.
 
 In skill manifests or intent routing tables, register this under the `@review`
-intent with mode `readiness` — not as a top-level callable skill.
+intent with dimension `readiness` — not as a top-level callable skill.
 
 ## Checklist
 
@@ -65,5 +65,5 @@ On failure `"ready": false` and `summary` lists failing checks.
 
 ## Integration
 
-Call from `@review` intent when `--mode readiness` is specified.
+Call from `@review` intent when `--dimension readiness` is specified.
 Go implementation: `internal/readiness` package (`ReadinessChecker.Check()`).
