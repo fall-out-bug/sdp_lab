@@ -156,6 +156,11 @@ func runArchitectAnalyze(args []string) {
 		fmt.Println(output)
 	}
 
+	// Write artifact files to .sdp/architecture/ directory
+	if err := writeArtifactFiles(repoRoot, result, diagrams); err != nil {
+		log.Printf("Warning: failed to write artifact files: %v", err)
+	}
+
 	// Print verbose summary to stderr
 	if *verboseFlag {
 		reporter.Summary()
@@ -877,4 +882,55 @@ func architectUsage() {
 	fmt.Fprintln(os.Stderr, "Eval flags:")
 	fmt.Fprintln(os.Stderr, "  --ground-truth <file>         Path to ground truth JSON (required)")
 	fmt.Fprintln(os.Stderr, "  --format <json|text>          Output format (default: text)")
+}
+
+// writeArtifactFiles writes analysis artifacts to .sdp/architecture/ directory.
+func writeArtifactFiles(repoRoot string, result *architect.PipelineResult, diagrams []*c4.DiagramResult) error {
+	// Create .sdp/architecture/ directory
+	archDir := filepath.Join(repoRoot, ".sdp", "architecture")
+	if err := os.MkdirAll(archDir, 0755); err != nil {
+		return fmt.Errorf("failed to create architecture directory: %w", err)
+	}
+
+	// Write profile.json
+	if result.Profile != nil {
+		profileData, err := json.MarshalIndent(result.Profile, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal profile: %w", err)
+		}
+		profilePath := filepath.Join(archDir, "profile.json")
+		if err := os.WriteFile(profilePath, profileData, 0644); err != nil {
+			return fmt.Errorf("failed to write profile.json: %w", err)
+		}
+	}
+
+	// Write report.json
+	if result.Report != nil {
+		reportData, err := json.MarshalIndent(result.Report, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal report: %w", err)
+		}
+		reportPath := filepath.Join(archDir, "report.json")
+		if err := os.WriteFile(reportPath, reportData, 0644); err != nil {
+			return fmt.Errorf("failed to write report.json: %w", err)
+		}
+	}
+
+	// Write C4 diagrams to c4/ subdirectory
+	if len(diagrams) > 0 {
+		c4Dir := filepath.Join(archDir, "c4")
+		if err := os.MkdirAll(c4Dir, 0755); err != nil {
+			return fmt.Errorf("failed to create c4 directory: %w", err)
+		}
+
+		for _, diag := range diagrams {
+			filename := fmt.Sprintf("c4-%s.mmd", diag.Level)
+			diagPath := filepath.Join(c4Dir, filename)
+			if err := os.WriteFile(diagPath, []byte(diag.MermaidCode), 0644); err != nil {
+				return fmt.Errorf("failed to write %s: %w", filename, err)
+			}
+		}
+	}
+
+	return nil
 }
