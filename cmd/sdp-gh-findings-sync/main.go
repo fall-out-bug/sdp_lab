@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -25,8 +26,11 @@ var (
 	interval = flag.Duration("interval", 5*time.Minute, "Polling interval")
 	prefix   = flag.String("prefix", "sdplab-", "Beads issue prefix")
 	labels   = flag.String("labels", "", "Comma-separated default labels")
-	dryRun   = flag.Bool("dry-run", false, "Show what would be created without creating")
-	output   = flag.String("output", "", "Output file for sync report")
+	dryRun     = flag.Bool("dry-run", false, "Show what would be created without creating")
+	output     = flag.String("output", "", "Output file for sync report")
+	issues     = flag.Bool("issues", false, "Sync GitHub Issues as well as CI artifacts")
+	issueLabel = flag.String("issue-label", "", "Filter GitHub Issues by label (comma-separated)")
+	issueState = flag.String("issue-state", "open", "GitHub issue state filter (open, closed, all)")
 )
 
 func main() {
@@ -85,6 +89,11 @@ func runOneShotMode(ctx context.Context, sink *bridge.BeadsSink) {
 	} else {
 		fmt.Println("Fetching latest workflow runs...")
 		syncLatestRuns(ctx, sink, *repo, *branch)
+	}
+
+	if *issues && *repo != "" {
+		fmt.Println("Syncing GitHub issues...")
+		syncGitHubIssues(ctx, sink, *repo)
 	}
 }
 
@@ -198,8 +207,8 @@ func parseLabels(s string) []string {
 		return nil
 	}
 	var labels []string
-	for _, l := range splitComma(s) {
-		l = trimSpace(l)
+	for _, l := range strings.Split(s, ",") {
+		l = strings.TrimSpace(l)
 		if l != "" {
 			labels = append(labels, l)
 		}
@@ -207,29 +216,27 @@ func parseLabels(s string) []string {
 	return labels
 }
 
-func splitComma(s string) []string {
-	var result []string
-	var current string
-	for _, r := range s {
-		if r == ',' {
-			result = append(result, current)
-			current = ""
-		} else {
-			current += string(r)
-		}
-	}
-	if current != "" {
-		result = append(result, current)
-	}
-	return result
-}
+func syncGitHubIssues(ctx context.Context, sink *bridge.BeadsSink, repo string) {
+	// Note: This function reads global flag variables (*issueLabel, *issueState) directly.
+	// This is the established pattern throughout main.go — all sync* functions read
+	// their configuration from package-level flag vars rather than receiving params.
+	// See syncLocalFindings, syncFromRun, syncLatestRuns for the same convention.
+	client := bridge.NewGitHubClient(repo)
 
-func trimSpace(s string) string {
-	var result []rune
-	for _, r := range s {
-		if r != ' ' && r != '\t' {
-			result = append(result, r)
-		}
+	labels := parseLabels(*issueLabel)
+	ghIssues, err := client.FetchIssues(ctx, labels, *issueState, 100)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error fetching GitHub issues: %v\n", err)
+		return
 	}
-	return string(result)
+
+	if len(ghIssues) == 0 {
+		fmt.Println("No matching GitHub issues found")
+		return
+	}
+
+	fmt.Printf("Processing %d GitHub issues...\n", len(ghIssues))
+	if err := sink.SyncGitHubIssues(ctx, repo, ghIssues); err != nil {
+		fmt.Fprintf(os.Stderr, "Error syncing GitHub issues: %v\n", err)
+	}
 }

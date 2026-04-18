@@ -7,10 +7,11 @@ import (
 type FindingSourceType string
 
 const (
-	FindingSourceReview FindingSourceType = "review"
-	FindingSourceCI     FindingSourceType = "ci"
-	FindingSourceDrift  FindingSourceType = "drift"
-	FindingSourceQA     FindingSourceType = "qa"
+	FindingSourceReview  FindingSourceType = "review"
+	FindingSourceCI      FindingSourceType = "ci"
+	FindingSourceGitHub  FindingSourceType = "github"
+	FindingSourceDrift   FindingSourceType = "drift"
+	FindingSourceQA      FindingSourceType = "qa"
 )
 
 type TypedFinding struct {

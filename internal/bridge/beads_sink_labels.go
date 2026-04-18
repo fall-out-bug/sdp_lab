@@ -47,7 +47,9 @@ func sourceFindingLabel(source FindingSourceType) string {
 	case FindingSourceQA:
 		return "qa-finding"
 	case FindingSourceCI:
-		fallthrough
+		return "ci-finding"
+	case FindingSourceGitHub:
+		return "github-finding"
 	default:
 		return "ci-finding"
 	}

@@ -9,9 +9,30 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
+
+// validLabelPattern matches allowed characters in GitHub issue labels.
+var validLabelPattern = regexp.MustCompile(`^[a-zA-Z0-9._/\-]+$`)
+
+// validateLabel checks that a label value is safe to pass to the gh CLI.
+func validateLabel(label string) error {
+	if label == "" {
+		return fmt.Errorf("label must not be empty")
+	}
+	if strings.Contains(label, "\n") {
+		return fmt.Errorf("label %q must not contain newlines", label)
+	}
+	if strings.Contains(label, "\x00") {
+		return fmt.Errorf("label %q must not contain null bytes", label)
+	}
+	if !validLabelPattern.MatchString(label) {
+		return fmt.Errorf("label %q contains invalid characters; allowed: alphanumeric, hyphens, underscores, slashes, dots", label)
+	}
+	return nil
+}
 
 // ProtocolFindings represents findings from sdp-protocol-check.
 type ProtocolFindings struct {
@@ -247,6 +268,71 @@ func ParseFindingsFile(path string) (interface{}, string, error) {
 
 		return nil, "", fmt.Errorf("unknown findings format")
 	}
+}
+
+// GitHubIssue represents a GitHub issue from the API.
+type GitHubIssue struct {
+	Number    int              `json:"number"`
+	Title     string           `json:"title"`
+	Body      string           `json:"body"`
+	State     string           `json:"state"`
+	Labels    []GitHubLabel    `json:"labels"`
+	HTMLURL   string           `json:"html_url"`
+	CreatedAt string           `json:"created_at"`
+	UpdatedAt string           `json:"updated_at"`
+	User      *GitHubUser      `json:"user"`
+	Assignees []GitHubUser     `json:"assignees"`
+	Milestone *GitHubMilestone `json:"milestone"`
+}
+
+// GitHubLabel represents a label on a GitHub issue.
+type GitHubLabel struct {
+	Name  string `json:"name"`
+	Color string `json:"color"`
+}
+
+// GitHubUser represents a GitHub user.
+type GitHubUser struct {
+	Login string `json:"login"`
+}
+
+// GitHubMilestone represents a GitHub milestone.
+type GitHubMilestone struct {
+	Title string `json:"title"`
+}
+
+// FetchIssues fetches GitHub issues matching the given labels and state.
+func (c *GitHubClient) FetchIssues(ctx context.Context, labels []string, state string, limit int) ([]GitHubIssue, error) {
+	args := []string{
+		"issue", "list",
+		"-R", c.repo,
+		"--json", "number,title,body,state,labels,html_url,created_at,updated_at,user,assignees,milestone",
+		"-L", fmt.Sprintf("%d", limit),
+	}
+
+	if state != "" {
+		args = append(args, "--state", state)
+	}
+
+	for _, label := range labels {
+		if err := validateLabel(label); err != nil {
+			return nil, fmt.Errorf("invalid label: %w", err)
+		}
+		args = append(args, "-l", label)
+	}
+
+	cmd := exec.CommandContext(ctx, "gh", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("gh issue list failed: %w", err)
+	}
+
+	var issues []GitHubIssue
+	if err := json.Unmarshal(output, &issues); err != nil {
+		return nil, fmt.Errorf("parse github issues: %w", err)
+	}
+
+	return issues, nil
 }
 
 // LoadLocalFindings loads findings from a local directory.

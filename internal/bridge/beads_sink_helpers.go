@@ -1,10 +1,8 @@
 package bridge
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"text/template"
 	"time"
 )
 
@@ -22,71 +20,34 @@ func severityToPriority(severity string) int {
 	}
 }
 
-// truncate truncates a string to maxLen characters.
+// truncate truncates a string to maxLen runes, handling multi-byte UTF-8 correctly.
 func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
 		return s
 	}
-	return s[:maxLen-3] + "..."
+	if maxLen > 3 {
+		return string(runes[:maxLen-3]) + "..."
+	}
+	return string(runes[:maxLen])
 }
 
 // PrintSummary prints a summary of the sync.
 func (s *BeadsSink) PrintSummary() {
+	stats := s.GetStats()
 	fmt.Printf("\nSync Summary:\n")
-	fmt.Printf("  Processed: %d\n", s.stats.Processed)
-	fmt.Printf("  Created:   %d\n", s.stats.Created)
-	fmt.Printf("  Updated:   %d\n", s.stats.Updated)
-	fmt.Printf("  Skipped:   %d\n", s.stats.Skipped)
-	fmt.Printf("  Failed:    %d\n", s.stats.Failed)
+	fmt.Printf("  Processed: %d\n", stats.Processed)
+	fmt.Printf("  Created:   %d\n", stats.Created)
+	fmt.Printf("  Updated:   %d\n", stats.Updated)
+	fmt.Printf("  Skipped:   %d\n", stats.Skipped)
+	fmt.Printf("  Failed:    %d\n", stats.Failed)
 }
 
 // GenerateReport generates a JSON report of the sync.
 func (s *BeadsSink) GenerateReport() ([]byte, error) {
 	report := map[string]interface{}{
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
-		"stats":     s.stats,
+		"stats":     s.GetStats(),
 	}
 	return json.MarshalIndent(report, "", "  ")
-}
-
-// IssueTemplateData contains data for issue templates.
-type IssueTemplateData struct {
-	Category  string
-	Severity  string
-	File      string
-	Line      int
-	Message   string
-	Hint      string
-	FeatureID string
-	WSID      string
-	CheckName string
-	RunID     int64
-}
-
-// DefaultIssueTemplate is the default template for issue descriptions.
-const DefaultIssueTemplate = `**Category:** {{.Category}}
-**Severity:** {{.Severity}}
-**File:** {{.File}}{{if .Line}}:{{.Line}}{{end}}
-
-**Message:** {{.Message}}
-
-{{if .Hint}}**Remediation:** {{.Hint}}{{end}}
-
----
-*Source: {{.CheckName}} (run {{.RunID}})*
-`
-
-// RenderIssueTemplate renders an issue description from a template.
-func RenderIssueTemplate(tmpl string, data *IssueTemplateData) (string, error) {
-	t, err := template.New("issue").Parse(tmpl)
-	if err != nil {
-		return "", fmt.Errorf("parse issue template: %w", err)
-	}
-
-	var buf bytes.Buffer
-	if err := t.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("execute issue template: %w", err)
-	}
-
-	return buf.String(), nil
 }
