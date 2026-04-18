@@ -53,7 +53,7 @@ type ServeBridge struct {
 // NewServeBridge creates a new serve-mode bridge.
 //
 // The internal agentloop harness path requires explicit opt-in via the
-// SDP_USE_HARNESS environment variable (set to "1" or "true"). When both
+// SDP_USE_HARNESS environment variable (set to "1"). When both
 // SDP_USE_HARNESS and OPENROUTER_API_KEY are present, the harness path is
 // activated. Otherwise, harnessRouter stays nil and DispatchAndRun falls back
 // to the legacy OmO path.
@@ -71,8 +71,7 @@ func NewServeBridge(store *control.Store, projectRoot string) *ServeBridge {
 	}
 
 	// Harness path requires explicit opt-in via SDP_USE_HARNESS=1.
-	useHarness := os.Getenv("SDP_USE_HARNESS")
-	if useHarness != "1" && useHarness != "true" {
+	if os.Getenv("SDP_USE_HARNESS") != "1" {
 		return sb
 	}
 
