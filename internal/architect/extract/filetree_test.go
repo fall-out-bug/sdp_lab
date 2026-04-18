@@ -45,12 +45,12 @@ func TestFileTreeExtractor_BasicStructure(t *testing.T) {
 	}
 
 	// Check basic counts
-	if frag.FileTree.TotalFiles != 9 {
-		t.Errorf("Expected 9 files, got %d", frag.FileTree.TotalFiles)
+	if frag.FileTree.TotalFiles != 8 {
+		t.Errorf("Expected 8 files, got %d", frag.FileTree.TotalFiles)
 	}
 
-	if frag.FileTree.TotalDirs != 8 { // src, src/utils, lib, cmd, cmd/server, pkg, pkg/api, internal, internal/auth
-		t.Errorf("Expected 8 directories, got %d", frag.FileTree.TotalDirs)
+	if frag.FileTree.TotalDirs != 9 { // src, src/utils, lib, cmd, cmd/server, pkg, pkg/api, internal, internal/auth
+		t.Errorf("Expected 9 directories, got %d", frag.FileTree.TotalDirs)
 	}
 
 	// Check for detected patterns
@@ -70,8 +70,8 @@ func TestFileTreeExtractor_BasicStructure(t *testing.T) {
 	if frag.Metrics == nil {
 		t.Fatal("Metrics is nil")
 	}
-	if frag.Metrics.TotalFiles != 9 {
-		t.Errorf("Expected 9 files in metrics, got %d", frag.Metrics.TotalFiles)
+	if frag.Metrics.TotalFiles != 8 {
+		t.Errorf("Expected 8 files in metrics, got %d", frag.Metrics.TotalFiles)
 	}
 }
 

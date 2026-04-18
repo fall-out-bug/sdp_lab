@@ -73,7 +73,7 @@ var textExtensions = map[string]bool{
 	".ts": true, ".tsx": true, ".js": true, ".jsx": true,
 	".sql": true, ".R": true, ".r": true,
 	".xml": true, ".json": true, ".yaml": true, ".yml": true,
-	".toml": true, ".md": true, ".txt": true, ".properties": true,
+	".toml": true, ".mod": true, ".md": true, ".txt": true, ".properties": true,
 	".conf": true, ".sh": true, ".bat": true, ".css": true, ".html": true,
 	".kt": true, ".kts": true, ".c": true, ".h": true, ".cpp": true,
 	".rs": true, ".rb": true, ".php": true, ".swift": true,
