@@ -1,0 +1,34 @@
+{
+  "languages": [
+    {
+      "primary": "go",
+      "all": ["go", "protobuf"]
+    }
+  ],
+  "dependencies": [
+    {
+      "file": "go.mod",
+      "language": "go",
+      "dep_count": 8
+    }
+  ],
+  "import_graph": {
+    "nodes": 12,
+    "edges": 18
+  },
+  "infra": {
+    "containers": [
+      {
+        "name": "grpc-server",
+        "type": "service",
+        "source": "Dockerfile"
+      }
+    ]
+  },
+  "specs": [
+    {
+      "kind": "protobuf",
+      "path": "proto/service.proto"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "languages": [
+    {
+      "primary": "python",
+      "all": ["python"]
+    }
+  ],
+  "sql_analysis": {
+    "tables": [
+      {
+        "name": "users",
+        "schema": "public"
+      },
+      {
+        "name": "addresses",
+        "schema": "public"
+      },
+      {
+        "name": "orders",
+        "schema": "public"
+      }
+    ]
+  },
+  "generated": [
+    {
+      "path": "models/user.py",
+      "reason": "sqlalchemy:model"
+    },
+    {
+      "path": "models/address.py",
+      "reason": "sqlalchemy:model"
+    }
+  ]
+}

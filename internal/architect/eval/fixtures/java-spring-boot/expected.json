@@ -1,0 +1,33 @@
+{
+  "languages": [
+    {
+      "primary": "java",
+      "all": ["java", "xml"]
+    }
+  ],
+  "dependencies": [
+    {
+      "file": "pom.xml",
+      "language": "java",
+      "dep_count": 20
+    }
+  ],
+  "import_graph": {
+    "nodes": 30,
+    "edges": 50
+  },
+  "infra": {
+    "containers": [
+      {
+        "name": "app",
+        "type": "service",
+        "source": "Dockerfile"
+      },
+      {
+        "name": "mysql",
+        "type": "database",
+        "source": "docker-compose.yml"
+      }
+    ]
+  }
+}

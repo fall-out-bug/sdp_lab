@@ -1,0 +1,52 @@
+{
+  "languages": [
+    {
+      "primary": "go",
+      "all": ["go"]
+    }
+  ],
+  "dependencies": [
+    {
+      "file": "go.mod",
+      "language": "go",
+      "dep_count": 10
+    },
+    {
+      "file": "cmd/service/go.mod",
+      "language": "go",
+      "dep_count": 5
+    },
+    {
+      "file": "pkg/api/go.mod",
+      "language": "go",
+      "dep_count": 3
+    }
+  ],
+  "import_graph": {
+    "nodes": 15,
+    "edges": 25,
+    "clusters": [
+      {
+        "id": "cmd",
+        "packages": ["cmd/server"],
+        "internal_edges": 3,
+        "external_edges": 2
+      },
+      {
+        "id": "pkg",
+        "packages": ["pkg/api", "pkg/auth"],
+        "internal_edges": 5,
+        "external_edges": 3
+      }
+    ]
+  },
+  "infra": {
+    "containers": [
+      {
+        "name": "api",
+        "type": "service",
+        "source": "Dockerfile"
+      }
+    ]
+  }
+}

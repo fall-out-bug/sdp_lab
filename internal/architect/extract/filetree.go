@@ -80,7 +80,8 @@ var textExtensions = map[string]bool{
 }
 
 // FileTreeExtractor walks the directory tree, counts files and directories,
-// measures maximum depth, counts lines of code, and detects common naming conventions.
+// measures maximum depth, counts lines of code, and detects common naming conventions
+// including directory naming styles (snake_case, camelCase, kebab-case, PascalCase).
 type FileTreeExtractor struct{}
 
 // Name implements architect.Extractor.
@@ -96,6 +97,11 @@ func (FileTreeExtractor) Extract(ctx context.Context, repoRoot string) (*archite
 		extCounts  = make(map[string]int)
 		seen       = make(map[string]bool)
 		dirConvos  = make(map[string]bool)
+		// Track naming style patterns
+		snakeCaseDirs  int
+		camelCaseDirs  int
+		kebabCaseDirs  int
+		pascalCaseDirs int
 	)
 
 	err := filepath.WalkDir(repoRoot, func(path string, d fs.DirEntry, err error) error {
@@ -136,6 +142,17 @@ func (FileTreeExtractor) Extract(ctx context.Context, repoRoot string) (*archite
 				if strings.Contains(lower, substr) && !seen[label] {
 					seen[label] = true
 				}
+			}
+			// Detect naming styles (snake_case, camelCase, kebab-case, PascalCase)
+			switch detectNamingStyle(d.Name()) {
+			case "snake_case":
+				snakeCaseDirs++
+			case "camelCase":
+				camelCaseDirs++
+			case "kebab-case":
+				kebabCaseDirs++
+			case "PascalCase":
+				pascalCaseDirs++
 			}
 			return nil
 		}
@@ -192,13 +209,33 @@ func (FileTreeExtractor) Extract(ctx context.Context, repoRoot string) (*archite
 	// Sort deterministically (namingPatterns iteration order is random).
 	sortStrings(patterns)
 
+	// Collect detected naming styles (at least 5% of directories to be significant)
+	var namingStyles []string
+	minStyleCount := totalDirs / 20
+	if minStyleCount < 2 {
+		minStyleCount = 2
+	}
+	if snakeCaseDirs >= minStyleCount {
+		namingStyles = append(namingStyles, "snake_case")
+	}
+	if camelCaseDirs >= minStyleCount {
+		namingStyles = append(namingStyles, "camelCase")
+	}
+	if kebabCaseDirs >= minStyleCount {
+		namingStyles = append(namingStyles, "kebab-case")
+	}
+	if pascalCaseDirs >= minStyleCount {
+		namingStyles = append(namingStyles, "PascalCase")
+	}
+
 	return &architect.ProfileFragment{
 		FileTree: &architect.FileTreeInfo{
-			TotalFiles: totalFiles,
-			TotalDirs:  totalDirs,
-			MaxDepth:   maxDepth,
-			Patterns:   patterns,
-			ExtCounts:  extCounts,
+			TotalFiles:   totalFiles,
+			TotalDirs:    totalDirs,
+			MaxDepth:     maxDepth,
+			Patterns:     patterns,
+			ExtCounts:    extCounts,
+			NamingStyles: namingStyles,
 		},
 		Metrics: &architect.CodeMetrics{
 			TotalFiles: totalFiles,
@@ -231,4 +268,70 @@ func countLines(path string) int {
 		count++
 	}
 	return count
+}
+
+// detectNamingStyle detects the naming style of a directory or file name.
+// Returns "snake_case", "camelCase", "kebab-case", "PascalCase", or "unknown".
+func detectNamingStyle(name string) string {
+	if name == "" {
+		return "unknown"
+	}
+
+	// Skip common non-semantic names
+	if strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") {
+		return "unknown"
+	}
+
+	// Check for kebab-case (contains hyphens, no underscores)
+	if strings.Contains(name, "-") && !strings.Contains(name, "_") {
+		// Verify it's actually kebab-case (lowercase with hyphens)
+		lower := strings.ToLower(name)
+		if strings.ReplaceAll(lower, "-", "") == strings.ReplaceAll(strings.ToLower(name), "-", "") {
+			return "kebab-case"
+		}
+	}
+
+	// Check for snake_case (contains underscores, no hyphens)
+	if strings.Contains(name, "_") && !strings.Contains(name, "-") {
+		// Verify it's actually snake_case (lowercase with underscores)
+		lower := strings.ToLower(name)
+		if strings.ReplaceAll(lower, "_", "") == strings.ReplaceAll(strings.ToLower(name), "_", "") {
+			return "snake_case"
+		}
+	}
+
+	// Check for PascalCase (starts with uppercase, no separators)
+	if !strings.Contains(name, "_") && !strings.Contains(name, "-") {
+		firstChar := name[0]
+		if firstChar >= 'A' && firstChar <= 'Z' {
+			// Check if there are more uppercase letters (indicating PascalCase)
+			hasLower := false
+			for i := 1; i < len(name); i++ {
+				c := name[i]
+				if c >= 'a' && c <= 'z' {
+					hasLower = true
+					break
+				}
+			}
+			if hasLower {
+				return "PascalCase"
+			}
+		}
+	}
+
+	// Check for camelCase (starts with lowercase, no separators)
+	if !strings.Contains(name, "_") && !strings.Contains(name, "-") {
+		firstChar := name[0]
+		if firstChar >= 'a' && firstChar <= 'z' {
+			// Check if there are uppercase letters inside
+			for i := 1; i < len(name); i++ {
+				c := name[i]
+				if c >= 'A' && c <= 'Z' {
+					return "camelCase"
+				}
+			}
+		}
+	}
+
+	return "unknown"
 }

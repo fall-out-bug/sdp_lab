@@ -1,0 +1,57 @@
+{
+  "languages": [
+    {
+      "primary": "java",
+      "all": ["java", "kotlin"]
+    }
+  ],
+  "dependencies": [
+    {
+      "file": "build.gradle",
+      "language": "java",
+      "dep_count": 15
+    },
+    {
+      "file": "api/build.gradle",
+      "language": "java",
+      "dep_count": 8
+    },
+    {
+      "file": "service/build.gradle",
+      "language": "kotlin",
+      "dep_count": 10
+    }
+  ],
+  "import_graph": {
+    "nodes": 25,
+    "edges": 40,
+    "clusters": [
+      {
+        "id": "api",
+        "packages": ["com.example.api"],
+        "internal_edges": 5,
+        "external_edges": 3
+      },
+      {
+        "id": "service",
+        "packages": ["com.example.service"],
+        "internal_edges": 8,
+        "external_edges": 5
+      }
+    ]
+  },
+  "infra": {
+    "containers": [
+      {
+        "name": "api",
+        "type": "service",
+        "source": "Dockerfile"
+      },
+      {
+        "name": "service",
+        "type": "service",
+        "source": "Dockerfile"
+      }
+    ]
+  }
+}

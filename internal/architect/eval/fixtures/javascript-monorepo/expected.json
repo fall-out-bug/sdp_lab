@@ -1,0 +1,68 @@
+{
+  "languages": [
+    {
+      "primary": "typescript",
+      "all": ["typescript", "javascript"]
+    }
+  ],
+  "dependencies": [
+    {
+      "file": "package.json",
+      "language": "typescript",
+      "dep_count": 10
+    },
+    {
+      "file": "packages/api/package.json",
+      "language": "typescript",
+      "dep_count": 8
+    },
+    {
+      "file": "packages/web/package.json",
+      "language": "typescript",
+      "dep_count": 15
+    },
+    {
+      "file": "packages/mobile/package.json",
+      "language": "typescript",
+      "dep_count": 12
+    }
+  ],
+  "import_graph": {
+    "nodes": 60,
+    "edges": 100,
+    "clusters": [
+      {
+        "id": "packages/api",
+        "packages": ["@monorepo/api"],
+        "internal_edges": 10,
+        "external_edges": 5
+      },
+      {
+        "id": "packages/web",
+        "packages": ["@monorepo/web"],
+        "internal_edges": 15,
+        "external_edges": 8
+      },
+      {
+        "id": "packages/mobile",
+        "packages": ["@monorepo/mobile"],
+        "internal_edges": 12,
+        "external_edges": 6
+      }
+    ]
+  },
+  "infra": {
+    "containers": [
+      {
+        "name": "api",
+        "type": "service",
+        "source": "packages/api/Dockerfile"
+      },
+      {
+        "name": "web",
+        "type": "service",
+        "source": "packages/web/Dockerfile"
+      }
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "languages": [
+    {
+      "primary": "python",
+      "all": ["python"]
+    }
+  ],
+  "dependencies": [
+    {
+      "file": "requirements.txt",
+      "language": "python",
+      "dep_count": 8
+    }
+  ],
+  "import_graph": {
+    "nodes": 10,
+    "edges": 15
+  },
+  "infra": {
+    "containers": [
+      {
+        "name": "web",
+        "type": "service",
+        "source": "Dockerfile"
+      }
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "languages": [
+    {
+      "primary": "go",
+      "all": ["go"]
+    }
+  ],
+  "dependencies": [
+    {
+      "file": "go.mod",
+      "language": "go",
+      "dep_count": 12,
+      "signals": ["web_framework"]
+    }
+  ],
+  "import_graph": {
+    "nodes": 20,
+    "edges": 35
+  },
+  "infra": {
+    "containers": [
+      {
+        "name": "api",
+        "type": "service",
+        "source": "Dockerfile"
+      },
+      {
+        "name": "postgres",
+        "type": "database",
+        "source": "docker-compose.yml"
+      }
+    ]
+  }
+}

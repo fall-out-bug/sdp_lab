@@ -1,0 +1,28 @@
+{
+  "languages": [
+    {
+      "primary": "typescript",
+      "all": ["typescript", "javascript", "css"]
+    }
+  ],
+  "dependencies": [
+    {
+      "file": "package.json",
+      "language": "typescript",
+      "dep_count": 20
+    }
+  ],
+  "import_graph": {
+    "nodes": 50,
+    "edges": 80
+  },
+  "infra": {
+    "containers": [
+      {
+        "name": "web",
+        "type": "service",
+        "source": "Dockerfile"
+      }
+    ]
+  }
+}

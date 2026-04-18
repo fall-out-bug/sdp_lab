@@ -1,0 +1,38 @@
+{
+  "languages": [
+    {
+      "primary": "python",
+      "all": ["python", "javascript"]
+    }
+  ],
+  "dependencies": [
+    {
+      "file": "requirements.txt",
+      "language": "python",
+      "dep_count": 25
+    }
+  ],
+  "import_graph": {
+    "nodes": 40,
+    "edges": 60
+  },
+  "infra": {
+    "containers": [
+      {
+        "name": "web",
+        "type": "service",
+        "source": "Dockerfile"
+      },
+      {
+        "name": "db",
+        "type": "database",
+        "source": "docker-compose.yml"
+      },
+      {
+        "name": "cache",
+        "type": "cache",
+        "source": "docker-compose.yml"
+      }
+    ]
+  }
+}
