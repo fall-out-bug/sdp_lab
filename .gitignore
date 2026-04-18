@@ -48,6 +48,7 @@ bin/
 # SDP (sdp is submodule; agents are symlinks)
 # Note: .claude/skills is now a tracked symlink → ../.agents/skills (F127-02)
 .claude/agents
+.claude/worktrees/
 .cursor/skills
 .cursor/agents
 .opencode/skills
