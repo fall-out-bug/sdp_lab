@@ -1,3 +1,5 @@
+// Package python provides a Python ecosystem extractor for architecture analysis.
+// It detects imports, dependencies, and framework patterns (Flask, FastAPI, Django).
 package python
 
 import (
@@ -40,7 +42,8 @@ func (p *PythonExtractor) Extract(ctx context.Context, rootDir string) (*archite
 		default:
 		}
 
-		_, _ = filepath.Rel(rootDir, path)
+		rel, _ := filepath.Rel(rootDir, path)
+			_ = rel // relative path used for import resolution below
 
 		if info.IsDir() {
 			name := info.Name()

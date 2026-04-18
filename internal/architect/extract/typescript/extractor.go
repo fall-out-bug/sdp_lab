@@ -1,3 +1,5 @@
+// Package typescript provides a TypeScript/JavaScript ecosystem extractor.
+// It detects imports, framework patterns (React, Next.js, NestJS, Express), and workspace dependencies.
 package typescript
 
 import (

@@ -83,8 +83,13 @@ func truncate(s string, maxLen int) string {
 }
 
 // ValidateStyleHypothesis validates a StyleHypothesis structure.
-func ValidateStyleHypothesis(h *interface{}) error {
-	// Type assertion happens in the caller
+func ValidateStyleHypothesis(h map[string]interface{}) error {
+	if h == nil {
+		return fmt.Errorf("hypothesis is nil")
+	}
+	if _, ok := h["style"]; !ok {
+		return fmt.Errorf("missing required field: style")
+	}
 	return nil
 }
 
