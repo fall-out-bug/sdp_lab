@@ -20,6 +20,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -121,12 +122,28 @@ func (b *ServeBridge) DispatchBeads(ctx context.Context) (string, error) {
 		return "", nil // nothing to dispatch
 	}
 
-	// Pick best ready item using ranking policy
-	cardID := RankAndPick(ready, DefaultRankingPolicy(), nil)
-	if cardID == "" {
-		return "", nil // all candidates exhausted
+	// Pick best ready item using ranking policy. Skip cards that are in an
+	// active harness wait-state (awaiting_human/awaiting_input) to prevent
+	// redispatch loops — these cards are already dispatched and pending.
+	for range ready {
+		cardID := RankAndPick(ready, DefaultRankingPolicy(), nil)
+		if cardID == "" {
+			return "", nil // all candidates exhausted
+		}
+		card, loadErr := b.Store.LoadCardByID(cardID)
+		if loadErr != nil {
+			return cardID, nil // can't check state — let dispatch proceed
+		}
+		switch card.ExecutorRuntimeState {
+		case "awaiting_human", "awaiting_input":
+			slog.Info("skipping card in harness wait-state", "card", cardID, "state", card.ExecutorRuntimeState)
+			// Remove from candidates and try next
+			ready = slices.DeleteFunc(ready, func(c control.FeatureCard) bool { return c.ID == cardID })
+			continue
+		}
+		return cardID, nil
 	}
-	return cardID, nil
+	return "", nil
 }
 
 // DispatchAndRun executes a card through the internal harness (if available) or OmO serve.
@@ -373,8 +390,7 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 	// a pending gate decision (crash recovery), skip RunPhase and return
 	// the gate-pending result immediately. Without this, RunPhase would reject
 	// the non-idle state and the session would fall into generic failure.
-	if h.IsAwaitingHuman() {
-		succeeded = true // gate-pending is valid — do NOT stop
+ if h.IsAwaitingHuman() {
 		result := &control.ExecutorResultPacket{
 			ParentFeatureID: cardID,
 			Status:          control.ResultStatusNeedsReview,
@@ -383,7 +399,11 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 		if bkErr := b.recordExecutionResult(cardID, result, phase, "harness"); bkErr != nil {
 			result.Status = control.ResultStatusFailed
 			result.Summary = fmt.Sprintf("bookkeeping failed: %v", bkErr)
+			// Bookkeeping failed — session may be inconsistent, stop it.
+			_ = h.Stop(context.Background(), "")
+			return result, nil
 		}
+		succeeded = true // bookkeeping ok — session stays alive
 		return result, nil
 	}
 
@@ -408,7 +428,6 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 
 	// Check for gate-pending (awaiting human decision).
 	if runErr == nil && h.IsAwaitingHuman() {
-		succeeded = true // gate-pending is a valid live state — do NOT stop
 		result := &control.ExecutorResultPacket{
 			ParentFeatureID: cardID,
 			Status:          control.ResultStatusNeedsReview,
@@ -417,7 +436,10 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 		if err := b.recordExecutionResult(cardID, result, phase, "harness"); err != nil {
 			result.Status = control.ResultStatusFailed
 			result.Summary = fmt.Sprintf("bookkeeping failed: %v", err)
+			_ = h.Stop(context.Background(), "")
+			return result, nil
 		}
+		succeeded = true // bookkeeping ok — session stays alive
 		return result, nil
 	}
 
@@ -439,7 +461,6 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 	// response (no tool calls) would be incorrectly mapped to Success,
 	// causing the downstream evaluator to hard-block on missing build.json.
 	if !h.LastPhaseCompleted() {
-		succeeded = true // session stays alive — do NOT stop
 		result := &control.ExecutorResultPacket{
 			ParentFeatureID: cardID,
 			Status:          control.ResultStatusNeedsInput,
@@ -448,11 +469,12 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 		if err := b.recordExecutionResult(cardID, result, phase, "harness"); err != nil {
 			result.Status = control.ResultStatusFailed
 			result.Summary = fmt.Sprintf("bookkeeping failed: %v", err)
+			_ = h.Stop(context.Background(), "")
+			return result, nil
 		}
+		succeeded = true // bookkeeping ok — session stays alive
 		return result, nil
 	}
-
-	succeeded = true // prevents Stop on normal exit
 
 	// Only return terminal Success after the final phase (RoleEval).
 	// Intermediate phase completions (discover→plan→build→review) are
@@ -467,7 +489,10 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 		if err := b.recordExecutionResult(cardID, result, phase, "harness"); err != nil {
 			result.Status = control.ResultStatusFailed
 			result.Summary = fmt.Sprintf("bookkeeping failed: %v", err)
+			_ = h.Stop(context.Background(), "")
+			return result, nil
 		}
+		succeeded = true // bookkeeping ok — session stays alive
 		return result, nil
 	}
 
@@ -479,7 +504,10 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 	if err := b.recordExecutionResult(cardID, result, phase, "harness"); err != nil {
 		result.Status = control.ResultStatusFailed
 		result.Summary = fmt.Sprintf("bookkeeping failed: %v", err)
+		_ = h.Stop(context.Background(), "")
+		return result, nil
 	}
+	succeeded = true // terminal success — defer will skip Stop
 	return result, nil
 }
 
