@@ -8,28 +8,26 @@ import (
 	"strings"
 )
 
-// Spring annotation patterns
+// Spring endpoint mapping patterns
 var (
-	springAnnotRe        = regexp.MustCompile(`@(RestController|Service|Repository|Component|Configuration|Entity|SpringBootApplication)`)
-	springBeanRe         = regexp.MustCompile(`@Bean`)
-	requestMappingRe     = regexp.MustCompile(`@RequestMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
-	getMappingRe         = regexp.MustCompile(`@GetMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
-	postMappingRe        = regexp.MustCompile(`@PostMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
-	putMappingRe         = regexp.MustCompile(`@PutMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
-	deleteMappingRe      = regexp.MustCompile(`@DeleteMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
-	patchMappingRe       = regexp.MustCompile(`@PatchMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
+	requestMappingRe    = regexp.MustCompile(`@RequestMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
+	getMappingRe        = regexp.MustCompile(`@GetMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
+	postMappingRe       = regexp.MustCompile(`@PostMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
+	putMappingRe        = regexp.MustCompile(`@PutMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
+	deleteMappingRe     = regexp.MustCompile(`@DeleteMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
+	patchMappingRe      = regexp.MustCompile(`@PatchMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
 	classLevelMappingRe  = regexp.MustCompile(`@RequestMapping\s*\(\s*(?:value\s*=\s*)?["']([^"']+)["']`)
 )
 
 // extractSpringEndpoints scans a file for Spring endpoint annotations.
-func extractSpringEndpoints(path, relPath, classPrefix string, classPrefixLine int) []SpringEndpoint {
+func extractSpringEndpoints(path, relPath, classPrefix string, classPrefixLine int) []JavaSpringEndpoint {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil
 	}
 	defer f.Close()
 
-	var endpoints []SpringEndpoint
+	var endpoints []JavaSpringEndpoint
 	lineNum := 0
 
 	scanner := bufio.NewScanner(f)
@@ -46,7 +44,7 @@ func extractSpringEndpoints(path, relPath, classPrefix string, classPrefixLine i
 		}
 
 		if m := getMappingRe.FindStringSubmatch(line); m != nil {
-			endpoints = append(endpoints, SpringEndpoint{
+			endpoints = append(endpoints, JavaSpringEndpoint{
 				HTTPMethod: "GET",
 				Path:       joinPaths(classPrefix, m[1]),
 				File:       relPath,
@@ -55,7 +53,7 @@ func extractSpringEndpoints(path, relPath, classPrefix string, classPrefixLine i
 			continue
 		}
 		if m := postMappingRe.FindStringSubmatch(line); m != nil {
-			endpoints = append(endpoints, SpringEndpoint{
+			endpoints = append(endpoints, JavaSpringEndpoint{
 				HTTPMethod: "POST",
 				Path:       joinPaths(classPrefix, m[1]),
 				File:       relPath,
@@ -64,7 +62,7 @@ func extractSpringEndpoints(path, relPath, classPrefix string, classPrefixLine i
 			continue
 		}
 		if m := putMappingRe.FindStringSubmatch(line); m != nil {
-			endpoints = append(endpoints, SpringEndpoint{
+			endpoints = append(endpoints, JavaSpringEndpoint{
 				HTTPMethod: "PUT",
 				Path:       joinPaths(classPrefix, m[1]),
 				File:       relPath,
@@ -73,7 +71,7 @@ func extractSpringEndpoints(path, relPath, classPrefix string, classPrefixLine i
 			continue
 		}
 		if m := deleteMappingRe.FindStringSubmatch(line); m != nil {
-			endpoints = append(endpoints, SpringEndpoint{
+			endpoints = append(endpoints, JavaSpringEndpoint{
 				HTTPMethod: "DELETE",
 				Path:       joinPaths(classPrefix, m[1]),
 				File:       relPath,
@@ -82,7 +80,7 @@ func extractSpringEndpoints(path, relPath, classPrefix string, classPrefixLine i
 			continue
 		}
 		if m := patchMappingRe.FindStringSubmatch(line); m != nil {
-			endpoints = append(endpoints, SpringEndpoint{
+			endpoints = append(endpoints, JavaSpringEndpoint{
 				HTTPMethod: "PATCH",
 				Path:       joinPaths(classPrefix, m[1]),
 				File:       relPath,
@@ -105,7 +103,7 @@ func extractSpringEndpoints(path, relPath, classPrefix string, classPrefixLine i
 					method = "PATCH"
 				}
 			}
-			endpoints = append(endpoints, SpringEndpoint{
+			endpoints = append(endpoints, JavaSpringEndpoint{
 				HTTPMethod: method,
 				Path:       joinPaths(classPrefix, m[1]),
 				File:       relPath,
@@ -147,8 +145,8 @@ func extractClassLevelMapping(path string) (string, int) {
 }
 
 // detectFrameworks analyzes imports and annotations to detect frameworks.
-func detectFrameworks(ig ImportGraph, annotations map[string]bool, lombokAnnotations map[string]bool) []Framework {
-	var frameworks []Framework
+func detectFrameworks(ig JavaImportGraph, annotations map[string]bool, lombokAnnotations map[string]bool) []JavaFramework {
+	var frameworks []JavaFramework
 
 	// Collect all imports into a single set
 	allImports := make(map[string]bool)
@@ -168,7 +166,7 @@ func detectFrameworks(ig ImportGraph, annotations map[string]bool, lombokAnnotat
 		if confidence < 0.5 {
 			confidence = 0.5
 		}
-		frameworks = append(frameworks, Framework{
+		frameworks = append(frameworks, JavaFramework{
 			Name:       "Spring Boot",
 			Confidence: confidence,
 			Evidence:   springEvidence,
@@ -191,7 +189,7 @@ func detectFrameworks(ig ImportGraph, annotations map[string]bool, lombokAnnotat
 		if confidence < 0.5 {
 			confidence = 0.5
 		}
-		frameworks = append(frameworks, Framework{
+		frameworks = append(frameworks, JavaFramework{
 			Name:       "Lombok",
 			Confidence: confidence,
 			Evidence:   evidence,
@@ -201,7 +199,7 @@ func detectFrameworks(ig ImportGraph, annotations map[string]bool, lombokAnnotat
 	// Hibernate/JPA detection
 	hibernateEvidence := detectHibernateEvidence(allImports)
 	if len(hibernateEvidence) > 0 {
-		frameworks = append(frameworks, Framework{
+		frameworks = append(frameworks, JavaFramework{
 			Name:       "Hibernate",
 			Confidence: 0.8,
 			Evidence:   hibernateEvidence,
@@ -283,32 +281,16 @@ func detectHibernateEvidence(imports map[string]bool) []string {
 	return evidence
 }
 
-// Spring annotation labels for framework detection
-var springAnnotations = map[string]string{
-	"@RestController":        "Spring MVC REST controller",
-	"@Service":               "Spring service component",
-	"@Repository":            "Spring data repository",
-	"@Component":             "Spring component",
-	"@Configuration":         "Spring configuration class",
-	"@SpringBootApplication": "Spring Boot application",
-	"@Entity":                "JPA/Hibernate entity",
-	"@Bean":                  "Spring bean definition",
-}
-
-// Lombok annotation labels
-var lombokAnnotationLabels = map[string]string{
-	"@Data":                    "Lombok @Data (generates getters/setters/equals/hashCode/toString)",
-	"@Builder":                 "Lombok @Builder (builder pattern)",
-	"@Getter":                  "Lombok @Getter",
-	"@Setter":                  "Lombok @Setter",
-	"@AllArgsConstructor":      "Lombok @AllArgsConstructor",
-	"@NoArgsConstructor":       "Lombok @NoArgsConstructor",
-	"@RequiredArgsConstructor": "Lombok @RequiredArgsConstructor",
-	"@Value":                   "Lombok @Value (immutable holder)",
-	"@Slf4j":                   "Lombok @Slf4j (logger)",
-}
-
-// ImportGraph is imported from extractor.go
-type ImportGraph struct {
-	PackageImports map[string][]string `json:"package_imports"`
+// joinPaths combines a class-level prefix with a method-level path.
+func joinPaths(prefix, suffix string) string {
+	if prefix == "" {
+		return suffix
+	}
+	if suffix == "" || suffix == "/" {
+		return prefix
+	}
+	prefix = strings.TrimSuffix(prefix, "/")
+	suffix = strings.TrimPrefix(suffix, "/")
+	result := prefix + "/" + suffix
+	return strings.TrimSuffix(result, "/")
 }

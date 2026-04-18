@@ -6,8 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"sdp_dev/internal/architect"
 )
 
 // TestSQLExtractor_Name tests the Name method.

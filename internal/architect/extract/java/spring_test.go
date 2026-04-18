@@ -7,6 +7,27 @@ import (
 	"testing"
 )
 
+// Test helpers
+
+func createTempDir(t *testing.T) (string, func()) {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "java-extract-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dir, func() { os.RemoveAll(dir) }
+}
+
+func writeFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestExtractSpringEndpoints(t *testing.T) {
 	dir, cleanup := createTempDir(t)
 	defer cleanup()
@@ -58,7 +79,7 @@ public class OrderController {
 		t.Fatalf("expected 5 endpoints, got %d: %+v", len(endpoints), endpoints)
 	}
 
-	expectedEndpoints := []SpringEndpoint{
+	expectedEndpoints := []JavaSpringEndpoint{
 		{HTTPMethod: "GET", Path: "/api/v1/orders"},
 		{HTTPMethod: "POST", Path: "/api/v1/orders"},
 		{HTTPMethod: "PUT", Path: "/api/v1/orders/{id}"},
@@ -375,7 +396,7 @@ public class User {
 }
 
 func TestDetectFrameworks(t *testing.T) {
-	ig := ImportGraph{
+	ig := JavaImportGraph{
 		PackageImports: map[string][]string{
 			"src/main/java/com/example": {
 				"org.springframework.web.bind.annotation.RestController",

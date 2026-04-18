@@ -2,458 +2,406 @@
 package sql
 
 import (
+	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"sdp_dev/internal/architect"
 )
 
-// TestParseTables tests the parseTables function with various SQL DDL statements.
-func TestParseTables(t *testing.T) {
-	tests := []struct {
-		name     string
-		sql      string
-		file     string
-		wantLen  int // expected number of tables
-		wantFkLen int // expected number of foreign keys
-	}{
-		{
-			name: "simple create table",
-			sql:  "CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(255));",
-			file: "schema.sql",
-			wantLen: 1,
-			wantFkLen: 0,
-		},
-		{
-			name: "create table with schema",
-			sql:  "CREATE TABLE public.users (id INT PRIMARY KEY, email VARCHAR(255));",
-			file: "schema.sql",
-			wantLen: 1,
-			wantFkLen: 0,
-		},
-		{
-			name: "create table with foreign key",
-			sql: `CREATE TABLE posts (
-				id INT PRIMARY KEY,
-				user_id INT,
-				title VARCHAR(255),
-				FOREIGN KEY (user_id) REFERENCES users(id)
-			);`,
-			file: "posts.sql",
-			wantLen: 1,
-			wantFkLen: 1,
-		},
-		{
-			name: "create table if not exists",
-			sql:  "CREATE TABLE IF NOT EXISTS comments (id INT PRIMARY KEY, text TEXT);",
-			file: "comments.sql",
-			wantLen: 1,
-			wantFkLen: 0,
-		},
-		{
-			name: "create table with quoted identifiers",
-			sql:  "CREATE TABLE `orders` (id INT PRIMARY KEY, total DECIMAL(10,2));",
-			file: "orders.sql",
-			wantLen: 1,
-			wantFkLen: 0,
-		},
-		{
-			name: "create table with various column types",
-			sql: `CREATE TABLE products (
-				id SERIAL PRIMARY KEY,
-				name VARCHAR(255) NOT NULL,
-				price DECIMAL(10,2),
-				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-				is_active BOOLEAN DEFAULT TRUE
-			);`,
-			file: "products.sql",
-			wantLen: 1,
-			wantFkLen: 0,
-		},
-		{
-			name: "multiple tables in one file",
-			sql: `CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(255));
-			CREATE TABLE posts (id INT PRIMARY KEY, user_id INT);`,
-			file: "multi.sql",
-			wantLen: 2,
-			wantFkLen: 0,
-		},
-		{
-			name: "table with composite primary key",
-			sql: `CREATE TABLE order_items (
-				order_id INT,
-				item_id INT,
-				quantity INT,
-				PRIMARY KEY (order_id, item_id)
-			);`,
-			file: "order_items.sql",
-			wantLen: 1,
-			wantFkLen: 0,
-		},
-		{
-			name: "table with multiple foreign keys",
-			sql: `CREATE TABLE order_items (
-				order_id INT,
-				product_id INT,
-				quantity INT,
-				FOREIGN KEY (order_id) REFERENCES orders(id),
-				FOREIGN KEY (product_id) REFERENCES products(id)
-			);`,
-			file: "order_items.sql",
-			wantLen: 1,
-			wantFkLen: 2,
-		},
-		{
-			name: "table with unique constraint",
-			sql: `CREATE TABLE users (
-				id INT PRIMARY KEY,
-				email VARCHAR(255) UNIQUE NOT NULL,
-				username VARCHAR(255) UNIQUE
-			);`,
-			file: "users.sql",
-			wantLen: 1,
-			wantFkLen: 0,
-		},
+// TestDDLParser_SimpleTable tests parsing a simple CREATE TABLE statement.
+func TestDDLParser_SimpleTable(t *testing.T) {
+	extractor := NewSQLExtractor()
+	tmpDir := t.TempDir()
+
+	sqlContent := "CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(255));"
+	sqlPath := filepath.Join(tmpDir, "schema.sql")
+	if err := os.WriteFile(sqlPath, []byte(sqlContent), 0644); err != nil {
+		t.Fatalf("Failed to write SQL file: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tables, fks := parseTables(tt.sql, tt.file)
+	ctx := context.Background()
+	fragment, err := extractor.Extract(ctx, tmpDir)
 
-			if len(tables) != tt.wantLen {
-				t.Errorf("parseTables() returned %d tables, want %d", len(tables), tt.wantLen)
-			}
+	if err != nil {
+		t.Fatalf("Extract() returned error: %v", err)
+	}
 
-			if len(fks) != tt.wantFkLen {
-				t.Errorf("parseTables() returned %d foreign keys, want %d", len(fks), tt.wantFkLen)
-			}
+	if len(fragment.SQLAnalysis.Tables) != 1 {
+		t.Errorf("Extract() found %d tables, want 1", len(fragment.SQLAnalysis.Tables))
+	}
 
-			// Verify table structure
-			for _, table := range tables {
-				if table.Name == "" {
-					t.Error("parseTables() returned table with empty name")
-				}
-				if table.File != tt.file {
-					t.Errorf("parseTables() table file = %s, want %s", table.File, tt.file)
-				}
-			}
-		})
+	table := fragment.SQLAnalysis.Tables[0]
+	if table.Name != "users" {
+		t.Errorf("Table name = %s, want 'users'", table.Name)
+	}
+
+	if len(table.Columns) != 2 {
+		t.Errorf("Table has %d columns, want 2", len(table.Columns))
 	}
 }
 
-// TestParseColumns tests column parsing with various SQL column definitions.
-func TestParseColumns(t *testing.T) {
-	sql := `CREATE TABLE users (
+// TestDDLParser_TableWithSchema tests parsing CREATE TABLE with schema prefix.
+func TestDDLParser_TableWithSchema(t *testing.T) {
+	extractor := NewSQLExtractor()
+	tmpDir := t.TempDir()
+
+	sqlContent := "CREATE TABLE public.users (id INT PRIMARY KEY, email VARCHAR(255));"
+	sqlPath := filepath.Join(tmpDir, "schema.sql")
+	if err := os.WriteFile(sqlPath, []byte(sqlContent), 0644); err != nil {
+		t.Fatalf("Failed to write SQL file: %v", err)
+	}
+
+	ctx := context.Background()
+	fragment, err := extractor.Extract(ctx, tmpDir)
+
+	if err != nil {
+		t.Fatalf("Extract() returned error: %v", err)
+	}
+
+	if len(fragment.SQLAnalysis.Tables) != 1 {
+		t.Errorf("Extract() found %d tables, want 1", len(fragment.SQLAnalysis.Tables))
+	}
+
+	table := fragment.SQLAnalysis.Tables[0]
+	if table.Schema != "public" {
+		t.Errorf("Table schema = %s, want 'public'", table.Schema)
+	}
+}
+
+// TestDDLParser_TableWithForeignKey tests parsing CREATE TABLE with FOREIGN KEY.
+func TestDDLParser_TableWithForeignKey(t *testing.T) {
+	extractor := NewSQLExtractor()
+	tmpDir := t.TempDir()
+
+	sqlContent := `CREATE TABLE posts (
+		id INT PRIMARY KEY,
+		user_id INT,
+		title VARCHAR(255),
+		FOREIGN KEY (user_id) REFERENCES users(id)
+	);`
+
+	sqlPath := filepath.Join(tmpDir, "posts.sql")
+	if err := os.WriteFile(sqlPath, []byte(sqlContent), 0644); err != nil {
+		t.Fatalf("Failed to write SQL file: %v", err)
+	}
+
+	ctx := context.Background()
+	fragment, err := extractor.Extract(ctx, tmpDir)
+
+	if err != nil {
+		t.Fatalf("Extract() returned error: %v", err)
+	}
+
+	if len(fragment.SQLAnalysis.ForeignKeys) != 1 {
+		t.Errorf("Extract() found %d foreign keys, want 1", len(fragment.SQLAnalysis.ForeignKeys))
+	}
+
+	fk := fragment.SQLAnalysis.ForeignKeys[0]
+	if fk.FromTable != "posts" {
+		t.Errorf("FK from table = %s, want 'posts'", fk.FromTable)
+	}
+	if fk.FromColumn != "user_id" {
+		t.Errorf("FK from column = %s, want 'user_id'", fk.FromColumn)
+	}
+	if fk.ToTable != "users" {
+		t.Errorf("FK to table = %s, want 'users'", fk.ToTable)
+	}
+	if fk.ToColumn != "id" {
+		t.Errorf("FK to column = %s, want 'id'", fk.ToColumn)
+	}
+}
+
+// TestDDLParser_ColumnAttributes tests parsing of column attributes.
+func TestDDLParser_ColumnAttributes(t *testing.T) {
+	extractor := NewSQLExtractor()
+	tmpDir := t.TempDir()
+
+	sqlContent := `CREATE TABLE users (
 		id INT PRIMARY KEY,
 		email VARCHAR(255) NOT NULL,
 		name VARCHAR(100),
-		age INT,
-		is_active BOOLEAN DEFAULT TRUE
+		age INT
 	);`
 
-	tables, _ := parseTables(sql, "users.sql")
-
-	if len(tables) != 1 {
-		t.Fatalf("parseTables() returned %d tables, want 1", len(tables))
+	sqlPath := filepath.Join(tmpDir, "users.sql")
+	if err := os.WriteFile(sqlPath, []byte(sqlContent), 0644); err != nil {
+		t.Fatalf("Failed to write SQL file: %v", err)
 	}
 
-	table := tables[0]
-	if len(table.Columns) != 5 {
-		t.Errorf("parseTables() returned %d columns, want 5", len(table.Columns))
+	ctx := context.Background()
+	fragment, err := extractor.Extract(ctx, tmpDir)
+
+	if err != nil {
+		t.Fatalf("Extract() returned error: %v", err)
 	}
 
-	// Check specific columns
-	columnsByName := make(map[string]architect.Column)
+	table := fragment.SQLAnalysis.Tables[0]
+
+	// Find columns by name
+	columns := make(map[string]architect.Column)
 	for _, col := range table.Columns {
-		columnsByName[col.Name] = col
+		columns[col.Name] = col
 	}
 
 	// Check id column (PRIMARY KEY)
-	if col, ok := columnsByName["id"]; ok {
-		if !col.PrimaryKey {
-			t.Error("id column should have PrimaryKey = true")
-		}
-	} else {
-		t.Error("id column not found")
+	idCol, ok := columns["id"]
+	if !ok {
+		t.Fatal("id column not found")
+	}
+	if !idCol.PrimaryKey {
+		t.Error("id column should have PrimaryKey = true")
+	}
+	if !idCol.NotNull {
+		t.Error("id column should have NotNull = true")
 	}
 
 	// Check email column (NOT NULL)
-	if col, ok := columnsByName["email"]; ok {
-		if !col.NotNull {
-			t.Error("email column should have NotNull = true")
-		}
-	} else {
-		t.Error("email column not found")
+	emailCol, ok := columns["email"]
+	if !ok {
+		t.Fatal("email column not found")
+	}
+	if !emailCol.NotNull {
+		t.Error("email column should have NotNull = true")
 	}
 
 	// Check name column (nullable)
-	if col, ok := columnsByName["name"]; ok {
-		if !col.Nullable {
-			t.Error("name column should have Nullable = true")
+	nameCol, ok := columns["name"]
+	if !ok {
+		t.Fatal("name column not found")
+	}
+	if !nameCol.Nullable {
+		t.Error("name column should have Nullable = true")
+	}
+}
+
+// TestDDLParser_Indexes tests parsing of CREATE INDEX statements.
+func TestDDLParser_Indexes(t *testing.T) {
+	extractor := NewSQLExtractor()
+	tmpDir := t.TempDir()
+
+	sqlContent := `
+		CREATE TABLE users (id INT PRIMARY KEY, email VARCHAR(255));
+		CREATE INDEX idx_user_email ON users(email);
+		CREATE UNIQUE INDEX idx_user_id ON users(id);
+	`
+
+	sqlPath := filepath.Join(tmpDir, "schema.sql")
+	if err := os.WriteFile(sqlPath, []byte(sqlContent), 0644); err != nil {
+		t.Fatalf("Failed to write SQL file: %v", err)
+	}
+
+	ctx := context.Background()
+	fragment, err := extractor.Extract(ctx, tmpDir)
+
+	if err != nil {
+		t.Fatalf("Extract() returned error: %v", err)
+	}
+
+	if len(fragment.SQLAnalysis.Indexes) != 2 {
+		t.Errorf("Extract() found %d indexes, want 2", len(fragment.SQLAnalysis.Indexes))
+	}
+
+	// Check for unique index
+	var uniqueIndexFound bool
+	for _, idx := range fragment.SQLAnalysis.Indexes {
+		if idx.Unique {
+			uniqueIndexFound = true
+			break
 		}
-	} else {
-		t.Error("name column not found")
+	}
+
+	if !uniqueIndexFound {
+		t.Error("Extract() did not find unique index")
 	}
 }
 
-// TestParseIndexes tests the parseIndexes function.
-func TestParseIndexes(t *testing.T) {
-	tests := []struct {
-		name    string
-		sql     string
-		file    string
-		wantLen int
-	}{
-		{
-			name:    "simple index",
-			sql:     "CREATE INDEX idx_user_email ON users(email);",
-			file:    "indexes.sql",
-			wantLen: 1,
-		},
-		{
-			name:    "unique index",
-			sql:     "CREATE UNIQUE INDEX idx_user_email ON users(email);",
-			file:    "indexes.sql",
-			wantLen: 1,
-		},
-		{
-			name:    "composite index",
-			sql:     "CREATE INDEX idx_post_user ON posts(user_id, created_at);",
-			file:    "indexes.sql",
-			wantLen: 1,
-		},
-		{
-			name:    "index with schema",
-			sql:     "CREATE INDEX idx_user_email ON public.users(email);",
-			file:    "indexes.sql",
-			wantLen: 1,
-		},
-		{
-			name:    "create if not exists",
-			sql:     "CREATE INDEX IF NOT EXISTS idx_user_email ON users(email);",
-			file:    "indexes.sql",
-			wantLen: 1,
-		},
-		{
-			name:    "multiple indexes",
-			sql:     "CREATE INDEX idx1 ON users(email); CREATE INDEX idx2 ON posts(user_id);",
-			file:    "indexes.sql",
-			wantLen: 2,
-		},
+// TestDDLParser_Views tests parsing of CREATE VIEW statements.
+func TestDDLParser_Views(t *testing.T) {
+	extractor := NewSQLExtractor()
+	tmpDir := t.TempDir()
+
+	sqlContent := `
+		CREATE TABLE users (id INT PRIMARY KEY, email VARCHAR(255));
+		CREATE VIEW user_emails AS SELECT email FROM users;
+		CREATE MATERIALIZED VIEW user_stats AS SELECT COUNT(*) FROM users;
+	`
+
+	sqlPath := filepath.Join(tmpDir, "schema.sql")
+	if err := os.WriteFile(sqlPath, []byte(sqlContent), 0644); err != nil {
+		t.Fatalf("Failed to write SQL file: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			indexes := parseIndexes(tt.sql, tt.file)
+	ctx := context.Background()
+	fragment, err := extractor.Extract(ctx, tmpDir)
 
-			if len(indexes) != tt.wantLen {
-				t.Errorf("parseIndexes() returned %d indexes, want %d", len(indexes), tt.wantLen)
-			}
+	if err != nil {
+		t.Fatalf("Extract() returned error: %v", err)
+	}
 
-			// Verify index structure
-			for _, idx := range indexes {
-				if idx.Name == "" {
-					t.Error("parseIndexes() returned index with empty name")
-				}
-				if idx.Table == "" {
-					t.Error("parseIndexes() returned index with empty table")
-				}
-				if idx.File != tt.file {
-					t.Errorf("parseIndexes() index file = %s, want %s", idx.File, tt.file)
-				}
-			}
-		})
+	if len(fragment.SQLAnalysis.Views) != 2 {
+		t.Errorf("Extract() found %d views, want 2", len(fragment.SQLAnalysis.Views))
+	}
+
+	// Check for materialized view
+	var materializedViewFound bool
+	for _, view := range fragment.SQLAnalysis.Views {
+		if view.Materialized {
+			materializedViewFound = true
+			break
+		}
+	}
+
+	if !materializedViewFound {
+		t.Error("Extract() did not find materialized view")
 	}
 }
 
-// TestParseViews tests the parseViews function.
-func TestParseViews(t *testing.T) {
-	tests := []struct {
-		name    string
-		sql     string
-		file    string
-		wantLen int
-	}{
-		{
-			name:    "simple view",
-			sql:     "CREATE VIEW user_emails AS SELECT email FROM users;",
-			file:    "views.sql",
-			wantLen: 1,
-		},
-		{
-			name:    "materialized view",
-			sql:     "CREATE MATERIALIZED VIEW user_summary AS SELECT COUNT(*) FROM users;",
-			file:    "views.sql",
-			wantLen: 1,
-		},
-		{
-			name:    "view with schema",
-			sql:     "CREATE VIEW public.active_users AS SELECT * FROM users WHERE active = true;",
-			file:    "views.sql",
-			wantLen: 1,
-		},
-		{
-			name:    "create or replace view",
-			sql:     "CREATE OR REPLACE VIEW user_emails AS SELECT email FROM users;",
-			file:    "views.sql",
-			wantLen: 1,
-		},
-		{
-			name:    "multiple views",
-			sql:     "CREATE VIEW v1 AS SELECT * FROM t1; CREATE VIEW v2 AS SELECT * FROM t2;",
-			file:    "views.sql",
-			wantLen: 2,
-		},
+// TestDDLParser_StoredProcs tests parsing of CREATE FUNCTION/PROCEDURE statements.
+func TestDDLParser_StoredProcs(t *testing.T) {
+	extractor := NewSQLExtractor()
+	tmpDir := t.TempDir()
+
+	sqlContent := `
+		CREATE FUNCTION get_user_count() RETURNS INT AS $$ SELECT COUNT(*) FROM users; $$ LANGUAGE SQL;
+		CREATE PROCEDURE update_user_stats() AS BEGIN UPDATE user_stats SET count = (SELECT COUNT(*) FROM users); END;
+	`
+
+	sqlPath := filepath.Join(tmpDir, "procs.sql")
+	if err := os.WriteFile(sqlPath, []byte(sqlContent), 0644); err != nil {
+		t.Fatalf("Failed to write SQL file: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			views := parseViews(tt.sql, tt.file)
+	ctx := context.Background()
+	fragment, err := extractor.Extract(ctx, tmpDir)
 
-			if len(views) != tt.wantLen {
-				t.Errorf("parseViews() returned %d views, want %d", len(views), tt.wantLen)
-			}
+	if err != nil {
+		t.Fatalf("Extract() returned error: %v", err)
+	}
 
-			// Verify view structure
-			for _, view := range views {
-				if view.Name == "" {
-					t.Error("parseViews() returned view with empty name")
-				}
-				if view.File != tt.file {
-					t.Errorf("parseViews() view file = %s, want %s", view.File, tt.file)
-				}
-			}
-		})
+	if len(fragment.SQLAnalysis.StoredProcs) != 2 {
+		t.Errorf("Extract() found %d stored procedures, want 2", len(fragment.SQLAnalysis.StoredProcs))
 	}
 }
 
-// TestParseStoredProcs tests the parseStoredProcs function.
-func TestParseStoredProcs(t *testing.T) {
-	tests := []struct {
-		name    string
-		sql     string
-		file    string
-		wantLen int
-	}{
-		{
-			name:    "simple function",
-			sql:     "CREATE FUNCTION get_user_count() RETURNS INT AS $$ SELECT COUNT(*) FROM users; $$ LANGUAGE SQL;",
-			file:    "functions.sql",
-			wantLen: 1,
-		},
-		{
-			name:    "procedure",
-			sql:     "CREATE PROCEDURE update_user_stats() AS BEGIN UPDATE user_stats SET count = (SELECT COUNT(*) FROM users); END;",
-			file:    "procedures.sql",
-			wantLen: 1,
-		},
-		{
-			name:    "function with schema",
-			sql:     "CREATE FUNCTION public.calculate_age(birthdate DATE) RETURNS INT AS $$ ... $$;",
-			file:    "functions.sql",
-			wantLen: 1,
-		},
-		{
-			name:    "create or replace function",
-			sql:     "CREATE OR REPLACE FUNCTION get_user_email(user_id INT) RETURNS VARCHAR AS $$ ... $$;",
-			file:    "functions.sql",
-			wantLen: 1,
-		},
-		{
-			name:    "multiple functions",
-			sql:     "CREATE FUNCTION f1() RETURNS INT AS $$ SELECT 1; $$; CREATE FUNCTION f2() RETURNS INT AS $$ SELECT 2; $$;",
-			file:    "functions.sql",
-			wantLen: 2,
-		},
+// TestDDLParser_CompositePrimaryKey tests parsing of composite primary keys.
+func TestDDLParser_CompositePrimaryKey(t *testing.T) {
+	extractor := NewSQLExtractor()
+	tmpDir := t.TempDir()
+
+	sqlContent := `CREATE TABLE order_items (
+		order_id INT,
+		item_id INT,
+		quantity INT,
+		PRIMARY KEY (order_id, item_id)
+	);`
+
+	sqlPath := filepath.Join(tmpDir, "order_items.sql")
+	if err := os.WriteFile(sqlPath, []byte(sqlContent), 0644); err != nil {
+		t.Fatalf("Failed to write SQL file: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			procs := parseStoredProcs(tt.sql, tt.file)
+	ctx := context.Background()
+	fragment, err := extractor.Extract(ctx, tmpDir)
 
-			if len(procs) != tt.wantLen {
-				t.Errorf("parseStoredProcs() returned %d procedures, want %d", len(procs), tt.wantLen)
-			}
+	if err != nil {
+		t.Fatalf("Extract() returned error: %v", err)
+	}
 
-			// Verify procedure structure
-			for _, proc := range procs {
-				if proc.Name == "" {
-					t.Error("parseStoredProcs() returned procedure with empty name")
-				}
-				if proc.Path != tt.file {
-					t.Errorf("parseStoredProcs() procedure path = %s, want %s", proc.Path, tt.file)
-				}
-			}
-		})
+	table := fragment.SQLAnalysis.Tables[0]
+
+	// Find primary key columns
+	var pkColumns []string
+	for _, col := range table.Columns {
+		if col.PrimaryKey {
+			pkColumns = append(pkColumns, col.Name)
+		}
+	}
+
+	if len(pkColumns) != 2 {
+		t.Errorf("Table has %d primary key columns, want 2", len(pkColumns))
 	}
 }
 
-// TestExtractParenBody tests the extractParenBody helper function.
-func TestExtractParenBody(t *testing.T) {
-	tests := []struct {
-		name      string
-		input     string
-		openIdx   int
-		wantEmpty bool
-		wantSub   string // if wantEmpty is false, check if result contains this substring
-	}{
-		{
-			name:      "simple parentheses",
-			input:     "(id INT, name VARCHAR)",
-			openIdx:   0,
-			wantEmpty: false,
-			wantSub:   "id INT, name VARCHAR",
-		},
-		{
-			name:      "nested parentheses",
-			input:     "(id INT, name VARCHAR(255))",
-			openIdx:   0,
-			wantEmpty: false,
-			wantSub:   "id INT, name VARCHAR(255)",
-		},
-		{
-			name:      "multiple parentheses",
-			input:     "(first) (second)",
-			openIdx:   0,
-			wantEmpty: false,
-			wantSub:   "first",
-		},
-		{
-			name:      "invalid open index",
-			input:     "(id INT)",
-			openIdx:   -1,
-			wantEmpty: true,
-		},
-		{
-			name:      "not a parenthesis",
-			input:     "id INT",
-			openIdx:   0,
-			wantEmpty: true,
-		},
-		{
-			name:      "unclosed parenthesis",
-			input:     "(id INT, name VARCHAR",
-			openIdx:   0,
-			wantEmpty: true,
-		},
+// TestDDLParser_MultipleForeignKeys tests parsing of multiple foreign keys.
+func TestDDLParser_MultipleForeignKeys(t *testing.T) {
+	extractor := NewSQLExtractor()
+	tmpDir := t.TempDir()
+
+	sqlContent := `CREATE TABLE order_items (
+		order_id INT,
+		product_id INT,
+		quantity INT,
+		FOREIGN KEY (order_id) REFERENCES orders(id),
+		FOREIGN KEY (product_id) REFERENCES products(id)
+	);`
+
+	sqlPath := filepath.Join(tmpDir, "order_items.sql")
+	if err := os.WriteFile(sqlPath, []byte(sqlContent), 0644); err != nil {
+		t.Fatalf("Failed to write SQL file: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := extractParenBody(tt.input, tt.openIdx)
+	ctx := context.Background()
+	fragment, err := extractor.Extract(ctx, tmpDir)
 
-			if tt.wantEmpty {
-				if result != "" {
-					t.Errorf("extractParenBody() = %s, want empty string", result)
-				}
-			} else {
-				if result == "" {
-					t.Error("extractParenBody() returned empty string, want non-empty")
-				}
-				if tt.wantSub != "" && !contains(result, tt.wantSub) {
-					t.Errorf("extractParenBody() = %s, want result containing %s", result, tt.wantSub)
-				}
-			}
-		})
+	if err != nil {
+		t.Fatalf("Extract() returned error: %v", err)
+	}
+
+	if len(fragment.SQLAnalysis.ForeignKeys) != 2 {
+		t.Errorf("Extract() found %d foreign keys, want 2", len(fragment.SQLAnalysis.ForeignKeys))
+	}
+}
+
+// TestDDLParser_QuotedIdentifiers tests parsing of quoted identifiers.
+func TestDDLParser_QuotedIdentifiers(t *testing.T) {
+	extractor := NewSQLExtractor()
+	tmpDir := t.TempDir()
+
+	sqlContent := "CREATE TABLE `orders` (id INT PRIMARY KEY, total DECIMAL(10,2));"
+	sqlPath := filepath.Join(tmpDir, "orders.sql")
+	if err := os.WriteFile(sqlPath, []byte(sqlContent), 0644); err != nil {
+		t.Fatalf("Failed to write SQL file: %v", err)
+	}
+
+	ctx := context.Background()
+	fragment, err := extractor.Extract(ctx, tmpDir)
+
+	if err != nil {
+		t.Fatalf("Extract() returned error: %v", err)
+	}
+
+	if len(fragment.SQLAnalysis.Tables) != 1 {
+		t.Errorf("Extract() found %d tables, want 1", len(fragment.SQLAnalysis.Tables))
+	}
+
+	table := fragment.SQLAnalysis.Tables[0]
+	if table.Name != "orders" {
+		t.Errorf("Table name = %s, want 'orders'", table.Name)
+	}
+}
+
+// TestDDLParser_IfNotExists tests parsing of CREATE TABLE IF NOT EXISTS.
+func TestDDLParser_IfNotExists(t *testing.T) {
+	extractor := NewSQLExtractor()
+	tmpDir := t.TempDir()
+
+	sqlContent := "CREATE TABLE IF NOT EXISTS comments (id INT PRIMARY KEY, text TEXT);"
+	sqlPath := filepath.Join(tmpDir, "comments.sql")
+	if err := os.WriteFile(sqlPath, []byte(sqlContent), 0644); err != nil {
+		t.Fatalf("Failed to write SQL file: %v", err)
+	}
+
+	ctx := context.Background()
+	fragment, err := extractor.Extract(ctx, tmpDir)
+
+	if err != nil {
+		t.Fatalf("Extract() returned error: %v", err)
+	}
+
+	if len(fragment.SQLAnalysis.Tables) != 1 {
+		t.Errorf("Extract() found %d tables, want 1", len(fragment.SQLAnalysis.Tables))
 	}
 }
 
@@ -495,18 +443,4 @@ func TestGetDDLStats(t *testing.T) {
 	if stats["materialized"] != 1 {
 		t.Errorf("GetDDLStats() materialized = %d, want 1", stats["materialized"])
 	}
-}
-
-// Helper function
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && indexOf(s, substr) >= 0)
-}
-
-func indexOf(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
 }

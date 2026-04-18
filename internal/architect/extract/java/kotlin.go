@@ -5,25 +5,26 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
 // Kotlin-specific patterns
 var (
-	kotlinDataClassRe     = regexp.MustCompile(`^data\s+class\s+`)
-	kotlinCompanionObjRe  = regexp.MustCompile(`^\s*companion\s+object`)
-	kotlinExtFunRe        = regexp.MustCompile(`^fun\s+\w+\.\w+`)
-	kotlinTopLevelFunRe   = regexp.MustCompile(`^(public|internal|private)?\s*fun\s+`)
-	kotlinSealedClassRe   = regexp.MustCompile(`^sealed\s+class\s+`)
-	kotlinObjectDeclRe    = regexp.MustCompile(`^object\s+`)
-	kotlinInlineFunRe     = regexp.MustCompile(`^inline\s+fun\s+`)
-	kotlinInfixFunRe      = regexp.MustCompile(`^infix\s+fun\s+`)
-	kotlinTailrecFunRe    = regexp.MustCompile(`^tailrec\s+fun\s+`)
-	kotlinOperatorFunRe   = regexp.MustCompile(`^operator\s+fun\s+`)
+	kotlinDataClassRe    = regexp.MustCompile(`^data\s+class\s+`)
+	kotlinCompanionObjRe = regexp.MustCompile(`^\s*companion\s+object`)
+	kotlinExtFunRe       = regexp.MustCompile(`^fun\s+\w+\.\w+`)
+	kotlinTopLevelFunRe  = regexp.MustCompile(`^(public|internal|private)?\s*fun\s+`)
+	kotlinSealedClassRe  = regexp.MustCompile(`^sealed\s+class\s+`)
+	kotlinObjectDeclRe   = regexp.MustCompile(`^object\s+`)
+	kotlinInlineFunRe    = regexp.MustCompile(`^inline\s+fun\s+`)
+	kotlinInfixFunRe     = regexp.MustCompile(`^infix\s+fun\s+`)
+	kotlinTailrecFunRe   = regexp.MustCompile(`^tailrec\s+fun\s+`)
+	kotlinOperatorFunRe  = regexp.MustCompile(`^operator\s+fun\s+`)
 	kotlinSuspendFunRe    = regexp.MustCompile(`^suspend\s+fun\s+`)
-	kotlinValueClassRe    = regexp.MustCompile(`^(inline\s+)?value\s+class\s+`)
-	kotlinFunInterfaceRe  = regexp.MustCompile(`^fun\s+interface\s+`)
-	kotlinTypeAliasRe     = regexp.MustCompile(`^typealias\s+`)
+	kotlinValueClassRe   = regexp.MustCompile(`^(inline\s+)?value\s+class\s+`)
+	kotlinFunInterfaceRe = regexp.MustCompile(`^fun\s+interface\s+`)
+	kotlinTypeAliasRe    = regexp.MustCompile(`^typealias\s+`)
 )
 
 // KotlinFeature represents a Kotlin language feature detected in source code.
@@ -34,7 +35,7 @@ type KotlinFeature struct {
 }
 
 // detectKotlinPatterns scans a Kotlin file for language-specific patterns.
-func detectKotlinPatterns(path string, result *Result) {
+func detectKotlinPatterns(path string, result *JavaExtractionResult) {
 	f, err := os.Open(path)
 	if err != nil {
 		return
@@ -112,22 +113,15 @@ func detectKotlinPatterns(path string, result *Result) {
 	// Update result with feature counts
 	for feature, count := range features {
 		key := "kotlin_feature_" + feature
-		result.Metadata[key] = strings.Itoa(count)
+		result.Metadata[key] = strconv.Itoa(count)
 	}
 }
 
 // AnalyzeKotlinCodeStyle analyzes the coding style patterns in Kotlin files.
-//
-// This function detects:
-//   - Extension function usage
-//   - Data class prevalence
-//   - Coroutine usage
-//   - Functional programming patterns
-//   - DSL construction patterns
 func AnalyzeKotlinCodeStyle(rootDir string) (*KotlinCodeStyle, error) {
 	style := &KotlinCodeStyle{
-		Features:      make(map[string]*KotlinFeature),
-		PackageUsage:  make(map[string]int),
+		Features:       make(map[string]*KotlinFeature),
+		PackageUsage:   make(map[string]int),
 		ImportPatterns: make(map[string]int),
 	}
 
@@ -137,7 +131,10 @@ func AnalyzeKotlinCodeStyle(rootDir string) (*KotlinCodeStyle, error) {
 		}
 
 		if info.IsDir() {
-			if skipDirs[info.Name()] {
+			// Skip common non-source directories
+			if info.Name() == "target" || info.Name() == "build" || info.Name() == "out" ||
+				info.Name() == ".gradle" || info.Name() == ".idea" || info.Name() == ".mvn" ||
+				info.Name() == ".git" || info.Name() == "node_modules" {
 				return filepath.SkipDir
 			}
 			return nil
@@ -148,7 +145,7 @@ func AnalyzeKotlinCodeStyle(rootDir string) (*KotlinCodeStyle, error) {
 			return nil
 		}
 
-		if isKotlinFile(rel) {
+		if strings.HasSuffix(rel, ".kt") && !strings.HasSuffix(rel, ".kts") {
 			analyzeKotlinFileStyle(path, style)
 		}
 
@@ -164,11 +161,11 @@ func AnalyzeKotlinCodeStyle(rootDir string) (*KotlinCodeStyle, error) {
 
 // KotlinCodeStyle represents Kotlin coding style metrics.
 type KotlinCodeStyle struct {
-	Features        map[string]*KotlinFeature `json:"features"`
-	PackageUsage    map[string]int            `json:"package_usage"`
-	ImportPatterns  map[string]int            `json:"import_patterns"`
-	TotalFiles      int                       `json:"total_files"`
-	TotalLines      int                       `json:"total_lines"`
+	Features       map[string]*KotlinFeature `json:"features"`
+	PackageUsage   map[string]int            `json:"package_usage"`
+	ImportPatterns map[string]int            `json:"import_patterns"`
+	TotalFiles     int                       `json:"total_files"`
+	TotalLines     int                       `json:"total_lines"`
 }
 
 // analyzeKotlinFileStyle analyzes a single Kotlin file for style patterns.
@@ -207,12 +204,6 @@ func analyzeKotlinFileStyle(path string, style *KotlinCodeStyle) {
 }
 
 // DetectKotlinCoroutines checks if Kotlin coroutines are used in the project.
-//
-// This function scans for:
-//   - kotlinx.coroutines imports
-//   - suspend function declarations
-//   - coroutine builders (launch, async, runBlocking)
-//   - Flow/Channel usage
 func DetectKotlinCoroutines(rootDir string) (bool, []string, error) {
 	var evidence []string
 	hasCoroutines := false
@@ -222,7 +213,7 @@ func DetectKotlinCoroutines(rootDir string) (bool, []string, error) {
 			return nil
 		}
 
-		if !isKotlinFile(path) {
+		if !strings.HasSuffix(path, ".kt") || strings.HasSuffix(path, ".kts") {
 			return nil
 		}
 
