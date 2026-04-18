@@ -36,8 +36,9 @@ func main() {
 	format := flag.String("format", "", "Output format: json or text (overrides --json if both set)")
 	repair := flag.Bool("repair", false, "Repair corrupted checkpoint from git history")
 	autonomous := flag.Bool("autonomous", false, "Run batch-mode pull-FSM loop (no external runtime)")
-	acceptGates := flag.String("accept-gates", "", "Comma-separated list of human gates to auto-accept (e.g. contract,scope)")
+	acceptGates := flag.String("accept-gates", "", "Comma-separated list of human gates to auto-accept (e.g. review,pr,ci-loop,qa)")
 	autonomousDryRun := flag.Bool("dry-run", false, "With --autonomous: print action sequence without execution")
+	autonomousForce := flag.Bool("force", false, "With --autonomous: override MVP safety and allow non-dry-run without executor backend")
 	maxIterations := flag.Int("max-iterations", orchestrate.DefaultMaxIterations, "Max iterations for --autonomous loop")
 	flag.Parse()
 
@@ -164,6 +165,7 @@ func main() {
 			MaxIterations: *maxIterations,
 			AcceptGates:   gates,
 			DryRun:        *autonomousDryRun,
+			Force:         *autonomousForce,
 		}
 		if err := orchestrate.RunAutonomous(ctx, config, projectRoot, featureID, cpPath, cp, workstreams); err != nil {
 			os.Exit(orchestrate.ExitCode(err))

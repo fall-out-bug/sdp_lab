@@ -98,24 +98,15 @@ func extractTestPass(output string) bool {
 
 // extractFilePath extracts a file path from edit_file output.
 // CONTRACT: EditFileTool in tools_live.go outputs "edited: <path>" — this function
-// takes the last space-delimited token. The format is deliberately simple: the path
-// is always the final token. If EditFileTool's output format changes, this extractor
-// MUST be updated in tandem. Do NOT add fields after <path> in the tool output.
+// strips the "edited: " prefix to get the path. If EditFileTool's output format
+// changes, this extractor MUST be updated in tandem.
 func extractFilePath(output string) string {
-	// Heuristic: last word often contains the path.
-	parts := strings.Fields(output)
-	if len(parts) == 0 {
-		return output
-	}
-	return parts[len(parts)-1]
+	return strings.TrimPrefix(output, "edited: ")
 }
 
 // extractCardID extracts a card ID from bd_create output.
-// bd_create outputs something like "card_created:PROJ-42".
+// bd_create outputs "card_created:<id>" — TrimPrefix strips the "card_created:"
+// prefix so that OnToolResult can safely prepend it again without doubling.
 func extractCardID(output string) string {
-	parts := strings.Fields(output)
-	if len(parts) == 0 {
-		return output
-	}
-	return parts[len(parts)-1]
+	return strings.TrimPrefix(output, "card_created:")
 }

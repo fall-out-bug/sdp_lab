@@ -37,6 +37,7 @@ type AutonomousConfig struct {
 	MaxIterations int
 	AcceptGates   []string // e.g. ["review", "pr"]
 	DryRun        bool
+	Force         bool // Override MVP safety: allow non-dry-run without real executor backend
 }
 
 // AutonomousDriver drives the pull-FSM loop in batch mode. It calls the
@@ -84,6 +85,16 @@ func (d *AutonomousDriver) SetAdvanceFn(fn func(cp *Checkpoint, workstreams []st
 func (d *AutonomousDriver) Run(ctx context.Context, cp *Checkpoint, workstreams []string, projectRoot string, cpPath string) error {
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	// MVP safety: no real executor backend exists yet, so non-dry-run mode
+	// would mutate the checkpoint on disk without actually executing any
+	// real action (build, review, CI, PR). Until real executors are wired,
+	// force dry-run unless --force is explicitly set.
+	if !d.config.DryRun && !d.config.Force {
+		fmt.Fprintf(d.output, "WARNING: --autonomous without --dry-run is not yet supported (no executor backend). Running in dry-run mode.\n")
+		fmt.Fprintf(d.output, "Use --force to override (requires real executor backend).\n")
+		d.config.DryRun = true
+	}
 
 	// Work on a copy in dry-run mode so the caller's checkpoint is untouched.
 	var workCP *Checkpoint

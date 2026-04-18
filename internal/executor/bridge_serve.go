@@ -280,9 +280,7 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 	if err != nil {
 		return nil, fmt.Errorf("harness restore: %w", err)
 	}
-	// Hold store reference for harness lifetime — closing it would break the SQLite session.
-	harnessStore := store
-	_ = harnessStore // prevent unused variable warning
+	defer store.Close()
 
 	// Crash reconciliation: when the agent crashes, panics, or the context
 	// is cancelled, the harness must be stopped so a terminal PhaseRecord

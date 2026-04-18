@@ -238,6 +238,17 @@ func GlobTool(root string) Tool {
 				return "", fmt.Errorf("glob: pattern is required")
 			}
 
+			// Reject absolute paths.
+			if filepath.IsAbs(a.Pattern) {
+				return "", fmt.Errorf("glob: absolute paths are not allowed: %s", a.Pattern)
+			}
+			// Reject patterns containing ".." path components.
+			for _, component := range strings.Split(a.Pattern, string(os.PathSeparator)) {
+				if component == ".." {
+					return "", fmt.Errorf("glob: pattern must not contain '..' components: %s", a.Pattern)
+				}
+			}
+
 			// Resolve pattern relative to root.
 			fullPattern := filepath.Join(root, a.Pattern)
 			matches, err := filepath.Glob(fullPattern)
@@ -247,15 +258,27 @@ func GlobTool(root string) Tool {
 
 			// If no literal matches, try walking with a doublestar approximation.
 			if len(matches) == 0 && strings.Contains(a.Pattern, "**") {
-				matches, err = globWalk(root, a.Pattern)
+				matches, err = globWalk(ctx, root, a.Pattern)
 				if err != nil {
 					return "", fmt.Errorf("glob walk: %w", err)
 				}
 			}
 
-			// Return relative paths from root.
+			// Filter matches through symlink resolution to prevent escapes.
+			canonicalRoot, rootErr := filepath.EvalSymlinks(filepath.Clean(root))
+			if rootErr != nil {
+				return "", fmt.Errorf("glob: cannot resolve root: %w", rootErr)
+			}
+
 			var relPaths []string
 			for _, m := range matches {
+				resolved, resErr := filepath.EvalSymlinks(m)
+				if resErr != nil {
+					resolved = m // path may not exist; skip filtering
+				}
+				if !isUnderRoot(resolved, canonicalRoot) && resolved != canonicalRoot {
+					continue // skip paths that escape root via symlink
+				}
 				rel, err := filepath.Rel(root, m)
 				if err != nil {
 					rel = m
@@ -272,7 +295,8 @@ func GlobTool(root string) Tool {
 }
 
 // globWalk implements ** support by walking the filesystem.
-func globWalk(root, pattern string) ([]string, error) {
+// It respects context cancellation to stop long traversals early.
+func globWalk(ctx context.Context, root, pattern string) ([]string, error) {
 	// Convert glob pattern to a regex for ** support.
 	// Replace ** with a marker, then * with [^/]*, then restore **.
 	seg := strings.ReplaceAll(pattern, "**", "\x00STARSTAR\x00")
@@ -290,6 +314,9 @@ func globWalk(root, pattern string) ([]string, error) {
 	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // skip inaccessible
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
 		if d.IsDir() {
 			return nil
@@ -353,6 +380,9 @@ func GrepTool(root string) Tool {
 			err = filepath.WalkDir(searchDir, func(path string, d fs.DirEntry, err error) error {
 				if err != nil {
 					return nil
+				}
+				if ctx.Err() != nil {
+					return ctx.Err()
 				}
 				if d.IsDir() {
 					// Skip hidden and vendor directories.
@@ -590,6 +620,8 @@ func BdCommentTool(store *control.Store) Tool {
 // ---------------------------------------------------------------------------
 
 // safePath validates that path does not escape root. Returns the cleaned absolute path.
+// It resolves symlinks on both root and the candidate path so that symlinks inside
+// the project cannot be used to read or write files outside the root.
 func safePath(root, relPath string) (string, error) {
 	if relPath == "" {
 		return "", fmt.Errorf("path is required")
@@ -599,13 +631,56 @@ func safePath(root, relPath string) (string, error) {
 	if strings.HasPrefix(cleanRel, "..") {
 		return "", fmt.Errorf("path escapes root: %s", relPath)
 	}
-	absRoot := filepath.Clean(root)
-	cleaned := filepath.Join(absRoot, cleanRel)
-	// Verify the result is still under root.
-	if !strings.HasPrefix(cleaned, absRoot+string(os.PathSeparator)) && cleaned != absRoot {
-		return "", fmt.Errorf("path escapes root: %s", relPath)
+
+	// Resolve root to its canonical form (follow symlinks).
+	canonicalRoot, err := filepath.EvalSymlinks(filepath.Clean(root))
+	if err != nil {
+		return "", fmt.Errorf("path escapes root: cannot resolve root: %w", err)
 	}
-	return cleaned, nil
+
+	candidate := filepath.Join(canonicalRoot, cleanRel)
+
+	// For existing paths, resolve symlinks.
+	resolved, err := filepath.EvalSymlinks(candidate)
+	if err == nil {
+		// Path exists — check resolved path is under canonical root.
+		if !isUnderRoot(resolved, canonicalRoot) {
+			return "", fmt.Errorf("path escapes root: %s resolves outside root", relPath)
+		}
+		return resolved, nil
+	}
+
+	// Path doesn't exist yet — walk up to find the first existing ancestor.
+	parent := filepath.Dir(candidate)
+	for {
+		resolvedParent, pErr := filepath.EvalSymlinks(parent)
+		if pErr == nil {
+			// Found an existing ancestor — verify it is under root.
+			if !isUnderRoot(resolvedParent, canonicalRoot) {
+				return "", fmt.Errorf("path escapes root: parent of %s resolves outside root", relPath)
+			}
+			break
+		}
+		// Parent doesn't exist either — keep walking up.
+		nextParent := filepath.Dir(parent)
+		if nextParent == parent {
+			// Reached filesystem root without finding anything.
+			return "", fmt.Errorf("path escapes root: no existing ancestor for %s", relPath)
+		}
+		// If we've walked above the canonical root, bail out.
+		if !strings.HasPrefix(nextParent, canonicalRoot) && nextParent != canonicalRoot {
+			return "", fmt.Errorf("path escapes root: parent of %s resolves outside root", relPath)
+		}
+		parent = nextParent
+	}
+	// Return the candidate path (not yet existing) — it is safe because its
+	// parent is verified to be under the canonical root.
+	return candidate, nil
+}
+
+// isUnderRoot returns true if path is equal to root or is a descendant of root.
+func isUnderRoot(path, root string) bool {
+	return strings.HasPrefix(path, root+string(os.PathSeparator)) || path == root
 }
 
 // formatCard formats a FeatureCard for tool output.

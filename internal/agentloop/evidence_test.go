@@ -69,7 +69,7 @@ func TestEvidenceAccumulator_onEditFile_recordsEvidence(t *testing.T) {
 
 	snap := ea.Snapshot(RoleBuild)
 	require.Len(t, snap.Evidence, 1)
-	assert.Contains(t, snap.Evidence[0], "file_modified:")
+	assert.Equal(t, "file_modified:internal/agentloop/session.go", snap.Evidence[0])
 }
 
 func TestEvidenceAccumulator_onBdCreate_recordsEvidence(t *testing.T) {
@@ -82,7 +82,7 @@ func TestEvidenceAccumulator_onBdCreate_recordsEvidence(t *testing.T) {
 
 	snap := ea.Snapshot(RolePlan)
 	require.Len(t, snap.Evidence, 1)
-	assert.Contains(t, snap.Evidence[0], "card_created:")
+	assert.Equal(t, "card_created:PROJ-42", snap.Evidence[0])
 }
 
 func TestEvidenceAccumulator_reset_clearsAll(t *testing.T) {

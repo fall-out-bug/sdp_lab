@@ -487,9 +487,13 @@ func TestLiveToolBuildLiveTools_Schemas(t *testing.T) {
 
 func TestSafePath_Valid(t *testing.T) {
 	dir := t.TempDir()
+	// Resolve to canonical form (macOS /var -> /private/var).
+	canonical, err := filepath.EvalSymlinks(dir)
+	require.NoError(t, err)
+
 	p, err := safePath(dir, "foo/bar.txt")
 	require.NoError(t, err)
-	assert.Equal(t, filepath.Join(dir, "foo", "bar.txt"), p)
+	assert.Equal(t, filepath.Join(canonical, "foo", "bar.txt"), p)
 }
 
 func TestSafePath_Escape(t *testing.T) {
@@ -511,7 +515,108 @@ func TestSafePath_Empty(t *testing.T) {
 
 func TestSafePath_ExactRoot(t *testing.T) {
 	dir := t.TempDir()
+	canonical, err := filepath.EvalSymlinks(dir)
+	require.NoError(t, err)
+
 	p, err := safePath(dir, ".")
 	require.NoError(t, err)
-	assert.Equal(t, dir, p)
+	assert.Equal(t, canonical, p)
+}
+
+// ---------------------------------------------------------------------------
+// safePath symlink security tests
+// ---------------------------------------------------------------------------
+
+func TestSafePath_SymlinkEscape(t *testing.T) {
+	// Create a temp dir structure:
+	//   root/
+	//     link -> /tmp (outside root)
+	//     link/secret.txt should be blocked
+	root := t.TempDir()
+
+	// Create a symlink inside root pointing outside.
+	outside := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(outside, "secret.txt"), []byte("pwned"), 0o644))
+	require.NoError(t, os.Symlink(outside, filepath.Join(root, "link")))
+
+	_, err := safePath(root, "link/secret.txt")
+	require.Error(t, err, "reading through symlink that escapes root must fail")
+	assert.Contains(t, err.Error(), "escapes root")
+}
+
+func TestSafePath_SymlinkEscapeEdit(t *testing.T) {
+	// EditFileTool must refuse to write through an escaping symlink.
+	root := t.TempDir()
+
+	outside := t.TempDir()
+	require.NoError(t, os.Symlink(outside, filepath.Join(root, "link")))
+
+	tool := EditFileTool(root)
+	_, err := tool.Execute(context.Background(), "tc1", json.RawMessage(`{
+		"path": "link/evil.txt",
+		"content": "pwned"
+	}`))
+	require.Error(t, err, "writing through escaping symlink must fail")
+	assert.Contains(t, err.Error(), "escapes root")
+}
+
+func TestSafePath_SymlinkInsideRoot(t *testing.T) {
+	// A symlink that stays inside root is fine.
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "real"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "real", "file.txt"), []byte("ok"), 0o644))
+	require.NoError(t, os.Symlink(filepath.Join(root, "real"), filepath.Join(root, "link")))
+
+	p, err := safePath(root, "link/file.txt")
+	require.NoError(t, err, "symlink staying inside root must be allowed")
+	assert.Contains(t, p, "real")
+}
+
+func TestSafePath_NewFileInExistingDir(t *testing.T) {
+	// Creating a new file (path doesn't exist yet) in an existing dir must work.
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "sub"), 0o755))
+
+	p, err := safePath(root, "sub/newfile.txt")
+	require.NoError(t, err)
+	assert.Contains(t, p, "sub")
+}
+
+// ---------------------------------------------------------------------------
+// GlobTool security tests
+// ---------------------------------------------------------------------------
+
+func TestLiveToolGlob_AbsolutePath(t *testing.T) {
+	dir := t.TempDir()
+	tool := GlobTool(dir)
+
+	_, err := tool.Execute(context.Background(), "tc1",
+		json.RawMessage(`{"pattern":"/etc/*"}`))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "absolute paths are not allowed")
+}
+
+func TestLiveToolGlob_DotDotPattern(t *testing.T) {
+	dir := t.TempDir()
+	tool := GlobTool(dir)
+
+	_, err := tool.Execute(context.Background(), "tc1",
+		json.RawMessage(`{"pattern":"../*"}`))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "'..' components")
+}
+
+func TestLiveToolGlob_SymlinkEscape(t *testing.T) {
+	// Glob must not return files reached through escaping symlinks.
+	root := t.TempDir()
+
+	outside := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(outside, "outside.go"), []byte("package p"), 0o644))
+	require.NoError(t, os.Symlink(outside, filepath.Join(root, "link")))
+
+	tool := GlobTool(root)
+	out, err := tool.Execute(context.Background(), "tc1",
+		json.RawMessage(`{"pattern":"**/*.go"}`))
+	require.NoError(t, err)
+	assert.NotContains(t, out, "outside.go", "glob must not return files from symlinked dirs outside root")
 }

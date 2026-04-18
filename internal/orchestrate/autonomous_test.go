@@ -57,6 +57,7 @@ func TestAutonomous_HappyPath(t *testing.T) {
 		MaxIterations: 20,
 		AcceptGates:   allGates(),
 		DryRun:        false,
+		Force:         true,
 	})
 
 	var buf strings.Builder
@@ -79,6 +80,7 @@ func TestAutonomous_HappyPath_ThreeWorkstreams(t *testing.T) {
 		MaxIterations: 20,
 		AcceptGates:   allGates(),
 		DryRun:        false,
+		Force:         true,
 	})
 
 	var buf strings.Builder
@@ -135,6 +137,7 @@ func TestAutonomous_StuckLoop(t *testing.T) {
 	driver := orchestrate.NewAutonomousDriver(orchestrate.AutonomousConfig{
 		MaxIterations: 20,
 		DryRun:        false,
+		Force:         true,
 	})
 	// Override advance to be a no-op so the state never changes,
 	// simulating a stuck loop where next-action always returns "build".
@@ -168,6 +171,7 @@ func TestAutonomous_GateAllowlist_Blocked(t *testing.T) {
 		MaxIterations: 20,
 		AcceptGates:   []string{"build"}, // review, pr, ci, qa are NOT in allowlist
 		DryRun:        false,
+		Force:         true,
 	})
 
 	var buf strings.Builder
@@ -190,6 +194,7 @@ func TestAutonomous_GateAllowlist_AllAllowed(t *testing.T) {
 		MaxIterations: 20,
 		AcceptGates:   allGates(),
 		DryRun:        false,
+		Force:         true,
 	})
 
 	var buf strings.Builder
@@ -214,6 +219,7 @@ func TestAutonomous_IterationCap(t *testing.T) {
 	driver := orchestrate.NewAutonomousDriver(orchestrate.AutonomousConfig{
 		MaxIterations: 2,
 		DryRun:        false,
+		Force:         true,
 	})
 	// Override advance to be a no-op — state never changes.
 	driver.SetAdvanceFn(func(cp *orchestrate.Checkpoint, workstreams []string, result string) error {
@@ -292,6 +298,7 @@ func TestAutonomous_ContextCancellation(t *testing.T) {
 	driver := orchestrate.NewAutonomousDriver(orchestrate.AutonomousConfig{
 		MaxIterations: 20,
 		DryRun:        false,
+		Force:         true,
 	})
 
 	err := driver.Run(ctx, cp, workstreams, t.TempDir(), t.TempDir())
@@ -359,4 +366,80 @@ func sameActionCount(history []string, action string) int {
 		}
 	}
 	return count
+}
+
+func TestAutonomous_NonDryRun_SafetyFallback(t *testing.T) {
+	// Without Force, non-dry-run mode should be treated as dry-run (MVP safety).
+	// The original checkpoint must NOT be mutated.
+	cp := helperCheckpoint(orchestrate.PhaseInit, 2)
+	workstreams := helperWorkstreams(2)
+
+	driver := orchestrate.NewAutonomousDriver(orchestrate.AutonomousConfig{
+		MaxIterations: 20,
+		AcceptGates:   allGates(),
+		DryRun:        false,
+		Force:         false, // no force — should auto-downgrade to dry-run
+	})
+
+	var buf strings.Builder
+	driver.SetOutput(&buf)
+
+	err := driver.Run(context.Background(), cp, workstreams, t.TempDir(), t.TempDir())
+	if err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+
+	output := buf.String()
+
+	// Must contain the safety warning.
+	if !strings.Contains(output, "WARNING") {
+		t.Errorf("expected safety WARNING in output, got: %s", output)
+	}
+	if !strings.Contains(output, "--force") {
+		t.Errorf("expected --force hint in output, got: %s", output)
+	}
+
+	// Must behave like dry-run: original checkpoint not mutated.
+	if cp.Phase != orchestrate.PhaseInit {
+		t.Errorf("safety fallback should not mutate original checkpoint, got phase: %s", cp.Phase)
+	}
+
+	// Must contain [dry-run] markers showing it ran in dry-run mode.
+	if !strings.Contains(output, "[dry-run]") {
+		t.Errorf("expected [dry-run] prefix in output after safety fallback, got: %s", output)
+	}
+}
+
+func TestAutonomous_Force_BypassesSafety(t *testing.T) {
+	// With Force=true and DryRun=false, the driver should run without
+	// the safety downgrade and mutate the checkpoint as before.
+	cp := helperCheckpoint(orchestrate.PhaseInit, 2)
+	workstreams := helperWorkstreams(2)
+
+	driver := orchestrate.NewAutonomousDriver(orchestrate.AutonomousConfig{
+		MaxIterations: 20,
+		AcceptGates:   allGates(),
+		DryRun:        false,
+		Force:         true, // bypass safety
+	})
+
+	var buf strings.Builder
+	driver.SetOutput(&buf)
+
+	err := driver.Run(context.Background(), cp, workstreams, t.TempDir(), t.TempDir())
+	if err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+
+	output := buf.String()
+
+	// Should NOT contain the safety warning (it's force mode).
+	if strings.Contains(output, "WARNING") {
+		t.Errorf("force mode should not emit safety WARNING, got: %s", output)
+	}
+
+	// Checkpoint should be mutated (reached done phase).
+	if cp.Phase != orchestrate.PhaseDone {
+		t.Errorf("force mode should mutate checkpoint to done, got phase: %s", cp.Phase)
+	}
 }
