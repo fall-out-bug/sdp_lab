@@ -47,7 +47,9 @@ Start with these files:
 
 ## Current Product Direction
 
-The active direction is the platform-first reset:
+The active direction has two lanes:
+
+**Platform reset (core):**
 
 - `F091` backlog reset and canonical doc sync
 - `F092` kernel contract surface
@@ -55,6 +57,16 @@ The active direction is the platform-first reset:
 - `F094` augmentation engine
 - `F095` behavioral eval system
 - `F096` legacy drift cleanup support lane
+
+**Toolkit lane (unknown repo → AI-native adoption):**
+
+- `F120` Toolkit Scout — instant repo card
+- `F121` Toolkit Metrics — git-derived process health (Done)
+- `F122` Toolkit Index — persistent codebase memory
+- `F123` Toolkit Spec Recovery — recover implicit contracts
+- `F124` Toolkit Bootstrap — brownfield-safe agent setup
+- `F125` Toolkit UX — intent-routed skills
+- `F126` Toolkit MCP — universal agent interface (Done)
 
 Trust, evidence, and governance still matter, but they are the secondary lane, not the whole story.
 
