@@ -293,7 +293,9 @@ func (h *Harness) ApproveGate(ctx context.Context, decisionID, token string) err
 		return err
 	}
 	h.state = hStateIdle
-	h.store.ClearDecision(h.session.ID, decisionID)
+	if err := h.store.ClearDecision(h.session.ID, decisionID); err != nil {
+		return fmt.Errorf("clear decision after approve: %w", err)
+	}
 	return nil
 }
 
@@ -320,7 +322,9 @@ func (h *Harness) Rollback(ctx context.Context, decisionID, token string) error 
 		return err
 	}
 	h.state = hStateIdle
-	h.store.ClearDecision(h.session.ID, decisionID)
+	if err := h.store.ClearDecision(h.session.ID, decisionID); err != nil {
+		return fmt.Errorf("clear decision after rollback: %w", err)
+	}
 	return nil
 }
 

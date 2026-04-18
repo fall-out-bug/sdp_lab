@@ -222,7 +222,7 @@ func (b *ServeBridge) recordExecutionResult(cardID string, result *control.Execu
 		card.ExecutorRuntimeState = control.ExecutorRuntimeCompleted
 	case control.ResultStatusNeedsReview:
 		card.ExecutorRuntimeState = "awaiting_human"
-		card.Status = "awaiting_review" // prevent orchestrator redispatch
+		card.Status = "needs_input" // canonical status; runtime state "awaiting_human" signals gate escalation
 	case control.ResultStatusNeedsInput:
 		card.ExecutorRuntimeState = "awaiting_input"
 	default:
