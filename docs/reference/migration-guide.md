@@ -140,15 +140,7 @@ Some workflows were previously called "skills" but are now **embedded practices*
 | **Warning Period** | 2026-04-17 → 2026-06-01 | Legacy skill usage triggers deprecation warnings |
 | **Hard Cutover** | 2026-06-01 | Legacy skill names removed, intent skills only |
 
-### During Warning Period
-
-When you use legacy skill names, you'll see:
-
-> ⚠️ **Deprecation Warning:** `@scout` is deprecated. Use `@understand` instead.
-> Migration: `@scout` → `@understand --depth quick`
-> See: `docs/reference/migration-guide.md`
-
-The old skill will **still work**, but you'll be guided to the new pattern.
+**Note:** Deprecation warning mechanism is documented but not yet implemented in CLI routers. This PR establishes the migration path and intent surface; runtime warnings require follow-up work.
 
 ## How to Migrate Your Workflows
 

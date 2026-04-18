@@ -31,7 +31,7 @@
 
 ### Actions
 
-- [x] Deploy deprecation warnings to production
+- [ ] Deploy deprecation warnings to production
 - [ ] Monitor analytics for legacy skill usage
 - [ ] Collect user feedback on warning clarity
 - [ ] Identify and document any edge cases
@@ -184,4 +184,4 @@ If critical issues arise:
 
 **Feature:** F125 (Toolkit UX — intent-routed skills over composable tools)
 **Workstream:** WS 00-125-04 (Migration Harness and Documentation Cutover)
-**Status:** Phase 1 complete — all documentation updated, commands.json fixed, deprecation warnings implemented
+**Status:** Documentation and stub layer complete. Actual deprecation warning mechanism (router) not yet implemented.

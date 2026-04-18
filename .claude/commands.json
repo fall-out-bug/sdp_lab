@@ -223,12 +223,6 @@
       "mode": "llm_only",
       "description": "Delegate independent tasks to parallel subagent sessions"
     },
-    "review-readiness": {
-      "file": ".agents/skills/review-readiness.md",
-      "cli": null,
-      "mode": "llm_only",
-      "description": "Verify workstream completion against acceptance criteria"
-    },
     "llm-council": {
       "file": ".agents/skills/llm-council.md",
       "cli": null,
