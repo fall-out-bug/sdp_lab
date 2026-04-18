@@ -1,0 +1,39 @@
+{
+  "languages": [
+    {
+      "primary": "typescript",
+      "all": ["typescript"]
+    }
+  ],
+  "dependencies": [
+    {
+      "file": "package.json",
+      "language": "typescript",
+      "dep_count": 15
+    }
+  ],
+  "import_graph": {
+    "nodes": 20,
+    "edges": 30
+  },
+  "infra": {
+    "containers": [
+      {
+        "name": "api",
+        "type": "service",
+        "source": "Dockerfile"
+      },
+      {
+        "name": "postgres",
+        "type": "database",
+        "source": "docker-compose.yml"
+      }
+    ]
+  },
+  "specs": [
+    {
+      "kind": "openapi",
+      "path": "api/openapi.yaml"
+    }
+  ]
+}

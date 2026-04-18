@@ -1,0 +1,30 @@
+{
+  "languages": [
+    {
+      "primary": "typescript",
+      "all": ["typescript", "prisma"]
+    }
+  ],
+  "sql_analysis": {
+    "tables": [
+      {
+        "name": "User",
+        "schema": "public"
+      },
+      {
+        "name": "Post",
+        "schema": "public"
+      },
+      {
+        "name": "Comment",
+        "schema": "public"
+      }
+    ]
+  },
+  "generated": [
+    {
+      "path": "node_modules/.prisma/client/index.ts",
+      "reason": "prisma:client"
+    }
+  ]
+}

@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"sdp_dev/internal/architect"
+	"sdp_dev/internal/architect/extract/java"
+	"sdp_dev/internal/architect/extract/python"
 	"strings"
 )
 
@@ -1002,4 +1004,179 @@ func dedupStructuralEdges(edges []architect.StructuralEdge) []architect.Structur
 		}
 	}
 	return result
+}
+
+// ---------------------------------------------------------------------------
+// NewPythonAdapter — wraps new python.PythonExtractor to implement architect.Extractor
+// ---------------------------------------------------------------------------
+
+// NewPythonAdapter wraps the new python.PythonExtractor from the python subpackage.
+type NewPythonAdapter struct{}
+
+// Name returns the extractor identifier.
+func (NewPythonAdapter) Name() string { return "python" }
+
+// Extract analyzes the Python repository at repoRoot and returns a ProfileFragment.
+func (NewPythonAdapter) Extract(ctx context.Context, repoRoot string) (*architect.ProfileFragment, error) {
+	// Check if this is a Python project by looking for common markers
+	hasPythonMarkers := false
+	for _, marker := range []string{"requirements.txt", "pyproject.toml", "setup.py", "setup.cfg", "Pipfile", "poetry.lock"} {
+		if _, err := os.Stat(filepath.Join(repoRoot, marker)); err == nil {
+			hasPythonMarkers = true
+			break
+		}
+	}
+	// Also check for any .py files
+	if !hasPythonMarkers {
+		if err := filepath.Walk(repoRoot, func(path string, fi os.FileInfo, err error) error {
+			if err != nil || fi.IsDir() {
+				return nil
+			}
+			if strings.HasSuffix(fi.Name(), ".py") {
+				hasPythonMarkers = true
+				return filepath.SkipDir // Found a Python file, stop walking
+			}
+			return nil
+		}); err == nil && hasPythonMarkers {
+			// Found Python files
+		}
+	}
+
+	if !hasPythonMarkers {
+		return &architect.ProfileFragment{}, nil // Not a Python project
+	}
+
+	e := &python.PythonExtractor{}
+	result, err := e.Extract(ctx, repoRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	return convertExtractionResult(result), nil
+}
+
+// ---------------------------------------------------------------------------
+// NewJavaAdapter — wraps new java.Extractor to implement architect.Extractor
+// ---------------------------------------------------------------------------
+
+// NewJavaAdapter wraps the new java.Extractor from the java subpackage.
+type NewJavaAdapter struct{}
+
+// Name returns the extractor identifier.
+func (NewJavaAdapter) Name() string { return "java" }
+
+// Extract analyzes the Java/Kotlin repository at repoRoot and returns a ProfileFragment.
+func (NewJavaAdapter) Extract(ctx context.Context, repoRoot string) (*architect.ProfileFragment, error) {
+	// Check if this is a Java/Kotlin project by looking for common markers
+	hasJavaMarkers := false
+	for _, marker := range []string{"pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle"} {
+		if _, err := os.Stat(filepath.Join(repoRoot, marker)); err == nil {
+			hasJavaMarkers = true
+			break
+		}
+	}
+	// Also check for any .java or .kt files
+	if !hasJavaMarkers {
+		if err := filepath.Walk(repoRoot, func(path string, fi os.FileInfo, err error) error {
+			if err != nil || fi.IsDir() {
+				return nil
+			}
+			if strings.HasSuffix(fi.Name(), ".java") || strings.HasSuffix(fi.Name(), ".kt") {
+				hasJavaMarkers = true
+				return filepath.SkipDir
+			}
+			return nil
+		}); err == nil && hasJavaMarkers {
+			// Found Java/Kotlin files
+		}
+	}
+
+	if !hasJavaMarkers {
+		return &architect.ProfileFragment{}, nil // Not a Java/Kotlin project
+	}
+
+	e := java.NewExtractor(repoRoot)
+	result, err := e.Extract()
+	if err != nil {
+		return nil, err
+	}
+
+	return convertJavaResultToFragment(result), nil
+}
+
+// convertJavaResultToFragment converts the new java.JavaExtractionResult to ProfileFragment.
+func convertJavaResultToFragment(result *java.JavaExtractionResult) *architect.ProfileFragment {
+	if result == nil {
+		return &architect.ProfileFragment{}
+	}
+
+	frag := &architect.ProfileFragment{
+		Languages: []architect.LanguageInfo{{
+			Primary: result.Language,
+			All:     []string{result.Language},
+		}},
+	}
+
+	// Convert import graph
+	if len(result.ImportGraph.PackageImports) > 0 {
+		importGraph := &architect.ImportGraph{
+			ExtractionMethod: result.ExtractionMethod,
+			AccuracyEstimate: result.AccuracyEstimate,
+		}
+
+		// Build simple clusters from package directories
+		clusters := make(map[string]*architect.ImportCluster)
+		for pkgDir := range result.ImportGraph.PackageImports {
+			clusterID := filepath.Base(pkgDir)
+			if _, exists := clusters[clusterID]; !exists {
+				clusters[clusterID] = &architect.ImportCluster{
+					ID:      clusterID,
+					Packages: []string{pkgDir},
+				}
+			} else {
+				clusters[clusterID].Packages = append(clusters[clusterID].Packages, pkgDir)
+			}
+			importGraph.Nodes++
+		}
+
+		for _, c := range clusters {
+			importGraph.Clusters = append(importGraph.Clusters, *c)
+		}
+
+		frag.ImportGraph = importGraph
+	}
+
+	// Convert frameworks to modules (canonical field)
+	if len(result.Frameworks) > 0 {
+		for _, fw := range result.Frameworks {
+			frag.Modules = append(frag.Modules, architect.Module{
+				ID:       fw.Name,
+				Name:     fw.Name,
+				Language: result.Language,
+			})
+		}
+	}
+
+	// Convert build system
+	if result.BuildSystem != nil {
+		depInfo := architect.DependencyInfo{
+			Language: result.Language,
+		}
+		for _, dep := range result.BuildSystem.Dependencies {
+			depInfo.NotableDeps = append(depInfo.NotableDeps, architect.NotableDep{
+				Name:   dep.Group + ":" + dep.Artifact,
+				Signal: detectDepSignal(dep.Artifact),
+			})
+		}
+		if len(depInfo.NotableDeps) > 0 {
+			frag.Dependencies = []architect.DependencyInfo{depInfo}
+		}
+	}
+
+	// Set metrics
+	frag.Metrics = &architect.CodeMetrics{
+		LanguagesCount: 1,
+	}
+
+	return frag
 }

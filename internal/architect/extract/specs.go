@@ -47,8 +47,8 @@ var specGlobs = []specGlob{
 	// Docker
 	{Pattern: "Dockerfile", Kind: "docker"},
 	{Pattern: "Dockerfile.*", Kind: "docker"},
-	{Pattern: "docker-compose.yml", Kind: "docker"},
-	{Pattern: "docker-compose.yaml", Kind: "docker"},
+	{Pattern: "docker-compose*.yml", Kind: "docker"},
+	{Pattern: "docker-compose*.yaml", Kind: "docker"},
 
 	// Terraform
 	{Pattern: "*.tf", Kind: "terraform"},

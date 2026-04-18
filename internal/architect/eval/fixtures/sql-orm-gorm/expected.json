@@ -1,0 +1,34 @@
+{
+  "languages": [
+    {
+      "primary": "go",
+      "all": ["go"]
+    }
+  ],
+  "sql_analysis": {
+    "tables": [
+      {
+        "name": "User",
+        "schema": "main"
+      },
+      {
+        "name": "Profile",
+        "schema": "main"
+      },
+      {
+        "name": "Settings",
+        "schema": "main"
+      }
+    ]
+  },
+  "generated": [
+    {
+      "path": "models/user.go",
+      "reason": "gorm:model"
+    },
+    {
+      "path": "models/profile.go",
+      "reason": "gorm:model"
+    }
+  ]
+}

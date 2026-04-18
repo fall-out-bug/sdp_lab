@@ -1,6 +1,10 @@
 package extract
 
-import "sdp_dev/internal/architect"
+import (
+	"sdp_dev/internal/architect"
+	"sdp_dev/internal/architect/extract/sql"
+	"sdp_dev/internal/architect/extract/typescript"
+)
 
 // DefaultExtractors returns the standard set of extractors for analysis.
 func DefaultExtractors() []architect.Extractor {
@@ -12,9 +16,9 @@ func DefaultExtractors() []architect.Extractor {
 		&InfraExtractor{},
 		GitHistoryExtractor{},
 		GoAdapter{},
-		PythonAdapter{},
-		JavaAdapter{},
-		TypeScriptAdapter{},
-		&SQLExtractor{},
+		NewPythonAdapter{},
+		NewJavaAdapter{},
+		typescript.NewTSExtractor(),
+		sql.NewSQLExtractor(),
 	}
 }

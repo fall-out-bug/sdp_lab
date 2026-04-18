@@ -54,11 +54,18 @@ func runArchitectAnalyze(args []string) {
 	formatFlag := fs.String("format", "json", "output format: json, text, mermaid")
 	sectionFlag := fs.String("section", "", "output only specific section: profile, report, model, diagrams, summary")
 	timeoutFlag := fs.Duration("timeout", 5*time.Minute, "total session timeout")
-	outputFlag := fs.String("output", "", "output file path (default: stdout)")
+	var outputValue string
+	fs.StringVar(&outputValue, "output", "", "output file path (default: stdout)")
+	fs.StringVar(&outputValue, "o", "", "shorthand for --output")
 	verboseFlag := fs.Bool("verbose", false, "show per-extractor timing")
 	fs.BoolVar(verboseFlag, "v", false, "shorthand for --verbose")
 	skipGit := fs.Bool("skip-git", false, "skip git history analysis")
 	langFilter := fs.String("language", "", "comma-separated language filter (e.g. go,python)")
+	writeArtifacts := fs.Bool("write-artifacts", false, "write .sdp/architecture/ artifact files")
+
+	// Reorder args: move flags before positional args so flag.FlagSet
+	// doesn't stop parsing at the first non-flag argument.
+	args = reorderFlags(args)
 
 	if err := fs.Parse(args); err != nil {
 		log.Fatalf("flag parse error: %v", err)
@@ -147,13 +154,21 @@ func runArchitectAnalyze(args []string) {
 	} else {
 		output = formatAnalyzeResult(result, diagrams, *formatFlag)
 	}
-	if *outputFlag != "" {
-		if err := os.WriteFile(*outputFlag, []byte(output), 0644); err != nil {
+	if outputValue != "" {
+		if err := os.WriteFile(outputValue, []byte(output), 0644); err != nil {
 			log.Fatalf("failed to write output: %v", err)
 		}
-		fmt.Fprintf(os.Stderr, "Output written to %s\n", *outputFlag)
+		fmt.Fprintf(os.Stderr, "Output written to %s\n", outputValue)
 	} else {
 		fmt.Println(output)
+	}
+
+	// Write artifact files only when --write-artifacts is explicitly set.
+	// --output alone should only write to the specified file, not mutate the repo.
+	if *writeArtifacts {
+		if err := writeArtifactFiles(repoRoot, result, diagrams); err != nil {
+			log.Printf("Warning: failed to write artifact files: %v", err)
+		}
 	}
 
 	// Print verbose summary to stderr
@@ -167,12 +182,16 @@ func runArchitectAnalyze(args []string) {
 func runArchitectC4(args []string) {
 	fs := flag.NewFlagSet("architect c4", flag.ExitOnError)
 	levelFlag := fs.Int("level", 0, "C4 diagram level: 1 (system), 2 (container), 3 (component). Default: all")
-	outputFlag := fs.String("output", "", "output directory for .mmd files (default: stdout)")
+	var c4OutputValue string
+	fs.StringVar(&c4OutputValue, "output", "", "output directory for .mmd files (default: stdout)")
+	fs.StringVar(&c4OutputValue, "o", "", "shorthand for --output")
 	extractorsFlag := fs.String("extractors", "", "comma-separated list of extractors (default: all)")
 	timeoutFlag := fs.Duration("timeout", 5*time.Minute, "total session timeout")
 	verboseFlag := fs.Bool("verbose", false, "show detailed output")
 	fs.BoolVar(verboseFlag, "v", false, "shorthand for --verbose")
 	formatFlag := fs.String("format", "mermaid", "output format: mermaid, json")
+
+	args = reorderFlags(args)
 
 	if err := fs.Parse(args); err != nil {
 		log.Fatalf("flag parse error: %v", err)
@@ -237,9 +256,9 @@ func runArchitectC4(args []string) {
 		os.Exit(0)
 	}
 
-	if *outputFlag != "" {
+	if c4OutputValue != "" {
 		// Write individual .mmd files
-		if err := os.MkdirAll(*outputFlag, 0755); err != nil {
+		if err := os.MkdirAll(c4OutputValue, 0755); err != nil {
 			log.Fatalf("failed to create output directory: %v", err)
 		}
 		for _, d := range diagrams {
@@ -247,14 +266,14 @@ func runArchitectC4(args []string) {
 			if d.Level == c4.Level3 {
 				filename = fmt.Sprintf("c4-L3-component-%d.mmd", d.NodeCount)
 			}
-			path := filepath.Join(*outputFlag, filename)
+			path := filepath.Join(c4OutputValue, filename)
 			if err := os.WriteFile(path, []byte(d.MermaidCode), 0644); err != nil {
 				log.Printf("failed to write %s: %v", path, err)
 			} else if *verboseFlag {
 				fmt.Fprintf(os.Stderr, "  wrote %s (%d nodes, %d edges)\n", path, d.NodeCount, d.EdgeCount)
 			}
 		}
-		fmt.Fprintf(os.Stderr, "C4 diagrams written to %s\n", *outputFlag)
+		fmt.Fprintf(os.Stderr, "C4 diagrams written to %s\n", c4OutputValue)
 	} else {
 		// Output to stdout
 		switch *formatFlag {
@@ -296,6 +315,8 @@ func runArchitectEval(args []string) {
 	timeoutFlag := fs.Duration("timeout", 5*time.Minute, "total session timeout")
 	verboseFlag := fs.Bool("verbose", false, "show per-extractor timing")
 	fs.BoolVar(verboseFlag, "v", false, "shorthand for --verbose")
+
+	args = reorderFlags(args)
 
 	if err := fs.Parse(args); err != nil {
 		log.Fatalf("flag parse error: %v", err)
@@ -763,6 +784,44 @@ func formatSummaryText(result *architect.PipelineResult, diagrams []*c4.DiagramR
 
 // --- Helper functions ---
 
+// reorderFlags moves flag arguments (starting with - or --) before positional
+// arguments so that flag.FlagSet.Parse doesn't stop at the first non-flag arg.
+// This allows both "sdp architect analyze --tier 3 ./repo" and
+// "sdp architect analyze ./repo --tier 3" to work correctly.
+func reorderFlags(args []string) []string {
+	var flags, positionals []string
+	for i := 0; i < len(args); i++ {
+		if strings.HasPrefix(args[i], "-") {
+			flags = append(flags, args[i])
+			// If this flag takes a value and the next arg is not a flag, grab it too
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+				// Check if it's a boolean flag like --verbose, --no-llm, --skip-git, --write-artifacts
+				// Boolean flags don't consume the next argument
+				if !isBoolFlag(args[i]) {
+					i++
+					flags = append(flags, args[i])
+				}
+			}
+		} else {
+			positionals = append(positionals, args[i])
+		}
+	}
+	return append(flags, positionals...)
+}
+
+// isBoolFlag returns true for flags that don't consume the next argument.
+func isBoolFlag(arg string) bool {
+	flags := map[string]bool{
+		"--allow-external-llm": true,
+		"--no-llm":            true,
+		"--verbose":           true,
+		"-v":                  true,
+		"--skip-git":          true,
+		"--write-artifacts":   true,
+	}
+	return flags[arg]
+}
+
 func filterExtractorsByName(extractors []architect.Extractor, names []string) []architect.Extractor {
 	if len(names) == 0 {
 		return extractors
@@ -865,6 +924,7 @@ func architectUsage() {
 	fmt.Fprintln(os.Stderr, "  --timeout <duration>          Total session timeout (default: 5m)")
 	fmt.Fprintln(os.Stderr, "  -o, --output <path>           Output file path (default: stdout)")
 	fmt.Fprintln(os.Stderr, "  -v, --verbose                 Show per-extractor timing")
+	fmt.Fprintln(os.Stderr, "  --write-artifacts             Write .sdp/architecture/ artifact files")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Render flags:")
 	fmt.Fprintln(os.Stderr, "  -o, --output <path>           Output HTML path (default: same name .html)")
@@ -877,4 +937,55 @@ func architectUsage() {
 	fmt.Fprintln(os.Stderr, "Eval flags:")
 	fmt.Fprintln(os.Stderr, "  --ground-truth <file>         Path to ground truth JSON (required)")
 	fmt.Fprintln(os.Stderr, "  --format <json|text>          Output format (default: text)")
+}
+
+// writeArtifactFiles writes analysis artifacts to .sdp/architecture/ directory.
+func writeArtifactFiles(repoRoot string, result *architect.PipelineResult, diagrams []*c4.DiagramResult) error {
+	// Create .sdp/architecture/ directory
+	archDir := filepath.Join(repoRoot, ".sdp", "architecture")
+	if err := os.MkdirAll(archDir, 0755); err != nil {
+		return fmt.Errorf("failed to create architecture directory: %w", err)
+	}
+
+	// Write profile.json
+	if result.Profile != nil {
+		profileData, err := json.MarshalIndent(result.Profile, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal profile: %w", err)
+		}
+		profilePath := filepath.Join(archDir, "profile.json")
+		if err := os.WriteFile(profilePath, profileData, 0644); err != nil {
+			return fmt.Errorf("failed to write profile.json: %w", err)
+		}
+	}
+
+	// Write report.json
+	if result.Report != nil {
+		reportData, err := json.MarshalIndent(result.Report, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal report: %w", err)
+		}
+		reportPath := filepath.Join(archDir, "report.json")
+		if err := os.WriteFile(reportPath, reportData, 0644); err != nil {
+			return fmt.Errorf("failed to write report.json: %w", err)
+		}
+	}
+
+	// Write C4 diagrams to c4/ subdirectory
+	if len(diagrams) > 0 {
+		c4Dir := filepath.Join(archDir, "c4")
+		if err := os.MkdirAll(c4Dir, 0755); err != nil {
+			return fmt.Errorf("failed to create c4 directory: %w", err)
+		}
+
+		for _, diag := range diagrams {
+			filename := fmt.Sprintf("c4-%s.mmd", diag.Level)
+			diagPath := filepath.Join(c4Dir, filename)
+			if err := os.WriteFile(diagPath, []byte(diag.MermaidCode), 0644); err != nil {
+				return fmt.Errorf("failed to write %s: %w", filename, err)
+			}
+		}
+	}
+
+	return nil
 }

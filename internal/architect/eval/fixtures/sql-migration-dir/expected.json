@@ -1,0 +1,28 @@
+{
+  "languages": [
+    {
+      "primary": "sql",
+      "all": ["sql"]
+    }
+  ],
+  "sql_analysis": {
+    "tables": [
+      {
+        "name": "users",
+        "schema": "public"
+      },
+      {
+        "name": "posts",
+        "schema": "public"
+      },
+      {
+        "name": "comments",
+        "schema": "public"
+      },
+      {
+        "name": "migrations",
+        "schema": "public"
+      }
+    ]
+  }
+}

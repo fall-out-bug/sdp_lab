@@ -1,0 +1,39 @@
+{
+  "languages": [
+    {
+      "primary": "python",
+      "all": ["python"]
+    }
+  ],
+  "dependencies": [
+    {
+      "file": "requirements.txt",
+      "language": "python",
+      "dep_count": 10
+    },
+    {
+      "file": "pyproject.toml",
+      "language": "python",
+      "dep_count": 5
+    }
+  ],
+  "import_graph": {
+    "nodes": 15,
+    "edges": 20
+  },
+  "infra": {
+    "containers": [
+      {
+        "name": "api",
+        "type": "service",
+        "source": "Dockerfile"
+      }
+    ]
+  },
+  "specs": [
+    {
+      "kind": "openapi",
+      "path": "openapi.json"
+    }
+  ]
+}

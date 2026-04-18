@@ -68,6 +68,7 @@ type FileTreeInfo struct {
 	NamingPatterns map[string]int    `json:"naming_patterns,omitempty"` // e.g. "controller": 5
 	Patterns       []string          `json:"patterns,omitempty"`        // detected naming convention labels
 	ExtCounts      map[string]int    `json:"ext_counts,omitempty"`      // extension -> file count
+	NamingStyles   []string          `json:"naming_styles,omitempty"`   // "snake_case", "camelCase", "kebab-case", "PascalCase"
 }
 
 // ManifestInfo describes a single dependency manifest file.

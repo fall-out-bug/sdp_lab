@@ -629,38 +629,6 @@ func (pa *ProfileAssembler) computeMetrics(profile *CodebaseProfile, fragments [
 	}
 }
 
-// applyTierFilter filters the profile based on tier level.
-// Tier1 (~2K tokens): system overview -- containers, languages, external deps, spec inventory.
-// Tier2 (~5-15K tokens): full detail without source code.
-// Tier3: include everything (source code on demand).
-func (pa *ProfileAssembler) applyTierFilter(profile *CodebaseProfile) {
-	switch pa.tier {
-	case Tier1:
-		// Keep: container names/types, languages, dependency signals, spec list.
-		// Strip: import graph edges/clusters, deployment evidence, resource details.
-		profile.ImportGraph = ImportGraph{
-			ExtractionMethod: profile.ImportGraph.ExtractionMethod,
-			AccuracyEstimate: profile.ImportGraph.AccuracyEstimate,
-			Nodes:            profile.ImportGraph.Nodes,
-			Edges:            profile.ImportGraph.Edges,
-		}
-		profile.Infra = InfraInfo{
-			Containers: profile.Infra.Containers,
-		}
-		profile.Dependencies = DependencyInfo{
-			NotableDeps: profile.Dependencies.NotableDeps, // keep signals
-		}
-		profile.GitAnalysis = nil
-		profile.SQLAnalysis = nil
-		profile.Files = nil
-	case Tier2:
-		// Full detail, but no source code
-		profile.Files = nil
-	case Tier3:
-		// Include everything (source code would be added separately)
-	}
-}
-
 // EstimateTokens provides a rough token count for the profile.
 func EstimateTokens(profile *CodebaseProfile) int {
 	data, err := json.Marshal(profile)
@@ -697,6 +665,48 @@ func (pa *ProfileAssembler) ContentHash(profile *CodebaseProfile) string {
 // Errors returns non-fatal extractor errors.
 func (pa *ProfileAssembler) Errors() []ExtractorError {
 	return pa.errors
+}
+
+// TimeNow returns the current time in milliseconds (extracted for testability).
+var TimeNow = func() int64 {
+	return time.Now().UnixMilli()
+}
+
+// TimeSince returns milliseconds since a timestamp.
+func TimeSince(start int64) int64 {
+	return TimeNow() - start
+}
+
+// applyTierFilter filters the profile based on tier level.
+// Tier1 (~2K tokens): system overview -- containers, languages, external deps, spec inventory.
+// Tier2 (~5-15K tokens): full detail without source code.
+// Tier3: include everything (source code on demand).
+func (pa *ProfileAssembler) applyTierFilter(profile *CodebaseProfile) {
+	switch pa.tier {
+	case Tier1:
+		// Keep: container names/types, languages, dependency signals, spec list.
+		// Strip: import graph edges/clusters, deployment evidence, resource details.
+		profile.ImportGraph = ImportGraph{
+			ExtractionMethod: profile.ImportGraph.ExtractionMethod,
+			AccuracyEstimate: profile.ImportGraph.AccuracyEstimate,
+			Nodes:            profile.ImportGraph.Nodes,
+			Edges:            profile.ImportGraph.Edges,
+		}
+		profile.Infra = InfraInfo{
+			Containers: profile.Infra.Containers,
+		}
+		profile.Dependencies = DependencyInfo{
+			NotableDeps: profile.Dependencies.NotableDeps, // keep signals
+		}
+		profile.GitAnalysis = nil
+		profile.SQLAnalysis = nil
+		profile.Files = nil
+	case Tier2:
+		// Full detail, but no source code
+		profile.Files = nil
+	case Tier3:
+		// Include everything (source code would be added separately)
+	}
 }
 
 // TierSummary generates a human-readable summary for Tier1 (~2K tokens).
@@ -779,14 +789,4 @@ func (pa *ProfileAssembler) TierSummary(profile *CodebaseProfile) string {
 		profile.Metrics.ContractsDiscovered, profile.Metrics.ContractsMissing))
 
 	return b.String()
-}
-
-// TimeNow returns the current time in milliseconds (extracted for testability).
-var TimeNow = func() int64 {
-	return time.Now().UnixMilli()
-}
-
-// TimeSince returns milliseconds since a timestamp.
-func TimeSince(start int64) int64 {
-	return TimeNow() - start
 }

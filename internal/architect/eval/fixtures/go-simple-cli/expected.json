@@ -1,0 +1,22 @@
+{
+  "languages": [
+    {
+      "primary": "go",
+      "all": ["go"]
+    }
+  ],
+  "dependencies": [
+    {
+      "file": "go.mod",
+      "language": "go",
+      "dep_count": 5
+    }
+  ],
+  "import_graph": {
+    "nodes": 3,
+    "edges": 4
+  },
+  "infra": {
+    "containers": []
+  }
+}

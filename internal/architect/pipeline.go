@@ -133,7 +133,6 @@ func (p *Pipeline) Run(ctx context.Context) (*PipelineResult, error) {
 	if profile == nil {
 		return nil, fmt.Errorf("all extractors failed: %d errors", len(extractErrs))
 	}
-	result.Profile = profile
 
 	// Report timings
 	for _, t := range timings {
@@ -151,11 +150,14 @@ func (p *Pipeline) Run(ctx context.Context) (*PipelineResult, error) {
 
 	// Stage 3: Security filter
 	p.progress(StageFilter, "Applying security filter...", nil)
-	_, secretsFound := p.secFilter.Sanitize(profile)
+	sanitizedProfile, secretsFound := p.secFilter.Sanitize(profile)
 	if secretsFound.Count > 0 {
 		p.progress(StageFilter, fmt.Sprintf("Security filter: %d secrets redacted (types: %v)",
 			secretsFound.Count, secretsFound.Types), nil)
 	}
+	// Use sanitized profile for all subsequent stages
+	profile = sanitizedProfile
+	result.Profile = profile
 
 	// Stage 4: LLM enrichment (optional)
 	if p.config.AllowExternalLLM && !p.config.NoLLM {
@@ -167,6 +169,8 @@ func (p *Pipeline) Run(ctx context.Context) (*PipelineResult, error) {
 		} else if enrichmentResult != nil {
 			p.progress(StageEnrich, fmt.Sprintf("LLM enrichment completed: %d nodes enriched",
 				len(enrichmentResult.Enrichment)), nil)
+			// Store enrichment results in profile for hypothesis/pattern/risk outputs
+			profile.Enrichment = enrichmentResult.Enrichment
 		}
 	} else {
 		p.progress(StageEnrich, "LLM enrichment disabled", nil)
