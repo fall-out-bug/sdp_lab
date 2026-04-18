@@ -122,9 +122,8 @@ func (b *ServeBridge) DispatchBeads(ctx context.Context) (string, error) {
 		return "", nil // nothing to dispatch
 	}
 
-	// Pick best ready item using ranking policy. Skip cards that are in an
-	// active harness wait-state (awaiting_human/awaiting_input) to prevent
-	// redispatch loops — these cards are already dispatched and pending.
+	// Pick best ready item using ranking policy. Skip cards with pending gate
+	// decisions (awaiting_human) to prevent redispatch loops before human review.
 	for range ready {
 		cardID := RankAndPick(ready, DefaultRankingPolicy(), nil)
 		if cardID == "" {
