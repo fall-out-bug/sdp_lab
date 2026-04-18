@@ -61,11 +61,14 @@ The remaining toolkit lane is therefore smaller and more concrete:
 
 This is the current next lane after the P0 UX/runtime work and remains the canonical plan for "unknown repo -> AI-native workspace".
 
-Deferred unless explicitly revived as `P3+` work:
+Backlog triage 2026-04-18 (all features now tracked in beads for consistency — search with `bd search FNNN`):
 
-- historical placeholder range `F031`..`F049`, `F052`
-- ecosystem side lanes `F060`, `F062`, `F063`, `F068`, `F070`
-- enterprise and long-horizon tails `F072`..`F085`
+- **Closed (historical placeholders):** `F032`, `F034`, `F036`–`F049`, `F052` — closed with supersede reasons pointing to shipped tracks (F064–F067 auto-attestation, F134 Phase FSM, F108 drift).
+- **Superseded by active epics:** `F062` → F125/F134, `F063` → F124, `F068` → F091/F092, `F072` → F094/F095 + F134, `F073` → F093. Tracked as closed in beads with `bd supersede` reasons.
+- **Compliance lane (EU AI Act 2026-08 / Colorado AI Act 2026-06):** `F074`, `F078`, `F079`, `F080`, `F082` — open P2, all linked to `F134-03` (evidence enforcement) and/or `F134-04` (AI-vs-human attribution).
+- **Promoted to P1:** `F077` (CI→local bridge, blocks F129/F135 self-healing), `F081` (30-min production pilot, gating layer for F135 deploy gate).
+- **Reframe pending F134:** `F060` (gastown), `F070` (observability) — open with dependency on F134 evidence schema.
+- **Keep long-horizon:** `F075`, `F083`, `F084`, `F085` — open P3, gated on trust-lane completion.
 
 Two horizons. Phases 1-7 build the trust layer as CLI tools with CI enforcement. Phases 8-9 extend the same standards into K8s for autonomous swarm execution. The dream (issue in, PR with proof out) doesn't change — the path becomes standards-based.
 
@@ -351,7 +354,7 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 - Archived pre-pivot features: `F001`..`F013`
 - Phase 0 completed bootstrap features: `F014`..`F029`
 - Remaining Phase 7 bootstrap backlog: `F030`
-- Auto-generated planning ranges: `F031`..`F052` (historical placeholders; only revive explicitly)
+- Auto-generated planning ranges: `F031`..`F052` (historical placeholders; **closed 2026-04-18** with supersede reasons — see beads)
 - Historical protocol and workflow hardening tracks: `F053`..`F056`
 - Active strategy and ecosystem ranges: `F059`..`F085`
 - Parked long-horizon ideas: `F086`..`F089`
@@ -397,8 +400,8 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 - **F059** — OhMyOpenCode Evidence Integration (00-059-01 … 00-059-04). Pre-tool-call guard, session evidence emitter, permission↔guard bridge, stuck detection. Phase 5. **Status: DONE** (sdp-omc-guard, sdp-ready implemented).
 - **F060** — Gas Town Adapter (00-060-01 … 00-060-04). Convoy→WS bridge, hook→guard, witness escalation, Agent CV→provenance. Phase 8-9 target. Deferred unless explicitly revived. Source: [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md).
 **F061** — Beads Graph Integration (00-061-01 … 00-061-04). SQL dep query, `sdp ready` bridge, formula templates, wisps. Phase 5 target. **Status: DONE** (sdp-ready, beads client implemented, opencode-beads plugin installed).
-- **F062** — vibe-kanban Integration. Kanban-style task orchestration for coding agents. Evaluate for SDP swarm orchestration layer. Deferred unless explicitly revived.
-- **F063** — opencode-mem Integration. Persistent memory for session continuity, user preference learning, project-specific context. Deferred unless explicitly revived or merged into toolkit memory work.
+- **F062** — vibe-kanban Integration. **Superseded 2026-04-18 by F125 (5 intents) + F134 (Phase FSM orchestration).** Closed in beads.
+- **F063** — opencode-mem Integration. **Superseded 2026-04-18 by F124 (toolkit memory, shipped).** Closed in beads.
 
 ### Phase 4: Auto-Attestation
 
@@ -409,23 +412,25 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 
 ### Phase 6-8: Dual-Surface Productization (Planned)
 
-- **F068** — Unified Integration Contracts (00-068-01 ... 00-068-05). Standard contracts for orchestration/runtime/policy/evidence plus status/instructions/import payload surfaces across adapters.
+- **F068** — Unified Integration Contracts (00-068-01 ... 00-068-05). **Split 2026-04-18 across F091 (backlog reset) + F092 (kernel contract); scope resolved.** Closed in beads.
 - **F069** — Control Tower Pack + Spec-Driven Pipeline (00-069-01 ... 00-069-15). ~~One-command setup for OhMyOpenCode + Beads + Gas Town + SDP demo flow~~ **Extended to full spec-driven pipeline**: Control Store MVP, Beads Bridge, Orchestrator Loop, Human/Admin Surface, Dispatch Bridge (OmO transport), Auto-Contract Generation, Provenance Unification, A2A HTTP Interface, Constitution Layer, Advanced Execution (daemon + findings routing). **Status: DONE.** See `docs/SDP_SPEC_DRIVEN_PIPELINE_CANON.md`.
 - **F070** — OSS Observability and Explainability (00-070-01 ... 00-070-03). Live event stream, allow/deny explanations, minimal audit export.
 - **F071** — Ralph Decommission and Orchestrator V2 (00-071-01 ... 00-071-03). Remove primitive Ralph loop from enterprise profile and migrate to typed FSM orchestration. **Status: DONE.** Runtime `agentloop` wiring remains tracked separately in `F106`.
-- **F072** — Advanced Agent Architecture for AI SDLC (00-072-01 ... 00-072-06). Hierarchical planning, parallel branches, verifier quorum, uncertainty escalation, and OpenSpec import into the planning graph.
-- **F073** — BYOM Model Gateway (00-073-01 ... 00-073-03). Provider abstraction and policy-based model routing for customer-selected models.
+- **F072** — Advanced Agent Architecture for AI SDLC (00-072-01 ... 00-072-06). **Split 2026-04-18 across F094 (augmentation engine) + F095 (behavioral eval); planning slices merged into F134.** Closed in beads.
+- **F073** — BYOM Model Gateway (00-073-01 ... 00-073-03). **Merged 2026-04-18 into F093 (adapter gateway layer); routing policy depends on F130.** Closed in beads.
 - **F074** — Enterprise Governance Pack (00-074-01 ... 00-074-03). Multi-tenant RBAC, signed evidence gates, SIEM/compliance exports.
 - **F075** — Enterprise K8s Runtime Pack (00-075-01 ... 00-075-03). HA deployment, queue control, canary rollout for agent workflows.
 - **F076** — Documentation Agent Automation (00-076-01). Automatic changelog updates and documentation consistency checks on each commit.
-- **F077** — CI to Local Bridge for Improvement Loop (00-077-01 ... 00-077-04). GitHub CI findings are synchronized into local Beads queue for autonomous improvement agents.
+- **F077** — CI to Local Bridge for Improvement Loop (00-077-01 ... 00-077-04). **Promoted to P1 2026-04-18**: blocks F129 autonomous operations + F135-03 self-testing loop. GitHub CI findings are synchronized into local Beads queue for autonomous improvement agents.
 
-### Phase 8C: Trust Surface and Enterprise Readiness (High Priority)
+### Phase 8C: Trust Surface and Enterprise Readiness (Compliance lane, coupled with F134)
 
-- **F078** — Trust Surface Consistency (00-078-01 ... 00-078-03). Enforce version/link/metadata consistency and release-surface checks for OSS trust.
-- **F079** — Enterprise Trust Pack (00-079-01 ... 00-079-03). Public maturity matrix, canonical guarantees/non-guarantees, CI gates map with local reproduce path.
-- **F080** — Contract Governance Policy (00-080-01 ... 00-080-03). Schema semver rules, compatibility gates, canonical examples and conformance tests.
-- **F081** — 30-Min Production Pilot (00-081-01 ... 00-081-03). CI-gate-only onboarding, contracted-runtime pilot, rollback/disable playbook.
+> **Compliance deadlines:** EU AI Act (2026-08), Colorado AI Act (2026-06). F074, F078, F079, F080, F082 form the trust lane; all linked to F134-03 (evidence enforcement) and/or F134-04 (AI-vs-human attribution) in beads.
+
+- **F078** — Trust Surface Consistency (00-078-01 ... 00-078-03). Enforce version/link/metadata consistency and release-surface checks. **P2, compliance lane.**
+- **F079** — Enterprise Trust Pack (00-079-01 ... 00-079-03). Public maturity matrix, canonical guarantees/non-guarantees, CI gates map with local reproduce path. **P2, compliance lane.**
+- **F080** — Contract Governance Policy (00-080-01 ... 00-080-03). Schema semver, compatibility gates, conformance tests. **P2, compliance lane; depends on F091/F092 (F068 split).**
+- **F081** — 30-Min Production Pilot (00-081-01 ... 00-081-03). CI-gate-only onboarding, contracted-runtime pilot, rollback/disable playbook. **Promoted to P1 2026-04-18**: gating layer for F135-06 deploy gate (ETH/DORA 2025: 60%+ AI errors surface post-deploy).
 
 ### Phase 8D: Medium-Priority Trust Expansion (Backlog)
 
