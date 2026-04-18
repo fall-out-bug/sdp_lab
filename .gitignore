@@ -57,7 +57,7 @@ sdp-ready
 
 .cache/
 .sisyphus/
-sdp-gh-findings-sync
+/sdp-gh-findings-sync
 sdp-up
 
 # Dolt database files (added by bd init)
@@ -92,3 +92,4 @@ sdp-doc-sync
 
 # MCP server binary (rebuilt from source)
 sdp-mcp
+*.test

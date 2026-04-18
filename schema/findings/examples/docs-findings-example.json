@@ -73,7 +73,7 @@
       }
     },
     {
-      "finding_key": "890abcdef12345678",
+      "finding_key": "90abcdef12345678",
       "severity": "info",
       "category": "consistency",
       "code": "OUTDATED_INDEX",

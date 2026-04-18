@@ -394,9 +394,14 @@ func TypedFindingHashes(f TypedFinding) (string, string) {
 
 	identity := normalizedTypedFindingIdentity{
 		Source:     normalizeValue(string(f.Source)),
-		FeatureID:  normalizeValue(f.FeatureID),
-		WSID:       normalizeValue(f.WSID),
 		FindingKey: findingKey,
+	}
+	// Only include FeatureID/WSID in identity when there is no stable DedupKey.
+	// When DedupKey is set (e.g. "gh-issue:repo:number"), it uniquely identifies
+	// the finding and FeatureID/WSID are mutable metadata that should not affect identity.
+	if findingKey == "" || findingKey != normalizeValue(f.DedupKey) {
+		identity.FeatureID = normalizeValue(f.FeatureID)
+		identity.WSID = normalizeValue(f.WSID)
 	}
 
 	payload := normalizedTypedFindingPayload{

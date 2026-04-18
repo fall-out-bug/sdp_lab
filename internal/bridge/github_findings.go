@@ -9,9 +9,32 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
+
+// validLabelPattern matches allowed characters in GitHub issue labels.
+// Allows: letters, digits, spaces, dots, colons, underscores, slashes, hyphens,
+// parentheses, plus signs, and equals signs.
+var validLabelPattern = regexp.MustCompile(`^[a-zA-Z0-9 .:_/\-()+=]+$`)
+
+// validateLabel checks that a label value is safe to pass to the gh CLI.
+func validateLabel(label string) error {
+	if label == "" {
+		return fmt.Errorf("label must not be empty")
+	}
+	if strings.Contains(label, "\n") {
+		return fmt.Errorf("label %q must not contain newlines", label)
+	}
+	if strings.Contains(label, "\x00") {
+		return fmt.Errorf("label %q must not contain null bytes", label)
+	}
+	if !validLabelPattern.MatchString(label) {
+		return fmt.Errorf("label %q contains invalid characters; allowed: alphanumeric, spaces, hyphens, underscores, slashes, dots, colons, parentheses, plus, equals", label)
+	}
+	return nil
+}
 
 // ProtocolFindings represents findings from sdp-protocol-check.
 type ProtocolFindings struct {
@@ -247,6 +270,96 @@ func ParseFindingsFile(path string) (interface{}, string, error) {
 
 		return nil, "", fmt.Errorf("unknown findings format")
 	}
+}
+
+// GitHubIssue represents a GitHub issue from the gh CLI output.
+// Field names match the actual gh issue list --json output.
+// Legacy fields (HTMLURL, Body, User, Assignees, Milestone) are kept for
+// compatibility with REST API consumers and existing tests that set them via
+// struct literals.
+type GitHubIssue struct {
+	Number    int              `json:"number"`
+	Title     string           `json:"title"`
+	URL       string           `json:"url"`
+	HTMLURL   string           `json:"html_url"`
+	Body      string           `json:"body"`
+	State     string           `json:"state"`
+	Labels    []GitHubLabel    `json:"labels"`
+	User      *GitHubUser      `json:"user,omitempty"`
+	Author    *GitHubUser      `json:"author,omitempty"`
+	Assignees []GitHubUser     `json:"assignees,omitempty"`
+	Milestone *GitHubMilestone `json:"milestone,omitempty"`
+	CreatedAt string           `json:"createdAt"`
+}
+
+// issueURL returns the best available URL for the issue.
+// Prefers HTMLURL (REST API) when set, falls back to URL (gh CLI).
+func (i *GitHubIssue) issueURL() string {
+	if i.HTMLURL != "" {
+		return i.HTMLURL
+	}
+	return i.URL
+}
+
+// GitHubLabel represents a label on a GitHub issue.
+type GitHubLabel struct {
+	Name  string `json:"name"`
+	Color string `json:"color"`
+}
+
+// GitHubUser represents a GitHub user.
+type GitHubUser struct {
+	Login string `json:"login"`
+}
+
+// GitHubMilestone represents a GitHub milestone.
+type GitHubMilestone struct {
+	Title string `json:"title"`
+}
+
+// FetchIssues fetches GitHub issues matching the given labels and state.
+// When limit is 0, fetches up to 5000 issues (gh issue list handles server-side pagination).
+// When limit > 0, fetches up to that many issues.
+func (c *GitHubClient) FetchIssues(ctx context.Context, labels []string, state string, limit int) ([]GitHubIssue, error) {
+	fetchLimit := 5000
+	if limit > 0 {
+		fetchLimit = limit
+	}
+
+	args := []string{
+		"issue", "list",
+		"-R", c.repo,
+		"--json", "number,title,url,state,labels,createdAt,body,author,assignees,milestone",
+		"-L", fmt.Sprintf("%d", fetchLimit),
+	}
+
+	if state != "" {
+		args = append(args, "--state", state)
+	}
+
+	for _, label := range labels {
+		if err := validateLabel(label); err != nil {
+			return nil, fmt.Errorf("invalid label: %w", err)
+		}
+		args = append(args, "-l", label)
+	}
+
+	cmd := exec.CommandContext(ctx, "gh", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("gh issue list failed: %w", err)
+	}
+
+	var issues []GitHubIssue
+	if err := json.Unmarshal(output, &issues); err != nil {
+		return nil, fmt.Errorf("parse github issues: %w", err)
+	}
+
+	if len(issues) >= fetchLimit {
+		fmt.Fprintf(os.Stderr, "warning: FetchIssues hit the %d-issue limit; some issues may be missing.\n", fetchLimit)
+	}
+
+	return issues, nil
 }
 
 // LoadLocalFindings loads findings from a local directory.

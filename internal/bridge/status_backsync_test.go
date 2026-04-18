@@ -3,6 +3,7 @@ package bridge
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -120,6 +121,129 @@ func TestStatusBackSyncRetryAndAudit(t *testing.T) {
 	}
 	if auditor.entries[0].Success || auditor.entries[1].Success || !auditor.entries[2].Success {
 		t.Fatalf("unexpected audit success sequence: %+v", auditor.entries)
+	}
+}
+
+func TestStatusBackSyncAllStatusMappings(t *testing.T) {
+	mapping := map[string][]string{
+		"open":        {"sdp/beads-sync", "sdp/open"},
+		"in_progress": {"sdp/beads-sync", "sdp/in-progress"},
+		"blocked":     {"sdp/beads-sync", "sdp/blocked"},
+		"deferred":    {"sdp/beads-sync", "sdp/deferred"},
+		"closed":      {"sdp/beads-sync", "sdp/done"},
+	}
+
+	for status, expectedLabels := range mapping {
+		t.Run(status, func(t *testing.T) {
+			labels, comment, err := StatusBackSyncPayload("test-id-001", status)
+			if err != nil {
+				t.Fatalf("unexpected error for status %q: %v", status, err)
+			}
+			if !reflect.DeepEqual(labels, expectedLabels) {
+				t.Fatalf("status %q: expected labels %v, got %v", status, expectedLabels, labels)
+			}
+			expectedComment := fmt.Sprintf("SDP Beads issue `%s` status synchronized to `%s`.", "test-id-001", status)
+			if comment != expectedComment {
+				t.Fatalf("status %q: expected comment %q, got %q", status, expectedComment, comment)
+			}
+		})
+	}
+}
+
+func TestStatusBackSyncUnsupportedStatus(t *testing.T) {
+	_, _, err := StatusBackSyncPayload("test-id", "unknown_status")
+	if err == nil {
+		t.Fatalf("expected error for unsupported status")
+	}
+	if !errors.Is(err, ErrUnsupportedBeadsStatus) {
+		t.Fatalf("expected ErrUnsupportedBeadsStatus, got: %v", err)
+	}
+}
+
+func TestStatusBackSyncCommentDeterministicFormat(t *testing.T) {
+	_, comment, err := StatusBackSyncPayload("F077-42", "closed")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	expected := "SDP Beads issue `F077-42` status synchronized to `closed`."
+	if comment != expected {
+		t.Fatalf("comment format mismatch:\nexpected: %q\n     got: %q", expected, comment)
+	}
+}
+
+func TestStatusBackSyncSetLabelsSucceedsCommentFails(t *testing.T) {
+	client := &fakeStatusClient{failCommentUntil: 2}
+	auditor := &captureAuditor{}
+	backsync := NewStatusBackSync(client, auditor, 4, time.Millisecond)
+
+	result, err := backsync.SyncIssueStatus(context.Background(), BackSyncIssue{
+		BeadsID:     "sdplab-200",
+		Status:      "deferred",
+		ExternalRef: "fall-out-bug/sdp_lab#50",
+	}, "")
+	if err != nil {
+		t.Fatalf("expected eventual success, got error: %v", err)
+	}
+	if !result.Success {
+		t.Fatalf("expected success result, got %+v", result)
+	}
+	if result.Attempts != 3 {
+		t.Fatalf("expected 3 attempts (comment fails twice), got %d", result.Attempts)
+	}
+	// Verify labels were set each attempt
+	if client.setLabelsCalls != 3 {
+		t.Fatalf("expected 3 SetLabels calls, got %d", client.setLabelsCalls)
+	}
+	// Verify first two audit entries failed, third succeeded
+	if auditor.entries[0].Success || auditor.entries[1].Success || !auditor.entries[2].Success {
+		t.Fatalf("expected fail-fail-succeed pattern in audit: %+v", auditor.entries)
+	}
+}
+
+func TestStatusBackSyncContextCancelled(t *testing.T) {
+	client := &fakeStatusClient{failSetLabelsUntil: 10}
+	auditor := &captureAuditor{}
+	backsync := NewStatusBackSync(client, auditor, 10, 50*time.Millisecond)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	// Cancel after first attempt
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		cancel()
+	}()
+
+	_, err := backsync.SyncIssueStatus(ctx, BackSyncIssue{
+		BeadsID:     "sdplab-300",
+		Status:      "open",
+		ExternalRef: "fall-out-bug/sdp_lab#60",
+	}, "")
+	if err == nil {
+		t.Fatalf("expected error due to context cancellation")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got: %v", err)
+	}
+}
+
+func TestStatusBackSyncInvalidRef(t *testing.T) {
+	client := &fakeStatusClient{}
+	auditor := &captureAuditor{}
+	backsync := NewStatusBackSync(client, auditor, 3, time.Millisecond)
+
+	_, err := backsync.SyncIssueStatus(context.Background(), BackSyncIssue{
+		BeadsID:     "sdplab-400",
+		Status:      "open",
+		ExternalRef: "",
+	}, "")
+	if err == nil {
+		t.Fatalf("expected error for empty external ref")
+	}
+	if !errors.Is(err, ErrEmptyGitHubReference) {
+		t.Fatalf("expected ErrEmptyGitHubReference, got: %v", err)
+	}
+	// No audit entries should be recorded for parse failures
+	if len(auditor.entries) != 0 {
+		t.Fatalf("expected 0 audit entries for parse failure, got %d", len(auditor.entries))
 	}
 }
 

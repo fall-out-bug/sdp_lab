@@ -65,6 +65,21 @@ func (s *BeadsSink) reopenBeadsIssue(ctx context.Context, issueID, reason string
 	return nil
 }
 
+func (s *BeadsSink) closeBeadsIssue(ctx context.Context, issueID, reason string) error {
+	args := []string{"close", issueID}
+	if reason != "" {
+		args = append(args, "--reason", reason)
+	}
+
+	cmd := exec.CommandContext(ctx, "bd", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("bd close %s failed: %w: %s", issueID, err, strings.TrimSpace(string(output)))
+	}
+
+	return nil
+}
+
 func (s *BeadsSink) handleDryRunDecision(decision DedupeDecision, findingHash, payloadHash, title string) {
 	switch decision.Action {
 	case DedupeCreate:
