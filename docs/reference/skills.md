@@ -55,7 +55,7 @@ Old skills have been absorbed into the five intents. During the deprecation peri
 | @design | @build | idea | Use `@build --mode idea` |
 | @ux | @build | idea | Use `@build --mode idea` |
 | @vision | @build | idea | Use `@build --mode idea` |
-| @oneshot | @build | feature | Use `@build --mode feature` |
+| @oneshot | @build | prototype | Use `@build --mode prototype`. Note: Checkpoint/resume now via `@operate --mode plan` |
 | @prototype | @build | prototype | Use `@build --mode prototype` |
 | @hotfix | @fix | quick | Use `@fix` (auto-detects quick) |
 | @bugfix | @fix | systematic | Use `@fix --mode systematic` |

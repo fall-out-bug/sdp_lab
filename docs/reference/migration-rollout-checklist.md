@@ -16,9 +16,9 @@
 
 ### Verification
 
-- [ ] Verify all 26 legacy skills have 1:1 intent mapping
+- [x] Verify all 26 legacy skills have 1:1 intent mapping
 - [ ] Test migration guide examples with actual skill invocations
-- [ ] Confirm deprecation warnings are clear and actionable
+- [x] Confirm deprecation warnings are clear and actionable
 - [ ] Check all links in migration docs work
 
 ## Phase 1: Soft Launch (Week 1-2: 2026-04-17 to 2026-05-01)
@@ -31,7 +31,7 @@
 
 ### Actions
 
-- [ ] Deploy deprecation warnings to production
+- [x] Deploy deprecation warnings to production
 - [ ] Monitor analytics for legacy skill usage
 - [ ] Collect user feedback on warning clarity
 - [ ] Identify and document any edge cases
@@ -184,4 +184,4 @@ If critical issues arise:
 
 **Feature:** F125 (Toolkit UX — intent-routed skills over composable tools)
 **Workstream:** WS 00-125-04 (Migration Harness and Documentation Cutover)
-**Status:** Ready for Phase 1 rollout
+**Status:** Phase 1 ready — legacy stubs created, awaiting commands.json fix from other agent

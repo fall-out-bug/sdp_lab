@@ -47,7 +47,7 @@ Scope based on: (1) Request type: "Design..."→idea, "Implement..."→feature, 
 
 ## Legacy Aliases
 
-@feature→feature mode, @idea/@design/@ux/@vision→idea mode, @oneshot→feature mode, @prototype→prototype mode
+@feature→feature mode, @idea/@design/@ux/@vision→idea mode, @oneshot→prototype mode, @prototype→prototype mode
 
 ## Embedded Practices
 

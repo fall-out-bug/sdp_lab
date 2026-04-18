@@ -16,11 +16,11 @@ Each legacy skill maps to:
 | Legacy Skill | Routes To | Intent Mode | Warning Message |
 |--------------|-----------|-------------|-----------------|
 | `@scout` | `@understand` | quick | `@scout` is deprecated. Use `@understand` (auto-detects quick mode) |
-| `@architect` | `@understand` | standard | `@architect` is deprecated. Use `@understand --mode standard` |
-| `@metrics` | `@understand` | standard | `@metrics` is deprecated. Use `@understand --mode standard` |
-| `@spec` | `@understand` | deep | `@spec` is deprecated. Use `@understand --mode deep` |
+| `@architect` | `@understand` | standard | `@architect` is deprecated. Use `@understand --depth standard` |
+| `@metrics` | `@understand` | standard | `@metrics` is deprecated. Use `@understand --depth standard` |
+| `@spec` | `@understand` | deep | `@spec` is deprecated. Use `@understand --depth deep` |
 | `@landscape` | `@understand` | standard/deep | `@landscape` is deprecated. Use `@understand` (auto-detects depth) |
-| `@index query` | `@understand` | deep | `@index query` is deprecated. Use `@understand --mode deep` |
+| `@index query` | `@understand` | deep | `@index query` is deprecated. Use `@understand --depth deep` |
 
 ## Build Aliases
 
@@ -31,7 +31,7 @@ Each legacy skill maps to:
 | `@design` | `@build` | idea | `@design` is deprecated. Use `@build --mode idea` |
 | `@ux` | `@build` | idea | `@ux` is deprecated. Use `@build --mode idea` |
 | `@vision` | `@build` | idea | `@vision` is deprecated. Use `@build --mode idea` |
-| `@oneshot` | `@build` | feature | `@oneshot` is deprecated. Use `@build --mode feature` |
+| `@oneshot` | `@build` | prototype | `@oneshot` is deprecated. Use `@build --mode prototype`. Note: Checkpoint/resume behavior is now available through `@operate --mode plan` for session management |
 | `@prototype` | `@build` | prototype | `@prototype` is deprecated. Use `@build --mode prototype` |
 
 ## Fix Aliases
@@ -87,7 +87,7 @@ Example warning format:
 
 ```
 ⚠️ DEPRECATION WARNING: @architect is deprecated
-→ Use: @understand --mode standard
+→ Use: @understand --depth standard
 → See: docs/reference/migration-guide.md
 
 [Executing with legacy compatibility...]

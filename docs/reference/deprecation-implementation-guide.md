@@ -40,8 +40,8 @@ Deprecation warnings should be:
 ⚠️ DEPRECATION WARNING
 @scout is deprecated and will be removed on 2026-06-01.
 
-→ Use: @understand
-→ Example: @understand this repo
+→ Use: @understand --depth quick
+→ Example: @understand --depth quick this repo
 → See: docs/reference/migration-guide.md
 
 [Executing @understand in quick mode...]
@@ -63,7 +63,7 @@ Deprecation warnings should be:
 @design is deprecated and will be removed on 2026-06-01.
 
 → Use: @build --mode idea
-→ Example: @build --mode design payment flow
+→ Example: @build --mode idea payment flow
 → See: docs/reference/migration-guide.md
 
 [Executing @build in idea mode...]
@@ -105,12 +105,12 @@ Use `.agents/skills/deprecated-aliases.md` as the source of truth:
   "@scout": {
     "intent": "@understand",
     "mode": "quick",
-    "warning": "@scout is deprecated. Use @understand (auto-detects quick mode)"
+    "warning": "@scout is deprecated. Use @understand --depth quick"
   },
   "@architect": {
     "intent": "@understand",
     "mode": "standard",
-    "warning": "@architect is deprecated. Use @understand --mode standard"
+    "warning": "@architect is deprecated. Use @understand --depth standard"
   },
   "@feature": {
     "intent": "@build",

@@ -44,17 +44,17 @@ All legacy skills have **exact equivalents** in the new intent model. No functio
 
 | Legacy Skill | New Intent | Mode | What Changes |
 |--------------|------------|------|--------------|
-| `@scout` | `@understand` | quick | Direct replacement. Use `@understand` or `@understand --mode quick` |
-| `@architect` | `@understand` | standard | Use `@understand --mode standard` |
-| `@metrics` | `@understand` | standard | Use `@understand --mode standard` |
-| `@spec` | `@understand` | deep | Use `@understand --mode deep` |
+| `@scout` | `@understand` | quick | Direct replacement. Use `@understand` or `@understand --depth quick` |
+| `@architect` | `@understand` | standard | Use `@understand --depth standard` |
+| `@metrics` | `@understand` | standard | Use `@understand --depth standard` |
+| `@spec` | `@understand` | deep | Use `@understand --depth deep` |
 | `@landscape` | `@understand` | standard/deep | Use `@understand` without mode (auto-detects) |
-| `@index query` | `@understand` | deep | Use `@understand --mode deep` |
+| `@index query` | `@understand` | deep | Use `@understand --depth deep` |
 
 **Example migrations:**
 - `@scout this repo` → `@understand this repo` (auto-selects quick if scout.json exists)
-- `@architect analyze` → `@understand --mode standard`
-- `@landscape full analysis` → `@understand --mode deep`
+- `@architect analyze` → `@understand --depth standard`
+- `@landscape full analysis` → `@understand --depth deep`
 
 ### Build Intent Migrations
 
@@ -65,13 +65,18 @@ All legacy skills have **exact equivalents** in the new intent model. No functio
 | `@design` | `@build` | idea | Use `@build --mode idea` |
 | `@ux` | `@build` | idea | Use `@build --mode idea` |
 | `@vision` | `@build` | idea | Use `@build --mode idea` |
-| `@oneshot` | `@build` | feature | Use `@build --mode feature` |
+| `@oneshot` | `@build` | prototype | Use `@build --mode prototype`. Note: Checkpoint/resume behavior now available through `@operate --mode plan` |
 | `@prototype` | `@build` | prototype | Use `@build --mode prototype` |
 
 **Example migrations:**
 - `@feature add authentication` → `@build add authentication`
-- `@design payment flow` → `@build --mode design payment flow`
+- `@design payment flow` → `@build --mode idea payment flow`
+- `@oneshot F001` → `@build --mode prototype F001` (for fast implementation)
 - `@prototype quick mock` → `@build --mode prototype quick mock`
+
+**Note on @oneshot checkpoint/resume:** The legacy @oneshot skill supported checkpoint save/restore and background execution. In the new intent model:
+- Fast implementation: Use `@build --mode prototype` (skip design, mark experimental)
+- Session management & resume: Use `@operate --mode plan` (for session planning and checkpoint management)
 
 ### Fix Intent Migrations
 
@@ -140,7 +145,7 @@ Some workflows were previously called "skills" but are now **embedded practices*
 When you use legacy skill names, you'll see:
 
 > ⚠️ **Deprecation Warning:** `@scout` is deprecated. Use `@understand` instead.
-> Migration: `@scout` → `@understand --mode quick`
+> Migration: `@scout` → `@understand --depth quick`
 > See: `docs/reference/migration-guide.md`
 
 The old skill will **still work**, but you'll be guided to the new pattern.
