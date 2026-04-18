@@ -191,9 +191,9 @@ git log --oneline --grep="WS-060"
 ## Integration with Other Commands
 
 ```
-@build --dimension idea "feature description"
+@build --mode idea "feature description"
     ↓
-@build --dimension design idea-slug
+@build --mode design idea-slug
     ↓
 @build --mode prototype 00-XXX-XX
     ↓

@@ -321,18 +321,18 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 **Invocation:**
 ```bash
-@build --dimension idea "Add payment processing"
-@build --dimension design idea-payments
+@build --mode idea "Add payment processing"
+@build --mode design idea-payments
 @build 00-001-01
 ```
 
 **Migration from Legacy Skills:**
-- `@feature` → `@build --dimension feature`
-- `@idea` → `@build --dimension idea`
-- `@design` → `@build --dimension design`
+- `@feature` → `@build --mode feature`
+- `@idea` → `@build --mode idea`
+- `@design` → `@build --mode design`
 - `@oneshot` → `@build --mode prototype` (quick builds) or `@operate --mode plan` (session management)
-- `@hotfix` → `@fix --priority P0`
-- `@bugfix` → `@fix --priority P1`
+- `@hotfix` → `@fix --mode quick`
+- `@bugfix` → `@fix --mode investigate`
 
 **See Also:** @ Command Prefix, Command, Prompt
 
@@ -520,12 +520,12 @@ r'^\d{2}-\d{3}-\d{2}$'
 
 ### @build (Intent Skill)
 
-**Definition:** Primary execution skill with multiple dimensions for different workflows.
+**Definition:** Primary execution skill with multiple modes for different workflows.
 
-**Dimensions:**
-- `@build --dimension idea` - Requirements gathering (replaces `@idea`)
-- `@build --dimension design` - Workstream planning (replaces `@design`)
-- `@build --dimension feature` - Feature development (replaces `@feature`)
+**Modes:**
+- `@build --mode idea` - Requirements gathering (replaces `@idea`)
+- `@build --mode design` - Workstream planning (replaces `@design`)
+- `@build --mode feature` - Feature development (replaces `@feature`)
 - `@build --mode prototype` - Quick prototyping (replaces `@oneshot`)
 
 **See Also:** @review, @fix, @understand, @operate
