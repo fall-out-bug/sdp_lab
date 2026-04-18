@@ -75,14 +75,14 @@ func TestServeBridgeHarness_HappyPath(t *testing.T) {
 		t.Fatalf("expected session DB at %s: %v", dbPath, err)
 	}
 
-	// Verify build.json evidence was written (F106 bug fix).
-	evidencePath := filepath.Join(sb.ProjectRoot, ".sdp", "artifacts", card.ID, "build.json")
+	// Verify phase-specific evidence was written (discover.json for discover phase).
+	evidencePath := filepath.Join(sb.ProjectRoot, ".sdp", "artifacts", card.ID, "discover.json")
 	evidenceData, err := os.ReadFile(evidencePath)
 	if err != nil {
-		t.Fatalf("expected build.json at %s: %v", evidencePath, err)
+		t.Fatalf("expected discover.json at %s: %v", evidencePath, err)
 	}
 	if len(evidenceData) == 0 {
-		t.Fatal("build.json is empty")
+		t.Fatal("discover.json is empty")
 	}
 
 	// Verify card state was updated by recordExecutionResult.
@@ -149,14 +149,14 @@ func TestServeBridgeHarness_TextOnlyNeedsInput(t *testing.T) {
 		t.Fatalf("ParentFeatureID = %s, want %s", result.ParentFeatureID, card.ID)
 	}
 
-	// Verify build.json evidence was written (F106 bug fix).
-	evidencePath := filepath.Join(sb.ProjectRoot, ".sdp", "artifacts", card.ID, "build.json")
+	// Verify phase-specific evidence was written (discover.json for discover phase).
+	evidencePath := filepath.Join(sb.ProjectRoot, ".sdp", "artifacts", card.ID, "discover.json")
 	data, err := os.ReadFile(evidencePath)
 	if err != nil {
-		t.Fatalf("expected build.json at %s: %v", evidencePath, err)
+		t.Fatalf("expected discover.json at %s: %v", evidencePath, err)
 	}
 	if len(data) == 0 {
-		t.Fatal("build.json is empty")
+		t.Fatal("discover.json is empty")
 	}
 
 	// Verify card state was updated.

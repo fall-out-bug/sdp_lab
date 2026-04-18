@@ -160,8 +160,15 @@ func (b *ServeBridge) recordExecutionResult(cardID string, result *control.Execu
 		projectID = card.ProjectID
 	}
 
-	// 1. Write build.json evidence
-	evidencePath := filepath.Join(b.ProjectRoot, ".sdp", "artifacts", cardID, "build.json")
+	// 1. Write phase-specific evidence file.
+	// Only the "build" phase writes the canonical build.json used by downstream
+	// consumers (evaluator, tower). Other phases write their own evidence files
+	// (discover.json, plan.json, etc.) to avoid overwriting real build output.
+	evidenceName := phase + ".json"
+	if phase == "" || phase == "build" {
+		evidenceName = "build.json"
+	}
+	evidencePath := filepath.Join(b.ProjectRoot, ".sdp", "artifacts", cardID, evidenceName)
 	evidenceJSON, marshalErr := json.MarshalIndent(map[string]any{
 		"phase":         phase,
 		"card_id":       cardID,
@@ -185,14 +192,20 @@ func (b *ServeBridge) recordExecutionResult(cardID string, result *control.Execu
 
 	// 2. Link evidence in Beads metadata
 	if beadsRepo != nil {
-		if err := beadsRepo.LinkEvidence(cardID, "build", []string{evidencePath}); err != nil {
+		if err := beadsRepo.LinkEvidence(cardID, phase, []string{evidencePath}); err != nil {
 			slog.Warn("link evidence", "card", cardID, "error", err)
 		}
 	}
 
-	// 3. Route findings to card
-	if err := RouteFindingsToCard(b.Store, projectID, cardID, result); err != nil {
-		slog.Warn("route findings", "card", cardID, "error", err)
+	// 3. Route findings to card.
+	// Skip routing for intermediate harness continuation (awaiting_input) to avoid
+	// parking the card in the human-input lane. Findings are only routed for
+	// terminal outcomes (success, failure, needs_review).
+	isIntermediateContinuation := result.Status == control.ResultStatusNeedsInput && executorName == "harness"
+	if !isIntermediateContinuation {
+		if err := RouteFindingsToCard(b.Store, projectID, cardID, result); err != nil {
+			slog.Warn("route findings", "card", cardID, "error", err)
+		}
 	}
 
 	// 4. Update card state
