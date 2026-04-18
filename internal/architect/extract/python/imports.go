@@ -7,7 +7,6 @@ import (
 	"strings"
 )
 
-// ImportRecord represents a single import extracted from a Python file.
 type ImportRecord struct {
 	Name           string
 	Source         string
@@ -15,14 +14,12 @@ type ImportRecord struct {
 	ResolvedModule string
 }
 
-// FrameworkRecord represents a detected framework from source analysis.
 type FrameworkRecord struct {
 	Name       string
 	Confidence float64
 	Evidence   string
 }
 
-// ParseImports extracts imports and detects frameworks from a single .py file.
 func ParseImports(path string) ([]ImportRecord, []FrameworkRecord, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -60,9 +57,16 @@ func ParseImports(path string) ([]ImportRecord, []FrameworkRecord, error) {
 
 		if m := reFromImport.FindStringSubmatch(trimmed); m != nil {
 			modName := m[1]
-			importedName := m[2]
-			rec := resolveImport(modName, importedName)
-			imports = append(imports, rec)
+			importedNames := m[2]
+			// Handle comma-separated imports: from X import A, B, C
+			for _, importedName := range strings.Split(importedNames, ",") {
+				importedName = strings.TrimSpace(importedName)
+				if importedName == "" {
+					continue
+				}
+				rec := resolveImport(modName, importedName)
+				imports = append(imports, rec)
+			}
 			continue
 		}
 
@@ -243,7 +247,7 @@ func countAndToggleTriple(line string, inTriple *bool, tripleChar *string) bool 
 
 var (
 	reAbsoluteImport = regexp.MustCompile(`^import\s+(\S+)`)
-	reFromImport     = regexp.MustCompile(`^from\s+(\S+)\s+import\s+(\S+)`)
+	reFromImport     = regexp.MustCompile(`^from\s+(\S+)\s+import\s+(.+)`)
 	reFlaskApp       = regexp.MustCompile(`(?:app|application)\s*=\s*Flask\s*\(`)
 	reFlaskRoute     = regexp.MustCompile(`@(?:\w+)\.route\s*\(`)
 	reFlaskBlueprint = regexp.MustCompile(`Blueprint\s*\(`)

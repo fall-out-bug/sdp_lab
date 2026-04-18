@@ -40,7 +40,7 @@ func (p *PythonExtractor) Extract(ctx context.Context, rootDir string) (*archite
 		default:
 		}
 
-		rel, _ := filepath.Rel(rootDir, path)
+		_, _ = filepath.Rel(rootDir, path)
 
 		if info.IsDir() {
 			name := info.Name()

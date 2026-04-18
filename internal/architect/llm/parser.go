@@ -44,15 +44,24 @@ func stripMarkdownFences(s string) string {
 
 	// Also strip fences that don't wrap the whole string
 	s = strings.TrimSpace(s)
-	if strings.HasPrefix(s, "```json") || strings.HasPrefix(s, "```") {
-		// Find the first newline after opening fence
-		if idx := strings.Index(s, "\n"); idx >= 0 {
-			s = s[idx+1:]
-		}
+
+	// Remove opening fence
+	if strings.HasPrefix(s, "```json") {
+		s = strings.TrimPrefix(s, "```json")
+		s = strings.TrimLeft(s, " \n\t")
+	} else if strings.HasPrefix(s, "```") {
+		s = strings.TrimPrefix(s, "```")
+		s = strings.TrimLeft(s, " \n\t")
 	}
-	if strings.HasSuffix(s, "```") {
-		s = s[:len(s)-3]
+
+	// Remove closing fence (only one occurrence)
+	if idx := strings.Index(s, "\n```"); idx >= 0 {
+		// Found closing fence, keep text before it
+		s = s[:idx]
+	} else if strings.HasSuffix(s, "```") {
+		s = strings.TrimSuffix(s, "```")
 	}
+
 	return strings.TrimSpace(s)
 }
 

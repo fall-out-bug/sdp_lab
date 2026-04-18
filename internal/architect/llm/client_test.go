@@ -1,7 +1,6 @@
 package llm
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -104,19 +103,20 @@ func TestClient_BackoffDelay(t *testing.T) {
 
 	// Test exponential backoff with jitter
 	tests := []struct {
-		attempt          int
-		expectedMin      time.Duration
-		expectedMax      time.Duration
+		name         string
+		attempt      int
+		expectedMin  time.Duration
+		expectedMax  time.Duration
 	}{
-		{1, 80 * time.Millisecond, 120 * time.Millisecond},   // 1s * 0.8-1.2 = 0.08-0.12s
-		{2, 160 * time.Millisecond, 240 * time.Millisecond},  // 2s * 0.8-1.2 = 0.16-0.24s
-		{3, 320 * time.Millisecond, 480 * time.Millisecond},  // 4s * 0.8-1.2 = 0.32-0.48s
-		{4, 640 * time.Millisecond, 960 * time.Millisecond},  // 8s * 0.8-1.2 = 0.64-0.96s
-		{5, 1280 * time.Millisecond, 1920 * time.Millisecond}, // 16s * 0.8-1.2 = 1.28-1.92s
+		{"attempt 1", 1, 80 * time.Millisecond, 120 * time.Millisecond},   // 1s * 0.8-1.2 = 0.08-0.12s
+		{"attempt 2", 2, 160 * time.Millisecond, 240 * time.Millisecond},  // 2s * 0.8-1.2 = 0.16-0.24s
+		{"attempt 3", 3, 320 * time.Millisecond, 480 * time.Millisecond},  // 4s * 0.8-1.2 = 0.32-0.48s
+		{"attempt 4", 4, 640 * time.Millisecond, 960 * time.Millisecond},  // 8s * 0.8-1.2 = 0.64-0.96s
+		{"attempt 5", 5, 1280 * time.Millisecond, 1920 * time.Millisecond}, // 16s * 0.8-1.2 = 1.28-1.92s
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.attempt, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			delay := client.backoffDelay(tt.attempt)
 			if delay < tt.expectedMin || delay > tt.expectedMax {
 				t.Errorf("attempt %d: delay %v outside range [%v, %v]",
