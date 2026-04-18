@@ -46,6 +46,13 @@ type Harness struct {
 	state          harnessState
 	runID          uint64
 	beforeToolCall func(name string, args json.RawMessage) error // Fix U2: nil = no-op
+
+	// lastPhaseCompleted tracks whether the most recent RunPhase call detected
+	// a completion_signal from the agent. True only when the agent explicitly
+	// called the completion_signal tool; false when the agent responded with
+	// text only (phase turn incomplete). Bridge consumers (runWithHarness) use
+	// this to distinguish "phase done" from "agent still working".
+	lastPhaseCompleted bool
 }
 
 // validateToken enforces owner-token authorization on all mutating methods.
@@ -119,6 +126,7 @@ func (h *Harness) RunPhase(ctx context.Context, userPrompt, token string) error 
 	h.runID++
 	currentRunID := h.runID
 	phase := h.session.Phase
+	h.lastPhaseCompleted = false // default: phase not completed until signal
 
 	// Fix N3: build msgs from persisted TurnRecords — not from an in-memory buffer.
 	msgs := h.session.MessagesFromTurnRecords()
@@ -196,6 +204,11 @@ func (h *Harness) RunPhase(ctx context.Context, userPrompt, token string) error 
 	if !signaled {
 		return nil // agent did not finish phase — wait for next prompt
 	}
+
+	// completion_signal detected — mark phase as completed for bridge consumers.
+	h.mu.Lock()
+	h.lastPhaseCompleted = true
+	h.mu.Unlock()
 
 	// Fix N7: warn on empty summary (non-blocking).
 	if summary == "" {
@@ -341,6 +354,17 @@ func (h *Harness) IsAwaitingHuman() bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	return h.state == hStateAwaitingHuman
+}
+
+// LastPhaseCompleted reports whether the most recent RunPhase call finished
+// with a completion_signal from the agent. Returns false when the agent
+// responded with text but did not call completion_signal (phase turn incomplete).
+// Bridge consumers use this to distinguish ResultStatusSuccess (phase done)
+// from ResultStatusNeedsInput (agent still working).
+func (h *Harness) LastPhaseCompleted() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.lastPhaseCompleted
 }
 
 // RestoreHarness creates a Harness from a previously persisted session.

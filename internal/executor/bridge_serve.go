@@ -144,6 +144,77 @@ func (b *ServeBridge) DispatchAndRun(ctx context.Context, projectID, cardID stri
 	return b.dispatchWithOmO(ctx, projectID, cardID)
 }
 
+// recordExecutionResult writes build.json evidence, links evidence in Beads,
+// routes findings, and updates card state. It is the shared bookkeeping path
+// used by both the legacy OmO executor and the internal harness path.
+//
+// executorName identifies the source ("harness", agent name, etc.) for the
+// evidence file. projectID may be empty; when using Beads-backed storage the
+// card is resolved by ID alone.
+func (b *ServeBridge) recordExecutionResult(cardID string, result *control.ExecutorResultPacket, phase, executorName string) {
+	beadsRepo := b.Store.BeadsRepo()
+
+	// 1. Write build.json evidence
+	evidencePath := filepath.Join(b.ProjectRoot, ".sdp", "artifacts", cardID, "build.json")
+	evidenceJSON, _ := json.MarshalIndent(map[string]any{
+		"phase":         phase,
+		"card_id":       cardID,
+		"timestamp":     time.Now().UTC().Format(time.RFC3339),
+		"executor":      executorName,
+		"status":        result.Status,
+		"summary":       result.Summary,
+		"files_changed": extractArtifactReferences(result.Artifacts),
+		"artifacts":     result.Artifacts,
+		"findings":      result.Findings,
+	}, "", "  ")
+	if err := os.MkdirAll(filepath.Dir(evidencePath), 0o755); err != nil {
+		slog.Warn("create evidence dir", "card", cardID, "error", err)
+	}
+	_ = os.WriteFile(evidencePath, evidenceJSON, 0o644)
+
+	// 2. Link evidence in Beads metadata
+	if beadsRepo != nil {
+		if err := beadsRepo.LinkEvidence(cardID, "build", []string{evidencePath}); err != nil {
+			slog.Warn("link evidence", "card", cardID, "error", err)
+		}
+	}
+
+	// 3. Route findings to card
+	if err := RouteFindingsToCard(b.Store, "", cardID, result); err != nil {
+		slog.Warn("route findings", "card", cardID, "error", err)
+	}
+
+	// 4. Update card state
+	card, loadErr := b.Store.LoadCardByID(cardID)
+	if loadErr != nil {
+		slog.Warn("load card for bookkeeping", "card", cardID, "error", loadErr)
+		return
+	}
+	completedAt := time.Now().UTC()
+	card.LastExecutorHeartbeatAt = completedAt.Format(time.RFC3339)
+	card.ExecutorProgressSummary = result.Summary
+	card.ExecutorResult = summarizeResult(result, completedAt)
+	if result.Status == control.ResultStatusSuccess {
+		card.ExecutorRuntimeState = control.ExecutorRuntimeCompleted
+	} else {
+		card.ExecutorRuntimeState = "failed"
+	}
+	if err := b.Store.SaveCard(card); err != nil {
+		slog.Warn("save card after execution", "card", cardID, "error", err)
+	}
+
+	// 5. Set final executor state in Beads
+	if beadsRepo != nil {
+		state := "completed"
+		if result.Status != control.ResultStatusSuccess {
+			state = "failed"
+		}
+		if err := beadsRepo.SetExecutorState(cardID, executorName, "", state); err != nil {
+			slog.Warn("set final executor state", "card", cardID, "error", err)
+		}
+	}
+}
+
 // dispatchWithOmO is the legacy OmO serve execution path (extracted from DispatchAndRun).
 func (b *ServeBridge) dispatchWithOmO(ctx context.Context, projectID, cardID string) (*control.ExecutorResultPacket, error) {
 	// Load card from primary repo
@@ -207,67 +278,8 @@ func (b *ServeBridge) dispatchWithOmO(ctx context.Context, projectID, cardID str
 	// Build result
 	result := translateResult(packet, runtimeResult.Output, runtimeResult.ExitCode)
 
-	// Evidence capture
-	if beadsRepo != nil {
-		evidencePath := filepath.Join(b.ProjectRoot, ".sdp", "artifacts", cardID, "build.json")
-		evidenceJSON, _ := json.MarshalIndent(map[string]any{
-			"phase":         "build",
-			"card_id":       cardID,
-			"timestamp":     time.Now().UTC().Format(time.RFC3339),
-			"executor":      agent,
-			"exit_code":     runtimeResult.ExitCode,
-			"status":        result.Status,
-			"summary":       result.Summary,
-			"files_changed": extractArtifactReferences(result.Artifacts),
-			"artifacts":     result.Artifacts,
-			"findings":      result.Findings,
-		}, "", "  ")
-		if err := os.MkdirAll(filepath.Dir(evidencePath), 0o755); err != nil {
-				slog.Warn("create evidence dir", "card", cardID, "error", err)
-			}
-		_ = os.WriteFile(evidencePath, evidenceJSON, 0o644)
-
-		// Link evidence in Beads metadata
-		if err := beadsRepo.LinkEvidence(cardID, "build", []string{evidencePath}); err != nil {
-				slog.Warn("link evidence", "card", cardID, "error", err)
-			}
-	}
-
-	// Route findings
-	if invokeErr == nil {
-		if err := RouteFindingsToCard(b.Store, projectID, cardID, result); err != nil {
-			return nil, fmt.Errorf("route findings: %w", err)
-		}
-	}
-
-	// Update card state
-	card, loadErr := b.Store.LoadCard(projectID, cardID)
-		if loadErr != nil {
-			return nil, fmt.Errorf("reload card after execution: %w", loadErr)
-		}
-	completedAt := time.Now().UTC()
-	card.LastExecutorHeartbeatAt = completedAt.Format(time.RFC3339)
-	card.ExecutorProgressSummary = result.Summary
-	card.ExecutorResult = summarizeResult(result, completedAt)
-	if result.Status == control.ResultStatusSuccess {
-		card.ExecutorRuntimeState = control.ExecutorRuntimeCompleted
-	} else {
-		card.ExecutorRuntimeState = "failed"
-	}
-	if err := b.Store.SaveCard(card); err != nil {
-			slog.Warn("save card after execution", "card", cardID, "error", err)
-		}
-
-	// Set final executor state in Beads
-	if beadsRepo != nil {
-		state := "completed"
-		if result.Status != control.ResultStatusSuccess {
-			state = "failed"
-		}
-		if err := beadsRepo.SetExecutorState(cardID, "omo-implementation", "", state); err != nil {
-				slog.Warn("set final executor state", "card", cardID, "error", err)
-			}
-	}
+	// Shared bookkeeping: write evidence, route findings, update card state.
+	b.recordExecutionResult(cardID, result, phase, agent)
 
 	return result, invokeErr
 }
@@ -323,28 +335,49 @@ func (b *ServeBridge) runWithHarness(ctx context.Context, cardID string) (*contr
 	// Check for gate-pending (awaiting human decision).
 	if runErr == nil && h.IsAwaitingHuman() {
 		succeeded = true // gate-pending is a valid live state — do NOT stop
-		return &control.ExecutorResultPacket{
+		result := &control.ExecutorResultPacket{
 			ParentFeatureID: cardID,
 			Status:          control.ResultStatusNeedsReview,
 			Summary:         "gate escalated — awaiting human decision",
-		}, nil
+		}
+		b.recordExecutionResult(cardID, result, "build", "harness")
+		return result, nil
 	}
 
 	if runErr != nil {
 		// succeeded stays false → defer will call h.Stop
-		return &control.ExecutorResultPacket{
+		result := &control.ExecutorResultPacket{
 			ParentFeatureID: cardID,
 			Status:          control.ResultStatusFailed,
 			Summary:         runErr.Error(),
-		}, runErr
+		}
+		b.recordExecutionResult(cardID, result, "build", "harness")
+		return result, runErr
+	}
+
+	// Distinguish between "agent finished the phase" and "agent responded
+	// but didn't call completion_signal". Without this check, a plain text
+	// response (no tool calls) would be incorrectly mapped to Success,
+	// causing the downstream evaluator to hard-block on missing build.json.
+	if !h.LastPhaseCompleted() {
+		succeeded = true // session stays alive — do NOT stop
+		result := &control.ExecutorResultPacket{
+			ParentFeatureID: cardID,
+			Status:          control.ResultStatusNeedsInput,
+			Summary:         "phase turn completed — awaiting next prompt",
+		}
+		b.recordExecutionResult(cardID, result, "build", "harness")
+		return result, nil
 	}
 
 	succeeded = true // prevents Stop on normal exit
-	return &control.ExecutorResultPacket{
+	result := &control.ExecutorResultPacket{
 		ParentFeatureID: cardID,
 		Status:          control.ResultStatusSuccess,
 		Summary:         "phase completed",
-	}, nil
+	}
+	b.recordExecutionResult(cardID, result, "build", "harness")
+	return result, nil
 }
 
 // restoreOrCreateHarness restores a Harness from the given dbPath, handling

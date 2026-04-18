@@ -136,6 +136,11 @@ func TestServeBridgeHarnessE2E(t *testing.T) {
 	if result.Status == control.ResultStatusFailed {
 		t.Fatalf("result status = %s (failed); summary: %s", result.Status, result.Summary)
 	}
+	// The fake SSE server returns text only (no completion_signal tool call),
+	// so the correct status is NeedsInput — not Success.
+	if result.Status != control.ResultStatusNeedsInput {
+		t.Fatalf("result status = %s, want %s; summary: %s", result.Status, control.ResultStatusNeedsInput, result.Summary)
+	}
 	if result.ParentFeatureID != card.ID {
 		t.Errorf("ParentFeatureID = %s, want %s", result.ParentFeatureID, card.ID)
 	}

@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -13,7 +14,8 @@ import (
 )
 
 // TestServeBridgeHarness_HappyPath verifies that DispatchAndRun uses the harness
-// path when harnessRouter is set, and returns success on clean RunPhase.
+// path when harnessRouter is set, and returns success only when completion_signal
+// is emitted by the agent.
 func TestServeBridgeHarness_HappyPath(t *testing.T) {
 	store := setupStore(t)
 
@@ -28,10 +30,16 @@ func TestServeBridgeHarness_HappyPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Build a StubGateway that returns a simple done sequence.
+	// Build a StubGateway that returns a completion_signal tool call, followed
+	// by a done. The Run() function will execute the completion_signal tool,
+	// make one more LLM call (acknowledgement), then exit. The second call
+	// gets the StubGateway's fallback {done} response.
 	gw := agentloop.NewStubGateway()
 	gw.AddResponse("glm-5", []agentloop.Event{
 		{Type: "text_delta", Delta: "discovery complete"},
+		{Type: "tool_call", ToolCalls: []agentloop.ToolCall{
+			{ID: "call-1", Name: "completion_signal", Arguments: json.RawMessage(`{"summary":"discovery done"}`)},
+		}},
 		{Type: "done"},
 	})
 
@@ -39,7 +47,7 @@ func TestServeBridgeHarness_HappyPath(t *testing.T) {
 	router := agentloop.NewPhaseRouter(
 		agentloop.DefaultPhaseMap, registry, gw, nil,
 	)
-	gate := agentloop.NewGateEngine(nil, 0)
+	gate := agentloop.NewPassingGateEngine()
 
 	sb := &ServeBridge{
 		Store:         store,
@@ -64,6 +72,99 @@ func TestServeBridgeHarness_HappyPath(t *testing.T) {
 	dbPath := filepath.Join(sb.harnessData, card.ID+".db")
 	if _, err := os.Stat(dbPath); err != nil {
 		t.Fatalf("expected session DB at %s: %v", dbPath, err)
+	}
+
+	// Verify build.json evidence was written (F106 bug fix).
+	evidencePath := filepath.Join(sb.ProjectRoot, ".sdp", "artifacts", card.ID, "build.json")
+	evidenceData, err := os.ReadFile(evidencePath)
+	if err != nil {
+		t.Fatalf("expected build.json at %s: %v", evidencePath, err)
+	}
+	if len(evidenceData) == 0 {
+		t.Fatal("build.json is empty")
+	}
+
+	// Verify card state was updated by recordExecutionResult.
+	updatedCard, err := store.LoadCardByID(card.ID)
+	if err != nil {
+		t.Fatalf("load updated card: %v", err)
+	}
+	if updatedCard.ExecutorRuntimeState != control.ExecutorRuntimeCompleted {
+		t.Fatalf("card.ExecutorRuntimeState = %s, want %s", updatedCard.ExecutorRuntimeState, control.ExecutorRuntimeCompleted)
+	}
+	if updatedCard.ExecutorResult == nil {
+		t.Fatal("card.ExecutorResult should not be nil after execution")
+	}
+}
+
+// TestServeBridgeHarness_TextOnlyNeedsInput verifies that when the agent
+// responds with text but does NOT call completion_signal, the result is
+// ResultStatusNeedsInput (not ResultStatusSuccess) AND the bookkeeping
+// (build.json evidence, card state update) is still performed. This is the
+// core F106 bug fix: previously the harness path skipped all bookkeeping,
+// causing the downstream evaluator to hard-block on missing build.json.
+func TestServeBridgeHarness_TextOnlyNeedsInput(t *testing.T) {
+	store := setupStore(t)
+
+	card, err := store.CreateCard("openclaw", "Test text only", "text response only")
+	if err != nil {
+		t.Fatal(err)
+	}
+	card.Status = "executing"
+	card.NormalizedIntent = "text response only"
+	if err := store.SaveCard(card); err != nil {
+		t.Fatal(err)
+	}
+
+	// StubGateway returns text only — no completion_signal tool call.
+	gw := agentloop.NewStubGateway()
+	gw.AddResponse("glm-5", []agentloop.Event{
+		{Type: "text_delta", Delta: "I am thinking about the problem"},
+		{Type: "done"},
+	})
+
+	registry := agentloop.NewToolRegistry(nil)
+	router := agentloop.NewPhaseRouter(
+		agentloop.DefaultPhaseMap, registry, gw, nil,
+	)
+	gate := agentloop.NewGateEngine(nil, 0)
+
+	sb := &ServeBridge{
+		Store:         store,
+		ProjectRoot:   store.ProjectRoot,
+		harnessRouter: router,
+		harnessGate:   gate,
+		harnessData:   filepath.Join(t.TempDir(), "sessions"),
+	}
+
+	result, err := sb.DispatchAndRun(context.Background(), card.ProjectID, card.ID)
+	if err != nil {
+		t.Fatalf("DispatchAndRun error: %v", err)
+	}
+	if result.Status != control.ResultStatusNeedsInput {
+		t.Fatalf("status = %s, want %s; summary=%s", result.Status, control.ResultStatusNeedsInput, result.Summary)
+	}
+	if result.ParentFeatureID != card.ID {
+		t.Fatalf("ParentFeatureID = %s, want %s", result.ParentFeatureID, card.ID)
+	}
+
+	// Verify build.json evidence was written (F106 bug fix).
+	evidencePath := filepath.Join(sb.ProjectRoot, ".sdp", "artifacts", card.ID, "build.json")
+	data, err := os.ReadFile(evidencePath)
+	if err != nil {
+		t.Fatalf("expected build.json at %s: %v", evidencePath, err)
+	}
+	if len(data) == 0 {
+		t.Fatal("build.json is empty")
+	}
+
+	// Verify card state was updated.
+	updatedCard, err := store.LoadCardByID(card.ID)
+	if err != nil {
+		t.Fatalf("load updated card: %v", err)
+	}
+	if updatedCard.ExecutorResult == nil {
+		t.Fatal("card.ExecutorResult should not be nil after execution")
 	}
 }
 
@@ -230,9 +331,31 @@ func TestServeBridgeHarness_TerminatedSessionRecovery(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
+	// Use completion_signal so both dispatches return ResultStatusSuccess.
+	// Three responses are registered:
+	//   1. First dispatch: initial LLM response with completion_signal
+	//   2. First dispatch: acknowledgement turn (after completion_signal fires)
+	//   3. Second dispatch (after DB recreation): initial LLM response with completion_signal
+	// The second dispatch's acknowledgement gets the StubGateway fallback {done}.
 	gw := agentloop.NewStubGateway()
 	gw.AddResponse("glm-5", []agentloop.Event{
 		{Type: "text_delta", Delta: "recovered"},
+		{Type: "tool_call", ToolCalls: []agentloop.ToolCall{
+			{ID: "call-1", Name: "completion_signal", Arguments: json.RawMessage(`{"summary":"recovered"}`)},
+		}},
+		{Type: "done"},
+	})
+	// Acknowledgement turn for first dispatch — just text + done.
+	gw.AddResponse("glm-5", []agentloop.Event{
+		{Type: "text_delta", Delta: "acknowledged"},
+		{Type: "done"},
+	})
+	// Second dispatch (after DB recreation).
+	gw.AddResponse("glm-5", []agentloop.Event{
+		{Type: "text_delta", Delta: "recovered again"},
+		{Type: "tool_call", ToolCalls: []agentloop.ToolCall{
+			{ID: "call-2", Name: "completion_signal", Arguments: json.RawMessage(`{"summary":"recovered again"}`)},
+		}},
 		{Type: "done"},
 	})
 
@@ -240,7 +363,7 @@ func TestServeBridgeHarness_TerminatedSessionRecovery(t *testing.T) {
 	router := agentloop.NewPhaseRouter(
 		agentloop.DefaultPhaseMap, registry, gw, nil,
 	)
-	gate := agentloop.NewGateEngine(nil, 0)
+	gate := agentloop.NewPassingGateEngine()
 
 	sb := &ServeBridge{
 		Store:         store,
@@ -396,10 +519,10 @@ func TestServeBridgeCrash_ContextCancel(t *testing.T) {
 	}
 }
 
-// TestServeBridgeCrash_SuccessNoStop verifies that a successful RunPhase does
-// NOT call h.Stop. After a successful run, RestoreHarness should succeed
-// (not return ErrHarnessTerminated), since the session stays alive for the
-// next phase turn.
+// TestServeBridgeCrash_SuccessNoStop verifies that a successful RunPhase (with
+// completion_signal) does NOT call h.Stop. After a successful run, RestoreHarness
+// should succeed (not return ErrHarnessTerminated), since the session stays alive
+// for the next phase turn.
 func TestServeBridgeCrash_SuccessNoStop(t *testing.T) {
 	store := setupStore(t)
 
@@ -415,9 +538,13 @@ func TestServeBridgeCrash_SuccessNoStop(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
+	// Use completion_signal to trigger the true success path.
 	gw := agentloop.NewStubGateway()
 	gw.AddResponse("glm-5", []agentloop.Event{
 		{Type: "text_delta", Delta: "discovery done"},
+		{Type: "tool_call", ToolCalls: []agentloop.ToolCall{
+			{ID: "call-1", Name: "completion_signal", Arguments: json.RawMessage(`{"summary":"discovery done"}`)},
+		}},
 		{Type: "done"},
 	})
 
@@ -425,7 +552,7 @@ func TestServeBridgeCrash_SuccessNoStop(t *testing.T) {
 	router := agentloop.NewPhaseRouter(
 		agentloop.DefaultPhaseMap, registry, gw, nil,
 	)
-	gate := agentloop.NewGateEngine(nil, 0)
+	gate := agentloop.NewPassingGateEngine()
 
 	sb := &ServeBridge{
 		Store:         store,

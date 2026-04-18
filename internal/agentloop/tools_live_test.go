@@ -411,6 +411,21 @@ func TestLiveToolGrep_Subdirectory(t *testing.T) {
 	assert.NotContains(t, out, "b.go")
 }
 
+func TestLiveToolGrep_SymlinkEscape(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(outside, "secret.txt"), []byte("needle"), 0o644))
+	require.NoError(t, os.Symlink(filepath.Join(outside, "secret.txt"), filepath.Join(root, "linked.txt")))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "inside.txt"), []byte("needle"), 0o644))
+
+	tool := GrepTool(root)
+	out, err := tool.Execute(context.Background(), "tc1",
+		json.RawMessage(`{"pattern":"needle"}`))
+	require.NoError(t, err)
+	assert.Contains(t, out, "inside.txt")
+	assert.NotContains(t, out, "linked.txt", "grep must not follow symlinks outside the project root")
+}
+
 // ---------------------------------------------------------------------------
 // Bd tools (nil store)
 // ---------------------------------------------------------------------------

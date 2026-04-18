@@ -370,6 +370,10 @@ func GrepTool(root string) Tool {
 				}
 				searchDir = cleaned
 			}
+			canonicalRoot, rootErr := filepath.EvalSymlinks(filepath.Clean(root))
+			if rootErr != nil {
+				return "", fmt.Errorf("grep: cannot resolve root: %w", rootErr)
+			}
 
 			re, err := regexp.Compile(a.Pattern)
 			if err != nil {
@@ -394,6 +398,10 @@ func GrepTool(root string) Tool {
 				}
 				// Skip binary-ish files.
 				if isBinaryExtension(filepath.Ext(path)) {
+					return nil
+				}
+				resolved, resErr := filepath.EvalSymlinks(path)
+				if resErr == nil && !isUnderRoot(resolved, canonicalRoot) && resolved != canonicalRoot {
 					return nil
 				}
 

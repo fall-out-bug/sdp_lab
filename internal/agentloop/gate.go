@@ -36,6 +36,18 @@ func NewGateEngine(contract *harness.TaskContract, timeout time.Duration) *GateE
 	}
 }
 
+// NewPassingGateEngine creates a GateEngine that always passes (never escalates).
+// Intended for tests that need the completion_signal path to succeed without
+// providing real compliance evidence.
+func NewPassingGateEngine() *GateEngine {
+	return &GateEngine{
+		evalFn: func(_ *harness.TaskContract, _ *harness.TaskSnapshot) harness.ComplianceReport {
+			return harness.ComplianceReport{Blocked: false}
+		},
+		timeout: 5 * time.Second,
+	}
+}
+
 // Evaluate runs compliance evaluation with a circuit breaker timeout.
 // If evaluation completes in time: returns GateResult with Escalated=true iff report.Blocked.
 // If evaluation times out: returns GateResult with Escalated=true + GateWarn violation (Fix R2-3).
