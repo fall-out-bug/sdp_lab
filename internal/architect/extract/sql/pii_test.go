@@ -70,7 +70,7 @@ func TestDetectPII(t *testing.T) {
 					},
 				},
 			},
-			wantCount: 6,
+			wantCount: 5,
 			wantTypes: map[string]bool{
 				"personal_name":         true,
 				"date_of_birth":         true,

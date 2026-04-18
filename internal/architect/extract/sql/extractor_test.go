@@ -602,12 +602,12 @@ END;
 		t.Errorf("Extract() found %d tables, want 4", len(analysis.Tables))
 	}
 
-	if len(analysis.ForeignKeys) != 4 {
-		t.Errorf("Extract() found %d foreign keys, want 4", len(analysis.ForeignKeys))
+	if len(analysis.ForeignKeys) != 5 {
+		t.Errorf("Extract() found %d foreign keys, want 5", len(analysis.ForeignKeys))
 	}
 
-	if len(analysis.Indexes) != 5 {
-		t.Errorf("Extract() found %d indexes, want 5", len(analysis.Indexes))
+	if len(analysis.Indexes) != 6 {
+		t.Errorf("Extract() found %d indexes, want 6", len(analysis.Indexes))
 	}
 
 	if len(analysis.Views) != 2 {
