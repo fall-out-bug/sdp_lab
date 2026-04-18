@@ -53,8 +53,8 @@ Skill → event types emitted. Use for pipeline verification and `sdp log show -
 |------------|------|------------|--------------|----------|--------------------------------|
 | @vision    | ✓    |            |              |          | `sdp skill record --skill vision --type plan` (legacy, use @understand) |
 | @reality   |      |            | ✓            |          | `sdp skill record --skill reality --type verification` (legacy, use @review) |
-| @idea      | ✓    |            |              |          | `sdp idea record` (legacy, use @build --dimension idea) |
-| @design    | ✓    |            |              |          | `sdp design record`, `sdp parse` (legacy, use @build --dimension design) |
+| @idea      | ✓    |            |              |          | `sdp idea record` (legacy, use @build --mode idea) |
+| @design    | ✓    |            |              |          | `sdp design record`, `sdp parse` (legacy, use @build --mode idea) |
 | @build     |      | ✓          |              |          | Evidence layer (F054)          |
 | @review    |      |            | ✓            |          | `sdp verify` (per gate)       |
 | @deploy    |      |            |              | ✓        | `sdp deploy` (legacy, use @operate) |

@@ -292,7 +292,7 @@ For each skill:
 ## Rollout Plan
 
 1. **Phase 1:** Implement for core skills (@build, @review)
-2. **Phase 2:** Implement for planning skills (@build --mode idea, @build --mode design, @vision)
+2. **Phase 2:** Implement for planning skills (@build --mode idea, @understand)
 3. **Phase 3:** Implement for utility skills (@operate, @fix)
 4. **Phase 4:** Implement for remaining skills
 

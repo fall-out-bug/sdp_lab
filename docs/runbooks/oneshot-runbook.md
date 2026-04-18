@@ -172,6 +172,8 @@ git log --oneline --grep="WS-060"
 
 **Problem:** `@build --mode prototype` starts from beginning instead of resuming
 
+**Note:** Checkpoint/resume is a feature of `@operate --mode plan` sessions, not `@build`. Use `@operate --mode plan` for complex workflows requiring checkpoint management.
+
 **Solution:**
 1. Check checkpoint exists: `cat .sdp/checkpoint.json`
 2. Verify feature ID matches
@@ -193,15 +195,13 @@ git log --oneline --grep="WS-060"
 ```
 @build --mode idea "feature description"
     ↓
-@build --mode design idea-slug
-    ↓
-@build --mode prototype 00-XXX-XX
+@build --mode feature 00-XXX-XX
     ↓
 @review F{XX}
     ↓
 Human UAT
     ↓
-@operate F{XX}
+@operate --mode deploy F{XX}
 ```
 
 ## Best Practices

@@ -322,17 +322,16 @@ r'^\d{2}-\d{3}-\d{2}$'
 **Invocation:**
 ```bash
 @build --mode idea "Add payment processing"
-@build --mode design idea-payments
-@build 00-001-01
+@build --mode idea 00-001-01
 ```
 
 **Migration from Legacy Skills:**
 - `@feature` → `@build --mode feature`
 - `@idea` → `@build --mode idea`
-- `@design` → `@build --mode design`
+- `@design` → `@build --mode idea`
 - `@oneshot` → `@build --mode prototype` (quick builds) or `@operate --mode plan` (session management)
 - `@hotfix` → `@fix --mode quick`
-- `@bugfix` → `@fix --mode investigate`
+- `@bugfix` → `@fix --mode systematic`
 
 **See Also:** @ Command Prefix, Command, Prompt
 
@@ -523,8 +522,7 @@ r'^\d{2}-\d{3}-\d{2}$'
 **Definition:** Primary execution skill with multiple modes for different workflows.
 
 **Modes:**
-- `@build --mode idea` - Requirements gathering (replaces `@idea`)
-- `@build --mode design` - Workstream planning (replaces `@design`)
+- `@build --mode idea` - Requirements gathering (replaces `@idea`, `@design`)
 - `@build --mode feature` - Feature development (replaces `@feature`)
 - `@build --mode prototype` - Quick prototyping (replaces `@oneshot`)
 
