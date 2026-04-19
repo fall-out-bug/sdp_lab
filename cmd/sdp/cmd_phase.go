@@ -128,7 +128,8 @@ func runPhaseCommand(phase string, args []string, gateType gate.GateType, questi
 	// Resolve gate with evidence enforcement
 	if f.strict {
 		// Strict mode: validate evidence but do NOT auto-resolve gate.
-		// The gate stays blocking until a human approves via sdp approve or beads.
+		// The gate is persisted to gate.json and stays blocking until a human
+		// edits it (sets answer + answerer + resolved_at) or beads integration is complete.
 		if err := gate.ValidateEvidenceSchema(gateType, f.evidencePath); err != nil {
 			fmt.Fprintf(os.Stderr, "\nGate BLOCKED (strict mode): evidence validation failed: %v\n", err)
 			fmt.Fprintf(os.Stderr, "Provide valid evidence via --evidence-path.\n")
@@ -136,7 +137,6 @@ func runPhaseCommand(phase string, args []string, gateType gate.GateType, questi
 		}
 		fmt.Printf("\nGate: AWAITING (strict mode, evidence validated)\n")
 		fmt.Printf("   Evidence accepted. Gate requires human approval to proceed.\n")
-		fmt.Printf("   Gate ID: %s\n", g.ID)
 		g.EvidencePath = f.evidencePath
 	} else {
 		// Non-strict mode
@@ -172,6 +172,20 @@ func runPhaseCommand(phase string, args []string, gateType gate.GateType, questi
 			fmt.Fprintf(os.Stderr, "WARNING: failed to write delta artifact: %v\n", err)
 		} else {
 			fmt.Printf("Delta artifact: %s\n", deltaPath)
+		}
+
+		// Persist gate object to gate.json
+		gatePath := filepath.Join(phaseDir, "gate.json")
+		gateData, err := json.MarshalIndent(g, "", "  ")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: failed to marshal gate: %v\n", err)
+		} else if err := os.WriteFile(gatePath, gateData, 0o644); err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: failed to write gate file: %v\n", err)
+		} else {
+			fmt.Printf("Gate file: %s\n", gatePath)
+			if g.IsBlocking() {
+				fmt.Printf("   To approve: edit gate.json (set answer, answerer, resolved_at)\n")
+			}
 		}
 	}
 

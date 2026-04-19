@@ -26,14 +26,9 @@ Shared gate boundary protocol invoked by ANY phase skill at phase boundary.
    - Plan: `test_coverage`, `design_checklist`
    - Review: `spec_review_verdict`, `code_review_verdict`
    - Eval: `go_test`, `go_vet`, `protocol_check`, `smoke`
-3. **Strict Mode**: Use `--strict` to enforce evidence validation. Gate is blocked if evidence is missing or invalid. Without `--strict`, gates auto-approve but print a warning if evidence is absent.
+3. **Strict Mode**: Use `--strict` to enforce evidence validation. Gate is blocked if evidence is missing or invalid. The gate object is persisted to `.sdp/phases/<run_id>/gate.json` in AWAITING state. To approve: edit gate.json to set `answer` (approve/reject), `answerer` (human name), and `resolved_at` (ISO timestamp). Without `--strict`, gates auto-approve but print a warning if evidence is absent.
 4. **Trace**: Each run writes a trace record to `.sdp/phases/<run_id>/trace.json`
-5. **Open Gate**: Create gate via `bd human <issue-id>` or SDP gate command
-6. **Wait**: Block until gate is resolved (human approves/rejects)
-7. **Read Verdict**:
-   - Approved -> continue to next phase
-   - Rejected -> return to previous phase with feedback
-   - Deferred -> pause execution, save checkpoint
+5. **Gate Persistence**: Gate object persisted to `.sdp/phases/<run_id>/gate.json`. In strict mode, the gate stays AWAITING until a human edits gate.json or beads integration is complete.
 
 ## Gate Types
 - Plan gate: approve/reject/defer
