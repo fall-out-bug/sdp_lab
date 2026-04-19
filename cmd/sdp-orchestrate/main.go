@@ -21,7 +21,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	feature := flag.String("feature", "", "Feature ID (e.g. F016)")
-	nextAction := flag.Bool("next-action", false, "Output next action as JSON")
+	nextAction := flag.Bool("next-action", false, "Output next action (human-readable by default, JSON with --json)")
 	advance := flag.Bool("advance", false, "Advance to next phase after current action")
 	result := flag.String("result", "", "Result for advance (e.g. commit hash for build phase)")
 	resume := flag.Bool("resume", false, "Resume from existing checkpoint")
