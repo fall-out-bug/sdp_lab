@@ -26,7 +26,7 @@
 | **sdp** (quality, apply, build, verify) | `sdp` CLI | Yes -- via `scripts/sdp-publish.sh` |
 | **Schemas** | `sdp/schema/*.json` | Yes |
 | **Prompts/Skills** | `sdp/prompts/skills/*` | Yes |
-| **Hooks** | `sdp/hooks/` | Yes |
+| **Hooks** | `sdp/hooks/` | Yes -- native directory in sdp_lab |
 
 ---
 

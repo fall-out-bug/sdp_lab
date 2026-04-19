@@ -1,6 +1,6 @@
 # sdp_lab <-> sdp Publish Workflow
 
-If your real goal is "install SDP into my own repo and start using it", leave this doc and go to [../sdp/docs/QUICKSTART.md](../sdp/docs/QUICKSTART.md). This file is for contributors who need to publish protocol artifacts to the public `sdp` repo.
+If your real goal is "install SDP into my own repo and start using it", leave this doc and go to the [SDP public repo QUICKSTART](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md). This file is for contributors who need to publish protocol artifacts to the public `sdp` repo.
 
 ## How It Works
 
@@ -42,11 +42,13 @@ The script copies the relevant files from `sdp_lab` into a checkout of `fall-out
 
 | Source (sdp_lab) | Destination (sdp repo) |
 |---|---|
-| `sdp/prompts/` | `prompts/` |
-| `sdp/schema/` | `schema/` |
-| `sdp/hooks/` | `hooks/` |
-| `sdp/sdp-plugin/` | `sdp-plugin/` |
-| `sdp/docs/QUICKSTART.md` | `docs/QUICKSTART.md` |
+| `prompts/` | `prompts/` |
+| `schema/` | `schema/` |
+| `templates/` | `templates/` |
+| `scripts/hooks/` | `hooks/` |
+| `.claude/hooks/` | `.claude/hooks/` |
+| `.claude/patterns/` | `.claude/patterns/` |
+| `.agents/skills/` | `prompts/skills/` |
 
 The manifest is maintained in `sdp_lab`. Add or remove paths there when the publish surface changes.
 

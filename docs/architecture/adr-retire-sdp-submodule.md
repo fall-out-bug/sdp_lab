@@ -56,12 +56,14 @@ scripts/sdp-publish.sh --dry-run    # Show what would be published (for CI)
 scripts/sdp-publish.sh --check      # Fail if sdp_lab and published sdp have drifted
 ```
 
-Artifacts to publish (initial set, to be refined):
+Artifacts published by the script (`scripts/sdp-publish.sh`):
 - `prompts/` -> `sdp/prompts/`
 - `schema/` -> `sdp/schema/`
-- `hooks/` -> `sdp/hooks/`
-- `sdp-plugin/` -> `sdp/sdp-plugin/`
-- `docs/QUICKSTART.md` -> `sdp/docs/QUICKSTART.md`
+- `templates/` -> `sdp/templates/`
+- `scripts/hooks/` -> `sdp/hooks/`
+- `.claude/hooks/` -> `sdp/.claude/hooks/`
+- `.claude/patterns/` -> `sdp/.claude/patterns/`
+- `.agents/skills/` -> `sdp/prompts/skills/`
 
 ## Consequences
 

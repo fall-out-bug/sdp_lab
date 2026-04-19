@@ -296,7 +296,7 @@ do_publish() {
     git reset --hard origin/main
   else
     log_info "Cloning sdp repo..."
-    if ! git clone "$SDP_REPO" "$sdp_root" 2>/dev/null; then
+    if ! git clone --depth 1 "$SDP_REPO" "$sdp_root" 2>/dev/null; then
       log_error "Failed to clone sdp repo."
       exit 1
     fi
