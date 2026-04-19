@@ -1,7 +1,7 @@
 # sdp_lab Roadmap — Agent Platform + Trust Lane
 
 > **Status: CANONICAL (active roadmap)** — this is the current source of truth. Other files in `docs/roadmap/` are supporting context; see [docs/roadmap/README.md](README.md).
-> **Updated:** 2026-04-18
+> **Updated:** 2026-04-19
 > **Repo naming:** GitHub repo is `sdp_lab`; historical workstreams and bead IDs may still use `sdp_dev` as a legacy label for the same codebase
 > **Direction:** Reusable agent platform (`kernel`, `adapters`, `augmentation`, `evals`) with standards-based trust and evidence as a secondary lane
 
@@ -25,7 +25,7 @@ Execution priority has changed.
 
 Current execution priority is the remaining UX/runtime lane:
 
-- `F099`..`F101` — adoption safety, release discipline, and write boundaries
+- `F100` — release discipline gates
 - `F106` — real `agentloop` integration into the delivery path
 - `F108` — architecture normalization and missing production gaps
 - `F125` — finish the intent-routed UX migration and close the remaining cutover tail
@@ -35,9 +35,11 @@ Recently shipped on 2026-04-18:
 - `F077` — CI to Local Bridge for Improvement Loop
 - `F097` — Product Truth and Activation Loop
 - `F098` — Simplified Progressive Disclosure
+- `F099` — Brownfield Safe Overlay
+- `F101` — Write Plan Emission and Confirmation
 - `F105` — AI Architect Phase A
 
-`F098` is merged, but post-merge docs/security/SRE follow-up remains tracked in beads. Shipped status in this roadmap means merged implementation, not zero open findings.
+`F098` is merged, but post-merge docs/security/SRE follow-up remains tracked in beads. `F100` (#96) is the remaining open P0 UX implementation PR. Shipped status in this roadmap means merged implementation, not zero open findings.
 
 The platform reset lane established the base rather than remaining the active queue:
 
