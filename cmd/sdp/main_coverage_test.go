@@ -18,7 +18,7 @@ import (
 // mockRunner implements executil.CommandRunner for testing.
 type mockRunner struct {
 	outputFunc         map[string]outputResult
-	combinedOutputFunc map[string]error
+	combinedOutputFunc map[string]outputResult
 }
 
 type outputResult struct {
@@ -40,7 +40,7 @@ func (m *mockRunner) CombinedOutput(_ context.Context, _ string, name string, ar
 	key := name + " " + strings.Join(args, " ")
 	for k, v := range m.combinedOutputFunc {
 		if strings.Contains(key, k) {
-			return nil, v
+			return v.data, v.err
 		}
 	}
 	return nil, nil
@@ -375,10 +375,8 @@ internal/foo/bar.go:Also 95.0%
 total:                                                  97.5%
 `
 	runner := &mockRunner{
-		combinedOutputFunc: map[string]error{
-			"go test": nil,
-		},
-		outputFunc: map[string]outputResult{
+		combinedOutputFunc: map[string]outputResult{
+			"go test":      {},
 			"cover -func=": {data: []byte(funcOutput), err: nil},
 		},
 	}
@@ -397,10 +395,8 @@ internal/foo/bar.go:Uncovered 30.0%
 total:                                                  65.0%
 `
 	runner := &mockRunner{
-		combinedOutputFunc: map[string]error{
-			"go test": nil,
-		},
-		outputFunc: map[string]outputResult{
+		combinedOutputFunc: map[string]outputResult{
+			"go test":      {},
 			"cover -func=": {data: []byte(funcOutput), err: nil},
 		},
 	}
@@ -415,8 +411,8 @@ func TestRunCoverageScan_WithMockRunner_GoTestFails(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	runner := &mockRunner{
-		combinedOutputFunc: map[string]error{
-			"go test": fmt.Errorf("go test: exit status 1"),
+		combinedOutputFunc: map[string]outputResult{
+			"go test": {err: fmt.Errorf("go test: exit status 1")},
 		},
 	}
 
@@ -433,10 +429,8 @@ func TestRunCoverageScan_WithMockRunner_CoverFuncFails(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	runner := &mockRunner{
-		combinedOutputFunc: map[string]error{
-			"go test": nil,
-		},
-		outputFunc: map[string]outputResult{
+		combinedOutputFunc: map[string]outputResult{
+			"go test":      {},
 			"cover -func=": {data: nil, err: fmt.Errorf("cover: no profile")},
 		},
 	}
@@ -467,7 +461,7 @@ internal/foo/bar.go:15:   Uncovered 0.0%
 total:                                                  33.3%
 `
 	runner := &mockRunner{
-		outputFunc: map[string]outputResult{
+		combinedOutputFunc: map[string]outputResult{
 			"cover -func=": {data: []byte(funcOutput), err: nil},
 		},
 	}
@@ -491,10 +485,8 @@ internal/foo/bar.go:40:   Uncovered 0.0%
 total:                                                  50.0%
 `
 	runner := &mockRunner{
-		combinedOutputFunc: map[string]error{
-			"go test": nil,
-		},
-		outputFunc: map[string]outputResult{
+		combinedOutputFunc: map[string]outputResult{
+			"go test":      {},
 			"cover -func=": {data: []byte(funcOutput), err: nil},
 		},
 	}
