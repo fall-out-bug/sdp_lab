@@ -12,8 +12,6 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 if [ -f "$REPO_ROOT/sdp/ci/Dockerfile.protocol-e2e" ]; then
   DOCKERFILE="$REPO_ROOT/sdp/ci/Dockerfile.protocol-e2e"
   BUILD_ARGS="--build-arg SDP_PLUGIN_PATH=sdp/sdp-plugin"
-  cp "$REPO_ROOT/sdp/ci/protocol-e2e-test.sh" "$REPO_ROOT/ci/"
-  cp -r "$REPO_ROOT/sdp/ci/protocol-e2e-fixtures" "$REPO_ROOT/ci/"
 elif [ -f "$REPO_ROOT/ci/Dockerfile.protocol-e2e" ]; then
   DOCKERFILE="$REPO_ROOT/ci/Dockerfile.protocol-e2e"
   BUILD_ARGS=""
