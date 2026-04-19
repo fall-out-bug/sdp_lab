@@ -172,12 +172,14 @@ type BuildCommands struct {
 
 // BootstrapStatus describes the current bootstrap state of a repository.
 type BootstrapStatus struct {
-	RepoPath      string          `json:"repo_path"`
-	Bootstrapped  bool            `json:"bootstrapped"`
-	ExistingFiles []string        `json:"existing_files"`
-	MissingFiles  []string        `json:"missing_files"`
-	DataSources   map[string]bool `json:"data_sources"`
-	Suggestions   []string        `json:"suggestions"`
+	RepoPath        string          `json:"repo_path"`
+	Bootstrapped    bool            `json:"bootstrapped"`
+	CurationPending bool            `json:"curation_pending"`
+	ExistingFiles   []string        `json:"existing_files"`
+	DraftFiles      []string        `json:"draft_files,omitempty"`
+	MissingFiles    []string        `json:"missing_files"`
+	DataSources     map[string]bool `json:"data_sources"`
+	Suggestions     []string        `json:"suggestions"`
 }
 
 // ParseScoutData parses raw JSON bytes into a ScoutData struct.

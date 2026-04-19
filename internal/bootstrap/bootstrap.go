@@ -244,48 +244,54 @@ func (p *Planner) Status() (*BootstrapStatus, error) {
 	_ = p.Collector.ExistingConfig()
 	avail := p.Collector.DataSourcesAvailable()
 
-	expected := []struct {
-		paths []string
-		name  string
-		isDir bool
-	}{
-		{[]string{"CLAUDE.md", DraftPath("CLAUDE.md")}, "CLAUDE.md", false},
-		{[]string{"AGENTS.md", DraftPath("AGENTS.md")}, "AGENTS.md", false},
-		{[]string{".sdp/policies"}, ".sdp/policies", true},
-		{[]string{".claude/hooks"}, ".claude/hooks", true},
+	hasCanonicalClaude := pathExists(filepath.Join(p.Config.RepoPath, "CLAUDE.md"))
+	hasDraftClaude := pathExists(filepath.Join(p.Config.RepoPath, DraftPath("CLAUDE.md")))
+	hasCanonicalAgents := pathExists(filepath.Join(p.Config.RepoPath, "AGENTS.md"))
+	hasDraftAgents := pathExists(filepath.Join(p.Config.RepoPath, DraftPath("AGENTS.md")))
+	hasPolicies := dirHasFiles(filepath.Join(p.Config.RepoPath, ".sdp/policies"))
+	hasHooks := dirHasFiles(filepath.Join(p.Config.RepoPath, ".claude/hooks"))
+	hasBeads := p.Config.Beads && dirHasFiles(filepath.Join(p.Config.RepoPath, ".beads"))
+
+	var existingFiles, draftFiles, missingFiles []string
+	if hasCanonicalClaude {
+		existingFiles = append(existingFiles, "CLAUDE.md")
+	}
+	if hasDraftClaude {
+		existingFiles = append(existingFiles, DraftPath("CLAUDE.md"))
+		draftFiles = append(draftFiles, DraftPath("CLAUDE.md"))
+	}
+	if !hasCanonicalClaude && !hasDraftClaude {
+		missingFiles = append(missingFiles, "CLAUDE.md")
 	}
 
-	// Only count .beads when beads is opted-in.
+	if hasCanonicalAgents {
+		existingFiles = append(existingFiles, "AGENTS.md")
+	}
+	if hasDraftAgents {
+		existingFiles = append(existingFiles, DraftPath("AGENTS.md"))
+		draftFiles = append(draftFiles, DraftPath("AGENTS.md"))
+	}
+	if !hasCanonicalAgents && !hasDraftAgents {
+		missingFiles = append(missingFiles, "AGENTS.md")
+	}
+
+	if hasPolicies {
+		existingFiles = append(existingFiles, ".sdp/policies")
+	} else {
+		missingFiles = append(missingFiles, ".sdp/policies")
+	}
+
+	if hasHooks {
+		existingFiles = append(existingFiles, ".claude/hooks")
+	} else {
+		missingFiles = append(missingFiles, ".claude/hooks")
+	}
+
 	if p.Config.Beads {
-		expected = append(expected, struct {
-			paths []string
-			name  string
-			isDir bool
-		}{[]string{".beads"}, ".beads", true})
-	}
-
-	var existingFiles, missingFiles []string
-	for _, exp := range expected {
-		presentPath := ""
-		for _, candidate := range exp.paths {
-			full := filepath.Join(p.Config.RepoPath, candidate)
-			present := false
-			if exp.isDir {
-				// For directory artifacts, only count if directory has files.
-				present = dirHasFiles(full)
-			} else {
-				_, err := os.Stat(full)
-				present = err == nil
-			}
-			if present {
-				presentPath = candidate
-				break
-			}
-		}
-		if presentPath != "" {
-			existingFiles = append(existingFiles, presentPath)
+		if hasBeads {
+			existingFiles = append(existingFiles, ".beads")
 		} else {
-			missingFiles = append(missingFiles, exp.name)
+			missingFiles = append(missingFiles, ".beads")
 		}
 	}
 
@@ -296,32 +302,27 @@ func (p *Planner) Status() (*BootstrapStatus, error) {
 	if !avail["architect"] {
 		suggestions = append(suggestions, "Run 'sdp architect <repo>' to generate architecture analysis")
 	}
+	if len(draftFiles) > 0 {
+		suggestions = append(suggestions, "Curate DRAFT files, then remove the DRAFT- prefix to activate them")
+	}
 	if len(missingFiles) > 0 {
 		suggestions = append(suggestions, "Run 'sdp bootstrap <repo>' to generate missing files")
 	}
 
-	// Bootstrapped requires at least CLAUDE.md + one other required artifact
-	// (AGENTS.md, policies, or hooks). .beads is only counted when opted-in.
-	bootstrapped := false
-	var hasClaudeMD bool
-	var hasOtherRequired bool
-	for _, name := range existingFiles {
-		switch name {
-		case "CLAUDE.md", DraftPath("CLAUDE.md"):
-			hasClaudeMD = true
-		case "AGENTS.md", DraftPath("AGENTS.md"), ".sdp/policies", ".claude/hooks", ".beads":
-			hasOtherRequired = true
-		}
-	}
-	bootstrapped = hasClaudeMD && hasOtherRequired
+	// Bootstrapped means canonical artifacts exist and are active. DRAFT files
+	// count as pending curation, not as an active bootstrap.
+	hasOtherCanonical := hasCanonicalAgents || hasPolicies || hasHooks || hasBeads
+	bootstrapped := hasCanonicalClaude && hasOtherCanonical
 
 	return &BootstrapStatus{
-		RepoPath:      p.Config.RepoPath,
-		Bootstrapped:  bootstrapped,
-		ExistingFiles: existingFiles,
-		MissingFiles:  missingFiles,
-		DataSources:   avail,
-		Suggestions:   suggestions,
+		RepoPath:        p.Config.RepoPath,
+		Bootstrapped:    bootstrapped,
+		CurationPending: len(draftFiles) > 0,
+		ExistingFiles:   existingFiles,
+		DraftFiles:      draftFiles,
+		MissingFiles:    missingFiles,
+		DataSources:     avail,
+		Suggestions:     suggestions,
 	}, nil
 }
 
@@ -702,6 +703,14 @@ func FormatStatusText(status *BootstrapStatus) string {
 		out += "Existing Files:\n"
 		for _, f := range status.ExistingFiles {
 			out += fmt.Sprintf("  [ok]   %s\n", f)
+		}
+		out += "\n"
+	}
+
+	if len(status.DraftFiles) > 0 {
+		out += "Draft Files Pending Curation:\n"
+		for _, f := range status.DraftFiles {
+			out += fmt.Sprintf("  [draft] %s\n", f)
 		}
 		out += "\n"
 	}

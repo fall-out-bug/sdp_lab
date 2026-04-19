@@ -296,11 +296,32 @@ func TestPlanner_Status_WithDraftFiles(t *testing.T) {
 	status, err := planner.Status()
 	require.NoError(t, err)
 
-	assert.True(t, status.Bootstrapped)
+	assert.False(t, status.Bootstrapped)
+	assert.True(t, status.CurationPending)
 	assert.Contains(t, status.ExistingFiles, "DRAFT-CLAUDE.md")
 	assert.Contains(t, status.ExistingFiles, "DRAFT-AGENTS.md")
+	assert.Contains(t, status.DraftFiles, "DRAFT-CLAUDE.md")
+	assert.Contains(t, status.DraftFiles, "DRAFT-AGENTS.md")
 	assert.NotContains(t, status.MissingFiles, "CLAUDE.md")
 	assert.NotContains(t, status.MissingFiles, "AGENTS.md")
+	assert.Contains(t, status.Suggestions, "Curate DRAFT files, then remove the DRAFT- prefix to activate them")
+}
+
+func TestPlanner_Status_WithCanonicalAndDraftFiles(t *testing.T) {
+	dir := setupRepoWithScout(t)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "CLAUDE.md"), []byte("# claude"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("# agents"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "DRAFT-CLAUDE.md"), []byte("# draft claude"), 0o644))
+
+	planner := NewPlanner(BootstrapConfig{RepoPath: dir})
+	status, err := planner.Status()
+	require.NoError(t, err)
+
+	assert.True(t, status.Bootstrapped)
+	assert.True(t, status.CurationPending)
+	assert.Contains(t, status.ExistingFiles, "CLAUDE.md")
+	assert.Contains(t, status.ExistingFiles, "AGENTS.md")
+	assert.Contains(t, status.DraftFiles, "DRAFT-CLAUDE.md")
 }
 
 func TestComputeConfidence(t *testing.T) {
@@ -374,16 +395,19 @@ func TestFormatPlanText(t *testing.T) {
 
 func TestFormatStatusText(t *testing.T) {
 	status := &BootstrapStatus{
-		RepoPath:      "/tmp/repo",
-		Bootstrapped:  false,
-		ExistingFiles: []string{"CLAUDE.md"},
-		MissingFiles:  []string{"AGENTS.md"},
-		DataSources:   map[string]bool{"scout": true, "architect": false},
-		Suggestions:   []string{"Run sdp bootstrap"},
+		RepoPath:        "/tmp/repo",
+		Bootstrapped:    false,
+		CurationPending: true,
+		ExistingFiles:   []string{"DRAFT-CLAUDE.md"},
+		DraftFiles:      []string{"DRAFT-CLAUDE.md"},
+		MissingFiles:    []string{"AGENTS.md"},
+		DataSources:     map[string]bool{"scout": true, "architect": false},
+		Suggestions:     []string{"Curate DRAFT files"},
 	}
 	text := FormatStatusText(status)
 	assert.Contains(t, text, "Bootstrap Status")
-	assert.Contains(t, text, "CLAUDE.md")
+	assert.Contains(t, text, "DRAFT-CLAUDE.md")
+	assert.Contains(t, text, "Draft Files Pending Curation")
 	assert.Contains(t, text, "AGENTS.md")
 	assert.Contains(t, text, "Suggestions")
 }
