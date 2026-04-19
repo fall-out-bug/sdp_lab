@@ -1,13 +1,35 @@
-Find the highest-priority ready FEATURE in beads (`bd ready --json`), claim it atomically, create a git worktree, then run the full delivery loop:
+## Step 1 — Pick the feature
 
-1. Build all workstreams in parallel subagents (haiku/sonnet)
-2. Review in a fresh subagent — repeat until APPROVED with zero findings including P3
-3. Run `./scripts/run_go_quality_gates.sh` — must be green before PR
-4. Create PR with `gh pr create`
-5. Run `/codex:rescue` telling it explicitly to run `./scripts/run_go_quality_gates.sh` and report all test failures AND code findings
-6. Fix all findings in subagents, push, repeat until codex reports zero findings and tests pass
+Run: `bd ready -n 50`
 
-Follow `.agents/skills/build.md` Session Bootstrap for worktree creation and checkpoint.
-Follow `.agents/skills/delivery-loop.md` for the full loop rules (model policy, compaction recovery, checkpoint updates).
+From the output, find the highest-priority issue where ALL of these are true:
+- type is `[epic]` or `[feature]` (shown in brackets after the issue ID)
+- NOT type `[bug]`
+- NOT a leaf workstream task (leaf tasks have ` ← F` in the title)
 
-Do not stop to ask questions. If the beads queue is empty, report that and stop.
+If no epic/feature is ready, stop and report: "No ready features. Ready bugs: <list>."
+
+## Step 2 — Identify workstreams
+
+From the feature number FXXX (e.g. F134):
+1. `bd list -n 200 | grep "F134-"` — find all leaf workstream beads issues for this feature
+2. `ls docs/workstreams/backlog/ | grep "^00-134-"` — find all WS files
+3. Cross-reference: every WS file must have a corresponding open beads issue
+
+## Step 3 — Claim and create worktree
+
+1. `bd update <epic-id> --claim` — claim the FEATURE (the epic), not a leaf task
+2. Create worktree per `.agents/skills/build.md` Session Bootstrap
+3. Write `.sdp/checkpoint.json`
+
+## Step 4 — Delivery loop
+
+Follow `.agents/skills/delivery-loop.md` exactly:
+- Build all WS in parallel subagents (haiku/sonnet, one per WS file)
+- Review in fresh subagent — repeat until APPROVED with zero findings including P3
+- `./scripts/run_go_quality_gates.sh` green before PR
+- `gh pr create`
+- `/codex:rescue` with explicit instruction to run `./scripts/run_go_quality_gates.sh` and report all test failures
+- Fix → push → repeat until codex: zero findings + tests pass
+
+Do not stop to ask questions at any step.
