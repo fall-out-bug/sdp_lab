@@ -39,7 +39,7 @@ SDP — AI-управляемая платформа полного цикла �
 1. `git status --short --branch`
 2. прочитай [docs/reference/project-map.md](docs/reference/project-map.md)
 3. если это execution, запусти `scripts/beads_transport.sh fetch` и `bd ready --json`
-4. если запрос про greenfield / brownfield adoption — сразу в [sdp/docs/QUICKSTART.md](sdp/docs/QUICKSTART.md)
+4. если запрос про greenfield / brownfield adoption — сразу в [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md)
 5. **если пишешь Go-код** — прочитай [docs/reference/go-patterns.md](docs/reference/go-patterns.md) (stack, naming, 5 примеров, 5 антипаттернов, шаблон файла)
 
 ## Project Structure

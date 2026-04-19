@@ -23,7 +23,7 @@
 
 ## Phase 1: DECISIONS.md (sdp_dev-cnbk, sdp_dev-17t9) — DONE
 
-**Файл:** [sdp/docs/decisions/DECISIONS.md](sdp/docs/decisions/DECISIONS.md)
+**Файл:** [sdp/docs/decisions/DECISIONS.md](https://github.com/fall-out-bug/sdp/blob/main/docs/decisions/DECISIONS.md)
 
 **Проблема:** Только JWT; D1–D4 из design doc не задокументированы.
 

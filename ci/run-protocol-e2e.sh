@@ -7,7 +7,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# sdp/ is now a native directory (submodule retired in F128)
+# sdp/ is a native directory (submodule retired in F128).
+# Protocol E2E assets live in sdp/ci/ (published to the public sdp repo).
 if [ -f "$REPO_ROOT/sdp/ci/Dockerfile.protocol-e2e" ]; then
   DOCKERFILE="$REPO_ROOT/sdp/ci/Dockerfile.protocol-e2e"
   BUILD_ARGS="--build-arg SDP_PLUGIN_PATH=sdp/sdp-plugin"

@@ -44,6 +44,7 @@ make build-sdp-evidence      # -> bin/sdp-evidence
 **sdp (protocol CLI):**
 ```bash
 cd sdp/sdp-plugin && go build -o sdp ./cmd/sdp   # -> sdp CLI (quality, apply, build, verify)
+# Note: sdp/ is gitignored in sdp_lab. Build locally if cloned, or use the public sdp repo.
 ```
 
 ---

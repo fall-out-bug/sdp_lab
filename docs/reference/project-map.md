@@ -27,7 +27,7 @@ Do not use this doc as your main onboarding path if your real goal is:
 - give SDP your IDE and keys
 - start greenfield delivery or brownfield adoption
 
-For that path, go straight to [../../sdp/docs/QUICKSTART.md](../../sdp/docs/QUICKSTART.md). Today that quickstart covers `Claude Code`, `Cursor`, `OpenCode`, and `Codex`. Use [../../sdp/.codex/INSTALL.md](../../sdp/.codex/INSTALL.md) for Codex-specific notes after install.
+For that path, go straight to the [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md). Today that quickstart covers `Claude Code`, `Cursor`, `OpenCode`, and `Codex`. Use [sdp/.codex/INSTALL.md](https://github.com/fall-out-bug/sdp/blob/main/.codex/INSTALL.md) for Codex-specific notes after install.
 
 ## Main Components
 
@@ -83,7 +83,7 @@ Use one source per question.
 |---|---|
 | What repo owns this file? | [docs/MULTI-REPO-WORKFLOW.md](../MULTI-REPO-WORKFLOW.md) |
 | What belongs in `sdp_lab` vs `sdp`? | [docs/architecture/REPO-BOUNDARY.md](../architecture/REPO-BOUNDARY.md) |
-| How do I adopt SDP in another repo? | [../../sdp/docs/QUICKSTART.md](../../sdp/docs/QUICKSTART.md) (local path, also published to sdp repo) |
+| How do I adopt SDP in another repo? | [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md) (published to sdp repo) |
 | What is the canonical happy path from intake to delivery? | [canonical-happy-path.md](canonical-happy-path.md) |
 | What is the canonical operator loop? | [canonical-happy-path.md](canonical-happy-path.md), [docs/SDP_OPERATOR_WORKFLOW.md](../SDP_OPERATOR_WORKFLOW.md) |
 | What agents and skills are on the happy path? | [agent-catalog.md](agent-catalog.md), [skills.md](skills.md) |
@@ -142,7 +142,7 @@ If you are new to this repo, read in this order:
 
 If you are new to SDP but not to this repo, use this shorter decision:
 
-1. "I want to use SDP in my own repo" -> [../../sdp/docs/QUICKSTART.md](../../sdp/docs/QUICKSTART.md) (also published to sdp repo)
+1. "I want to use SDP in my own repo" -> [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md) (also published to sdp repo)
 2. "I want to work on SDP platform internals" -> keep reading this file
 3. "I am a dev agent entering cold" -> [../../AGENTS.md](../../AGENTS.md), then this file
 

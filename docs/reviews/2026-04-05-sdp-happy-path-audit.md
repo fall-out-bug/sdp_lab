@@ -52,7 +52,7 @@ These paths overlap, but they are not presented as progressive disclosure of one
 
 1. No public entrypoint explains the board-to-deploy loop.
 
-   Public docs in [`sdp/README.md`](../../sdp/README.md) and [`sdp/docs/QUICKSTART.md`](../../sdp/docs/QUICKSTART.md) start from install and then jump to skills, but the actual execution system in [`docs/SDP_OPERATOR_WORKFLOW.md`](../SDP_OPERATOR_WORKFLOW.md) is Beads and PR driven. The user requirement "drop task on board and let SDP agents drive it to deploy" is not documented as the primary path anywhere.
+   Public docs in [`sdp/README.md`](https://github.com/fall-out-bug/sdp/blob/main/README.md) and [`sdp/docs/QUICKSTART.md`](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md) start from install and then jump to skills, but the actual execution system in [`docs/SDP_OPERATOR_WORKFLOW.md`](../SDP_OPERATOR_WORKFLOW.md) is Beads and PR driven. The user requirement "drop task on board and let SDP agents drive it to deploy" is not documented as the primary path anywhere.
 
 2. Public docs and CLI describe different primary interfaces.
 
@@ -60,13 +60,13 @@ These paths overlap, but they are not presented as progressive disclosure of one
 
 3. Reference docs are materially stale and contradict current runtime truth.
 
-   [`sdp/docs/reference/skills.md`](../../sdp/docs/reference/skills.md), [`sdp/docs/reference/design-spec.md`](../../sdp/docs/reference/design-spec.md), [`sdp/docs/reference/review-spec.md`](../../sdp/docs/reference/review-spec.md), and [`sdp/docs/reference/build-spec.md`](../../sdp/docs/reference/build-spec.md) still describe old `.claude`-only paths, Python-specific gates, `@design`-centric planning, and deployment behavior that no longer matches current CLI or current operator loop.
+   [`sdp/docs/reference/skills.md`](https://github.com/fall-out-bug/sdp/blob/main/docs/reference/skills.md), [`sdp/docs/reference/design-spec.md`](https://github.com/fall-out-bug/sdp/blob/main/docs/reference/design-spec.md), [`sdp/docs/reference/review-spec.md`](https://github.com/fall-out-bug/sdp/blob/main/docs/reference/review-spec.md), and [`sdp/docs/reference/build-spec.md`](https://github.com/fall-out-bug/sdp/blob/main/docs/reference/build-spec.md) still describe old `.claude`-only paths, Python-specific gates, `@design`-centric planning, and deployment behavior that no longer matches current CLI or current operator loop.
 
 ### Major
 
 1. `QUICKSTART` has no honest progressive disclosure from newcomer to operator.
 
-   [`sdp/docs/QUICKSTART.md`](../../sdp/docs/QUICKSTART.md) mixes install, init, skills, optional Beads, and flow summary, but it never says which path is default for:
+   [`sdp/docs/QUICKSTART.md`](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md) mixes install, init, skills, optional Beads, and flow summary, but it never says which path is default for:
 
    - solo user in a repo
    - team using Beads
@@ -74,7 +74,7 @@ These paths overlap, but they are not presented as progressive disclosure of one
 
 2. `CONTRIBUTING` is not aligned with the actual delivery model.
 
-   [`sdp/CONTRIBUTING.md`](../../sdp/CONTRIBUTING.md) still teaches `@idea -> @design -> @build -> @review -> @deploy` as the contribution workflow. That ignores the current CLI path and ignores the Beads/PR/QA/UAT loop that SDP itself uses internally.
+   [`sdp/CONTRIBUTING.md`](https://github.com/fall-out-bug/sdp/blob/main/CONTRIBUTING.md) still teaches `@idea -> @design -> @build -> @review -> @deploy` as the contribution workflow. That ignores the current CLI path and ignores the Beads/PR/QA/UAT loop that SDP itself uses internally.
 
 3. CLI help is locally coherent but not connected to the public docs story.
 
@@ -140,10 +140,10 @@ Produce one short source-of-truth doc for:
 
 Bring these into alignment with the canonical path:
 
-- [`sdp/README.md`](../../sdp/README.md)
-- [`sdp/docs/QUICKSTART.md`](../../sdp/docs/QUICKSTART.md)
-- [`sdp/CONTRIBUTING.md`](../../sdp/CONTRIBUTING.md)
-- [`sdp/docs/CLI_REFERENCE.md`](../../sdp/docs/CLI_REFERENCE.md)
+- [`sdp/README.md`](https://github.com/fall-out-bug/sdp/blob/main/README.md)
+- [`sdp/docs/QUICKSTART.md`](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md)
+- [`sdp/CONTRIBUTING.md`](https://github.com/fall-out-bug/sdp/blob/main/CONTRIBUTING.md)
+- [`sdp/docs/CLI_REFERENCE.md`](https://github.com/fall-out-bug/sdp/blob/main/docs/CLI_REFERENCE.md)
 
 ### Phase 3: Runtime help and reference cleanup
 

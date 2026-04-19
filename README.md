@@ -11,7 +11,7 @@ GitHub repo name: `sdp_lab`. The Go module is still named `sdp_dev` (see `go.mod
 - planning lives here: roadmap, workstreams, private design docs, execution runbooks
 - public protocol artifacts live in `sdp/`: prompts, hooks, schemas, and OSS CLI work (published to the public `sdp` repo via `scripts/sdp-publish.sh`)
 
-If your goal is to **use SDP inside your own project**, this repo is not the primary onboarding surface. Start with [`sdp/docs/QUICKSTART.md`](sdp/docs/QUICKSTART.md).
+If your goal is to **use SDP inside your own project**, this repo is not the primary onboarding surface. Start with the [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md).
 
 ## Clone
 
@@ -33,12 +33,12 @@ go build ./...
 |---|---|
 | Understand what `sdp_lab` is and what lives here | [`docs/reference/project-map.md`](docs/reference/project-map.md) |
 | Contribute to the platform or private lab runtime | [`AGENTS.md`](AGENTS.md), [`docs/MULTI-REPO-WORKFLOW.md`](docs/MULTI-REPO-WORKFLOW.md) (publish workflow), [`docs/roadmap/ROADMAP.md`](docs/roadmap/ROADMAP.md) |
-| Adopt SDP in a greenfield or brownfield project | [`sdp/docs/QUICKSTART.md`](sdp/docs/QUICKSTART.md), then [`sdp/README.md`](sdp/README.md) |
+| Adopt SDP in a greenfield or brownfield project | [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md), then [SDP README](https://github.com/fall-out-bug/sdp) |
 
 ## IDE Support Today
 
 - public onboarding flow is first-class for `Claude Code`, `Cursor`, and `OpenCode` / `Windsurf`
-- `Codex` prompt compatibility exists in [`sdp/.codex/`](sdp/.codex/), but the public install flow is still manual rather than auto-detected
+- `Codex` prompt compatibility exists in [sdp/.codex/](https://github.com/fall-out-bug/sdp/tree/main/.codex), but the public install flow is still manual rather than auto-detected
 - if the question is "can I give SDP my keys and start working?", the honest answer lives in `sdp/docs/`, not in the private-lab runbooks here
 
 ## Main Components
