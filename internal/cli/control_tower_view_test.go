@@ -20,7 +20,8 @@ func TestRenderDoctorControl(t *testing.T) {
 
 	out := RenderDoctorControl(report)
 	for _, want := range []string{
-		"Status: action needed (1 errors, 1 warnings)",
+		"Checks: 4 total | 2 passed | 2 issues | 0 info",
+		"Status: action needed (1 errors, 1 warnings, 0 info)",
 		"Issue groups:",
 		"- ready gate missing: 1",
 		"- stale ready card: 1",

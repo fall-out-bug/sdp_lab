@@ -58,7 +58,7 @@ Index commands:
   sdp index manifest [--output DIR] <repo-path>
 
 Bootstrap commands:
-  sdp bootstrap [--dry-run] [--force] [--only TYPES] <repo-path>
+  sdp bootstrap [--dry-run] [--force] [--beads] [--yes] [--auto-curate] [--only TYPES] <repo-path>
   sdp bootstrap status <repo-path>
 
 Coverage commands:

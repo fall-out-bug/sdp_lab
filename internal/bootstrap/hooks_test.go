@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -443,6 +444,54 @@ func TestReportRecordsGenerated(t *testing.T) {
 	assert.True(t, hasCreateNote)
 }
 
+// --- DRAFT guard tests ---
+
+func TestGeneratePreCommit_ContainsDraftGuard(t *testing.T) {
+	input := &HookInput{
+		LintCommand: "golangci-lint run",
+	}
+
+	content, err := GeneratePreCommit(input)
+	require.NoError(t, err)
+
+	assert.Contains(t, content, "DRAFT-")
+	assert.Contains(t, content, "DRAFT files detected")
+	assert.Contains(t, content, "Rename (remove DRAFT- prefix) before committing")
+}
+
+func TestGeneratePreCommit_DraftGuardBeforeOtherChecks(t *testing.T) {
+	input := &HookInput{
+		LintCommand: "golangci-lint run",
+	}
+
+	content, err := GeneratePreCommit(input)
+	require.NoError(t, err)
+
+	draftPos := strings.Index(content, "DRAFT files detected")
+	lintPos := strings.Index(content, "golangci-lint run")
+	sensitivePos := strings.Index(content, ".env*")
+
+	assert.True(t, draftPos >= 0, "DRAFT guard should be present")
+	assert.True(t, lintPos >= 0, "lint command should be present")
+	assert.True(t, sensitivePos >= 0, "sensitive file check should be present")
+
+	// DRAFT check must appear before lint and sensitive file checks (fail fast).
+	assert.True(t, draftPos < lintPos, "DRAFT guard should run before lint command")
+	assert.True(t, draftPos < sensitivePos, "DRAFT guard should run before sensitive file check")
+}
+
+func TestGeneratePreCommit_DraftGuardUsesGitDiff(t *testing.T) {
+	input := &HookInput{
+		LintCommand: "echo skip",
+	}
+
+	content, err := GeneratePreCommit(input)
+	require.NoError(t, err)
+
+	assert.Contains(t, content, "git diff --cached --name-only")
+	assert.Contains(t, content, "^DRAFT-")
+}
+
 func TestDryRunReportRecordsSkipped(t *testing.T) {
 	dir := setupRepoWithScout(t)
 
@@ -458,4 +507,98 @@ func TestDryRunReportRecordsSkipped(t *testing.T) {
 			assert.Equal(t, "dry_run", a.Status)
 		}
 	}
+}
+
+// --- Integration test: pre-commit hook DRAFT blocking ---
+
+// TestPreCommitHook_BlocksDraftFiles is an integration test that creates a real
+// git repo, installs the generated pre-commit hook, and verifies that committing
+// a DRAFT-prefixed file fails while committing a normal file succeeds.
+func TestPreCommitHook_BlocksDraftFiles(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	// Generate the pre-commit hook content.
+	input := &HookInput{
+		LintCommand: "echo skip",
+	}
+	hookContent, err := GeneratePreCommit(input)
+	require.NoError(t, err)
+
+	// Create a temp directory and initialize a git repo.
+	repoDir := t.TempDir()
+
+	gitInit := exec.Command("git", "init")
+	gitInit.Dir = repoDir
+	if out, err := gitInit.CombinedOutput(); err != nil {
+		t.Fatalf("git init failed: %v\n%s", err, out)
+	}
+
+	// Configure git user (required for commits).
+	gitConfig := exec.Command("git", "config", "user.email", "test@example.com")
+	gitConfig.Dir = repoDir
+	if out, err := gitConfig.CombinedOutput(); err != nil {
+		t.Fatalf("git config email failed: %v\n%s", err, out)
+	}
+	gitConfigName := exec.Command("git", "config", "user.name", "Test")
+	gitConfigName.Dir = repoDir
+	if out, err := gitConfigName.CombinedOutput(); err != nil {
+		t.Fatalf("git config name failed: %v\n%s", err, out)
+	}
+
+	// Write the generated pre-commit hook into .git/hooks/pre-commit.
+	hooksDir := filepath.Join(repoDir, ".git", "hooks")
+	require.NoError(t, os.MkdirAll(hooksDir, 0o755))
+	hookPath := filepath.Join(hooksDir, "pre-commit")
+	require.NoError(t, os.WriteFile(hookPath, []byte(hookContent), 0o755))
+	require.NoError(t, os.Chmod(hookPath, 0o755))
+
+	// Sub-test: committing a DRAFT file should fail.
+	t.Run("blocks_draft_file", func(t *testing.T) {
+		draftFile := filepath.Join(repoDir, "DRAFT-test.md")
+		require.NoError(t, os.WriteFile(draftFile, []byte("# draft content\n"), 0o644))
+
+		gitAdd := exec.Command("git", "add", "DRAFT-test.md")
+		gitAdd.Dir = repoDir
+		if out, err := gitAdd.CombinedOutput(); err != nil {
+			t.Fatalf("git add failed: %v\n%s", err, out)
+		}
+
+		gitCommit := exec.Command("git", "commit", "-m", "test draft")
+		gitCommit.Dir = repoDir
+		out, err := gitCommit.CombinedOutput()
+		if err == nil {
+			t.Error("expected git commit to fail for DRAFT file, but it succeeded")
+		}
+		if !strings.Contains(string(out), "DRAFT files detected") {
+			t.Errorf("expected 'DRAFT files detected' in output, got: %s", string(out))
+		}
+
+		// Unstage the DRAFT file so the next sub-test starts with a clean index.
+		gitRm := exec.Command("git", "rm", "--cached", "-f", "DRAFT-test.md")
+		gitRm.Dir = repoDir
+		gitRm.CombinedOutput() // best-effort; ignore errors
+		// Remove the physical file too.
+		os.Remove(filepath.Join(repoDir, "DRAFT-test.md"))
+	})
+
+	// Sub-test: committing a non-DRAFT file should succeed.
+	t.Run("allows_normal_file", func(t *testing.T) {
+		normalFile := filepath.Join(repoDir, "normal.md")
+		require.NoError(t, os.WriteFile(normalFile, []byte("# normal content\n"), 0o644))
+
+		gitAdd := exec.Command("git", "add", "normal.md")
+		gitAdd.Dir = repoDir
+		if out, err := gitAdd.CombinedOutput(); err != nil {
+			t.Fatalf("git add failed: %v\n%s", err, out)
+		}
+
+		gitCommit := exec.Command("git", "commit", "-m", "test normal")
+		gitCommit.Dir = repoDir
+		out, err := gitCommit.CombinedOutput()
+		if err != nil {
+			t.Errorf("expected git commit to succeed for normal file, got error: %v\n%s", err, out)
+		}
+	})
 }

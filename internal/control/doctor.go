@@ -3,6 +3,7 @@ package control
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -19,7 +20,7 @@ const (
 // DoctorCheck represents a single hygiene check result
 type DoctorCheck struct {
 	CheckID   string `json:"check_id"`
-	Severity  string `json:"severity"` // error, warning
+	Severity  string `json:"severity"` // error, warning, info
 	Message   string `json:"message"`
 	ProjectID string `json:"project_id,omitempty"`
 	CardID    string `json:"card_id,omitempty"`
@@ -30,6 +31,7 @@ type DoctorReport struct {
 	TotalChecks int           `json:"total_checks"`
 	Passed      int           `json:"passed"`
 	Failed      int           `json:"failed"`
+	Infos       int           `json:"infos"`
 	Checks      []DoctorCheck `json:"checks"`
 }
 
@@ -229,6 +231,14 @@ func (s *Store) DoctorControl() (*DoctorReport, error) {
 		}
 	}
 
+	// DRAFT file hygiene (informational)
+	draftChecks := checkDraftFiles(s.ProjectRoot)
+	for _, dc := range draftChecks {
+		report.TotalChecks++
+		report.Infos++
+		report.Checks = append(report.Checks, dc)
+	}
+
 	return report, nil
 }
 
@@ -275,4 +285,25 @@ func staleHeartbeat(card FeatureCard, now time.Time) (bool, string, string) {
 		severity = "error"
 	}
 	return true, severity, age.Round(time.Minute).String()
+}
+
+// checkDraftFiles scans the project root for DRAFT- prefixed files and returns
+// an informational check when any are found.
+func checkDraftFiles(projectRoot string) []DoctorCheck {
+	pattern := filepath.Join(projectRoot, "DRAFT-*")
+	matches, _ := filepath.Glob(pattern) // Glob only errors on malformed patterns; DRAFT-* is valid.
+	if len(matches) == 0 {
+		return nil
+	}
+
+	var paths []string
+	for _, m := range matches {
+		paths = append(paths, filepath.Base(m))
+	}
+
+	return []DoctorCheck{{
+		CheckID:  "draft-files",
+		Severity: "info",
+		Message:  fmt.Sprintf("bootstrap incomplete — %d DRAFT file(s) require curation: %s", len(matches), strings.Join(paths, ", ")),
+	}}
 }

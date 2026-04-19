@@ -51,13 +51,13 @@ func (p *Planner) Plan() (*BootstrapPlan, error) {
 
 	// Plan CLAUDE.md
 	if shouldGenerate("claude-md", onlyMap) {
-		p.planArtifact(plan, "claude_md", "CLAUDE.md",
+		p.planArtifact(plan, "claude_md", p.draftRelPath("CLAUDE.md"),
 			"SDP harness configuration for Claude Code")
 	}
 
 	// Plan AGENTS.md (independent from claude-md)
 	if shouldGenerate("agents-md", onlyMap) {
-		p.planArtifact(plan, "agents_md", "AGENTS.md",
+		p.planArtifact(plan, "agents_md", p.draftRelPath("AGENTS.md"),
 			"Cross-harness agent instructions")
 	}
 
@@ -204,9 +204,9 @@ func (p *Planner) Execute() (*BootstrapReport, error) {
 				report.Notes = append(report.Notes,
 					"Re-run with --no-verify to skip verification")
 
-					report.DurationMs = time.Since(start).Milliseconds()
-					return report, fmt.Errorf("verification failed: %d command(s) did not pass: %s",
-						len(failed), strings.Join(failed, ", "))
+				report.DurationMs = time.Since(start).Milliseconds()
+				return report, fmt.Errorf("verification failed: %d command(s) did not pass: %s",
+					len(failed), strings.Join(failed, ", "))
 			}
 		}
 	}
@@ -244,41 +244,54 @@ func (p *Planner) Status() (*BootstrapStatus, error) {
 	_ = p.Collector.ExistingConfig()
 	avail := p.Collector.DataSourcesAvailable()
 
-	expected := []struct {
-		path       string
-		name       string
-		isDir      bool
-	}{
-		{"CLAUDE.md", "CLAUDE.md", false},
-		{"AGENTS.md", "AGENTS.md", false},
-		{".sdp/policies", ".sdp/policies", true},
-		{".claude/hooks", ".claude/hooks", true},
+	hasCanonicalClaude := pathExists(filepath.Join(p.Config.RepoPath, "CLAUDE.md"))
+	hasDraftClaude := pathExists(filepath.Join(p.Config.RepoPath, DraftPath("CLAUDE.md")))
+	hasCanonicalAgents := pathExists(filepath.Join(p.Config.RepoPath, "AGENTS.md"))
+	hasDraftAgents := pathExists(filepath.Join(p.Config.RepoPath, DraftPath("AGENTS.md")))
+	hasPolicies := dirHasFiles(filepath.Join(p.Config.RepoPath, ".sdp/policies"))
+	hasHooks := dirHasFiles(filepath.Join(p.Config.RepoPath, ".claude/hooks"))
+	hasBeads := p.Config.Beads && dirHasFiles(filepath.Join(p.Config.RepoPath, ".beads"))
+
+	var existingFiles, draftFiles, missingFiles []string
+	if hasCanonicalClaude {
+		existingFiles = append(existingFiles, "CLAUDE.md")
+	}
+	if hasDraftClaude {
+		existingFiles = append(existingFiles, DraftPath("CLAUDE.md"))
+		draftFiles = append(draftFiles, DraftPath("CLAUDE.md"))
+	}
+	if !hasCanonicalClaude && !hasDraftClaude {
+		missingFiles = append(missingFiles, "CLAUDE.md")
 	}
 
-	// Only count .beads when beads is opted-in.
+	if hasCanonicalAgents {
+		existingFiles = append(existingFiles, "AGENTS.md")
+	}
+	if hasDraftAgents {
+		existingFiles = append(existingFiles, DraftPath("AGENTS.md"))
+		draftFiles = append(draftFiles, DraftPath("AGENTS.md"))
+	}
+	if !hasCanonicalAgents && !hasDraftAgents {
+		missingFiles = append(missingFiles, "AGENTS.md")
+	}
+
+	if hasPolicies {
+		existingFiles = append(existingFiles, ".sdp/policies")
+	} else {
+		missingFiles = append(missingFiles, ".sdp/policies")
+	}
+
+	if hasHooks {
+		existingFiles = append(existingFiles, ".claude/hooks")
+	} else {
+		missingFiles = append(missingFiles, ".claude/hooks")
+	}
+
 	if p.Config.Beads {
-		expected = append(expected, struct {
-			path       string
-			name       string
-			isDir      bool
-		}{".beads", ".beads", true})
-	}
-
-	var existingFiles, missingFiles []string
-	for _, exp := range expected {
-		full := filepath.Join(p.Config.RepoPath, exp.path)
-		present := false
-		if exp.isDir {
-			// For directory artifacts, only count if directory has files
-			present = dirHasFiles(full)
+		if hasBeads {
+			existingFiles = append(existingFiles, ".beads")
 		} else {
-			_, err := os.Stat(full)
-			present = err == nil
-		}
-		if present {
-			existingFiles = append(existingFiles, exp.name)
-		} else {
-			missingFiles = append(missingFiles, exp.name)
+			missingFiles = append(missingFiles, ".beads")
 		}
 	}
 
@@ -289,32 +302,27 @@ func (p *Planner) Status() (*BootstrapStatus, error) {
 	if !avail["architect"] {
 		suggestions = append(suggestions, "Run 'sdp architect <repo>' to generate architecture analysis")
 	}
+	if len(draftFiles) > 0 {
+		suggestions = append(suggestions, "Curate DRAFT files, then remove the DRAFT- prefix to activate them")
+	}
 	if len(missingFiles) > 0 {
 		suggestions = append(suggestions, "Run 'sdp bootstrap <repo>' to generate missing files")
 	}
 
-	// Bootstrapped requires at least CLAUDE.md + one other required artifact
-	// (AGENTS.md, policies, or hooks). .beads is only counted when opted-in.
-	bootstrapped := false
-	var hasClaudeMD bool
-	var hasOtherRequired bool
-	for _, name := range existingFiles {
-		switch name {
-		case "CLAUDE.md":
-			hasClaudeMD = true
-		case "AGENTS.md", ".sdp/policies", ".claude/hooks", ".beads":
-			hasOtherRequired = true
-		}
-	}
-	bootstrapped = hasClaudeMD && hasOtherRequired
+	// Bootstrapped means canonical artifacts exist and are active. DRAFT files
+	// count as pending curation, not as an active bootstrap.
+	hasOtherCanonical := hasCanonicalAgents || hasPolicies || hasHooks || hasBeads
+	bootstrapped := hasCanonicalClaude && hasOtherCanonical
 
 	return &BootstrapStatus{
-		RepoPath:      p.Config.RepoPath,
-		Bootstrapped:  bootstrapped,
-		ExistingFiles: existingFiles,
-		MissingFiles:  missingFiles,
-		DataSources:   avail,
-		Suggestions:   suggestions,
+		RepoPath:        p.Config.RepoPath,
+		Bootstrapped:    bootstrapped,
+		CurationPending: len(draftFiles) > 0,
+		ExistingFiles:   existingFiles,
+		DraftFiles:      draftFiles,
+		MissingFiles:    missingFiles,
+		DataSources:     avail,
+		Suggestions:     suggestions,
 	}, nil
 }
 
@@ -385,15 +393,19 @@ func (p *Planner) executeArtifact(a PlannedArtifact) ArtifactResult {
 		if err != nil {
 			result.Status = "error"
 			result.Message = err.Error()
-		} else if written, werr := writeFileIdempotent(fullPath, content); werr != nil {
-			result.Status = "error"
-			result.Message = werr.Error()
-		} else if !written {
-			result.Status = "ok"
-			result.Message = "CLAUDE.md unchanged (idempotent)"
 		} else {
-			result.Status = "ok"
-			result.Message = "Generated CLAUDE.md"
+			content = p.wrapDraftContent(content)
+			label := p.draftLabel("CLAUDE.md")
+			if written, werr := writeFileIdempotent(fullPath, content); werr != nil {
+				result.Status = "error"
+				result.Message = werr.Error()
+			} else if !written {
+				result.Status = "ok"
+				result.Message = label + " unchanged (idempotent)"
+			} else {
+				result.Status = "ok"
+				result.Message = "Generated " + label
+			}
 		}
 	case "agents_md":
 		var content string
@@ -412,15 +424,19 @@ func (p *Planner) executeArtifact(a PlannedArtifact) ArtifactResult {
 		if err != nil {
 			result.Status = "error"
 			result.Message = err.Error()
-		} else if written, werr := writeFileIdempotent(fullPath, content); werr != nil {
-			result.Status = "error"
-			result.Message = werr.Error()
-		} else if !written {
-			result.Status = "ok"
-			result.Message = "AGENTS.md unchanged (idempotent)"
 		} else {
-			result.Status = "ok"
-			result.Message = "Generated AGENTS.md"
+			content = p.wrapDraftContent(content)
+			label := p.draftLabel("AGENTS.md")
+			if written, werr := writeFileIdempotent(fullPath, content); werr != nil {
+				result.Status = "error"
+				result.Message = werr.Error()
+			} else if !written {
+				result.Status = "ok"
+				result.Message = label + " unchanged (idempotent)"
+			} else {
+				result.Status = "ok"
+				result.Message = "Generated " + label
+			}
 		}
 	case "policy":
 		if err := os.MkdirAll(fullPath, 0o755); err != nil {
@@ -470,6 +486,39 @@ func (p *Planner) executeArtifact(a PlannedArtifact) ArtifactResult {
 	}
 
 	return result
+}
+
+// draftRelPath returns the DRAFT-prefixed path when UseDraft is enabled,
+// or the original path otherwise.
+func (p *Planner) draftRelPath(relPath string) string {
+	if p.Config.ShouldUseDraft() {
+		return DraftPath(relPath)
+	}
+	return relPath
+}
+
+// wrapDraftContent prepends the DRAFT header and injects TODO markers
+// when UseDraft is enabled. Returns content unchanged when UseDraft is false.
+func (p *Planner) wrapDraftContent(content string) string {
+	content = StripDraftDecorations(content)
+	if !p.Config.ShouldUseDraft() {
+		return content
+	}
+	return DraftHeader(p.draftDate()) + InjectTODOAfterMarkers(content)
+}
+
+// draftLabel returns a human-readable label for the artifact, including the
+// DRAFT- prefix when UseDraft is enabled.
+func (p *Planner) draftLabel(baseName string) string {
+	if p.Config.ShouldUseDraft() {
+		return "DRAFT-" + baseName
+	}
+	return baseName
+}
+
+// draftDate returns the current date in YYYY-MM-DD format for DRAFT headers.
+func (p *Planner) draftDate() string {
+	return time.Now().UTC().Format("2006-01-02")
 }
 
 // writeFileIdempotent writes content to path only if it differs from the
@@ -654,6 +703,14 @@ func FormatStatusText(status *BootstrapStatus) string {
 		out += "Existing Files:\n"
 		for _, f := range status.ExistingFiles {
 			out += fmt.Sprintf("  [ok]   %s\n", f)
+		}
+		out += "\n"
+	}
+
+	if len(status.DraftFiles) > 0 {
+		out += "Draft Files Pending Curation:\n"
+		for _, f := range status.DraftFiles {
+			out += fmt.Sprintf("  [draft] %s\n", f)
 		}
 		out += "\n"
 	}
