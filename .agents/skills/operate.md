@@ -81,6 +81,13 @@ Mode based on: (1) Context: PR merged?→deploy, CI red?→triage, insights gath
 
 **@guard:** Pre-deployment quality gate. All tests pass, no critical security findings, docs updated, rollback plan exists. Automatic via hooks — NOT a user-facing skill.
 
+## Deploy Gate Pre-Flight
+
+Before any deploy:
+- All phase gates (plan, review, eval) must be resolved
+- Run `sdp phase eval --feature-id <F>` to verify all gates passed
+- Deploy is BLOCKED if any phase gate is unresolved
+
 ## Artifacts Created
 
 **deploy:** Deployment record, smoke test results, monitoring baseline, rollback plan

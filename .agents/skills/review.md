@@ -78,6 +78,13 @@ All these route to ONE @review skill with dimension parameters.
 
 **@guard:** Pre-commit quality gate runs automatically via hooks. NOT invoked manually.
 
+## SDP Phase Integration
+
+MUST DO when reviewing in SDP context:
+- Invoke `sdp phase review --feature-id <F> --strict` for compliance reviews
+- Verify evidence.json is present (F134-03 gate enforcement)
+- Quote disclosure labels from delta artifacts when reporting findings
+
 ## Artifacts Created
 
 **Pass/fail verdict** with findings by dimension and severity, blocking items list, non-blocking suggestions.

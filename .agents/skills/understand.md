@@ -68,6 +68,12 @@ Required: new codebase, >10K LOC, architecture questions. Optional: quick mode, 
 
 `.sdp/scout.json`, `.sdp/architect.json`, `.sdp/metrics.json`, `.sdp/spec.json`, `.sdp/manifest.md`, `.sdp/index.db` (deep)
 
+## Strict Mode
+
+When `SDP_STRICT=true`:
+- Invoke `sdp phase plan --feature-id <F>` to produce design phase artifact
+- Attach plan delta to beads issue as note
+
 ## Acceptance Boundaries
 
 NOT for: code generation (@build), bug fixing (@fix), review (@review), deployment (@operate)
