@@ -53,11 +53,12 @@ func parsePhaseFlags(fs *flag.FlagSet) *phaseFlags {
 }
 
 // validatePhaseFlags checks that required flags are set.
-func validatePhaseFlags(f *phaseFlags, phaseName string) {
+// Returns an error instead of calling os.Exit so it is testable.
+func validatePhaseFlags(f *phaseFlags, phaseName string) error {
 	if f.featureID == "" {
-		fmt.Fprintf(os.Stderr, "error: --feature-id is required for phase %s\n", phaseName)
-		os.Exit(2)
+		return fmt.Errorf("--feature-id is required for phase %s", phaseName)
 	}
+	return nil
 }
 
 // generateRunID creates a run ID if not provided.
@@ -69,13 +70,17 @@ func generateRunID(runID string) string {
 }
 
 func runPhaseCommand(phase string, args []string, gateType gate.GateType, question string, options []string) {
+	// Stub: full integration pending (context loading from beads, delta file persistence, gate waiting).
 	fs := flag.NewFlagSet(fmt.Sprintf("phase %s", phase), flag.ExitOnError)
 	f := parsePhaseFlags(fs)
 	if err := fs.Parse(args); err != nil {
 		fmt.Fprintf(os.Stderr, "error parsing flags: %v\n", err)
 		os.Exit(2)
 	}
-	validatePhaseFlags(f, phase)
+	if err := validatePhaseFlags(f, phase); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(2)
+	}
 
 	runID := generateRunID(f.runID)
 
@@ -118,9 +123,9 @@ func runPhaseCommand(phase string, args []string, gateType gate.GateType, questi
 		g.Answerer = "sdp-phase"
 		g.ResolvedAt = &now
 	} else {
-		fmt.Printf("\nGate awaiting human decision (strict mode)\n")
-		fmt.Printf("   Options: %v\n", g.Options)
-		fmt.Printf("   To resolve: sdp approve %s\n", g.ID)
+		fmt.Printf("\nGate: AWAITING (strict mode)\n")
+		fmt.Printf("   This gate must be resolved manually.\n")
+		fmt.Printf("   Review the delta artifact, then re-run without --strict to proceed.\n")
 	}
 
 	fmt.Printf("\nTrace record: run-%s.json\n", runID)

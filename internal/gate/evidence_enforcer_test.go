@@ -337,3 +337,137 @@ func TestGate_ResolveWithEvidence_BackwardCompatible(t *testing.T) {
 		t.Errorf("Status = %q, want resolved", g.Status())
 	}
 }
+
+func TestValidateEvidenceSchema_FileNotFound(t *testing.T) {
+	err := ValidateEvidenceSchema(GateTypePlan, "/tmp/nonexistent_schema_evidence_12345.json")
+	if err == nil {
+		t.Fatal("expected error for missing file")
+	}
+	var notFoundErr *EvidenceNotFoundError
+	if !errors.As(err, &notFoundErr) {
+		t.Errorf("error type = %T, want EvidenceNotFoundError", err)
+	}
+}
+
+func TestValidateEvidenceSchema_InvalidJSON(t *testing.T) {
+	tmp := t.TempDir()
+	path := tmp + "/bad.json"
+	if err := os.WriteFile(path, []byte("{bad}"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	err := ValidateEvidenceSchema(GateTypePlan, path)
+	if err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+	var invalidErr *InvalidEvidenceError
+	if !errors.As(err, &invalidErr) {
+		t.Errorf("error type = %T, want InvalidEvidenceError", err)
+	}
+}
+
+func TestValidateEvidenceSchema_MissingKeys(t *testing.T) {
+	tmp := t.TempDir()
+
+	tests := []struct {
+		name     string
+		gateType GateType
+		content  map[string]interface{}
+	}{
+		{
+			name:     "plan gate missing both keys",
+			gateType: GateTypePlan,
+			content:  map[string]interface{}{"other": true},
+		},
+		{
+			name:     "plan gate missing one key",
+			gateType: GateTypePlan,
+			content:  map[string]interface{}{"test_coverage": 0.8},
+		},
+		{
+			name:     "review gate missing both keys",
+			gateType: GateTypeReview,
+			content:  map[string]interface{}{"irrelevant": 1},
+		},
+		{
+			name:     "eval gate missing one key",
+			gateType: GateTypeEval,
+			content:  map[string]interface{}{"go_test": "pass"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := tmp + "/" + tt.name + ".json"
+			data, _ := json.Marshal(tt.content)
+			if err := os.WriteFile(path, data, 0644); err != nil {
+				t.Fatalf("write: %v", err)
+			}
+			err := ValidateEvidenceSchema(tt.gateType, path)
+			if err == nil {
+				t.Fatal("expected error for missing required keys")
+			}
+		})
+	}
+}
+
+func TestValidateEvidenceSchema_AllKeysPresent(t *testing.T) {
+	tmp := t.TempDir()
+
+	tests := []struct {
+		name     string
+		gateType GateType
+		content  map[string]interface{}
+	}{
+		{
+			name:     "plan gate valid",
+			gateType: GateTypePlan,
+			content: map[string]interface{}{
+				"test_coverage":    0.9,
+				"design_checklist": "done",
+			},
+		},
+		{
+			name:     "review gate valid",
+			gateType: GateTypeReview,
+			content: map[string]interface{}{
+				"spec_review_verdict": "pass",
+				"code_review_verdict": "pass",
+			},
+		},
+		{
+			name:     "eval gate valid",
+			gateType: GateTypeEval,
+			content: map[string]interface{}{
+				"go_test": "pass",
+				"go_vet":  "clean",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := tmp + "/" + tt.name + ".json"
+			data, _ := json.Marshal(tt.content)
+			if err := os.WriteFile(path, data, 0644); err != nil {
+				t.Fatalf("write: %v", err)
+			}
+			err := ValidateEvidenceSchema(tt.gateType, path)
+			if err != nil {
+				t.Fatalf("expected no error, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateEvidenceSchema_ManualGate_NoSchemaRequirements(t *testing.T) {
+	tmp := t.TempDir()
+	path := tmp + "/manual.json"
+	data, _ := json.Marshal(map[string]interface{}{"anything": true})
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	err := ValidateEvidenceSchema(GateTypeManual, path)
+	if err != nil {
+		t.Fatalf("manual gate should have no schema requirements, got: %v", err)
+	}
+}

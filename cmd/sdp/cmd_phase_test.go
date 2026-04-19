@@ -93,43 +93,35 @@ func TestPhaseFlagsParsing(t *testing.T) {
 // TestValidatePhaseFlags tests flag validation.
 func TestValidatePhaseFlags(t *testing.T) {
 	tests := []struct {
-		name        string
-		flags       *phaseFlags
-		phaseName   string
-		expectPanic bool
+		name      string
+		flags     *phaseFlags
+		phaseName string
+		wantErr   bool
 	}{
 		{
 			name: "valid flags",
 			flags: &phaseFlags{
 				featureID: "F134",
 			},
-			phaseName:   "plan",
-			expectPanic: false,
+			phaseName: "plan",
+			wantErr:   false,
 		},
 		{
 			name: "missing feature-id",
 			flags: &phaseFlags{
 				featureID: "",
 			},
-			phaseName:   "plan",
-			expectPanic: true,
+			phaseName: "plan",
+			wantErr:   true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			defer func() {
-				if r := recover(); r != nil {
-					if !tt.expectPanic {
-						t.Errorf("Unexpected panic: %v", r)
-					}
-				} else {
-					if tt.expectPanic {
-						t.Error("Expected panic but did not get one")
-					}
-				}
-			}()
-			validatePhaseFlags(tt.flags, tt.phaseName)
+			err := validatePhaseFlags(tt.flags, tt.phaseName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validatePhaseFlags() error = %v, wantErr %v", err, tt.wantErr)
+			}
 		})
 	}
 }

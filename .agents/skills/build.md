@@ -88,7 +88,7 @@ When `--strict-mode` flag or `SDP_STRICT=true` env is active:
 
 1. MUST invoke `sdp phase plan --feature-id <F> --strict` before implementation
 2. MUST invoke `sdp phase eval --feature-id <F> --strict` after implementation
-3. MUST add provenance trailer to every commit: `git commit --trailer "AI-Attribution: $(sdp provenance format)"`
+3. MUST add provenance trailer to every commit using `internal/provenance` package
 
 ## Provenance Pattern
 
