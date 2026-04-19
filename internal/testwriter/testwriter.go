@@ -14,6 +14,16 @@ import (
 	"strings"
 )
 
+// testCaseTypeDef is the TestCase struct definition emitted into generated test
+// files so they compile without depending on the testwriter package.
+const testCaseTypeDef = `// TestCase represents a single test case in a table-driven test.
+type TestCase struct {
+	Name     string
+	Input    string
+	Expected string
+}
+`
+
 // CoverageGap represents a function with coverage below the threshold.
 type CoverageGap struct {
 	File     string  `json:"file"`
@@ -33,12 +43,17 @@ type TestCase struct {
 // functions whose coverage is strictly below the given threshold (in percent).
 // The total: line is skipped. Malformed lines are silently ignored.
 //
+// If the input is empty or contains no valid function lines, an error is
+// returned to prevent upstream tool failures from being silently treated as
+// "no gaps" (fail-closed behavior).
+//
 // Input format (each line):
 //
 //	path/file.go:LineNumber:  FunctionName  Percentage%
 //	total:                    (statements)  Percentage%
 func ParseCoverGaps(coverOutput string, threshold float64) ([]CoverageGap, error) {
 	var gaps []CoverageGap
+	validLines := 0
 
 	scanner := bufio.NewScanner(strings.NewReader(coverOutput))
 	for scanner.Scan() {
@@ -56,6 +71,7 @@ func ParseCoverGaps(coverOutput string, threshold float64) ([]CoverageGap, error
 		if !ok {
 			continue // malformed line, skip
 		}
+		validLines++
 
 		if gap.Coverage < threshold {
 			gaps = append(gaps, gap)
@@ -64,6 +80,12 @@ func ParseCoverGaps(coverOutput string, threshold float64) ([]CoverageGap, error
 
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("testwriter: scan cover output: %w", err)
+	}
+
+	// Fail-closed: if no valid function lines were found, the input is
+	// either empty, entirely malformed, or from a failed upstream tool.
+	if validLines == 0 {
+		return nil, fmt.Errorf("testwriter: no valid coverage data found in input")
 	}
 
 	if gaps == nil {
@@ -235,7 +257,8 @@ func ReadFuncSource(file string, line int) (string, error) {
 
 // FormatTestFile assembles a complete Go test file from package name, imports,
 // and test function bodies. It deduplicates imports and ensures proper Go file
-// structure: package declaration, import block, test functions.
+// structure: package declaration, import block, TestCase struct (when referenced),
+// test functions.
 func FormatTestFile(packageName string, imports []string, tests []string) string {
 	var b strings.Builder
 
@@ -259,11 +282,26 @@ func FormatTestFile(packageName string, imports []string, tests []string) string
 		fmt.Fprintf(&b, ")\n")
 	}
 
+	// Emit TestCase struct definition when any test function references it.
+	if needsTestCase(tests) {
+		fmt.Fprintf(&b, "\n%s", testCaseTypeDef)
+	}
+
 	for _, test := range tests {
 		fmt.Fprintf(&b, "\n%s\n", test)
 	}
 
 	return b.String()
+}
+
+// needsTestCase returns true when any test function body references "TestCase".
+func needsTestCase(tests []string) bool {
+	for _, test := range tests {
+		if strings.Contains(test, "TestCase") {
+			return true
+		}
+	}
+	return false
 }
 
 // splitLines splits a string into lines without removing empty lines.

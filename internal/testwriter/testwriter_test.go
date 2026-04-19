@@ -1,7 +1,10 @@
 package testwriter
 
 import (
+	"go/parser"
+	"go/token"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -59,11 +62,25 @@ total:                                                  75.0%
 			wantErr:   false,
 		},
 		{
-			name:      "empty output",
+			name:      "empty output returns error",
 			output:    "",
 			threshold: 80.0,
-			want:      []CoverageGap{},
-			wantErr:   false,
+			want:      nil,
+			wantErr:   true,
+		},
+		{
+			name:      "only malformed lines returns error",
+			output:    "garbage line here\nanother bad line\n",
+			threshold: 80.0,
+			want:      nil,
+			wantErr:   true,
+		},
+		{
+			name:      "only total line returns error",
+			output:    "total:                                                  75.0%\n",
+			threshold: 80.0,
+			want:      nil,
+			wantErr:   true,
 		},
 		{
 			name: "malformed line skipped",
@@ -543,6 +560,26 @@ func TestFormatTestFile_ValidGoStructure(t *testing.T) {
 	}
 }
 
+func TestFormatTestFile_ValidGoStructure_WithTestCase(t *testing.T) {
+	got := FormatTestFile("mypackage", []string{"testing"}, []string{
+		"func TestExample(t *testing.T) {\n\tvar tests = []TestCase{{Name: \"a\"}}\n\t_ = tests\n}",
+	})
+
+	// Verify structure order: package, imports, TestCase struct, test funcs
+	packageIdx := strings.Index(got, "package mypackage")
+	importIdx := strings.Index(got, "import")
+	tcIdx := strings.Index(got, "type TestCase struct")
+	testIdx := strings.Index(got, "func TestExample")
+
+	if packageIdx == -1 || importIdx == -1 || tcIdx == -1 || testIdx == -1 {
+		t.Fatal("missing required sections in output")
+	}
+	if !(packageIdx < importIdx && importIdx < tcIdx && tcIdx < testIdx) {
+		t.Errorf("wrong order: package(%d) < import(%d) < tc(%d) < test(%d)",
+			packageIdx, importIdx, tcIdx, testIdx)
+	}
+}
+
 func TestCoverageGap_Fields(t *testing.T) {
 	gap := CoverageGap{
 		File:     "internal/foo/bar.go",
@@ -578,5 +615,69 @@ func TestTestCase_Fields(t *testing.T) {
 	}
 	if tc.Expected != "3" {
 		t.Errorf("Expected = %q, want %q", tc.Expected, "3")
+	}
+}
+
+func TestFormatTestFile_IncludesTestCaseStruct(t *testing.T) {
+	testBody := GenerateTestStub("Add", "math", []TestCase{
+		{Name: "positive", Input: "1, 2", Expected: "3"},
+	})
+
+	got := FormatTestFile("math", []string{"testing"}, []string{testBody})
+
+	// Must contain the TestCase type definition.
+	if !strings.Contains(got, "type TestCase struct") {
+		t.Error("FormatTestFile() missing 'type TestCase struct' definition")
+	}
+	if !strings.Contains(got, "Name") || !strings.Contains(got, "Input") || !strings.Contains(got, "Expected") {
+		t.Error("FormatTestFile() TestCase struct missing required fields")
+	}
+
+	// Verify the output parses as valid Go.
+	_, err := parser.ParseFile(token.NewFileSet(), "", got, parser.ParseComments)
+	if err != nil {
+		t.Errorf("FormatTestFile() output does not parse as valid Go: %v\nGot:\n%s", err, got)
+	}
+}
+
+func TestGeneratedCode_Compiles(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping compilation test in short mode")
+	}
+
+	tmp := t.TempDir()
+
+	// Initialize a Go module so `go build' can resolve packages.
+	initCmd := exec.Command("go", "mod", "init", "example.com/math")
+	initCmd.Dir = tmp
+	if out, err := initCmd.CombinedOutput(); err != nil {
+		t.Fatalf("go mod init: %v\n%s", err, out)
+	}
+
+	// Write a simple source file.
+	src := `package math
+
+func Add(a, b int) int { return a + b }
+`
+	if err := os.WriteFile(filepath.Join(tmp, "add.go"), []byte(src), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	// Generate a test file that references TestCase.
+	testBody := GenerateTestStub("Add", "math", []TestCase{
+		{Name: "positive", Input: "1, 2", Expected: "3"},
+	})
+	testFile := FormatTestFile("math", []string{"testing"}, []string{testBody})
+
+	if err := os.WriteFile(filepath.Join(tmp, "add_test.go"), []byte(testFile), 0o644); err != nil {
+		t.Fatalf("write test: %v", err)
+	}
+
+	// Verify the generated file compiles.
+	cmd := exec.Command("go", "build", "./...")
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Errorf("generated test file does not compile: %v\nOutput:\n%s\nGenerated:\n%s", err, out, testFile)
 	}
 }

@@ -8,21 +8,18 @@ import (
 	"os"
 	"strings"
 
-	"sdp_dev/internal/coveragegate"
 	"sdp_dev/internal/executil"
+	"sdp_dev/internal/testwriter"
 )
 
-// coverageItem mirrors coveragegate.CoverageFunc for internal use in the
-// coverage-scan command. The granularity is per-file, not per-function:
-// the Function field always equals the File field because the underlying
-// coverprofile parser aggregates by file. This is a known limitation (C-10).
-type coverageItem = coveragegate.CoverageFunc
-
-// coverageGap represents a file below the coverage threshold.
+// coverageGap represents a function below the coverage threshold.
+// The output matches testwriter.CoverageGap so that coverage-scan output
+// feeds directly into testwriter.
 type coverageGap struct {
 	File         string  `json:"file"`
 	Function     string  `json:"function"`
 	Coverage     float64 `json:"coverage"`
+	Line         int     `json:"line"`
 	ThresholdGap float64 `json:"threshold_gap"`
 }
 
@@ -32,47 +29,108 @@ type coverageJSONOutput struct {
 	Gaps          []coverageGap `json:"gaps"`
 }
 
-// parseCoverprofileForScan wraps coveragegate.ParseCoverprofile and converts
-// the result to coverageItem slices for use in the coverage-scan command.
-func parseCoverprofileForScan(path string) ([]coverageItem, int, int, error) {
-	funcs, totalStmts, coveredStmts, err := coveragegate.ParseCoverprofile(path)
-	if err != nil {
-		return nil, 0, 0, fmt.Errorf("coverage-scan: parse coverprofile: %w", err)
+// validatePackagePattern rejects obviously invalid package patterns.
+// It prevents flag injection (inputs starting with "-") and enforces
+// that the pattern is a valid Go package pattern.
+func validatePackagePattern(pkg string) error {
+	if pkg == "" {
+		return fmt.Errorf("package pattern must not be empty")
 	}
-	if totalStmts == 0 {
-		return nil, 0, 0, fmt.Errorf("coverage-scan: coverprofile contains no statements")
+	if strings.HasPrefix(pkg, "-") {
+		return fmt.Errorf("package pattern must not start with '-': %q", pkg)
 	}
-	return funcs, totalStmts, coveredStmts, nil
+	// Valid patterns: ./..., ../..., or domain-style (github.com/...)
+	if !(strings.HasPrefix(pkg, "./") ||
+		strings.HasPrefix(pkg, "../") ||
+		strings.Contains(pkg, ".")) {
+		return fmt.Errorf("package pattern must start with './', '../', or be a domain-style path (e.g. github.com/...), got %q", pkg)
+	}
+	return nil
 }
 
-// filterBelowThreshold returns items whose coverage is strictly below the
-// given threshold, along with the gap (threshold - coverage).
-func filterBelowThreshold(items []coverageItem, threshold float64) []coverageGap {
-	var gaps []coverageGap
-	for _, item := range items {
-		if item.Coverage < threshold {
-			gaps = append(gaps, coverageGap{
-				File:         item.File,
-				Function:     item.Function,
-				Coverage:     item.Coverage,
-				ThresholdGap: threshold - item.Coverage,
-			})
+// runCoverFunc runs `go tool cover -func=<coverprofile>` in the given directory
+// and returns the raw output. This provides per-function granularity with line
+// numbers, which is the format testwriter.ParseCoverGaps expects.
+func runCoverFunc(ctx context.Context, runner executil.CommandRunner, dir, coverprofile string) (string, error) {
+	out, err := runner.Output(ctx, dir, "go", "tool", "cover", "-func="+coverprofile)
+	if err != nil {
+		return "", fmt.Errorf("go tool cover -func: %w", err)
+	}
+	return string(out), nil
+}
+
+// runGoTest runs `go test -coverprofile=<path> <pkg>` in the given directory.
+func runGoTest(ctx context.Context, runner executil.CommandRunner, dir, coverprofile, pkg string) error {
+	_, err := runner.CombinedOutput(ctx, dir, "go", "test", "-coverprofile="+coverprofile, pkg)
+	if err != nil {
+		return fmt.Errorf("go test failed: %w", err)
+	}
+	return nil
+}
+
+// parseTotalCoverage extracts the total coverage percentage from `go tool cover -func` output.
+func parseTotalCoverage(funcOutput string) (float64, error) {
+	for _, line := range strings.Split(funcOutput, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "total:") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 1 {
+			continue
+		}
+		pctStr := fields[len(fields)-1]
+		pctStr = strings.TrimSuffix(pctStr, "%")
+		var pct float64
+		if _, err := fmt.Sscanf(pctStr, "%f", &pct); err != nil {
+			return 0, fmt.Errorf("parse total coverage from %q: %w", line, err)
+		}
+		return pct, nil
+	}
+	return 0, fmt.Errorf("no total: line found in go tool cover -func output")
+}
+
+// filterGapsFromFuncOutput parses go tool cover -func output and returns
+// functions below the threshold as coverageGap structs with line numbers.
+func filterGapsFromFuncOutput(funcOutput string, threshold float64) ([]coverageGap, float64, error) {
+	// Parse gaps using testwriter.ParseCoverGaps (fail-closed on empty)
+	gaps, err := testwriter.ParseCoverGaps(funcOutput, threshold)
+	if err != nil {
+		return nil, 0, fmt.Errorf("parse function coverage: %w", err)
+	}
+
+	// Extract total coverage
+	totalPct, err := parseTotalCoverage(funcOutput)
+	if err != nil {
+		return nil, 0, fmt.Errorf("extract total coverage: %w", err)
+	}
+
+	// Convert testwriter.CoverageGap to our coverageGap with ThresholdGap
+	result := make([]coverageGap, len(gaps))
+	for i, g := range gaps {
+		result[i] = coverageGap{
+			File:         g.File,
+			Function:     g.Function,
+			Coverage:     g.Coverage,
+			Line:         g.Line,
+			ThresholdGap: threshold - g.Coverage,
 		}
 	}
-	return gaps
+
+	return result, totalPct, nil
 }
 
 // formatGapsText renders coverage gaps as a human-readable table.
 func formatGapsText(gaps []coverageGap, threshold float64) string {
 	if len(gaps) == 0 {
-		return fmt.Sprintf("coverage-scan: All files above threshold (%.1f%%)\n", threshold)
+		return fmt.Sprintf("coverage-scan: All functions above threshold (%.1f%%)\n", threshold)
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "coverage-scan: %d file(s) below %.1f%% threshold\n\n", len(gaps), threshold)
-	fmt.Fprintf(&b, "  %-50s %10s %10s\n", "FILE", "COVERAGE", "GAP")
-	fmt.Fprintf(&b, "  %s\n", strings.Repeat("-", 72))
+	fmt.Fprintf(&b, "coverage-scan: %d function(s) below %.1f%% threshold\n\n", len(gaps), threshold)
+	fmt.Fprintf(&b, "  %-50s %-20s %10s %10s\n", "FILE", "FUNCTION", "COVERAGE", "GAP")
+	fmt.Fprintf(&b, "  %s\n", strings.Repeat("-", 95))
 	for _, g := range gaps {
-		fmt.Fprintf(&b, "  %-50s %9.1f%% %9.1fpp\n", g.File, g.Coverage, g.ThresholdGap)
+		fmt.Fprintf(&b, "  %-50s %-20s %9.1f%% %9.1fpp\n", g.File, g.Function, g.Coverage, g.ThresholdGap)
 	}
 	return b.String()
 }
@@ -117,6 +175,12 @@ func runCoverageScan(args []string) {
 		os.Exit(2)
 	}
 
+	// Validate --package to prevent flag injection
+	if err := validatePackagePattern(*pkgPattern); err != nil {
+		fmt.Fprintf(os.Stderr, "coverage-scan: %v\n", err)
+		os.Exit(2)
+	}
+
 	// Validate path
 	info, err := os.Stat(*path)
 	if err != nil {
@@ -156,36 +220,36 @@ func runCoverageScan(args []string) {
 	}
 
 	// Run go test unless skip-test is set
+	runner := executil.GetDefaultRunner()
+	ctx := context.Background()
+
 	if !*skipTest {
-		runner := executil.GetDefaultRunner()
-		ctx := context.Background()
-		_, err := runner.CombinedOutput(ctx, *path,
-			"go", "test", "-coverprofile="+covPath, *pkgPattern)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "coverage-scan: go test failed: %v\n", err)
+		if err := runGoTest(ctx, runner, *path, covPath, *pkgPattern); err != nil {
+			fmt.Fprintf(os.Stderr, "coverage-scan: %v\n", err)
 			os.Exit(2)
 		}
 	}
 
-	// Parse coverprofile
-	items, totalStmts, coveredStmts, err := parseCoverprofileForScan(covPath)
+	// Run go tool cover -func to get per-function coverage data
+	funcOutput, err := runCoverFunc(ctx, runner, *path, covPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "coverage-scan: %v\n", err)
 		os.Exit(2)
 	}
 
-	// Filter below threshold
-	gaps := filterBelowThreshold(items, *threshold)
-
-	// Compute total coverage
-	totalPct := float64(coveredStmts) / float64(totalStmts) * 100.0
+	// Parse function-level gaps and total coverage
+	gaps, totalPct, err := filterGapsFromFuncOutput(funcOutput, *threshold)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "coverage-scan: %v\n", err)
+		os.Exit(2)
+	}
 
 	// Output
 	switch *format {
 	case "json":
 		fmt.Print(formatGapsJSON(gaps, totalPct))
 	case "text":
-		fmt.Fprintf(os.Stderr, "coverage-scan: total coverage %.1f%% (%d/%d statements)\n", totalPct, coveredStmts, totalStmts)
+		fmt.Fprintf(os.Stderr, "coverage-scan: total coverage %.1f%%\n", totalPct)
 		fmt.Print(formatGapsText(gaps, *threshold))
 	}
 
