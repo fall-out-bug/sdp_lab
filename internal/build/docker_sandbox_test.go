@@ -280,15 +280,11 @@ func TestDockerSandbox_AllowNetwork(t *testing.T) {
 
 	args := sb.buildDockerArgs("/tmp/test", "test", "./...")
 
-	// Verify --network host.
-	found := false
+	// When allowNetwork is true, no --network flag should be present (uses Docker default bridge).
 	for i, a := range args {
-		if a == "--network" && i+1 < len(args) && args[i+1] == "host" {
-			found = true
+		if a == "--network" && i+1 < len(args) {
+			t.Errorf("--network flag should not be present when allowNetwork=true, got --network %s", args[i+1])
 		}
-	}
-	if !found {
-		t.Error("--network host not found in docker args when allowNetwork=true")
 	}
 }
 
@@ -420,4 +416,40 @@ func TestDockerSandbox_SandboxInterface(t *testing.T) {
 	// This should compile — proves interface compliance.
 	var s Sandbox = sb
 	_ = s
+}
+
+func TestDockerSandbox_HardeningFlags(t *testing.T) {
+	skipIfNoDocker(t)
+	cfg := DockerSandboxConfig{Image: "golang:1.22", CGO: false}
+	s, err := NewDockerSandbox(cfg)
+	if err != nil {
+		t.Fatalf("NewDockerSandbox: %v", err)
+	}
+	args := s.buildDockerArgs("/tmp/test", "version")
+
+	// Check hardening flags are present
+	assertArg(t, args, "--security-opt=no-new-privileges:true")
+	assertArg(t, args, "--cap-drop=ALL")
+
+	// Check --user flag is present
+	found := false
+	for _, a := range args {
+		if strings.HasPrefix(a, "--user=") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("--user flag not found in docker args")
+	}
+}
+
+func assertArg(t *testing.T, args []string, want string) {
+	t.Helper()
+	for _, a := range args {
+		if a == want {
+			return
+		}
+	}
+	t.Errorf("expected arg %q not found in %v", want, args)
 }

@@ -32,7 +32,9 @@ func NewSandbox(sandboxType string, cgo bool) (Sandbox, error) {
 		return NewNoneSandboxWithCGO(cgo), nil
 	case "docker":
 		return NewDockerSandbox(DockerSandboxConfig{
-			CGO: cgo,
+			CGO:      cgo,
+			CPUQuota: 100000, // 1 CPU
+			MemoryMB: 2048,   // 2 GB
 		})
 	case "testcontainers":
 		return nil, fmt.Errorf("testcontainers sandbox not yet fully implemented (F135-02 partial)")

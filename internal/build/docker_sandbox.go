@@ -46,6 +46,14 @@ func NewDockerSandbox(cfg DockerSandboxConfig) (*DockerSandbox, error) {
 		image = "golang:1.22"
 	}
 
+	// Apply conservative resource defaults for safety.
+	if cfg.CPUQuota == 0 {
+		cfg.CPUQuota = 100000 // 1 CPU
+	}
+	if cfg.MemoryMB == 0 {
+		cfg.MemoryMB = 2048 // 2 GB
+	}
+
 	return &DockerSandbox{
 		image:        image,
 		cgo:          cfg.CGO,
@@ -165,16 +173,21 @@ func (s *DockerSandbox) buildDockerArgs(dir string, goCmd string, extraArgs ...s
 	if abs, err := absPath(dir); err == nil {
 		absDir = abs
 	}
-	// Volume is intentionally read-write: go build needs to write cache and output files.
-	// The container is hardened with --cap-drop=ALL and no-new-privileges.
+	// Volume is read-write by design: go build/test write cache, coverage, and test fixtures.
+	// Container is hardened (--cap-drop=ALL, no-new-privileges, --user) to limit damage surface.
 	args = append(args, "-v", absDir+":/work", "-w", "/work")
 
+	// Use container-local paths for Go cache to avoid polluting host.
+	args = append(args, "-e", "GOCACHE=/tmp/go-build-cache")
+	args = append(args, "-e", "GOMODCACHE=/tmp/go-mod-cache")
+	args = append(args, "-e", "GOTMPDIR=/tmp/go-tmp")
+
 	// Network configuration.
-	if s.allowNetwork {
-		args = append(args, "--network", "host")
-	} else {
+	if !s.allowNetwork {
 		args = append(args, "--network", "none")
 	}
+	// When allowNetwork is true, omit --network flag (Docker default bridge).
+	// Do NOT use --network host as it exposes host services.
 
 	// Resource limits.
 	if s.cpuQuota > 0 {
@@ -215,10 +228,10 @@ func absPath(dir string) (string, error) {
 	return filepath.Join(wd, dir), nil
 }
 
-// dockerAvailable checks whether the docker binary is available on PATH.
+// dockerAvailable checks whether the Docker daemon is accessible.
 func dockerAvailable() bool {
-	_, err := exec.LookPath("docker")
-	return err == nil
+	cmd := exec.Command("docker", "info", "--format", "{{.ServerVersion}}")
+	return cmd.Run() == nil
 }
 
 // dockerVersion returns the docker version string for diagnostic purposes.
