@@ -9,7 +9,7 @@ This is the shortest accurate way to orient inside `sdp_lab`.
 `sdp_lab` is the private lab workspace for SDP.
 
 - it owns Go code, orchestration, adapter work, evals, roadmap, and private planning
-- it owns protocol artifacts natively under `sdp/` (prompts, schemas, hooks, public CLI work) — published to the public `sdp` repo via `scripts/sdp-publish.sh`
+- protocol artifacts (prompts, schemas, hooks, public CLI work) live at native tracked paths (`prompts/`, `schema/`, `templates/`, `.claude/hooks/`); published to the public `sdp` repo via `scripts/sdp-publish.sh`. `sdp/` is an optional local checkout of the public repo, not a tracked component.
 - it uses `main` as the live default branch
 - historical docs and bead IDs may still say `sdp_dev`; treat that as a legacy label for this same repo
 
@@ -37,7 +37,7 @@ For that path, go straight to the [SDP Quickstart](https://github.com/fall-out-b
 | `deploy/` | K8s runtime and observability manifests |
 | `docs/roadmap/`, `docs/workstreams/`, `docs/plans/` | planning, execution queue, and design history |
 | `docs/reference/` | stable reference docs for the current canonical loop |
-| `sdp/` | protocol artifacts (prompts, hooks, schemas, OSS CLI); published to public `sdp` repo via `scripts/sdp-publish.sh` |
+| `sdp/` | optional local checkout of the public `sdp` repo (not tracked in `sdp_lab`); publish target for `scripts/sdp-publish.sh` |
 
 Start with these files:
 

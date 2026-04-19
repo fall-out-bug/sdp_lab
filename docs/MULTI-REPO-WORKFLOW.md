@@ -61,7 +61,7 @@ The manifest is maintained in `sdp_lab`. Add or remove paths there when the publ
 
 ## Commit Workflow
 
-1. Make changes in `sdp_lab` (including files under `sdp/` — they are native files now).
+1. Make changes in `sdp_lab`. Protocol artifacts live at native tracked paths (`prompts/`, `schema/`, `templates/`, `.claude/hooks/`). The `sdp/` directory is an optional local checkout of the public repo used only by the publish script.
 2. Commit and push in `sdp_lab` as usual.
 3. After merge to `main`, run `scripts/sdp-publish.sh` if protocol artifacts changed.
 

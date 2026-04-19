@@ -114,5 +114,5 @@ The following documents require updates after this decision is implemented:
 - `docs/architecture/REPO-BOUNDARY.md` -- Rewrite to reflect native ownership; the "When to Publish" section stays but references the publish script instead of submodule workflow.
 - `docs/reference/project-map.md` -- Update SOT split table; remove submodule references.
 - `.gitmodules` -- Delete.
-- `.claude/agents` symlink -> real directory.
-- `.claude/hooks` symlink -> real directory.
+- `.claude/agents` symlink -> real directory. Agent definitions live at `prompts/agents/` (tracked native path); `.claude/agents` was not converted since the actual definitions are already in `prompts/agents/`.
+- `.claude/hooks` symlink -> real directory. Hook scripts are tracked natively at `.claude/hooks/` after migration.
