@@ -31,9 +31,11 @@ func NewSandbox(sandboxType string, cgo bool) (Sandbox, error) {
 	case "none", "":
 		return NewNoneSandboxWithCGO(cgo), nil
 	case "docker":
-		return nil, fmt.Errorf("docker sandbox not yet implemented (F135-02)")
+		return NewDockerSandbox(DockerSandboxConfig{
+			CGO: cgo,
+		})
 	case "testcontainers":
-		return nil, fmt.Errorf("testcontainers sandbox not yet implemented (F135-02)")
+		return nil, fmt.Errorf("testcontainers sandbox not yet fully implemented (F135-02 partial)")
 	default:
 		return nil, fmt.Errorf("build: unknown sandbox type %q (use docker, testcontainers, or none)", sandboxType)
 	}

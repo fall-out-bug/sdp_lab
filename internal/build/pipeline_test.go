@@ -45,15 +45,23 @@ func TestNewDefaultPipeline_InvalidSandbox(t *testing.T) {
 	}
 }
 
-func TestNewDefaultPipeline_DockerStub(t *testing.T) {
+func TestNewDefaultPipeline_Docker(t *testing.T) {
 	cfg := BuildConfig{
 		Idea:    "test",
 		Sandbox: "docker",
+		RepoPath: t.TempDir(),
 	}
 
-	_, err := NewDefaultPipeline(cfg)
-	if err == nil {
-		t.Fatal("expected error for docker sandbox stub")
+	p, err := NewDefaultPipeline(cfg)
+	if err != nil {
+		// Docker not available on this system — that is acceptable.
+		if strings.Contains(err.Error(), "command not found") {
+			t.Skipf("docker not available: %v", err)
+		}
+		t.Fatalf("NewDefaultPipeline: %v", err)
+	}
+	if p == nil {
+		t.Fatal("pipeline should not be nil")
 	}
 }
 
@@ -487,7 +495,6 @@ func TestNewSandbox(t *testing.T) {
 	}{
 		{"none", false, "*build.NoneSandbox"},
 		{"", false, "*build.NoneSandbox"},
-		{"docker", true, ""},
 		{"testcontainers", true, ""},
 		{"invalid", true, ""},
 	}
@@ -509,6 +516,21 @@ func TestNewSandbox(t *testing.T) {
 			}
 		})
 	}
+
+	// Docker is conditional on availability.
+	t.Run("docker", func(t *testing.T) {
+		s, err := NewSandbox("docker", false)
+		if err != nil {
+			// Docker not available — expected on some systems.
+			if !strings.Contains(err.Error(), "command not found") {
+				t.Errorf("unexpected error: %v", err)
+			}
+			return
+		}
+		if got := fmt.Sprintf("%T", s); got != "*build.DockerSandbox" {
+			t.Errorf("type = %q, want %q", got, "*build.DockerSandbox")
+		}
+	})
 }
 
 func TestRun_ContextCancellation(t *testing.T) {
