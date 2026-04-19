@@ -9,7 +9,7 @@
 #   --dry-run          Show what would be copied without making changes
 #   --check            Compare sdp_lab and sdp repo for drift (exit 1 if different)
 #   --pr               Create a pull request after pushing
-#   --target-dir PATH  Use an existing directory for the sdp repo (will NOT be deleted on exit)
+#   --target-dir PATH  Clone the sdp repo into PATH/sdp/ (not auto-deleted on exit)
 #   --force            Allow git reset --hard in a dirty --target-dir checkout
 #   --help             Show this help message
 #
