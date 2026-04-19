@@ -67,7 +67,13 @@ Full authoring guide: `docs/reference/skill-authoring.md` (F127-03).
 
 ## Why not `sdp/prompts/skills/`
 
-`sdp/prompts/skills/` is the publish path for artifacts that are released to the public `sdp` protocol repo. Internal build/lab skills live in `.agents/skills/`. Publication is via `scripts/sdp-publish.sh` which exports artifacts to the public sdp repo.
+`sdp/prompts/skills/` is a retired path from the submodule era. The current publish surface is `prompts/` (native path in this repo), which includes `prompts/skills/`. Publication is via `scripts/sdp-publish.sh` which exports protocol artifacts to the public sdp repo.
+
+### Relationship between `.agents/skills/` and `prompts/skills/`
+
+- `prompts/skills/` is the comprehensive source containing full SKILL.md files with frontmatter, descriptions, and instructions.
+- `.agents/skills/` contains runtime stub/alias files used by harnesses for skill discovery. These are the files that agent harnesses actually scan at runtime.
+- Both paths are kept in sync. The authoritative content for public publishing is `prompts/skills/`.
 
 ## References
 

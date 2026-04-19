@@ -9,7 +9,7 @@ GitHub repo name: `sdp_lab`. The Go module is still named `sdp_dev` (see `go.mod
 
 - platform code lives here: Go binaries, orchestration, evals, adapters, K8s manifests
 - planning lives here: roadmap, workstreams, private design docs, execution runbooks
-- public protocol artifacts live in `sdp/`: prompts, hooks, schemas, and OSS CLI work (published to the public `sdp` repo via `scripts/sdp-publish.sh`)
+- protocol artifacts live at native paths: `prompts/`, `schema/`, `templates/`, `.claude/hooks/` (published to the public `sdp` repo downstream via `scripts/sdp-publish.sh`)
 
 If your goal is to **use SDP inside your own project**, this repo is not the primary onboarding surface. Start with the [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md).
 
@@ -46,7 +46,7 @@ go build ./...
 - `cmd/`, `internal/` — platform binaries, orchestration, evals, kernel, adapters
 - `deploy/` — deployable runtime and observability manifests
 - `docs/` — planning and execution surfaces (roadmap, workstreams, plans, runbooks, architecture)
-- `sdp/` — protocol artifacts (prompts, hooks, schemas, OSS CLI work); published to the public `sdp` repo via `scripts/sdp-publish.sh`
+- `sdp/` — optional local checkout of the public `sdp` repo (used by `scripts/sdp-publish.sh` only); canonical protocol artifacts live at `prompts/`, `schema/`, `templates/`, `.claude/hooks/` in this repo
 
 ## CLI Binaries (`cmd/`)
 

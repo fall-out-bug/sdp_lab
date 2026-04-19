@@ -20,8 +20,9 @@ Publish to the public `sdp` repo when protocol artifacts change and external con
 - Schema changes (evidence, intent, ws-verdict)
 - New or updated prompts/skills
 - Hook changes
-- `sdp-plugin` bug fixes or features that affect protocol consumers
 - Quickstart or CLI reference updates
+
+**Not published via this script:** `sdp-plugin` Go source code lives exclusively in the public `sdp` repo. It is not part of the publish surface.
 
 ## Publish with sdp-publish.sh
 
@@ -42,13 +43,12 @@ The script copies the relevant files from `sdp_lab` into a checkout of `fall-out
 
 | Source (sdp_lab) | Destination (sdp repo) |
 |---|---|
-| `prompts/` | `prompts/` |
+| `prompts/` | `prompts/` (includes `prompts/skills/`) |
 | `schema/` | `schema/` |
 | `templates/` | `templates/` |
 | `scripts/hooks/` | `hooks/` |
 | `.claude/hooks/` | `.claude/hooks/` |
 | `.claude/patterns/` | `.claude/patterns/` |
-| `.agents/skills/` | `prompts/skills/` |
 
 The manifest is maintained in `sdp_lab`. Add or remove paths there when the publish surface changes.
 
@@ -67,7 +67,7 @@ The manifest is maintained in `sdp_lab`. Add or remove paths there when the publ
 
 ## CI Integration
 
-CI runs `scripts/sdp-publish.sh --check` on every push to `main`. If the check fails, the published `sdp` repo has drifted from the source — someone needs to publish.
+(TODO: add CI workflow for drift detection.) The intended design is that CI runs `scripts/sdp-publish.sh --check` on every push to `main`. If the check fails, the published `sdp` repo has drifted from the source and someone needs to publish. This workflow has not been implemented yet.
 
 ## Historical Reference
 

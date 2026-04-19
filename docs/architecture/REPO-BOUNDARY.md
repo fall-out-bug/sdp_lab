@@ -23,10 +23,10 @@
 | **sdp-evidence** | `bin/sdp-evidence` | No -- lab only (may release separately later) |
 | **sdp-guard** | `bin/sdp-guard` | No -- lab only |
 | **sdp-eval** | `bin/sdp-eval` | No -- lab only |
-| **sdp** (quality, apply, build, verify) | `sdp` CLI | Yes -- via `scripts/sdp-publish.sh` |
-| **Schemas** | `schema/*.json` (native) | Yes |
-| **Prompts/Skills** | `prompts/skills/*` (native) | Yes |
-| **Hooks** | `.claude/hooks/`, `scripts/hooks/` (native) | Yes |
+| **sdp** (quality, apply, build, verify) | `sdp` CLI | No -- Go source code lives in public `sdp` repo only, not published by `sdp-publish.sh` |
+| **Schemas** | `schema/*.json` (native) | Yes -- via `sdp-publish.sh` |
+| **Prompts/Skills** | `prompts/skills/*` (native) | Yes -- via `sdp-publish.sh` |
+| **Hooks** | `.claude/hooks/`, `scripts/hooks/` (native) | Yes -- via `sdp-publish.sh` |
 
 ---
 
@@ -59,7 +59,6 @@ cd sdp/sdp-plugin && go build -o sdp ./cmd/sdp   # -> sdp CLI (quality, apply, b
 - Schema changes (evidence, intent, ws-verdict)
 - New or updated prompts/skills
 - Hook changes
-- sdp-plugin bug fixes or features that affect protocol consumers
 - Quickstart or CLI reference updates
 
 Run `scripts/sdp-publish.sh` after merge to `main`. See [docs/MULTI-REPO-WORKFLOW.md](../MULTI-REPO-WORKFLOW.md) for the full publish workflow.

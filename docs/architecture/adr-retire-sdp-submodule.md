@@ -38,7 +38,7 @@ Retire the `sdp/` git submodule. Move all files that currently live in the submo
 
 ### New Model: Extra-Hop Publish
 
-1. **All files live natively in sdp_lab.** Prompts, schemas, hooks, agent definitions, and the `sdp-plugin` source code reside under their canonical paths in the monorepo. No symlinks, no submodule pointers.
+1. **All files live natively in sdp_lab.** Prompts, schemas, hooks, agent definitions, and the `sdp-plugin` source code reside under their canonical paths in the monorepo. No symlinks, no submodule pointers. Note: `sdp-plugin` Go source code lives in the public `sdp` repo only; it is not a publish artifact managed by `sdp-publish.sh`.
 
 2. **Publishing is an explicit script.** `scripts/sdp-publish.sh` copies the relevant files from `sdp_lab` into a checkout of `fall-out-bug/sdp`, commits, and pushes. The script supports `--dry-run` for CI validation.
 
@@ -56,14 +56,15 @@ scripts/sdp-publish.sh --dry-run    # Show what would be published (for CI)
 scripts/sdp-publish.sh --check      # Fail if sdp_lab and published sdp have drifted
 ```
 
-Artifacts published by the script (`scripts/sdp-publish.sh`):
-- `prompts/` -> `sdp/prompts/`
+Artifacts published by the script (`scripts/sdp-publish.sh`) -- protocol artifacts only:
+- `prompts/` -> `sdp/prompts/` (includes `prompts/skills/`)
 - `schema/` -> `sdp/schema/`
 - `templates/` -> `sdp/templates/`
 - `scripts/hooks/` -> `sdp/hooks/`
 - `.claude/hooks/` -> `sdp/.claude/hooks/`
 - `.claude/patterns/` -> `sdp/.claude/patterns/`
-- `.agents/skills/` -> `sdp/prompts/skills/`
+
+**Not published:** `sdp-plugin` Go source code lives exclusively in the public `sdp` repo (`sdp/sdp-plugin/`). It is not part of the publish surface because it is Go source code, not a protocol artifact. The publish script covers only prompts, schemas, hooks, and templates.
 
 ## Consequences
 
@@ -88,8 +89,8 @@ Artifacts published by the script (`scripts/sdp-publish.sh`):
 
 | Risk | Mitigation |
 |------|------------|
-| Publishing forgotten after protocol changes | CI job runs `sdp-publish.sh --check` on every push to `main`. Failure means drift detected. |
-| Drift between sdp_lab source and published sdp repo | `sdp-publish.sh --dry-run` in CI shows what would change. `--check` fails CI on unreported drift. |
+| Publishing forgotten after protocol changes | Manual: run `scripts/sdp-publish.sh --check` locally to detect drift. (TODO: add CI workflow for automated drift detection on push to `main`.) |
+| Drift between sdp_lab source and published sdp repo | `sdp-publish.sh --dry-run` shows what would change. `--check` exits non-zero on drift. (TODO: integrate `--check` into CI pipeline.) |
 | File paths change during migration, breaking existing references | Migration script updates all internal references (docs, agents, CI configs) in one commit. |
 | External consumers depend on specific commit SHAs in sdp repo | Publish script preserves file paths in the sdp repo. Consumers pin to tags, not SHAs. |
 | Publish script copies stale or incorrect files | Manifest file in `sdp_lab` lists exact paths to publish. Script validates against manifest before pushing. |
