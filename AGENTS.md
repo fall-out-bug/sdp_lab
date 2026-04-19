@@ -124,6 +124,11 @@ Canonical rules для этого репо (поверх стандартног�
 - Claim атомарно: `bd update <id> --claim` (не `--status in_progress` — подвержен race в параллельной работе).
 - Create: `bd create --title="…" --description="…" --type=task|bug|feature --priority=0-4`.
 - Transport: **не** используй `bd sync` (удалён в 0.61.0). Используй `scripts/beads_transport.sh fetch` до работы и `scripts/beads_transport.sh export` перед финишем. Helper берёт `bd dolt pull/push`, если есть реальный Dolt-remote; иначе публикует архивный `bd export` snapshot через `origin/beads-backup`. В git-backup режиме `fetch` — no-op.
+- Canonical shared state публикуется только явными командами `bd`, а не фактом существования local worktree. Грязный worktree или open branch сами по себе не должны менять `main`.
+- `in_progress` на `main` = issue явно claimed (`bd update <id> --claim`) и работа действительно идёт. Open PR/worktree подтверждает, что claim уместен, но не подменяет сам claim.
+- `closed` на `main` допустим только после merge в целевой repo или после уже landed docs-only change на `main`. Open PR, review approval, локальный dirty worktree и "почти готово" — это всё ещё `in_progress`, не `closed`.
+- `scripts/beads_transport.sh export` публикует текущее состояние локальной beads DB. Не экспортируй speculative close из worktree до подтверждённого merge.
+- `scripts/hooks/post-bd-close-sync.sh` — только post-close doc sync helper. Это не validator и не authority для решения, можно ли закрывать issue.
 
 ### Beads ↔ Workstream Sync
 
@@ -170,7 +175,7 @@ Use the `beads issue` graph for:
 ```bash
 bd ready                    # live executable queue
 bd show <id>                # read acceptance criteria
-bd update <id> --status in_progress
+bd update <id> --claim
 ```
 
 Use `docs/roadmap/ROADMAP.md` and `docs/workstreams/INDEX.md` for planning priority, not as a substitute for the live Beads queue.
@@ -427,7 +432,7 @@ sdp-doc-sync --mode check --strict
 
 1. **File issues for remaining work** — `bd create` for anything that needs follow-up
 2. **Run quality gates** (if code changed) — tests, build, vet
-3. **Update issue status** — `bd close` finished work
+3. **Update issue status** — после merge закрой `bd close`; если PR ещё открыт, issue остаётся claimed / `in_progress`
 4. **PUSH TO REMOTE** — this is MANDATORY:
    ```bash
    git pull --rebase
