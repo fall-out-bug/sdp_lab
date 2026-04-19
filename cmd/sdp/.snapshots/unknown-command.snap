@@ -60,3 +60,6 @@ Index commands:
 Bootstrap commands:
   sdp bootstrap [--dry-run] [--force] [--only TYPES] <repo-path>
   sdp bootstrap status <repo-path>
+
+Build commands:
+  sdp build "<idea>" [--strict] [--local] [--sandbox=<type>] [--dry-run] [--format json|text] [--output DIR] [--timeout DURATION]

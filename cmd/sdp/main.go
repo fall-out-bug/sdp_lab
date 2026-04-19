@@ -67,6 +67,8 @@ func main() {
 		runIndex(os.Args[2:])
 	case "bootstrap":
 		runBootstrap(os.Args[2:])
+	case "build":
+		runBuild(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -136,4 +138,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "Bootstrap commands:")
 	fmt.Fprintln(os.Stderr, "  sdp bootstrap [--dry-run] [--force] [--only TYPES] <repo-path>")
 	fmt.Fprintln(os.Stderr, "  sdp bootstrap status <repo-path>")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Build commands:")
+	fmt.Fprintln(os.Stderr, "  sdp build \"<idea>\" [--strict] [--local] [--sandbox=<type>] [--dry-run] [--format json|text] [--output DIR] [--timeout DURATION]")
 }
