@@ -534,6 +534,109 @@ func Example_phasePlan() {
 	// Strict:   false
 }
 
+// TestGateReadBack tests that an existing resolved gate.json is read back
+// instead of being overwritten.
+func TestGateReadBack(t *testing.T) {
+	tmpDir := t.TempDir()
+	phaseDir := filepath.Join(tmpDir, ".sdp", "phases", "test-run")
+	if err := os.MkdirAll(phaseDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Write a resolved gate.json
+	resolvedAt := time.Now().UTC().Truncate(time.Second)
+	existing := &gate.Gate{
+		ID:         "plan-F134-test-run",
+		Question:   "Approve plan delta?",
+		Context:    "plan phase for feature F134",
+		Options:    []string{"approve", "reject", "defer"},
+		Type:       gate.GateTypePlan,
+		CreatedAt:  time.Now().Add(-time.Minute),
+		Answer:     "approve",
+		Answerer:   "human-operator",
+		ResolvedAt: &resolvedAt,
+	}
+	data, err := json.MarshalIndent(existing, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gatePath := filepath.Join(phaseDir, "gate.json")
+	if err := os.WriteFile(gatePath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Read it back and verify resolution
+	loaded, err := os.ReadFile(gatePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var readBack gate.Gate
+	if err := json.Unmarshal(loaded, &readBack); err != nil {
+		t.Fatal(err)
+	}
+
+	if readBack.Answer != "approve" {
+		t.Errorf("Expected answer 'approve', got %q", readBack.Answer)
+	}
+	if readBack.Answerer != "human-operator" {
+		t.Errorf("Expected answerer 'human-operator', got %q", readBack.Answerer)
+	}
+	if readBack.ResolvedAt == nil {
+		t.Error("Expected gate to be resolved")
+	}
+	if readBack.ResolvedAt.Format(time.RFC3339) != resolvedAt.Format(time.RFC3339) {
+		t.Errorf("Expected resolved_at %s, got %s", resolvedAt.Format(time.RFC3339), readBack.ResolvedAt.Format(time.RFC3339))
+	}
+}
+
+// TestGateReadBackPending tests that a pending (unresolved) gate.json
+// is read back and reported as AWAITING.
+func TestGateReadBackPending(t *testing.T) {
+	tmpDir := t.TempDir()
+	phaseDir := filepath.Join(tmpDir, ".sdp", "phases", "test-run-pending")
+	if err := os.MkdirAll(phaseDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Write a pending gate.json (no answer/resolved_at)
+	pending := &gate.Gate{
+		ID:        "plan-F134-test-run-pending",
+		Question:  "Approve plan delta?",
+		Context:   "plan phase for feature F134",
+		Options:   []string{"approve", "reject", "defer"},
+		Type:      gate.GateTypePlan,
+		CreatedAt: time.Now().Add(-time.Minute),
+	}
+	data, err := json.MarshalIndent(pending, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gatePath := filepath.Join(phaseDir, "gate.json")
+	if err := os.WriteFile(gatePath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Read it back and verify it's still pending
+	loaded, err := os.ReadFile(gatePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var readBack gate.Gate
+	if err := json.Unmarshal(loaded, &readBack); err != nil {
+		t.Fatal(err)
+	}
+
+	if readBack.ResolvedAt != nil {
+		t.Error("Expected gate to be unresolved (pending)")
+	}
+	if !readBack.IsBlocking() {
+		t.Error("Expected pending gate to be blocking")
+	}
+	if readBack.Status() != "pending" {
+		t.Errorf("Expected status 'pending', got %q", readBack.Status())
+	}
+}
+
 // Helper functions for tests
 
 // createTestGate creates a test gate for the given phase.

@@ -90,6 +90,31 @@ func runPhaseCommand(phase string, args []string, gateType gate.GateType, questi
 
 	runID := generateRunID(f.runID)
 
+	// Check for an existing gate.json — if the gate is already resolved,
+	// report the resolution and exit cleanly instead of overwriting.
+	phaseDir := filepath.Join(".sdp", "phases", runID)
+	existingGatePath := filepath.Join(phaseDir, "gate.json")
+	if data, err := os.ReadFile(existingGatePath); err == nil {
+		var existing gate.Gate
+		if err := json.Unmarshal(data, &existing); err == nil {
+			if existing.ResolvedAt != nil {
+				fmt.Printf("Phase: %s (run %s)\n", phase, runID)
+				fmt.Printf("   Gate:     %s\n", existing.ID)
+				fmt.Printf("   Status:   resolved\n")
+				fmt.Printf("   Answer:   %s\n", existing.Answer)
+				fmt.Printf("   Answerer: %s\n", existing.Answerer)
+				fmt.Printf("   Resolved: %s\n", existing.ResolvedAt.Format(time.RFC3339))
+				return
+			}
+			// Gate exists but is still pending — re-report AWAITING status.
+			fmt.Printf("Phase: %s (run %s)\n", phase, runID)
+			fmt.Printf("   Gate:   %s\n", existing.ID)
+			fmt.Printf("   Status: AWAITING (awaiting human approval)\n")
+			fmt.Printf("   To approve: edit %s (set answer, answerer, resolved_at)\n", existingGatePath)
+			os.Exit(1)
+		}
+	}
+
 	d := delta.NewDelta(phase,
 		delta.WithFeatureID(f.featureID),
 		delta.WithWorkstreamID(f.wsID),
@@ -163,7 +188,6 @@ func runPhaseCommand(phase string, args []string, gateType gate.GateType, questi
 	}
 
 	// Persist delta artifact to .sdp/phases/<run_id>/<phase>.delta.md
-	phaseDir := filepath.Join(".sdp", "phases", runID)
 	if err := os.MkdirAll(phaseDir, 0o755); err != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: failed to create phase directory: %v\n", err)
 	} else {
