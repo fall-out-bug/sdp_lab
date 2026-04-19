@@ -483,6 +483,40 @@ total:                                                  33.3%
 	}
 }
 
+func TestRunCoverageScan_CoverprofileOverridesGoTest(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	covPath := filepath.Join(tmpDir, "cov.out")
+	coverprofileContent := "mode: set\n" +
+		"internal/foo/bar.go:10.1,12.16 5 5\n" +
+		"internal/foo/bar.go:15.1,18.20 10 0\n"
+	if err := os.WriteFile(covPath, []byte(coverprofileContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	funcOutput := `internal/foo/bar.go:10:   Bar 100.0%
+internal/foo/bar.go:15:   Uncovered 0.0%
+total:                                                  33.3%
+`
+	runner := &mockRunner{
+		combinedOutputFunc: map[string]outputResult{
+			"cover -func=": {data: []byte(funcOutput), err: nil},
+		},
+	}
+
+	res := runScanTest([]string{
+		"--path=" + tmpDir,
+		"--coverprofile=" + covPath,
+		"--format=json",
+	}, runner)
+	if res.exitCode != 1 {
+		t.Errorf("exit code = %d, want 1 when existing coverprofile is used", res.exitCode)
+	}
+	if strings.Contains(res.stderr, "unexpected CombinedOutput call: go test") {
+		t.Fatalf("coverage-scan should not run go test when --coverprofile is provided: %s", res.stderr)
+	}
+}
+
 func TestRunCoverageScan_JSONOutputStructure(t *testing.T) {
 	tmpDir := t.TempDir()
 

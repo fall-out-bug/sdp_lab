@@ -236,10 +236,10 @@ func runCoverageScanWithWriters(args []string, stdout, stderr io.Writer, runner 
 		defer os.Remove(covPath)
 	}
 
-	// Run go test unless skip-test is set
+	// Run go test unless we are explicitly using an existing coverprofile.
 	ctx := context.Background()
-
-	if !*skipTest {
+	useExistingCoverprofile := *coverprofilePath != ""
+	if !*skipTest && !useExistingCoverprofile {
 		if err := runGoTest(ctx, runner, *path, covPath, *pkgPattern); err != nil {
 			fmt.Fprintf(stderr, "coverage-scan: %v\n", err)
 			return 2
