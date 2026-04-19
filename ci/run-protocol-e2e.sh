@@ -14,9 +14,13 @@ if [ -f "$REPO_ROOT/sdp/ci/Dockerfile.protocol-e2e" ]; then
   BUILD_ARGS="--build-arg SDP_PLUGIN_PATH=sdp/sdp-plugin"
   cp "$REPO_ROOT/sdp/ci/protocol-e2e-test.sh" "$REPO_ROOT/ci/"
   cp -r "$REPO_ROOT/sdp/ci/protocol-e2e-fixtures" "$REPO_ROOT/ci/"
-else
+elif [ -f "$REPO_ROOT/ci/Dockerfile.protocol-e2e" ]; then
   DOCKERFILE="$REPO_ROOT/ci/Dockerfile.protocol-e2e"
   BUILD_ARGS=""
+else
+  echo "ERROR: Dockerfile not found in sdp/ci/ or ci/." >&2
+  echo "Clone the public sdp repo: git clone https://github.com/fall-out-bug/sdp.git sdp" >&2
+  exit 1
 fi
 
 echo "=== Protocol E2E (Docker) ==="

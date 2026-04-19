@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: Deployment orchestration. Creates PR to master (after @oneshot) or merges for release.
+description: Deployment orchestration. Creates PR to main (after @oneshot) or merges for release.
 version: 4.0.0
 changes:
   - "4.0.0: Compress to ~150 lines (P2 remediation)"
@@ -8,7 +8,7 @@ changes:
 
 # @deploy - Deployment Orchestration
 
-Create PR to master (after @oneshot) or merge for release.
+Create PR to main (after @oneshot) or merge for release.
 
 ---
 
@@ -69,8 +69,8 @@ Proceed? [y/n]
 
 | Mode | Action |
 |------|--------|
-| PR | feature -> master via gh pr create |
-| Release | Version bump + tag on master |
+| PR | feature -> main via gh pr create |
+| Release | Version bump + tag on main |
 
 ---
 

@@ -1,11 +1,11 @@
 ---
 name: hotfix
-description: Emergency P0 fixes. Fast-track production deployment with minimal changes. Branch from master, immediate deploy.
+description: Emergency P0 fixes. Fast-track production deployment with minimal changes. Branch from main, immediate deploy.
 ---
 
 # @hotfix
 
-Emergency production fixes. Minimal changes, fast testing, merge to master with tag.
+Emergency production fixes. Minimal changes, fast testing, merge to main with tag.
 
 ## When to Use
 
@@ -15,12 +15,12 @@ Emergency production fixes. Minimal changes, fast testing, merge to master with 
 
 ## Workflow
 
-1. **Branch** — `git checkout master && git pull && git checkout -b hotfix/{id}-{slug}`
+1. **Branch** — `git checkout main && git pull && git checkout -b hotfix/{id}-{slug}`
 2. **Minimal fix** — No refactoring, fix bug only
 3. **Smoke test** — Critical path verification
-4. **Merge** — `git checkout master && git merge hotfix/{branch} --no-edit`
+4. **Merge** — `git checkout main && git merge hotfix/{branch} --no-edit`
 5. **Tag** — `git tag -a v{VERSION} -m "Hotfix: {description}"`
-6. **Push** — `git push origin master --tags`
+6. **Push** — `git push origin main --tags`
 
 ## Write Plan (F101)
 

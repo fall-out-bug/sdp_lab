@@ -153,7 +153,7 @@ When Beads is **enabled** (`bd --version` works, `.beads/` exists):
 bd update {beads_id} --status in_progress
 # Execute TDD cycle
 bd close {beads_id} --reason "WS completed"
-bd sync
+scripts/beads_transport.sh export
 git commit
 ```
 
