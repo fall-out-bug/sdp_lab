@@ -9,7 +9,7 @@ GitHub repo name: `sdp_lab`. The Go module is still named `sdp_dev` (see `go.mod
 
 - platform code lives here: Go binaries, orchestration, evals, adapters, K8s manifests
 - planning lives here: roadmap, workstreams, private design docs, execution runbooks
-- protocol artifacts live at native paths: `prompts/`, `schema/`, `templates/`, `.claude/hooks/` (published to the public `sdp` repo downstream via `scripts/sdp-publish.sh`)
+- protocol artifacts live at native paths: `prompts/`, `schema/`, `templates/`, `.claude/hooks/`, harness entrypoints such as `.cursorrules`, `.codex/`, `.opencode/hooks/`, and fallback docs (published to the public `sdp` repo downstream via `scripts/sdp-publish.sh`)
 
 If your goal is to **use SDP inside your own project**, this repo is not the primary onboarding surface. Start with the [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md).
 
@@ -38,7 +38,7 @@ go build ./...
 ## IDE Support Today
 
 - public onboarding flow is first-class for `Claude Code`, `Cursor`, and `OpenCode` / `Windsurf`
-- `Codex` prompt compatibility exists in [sdp/.codex/](https://github.com/fall-out-bug/sdp/tree/main/.codex), but the public install flow is still manual rather than auto-detected
+- `Codex` prompt compatibility exists in [.codex/](https://github.com/fall-out-bug/sdp/tree/main/.codex), but the public install flow is still manual rather than auto-detected
 - if the question is "can I give SDP my keys and start working?", the honest answer lives in `sdp/docs/`, not in the private-lab runbooks here
 
 ## Main Components
@@ -46,7 +46,7 @@ go build ./...
 - `cmd/`, `internal/` — platform binaries, orchestration, evals, kernel, adapters
 - `deploy/` — deployable runtime and observability manifests
 - `docs/` — planning and execution surfaces (roadmap, workstreams, plans, runbooks, architecture)
-- `sdp/` — optional local checkout of the public `sdp` repo (used by `scripts/sdp-publish.sh` only); canonical protocol artifacts live at `prompts/`, `schema/`, `templates/`, `.claude/hooks/` in this repo
+- `sdp/` — optional local checkout of the public `sdp` repo (used by `scripts/sdp-publish.sh` only); canonical protocol artifacts live at `prompts/`, `schema/`, `templates/`, `.claude/hooks/`, and harness entrypoints in this repo
 
 ## CLI Binaries (`cmd/`)
 
