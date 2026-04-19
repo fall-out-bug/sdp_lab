@@ -98,8 +98,10 @@ func runBootstrap(args []string) {
 func appendConventionsArtifacts(report *bootstrap.BootstrapReport, repoPath string, useDraft bool) {
 	card, err := scout.Run(repoPath)
 	if err != nil {
-		report.Notes = append(report.Notes,
-			fmt.Sprintf("conventions: scout skipped: %v", err))
+		report.Artifacts = append(report.Artifacts, bootstrap.ArtifactResult{
+			Type: "conventions", Status: "error",
+			Message: fmt.Sprintf("scout failed: %v", err),
+		})
 		return
 	}
 	report.DataSources["conventions"] = true
@@ -110,8 +112,10 @@ func appendConventionsArtifacts(report *bootstrap.BootstrapReport, repoPath stri
 		gen := rules.NewGenerator(evidenceDir)
 		generatedRules, err = gen.Generate()
 		if err != nil {
-			report.Notes = append(report.Notes,
-				fmt.Sprintf("conventions: rules generation skipped: %v", err))
+			report.Artifacts = append(report.Artifacts, bootstrap.ArtifactResult{
+				Type: "conventions", Status: "error",
+				Message: fmt.Sprintf("rules generation failed: %v", err),
+			})
 		} else if len(generatedRules) > 0 {
 			report.DataSources["evidence"] = true
 			report.Notes = append(report.Notes,
@@ -128,8 +132,10 @@ func appendConventionsArtifacts(report *bootstrap.BootstrapReport, repoPath stri
 	registry := harnessadapter.NewRegistry(manifest)
 	rendered, err := registry.RenderAll(card, generatedRules)
 	if err != nil {
-		report.Notes = append(report.Notes,
-			fmt.Sprintf("conventions: adapter render failed: %v", err))
+		report.Artifacts = append(report.Artifacts, bootstrap.ArtifactResult{
+			Type: "conventions", Status: "error",
+			Message: fmt.Sprintf("adapter render failed: %v", err),
+		})
 		return
 	}
 
@@ -170,17 +176,17 @@ func appendConventionsArtifacts(report *bootstrap.BootstrapReport, repoPath stri
 	}
 }
 
-// bootstrapRulesArtifactName returns the output filename for an adapter during
+// bootstrapRulesArtifactName returns the output filename for a harness during
 // bootstrap. When useDraft is true, files get a DRAFT- prefix.
-func bootstrapRulesArtifactName(adapterName string, useDraft bool) string {
+func bootstrapRulesArtifactName(harnessName string, useDraft bool) string {
 	var base string
-	switch adapterName {
+	switch harnessName {
 	case "claude-code":
 		base = "CLAUDE-RULES.md"
 	case "cursor":
 		base = ".cursorrules"
 	default:
-		base = adapterName + "-rules.md"
+		base = harnessName + "-rules.md"
 	}
 	if useDraft {
 		return bootstrap.DraftPath(base)

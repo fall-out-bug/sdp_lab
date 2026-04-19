@@ -75,8 +75,19 @@ func collectSubDirNames(root, name string) []string {
 	return names
 }
 
+// skipDirNames are directories that detectTestLayout skips entirely.
+var skipDirNames = map[string]bool{
+	"vendor": true, "node_modules": true, ".git": true, ".claude": true,
+	"archive": true, "dist": true, "build": true, "out": true,
+	".worktrees": true, "testdata": true, "__pycache__": true,
+	".tox": true, ".venv": true, "venv": true, ".mypy_cache": true,
+	".next": true, ".nuxt": true, "coverage": true, ".cache": true,
+}
+
 // detectTestLayout determines whether tests are colocated, in a dedicated
-// test directory, mixed, or unknown. Samples up to 500 files for performance.
+// test directory, mixed, or unknown. Walks up to depth 5 and samples up to
+// 200 files for performance. Exits early once both colocated and testdir
+// patterns are detected (no need to keep walking).
 func detectTestLayout(root string) TestLayout {
 	var hasColocated bool
 	var hasTestDir bool
@@ -92,32 +103,52 @@ func detectTestLayout(root string) TestLayout {
 			return nil
 		}
 
-		// Skip deeply nested and vendor/testdata dirs for performance.
+		// Limit walk depth to 5 levels for performance.
+		if depth := strings.Count(rel, string(filepath.Separator)) + 1; depth > 5 {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
 		name := d.Name()
 		if d.IsDir() {
-			if name == "vendor" || name == "node_modules" || name == ".git" ||
-				name == ".claude" || name == "archive" {
+			if skipDirNames[name] {
 				return filepath.SkipDir
 			}
 			if isTestDirectoryName(name) {
 				hasTestDir = true
 				testDirPattern = name + "/"
 			}
+			// Early exit: both patterns found, no need to walk further.
+			if hasColocated && hasTestDir {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 
 		visited++
-		if visited > 500 {
+		if visited > 200 {
 			return filepath.SkipDir
 		}
 
-		// Detect colocated test files (e.g. foo_test.go next to foo.go)
-		if strings.HasSuffix(name, "_test.go") || strings.HasPrefix(name, "test_") {
+		// Only check for colocated test files if we haven't found one yet.
+		if !hasColocated && strings.HasSuffix(name, "_test.go") {
 			dir := filepath.Dir(rel)
+			// Skip if the directory itself is in the skip list.
+			dirBase := filepath.Base(dir)
+			if skipDirNames[dirBase] {
+				return nil
+			}
 			baseName := strings.TrimSuffix(name, "_test.go") + ".go"
 			if _, statErr := os.Stat(filepath.Join(root, dir, baseName)); statErr == nil {
 				hasColocated = true
 			}
+		}
+
+		// Early exit: both patterns found.
+		if hasColocated && hasTestDir {
+			return filepath.SkipDir
 		}
 		return nil
 	})

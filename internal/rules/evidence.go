@@ -19,7 +19,9 @@ type EvidenceEntry struct {
 }
 
 // ReadEvidenceDir reads all .json files in dir and returns their parsed
-// entries. Files that are missing or malformed are skipped silently.
+// entries. Files that are missing or malformed are skipped silently by design:
+// evidence files are append-only logs produced by CI runs; a corrupt or
+// partial write should not block rule generation for the rest of the entries.
 func ReadEvidenceDir(dir string) ([]EvidenceEntry, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -34,7 +36,8 @@ func ReadEvidenceDir(dir string) ([]EvidenceEntry, error) {
 		path := filepath.Join(dir, e.Name())
 		parsed, err := readEvidenceFile(path)
 		if err != nil {
-			continue // skip malformed files
+			// Intentional: skip malformed files rather than failing the entire batch.
+			continue
 		}
 		result = append(result, parsed...)
 	}

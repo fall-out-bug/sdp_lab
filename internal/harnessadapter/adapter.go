@@ -19,6 +19,12 @@ type Adapter interface {
 	Render(card *scout.ProjectCard, rules []rules.Rule) ([]byte, error)
 }
 
+// namedAdapter pairs an adapter with the harness name it was registered under.
+type namedAdapter struct {
+	harnessName string
+	adapter     Adapter
+}
+
 // Registry holds all registered adapters keyed by harness name.
 type Registry struct {
 	adapters map[string]Adapter
@@ -51,13 +57,16 @@ func NewRegistry(manifest *harnesscfg.Manifest) *Registry {
 			continue
 		}
 		a := factory()
-		r.adapters[a.Name()] = a
+		// Key by harness name (from manifest), not adapter name, so that
+		// multiple harnesses sharing one adapter (e.g. codex-cli and opencode
+		// both use agentsAdapter) are not collapsed into a single entry.
+		r.adapters[h.Name] = a
 	}
 
 	return r
 }
 
-// Get returns the adapter registered under the given name.
+// Get returns the adapter registered under the given harness name.
 func (r *Registry) Get(name string) (Adapter, error) {
 	a, ok := r.adapters[name]
 	if !ok {
@@ -66,28 +75,29 @@ func (r *Registry) Get(name string) (Adapter, error) {
 	return a, nil
 }
 
-// All returns all registered adapters in deterministic (sorted) order.
-func (r *Registry) All() []Adapter {
-	out := make([]Adapter, 0, len(r.adapters))
-	for _, a := range r.adapters {
-		out = append(out, a)
+// All returns all registered adapters paired with their harness names,
+// in deterministic (sorted by harness name) order.
+func (r *Registry) All() []namedAdapter {
+	out := make([]namedAdapter, 0, len(r.adapters))
+	for name, a := range r.adapters {
+		out = append(out, namedAdapter{harnessName: name, adapter: a})
 	}
 	sort.Slice(out, func(i, j int) bool {
-		return out[i].Name() < out[j].Name()
+		return out[i].harnessName < out[j].harnessName
 	})
 	return out
 }
 
 // RenderAll invokes Render on every registered adapter and returns a map
-// from adapter name to rendered bytes.
+// from harness name to rendered bytes.
 func (r *Registry) RenderAll(card *scout.ProjectCard, rules []rules.Rule) (map[string][]byte, error) {
 	out := make(map[string][]byte, len(r.adapters))
-	for _, a := range r.All() {
-		b, err := a.Render(card, rules)
+	for _, na := range r.All() {
+		b, err := na.adapter.Render(card, rules)
 		if err != nil {
-			return nil, fmt.Errorf("harnessadapter: render %s: %w", a.Name(), err)
+			return nil, fmt.Errorf("harnessadapter: render %s: %w", na.harnessName, err)
 		}
-		out[a.Name()] = b
+		out[na.harnessName] = b
 	}
 	return out, nil
 }

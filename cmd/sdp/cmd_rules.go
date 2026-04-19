@@ -165,15 +165,15 @@ func executeRulesUpdate(repoPath, evidenceDir, manifestFile string) (*rulesRepor
 	return report, nil
 }
 
-// draftFilename maps an adapter name to a DRAFT-prefixed output filename.
-func draftFilename(adapterName string) string {
-	switch adapterName {
+// draftFilename maps a harness name to a DRAFT-prefixed output filename.
+func draftFilename(harnessName string) string {
+	switch harnessName {
 	case "claude-code":
 		return "DRAFT-CLAUDE-RULES.md"
 	case "cursor":
 		return "DRAFT-.cursorrules"
 	default:
-		return "DRAFT-" + adapterName + "-rules.md"
+		return "DRAFT-" + harnessName + "-rules.md"
 	}
 }
 
@@ -192,6 +192,7 @@ func loadManifestOrDefault(manifestFile, repoPath string) *harnesscfg.Manifest {
 
 	var m harnesscfg.Manifest
 	if err := json.Unmarshal(data, &m); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: manifest parse error: %v; using defaults\n", err)
 		return defaultManifest()
 	}
 	return &m

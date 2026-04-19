@@ -48,7 +48,11 @@ var severityOrder = map[string]int{
 
 // GenerateRoadmap produces a roadmap from scout data.
 // The output is deterministic: the same ProjectCard always produces the same Roadmap.
+// Returns a minimal Roadmap if card is nil.
 func GenerateRoadmap(card *scout.ProjectCard) *Roadmap {
+	if card == nil {
+		return &Roadmap{Vision: "unknown project"}
+	}
 	gaps := detectGaps(card)
 	strengths := detectStrengths(card)
 	weaknesses := detectWeaknesses(card)

@@ -78,24 +78,28 @@ func sampleRules() []rules.Rule {
 func TestNewRegistry(t *testing.T) {
 	r := NewRegistry(sampleManifest())
 	all := r.All()
-	if len(all) == 0 {
-		t.Fatal("expected at least one adapter from sample manifest")
+	// 4 harnesses in manifest: claude-code, cursor, codex-cli, opencode
+	if len(all) != 4 {
+		t.Fatalf("expected 4 adapters from sample manifest, got %d", len(all))
 	}
 
 	names := make(map[string]bool)
-	for _, a := range all {
-		names[a.Name()] = true
+	for _, na := range all {
+		names[na.harnessName] = true
 	}
 
-	// claude-code, cursor, and at least one agents adapter
+	// All four harness names must be present (not collapsed into adapter names).
 	if !names["claude-code"] {
-		t.Error("expected claude-code adapter")
+		t.Error("expected claude-code harness")
 	}
 	if !names["cursor"] {
-		t.Error("expected cursor adapter")
+		t.Error("expected cursor harness")
 	}
-	if !names["agents"] {
-		t.Error("expected agents adapter")
+	if !names["codex-cli"] {
+		t.Error("expected codex-cli harness")
+	}
+	if !names["opencode"] {
+		t.Error("expected opencode harness")
 	}
 }
 
@@ -114,6 +118,17 @@ func TestRegistry_Get(t *testing.T) {
 	}
 	if a.Name() != "claude-code" {
 		t.Errorf("expected name claude-code, got %s", a.Name())
+	}
+}
+
+func TestRegistry_GetAgentsHarness(t *testing.T) {
+	r := NewRegistry(sampleManifest())
+	a, err := r.Get("codex-cli")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if a.Name() != "agents" {
+		t.Errorf("expected adapter name agents, got %s", a.Name())
 	}
 }
 
@@ -273,15 +288,32 @@ func TestRenderAll(t *testing.T) {
 		t.Fatal("expected output for all adapters")
 	}
 
-	// Must have exactly 3 unique adapter outputs: claude-code, cursor, agents
+	// Must have 4 entries keyed by harness name, not collapsed to adapter names.
 	if _, ok := out["claude-code"]; !ok {
 		t.Error("missing claude-code output")
 	}
 	if _, ok := out["cursor"]; !ok {
 		t.Error("missing cursor output")
 	}
-	if _, ok := out["agents"]; !ok {
-		t.Error("missing agents output")
+	if _, ok := out["codex-cli"]; !ok {
+		t.Error("missing codex-cli output")
+	}
+	if _, ok := out["opencode"]; !ok {
+		t.Error("missing opencode output")
+	}
+}
+
+func TestRenderAll_DistinctOutput(t *testing.T) {
+	r := NewRegistry(sampleManifest())
+	out, err := r.RenderAll(sampleCard(), sampleRules())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// codex-cli and opencode share agentsAdapter so content is identical,
+	// but they must be distinct entries in the map.
+	if len(out) != 4 {
+		t.Errorf("expected 4 entries, got %d", len(out))
 	}
 }
 
