@@ -86,8 +86,8 @@ Scope based on: (1) Request type: "Design..."→idea, "Implement..."→feature, 
 
 When `--strict-mode` flag or `SDP_STRICT=true` env is active:
 
-1. MUST invoke `sdp phase plan --feature-id <F> --strict` before implementation
-2. MUST invoke `sdp phase eval --feature-id <F> --strict` after implementation
+1. MUST invoke `sdp phase plan --feature-id <F> --strict --evidence-path .sdp/evidence/plan.json` before implementation
+2. MUST invoke `sdp phase eval --feature-id <F> --strict --evidence-path .sdp/evidence/eval.json` after implementation
 3. MUST add provenance trailer to every commit using `internal/provenance` package
 
 ## Provenance Pattern

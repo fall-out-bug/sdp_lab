@@ -127,13 +127,17 @@ func runPhaseCommand(phase string, args []string, gateType gate.GateType, questi
 
 	// Resolve gate with evidence enforcement
 	if f.strict {
-		// Strict mode: evidence-path is required (validated above), resolve with evidence
-		if err := g.ResolveWithEvidence("approve", "sdp-phase-strict", f.evidencePath); err != nil {
-			fmt.Fprintf(os.Stderr, "\nGate BLOCKED (strict mode): %v\n", err)
-			fmt.Fprintf(os.Stderr, "Evidence validation failed. Provide valid evidence via --evidence-path.\n")
+		// Strict mode: validate evidence but do NOT auto-resolve gate.
+		// The gate stays blocking until a human approves via sdp approve or beads.
+		if err := gate.ValidateEvidenceSchema(gateType, f.evidencePath); err != nil {
+			fmt.Fprintf(os.Stderr, "\nGate BLOCKED (strict mode): evidence validation failed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Provide valid evidence via --evidence-path.\n")
 			os.Exit(1)
 		}
-		fmt.Printf("\nGate resolved (strict mode, evidence validated)\n")
+		fmt.Printf("\nGate: AWAITING (strict mode, evidence validated)\n")
+		fmt.Printf("   Evidence accepted. Gate requires human approval to proceed.\n")
+		fmt.Printf("   Gate ID: %s\n", g.ID)
+		g.EvidencePath = f.evidencePath
 	} else {
 		// Non-strict mode
 		if f.evidencePath != "" {

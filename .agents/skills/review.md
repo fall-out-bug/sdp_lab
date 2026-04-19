@@ -81,7 +81,7 @@ All these route to ONE @review skill with dimension parameters.
 ## SDP Phase Integration
 
 MUST DO when reviewing in SDP context:
-- Invoke `sdp phase review --feature-id <F> --strict` for compliance reviews
+- Invoke `sdp phase review --feature-id <F> --strict --evidence-path .sdp/evidence/review.json` for compliance reviews
 - Verify evidence.json is present (F134-03 gate enforcement)
 - Quote disclosure labels from delta artifacts when reporting findings
 

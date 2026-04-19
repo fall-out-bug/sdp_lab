@@ -2,6 +2,7 @@ package gate
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 )
@@ -24,7 +25,7 @@ func ValidateEvidenceSchema(gateType GateType, evidencePath string) error {
 		return fmt.Errorf("failed to read evidence file: %w", err)
 	}
 	if !json.Valid(data) {
-		return &InvalidEvidenceError{Path: evidencePath}
+		return &InvalidEvidenceError{Path: evidencePath, Err: errors.New("malformed JSON: failed structural validation")}
 	}
 	var evidence map[string]interface{}
 	if err := json.Unmarshal(data, &evidence); err != nil {
