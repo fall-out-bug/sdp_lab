@@ -6,5 +6,5 @@ date >> /tmp/hook_debug.log
 # Sync Beads after git commit
 if [[ "$@" == *"git commit"* ]]; then
   echo "📦 Syncing Beads after commit..." >> /tmp/hook_debug.log
-  bd sync || true
+  scripts/beads_transport.sh export || true
 fi
