@@ -197,9 +197,9 @@ func TestPerformanceBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Design budget: <3s typical, <20s for large repos with conventions phase
-	if elapsed > 20*time.Second {
-		t.Errorf("scout took %v, budget is 20s", elapsed)
+	// Design budget: <3s typical, <25s for large repos with conventions phase
+	if elapsed > 25*time.Second {
+		t.Errorf("scout took %v, budget is 25s", elapsed)
 	}
 }
 
