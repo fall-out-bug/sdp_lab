@@ -6,6 +6,9 @@ package testwriter
 import (
 	"bufio"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"strconv"
 	"strings"
@@ -158,6 +161,7 @@ func splitFileFunc(s string) (file, function string, line int) {
 func GenerateTestStub(funcName, packageName string, cases []TestCase) string {
 	var b strings.Builder
 
+	fmt.Fprintf(&b, "// Test%s covers %s.%s\n", funcName, packageName, funcName)
 	fmt.Fprintf(&b, "func Test%s(t *testing.T) {\n", funcName)
 	fmt.Fprintf(&b, "\tvar tests = []TestCase{\n")
 
@@ -182,49 +186,51 @@ func GenerateTestStub(funcName, packageName string, cases []TestCase) string {
 	return b.String()
 }
 
-// ReadFuncSource reads a Go source file and extracts the function body starting
-// at the given line number (1-based). It tracks brace depth to find the end
-// of the function.
+// ReadFuncSource reads a Go source file and extracts the function containing the
+// given line number (1-based). It uses go/ast for accurate function boundary
+// detection, correctly handling braces inside string literals, comments, and
+// other non-code contexts.
 func ReadFuncSource(file string, line int) (string, error) {
 	if line <= 0 {
 		return "", fmt.Errorf("testwriter: line must be > 0, got %d", line)
 	}
 
-	data, err := os.ReadFile(file)
+	fset := token.NewFileSet()
+	node, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
 	if err != nil {
-		return "", fmt.Errorf("testwriter: read %s: %w", file, err)
+		return "", fmt.Errorf("testwriter: parse %s: %w", file, err)
 	}
 
-	lines := splitLines(string(data))
-	if line > len(lines) {
-		return "", fmt.Errorf("testwriter: line %d beyond file (has %d lines)", line, len(lines))
-	}
-
-	// Collect lines from startLine until braces are balanced
-	var buf strings.Builder
-	braceDepth := 0
-	started := false
-
-	for i := line - 1; i < len(lines); i++ {
-		l := lines[i]
-		fmt.Fprintf(&buf, "%s\n", l)
-
-		for _, ch := range l {
-			if ch == '{' {
-				braceDepth++
-				started = true
-			} else if ch == '}' {
-				braceDepth--
+	// Find the function declaration whose body spans the given line.
+	for _, decl := range node.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok {
+			continue
+		}
+		if fn.Body == nil {
+			continue
+		}
+		fnStart := fset.Position(fn.Pos()).Line
+		fnEnd := fset.Position(fn.Body.End()).Line
+		if line >= fnStart && line <= fnEnd {
+			data, err := os.ReadFile(file)
+			if err != nil {
+				return "", fmt.Errorf("testwriter: read %s: %w", file, err)
 			}
-		}
-
-		// Function ends when braces balance after we've seen at least one '{'
-		if started && braceDepth <= 0 {
-			break
+			lines := splitLines(string(data))
+			if fnStart > len(lines) {
+				return "", fmt.Errorf("testwriter: function start line %d beyond file", fnStart)
+			}
+			end := fnEnd
+			if end > len(lines) {
+				end = len(lines)
+			}
+			selected := lines[fnStart-1 : end]
+			return strings.Join(selected, "\n"), nil
 		}
 	}
 
-	return strings.TrimRight(buf.String(), "\n"), nil
+	return "", fmt.Errorf("testwriter: no function found at line %d in %s", line, file)
 }
 
 // FormatTestFile assembles a complete Go test file from package name, imports,

@@ -59,11 +59,11 @@ total:                                                  75.0%
 			wantErr:   false,
 		},
 		{
-			name:    "empty output",
-			output:  "",
+			name:      "empty output",
+			output:    "",
 			threshold: 80.0,
-			want:    []CoverageGap{},
-			wantErr: false,
+			want:      []CoverageGap{},
+			wantErr:   false,
 		},
 		{
 			name: "malformed line skipped",
@@ -153,6 +153,7 @@ func TestGenerateTestStub(t *testing.T) {
 				"// Expected: tt.Expected",
 				"for _, tt := range tests",
 				"t.Run(tt.Name",
+				"// TestAdd covers math.Add",
 			},
 		},
 		{
@@ -167,6 +168,7 @@ func TestGenerateTestStub(t *testing.T) {
 				"func TestParse(t *testing.T) {",
 				`"valid input"`,
 				`"empty input"`,
+				"// TestParse covers parser.Parse",
 			},
 		},
 		{
@@ -244,17 +246,19 @@ func TestReadFuncSource(t *testing.T) {
 		wantErr     bool
 	}{
 		{
-			name: "simple function at line 1",
-			fileContent: `func Hello() string {
+			name: "simple function at declaration line",
+			fileContent: `package example
+
+func Hello() string {
 	return "hello"
 }
 `,
-			line:     1,
+			line:     3,
 			wantBody: `func Hello() string {`,
 			wantErr:  false,
 		},
 		{
-			name: "function with body",
+			name: "function with body — line inside function",
 			fileContent: `package main
 
 func Add(a, b int) int {
@@ -263,13 +267,15 @@ func Add(a, b int) int {
 
 func main() {}
 `,
-			line:     3,
+			line:     4,
 			wantBody: "func Add",
 			wantErr:  false,
 		},
 		{
-			name: "line beyond file",
-			fileContent: `func Foo() {}
+			name: "line beyond any function",
+			fileContent: `package main
+
+func Foo() {}
 `,
 			line:     99,
 			wantBody: "",
@@ -277,10 +283,20 @@ func main() {}
 		},
 		{
 			name:        "line zero returns error",
-			fileContent: `func Foo() {}`,
+			fileContent: `package main`,
 			line:        0,
 			wantBody:    "",
 			wantErr:     true,
+		},
+		{
+			name: "line in package clause — no function there",
+			fileContent: `package main
+
+func Foo() {}
+`,
+			line:     1,
+			wantBody: "",
+			wantErr:  true,
 		},
 	}
 
@@ -343,6 +359,77 @@ func Helper() int { return 42 }
 	}
 }
 
+func TestReadFuncSource_BraceInStringLiteral(t *testing.T) {
+	// This is the primary edge case that the old brace-counting implementation
+	// got wrong: string literals containing } would cause premature termination.
+	source := `package example
+
+import "errors"
+
+// ReturnBrace returns a string containing braces.
+func ReturnBrace() string {
+	return "}"
+}
+
+func HasJSON() string {
+	return ` + "`{`" + `
+}
+
+func MultiBrace() string {
+	s := "{{}}"
+	if s == "{{}}" {
+		return s
+	}
+	return ""
+}
+
+func CommentBrace() string {
+	// This comment has a brace: }
+	return "ok"
+}
+`
+	tmp := t.TempDir()
+	filePath := filepath.Join(tmp, "brace.go")
+	if err := os.WriteFile(filePath, []byte(source), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	tests := []struct {
+		line int
+		want string
+	}{
+		{6, `func ReturnBrace()`},
+		{10, `func HasJSON()`},
+		{14, `func MultiBrace()`},
+		{22, `func CommentBrace()`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			got, err := ReadFuncSource(filePath, tt.line)
+			if err != nil {
+				t.Fatalf("ReadFuncSource line %d: %v", tt.line, err)
+			}
+			if !strings.Contains(got, tt.want) {
+				t.Errorf("line %d: result should contain %q, got:\n%s", tt.line, tt.want, got)
+			}
+			// Must not bleed into the next function
+			if strings.Contains(got, "func ReturnBrace") && tt.want != "func ReturnBrace()" {
+				t.Errorf("line %d: result should not contain func ReturnBrace", tt.line)
+			}
+			if strings.Contains(got, "func HasJSON") && tt.want != "func HasJSON()" {
+				t.Errorf("line %d: result should not contain func HasJSON", tt.line)
+			}
+			if strings.Contains(got, "func MultiBrace") && tt.want != "func MultiBrace()" {
+				t.Errorf("line %d: result should not contain func MultiBrace", tt.line)
+			}
+			if strings.Contains(got, "func CommentBrace") && tt.want != "func CommentBrace()" {
+				t.Errorf("line %d: result should not contain func CommentBrace", tt.line)
+			}
+		})
+	}
+}
+
 func TestReadFuncSource_NonexistentFile(t *testing.T) {
 	_, err := ReadFuncSource("/nonexistent/file.go", 1)
 	if err == nil {
@@ -352,10 +439,10 @@ func TestReadFuncSource_NonexistentFile(t *testing.T) {
 
 func TestFormatTestFile(t *testing.T) {
 	tests := []struct {
-		name       string
+		name        string
 		packageName string
-		imports    []string
-		testFuncs  []string
+		imports     []string
+		testFuncs   []string
 		wantContain []string
 	}{
 		{

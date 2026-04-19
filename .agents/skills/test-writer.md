@@ -1,7 +1,7 @@
 ---
 name: test-writer
 description: Generate Go unit tests for uncovered functions from coverage reports.
-version: 1.0.0
+version: 1.1.0
 tags: [testing, coverage, generation]
 requires_cli: [go]
 compatibility: [claude-code, opencode, cursor, codex]
@@ -32,17 +32,18 @@ test stubs that pass on first run.
 
 ## MUST DO
 
-1. **Accept coverage input** — run `go test -coverprofile=/tmp/cov.out ./target/...` and then `go tool cover -func=/tmp/cov.out`, OR accept pre-generated output.
-2. **Parse gaps** — use `internal/testwriter.ParseCoverGaps(output, threshold)` with threshold 80.0 (default) to identify functions below the bar.
-3. **Read source** — for each gap, use `internal/testwriter.ReadFuncSource(file, line)` to extract the function body. Understand what it does.
-4. **Generate tests** — for each uncovered function, produce table-driven test cases:
+1. **Collect coverage** — run `go test -coverprofile=/tmp/cov.out ./target/...` to produce a binary coverage profile.
+2. **Convert to function-level report** — run `go tool cover -func=/tmp/cov.out` to get per-function coverage percentages. This is the format `ParseCoverGaps` expects.
+3. **Parse gaps** — replicate the logic of `internal/testwriter.ParseCoverGaps(output, threshold)` with threshold 80.0 (default) to identify functions below the bar.
+4. **Read source** — for each gap, read the function body from the source file. Use AST-based extraction (see `ReadFuncSource`) to correctly handle braces inside string literals.
+5. **Generate tests** — for each uncovered function, produce table-driven test cases:
    - Use `t.TempDir()` for any filesystem operations.
    - Use `testing.Short()` guards for external dependencies.
    - Test **behavior**, not implementation details.
    - Follow Go naming: `TestFuncName` with `t.Run` subtests.
-5. **Write test file** — use `internal/testwriter.FormatTestFile(pkg, imports, tests)` to produce one `_test.go` per source file.
-6. **Run and verify** — execute `go test ./target/... -short` to confirm all generated tests pass.
-7. **Report delta** — re-run coverage scan and show before/after comparison.
+6. **Write test file** — assemble a complete `_test.go` file per source file, including the `TestCase` struct definition, package declaration, and imports.
+7. **Run and verify** — execute `go test ./target/... -short` to confirm all generated tests pass.
+8. **Report delta** — re-run coverage scan and show before/after comparison.
 
 ## MUST NOT DO
 
@@ -59,7 +60,7 @@ test stubs that pass on first run.
 2. go tool cover -func=/tmp/cov.out
 3. Parse output → identify functions < threshold (default 80%)
 4. For each uncovered function:
-   a. Read source code
+   a. Read source code (AST-based extraction for accurate boundaries)
    b. Analyze parameters, return values, side effects
    c. Generate table-driven test cases
    d. Write to _test.go file
@@ -67,19 +68,22 @@ test stubs that pass on first run.
 6. Re-run coverage scan → show delta
 ```
 
-## Helper Package
+## Helper Package (Reference Implementation)
 
-The Go helper package `internal/testwriter/` provides:
+The Go helper package `internal/testwriter/` provides reference implementations of the
+core operations. Since it is an `internal/` package, it cannot be imported by external
+code. Agents should **replicate these APIs** in the target package or use them as a
+behavioral reference when generating test code.
 
 | Function | Purpose |
 |----------|---------|
 | `ParseCoverGaps(output, threshold)` | Parse `go tool cover -func` output, return gaps below threshold |
-| `GenerateTestStub(funcName, pkg, cases)` | Generate table-driven test function code |
-| `ReadFuncSource(file, line)` | Extract function body from source file |
-| `FormatTestFile(pkg, imports, tests)` | Assemble complete `_test.go` file |
+| `GenerateTestStub(funcName, pkg, cases)` | Generate table-driven test function code (includes target package comment) |
+| `ReadFuncSource(file, line)` | Extract function body from source file using go/ast (handles braces in strings correctly) |
+| `FormatTestFile(pkg, imports, tests)` | Assemble complete `_test.go` file with package declaration, imports, and test functions |
 
 Types:
-- `CoverageGap{File, Function, Coverage, Line}` — a function with insufficient coverage
+- `CoverageGap{File, Function, Coverage, Line}` — a function with insufficient coverage. Note: `Line` is populated only when the `go tool cover -func` output includes line numbers (`file:line:` format); in the basic format it is 0.
 - `TestCase{Name, Input, Expected}` — a single row in a table-driven test
 
 ## Response Format
@@ -111,5 +115,5 @@ Types:
 ## References
 
 - `.agents/skills/test-coverage.md` — manual coverage scanning workflow
-- `internal/testwriter/` — Go helper package with parsing and generation functions
+- `internal/testwriter/` — Go reference implementation with parsing and generation functions (internal-only; replicate in target package)
 - `internal/coveragegate/` — coverage enforcement gate for CI
