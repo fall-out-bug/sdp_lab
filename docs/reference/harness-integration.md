@@ -108,7 +108,7 @@ The implementer agent:
 | `opencode run` returns 0 but no edits | Missing `--agent implementer` | Add `--agent implementer` to the command |
 | Edits appear incomplete | Prompt too vague | Make the prompt specific: include file paths, function names, acceptance criteria |
 | "Agent not found" error | OpenCode version too old | Update OpenCode; verify with `opencode --version` |
-| Skills not loaded | `.agents/skills/` missing | Run `git submodule update --init`; check symlink chain |
+| Skills not loaded | `.agents/skills/` missing | Verify `.agents/skills/` exists with real files; run `sdp-publish.sh` if needed |
 
 #### Do not
 
@@ -158,9 +158,9 @@ policy in `AGENTS.md` governs when to delegate vs. work inline.
 
 | Problem | Check | Fix |
 |---------|-------|-----|
-| Skills not found | `.claude/skills/` symlink broken | `git submodule update --init`; verify `.claude/skills -> ../.agents/skills` |
+| Skills not found | `.claude/skills/` symlink broken | Verify `.claude/skills` points to `.agents/skills/`; check native path exists |
 | AGENTS.md not loaded | `CLAUDE.md` missing `@AGENTS.md` | Ensure `@AGENTS.md` line exists in `CLAUDE.md` |
-| Hooks not firing | `.claude/hooks/` symlink broken | Same submodule init; check symlink target exists |
+| Hooks not firing | `.claude/hooks/` symlink broken | Verify `.claude/hooks/` path exists; check symlink target |
 
 ## Cursor Integration
 
@@ -275,7 +275,7 @@ Full design: [OpenCode harness gates telemetry spec](../OPENCODE_HARNESS_GATES_T
 |---------|-------------|-----|
 | `opencode run` returns 0 but no edits | Sisyphus deadlock | Add `--agent implementer` |
 | Codex returns "git: command not found" | Sandbox restriction | Do not ask Codex to commit; commit externally |
-| Claude Code does not see a skill | Symlink broken | `git submodule update --init`; check `.claude/skills/` target |
+| Claude Code does not see a skill | Symlink broken | Verify `.claude/skills/` points to `.agents/skills/`; check files exist |
 | Cursor Agent hangs | Untested surface (April 2026) | Fallback to Claude Code |
 | Skills not found by any harness | `.agents/skills/` missing | Check that `.agents/skills/` exists and has real files, not dangling symlinks |
 | Dispatch routes target Pi | Legacy config | Remove Pi from profile; Pi is not a coding agent |

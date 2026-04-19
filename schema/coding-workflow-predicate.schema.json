@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sdp.dev/attestation/coding-workflow/v1",
+  "title": "SDP Coding Workflow Predicate",
+  "description": "Predicate body for SDP coding workflow in-toto attestations. snake_case per design decision (D2).",
+  "type": "object",
+  "required": ["version"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Predicate schema version for evolution"
+    },
+    "intent": {
+      "type": "object",
+      "description": "Problem statement, users, success criteria from @idea"
+    },
+    "plan": {
+      "type": "object",
+      "description": "Execution plan or workstream references"
+    },
+    "execution": {
+      "type": "object",
+      "description": "Build/execution metadata (e.g. changed_files, tdd_cycles)"
+    },
+    "verification": {
+      "type": "object",
+      "description": "Quality gates and verification results"
+    },
+    "review": {
+      "type": "object",
+      "description": "Review verdict summary (7 roles, findings)"
+    }
+  }
+}

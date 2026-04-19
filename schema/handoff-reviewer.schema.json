@@ -13,7 +13,7 @@
   "properties": {
     "verdict": {
       "type": "string",
-      "description": "Gate verdict: approve → Succeeded, needs_changes → rework, reject → Failed",
+      "description": "Gate verdict: approve -> Succeeded, needs_changes -> rework, reject -> Failed",
       "enum": ["approve", "needs_changes", "reject"]
     },
     "findings": {

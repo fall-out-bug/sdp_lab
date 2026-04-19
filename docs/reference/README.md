@@ -16,7 +16,7 @@ Start here:
 |---|---|
 | Project identity and read order | [project-map.md](project-map.md) |
 | Canonical happy path and mode split | [canonical-happy-path.md](canonical-happy-path.md) |
-| Adopt SDP in another repo | [../../sdp/docs/QUICKSTART.md](../../sdp/docs/QUICKSTART.md) |
+| Adopt SDP in another repo | [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md) (published to sdp repo) |
 | Canonical loop and default agents | [canonical-happy-path.md](canonical-happy-path.md), [agent-catalog.md](agent-catalog.md) |
 | Canonical skill surface | [skills.md](skills.md) |
 | Commands | [commands.md](commands.md) |

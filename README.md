@@ -9,19 +9,17 @@ GitHub repo name: `sdp_lab`. The Go module is still named `sdp_dev` (see `go.mod
 
 - platform code lives here: Go binaries, orchestration, evals, adapters, K8s manifests
 - planning lives here: roadmap, workstreams, private design docs, execution runbooks
-- public protocol artifacts live in `sdp/`: prompts, hooks, schemas, and OSS CLI work
+- protocol artifacts live at native paths: `prompts/`, `schema/`, `templates/`, `.claude/hooks/` (published to the public `sdp` repo downstream via `scripts/sdp-publish.sh`)
 
-If your goal is to **use SDP inside your own project**, this repo is not the primary onboarding surface. Start with [`sdp/docs/QUICKSTART.md`](sdp/docs/QUICKSTART.md) (requires submodule init — see below).
+If your goal is to **use SDP inside your own project**, this repo is not the primary onboarding surface. Start with the [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md).
 
 ## Clone
 
 ```bash
-git clone --recurse-submodules https://github.com/fall-out-bug/sdp_lab
-# or, after clone:
-git submodule update --init --recursive
+git clone https://github.com/fall-out-bug/sdp_lab
+cd sdp_lab
+go build ./...
 ```
-
-Без инициализации submodule не будут работать: пути `sdp/*`, симлинки `.claude/agents`, `.claude/hooks`, `.claude/skills`.
 
 ## Rules
 
@@ -34,21 +32,21 @@ git submodule update --init --recursive
 | Goal | Start here |
 |---|---|
 | Understand what `sdp_lab` is and what lives here | [`docs/reference/project-map.md`](docs/reference/project-map.md) |
-| Contribute to the platform or private lab runtime | [`AGENTS.md`](AGENTS.md), [`docs/MULTI-REPO-WORKFLOW.md`](docs/MULTI-REPO-WORKFLOW.md), [`docs/roadmap/ROADMAP.md`](docs/roadmap/ROADMAP.md) |
-| Adopt SDP in a greenfield or brownfield project | [`sdp/docs/QUICKSTART.md`](sdp/docs/QUICKSTART.md), then [`sdp/README.md`](sdp/README.md) |
+| Contribute to the platform or private lab runtime | [`AGENTS.md`](AGENTS.md), [`docs/MULTI-REPO-WORKFLOW.md`](docs/MULTI-REPO-WORKFLOW.md) (publish workflow), [`docs/roadmap/ROADMAP.md`](docs/roadmap/ROADMAP.md) |
+| Adopt SDP in a greenfield or brownfield project | [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md), then [SDP README](https://github.com/fall-out-bug/sdp) |
 
 ## IDE Support Today
 
 - public onboarding flow is first-class for `Claude Code`, `Cursor`, and `OpenCode` / `Windsurf`
-- `Codex` prompt compatibility exists in [`sdp/.codex/`](sdp/.codex/), but the public install flow is still manual rather than auto-detected
-- if the question is "can I give SDP my keys and start working?", the honest answer lives in `sdp/`, not in the private-lab runbooks here
+- `Codex` prompt compatibility exists in [sdp/.codex/](https://github.com/fall-out-bug/sdp/tree/main/.codex), but the public install flow is still manual rather than auto-detected
+- if the question is "can I give SDP my keys and start working?", the honest answer lives in `sdp/docs/`, not in the private-lab runbooks here
 
 ## Main Components
 
 - `cmd/`, `internal/` — platform binaries, orchestration, evals, kernel, adapters
 - `deploy/` — deployable runtime and observability manifests
 - `docs/` — planning and execution surfaces (roadmap, workstreams, plans, runbooks, architecture)
-- `sdp/` — public submodule for prompts, hooks, schemas, and OSS CLI work
+- `sdp/` — optional local checkout of the public `sdp` repo (used by `scripts/sdp-publish.sh` only); canonical protocol artifacts live at `prompts/`, `schema/`, `templates/`, `.claude/hooks/` in this repo
 
 ## CLI Binaries (`cmd/`)
 
@@ -83,7 +81,7 @@ Standalone binaries:
 See **[`docs/reference/project-map.md`](docs/reference/project-map.md)** for the canonical SOT split and full read order. High-frequency entry points:
 
 - [`AGENTS.md`](AGENTS.md) — operator rules, workflow, command tree
-- [`docs/MULTI-REPO-WORKFLOW.md`](docs/MULTI-REPO-WORKFLOW.md) — sdp_lab vs sdp commit workflow
+- [`docs/MULTI-REPO-WORKFLOW.md`](docs/MULTI-REPO-WORKFLOW.md) — publish workflow for protocol artifacts
 - [`docs/architecture/REPO-BOUNDARY.md`](docs/architecture/REPO-BOUNDARY.md) — what belongs where
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system architecture
 - [`docs/roadmap/ROADMAP.md`](docs/roadmap/ROADMAP.md) — current product direction

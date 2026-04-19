@@ -1,6 +1,8 @@
 # Agent Instructions
 
 > **Sync:** Sync only genuinely shared agent conventions (placement, "продолжай", command tree) to `sdp/CLAUDE.md`. Repo topology, branch policy, beads workflow, and private-lab process stay local to `sdp_lab`. See [docs/archive/plans/2026-02-25-agents-claude-sync-rules.md](docs/archive/plans/2026-02-25-agents-claude-sync-rules.md).
+>
+> **Submodule retired (F128):** Protocol artifacts live at native paths: `prompts/`, `schema/`, `templates/`, `scripts/hooks/`, `.claude/hooks/`, `.claude/patterns/`. The `sdp/` directory is an **optional local checkout** of the public sdp repo (https://github.com/fall-out-bug/sdp). It is gitignored and NOT required for normal development. To get it locally: `git clone https://github.com/fall-out-bug/sdp.git sdp` (optional). Publishing to the public repo is via `scripts/sdp-publish.sh`. See [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md) for the publish workflow.
 
 ## Что такое SDP
 
@@ -26,54 +28,52 @@ SDP — AI-управляемая платформа полного цикла �
 
 Перед реальной работой ответь:
 
-1. Я меняю `sdp_lab`, или задача на самом деле про `sdp/` (submodule)?
-2. Это platform work или «use SDP in my project» onboarding?
-3. Какая одна `feature` / `workstream` / `beads issue` владеет этой задачей?
-4. Какой doc — canonical для этого вопроса (не исторический план)?
-5. Это Discovery (исследование, council, spec) или Delivery (реализация)?
+1. Это platform work или «use SDP in my project» onboarding?
+2. Какая одна `feature` / `workstream` / `beads issue` владеет этой задачей?
+3. Какой doc — canonical для этого вопроса (не исторический план)?
+4. Это Discovery (исследование, council, spec) или Delivery (реализация)?
+5. Если меняешь protocol artifacts (prompts, schema, hooks) — нужно ли публиковать в публичный repo? (см. [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md))
 
 Минимальный first pass:
 
 1. `git status --short --branch`
 2. прочитай [docs/reference/project-map.md](docs/reference/project-map.md)
 3. если это execution, запусти `scripts/beads_transport.sh fetch` и `bd ready --json`
-4. если запрос про greenfield / brownfield adoption — сразу в [sdp/docs/QUICKSTART.md](sdp/docs/QUICKSTART.md) (требует submodule init)
-5. если путь начинается с `sdp/`, прочитай [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md) перед правкой
-6. **если пишешь Go-код** — прочитай [docs/reference/go-patterns.md](docs/reference/go-patterns.md) (stack, naming, 5 примеров, 5 антипаттернов, шаблон файла)
+4. если запрос про greenfield / brownfield adoption — сразу в [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md)
+5. **если пишешь Go-код** — прочитай [docs/reference/go-patterns.md](docs/reference/go-patterns.md) (stack, naming, 5 примеров, 5 антипаттернов, шаблон файла)
 
 ## Project Structure
 
 This project has **two repos** with different roles:
 
-| | `sdp_lab` (this repo) | `sdp` (submodule at `sdp/`) |
+| | `sdp_lab` (this repo) | `sdp` (public mirror) |
 |---|---|---|
 | **Remote** | `origin → fall-out-bug/sdp_lab` | `origin → fall-out-bug/sdp` |
 | **Visibility** | Private | Public |
-| **Contains** | Go code, K8s manifests, roadmap, research | Protocol: prompts, JSON schemas, hooks |
-| **Changes** | Daily — all features built here | Rare — only when protocol spec changes |
+| **Contains** | Go code, K8s manifests, roadmap, research, protocol artifacts | Mirror of protocol artifacts published from sdp_lab |
+| **Changes** | Daily — all features built here | Published on demand via `scripts/sdp-publish.sh` |
 
-**Rule:** All work happens in `sdp_lab`. The `sdp/` submodule is only touched when publishing protocol artifacts (schemas, prompts, hooks).
-**Source of truth:** `sdp/` must track the public GitHub repo `https://github.com/fall-out-bug/sdp.git`. A local sibling clone such as `../sdp` is a convenience checkout, not a canonical submodule URL.
+**Rule:** All work happens in `sdp_lab`. The public `sdp` repo is a downstream mirror, not an upstream dependency. Publish protocol artifacts via `scripts/sdp-publish.sh` when needed (see [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md)).
 **Legacy naming:** Historical workstreams, plans, and beads IDs may still use `sdp_dev` or `sdp_dev-*` as a label for this same root repo. Treat that as legacy naming, not as a third repository.
 
-**sdp vs sdp_lab (CI/secrets):** sdp = protocol, CLI, release workflow. Secrets (e.g. GLM_API_KEY) live in sdp. sdp_lab = lab, Go binaries. When debugging CI for a PR in sdp, check sdp workflows and `workflow_call` / `secrets: inherit` — do not assume the user forgot to add secrets.
+**sdp vs sdp_lab (CI/secrets):** The public `sdp` repo has its own CI and secrets. When debugging CI for a published change in `sdp`, check sdp workflows and `workflow_call` / `secrets: inherit` — do not assume the user forgot to add secrets.
 
-### Multi-Repo: Repo from Path
+### Single Repo: All Paths Are sdp_lab
 
-**Path `sdp/*` = repo sdp (submodule).** Different git, CI, PR.
+All native files are in `sdp_lab`. The `sdp/` directory is an **optional local checkout** of the public sdp repo (https://github.com/fall-out-bug/sdp) -- it is gitignored and not tracked by sdp_lab git.
 
 | Path prefix | Repo | Commit | CI | PR |
 |-------------|------|--------|-----|-----|
-| (root), `internal/`, `cmd/`, `docs/` | sdp_lab | `git add/commit/push` in root | `.github/workflows/ci.yml` | sdp_lab |
-| `sdp/` | sdp | `cd sdp && git add/commit/push` | `sdp/.github/workflows/` | sdp; then `git add sdp` in sdp_lab |
+| All native paths (root, `internal/`, `cmd/`, `docs/`, `prompts/`, `schema/`, `templates/`) | sdp_lab | `git add/commit/push` in root | `.github/workflows/ci.yml` | sdp_lab |
+| `sdp/` (optional local checkout) | public sdp repo | Local only in sdp_lab; push separately to sdp repo | sdp repo CI | sdp repo |
 
-**When editing sdp/:** 1) Commit in sdp first. 2) Push sdp. 3) `git add sdp && git commit` in sdp_lab. 4) Push sdp_lab.
+**Protocol artifacts** live at native paths: `prompts/`, `schema/`, `templates/`, `scripts/hooks/`, `.claude/hooks/`, `.claude/patterns/`. Changes to these are committed normally in sdp_lab and published to the public sdp repo via `scripts/sdp-publish.sh` when needed.
 
-**Ambiguous task?** Ask: "в sdp или в sdp_lab?" — See [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md).
+**Ambiguous task?** Ask: "should this be published to the public sdp repo?" — See [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md).
 
 ## Agent Interaction Rules
 
-**Scope:** sdp_lab only — do not sync repo-specific rules to sdp/CLAUDE.md (sdp stays generic).
+**Scope:** sdp_lab only — do not sync repo-specific rules to `sdp/CLAUDE.md` (sdp public repo stays generic).
 
 **Source:** [docs/archive/plans/2026-02-25-agent-protocol-improvement-proposal.md](docs/archive/plans/2026-02-25-agent-protocol-improvement-proposal.md)
 
@@ -84,7 +84,7 @@ This project has **two repos** with different roles:
 | **Complete the task** | "Done" = push + CI green. If CI red → keep debugging | Stop at "I made changes" without push/verify |
 | **Fix, not workaround** | Find and fix root cause | Skip, non-blocking, exclude — only if user explicitly asks |
 | **Commit yourself** | After changes: commit + push | "Who will make commits?" |
-| **Right repo** | sdp PR → sdp workflow; sdp_lab PR → sdp_lab workflow | Fix sdp_lab when the issue is in sdp |
+| **Right repo** | sdp_lab PR → sdp_lab workflow; publish to sdp repo via `scripts/sdp-publish.sh` | Fix sdp_lab when the issue is in the public sdp mirror |
 | **Clarify, don't guess** | If the task is ambiguous — ask: scope? fix vs analyze? which repo? | Assume intent and proceed |
 | **Push back on non-constructive insults** | If the user insults without adding useful info — you may respond firmly or bluntly | Take abuse silently |
 | **ПишиСокращай / ЯсноПонятно** | Notes, comments, docs: no filler, active voice, short sentences, clear structure. Each text helps solve a problem. | Watery prose, "на данном этапе", jargon, long paragraphs |
@@ -262,41 +262,18 @@ scripts/beads_transport.sh export
 
 Merge stays manual. SDP is done when the `PR` is clean, the `drift` verdict is recorded, and `QA/UAT` has passed.
 
-### Step 8: Protocol Changes (only F001, F002 if needed)
+### Step 8: Publish Protocol Artifacts (if needed)
 
-If the feature publishes artifacts to the `sdp` protocol repo:
-
-```bash
-# Copy artifact into submodule
-cp schema/evidence-envelope.schema.json sdp/schema/
-
-# Commit inside the submodule (sdp: branch from its remote default branch)
-SDP_BASE_BRANCH=$(git -C sdp symbolic-ref --short refs/remotes/origin/HEAD | sed 's@^origin/@@')
-cd sdp
-git checkout "$SDP_BASE_BRANCH" && git pull
-git checkout -b schema/evidence-envelope
-git add schema/
-git commit -m "Add evidence envelope JSON Schema"
-git push -u origin HEAD
-gh pr create --base "$SDP_BASE_BRANCH" --title "Add evidence envelope JSON Schema"
-cd ..
-
-# After sdp PR is merged:
-cd sdp && git checkout "$SDP_BASE_BRANCH" && git pull && cd ..
-git add sdp
-git commit -m "Update sdp submodule: evidence schema published"
-git push
-```
-
-**When to do Step 8:** Only when the workstream file says "Publish to sdp repo" or the feature touches `sdp/` contents. Check the workstream's Scope Files section.
-
-**Submodule recovery:** If `git submodule status` shows a missing path (`-<sha> sdp`) or a sha nobody can fetch, fix the source first:
+If the feature publishes artifacts that external consumers need from the public `sdp` repo:
 
 ```bash
-git config -f .gitmodules submodule.sdp.url https://github.com/fall-out-bug/sdp.git
-git submodule sync -- sdp
-git submodule update --init --checkout sdp
+# After merge to main, publish changed artifacts to the public sdp repo:
+scripts/sdp-publish.sh              # Copy artifacts, commit, push
+scripts/sdp-publish.sh --dry-run    # Preview what would be published
+scripts/sdp-publish.sh --check      # Fail if sdp_lab and published sdp have drifted
 ```
+
+**When to do Step 8:** Only when the workstream file says "Publish to sdp repo" or the feature changes protocol artifacts (schemas, prompts, hooks) that external consumers depend on.
 
 ## Branch Naming
 
@@ -312,17 +289,17 @@ docs/topic                  # documentation-only changes
 |---|---|---|
 | Go code (`internal/`, `cmd/`) | sdp_lab only | F004 reconciler rewrite |
 | Lab binaries (orchestrate, ci-loop, evidence, guard, eval) | sdp_lab `cmd/` | `make build-sdp-orchestrate` |
-| Protocol CLI (`sdp quality`, `sdp apply`, etc.) | sdp `sdp-plugin/` | Published to sdp repo |
+| Protocol CLI (`sdp quality`, `sdp apply`, etc.) | Public sdp repo (`sdp-plugin/`) | Published to sdp repo via publish script |
 | K8s manifests (`deploy/`) | sdp_lab only | F009 beads-bridge CronJob |
 | Tests | sdp_lab only | F004 integration test |
 | Roadmap, workstreams, plans | sdp_lab only | Any planning work |
-| JSON Schema for evidence | sdp_lab (create) → sdp (publish) | F001 |
-| Prompts, hooks | sdp_lab (develop) → sdp (publish) | Rare |
-| README, Manifesto | sdp submodule directly | Rare |
+| JSON Schema for evidence | sdp_lab (create and edit) → publish to sdp repo when ready | F001 |
+| Prompts, hooks | sdp_lab (develop) → publish to sdp repo when ready | Rare |
+| README, Manifesto | sdp_lab native → publish to public sdp repo when changed | Rare |
 
-**Boundary:** See [docs/architecture/REPO-BOUNDARY.md](docs/architecture/REPO-BOUNDARY.md) for component → repo → publish mapping.
+**Boundary:** See [docs/architecture/REPO-BOUNDARY.md](docs/architecture/REPO-BOUNDARY.md) for component → publish mapping.
 
-**If unsure:** it goes in sdp_lab. The only things in `sdp/` are spec artifacts that external users need.
+**If unsure:** it goes in sdp_lab. Protocol artifacts at native paths (`prompts/`, `schema/`, `templates/`, `.claude/hooks/`) may need publishing to the public repo via `scripts/sdp-publish.sh`.
 
 ### Artifact Placement
 
@@ -479,7 +456,7 @@ Example: `go run ./cmd/sdp-orchestrate --feature F053 --next-action`
 | File | Purpose |
 |---|---|
 | `docs/architecture/REPO-BOUNDARY.md` | sdp vs sdp_lab boundary, component mapping |
-| `docs/MULTI-REPO-WORKFLOW.md` | Multi-repo cheat sheet, commit workflow, submodule recovery |
+| `docs/MULTI-REPO-WORKFLOW.md` | Publish workflow: how to push protocol artifacts to the public sdp repo |
 | `docs/roadmap/ROADMAP.md` | Features F001-F013, phases, dependencies |
 | `docs/workstreams/INDEX.md` | All workstreams with status |
 | `docs/workstreams/backlog/00-XXX-YY.md` | Individual workstream: goal, scope, acceptance criteria |

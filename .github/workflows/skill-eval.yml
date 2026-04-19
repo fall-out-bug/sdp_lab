@@ -3,9 +3,8 @@ name: skill-eval
 on:
   pull_request:
     paths:
-      - 'sdp/prompts/skills/**'
-      - '.claude/skills/**'
-      - 'sdp/.claude/skills/**'
+      - 'prompts/skills/**'
+      - '.agents/skills/**'
       - 'internal/eval/**'
       - 'testdata/eval/**'
 

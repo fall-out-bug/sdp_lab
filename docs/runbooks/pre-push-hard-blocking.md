@@ -273,10 +273,10 @@ If issues arise:
 
 ## References
 
-- Pre-push hook: `/Users/fall_out_bug/projects/vibe_coding/sdp/hooks/pre-push.sh`
-- Installation script: `/Users/fall_out_bug/projects/vibe_coding/sdp/hooks/install-hooks.sh`
-- Documentation: `/Users/fall_out_bug/projects/vibe_coding/sdp/docs/runbooks/git-hooks-installation.md`
-- Test script: `/Users/fall_out_bug/projects/vibe_coding/sdp/tests/test_pre_push_hook.sh`
+- Pre-push hook: `sdp/hooks/pre-push.sh`
+- Installation script: `sdp/hooks/install-git-hooks.sh`
+- Documentation: `docs/runbooks/git-hooks-installation.md`
+- Test script: `tests/test_pre_push_hook.sh`
 
 ---
 

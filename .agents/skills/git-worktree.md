@@ -47,10 +47,9 @@ Never skip these checks:
 2. **Select directory:** follow priority above
 3. **Verify gitignore:** `git check-ignore -q <dir>` (project-local only)
 4. **Create worktree:** `git worktree add <dir>/<name> -b <branch-name>`
-5. **Init submodules:** `git submodule update --init --recursive`
-6. **Install deps** — auto-detect: `package.json`→npm, `go.mod`→go mod
+5. **Install deps** — auto-detect: `package.json`→npm, `go.mod`→go mod
    download, `Cargo.toml`→cargo build, `requirements.txt`→pip install
-7. **Verify baseline:** run project test suite, report results
+6. **Verify baseline:** run project test suite, report results
 
 ## Cleanup Cadence
 
@@ -67,7 +66,7 @@ Never skip these checks:
 - `git worktree prune` before add and after remove.
 - Resolve cross-worktree conflicts on a dedicated branch, not on feature
   branches directly.
-- Submodule pointers are shared — coordinate changes across worktrees.
+- Submodule pointers are shared — coordinate changes across worktrees. (Historical: submodules were retired in F128.)
 
 ## Quick Reference
 
@@ -76,5 +75,4 @@ Never skip these checks:
 | Dir not gitignored | Add to `.gitignore` + commit first |
 | Baseline tests fail | Report + ask; do not proceed silently |
 | Branch already has worktree | Remove old or use different branch |
-| Submodules missing | `git submodule update --init --recursive` |
 | Unsure which dir | Follow priority list, then ask user |

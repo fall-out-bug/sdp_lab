@@ -19,7 +19,7 @@ See [OpenCode Skills docs](https://opencode.ai/docs/skills/).
 
 ```
 sdp_lab/
-├── .agents/skills/           ← canonical source (real files live here)
+├── .agents/skills/           ← runtime skill discovery (stubs/aliases read by harnesses)
 │   ├── README.md             ← this file
 │   ├── build.md              ← F125 intent skills
 │   ├── fix.md
@@ -67,7 +67,12 @@ Full authoring guide: `docs/reference/skill-authoring.md` (F127-03).
 
 ## Why not `sdp/prompts/skills/`
 
-`sdp/prompts/skills/` is the submodule-publish path for artifacts that are released to the public `sdp` protocol repo. Internal build/lab skills live in `.agents/skills/`. Publication is via a separate PR in the submodule (see `docs/MULTI-REPO-WORKFLOW.md`).
+`sdp/prompts/skills/` is a retired path from the submodule era. The current publish surface is `prompts/` (native path in this repo), which includes `prompts/skills/`. Publication is via `scripts/sdp-publish.sh` which exports protocol artifacts to the public sdp repo.
+
+### Relationship between `.agents/skills/` and `prompts/skills/`
+
+- `prompts/skills/` is the canonical source containing full SKILL.md files with frontmatter, descriptions, and instructions. This is the path published to the public sdp repo.
+- `.agents/skills/` contains runtime stub/alias files used by harnesses for skill discovery. Harnesses scan this directory at runtime.
 
 ## References
 

@@ -264,7 +264,7 @@ append_run_phase "deployment" "ok" "opencode-agent deployment ready"
 
 echo "[orchestrate] running preflight sync inside pod"
 append_run_phase "preflight" "running" "starting workspace and beads transport preflight"
-remote_retry "preflight" "kubectl -n sdp-workers exec deploy/opencode-agent -- sh -lc 'cd /workspace && git rev-parse --is-inside-work-tree >/dev/null && branch=\"\${SDP_REPO_BRANCH:-master}\" && git fetch origin \"\$branch\" && git rebase FETCH_HEAD && ./scripts/beads_transport.sh fetch >/dev/null'"
+remote_retry "preflight" "kubectl -n sdp-workers exec deploy/opencode-agent -- sh -lc 'cd /workspace && git rev-parse --is-inside-work-tree >/dev/null && branch=\"\${SDP_REPO_BRANCH:-main}\" && git fetch origin \"\$branch\" && git rebase FETCH_HEAD && ./scripts/beads_transport.sh fetch >/dev/null'"
 append_run_phase "preflight" "ok" "preflight checks passed"
 
 raw_initial="$(remote_retry "status" "kubectl -n sdp-workers exec deploy/opencode-agent -- sh -lc 'cd /workspace && bd show ${ISSUE} --json'" 2>/dev/null || true)"

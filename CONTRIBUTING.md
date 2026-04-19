@@ -11,7 +11,7 @@
 
 ### Setup
 ```bash
-git clone --recurse-submodules https://github.com/fall-out-bug/sdp_lab
+git clone https://github.com/fall-out-bug/sdp_lab
 cd sdp_lab
 go build ./...
 go test ./internal/... -short -count=1
@@ -74,10 +74,10 @@ go test ./... -count=1  # integration tests use t.Skip() or -short
 ## Architecture
 
 Two-repo structure:
-- **sdp_lab** (this repo): Go code, K8s manifests, roadmap
-- **sdp** (submodule at `sdp/`): Protocol schemas, prompts, hooks
+- **sdp_lab** (this repo): Go code, K8s manifests, roadmap, protocol artifacts (native files)
+- **sdp** (public mirror): Published protocol artifacts (schemas, prompts, hooks) via `scripts/sdp-publish.sh`
 
-Read `AGENTS.md` for the full multi-repo workflow.
+Read `AGENTS.md` for the full workflow and publish model.
 
 ## Docs Placement Policy
 

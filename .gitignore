@@ -45,7 +45,7 @@ bin/
 # Execution state
 .oneshot/
 
-# SDP (sdp is submodule; agents are symlinks)
+# SDP harness config (agents/hooks are native dirs, not symlinks since F128)
 # Note: .claude/skills is now a tracked symlink → ../.agents/skills (F127-02)
 .claude/agents
 .claude/worktrees/
@@ -80,7 +80,8 @@ ORIG_HEAD
 sdp_bin
 sdp-beads-bridge
 
-# Main CLI binary (rebuilt from source)
+# sdp/ — optional local checkout of public sdp repo (https://github.com/fall-out-bug/sdp)
+# Protocol artifacts live at native paths: prompts/, schema/, templates/, .claude/hooks/
 /sdp
 
 # Git worktrees
