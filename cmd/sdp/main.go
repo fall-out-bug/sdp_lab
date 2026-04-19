@@ -134,6 +134,6 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  sdp index manifest [--output DIR] <repo-path>")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Bootstrap commands:")
-	fmt.Fprintln(os.Stderr, "  sdp bootstrap [--dry-run] [--force] [--only TYPES] <repo-path>")
+	fmt.Fprintln(os.Stderr, "  sdp bootstrap [--dry-run] [--force] [--yes] [--auto-curate] [--only TYPES] <repo-path>")
 	fmt.Fprintln(os.Stderr, "  sdp bootstrap status <repo-path>")
 }

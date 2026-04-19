@@ -51,13 +51,13 @@ func (p *Planner) Plan() (*BootstrapPlan, error) {
 
 	// Plan CLAUDE.md
 	if shouldGenerate("claude-md", onlyMap) {
-		p.planArtifact(plan, "claude_md", "CLAUDE.md",
+		p.planArtifact(plan, "claude_md", p.draftRelPath("CLAUDE.md"),
 			"SDP harness configuration for Claude Code")
 	}
 
 	// Plan AGENTS.md (independent from claude-md)
 	if shouldGenerate("agents-md", onlyMap) {
-		p.planArtifact(plan, "agents_md", "AGENTS.md",
+		p.planArtifact(plan, "agents_md", p.draftRelPath("AGENTS.md"),
 			"Cross-harness agent instructions")
 	}
 
@@ -385,15 +385,19 @@ func (p *Planner) executeArtifact(a PlannedArtifact) ArtifactResult {
 		if err != nil {
 			result.Status = "error"
 			result.Message = err.Error()
-		} else if written, werr := writeFileIdempotent(fullPath, content); werr != nil {
-			result.Status = "error"
-			result.Message = werr.Error()
-		} else if !written {
-			result.Status = "ok"
-			result.Message = "CLAUDE.md unchanged (idempotent)"
 		} else {
-			result.Status = "ok"
-			result.Message = "Generated CLAUDE.md"
+			content = p.wrapDraftContent(content)
+			label := p.draftLabel("CLAUDE.md")
+			if written, werr := writeFileIdempotent(fullPath, content); werr != nil {
+				result.Status = "error"
+				result.Message = werr.Error()
+			} else if !written {
+				result.Status = "ok"
+				result.Message = label + " unchanged (idempotent)"
+			} else {
+				result.Status = "ok"
+				result.Message = "Generated " + label
+			}
 		}
 	case "agents_md":
 		var content string
@@ -412,15 +416,19 @@ func (p *Planner) executeArtifact(a PlannedArtifact) ArtifactResult {
 		if err != nil {
 			result.Status = "error"
 			result.Message = err.Error()
-		} else if written, werr := writeFileIdempotent(fullPath, content); werr != nil {
-			result.Status = "error"
-			result.Message = werr.Error()
-		} else if !written {
-			result.Status = "ok"
-			result.Message = "AGENTS.md unchanged (idempotent)"
 		} else {
-			result.Status = "ok"
-			result.Message = "Generated AGENTS.md"
+			content = p.wrapDraftContent(content)
+			label := p.draftLabel("AGENTS.md")
+			if written, werr := writeFileIdempotent(fullPath, content); werr != nil {
+				result.Status = "error"
+				result.Message = werr.Error()
+			} else if !written {
+				result.Status = "ok"
+				result.Message = label + " unchanged (idempotent)"
+			} else {
+				result.Status = "ok"
+				result.Message = "Generated " + label
+			}
 		}
 	case "policy":
 		if err := os.MkdirAll(fullPath, 0o755); err != nil {
@@ -470,6 +478,38 @@ func (p *Planner) executeArtifact(a PlannedArtifact) ArtifactResult {
 	}
 
 	return result
+}
+
+// draftRelPath returns the DRAFT-prefixed path when UseDraft is enabled,
+// or the original path otherwise.
+func (p *Planner) draftRelPath(relPath string) string {
+	if p.Config.ShouldUseDraft() {
+		return DraftPath(relPath)
+	}
+	return relPath
+}
+
+// wrapDraftContent prepends the DRAFT header and injects TODO markers
+// when UseDraft is enabled. Returns content unchanged when UseDraft is false.
+func (p *Planner) wrapDraftContent(content string) string {
+	if !p.Config.ShouldUseDraft() {
+		return content
+	}
+	return DraftHeader(p.draftDate()) + InjectTODOAfterMarkers(content)
+}
+
+// draftLabel returns a human-readable label for the artifact, including the
+// DRAFT- prefix when UseDraft is enabled.
+func (p *Planner) draftLabel(baseName string) string {
+	if p.Config.ShouldUseDraft() {
+		return "DRAFT-" + baseName
+	}
+	return baseName
+}
+
+// draftDate returns the current date in YYYY-MM-DD format for DRAFT headers.
+func (p *Planner) draftDate() string {
+	return time.Now().UTC().Format("2006-01-02")
 }
 
 // writeFileIdempotent writes content to path only if it differs from the
