@@ -16,7 +16,7 @@ func runBootstrap(args []string) {
 	force := fs.Bool("force", false, "overwrite existing artifacts")
 	noVerify := fs.Bool("no-verify", false, "skip build/test/lint verification")
 	beads := fs.Bool("beads", false, "enable beads initialization (opt-in)")
-	yes := fs.Bool("yes", false, "CI automation: auto-confirm prompts and bypass DRAFT prefix")
+	yes := fs.Bool("yes", false, "CI automation: approve final artifacts without DRAFT prefix")
 	autoCurate := fs.Bool("auto-curate", false, "CI automation: bypass DRAFT prefix and produce final artifacts")
 	format := fs.String("format", "text", "output format: json, text")
 	onlyStr := fs.String("only", "", "generate only these artifacts (comma-separated: claude-md,agents-md,policies,hooks,beads)")

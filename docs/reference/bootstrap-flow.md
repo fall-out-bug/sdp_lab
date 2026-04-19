@@ -23,10 +23,10 @@ generate → review → curate → rename → commit
 
 ### 1. Generate
 
-Run `sdp bootstrap` to produce DRAFT-prefixed files:
+Run `sdp bootstrap .` from the repo root to produce DRAFT-prefixed files:
 
 ```bash
-sdp bootstrap
+sdp bootstrap .
 ```
 
 Generated files (DRAFT-prefixed):
@@ -82,21 +82,20 @@ git commit -m "feat: add AI harness configuration from bootstrap"
 
 ## CLI Reference
 
-### Interactive Mode (Default)
+### Default Mode (Draft Output)
 
 ```bash
-sdp bootstrap
+sdp bootstrap .
 ```
 
 - Produces DRAFT- prefixed files
-- Prompts for confirmation before writing
 - Requires manual curation
 - Safe for all repo types
 
 ### CI Mode (Auto-Curate)
 
 ```bash
-sdp bootstrap --yes --auto-curate
+sdp bootstrap --yes --auto-curate .
 ```
 
 - Produces clean files directly (no DRAFT- prefix)
@@ -176,7 +175,7 @@ Best practice across AI development tools:
 
 ```bash
 # New repo, no existing config
-$ sdp bootstrap
+$ sdp bootstrap .
 ✓ Generated DRAFT-CLAUDE.md
 ✓ Generated DRAFT-AGENTS.md
 
@@ -192,7 +191,7 @@ $ git commit -m "feat: add AI harness config"
 
 ```bash
 # Repo with existing CLAUDE.md
-$ sdp bootstrap
+$ sdp bootstrap .
 ⚠️  CLAUDE.md exists — generating DRAFT-CLAUDE.md for comparison
 ✓ Generated DRAFT-CLAUDE.md
 
@@ -206,7 +205,7 @@ $ mv DRAFT-CLAUDE.md CLAUDE.md
 
 ```bash
 # Automated setup in CI/CD pipeline
-$ sdp bootstrap --yes --auto-curate
+$ sdp bootstrap --yes --auto-curate .
 ✓ Generated CLAUDE.md (no DRAFT- prefix)
 ✓ Generated AGENTS.md (no DRAFT- prefix)
 
