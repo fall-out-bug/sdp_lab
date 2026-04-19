@@ -31,22 +31,25 @@ Answers: where is the agent stopping autonomously, why review is re-run, which s
 ## Invocation
 
 ```bash
+# Build once
+go build ./cmd/sdp-session-audit/...
+
 # Summary of all sessions (aggregate + per-session)
-python3 scripts/session_audit.py
+./sdp-session-audit
 
 # Limit to N largest sessions
-python3 scripts/session_audit.py --top 10
+./sdp-session-audit --top 10
 
 # Sessions from last N days/hours/weeks
-python3 scripts/session_audit.py --since 7d
-python3 scripts/session_audit.py --since 24h
+./sdp-session-audit --since 7d
+./sdp-session-audit --since 24h
 
 # Deep-dive single session (shows nudge message text)
-python3 scripts/session_audit.py --session <id-prefix> --detail
+./sdp-session-audit --session <id-prefix> --detail
 
 # Machine-readable JSON
-python3 scripts/session_audit.py --json
-python3 scripts/session_audit.py --top 5 --json | jq '.aggregate'
+./sdp-session-audit --json
+./sdp-session-audit --top 5 --json | jq '.aggregate'
 ```
 
 ## Metrics Explained
@@ -72,11 +75,13 @@ python3 scripts/session_audit.py --top 5 --json | jq '.aggregate'
 
 ## Output Location
 
-Script reads: `~/.claude/projects/-Users-fall-out-bug-projects-vibe-coding-sdp-lab/*.jsonl`
+Reads: `~/.claude/projects/-Users-fall-out-bug-projects-vibe-coding-sdp-lab/*.jsonl`
+Override: `SESSION_AUDIT_DIR=<path> ./sdp-session-audit`
 No files are written — read-only analysis.
 
 ## References
 
-- `scripts/session_audit.py` — implementation
+- `cmd/sdp-session-audit/main.go` — CLI entry point
+- `internal/sessionaudit/audit.go` — parsing and aggregation logic
 - `.agents/skills/delivery-loop.md` — the loop that eliminates manual nudges
 - `.agents/skills/build.md` — Session Bootstrap (checkpoint recovery)
