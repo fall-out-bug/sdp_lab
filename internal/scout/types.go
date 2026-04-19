@@ -16,6 +16,7 @@ type ProjectCard struct {
 	Maturity   Maturity        `json:"maturity"`
 	Build      Build           `json:"build"`
 	Health     HealthSignals   `json:"health_signals"`
+	Conventions Conventions    `json:"conventions"`
 }
 
 // Identity describes what the project is.
@@ -123,3 +124,38 @@ const (
 
 	Unknown = "unknown"
 )
+
+// Conventions holds extracted code patterns and conventions.
+type Conventions struct {
+	ModulePatterns []ModulePattern `json:"module_patterns"`
+	TestStructure  TestLayout      `json:"test_structure"`
+	LintConfig     *LintInfo       `json:"lint_config"`
+	CIWorkflow     *CIInfo         `json:"ci_workflow"`
+}
+
+// ModulePattern describes a recognized code organization pattern.
+type ModulePattern struct {
+	Name     string   `json:"name"`
+	Pattern  string   `json:"pattern"`
+	Examples []string `json:"examples"`
+}
+
+// TestLayout describes how tests are organized in the project.
+type TestLayout struct {
+	Style      string `json:"style"`       // "colocated", "testdir", "mixed", "unknown"
+	DirPattern string `json:"dir_pattern"` // e.g. "test/", "*_test/"
+}
+
+// LintInfo describes the detected linting configuration.
+type LintInfo struct {
+	Tool       string   `json:"tool"`
+	ConfigFile string   `json:"config_file"`
+	Rules      []string `json:"rules,omitempty"`
+}
+
+// CIInfo describes the detected CI/CD configuration.
+type CIInfo struct {
+	System     string   `json:"system"`
+	ConfigFile string   `json:"config_file"`
+	Steps      []string `json:"steps,omitempty"`
+}

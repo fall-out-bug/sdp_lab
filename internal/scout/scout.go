@@ -64,6 +64,9 @@ func RunWithContext(ctx context.Context, repoPath string) (*ProjectCard, error) 
 	// Phase 4: Health signals (derived from other fields)
 	deriveHealthSignals(card)
 
+	// Phase 5: Conventions
+	card.Conventions = extractConventions(abs, card.Identity, card.Scale)
+
 	card.DurationMs = time.Since(start).Milliseconds()
 
 	return card, nil

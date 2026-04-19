@@ -51,7 +51,7 @@ func TestHealthDerivesCorrectSignals(t *testing.T) {
 			TotalFiles: 200, MaxFileLoc: 150, DepthMax: 4,
 		},
 		Activity: Activity{
-			Contributors: 5, Commits30d: 100, LastCommit: strPtr("2026-04-10"),
+			Contributors: 5, Commits30d: 100, LastCommit: strPtr("2026-04-17"),
 		},
 	}
 

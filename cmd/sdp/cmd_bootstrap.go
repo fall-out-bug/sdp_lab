@@ -5,9 +5,14 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"sdp_dev/internal/bootstrap"
+	"sdp_dev/internal/harnessadapter"
+	"sdp_dev/internal/rules"
+	"sdp_dev/internal/scout"
 )
 
 func runBootstrap(args []string) {
@@ -20,12 +25,13 @@ func runBootstrap(args []string) {
 	autoCurate := fs.Bool("auto-curate", false, "CI automation: bypass DRAFT prefix and produce final artifacts")
 	format := fs.String("format", "text", "output format: json, text")
 	onlyStr := fs.String("only", "", "generate only these artifacts (comma-separated: claude-md,agents-md,policies,hooks,beads)")
+	conventions := fs.Bool("conventions", false, "extract conventions via scout and generate harness-specific rule configs")
 
 	_ = fs.Parse(args)
 
 	// Determine subcommand: "status" or repo path.
 	if fs.NArg() < 1 {
-		fmt.Fprintln(os.Stderr, "usage: sdp bootstrap [--dry-run] [--force] [--beads] [--yes] [--auto-curate] [--only TYPES] <repo-path>")
+		fmt.Fprintln(os.Stderr, "usage: sdp bootstrap [--dry-run] [--force] [--beads] [--yes] [--auto-curate] [--only TYPES] [--conventions] <repo-path>")
 		fmt.Fprintln(os.Stderr, "       sdp bootstrap status <repo-path>")
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "CI automation flags (--yes, --auto-curate) bypass DRAFT prefix for unattended runs.")
@@ -78,7 +84,108 @@ func runBootstrap(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
+
+	// Optional: conventions + rules + adapter pipeline.
+	if *conventions {
+		appendConventionsArtifacts(report, repoPath, useDraft)
+	}
+
 	renderBootstrapReport(report, *format)
+}
+
+// appendConventionsArtifacts runs the scout -> rules -> adapter pipeline and
+// appends the resulting adapter outputs as DRAFT artifacts to the report.
+func appendConventionsArtifacts(report *bootstrap.BootstrapReport, repoPath string, useDraft bool) {
+	card, err := scout.Run(repoPath)
+	if err != nil {
+		report.Notes = append(report.Notes,
+			fmt.Sprintf("conventions: scout skipped: %v", err))
+		return
+	}
+	report.DataSources["conventions"] = true
+
+	var generatedRules []rules.Rule
+	evidenceDir := filepath.Join(repoPath, ".sdp", "evidence")
+	if dirExists(evidenceDir) {
+		gen := rules.NewGenerator(evidenceDir)
+		generatedRules, err = gen.Generate()
+		if err != nil {
+			report.Notes = append(report.Notes,
+				fmt.Sprintf("conventions: rules generation skipped: %v", err))
+		} else if len(generatedRules) > 0 {
+			report.DataSources["evidence"] = true
+			report.Notes = append(report.Notes,
+				fmt.Sprintf("conventions: %d rule(s) from evidence", len(generatedRules)))
+		}
+	}
+
+	manifestPath := filepath.Join(repoPath, ".sdp", "harness-config.json")
+	manifest := loadManifestOrDefault("", repoPath)
+	if _, serr := os.Stat(manifestPath); serr == nil {
+		report.DataSources["manifest"] = true
+	}
+
+	registry := harnessadapter.NewRegistry(manifest)
+	rendered, err := registry.RenderAll(card, generatedRules)
+	if err != nil {
+		report.Notes = append(report.Notes,
+			fmt.Sprintf("conventions: adapter render failed: %v", err))
+		return
+	}
+
+	for adapterName, content := range rendered {
+		filename := bootstrapRulesArtifactName(adapterName, useDraft)
+		fullPath := filepath.Join(repoPath, filename)
+
+		var finalContent string
+		if useDraft {
+			finalContent = bootstrap.DraftHeader(
+				time.Now().UTC().Format("2006-01-02")) + string(content)
+		} else {
+			finalContent = string(content)
+		}
+
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
+			report.Artifacts = append(report.Artifacts, bootstrap.ArtifactResult{
+				Type: "adapter", Path: filename,
+				Status: "error", Message: err.Error(),
+			})
+			continue
+		}
+		if err := os.WriteFile(fullPath, []byte(finalContent), 0o644); err != nil {
+			report.Artifacts = append(report.Artifacts, bootstrap.ArtifactResult{
+				Type: "adapter", Path: filename,
+				Status: "error", Message: err.Error(),
+			})
+			continue
+		}
+
+		report.Artifacts = append(report.Artifacts, bootstrap.ArtifactResult{
+			Type:    "adapter",
+			Path:    filename,
+			Action:  "create",
+			Status:  "ok",
+			Message: fmt.Sprintf("conventions: %s adapter (%d bytes)", adapterName, len(finalContent)),
+		})
+	}
+}
+
+// bootstrapRulesArtifactName returns the output filename for an adapter during
+// bootstrap. When useDraft is true, files get a DRAFT- prefix.
+func bootstrapRulesArtifactName(adapterName string, useDraft bool) string {
+	var base string
+	switch adapterName {
+	case "claude-code":
+		base = "CLAUDE-RULES.md"
+	case "cursor":
+		base = ".cursorrules"
+	default:
+		base = adapterName + "-rules.md"
+	}
+	if useDraft {
+		return bootstrap.DraftPath(base)
+	}
+	return base
 }
 
 func runBootstrapStatus(repoPath string, format string) {

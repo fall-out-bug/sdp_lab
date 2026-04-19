@@ -75,5 +75,14 @@
     "staleness": "active",
     "test_coverage_hint": "partial",
     "complexity_hint": "medium"
+  },
+  "conventions": {
+    "module_patterns": null,
+    "test_structure": {
+      "style": "",
+      "dir_pattern": ""
+    },
+    "lint_config": null,
+    "ci_workflow": null
   }
 }

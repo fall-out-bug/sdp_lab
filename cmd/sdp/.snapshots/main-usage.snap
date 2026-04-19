@@ -1,4 +1,4 @@
-usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention|bootstrap|coverage-scan> <subcommand> [flags]
+usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention|bootstrap|rules|coverage-scan> <subcommand> [flags]
 
 Card commands:
   sdp card <create|show|clarify|needs-input|ready|park|execute|heartbeat|feedback|feedback-export|message-export|resume|resume-import|reply-ingest|deliver>
@@ -60,6 +60,9 @@ Index commands:
 Bootstrap commands:
   sdp bootstrap [--dry-run] [--force] [--beads] [--yes] [--auto-curate] [--only TYPES] <repo-path>
   sdp bootstrap status <repo-path>
+
+Rules commands:
+  sdp rules update <repo-path> [--source-evidence=<dir>] [--manifest=<file>] [--format json|text]
 
 Coverage commands:
   sdp coverage-scan [--path DIR] [--threshold PCT] [--format text|json] [--skip-test] [--package PATTERN] [--coverprofile FILE]
