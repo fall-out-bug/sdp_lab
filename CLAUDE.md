@@ -8,7 +8,7 @@
 
 1. **[AGENTS.md](AGENTS.md)** — операторные правила, workflow, команды, политика редактирования (читают все harness'ы)
 2. **[docs/reference/project-map.md](docs/reference/project-map.md)** — canonical SOT split, входные точки
-3. **[docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md)** — когда задача трогает `sdp/` submodule
+3. **[docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md)** — публикация protocol artifacts в публичный sdp repo
 4. **[docs/roadmap/ROADMAP.md](docs/roadmap/ROADMAP.md)** — текущее продуктовое направление
 
 ## Claude-Specific Hard Rules
@@ -18,7 +18,6 @@
 - **Issue tracking — только beads (`bd`).** `TodoWrite` запрещён в этом репо. SessionStart hook и `AGENTS.md` дают полный референс.
 - **Claim атомарно:** `bd update <id> --claim` (не `--status in_progress`).
 - **Session close:** `scripts/beads_transport.sh export` → `git push`. Работа не закончена, пока не запушена.
-- **Submodule init:** клонируй с `--recurse-submodules` или запусти `git submodule update --init`. Иначе симлинки `.claude/agents`, `.claude/hooks`, пути `sdp/docs/*` ломаются.
 
 ## Quality Gates (перед push)
 

@@ -9,7 +9,7 @@ This is the shortest accurate way to orient inside `sdp_lab`.
 `sdp_lab` is the private lab workspace for SDP.
 
 - it owns Go code, orchestration, adapter work, evals, roadmap, and private planning
-- it uses `sdp/` as a public submodule for protocol artifacts, prompts, schemas, hooks, and public CLI work
+- it owns protocol artifacts natively under `sdp/` (prompts, schemas, hooks, public CLI work) — published to the public `sdp` repo via `scripts/sdp-publish.sh`
 - it uses `main` as the live default branch
 - historical docs and bead IDs may still say `sdp_dev`; treat that as a legacy label for this same repo
 
@@ -37,7 +37,7 @@ For that path, go straight to [../../sdp/docs/QUICKSTART.md](../../sdp/docs/QUIC
 | `deploy/` | K8s runtime and observability manifests |
 | `docs/roadmap/`, `docs/workstreams/`, `docs/plans/` | planning, execution queue, and design history |
 | `docs/reference/` | stable reference docs for the current canonical loop |
-| `sdp/` | public submodule for prompts, hooks, schemas, and OSS CLI work |
+| `sdp/` | protocol artifacts (prompts, hooks, schemas, OSS CLI); published to public `sdp` repo via `scripts/sdp-publish.sh` |
 
 Start with these files:
 
@@ -83,7 +83,7 @@ Use one source per question.
 |---|---|
 | What repo owns this file? | [docs/MULTI-REPO-WORKFLOW.md](../MULTI-REPO-WORKFLOW.md) |
 | What belongs in `sdp_lab` vs `sdp`? | [docs/architecture/REPO-BOUNDARY.md](../architecture/REPO-BOUNDARY.md) |
-| How do I adopt SDP in another repo? | [../../sdp/docs/QUICKSTART.md](../../sdp/docs/QUICKSTART.md) |
+| How do I adopt SDP in another repo? | [../../sdp/docs/QUICKSTART.md](../../sdp/docs/QUICKSTART.md) (local path, also published to sdp repo) |
 | What is the canonical happy path from intake to delivery? | [canonical-happy-path.md](canonical-happy-path.md) |
 | What is the canonical operator loop? | [canonical-happy-path.md](canonical-happy-path.md), [docs/SDP_OPERATOR_WORKFLOW.md](../SDP_OPERATOR_WORKFLOW.md) |
 | What agents and skills are on the happy path? | [agent-catalog.md](agent-catalog.md), [skills.md](skills.md) |
@@ -142,14 +142,14 @@ If you are new to this repo, read in this order:
 
 If you are new to SDP but not to this repo, use this shorter decision:
 
-1. "I want to use SDP in my own repo" -> [../../sdp/docs/QUICKSTART.md](../../sdp/docs/QUICKSTART.md)
+1. "I want to use SDP in my own repo" -> [../../sdp/docs/QUICKSTART.md](../../sdp/docs/QUICKSTART.md) (also published to sdp repo)
 2. "I want to work on SDP platform internals" -> keep reading this file
 3. "I am a dev agent entering cold" -> [../../AGENTS.md](../../AGENTS.md), then this file
 
-If you are touching `sdp/`, read these before changing anything:
+If you are touching protocol artifacts in `sdp/`, read these before changing anything:
 
-1. [docs/MULTI-REPO-WORKFLOW.md](../MULTI-REPO-WORKFLOW.md)
-2. [docs/architecture/REPO-BOUNDARY.md](../architecture/REPO-BOUNDARY.md)
+1. [docs/MULTI-REPO-WORKFLOW.md](../MULTI-REPO-WORKFLOW.md) — publish workflow
+2. [docs/architecture/REPO-BOUNDARY.md](../architecture/REPO-BOUNDARY.md) — what to publish
 
 ## Legacy And Optional Areas
 
