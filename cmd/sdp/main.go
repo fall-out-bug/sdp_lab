@@ -67,6 +67,8 @@ func main() {
 		runIndex(os.Args[2:])
 	case "bootstrap":
 		runBootstrap(os.Args[2:])
+	case "coverage-scan":
+		runCoverageScan(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -136,4 +138,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "Bootstrap commands:")
 	fmt.Fprintln(os.Stderr, "  sdp bootstrap [--dry-run] [--force] [--only TYPES] <repo-path>")
 	fmt.Fprintln(os.Stderr, "  sdp bootstrap status <repo-path>")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Coverage commands:")
+	fmt.Fprintln(os.Stderr, "  sdp coverage-scan [--path DIR] [--threshold PCT] [--format text|json] [--short] [--coverprofile FILE]")
 }
