@@ -14,12 +14,24 @@
 #   --help             Show this help message
 #
 # Artifact mapping (sdp_lab source -> sdp repo destination):
-#   prompts/           -> prompts/          (includes prompts/skills/ — canonical public skills)
-#   schema/            -> schema/
-#   templates/         -> templates/
-#   scripts/hooks/     -> hooks/
-#   .claude/hooks/     -> .claude/hooks/
-#   .claude/patterns/  -> .claude/patterns/
+# Directories:
+#   prompts/                 -> prompts/          (includes prompts/skills/ — canonical public skills)
+#   schema/                  -> schema/
+#   templates/               -> templates/
+#   scripts/hooks/           -> hooks/
+#   .claude/hooks/           -> .claude/hooks/
+#   .claude/patterns/        -> .claude/patterns/
+#   .opencode/hooks/         -> .opencode/hooks/
+# Files:
+#   .cursorrules             -> .cursorrules
+#   .cursor/README.md        -> .cursor/README.md
+#   .cursor/worktrees.json   -> .cursor/worktrees.json
+#   .codex/AGENTS.md         -> .codex/AGENTS.md
+#   .codex/INSTALL.md        -> .codex/INSTALL.md
+#   .codex/skills/README.md  -> .codex/skills/README.md
+#   .opencode/README.md      -> .opencode/README.md
+#   docs/reference/FALLBACK_MODE.md -> docs/reference/FALLBACK_MODE.md
+#   prompts/commands.yml     -> prompts/commands.yml
 # NOTE: .agents/skills/ is NOT mapped here — those are runtime harness stubs.
 #       prompts/skills/ contains the comprehensive SKILL.md files for public publishing.
 # =============================================================================
@@ -48,15 +60,28 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # ---- Artifact mapping -------------------------------------------------------
-# Format: "source_dir:dest_dir"
-# Source dirs are relative to PROJECT_ROOT; dest dirs are relative to sdp repo root.
-ARTIFACT_MAP=(
+# Format: "source:dest"
+# Sources are relative to PROJECT_ROOT; destinations are relative to sdp repo root.
+ARTIFACT_DIR_MAP=(
   "prompts:prompts"
   "schema:schema"
   "templates:templates"
   "scripts/hooks:hooks"
   ".claude/hooks:.claude/hooks"
   ".claude/patterns:.claude/patterns"
+  ".opencode/hooks:.opencode/hooks"
+)
+
+ARTIFACT_FILE_MAP=(
+  ".cursorrules:.cursorrules"
+  ".cursor/README.md:.cursor/README.md"
+  ".cursor/worktrees.json:.cursor/worktrees.json"
+  ".codex/AGENTS.md:.codex/AGENTS.md"
+  ".codex/INSTALL.md:.codex/INSTALL.md"
+  ".codex/skills/README.md:.codex/skills/README.md"
+  ".opencode/README.md:.opencode/README.md"
+  "docs/reference/FALLBACK_MODE.md:docs/reference/FALLBACK_MODE.md"
+  "prompts/commands.yml:prompts/commands.yml"
 )
 
 # ---- Functions --------------------------------------------------------------
@@ -82,6 +107,16 @@ Artifact mapping (sdp_lab -> sdp repo):
   scripts/hooks/     -> hooks/
   .claude/hooks/     -> .claude/hooks/
   .claude/patterns/  -> .claude/patterns/
+  .opencode/hooks/   -> .opencode/hooks/
+  .cursorrules       -> .cursorrules
+  .cursor/README.md  -> .cursor/README.md
+  .cursor/worktrees.json -> .cursor/worktrees.json
+  .codex/AGENTS.md   -> .codex/AGENTS.md
+  .codex/INSTALL.md  -> .codex/INSTALL.md
+  .codex/skills/README.md -> .codex/skills/README.md
+  .opencode/README.md -> .opencode/README.md
+  docs/reference/FALLBACK_MODE.md -> docs/reference/FALLBACK_MODE.md
+  prompts/commands.yml -> prompts/commands.yml
 HEREDOC
 }
 
@@ -98,18 +133,18 @@ cleanup() {
 }
 
 # Resolve a source path, following symlinks. Returns empty string if not found.
-resolve_source_dir() {
+resolve_source_path() {
   local rel_path="$1"
   local full_path="${PROJECT_ROOT}/${rel_path}"
 
-  if [[ -d "$full_path" ]]; then
+  if [[ -d "$full_path" || -f "$full_path" ]]; then
     # Resolve symlinks with realpath
     realpath "$full_path" 2>/dev/null || echo "$full_path"
   elif [[ -L "$full_path" ]]; then
     # Broken symlink
     local target
     target="$(readlink "$full_path")"
-    if [[ -d "$target" ]]; then
+    if [[ -d "$target" || -f "$target" ]]; then
       echo "$target"
     else
       echo ""
@@ -122,7 +157,9 @@ resolve_source_dir() {
 # Count files in a directory (recursively), excluding .git entries
 count_files() {
   local dir="$1"
-  if [[ -d "$dir" ]]; then
+  if [[ -f "$dir" ]]; then
+    echo "1"
+  elif [[ -d "$dir" ]]; then
     find "$dir" -type f ! -path '*/.git/*' 2>/dev/null | wc -l | tr -d ' '
   else
     echo "0"
@@ -132,7 +169,9 @@ count_files() {
 # List files relative to a base directory
 list_files_relative() {
   local dir="$1"
-  if [[ -d "$dir" ]]; then
+  if [[ -f "$dir" ]]; then
+    printf "./%s\n" "$(basename "$dir")"
+  elif [[ -d "$dir" ]]; then
     (cd "$dir" && find . -type f ! -path '*/.git/*' | sort)
   fi
 }
@@ -147,11 +186,11 @@ do_dry_run() {
   local total_files=0
   local missing=0
 
-  for mapping in "${ARTIFACT_MAP[@]}"; do
+  for mapping in "${ARTIFACT_DIR_MAP[@]}"; do
     local src_rel="${mapping%%:*}"
     local dst_rel="${mapping##*:}"
     local src_resolved
-    src_resolved="$(resolve_source_dir "$src_rel")"
+    src_resolved="$(resolve_source_path "$src_rel")"
 
     echo -e "${BLUE}--- ${src_rel}/ -> ${dst_rel}/ ---${NC}"
 
@@ -170,8 +209,26 @@ do_dry_run() {
     echo ""
   done
 
+  for mapping in "${ARTIFACT_FILE_MAP[@]}"; do
+    local src_rel="${mapping%%:*}"
+    local dst_rel="${mapping##*:}"
+    local src_resolved
+    src_resolved="$(resolve_source_path "$src_rel")"
+
+    echo -e "${BLUE}--- ${src_rel} -> ${dst_rel} ---${NC}"
+
+    if [[ -z "$src_resolved" ]]; then
+      log_warn "Source file not found: ${src_rel}"
+      missing=$((missing + 1))
+    else
+      total_files=$((total_files + 1))
+      echo "    ${dst_rel}"
+    fi
+    echo ""
+  done
+
   if [[ $missing -gt 0 ]]; then
-    log_warn "${missing} source directories missing"
+    log_warn "${missing} source publish paths missing"
   fi
 
   log_info "Total files to publish: ${total_files}"
@@ -195,11 +252,11 @@ do_check() {
   local drift_found=false
   local missing_sources=0
 
-  for mapping in "${ARTIFACT_MAP[@]}"; do
+  for mapping in "${ARTIFACT_DIR_MAP[@]}"; do
     local src_rel="${mapping%%:*}"
     local dst_rel="${mapping##*:}"
     local src_resolved
-    src_resolved="$(resolve_source_dir "$src_rel")"
+    src_resolved="$(resolve_source_path "$src_rel")"
 
     if [[ -z "$src_resolved" ]]; then
       log_warn "Source directory missing in sdp_lab: ${src_rel}/"
@@ -251,6 +308,33 @@ do_check() {
     fi
   done
 
+  for mapping in "${ARTIFACT_FILE_MAP[@]}"; do
+    local src_rel="${mapping%%:*}"
+    local dst_rel="${mapping##*:}"
+    local src_resolved
+    src_resolved="$(resolve_source_path "$src_rel")"
+
+    if [[ -z "$src_resolved" ]]; then
+      log_warn "Source file missing in sdp_lab: ${src_rel}"
+      missing_sources=$((missing_sources + 1))
+      continue
+    fi
+
+    local sdp_dest="${sdp_root}/${dst_rel}"
+    if [[ ! -f "$sdp_dest" ]]; then
+      log_warn "Published file missing in sdp repo: ${dst_rel}"
+      drift_found=true
+      continue
+    fi
+
+    if ! diff -q "$src_resolved" "$sdp_dest" &>/dev/null; then
+      log_warn "Content differs for file: ${src_rel} -> ${dst_rel}"
+      drift_found=true
+    else
+      log_success "In sync: ${src_rel} -> ${dst_rel}"
+    fi
+  done
+
   echo ""
   if [[ "$drift_found" == true ]]; then
     log_warn "Drift detected between sdp_lab and sdp repo."
@@ -269,18 +353,28 @@ do_publish() {
 
   # Validate source directories exist
   local missing=0
-  for mapping in "${ARTIFACT_MAP[@]}"; do
+  for mapping in "${ARTIFACT_DIR_MAP[@]}"; do
     local src_rel="${mapping%%:*}"
     local src_resolved
-    src_resolved="$(resolve_source_dir "$src_rel")"
+    src_resolved="$(resolve_source_path "$src_rel")"
     if [[ -z "$src_resolved" ]]; then
       log_error "Source directory missing: ${src_rel}/"
       missing=$((missing + 1))
     fi
   done
 
+  for mapping in "${ARTIFACT_FILE_MAP[@]}"; do
+    local src_rel="${mapping%%:*}"
+    local src_resolved
+    src_resolved="$(resolve_source_path "$src_rel")"
+    if [[ -z "$src_resolved" ]]; then
+      log_error "Source file missing: ${src_rel}"
+      missing=$((missing + 1))
+    fi
+  done
+
   if [[ $missing -gt 0 ]]; then
-    log_error "Cannot publish: ${missing} source directories missing."
+    log_error "Cannot publish: ${missing} source publish paths missing."
     exit 1
   fi
 
@@ -334,11 +428,11 @@ do_publish() {
 
   # Copy artifacts
   local total_copied=0
-  for mapping in "${ARTIFACT_MAP[@]}"; do
+  for mapping in "${ARTIFACT_DIR_MAP[@]}"; do
     local src_rel="${mapping%%:*}"
     local dst_rel="${mapping##*:}"
     local src_resolved
-    src_resolved="$(resolve_source_dir "$src_rel")"
+    src_resolved="$(resolve_source_path "$src_rel")"
 
     local dst_path="${sdp_root}/${dst_rel}"
     local count
@@ -366,6 +460,20 @@ do_publish() {
     count="$(count_files "$dst_path")"
     total_copied=$((total_copied + count))
     log_info "  ${count} files copied"
+  done
+
+  for mapping in "${ARTIFACT_FILE_MAP[@]}"; do
+    local src_rel="${mapping%%:*}"
+    local dst_rel="${mapping##*:}"
+    local src_resolved
+    src_resolved="$(resolve_source_path "$src_rel")"
+    local dst_path="${sdp_root}/${dst_rel}"
+
+    log_info "Copying ${src_rel} -> ${dst_rel}"
+    mkdir -p "$(dirname "$dst_path")"
+    cp "$src_resolved" "$dst_path"
+    total_copied=$((total_copied + 1))
+    log_info "  1 file copied"
   done
 
   log_info "Total files copied: ${total_copied}"
@@ -413,6 +521,10 @@ Automated sync of protocol artifacts from sdp_lab.
 - hooks/
 - .claude/hooks/
 - .claude/patterns/
+- .opencode/hooks/
+- Cursor and Codex harness files
+- docs/reference/FALLBACK_MODE.md
+- prompts/commands.yml
 
 Generated by \`scripts/sdp-publish.sh\`
 PRBODY

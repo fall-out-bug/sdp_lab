@@ -6,8 +6,8 @@ This directory contains configuration for integrating SDP with OpenCode (OhMyOpe
 
 SDP is now **OpenCode-first**. Configuration lives in `.opencode/` directory:
 - `.opencode/hooks/` - Hook configurations (this directory)
-- `.opencode/agents` - Symlink to `sdp/prompts/agents`
-- `.opencode/commands` - Symlink to `sdp/prompts/commands`
+- `.opencode/agents` - Symlink to `prompts/agents`
+- `.opencode/commands` - Symlink to `prompts/commands`
 
 Legacy Claude config (`.claude/`) is maintained for compatibility but OpenCode is the primary environment.
 

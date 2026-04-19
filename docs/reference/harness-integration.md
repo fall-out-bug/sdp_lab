@@ -8,9 +8,13 @@
 SDP is a multi-harness platform. The same agent instructions, skills, and workflows
 must work regardless of which coding-agent harness the operator chooses.
 
-`AGENTS.md` is the universal interface -- it is the single source of truth for
-agent behavior. Each harness reads it natively (or through a thin config file that
-includes it). No harness gets a separate copy of the rules.
+`AGENTS.md` is still the policy source, but some harnesses need their own
+entrypoint file format. In practice that means:
+
+- `CLAUDE.md` is a thin Claude-specific wrapper over `AGENTS.md`
+- `.cursorrules` is a self-contained Cursor entrypoint
+- `.codex/AGENTS.md` is a Codex-facing entrypoint
+- OpenCode uses `AGENTS.md` plus `.opencode/hooks/` for scope enforcement
 
 The skill directory `.agents/skills/` is the canonical location for all SDP skills.
 Claude Code, OpenCode, and Cursor scan this path natively. Other harnesses access
@@ -23,8 +27,8 @@ AGENTS.md  ───────────────────────
    │ Claude   │ OpenCode │ Cursor   │ Codex    │
    │ Code     │          │          │ CLI      │
    │          │          │          │          │
-CLAUDE.md    AGENTS.md  .cursorrules  AGENTS.md
-(+ @import)  (native)   (+ @import)   (native)
+CLAUDE.md    AGENTS.md  .cursorrules  .codex/AGENTS.md
+(wrapper)    (native)   (native)      (native)
 ```
 
 ## Supported Harnesses
@@ -33,8 +37,8 @@ CLAUDE.md    AGENTS.md  .cursorrules  AGENTS.md
 |---------|--------|-------------|-------------------|--------|
 | Claude Code | `/opt/homebrew/bin/claude` | `CLAUDE.md` (imports `AGENTS.md`) | `.claude/skills/` (symlink to `.agents/skills/`) | Primary, high reliability |
 | OpenCode | `/opt/homebrew/bin/opencode` | `AGENTS.md` (native) | `.agents/skills/` (native), `.claude/skills/` (fallback) | Experimental, see [OpenCode section](#opencode-integration) |
-| Cursor | `~/.local/bin/agent` (CLI) or IDE | `.cursorrules` (imports `AGENTS.md`) | `.agents/skills/` (native), `.cursor/rules/*.mdc` | Experimental, untested in dispatch |
-| Codex CLI | `/opt/homebrew/bin/codex` | `AGENTS.md` (native) | Via `AGENTS.md` + explicit path | Secondary, high reliability for edits |
+| Cursor | `~/.local/bin/agent` (CLI) or IDE | `.cursorrules` (self-contained) | `.agents/skills/` (native), `.cursor/rules/*.mdc` | Experimental, untested in dispatch |
+| Codex CLI | `/opt/homebrew/bin/codex` | `.codex/AGENTS.md` + `AGENTS.md` | Via explicit prompt paths and `.codex/` docs | Secondary, high reliability for edits |
 
 **Excluded:** Pi (Inflection) is not a coding assistant as of 2026.
 
@@ -135,7 +139,7 @@ CLAUDE.md          <-- thin override (Claude-specific rules only)
   @RTK.md          <-- token optimization rules (imported)
 
 .claude/skills/    <-- symlink -> .agents/skills/
-.claude/hooks/     <-- symlink -> sdp/.claude/hooks/
+.claude/hooks/     <-- native hook directory
 .claude/agents/    <-- (reserved, not currently used)
 ```
 
@@ -165,12 +169,13 @@ policy in `AGENTS.md` governs when to delegate vs. work inline.
 ## Cursor Integration
 
 Cursor reads `.cursorrules` at the project root and `.cursor/rules/*.mdc` for
-rule files. In SDP, `.cursorrules` imports `AGENTS.md`.
+rule files. In SDP, `.cursorrules` is a concise self-contained entrypoint that
+points back to the canonical prompt and doc sources.
 
 ### How it works
 
-The `sdp/` submodule contains `.cursorrules` with SDP project rules. Cursor also
-scans `.agents/skills/` natively for skill discovery.
+SDP ships `.cursorrules` natively at the project root. Cursor also scans
+`.agents/skills/` natively for skill discovery.
 
 ```bash
 # Cursor CLI (agent mode)
@@ -189,8 +194,9 @@ verification, not as a primary dispatch worker.
 
 ## Codex CLI Integration
 
-Codex CLI reads `AGENTS.md` natively. It is a reliable harness for file edits
-but cannot perform git operations due to sandbox restrictions.
+Codex CLI is reliable for file edits, but many runtimes still need a
+Codex-specific entrypoint file for the command surface and fallback references.
+SDP ships those in `.codex/`.
 
 ### Invocation
 
