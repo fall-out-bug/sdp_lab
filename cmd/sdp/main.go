@@ -140,5 +140,5 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  sdp bootstrap status <repo-path>")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Coverage commands:")
-	fmt.Fprintln(os.Stderr, "  sdp coverage-scan [--path DIR] [--threshold PCT] [--format text|json] [--short] [--coverprofile FILE]")
+	fmt.Fprintln(os.Stderr, "  sdp coverage-scan [--path DIR] [--threshold PCT] [--format text|json] [--skip-test] [--package PATTERN] [--coverprofile FILE]")
 }
