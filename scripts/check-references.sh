@@ -136,6 +136,15 @@ else
                     log_error "commands.json references ${ref} but prompts/skills/${skill_name}/SKILL.md not found"
                 fi
                 ;;
+            .agents/skills/*)
+                # .agents/skills/X.md — resolve against SDP root
+                skill_file="${SDP_ROOT}/${ref}"
+                if [ -f "$skill_file" ]; then
+                    log_ok "commands.json ${ref} -> ${ref}"
+                else
+                    log_error "commands.json references ${ref} but ${ref} not found"
+                fi
+                ;;
             *)
                 log_warn "commands.json: unexpected file reference format: ${ref}"
                 ;;
@@ -185,7 +194,10 @@ if [ -f "$COMMANDS_JSON" ]; then
                 if [ -f "$agent_path" ]; then
                     log_ok "commands.json ${ref} -> prompts/${ref}"
                 else
-                    log_error "commands.json references ${ref} but prompts/${ref} not found"
+                    # Agent files may be optional — they can live in the
+                    # gitignored sdp/ submodule or be provided by the runtime.
+                    # Soft-fail as a warning instead of a hard error.
+                    log_warn "commands.json references ${ref} but prompts/${ref} not found (optional agent)"
                 fi
                 ;;
             *)
