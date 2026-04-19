@@ -57,18 +57,18 @@ func validatePackagePattern(pkg string) error {
 // and returns the raw output. This provides per-function granularity with line
 // numbers, which is the format testwriter.ParseCoverGaps expects.
 func runCoverFunc(ctx context.Context, runner executil.CommandRunner, dir, coverprofile string) (string, error) {
-	out, err := runner.Output(ctx, dir, "go", "tool", "cover", "-func="+coverprofile)
+	out, err := runner.CombinedOutput(ctx, dir, "go", "tool", "cover", "-func="+coverprofile)
 	if err != nil {
-		return "", fmt.Errorf("go tool cover -func: %w", err)
+		return "", fmt.Errorf("go tool cover -func: %w\n%s", err, out)
 	}
 	return string(out), nil
 }
 
 // runGoTest runs `go test -coverprofile=<path> <pkg>` in the given directory.
 func runGoTest(ctx context.Context, runner executil.CommandRunner, dir, coverprofile, pkg string) error {
-	_, err := runner.CombinedOutput(ctx, dir, "go", "test", "-coverprofile="+coverprofile, pkg)
+	out, err := runner.CombinedOutput(ctx, dir, "go", "test", "-coverprofile="+coverprofile, pkg)
 	if err != nil {
-		return fmt.Errorf("go test failed: %w", err)
+		return fmt.Errorf("go test failed: %w\n%s", err, out)
 	}
 	return nil
 }
