@@ -1,4 +1,4 @@
-usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention|bootstrap> <subcommand> [flags]
+usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention|bootstrap|coverage-scan> <subcommand> [flags]
 
 Card commands:
   sdp card <create|show|clarify|needs-input|ready|park|execute|heartbeat|feedback|feedback-export|message-export|resume|resume-import|reply-ingest|deliver>

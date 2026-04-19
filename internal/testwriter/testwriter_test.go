@@ -237,7 +237,7 @@ func TestGenerateTestStub_TableDrivenFormat(t *testing.T) {
 	got := GenerateTestStub("MyFunc", "pkg", cases)
 
 	// Verify table-driven structure
-	if !strings.Contains(got, "var tests = []TestCase{") {
+	if !strings.Contains(got, "var tests = []testScenario{") {
 		t.Error("missing var tests declaration")
 	}
 	if !strings.Contains(got, "for _, tt := range tests") {
@@ -562,13 +562,13 @@ func TestFormatTestFile_ValidGoStructure(t *testing.T) {
 
 func TestFormatTestFile_ValidGoStructure_WithTestCase(t *testing.T) {
 	got := FormatTestFile("mypackage", []string{"testing"}, []string{
-		"func TestExample(t *testing.T) {\n\tvar tests = []TestCase{{Name: \"a\"}}\n\t_ = tests\n}",
+		"func TestExample(t *testing.T) {\n\tvar tests = []testScenario{{Name: \"a\"}}\n\t_ = tests\n}",
 	})
 
-	// Verify structure order: package, imports, TestCase struct, test funcs
+	// Verify structure order: package, imports, testScenario struct, test funcs
 	packageIdx := strings.Index(got, "package mypackage")
 	importIdx := strings.Index(got, "import")
-	tcIdx := strings.Index(got, "type TestCase struct")
+	tcIdx := strings.Index(got, "type testScenario struct")
 	testIdx := strings.Index(got, "func TestExample")
 
 	if packageIdx == -1 || importIdx == -1 || tcIdx == -1 || testIdx == -1 {
@@ -625,12 +625,12 @@ func TestFormatTestFile_IncludesTestCaseStruct(t *testing.T) {
 
 	got := FormatTestFile("math", []string{"testing"}, []string{testBody})
 
-	// Must contain the TestCase type definition.
-	if !strings.Contains(got, "type TestCase struct") {
-		t.Error("FormatTestFile() missing 'type TestCase struct' definition")
+	// Must contain the testScenario type definition.
+	if !strings.Contains(got, "type testScenario struct") {
+		t.Error("FormatTestFile() missing 'type testScenario struct' definition")
 	}
 	if !strings.Contains(got, "Name") || !strings.Contains(got, "Input") || !strings.Contains(got, "Expected") {
-		t.Error("FormatTestFile() TestCase struct missing required fields")
+		t.Error("FormatTestFile() testScenario struct missing required fields")
 	}
 
 	// Verify the output parses as valid Go.
@@ -663,7 +663,7 @@ func Add(a, b int) int { return a + b }
 		t.Fatalf("write source: %v", err)
 	}
 
-	// Generate a test file that references TestCase.
+	// Generate a test file that references testScenario.
 	testBody := GenerateTestStub("Add", "math", []TestCase{
 		{Name: "positive", Input: "1, 2", Expected: "3"},
 	})
@@ -674,7 +674,7 @@ func Add(a, b int) int { return a + b }
 	}
 
 	// Verify the generated file compiles.
-	cmd := exec.Command("go", "build", "./...")
+	cmd := exec.Command("go", "test", "-run", "^$", "./...")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {

@@ -14,10 +14,11 @@ import (
 	"strings"
 )
 
-// testCaseTypeDef is the TestCase struct definition emitted into generated test
+// testScenarioTypeDef is the testScenario struct definition emitted into generated test
 // files so they compile without depending on the testwriter package.
-const testCaseTypeDef = `// TestCase represents a single test case in a table-driven test.
-type TestCase struct {
+// The type is unexported to avoid collisions with existing types in the target package.
+const testScenarioTypeDef = `// testScenario represents a single test case in a table-driven test.
+type testScenario struct {
 	Name     string
 	Input    string
 	Expected string
@@ -185,7 +186,7 @@ func GenerateTestStub(funcName, packageName string, cases []TestCase) string {
 
 	fmt.Fprintf(&b, "// Test%s covers %s.%s\n", funcName, packageName, funcName)
 	fmt.Fprintf(&b, "func Test%s(t *testing.T) {\n", funcName)
-	fmt.Fprintf(&b, "\tvar tests = []TestCase{\n")
+	fmt.Fprintf(&b, "\tvar tests = []testScenario{\n")
 
 	for _, tc := range cases {
 		fmt.Fprintf(&b, "\t\t{Name: %q, Input: %q, Expected: %q},\n", tc.Name, tc.Input, tc.Expected)
@@ -284,7 +285,7 @@ func FormatTestFile(packageName string, imports []string, tests []string) string
 
 	// Emit TestCase struct definition when any test function references it.
 	if needsTestCase(tests) {
-		fmt.Fprintf(&b, "\n%s", testCaseTypeDef)
+		fmt.Fprintf(&b, "\n%s", testScenarioTypeDef)
 	}
 
 	for _, test := range tests {
@@ -294,10 +295,10 @@ func FormatTestFile(packageName string, imports []string, tests []string) string
 	return b.String()
 }
 
-// needsTestCase returns true when any test function body references "TestCase".
+// needsTestCase returns true when any test function body references "testScenario".
 func needsTestCase(tests []string) bool {
 	for _, test := range tests {
-		if strings.Contains(test, "TestCase") {
+		if strings.Contains(test, "testScenario") {
 			return true
 		}
 	}

@@ -43,7 +43,7 @@ func (m *mockRunner) CombinedOutput(_ context.Context, _ string, name string, ar
 			return v.data, v.err
 		}
 	}
-	return nil, nil
+	return nil, fmt.Errorf("mock: unexpected CombinedOutput call: %s", key)
 }
 
 func (m *mockRunner) Run(_ context.Context, _ string, name string, args ...string) error {
@@ -412,7 +412,7 @@ func TestRunCoverageScan_WithMockRunner_GoTestFails(t *testing.T) {
 
 	runner := &mockRunner{
 		combinedOutputFunc: map[string]outputResult{
-			"go test": {err: fmt.Errorf("go test: exit status 1")},
+			"go test": {data: []byte("cover: no profiles found"), err: fmt.Errorf("go test: exit status 1")},
 		},
 	}
 
@@ -423,6 +423,9 @@ func TestRunCoverageScan_WithMockRunner_GoTestFails(t *testing.T) {
 	if !strings.Contains(res.stderr, "go test failed") {
 		t.Errorf("stderr should mention go test failure, got: %s", res.stderr)
 	}
+	if !strings.Contains(res.stderr, "cover: no profiles found") {
+		t.Errorf("stderr should contain captured output, got: %s", res.stderr)
+	}
 }
 
 func TestRunCoverageScan_WithMockRunner_CoverFuncFails(t *testing.T) {
@@ -431,7 +434,7 @@ func TestRunCoverageScan_WithMockRunner_CoverFuncFails(t *testing.T) {
 	runner := &mockRunner{
 		combinedOutputFunc: map[string]outputResult{
 			"go test":      {},
-			"cover -func=": {data: nil, err: fmt.Errorf("cover: no profile")},
+			"cover -func=": {data: []byte("cover: no profile data"), err: fmt.Errorf("cover: no profile")},
 		},
 	}
 
@@ -441,6 +444,9 @@ func TestRunCoverageScan_WithMockRunner_CoverFuncFails(t *testing.T) {
 	}
 	if !strings.Contains(res.stderr, "go tool cover -func") {
 		t.Errorf("stderr should mention cover -func, got: %s", res.stderr)
+	}
+	if !strings.Contains(res.stderr, "cover: no profile data") {
+		t.Errorf("stderr should contain captured output, got: %s", res.stderr)
 	}
 }
 
