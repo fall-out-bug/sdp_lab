@@ -204,9 +204,9 @@ func (p *Planner) Execute() (*BootstrapReport, error) {
 				report.Notes = append(report.Notes,
 					"Re-run with --no-verify to skip verification")
 
-					report.DurationMs = time.Since(start).Milliseconds()
-					return report, fmt.Errorf("verification failed: %d command(s) did not pass: %s",
-						len(failed), strings.Join(failed, ", "))
+				report.DurationMs = time.Since(start).Milliseconds()
+				return report, fmt.Errorf("verification failed: %d command(s) did not pass: %s",
+					len(failed), strings.Join(failed, ", "))
 			}
 		}
 	}
@@ -245,38 +245,45 @@ func (p *Planner) Status() (*BootstrapStatus, error) {
 	avail := p.Collector.DataSourcesAvailable()
 
 	expected := []struct {
-		path       string
-		name       string
-		isDir      bool
+		paths []string
+		name  string
+		isDir bool
 	}{
-		{"CLAUDE.md", "CLAUDE.md", false},
-		{"AGENTS.md", "AGENTS.md", false},
-		{".sdp/policies", ".sdp/policies", true},
-		{".claude/hooks", ".claude/hooks", true},
+		{[]string{"CLAUDE.md", DraftPath("CLAUDE.md")}, "CLAUDE.md", false},
+		{[]string{"AGENTS.md", DraftPath("AGENTS.md")}, "AGENTS.md", false},
+		{[]string{".sdp/policies"}, ".sdp/policies", true},
+		{[]string{".claude/hooks"}, ".claude/hooks", true},
 	}
 
 	// Only count .beads when beads is opted-in.
 	if p.Config.Beads {
 		expected = append(expected, struct {
-			path       string
-			name       string
-			isDir      bool
-		}{".beads", ".beads", true})
+			paths []string
+			name  string
+			isDir bool
+		}{[]string{".beads"}, ".beads", true})
 	}
 
 	var existingFiles, missingFiles []string
 	for _, exp := range expected {
-		full := filepath.Join(p.Config.RepoPath, exp.path)
-		present := false
-		if exp.isDir {
-			// For directory artifacts, only count if directory has files
-			present = dirHasFiles(full)
-		} else {
-			_, err := os.Stat(full)
-			present = err == nil
+		presentPath := ""
+		for _, candidate := range exp.paths {
+			full := filepath.Join(p.Config.RepoPath, candidate)
+			present := false
+			if exp.isDir {
+				// For directory artifacts, only count if directory has files.
+				present = dirHasFiles(full)
+			} else {
+				_, err := os.Stat(full)
+				present = err == nil
+			}
+			if present {
+				presentPath = candidate
+				break
+			}
 		}
-		if present {
-			existingFiles = append(existingFiles, exp.name)
+		if presentPath != "" {
+			existingFiles = append(existingFiles, presentPath)
 		} else {
 			missingFiles = append(missingFiles, exp.name)
 		}
@@ -300,9 +307,9 @@ func (p *Planner) Status() (*BootstrapStatus, error) {
 	var hasOtherRequired bool
 	for _, name := range existingFiles {
 		switch name {
-		case "CLAUDE.md":
+		case "CLAUDE.md", DraftPath("CLAUDE.md"):
 			hasClaudeMD = true
-		case "AGENTS.md", ".sdp/policies", ".claude/hooks", ".beads":
+		case "AGENTS.md", DraftPath("AGENTS.md"), ".sdp/policies", ".claude/hooks", ".beads":
 			hasOtherRequired = true
 		}
 	}
@@ -492,6 +499,7 @@ func (p *Planner) draftRelPath(relPath string) string {
 // wrapDraftContent prepends the DRAFT header and injects TODO markers
 // when UseDraft is enabled. Returns content unchanged when UseDraft is false.
 func (p *Planner) wrapDraftContent(content string) string {
+	content = StripDraftDecorations(content)
 	if !p.Config.ShouldUseDraft() {
 		return content
 	}
