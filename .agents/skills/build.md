@@ -26,6 +26,25 @@ Absorbs: @feature, @idea, @design, @ux, @vision, @oneshot, @prototype.
 
 Implementing features, creating designs, prototyping, user-facing work with acceptance criteria.
 
+## Session Bootstrap (ALWAYS FIRST — before any other step)
+
+**On fresh start:**
+1. `bd update <id> --claim` — claim the beads issue atomically
+2. Determine branch slug from feature ID: `f<N>-<slug>` (e.g. `f132-testing-intel`)
+3. `git worktree add .worktrees/<slug> -b <slug> main` — create isolated worktree
+4. `git submodule update --init --recursive` inside worktree
+5. Write `.sdp/checkpoint.json`:
+   ```json
+   {"skill":"build","feature_id":"<id>","branch":"<slug>","worktree":".worktrees/<slug>","step":"bootstrap","ts":"<iso>"}
+   ```
+6. All subsequent work runs inside the worktree. Never edit files in the main tree.
+
+**On compaction recovery** (user says "continue", "продолжай", or session restart with existing checkpoint):
+1. `cat .sdp/checkpoint.json` — read last state
+2. `bd list --status=in_progress` — verify claim is still held
+3. `cd <worktree>` — switch to the worktree
+4. Resume from `checkpoint.step` — do NOT restart from scratch
+
 ## Modes
 
 **idea:** Problem → design doc (no implementation). Output: design with requirements, approach, tradeoffs. For: "design a...", "how should we...", planning phase.
