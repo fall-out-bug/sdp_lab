@@ -217,6 +217,18 @@ func (p *DefaultPipeline) runSandboxStage(ctx context.Context) StageResult {
 		}
 	}
 
+	// If build failed, skip tests — they would always fail anyway.
+	if !buildRes.Success {
+		return StageResult{
+			Stage:    "sandbox",
+			Status:   "failed",
+			Error:    fmt.Sprintf("build failed (exit %d): %s", buildRes.ExitCode, buildRes.Stderr),
+			Output:   fmt.Sprintf("[%s] build:FAIL (exit %d)", p.config.Sandbox, buildRes.ExitCode),
+			Duration: time.Since(start),
+			Evidence: map[string]any{"build_ok": false, "tests_ok": false, "sandbox_type": p.config.Sandbox},
+		}
+	}
+
 	testRes, err := p.sandbox.Test(ctx, repo)
 	if err != nil {
 		return StageResult{

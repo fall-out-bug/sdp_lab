@@ -51,7 +51,7 @@ func runBuild(args []string) {
 
 	if *dryRun {
 		cfg := build.BuildConfig{
-			Idea:    "(dry-run, no idea required)",
+			Idea:    idea,
 			Sandbox: *sandbox,
 			Strict:  *strict,
 			Local:   *local,
@@ -75,7 +75,7 @@ func runBuild(args []string) {
 			fmt.Println("Build Plan (dry-run)")
 			fmt.Println("--------------------")
 			fmt.Printf("  Run ID:   %s\n", result.RunID)
-			fmt.Printf("  Idea:     (dry-run)\n")
+			fmt.Printf("  Idea:     %s\n", idea)
 			fmt.Printf("  Strict:   %v\n", *strict)
 			fmt.Printf("  Local:    %v\n", *local)
 			fmt.Printf("  Sandbox:  %s\n", *sandbox)
