@@ -23,7 +23,7 @@ func runBuild(args []string) {
 	output := fs.String("output", "", "output directory for evidence (default: .sdp/evidence/<run_id>)")
 	timeout := fs.Duration("timeout", 30*time.Minute, "maximum build duration (0 = no timeout)")
 
-	_ = fs.Parse(reorderFlagsFirst(args))
+	_ = fs.Parse(reorderFlagsFirst(args, fs))
 
 	validateFormat(*format)
 
@@ -156,14 +156,21 @@ func runBuild(args []string) {
 // reorderFlagsFirst moves flag arguments before positional arguments.
 // Go's flag package stops parsing at the first non-flag argument, so
 // `sdp build "idea" --dry-run` would not recognize --dry-run without this.
-func reorderFlagsFirst(args []string) []string {
+// It uses the FlagSet to distinguish bool flags (--strict) from flags that
+// take values (--sandbox docker), so it doesn't mistakenly grab the idea
+// string as a flag value.
+func reorderFlagsFirst(args []string, fs *flag.FlagSet) []string {
 	var flags, positional []string
 	for i := 0; i < len(args); i++ {
 		if strings.HasPrefix(args[i], "-") {
 			flags = append(flags, args[i])
-			// If flag uses separate value (--sandbox docker, not --sandbox=docker),
-			// grab the next arg as the flag value.
-			if !strings.Contains(args[i], "=") && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+			// If flag uses --flag=value form, no separate value needed.
+			if strings.Contains(args[i], "=") {
+				continue
+			}
+			// Check if this is a bool flag — bools don't consume the next arg.
+			name := strings.TrimLeft(args[i], "-")
+			if !isBuildBoolFlag(fs, name) && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
 				i++
 				flags = append(flags, args[i])
 			}
@@ -172,4 +179,16 @@ func reorderFlagsFirst(args []string) []string {
 		}
 	}
 	return append(flags, positional...)
+}
+
+// isBuildBoolFlag checks whether the named flag in the FlagSet is a boolean flag.
+func isBuildBoolFlag(fs *flag.FlagSet, name string) bool {
+	f := fs.Lookup(name)
+	if f == nil {
+		return false
+	}
+	if b, ok := f.Value.(interface{ IsBoolFlag() bool }); ok {
+		return b.IsBoolFlag()
+	}
+	return false
 }
