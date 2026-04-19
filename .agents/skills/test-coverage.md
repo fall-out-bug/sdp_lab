@@ -26,7 +26,7 @@ Tests must pass on first run without manual intervention.
 
 ## MUST DO
 
-1. **Scan before writing** — run `go test -coverprofile=/tmp/cov.out ./pkg/...` first.
+1. **Scan before writing** — run `go test -coverprofile=$(mktemp /tmp/sdp-cov-XXXX.out) ./pkg/...` first, or use `sdp coverage-scan --path=. --format=json` to get per-function gaps.
 2. **Read the function** — understand what each uncovered branch does before writing a test.
 3. **Test the behavior, not the implementation** — assert on outputs and side-effects.
 4. **Guard integration tests** — any test that calls an external binary or network must start with `if testing.Short() { t.Skip(...) }`.
@@ -44,8 +44,8 @@ Tests must pass on first run without manual intervention.
 ## Workflow
 
 ```
-1. go test -coverprofile=/tmp/cov.out ./target/...
-2. go tool cover -func=/tmp/cov.out | sort -t% -k1 -n
+1. go test -coverprofile=$(mktemp /tmp/sdp-cov-XXXX.out) ./target/...
+2. go tool cover -func=<coverprofile> | sort -t% -k1 -n
 3. Identify functions < 80% or == 0%
 4. Read function source (file:line from cover output)
 5. Write test cases for uncovered branches

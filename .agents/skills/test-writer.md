@@ -32,8 +32,8 @@ test stubs that pass on first run.
 
 ## MUST DO
 
-1. **Collect coverage** — run `go test -coverprofile=/tmp/cov.out ./target/...` to produce a binary coverage profile.
-2. **Convert to function-level report** — run `go tool cover -func=/tmp/cov.out` to get per-function coverage percentages. This is the format `ParseCoverGaps` expects.
+1. **Collect coverage** — run `go test -coverprofile=$(mktemp /tmp/sdp-cov-XXXX.out) ./target/...` to produce a binary coverage profile, or use `sdp coverage-scan --path=. --format=json` for a one-step scan.
+2. **Convert to function-level report** — run `go tool cover -func=<coverprofile>` to get per-function coverage percentages. This is the format `ParseCoverGaps` expects. When using `sdp coverage-scan`, this step is done automatically.
 3. **Parse gaps** — replicate the logic of `internal/testwriter.ParseCoverGaps(output, threshold)` with threshold 80.0 (default) to identify functions below the bar.
 4. **Read source** — for each gap, read the function body from the source file. Use AST-based extraction (see `ReadFuncSource`) to correctly handle braces inside string literals.
 5. **Generate tests** — for each uncovered function, produce table-driven test cases:
@@ -56,8 +56,9 @@ test stubs that pass on first run.
 ## Workflow
 
 ```
-1. go test -coverprofile=/tmp/cov.out ./target/...
-2. go tool cover -func=/tmp/cov.out
+1. go test -coverprofile=$(mktemp /tmp/sdp-cov-XXXX.out) ./target/...
+   — or: sdp coverage-scan --path=. --format=json
+2. go tool cover -func=<coverprofile>
 3. Parse output → identify functions < threshold (default 80%)
 4. For each uncovered function:
    a. Read source code (AST-based extraction for accurate boundaries)

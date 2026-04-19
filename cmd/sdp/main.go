@@ -68,7 +68,7 @@ func main() {
 	case "bootstrap":
 		runBootstrap(os.Args[2:])
 	case "coverage-scan":
-		runCoverageScan(os.Args[2:])
+		os.Exit(runCoverageScan(os.Args[2:]))
 	default:
 		usage()
 		os.Exit(2)
