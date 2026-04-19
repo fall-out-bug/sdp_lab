@@ -38,7 +38,7 @@ Retire the `sdp/` git submodule. Move all files that currently live in the submo
 
 ### New Model: Extra-Hop Publish
 
-1. **All files live natively in sdp_lab.** Prompts, schemas, hooks, agent definitions, and the `sdp-plugin` source code reside under their canonical paths in the monorepo. No symlinks, no submodule pointers. Note: `sdp-plugin` Go source code lives in the public `sdp` repo only; it is not a publish artifact managed by `sdp-publish.sh`.
+1. **All protocol artifacts live natively in sdp_lab.** Prompts, schemas, hooks, and agent definitions reside under their canonical paths in the monorepo. No symlinks, no submodule pointers. The `sdp-plugin` Go source code lives exclusively in the public `sdp` repo and is not managed by `sdp-publish.sh`.
 
 2. **Publishing is an explicit script.** `scripts/sdp-publish.sh` copies the relevant files from `sdp_lab` into a checkout of `fall-out-bug/sdp`, commits, and pushes. The script supports `--dry-run` for CI validation.
 

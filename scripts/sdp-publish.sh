@@ -71,7 +71,7 @@ Options:
   --dry-run          Show what would be copied without making changes
   --check            Compare sdp_lab and sdp repo for drift (exit 1 if different)
   --pr               Create a pull request after pushing
-  --target-dir PATH  Use an existing directory for the sdp repo (not deleted on exit)
+  --target-dir PATH  Clone the sdp repo into PATH/sdp/ (not auto-deleted on exit)
   --force            Allow git reset --hard in a dirty --target-dir checkout
   --help             Show this help message
 
@@ -303,8 +303,8 @@ do_publish() {
     cd "$sdp_root"
     # Check for uncommitted changes before resetting a user-supplied checkout
     if [[ -n "$TARGET_DIR" && "$FORCE_RESET" != true ]]; then
-      if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
-        log_error "Target directory has uncommitted changes. Use --force to override."
+      if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null || git ls-files --others --exclude-standard | head -1 | grep -q .; then
+        log_error "Target directory has uncommitted or untracked changes. Use --force to override."
         exit 1
       fi
     fi
