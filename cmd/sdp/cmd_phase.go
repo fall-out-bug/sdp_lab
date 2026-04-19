@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"sdp_dev/internal/delta"
@@ -15,9 +17,9 @@ func runPhase(args []string) {
 		fmt.Fprintln(os.Stderr, "usage: sdp phase <plan|review|eval> [flags]")
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "Phase commands:")
-		fmt.Fprintln(os.Stderr, "  sdp phase plan [--feature-id ID] [--ws-id ID] [--run-id ID] [--strict]")
-		fmt.Fprintln(os.Stderr, "  sdp phase review [--feature-id ID] [--ws-id ID] [--run-id ID] [--strict]")
-		fmt.Fprintln(os.Stderr, "  sdp phase eval [--feature-id ID] [--ws-id ID] [--run-id ID] [--strict]")
+		fmt.Fprintln(os.Stderr, "  sdp phase plan [--feature-id ID] [--evidence-path PATH] [--strict]")
+		fmt.Fprintln(os.Stderr, "  sdp phase review [--feature-id ID] [--evidence-path PATH] [--strict]")
+		fmt.Fprintln(os.Stderr, "  sdp phase eval [--feature-id ID] [--evidence-path PATH] [--strict]")
 		os.Exit(2)
 	}
 
@@ -36,10 +38,11 @@ func runPhase(args []string) {
 
 // phaseFlags holds common flags for phase commands.
 type phaseFlags struct {
-	featureID string
-	wsID      string
-	runID     string
-	strict    bool
+	featureID    string
+	wsID         string
+	runID        string
+	strict       bool
+	evidencePath string
 }
 
 // parsePhaseFlags parses common phase flags from args.
@@ -49,6 +52,7 @@ func parsePhaseFlags(fs *flag.FlagSet) *phaseFlags {
 	fs.StringVar(&f.wsID, "ws-id", "", "Workstream ID (optional)")
 	fs.StringVar(&f.runID, "run-id", "", "Run ID (auto-generated if not provided)")
 	fs.BoolVar(&f.strict, "strict", false, "Require evidence enforcement")
+	fs.StringVar(&f.evidencePath, "evidence-path", "", "Path to evidence JSON file (required in strict mode)")
 	return f
 }
 
@@ -57,6 +61,9 @@ func parsePhaseFlags(fs *flag.FlagSet) *phaseFlags {
 func validatePhaseFlags(f *phaseFlags, phaseName string) error {
 	if f.featureID == "" {
 		return fmt.Errorf("--feature-id is required for phase %s", phaseName)
+	}
+	if f.strict && f.evidencePath == "" {
+		return fmt.Errorf("--evidence-path is required when --strict is set")
 	}
 	return nil
 }
@@ -70,7 +77,6 @@ func generateRunID(runID string) string {
 }
 
 func runPhaseCommand(phase string, args []string, gateType gate.GateType, question string, options []string) {
-	// Stub: full integration pending (context loading from beads, delta file persistence, gate waiting).
 	fs := flag.NewFlagSet(fmt.Sprintf("phase %s", phase), flag.ExitOnError)
 	f := parsePhaseFlags(fs)
 	if err := fs.Parse(args); err != nil {
@@ -97,6 +103,9 @@ func runPhaseCommand(phase string, args []string, gateType gate.GateType, questi
 	}
 	fmt.Printf("   Run ID:   %s\n", runID)
 	fmt.Printf("   Strict:   %v\n", f.strict)
+	if f.evidencePath != "" {
+		fmt.Printf("   Evidence: %s\n", f.evidencePath)
+	}
 	fmt.Printf("\n")
 
 	g := &gate.Gate{
@@ -116,21 +125,98 @@ func runPhaseCommand(phase string, args []string, gateType gate.GateType, questi
 	fmt.Printf("   Question: %s\n", g.Question)
 	fmt.Printf("   Status:   %s\n", g.Status())
 
-	if !f.strict {
-		fmt.Printf("\nAuto-approving gate (non-strict mode)\n")
-		now := time.Now()
-		g.Answer = "approve"
-		g.Answerer = "sdp-phase"
-		g.ResolvedAt = &now
+	// Resolve gate with evidence enforcement
+	if f.strict {
+		// Strict mode: evidence-path is required (validated above), resolve with evidence
+		if err := g.ResolveWithEvidence("approve", "sdp-phase-strict", f.evidencePath); err != nil {
+			fmt.Fprintf(os.Stderr, "\nGate BLOCKED (strict mode): %v\n", err)
+			fmt.Fprintf(os.Stderr, "Evidence validation failed. Provide valid evidence via --evidence-path.\n")
+			os.Exit(1)
+		}
+		fmt.Printf("\nGate resolved (strict mode, evidence validated)\n")
 	} else {
-		fmt.Printf("\nGate: AWAITING (strict mode)\n")
-		fmt.Printf("   This gate must be resolved manually.\n")
-		fmt.Printf("   Review the delta artifact, then re-run without --strict to proceed.\n")
+		// Non-strict mode
+		if f.evidencePath != "" {
+			// Evidence provided: validate and resolve through proper path
+			if err := g.ResolveWithEvidence("approve", "sdp-phase-auto", f.evidencePath); err != nil {
+				fmt.Fprintf(os.Stderr, "\nWARNING: evidence validation failed: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Non-strict mode: auto-approving despite invalid evidence\n")
+				now := time.Now()
+				g.Answer = "approve"
+				g.Answerer = "sdp-phase-auto"
+				g.ResolvedAt = &now
+			} else {
+				fmt.Printf("\nAuto-approving gate (non-strict mode, evidence validated)\n")
+			}
+		} else {
+			// No evidence in non-strict mode: auto-approve with warning
+			fmt.Printf("\nWARNING: phase gate approved without evidence (non-strict mode)\n")
+			now := time.Now()
+			g.Answer = "approve"
+			g.Answerer = "sdp-phase-auto"
+			g.ResolvedAt = &now
+		}
 	}
 
-	fmt.Printf("\nTrace record: run-%s.json\n", runID)
+	// Persist delta artifact to .sdp/phases/<run_id>/<phase>.delta.md
+	phaseDir := filepath.Join(".sdp", "phases", runID)
+	if err := os.MkdirAll(phaseDir, 0o755); err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: failed to create phase directory: %v\n", err)
+	} else {
+		deltaPath := filepath.Join(phaseDir, phase+".delta.md")
+		if err := os.WriteFile(deltaPath, []byte(d.RenderMarkdown()), 0o644); err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: failed to write delta artifact: %v\n", err)
+		} else {
+			fmt.Printf("Delta artifact: %s\n", deltaPath)
+		}
+	}
+
+	// Write trace record to .sdp/phases/<run_id>/trace.json
+	writeTraceRecord(phaseDir, &traceRecord{
+		Phase:        phase,
+		FeatureID:    f.featureID,
+		WorkstreamID: f.wsID,
+		RunID:        runID,
+		Strict:       f.strict,
+		EvidencePath: f.evidencePath,
+		GateID:       g.ID,
+		Answer:       g.Answer,
+		Answerer:     g.Answerer,
+		Resolved:     g.ResolvedAt != nil,
+		Timestamp:    time.Now().UTC(),
+	})
+
+	fmt.Printf("\nTrace record: %s\n", filepath.Join(phaseDir, "trace.json"))
 
 	if g.IsBlocking() {
 		os.Exit(1)
+	}
+}
+
+// traceRecord is a minimal audit trace for a phase gate resolution.
+type traceRecord struct {
+	Phase        string    `json:"phase"`
+	FeatureID    string    `json:"feature_id"`
+	WorkstreamID string    `json:"ws_id,omitempty"`
+	RunID        string    `json:"run_id"`
+	Strict       bool      `json:"strict"`
+	EvidencePath string    `json:"evidence_path,omitempty"`
+	GateID       string    `json:"gate_id"`
+	Answer       string    `json:"answer,omitempty"`
+	Answerer     string    `json:"answerer,omitempty"`
+	Resolved     bool      `json:"resolved"`
+	Timestamp    time.Time `json:"timestamp"`
+}
+
+// writeTraceRecord writes a JSON trace record to the phase directory.
+func writeTraceRecord(dir string, rec *traceRecord) {
+	path := filepath.Join(dir, "trace.json")
+	data, err := json.MarshalIndent(rec, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: failed to marshal trace record: %v\n", err)
+		return
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: failed to write trace record: %v\n", err)
 	}
 }

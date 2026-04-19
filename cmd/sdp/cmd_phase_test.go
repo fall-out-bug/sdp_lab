@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -58,6 +60,16 @@ func TestPhaseFlagsParsing(t *testing.T) {
 				}
 			},
 		},
+		{
+			name:      "parse evidence-path",
+			args:      []string{"--feature-id", "F134", "--evidence-path", "/tmp/evidence.json"},
+			wantError: false,
+			checkFunc: func(t *testing.T, f *phaseFlags) {
+				if f.evidencePath != "/tmp/evidence.json" {
+					t.Errorf("Expected evidencePath /tmp/evidence.json, got %s", f.evidencePath)
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -76,7 +88,7 @@ func TestPhaseFlagsParsing(t *testing.T) {
 			os.Stderr = oldStderr
 
 			// Debug output to see what we got
-			t.Logf("Parsed flags: featureID=%q, wsID=%q, runID=%q, strict=%v", f.featureID, f.wsID, f.runID, f.strict)
+			t.Logf("Parsed flags: featureID=%q, wsID=%q, runID=%q, strict=%v, evidencePath=%q", f.featureID, f.wsID, f.runID, f.strict, f.evidencePath)
 
 			if (err != nil) != tt.wantError {
 				t.Errorf("parsePhaseFlags() error = %v, wantError %v", err, tt.wantError)
@@ -113,6 +125,25 @@ func TestValidatePhaseFlags(t *testing.T) {
 			},
 			phaseName: "plan",
 			wantErr:   true,
+		},
+		{
+			name: "strict without evidence-path fails",
+			flags: &phaseFlags{
+				featureID: "F134",
+				strict:    true,
+			},
+			phaseName: "plan",
+			wantErr:   true,
+		},
+		{
+			name: "strict with evidence-path passes",
+			flags: &phaseFlags{
+				featureID:    "F134",
+				strict:       true,
+				evidencePath: "/tmp/evidence.json",
+			},
+			phaseName: "plan",
+			wantErr:   false,
 		},
 	}
 
@@ -296,9 +327,9 @@ func TestDeltaCreation(t *testing.T) {
 // TestGateStatus tests gate status logic.
 func TestGateStatus(t *testing.T) {
 	tests := []struct {
-		name     string
-		setup    func(*gate.Gate)
-		wantStatus string
+		name         string
+		setup        func(*gate.Gate)
+		wantStatus   string
 		wantBlocking bool
 	}{
 		{
@@ -306,7 +337,7 @@ func TestGateStatus(t *testing.T) {
 			setup: func(g *gate.Gate) {
 				// Default state is pending
 			},
-			wantStatus: "pending",
+			wantStatus:   "pending",
 			wantBlocking: true,
 		},
 		{
@@ -317,7 +348,7 @@ func TestGateStatus(t *testing.T) {
 				g.Answerer = "test"
 				g.ResolvedAt = &now
 			},
-			wantStatus: "resolved",
+			wantStatus:   "resolved",
 			wantBlocking: false,
 		},
 	}
@@ -341,6 +372,148 @@ func TestGateStatus(t *testing.T) {
 				t.Errorf("Expected blocking %v, got %v", tt.wantBlocking, blocking)
 			}
 		})
+	}
+}
+
+// TestResolveWithEvidence tests gate resolution with evidence.
+func TestResolveWithEvidence(t *testing.T) {
+	// Create a temporary evidence file
+	tmpDir := t.TempDir()
+
+	// Valid evidence for plan gate
+	validPlanEvidence := map[string]interface{}{
+		"test_coverage":     0.9,
+		"design_checklist":  "done",
+	}
+	validPlanData, _ := json.Marshal(validPlanEvidence)
+	validPlanPath := filepath.Join(tmpDir, "plan-evidence.json")
+	os.WriteFile(validPlanPath, validPlanData, 0o644)
+
+	// Invalid evidence (missing required keys)
+	invalidEvidence := map[string]interface{}{
+		"some_key": "some_value",
+	}
+	invalidData, _ := json.Marshal(invalidEvidence)
+	invalidPath := filepath.Join(tmpDir, "invalid-evidence.json")
+	os.WriteFile(invalidPath, invalidData, 0o644)
+
+	tests := []struct {
+		name          string
+		gateType      gate.GateType
+		answer        string
+		answerer      string
+		evidencePath  string
+		wantErr       bool
+		wantResolved  bool
+	}{
+		{
+			name:         "plan gate with valid evidence",
+			gateType:     gate.GateTypePlan,
+			answer:       "approve",
+			answerer:     "sdp-phase-strict",
+			evidencePath: validPlanPath,
+			wantErr:      false,
+			wantResolved: true,
+		},
+		{
+			name:         "plan gate with invalid evidence schema",
+			gateType:     gate.GateTypePlan,
+			answer:       "approve",
+			answerer:     "sdp-phase-strict",
+			evidencePath: invalidPath,
+			wantErr:      true,
+			wantResolved: false,
+		},
+		{
+			name:         "plan gate without evidence fails",
+			gateType:     gate.GateTypePlan,
+			answer:       "approve",
+			answerer:     "sdp-phase-strict",
+			evidencePath: "",
+			wantErr:      true,
+			wantResolved: false,
+		},
+		{
+			name:         "manual gate without evidence succeeds",
+			gateType:     gate.GateTypeManual,
+			answer:       "approve",
+			answerer:     "sdp-phase-auto",
+			evidencePath: "",
+			wantErr:      false,
+			wantResolved: true,
+		},
+		{
+			name:         "nonexistent evidence file fails",
+			gateType:     gate.GateTypePlan,
+			answer:       "approve",
+			answerer:     "sdp-phase-strict",
+			evidencePath: filepath.Join(tmpDir, "nonexistent.json"),
+			wantErr:      true,
+			wantResolved: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := &gate.Gate{
+				ID:        "test-gate",
+				Question:  "Test question",
+				Type:      tt.gateType,
+				CreatedAt: time.Now(),
+			}
+
+			err := g.ResolveWithEvidence(tt.answer, tt.answerer, tt.evidencePath)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ResolveWithEvidence() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if (g.ResolvedAt != nil) != tt.wantResolved {
+				t.Errorf("Expected resolved=%v, got resolved=%v", tt.wantResolved, g.ResolvedAt != nil)
+			}
+		})
+	}
+}
+
+// TestTraceRecord tests that trace records are written correctly.
+func TestTraceRecord(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	rec := &traceRecord{
+		Phase:        "plan",
+		FeatureID:    "F134",
+		RunID:        "test-run",
+		Strict:       false,
+		EvidencePath: "",
+		GateID:       "plan-F134-test-run",
+		Answer:       "approve",
+		Answerer:     "sdp-phase-auto",
+		Resolved:     true,
+		Timestamp:    time.Now().UTC(),
+	}
+
+	writeTraceRecord(tmpDir, rec)
+
+	tracePath := filepath.Join(tmpDir, "trace.json")
+	data, err := os.ReadFile(tracePath)
+	if err != nil {
+		t.Fatalf("Failed to read trace file: %v", err)
+	}
+
+	var loaded traceRecord
+	if err := json.Unmarshal(data, &loaded); err != nil {
+		t.Fatalf("Failed to parse trace JSON: %v", err)
+	}
+
+	if loaded.Phase != "plan" {
+		t.Errorf("Expected phase 'plan', got %q", loaded.Phase)
+	}
+	if loaded.FeatureID != "F134" {
+		t.Errorf("Expected featureID 'F134', got %q", loaded.FeatureID)
+	}
+	if !loaded.Resolved {
+		t.Error("Expected resolved=true")
+	}
+	if loaded.Answer != "approve" {
+		t.Errorf("Expected answer 'approve', got %q", loaded.Answer)
 	}
 }
 

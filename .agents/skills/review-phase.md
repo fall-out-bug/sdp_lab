@@ -23,7 +23,12 @@ Execute the Review phase: verify implementation against plan, check evidence enf
 - Load plan delta from previous phase
 - Verify implementation matches plan artifacts
 - Check evidence enforcement (F134-03)
-- Emit review delta with findings
+- Emit review delta: `sdp phase review --feature-id <F> --evidence-path <path>`
+  - `--evidence-path` points to a JSON file with keys: `spec_review_verdict`, `code_review_verdict`
+  - `--strict` requires evidence and blocks on validation failure
+  - Without `--strict`, the gate auto-approves (non-strict mode) but prints a warning if evidence is missing
+- Delta artifact persisted to `.sdp/phases/<run_id>/review.delta.md`
+- Trace record written to `.sdp/phases/<run_id>/trace.json`
 - Wait for human approval before proceeding
 - Record review decision rationale
 

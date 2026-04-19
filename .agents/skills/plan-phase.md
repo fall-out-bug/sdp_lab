@@ -22,7 +22,12 @@ Execute the Plan phase: analyze requirements, design approach, emit plan delta a
 ## MUST DO
 - Load feature context from beads issue and workstream files
 - Analyze existing codebase to inform plan
-- Emit plan delta artifact: `sdp phase plan --feature-id <F> --strict`
+- Emit plan delta artifact: `sdp phase plan --feature-id <F> --evidence-path <path>`
+  - `--evidence-path` points to a JSON file with keys: `test_coverage`, `design_checklist`
+  - `--strict` requires evidence and blocks on validation failure
+  - Without `--strict`, the gate auto-approves (non-strict mode) but prints a warning if evidence is missing
+- Delta artifact persisted to `.sdp/phases/<run_id>/plan.delta.md`
+- Trace record written to `.sdp/phases/<run_id>/trace.json`
 - Wait for human approval before proceeding
 - Record plan decision rationale
 

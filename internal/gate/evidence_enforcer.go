@@ -28,7 +28,7 @@ func ValidateEvidenceSchema(gateType GateType, evidencePath string) error {
 	}
 	var evidence map[string]interface{}
 	if err := json.Unmarshal(data, &evidence); err != nil {
-		return &InvalidEvidenceError{Path: evidencePath}
+		return &InvalidEvidenceError{Path: evidencePath, Err: err}
 	}
 	required, ok := RequiredEvidenceKeys[gateType]
 	if !ok {
