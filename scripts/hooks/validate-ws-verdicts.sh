@@ -4,7 +4,7 @@
 # CWD = project root (set by RunHooks).
 set -e
 if [ ! -f sdp/schema/ws-verdict.schema.json ]; then
-  echo "ws-verdict-validate: schema not found (sdp submodule?)" >&2
+  echo "ws-verdict-validate: schema not found" >&2
   exit 1
 fi
 if ! command -v go >/dev/null 2>&1; then

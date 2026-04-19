@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Local wrapper: docker build + docker run for protocol E2E
 # Usage: GLM_API_KEY=... ./ci/run-protocol-e2e.sh
-# Uses sdp/ci/ when run from sdp_dev (has submodule); otherwise ci/ in sdp repo
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# sdp/ is now a native directory (submodule retired in F128)
 if [ -f "$REPO_ROOT/sdp/ci/Dockerfile.protocol-e2e" ]; then
   DOCKERFILE="$REPO_ROOT/sdp/ci/Dockerfile.protocol-e2e"
   BUILD_ARGS="--build-arg SDP_PLUGIN_PATH=sdp/sdp-plugin"
