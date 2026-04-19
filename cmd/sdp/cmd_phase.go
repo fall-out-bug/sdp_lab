@@ -90,14 +90,17 @@ func runPhaseCommand(phase string, args []string, gateType gate.GateType, questi
 
 	runID := generateRunID(f.runID)
 
-	// Check for an existing gate.json — if the gate is already resolved,
-	// report the resolution and exit cleanly instead of overwriting.
+	// Check for an existing gate.json — if the gate is already resolved
+	// AND matches the current phase + feature, report resolution and exit.
+	// Mismatched gates (wrong phase or feature for the same run-id) are ignored.
 	phaseDir := filepath.Join(".sdp", "phases", runID)
 	existingGatePath := filepath.Join(phaseDir, "gate.json")
+	expectedGateID := fmt.Sprintf("%s-%s-%s", phase, f.featureID, runID)
 	if data, err := os.ReadFile(existingGatePath); err == nil {
 		var existing gate.Gate
 		if err := json.Unmarshal(data, &existing); err == nil {
-			if existing.ResolvedAt != nil {
+			gateMatch := existing.Type == gateType && existing.ID == expectedGateID
+			if gateMatch && existing.ResolvedAt != nil {
 				fmt.Printf("Phase: %s (run %s)\n", phase, runID)
 				fmt.Printf("   Gate:     %s\n", existing.ID)
 				fmt.Printf("   Status:   resolved\n")
@@ -106,12 +109,16 @@ func runPhaseCommand(phase string, args []string, gateType gate.GateType, questi
 				fmt.Printf("   Resolved: %s\n", existing.ResolvedAt.Format(time.RFC3339))
 				return
 			}
-			// Gate exists but is still pending — re-report AWAITING status.
-			fmt.Printf("Phase: %s (run %s)\n", phase, runID)
-			fmt.Printf("   Gate:   %s\n", existing.ID)
-			fmt.Printf("   Status: AWAITING (awaiting human approval)\n")
-			fmt.Printf("   To approve: edit %s (set answer, answerer, resolved_at)\n", existingGatePath)
-			os.Exit(1)
+			if gateMatch && existing.ResolvedAt == nil {
+				// Gate exists for same phase+feature but is still pending.
+				fmt.Printf("Phase: %s (run %s)\n", phase, runID)
+				fmt.Printf("   Gate:   %s\n", existing.ID)
+				fmt.Printf("   Status: AWAITING (awaiting human approval)\n")
+				fmt.Printf("   To approve: edit %s (set answer, answerer, resolved_at)\n", existingGatePath)
+				os.Exit(1)
+			}
+			// Gate mismatch: existing gate is for a different phase or feature.
+			// Fall through to create a new gate for the current phase+feature.
 		}
 	}
 

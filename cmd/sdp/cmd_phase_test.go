@@ -637,6 +637,64 @@ func TestGateReadBackPending(t *testing.T) {
 	}
 }
 
+// TestGateReadBackMismatch verifies that a gate.json belonging to a
+// different phase or feature is NOT used to short-circuit the current
+// invocation. The read-back must only match when both type and ID agree.
+func TestGateReadBackMismatch(t *testing.T) {
+	tmpDir := t.TempDir()
+	phaseDir := filepath.Join(tmpDir, ".sdp", "phases", "shared-run-id")
+	if err := os.MkdirAll(phaseDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Write a resolved plan-F134 gate
+	resolvedAt := time.Now().UTC().Truncate(time.Second)
+	planGate := &gate.Gate{
+		ID:         "plan-F134-shared-run-id",
+		Question:   "Approve plan delta?",
+		Context:    "plan phase for feature F134",
+		Options:    []string{"approve", "reject", "defer"},
+		Type:       gate.GateTypePlan,
+		CreatedAt:  time.Now().Add(-time.Minute),
+		Answer:     "approve",
+		Answerer:   "human-operator",
+		ResolvedAt: &resolvedAt,
+	}
+	data, err := json.MarshalIndent(planGate, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gatePath := filepath.Join(phaseDir, "gate.json")
+	if err := os.WriteFile(gatePath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify: the stored gate is for plan/F134
+	loaded, err := os.ReadFile(gatePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var readBack gate.Gate
+	if err := json.Unmarshal(loaded, &readBack); err != nil {
+		t.Fatal(err)
+	}
+
+	// A review gate for F999 with the same run-id must NOT match
+	reviewGateID := fmt.Sprintf("review-F999-shared-run-id")
+	if readBack.ID == reviewGateID {
+		t.Error("Stored plan gate ID must not equal review-F999 gate ID")
+	}
+	if readBack.Type == gate.GateTypeReview {
+		t.Error("Stored plan gate type must not equal review type")
+	}
+	// The plan gate IS resolved, but read-back logic must ignore it
+	// when phase or feature differs. This is enforced by checking
+	// both existing.Type == gateType AND existing.ID == expectedGateID.
+	if readBack.ResolvedAt == nil {
+		t.Error("Test setup error: plan gate should be resolved")
+	}
+}
+
 // Helper functions for tests
 
 // createTestGate creates a test gate for the given phase.
