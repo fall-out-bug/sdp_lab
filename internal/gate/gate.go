@@ -4,10 +4,7 @@
 package gate
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
-	"os"
 	"time"
 )
 
@@ -108,19 +105,9 @@ func (g *Gate) ResolveWithEvidence(answer, answerer, evidencePath string) error 
 			return &RequireEvidenceError{GateType: g.Type}
 		}
 
-		// Check file existence
-		if _, err := os.Stat(evidencePath); os.IsNotExist(err) {
-			return &EvidenceNotFoundError{Path: evidencePath}
-		}
-
-		// Validate JSON content
-		data, err := os.ReadFile(evidencePath)
-		if err != nil {
-			return fmt.Errorf("failed to read evidence file: %w", err)
-		}
-
-		if !json.Valid(data) {
-			return &InvalidEvidenceError{Path: evidencePath, Err: errors.New("invalid JSON")}
+		// Validate evidence schema (existence + JSON + required keys)
+		if err := ValidateEvidenceSchema(g.Type, evidencePath); err != nil {
+			return err
 		}
 
 		// Store evidence path for phase gates

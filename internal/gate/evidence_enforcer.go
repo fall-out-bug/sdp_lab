@@ -10,7 +10,7 @@ import (
 var RequiredEvidenceKeys = map[GateType][]string{
 	GateTypePlan:   {"test_coverage", "design_checklist"},
 	GateTypeReview: {"spec_review_verdict", "code_review_verdict"},
-	GateTypeEval:   {"go_test", "go_vet"},
+	GateTypeEval:   {"go_test", "go_vet", "protocol_check", "smoke"},
 }
 
 // ValidateEvidenceSchema checks that the evidence JSON file contains

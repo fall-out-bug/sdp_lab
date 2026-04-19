@@ -200,17 +200,17 @@ func TestGate_ResolveWithEvidence_PhaseGate_ValidEvidence(t *testing.T) {
 		{
 			name:     "plan gate with valid JSON",
 			gateType: GateTypePlan,
-			content:  map[string]interface{}{"phase": "plan", "approved": true},
+			content:  map[string]interface{}{"test_coverage": 0.9, "design_checklist": "done", "phase": "plan"},
 		},
 		{
 			name:     "review gate with valid JSON",
 			gateType: GateTypeReview,
-			content:  map[string]interface{}{"review": "pass", "notes": "looks good"},
+			content:  map[string]interface{}{"spec_review_verdict": "pass", "code_review_verdict": "pass", "notes": "looks good"},
 		},
 		{
 			name:     "eval gate with valid JSON",
 			gateType: GateTypeEval,
-			content:  map[string]interface{}{"score": 95, "metrics": []int{1, 2, 3}},
+			content:  map[string]interface{}{"go_test": "pass", "go_vet": "clean", "protocol_check": "pass", "smoke": "pass"},
 		},
 	}
 
@@ -438,8 +438,10 @@ func TestValidateEvidenceSchema_AllKeysPresent(t *testing.T) {
 			name:     "eval gate valid",
 			gateType: GateTypeEval,
 			content: map[string]interface{}{
-				"go_test": "pass",
-				"go_vet":  "clean",
+				"go_test":        "pass",
+				"go_vet":         "clean",
+				"protocol_check": "pass",
+				"smoke":          "pass",
 			},
 		},
 	}
