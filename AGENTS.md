@@ -2,7 +2,7 @@
 
 > **Sync:** Sync only genuinely shared agent conventions (placement, "продолжай", command tree) to `sdp/CLAUDE.md`. Repo topology, branch policy, beads workflow, and private-lab process stay local to `sdp_lab`. See [docs/archive/plans/2026-02-25-agents-claude-sync-rules.md](docs/archive/plans/2026-02-25-agents-claude-sync-rules.md).
 >
-> **Submodule retired (F128):** All `sdp/` files are now native to `sdp_lab`. Publishing to the public `sdp` repo is via `scripts/sdp-publish.sh`. See [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md) for the publish workflow.
+> **Submodule retired (F128):** Protocol artifacts live at native paths: `prompts/`, `schema/`, `templates/`, `scripts/hooks/`, `.claude/hooks/`, `.claude/patterns/`. The `sdp/` directory is an **optional local checkout** of the public sdp repo (https://github.com/fall-out-bug/sdp). It is gitignored and NOT required for normal development. To get it locally: `git clone https://github.com/fall-out-bug/sdp.git sdp` (optional). Publishing to the public repo is via `scripts/sdp-publish.sh`. See [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md) for the publish workflow.
 
 ## Что такое SDP
 
@@ -32,7 +32,7 @@ SDP — AI-управляемая платформа полного цикла �
 2. Какая одна `feature` / `workstream` / `beads issue` владеет этой задачей?
 3. Какой doc — canonical для этого вопроса (не исторический план)?
 4. Это Discovery (исследование, council, spec) или Delivery (реализация)?
-5. Если меняешь файлы в `sdp/` — нужно ли публиковать в публичный repo? (см. [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md))
+5. Если меняешь protocol artifacts (prompts, schema, hooks) — нужно ли публиковать в публичный repo? (см. [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md))
 
 Минимальный first pass:
 
@@ -60,13 +60,14 @@ This project has **two repos** with different roles:
 
 ### Single Repo: All Paths Are sdp_lab
 
-All files — including `sdp/` directory contents — are native to `sdp_lab`. There is no submodule, no separate git, no pointer updates.
+All native files are in `sdp_lab`. The `sdp/` directory is an **optional local checkout** of the public sdp repo (https://github.com/fall-out-bug/sdp) -- it is gitignored and not tracked by sdp_lab git.
 
 | Path prefix | Repo | Commit | CI | PR |
 |-------------|------|--------|-----|-----|
-| All paths (root, `internal/`, `cmd/`, `docs/`, `sdp/`) | sdp_lab | `git add/commit/push` in root | `.github/workflows/ci.yml` | sdp_lab |
+| All native paths (root, `internal/`, `cmd/`, `docs/`, `prompts/`, `schema/`, `templates/`) | sdp_lab | `git add/commit/push` in root | `.github/workflows/ci.yml` | sdp_lab |
+| `sdp/` (optional local checkout) | public sdp repo | Local only in sdp_lab; push separately to sdp repo | sdp repo CI | sdp repo |
 
-**When editing files in `sdp/`:** Commit normally in `sdp_lab`. If the change should be published to the public `sdp` repo, run `scripts/sdp-publish.sh` after merge to `main`.
+**Protocol artifacts** live at native paths: `prompts/`, `schema/`, `templates/`, `scripts/hooks/`, `.claude/hooks/`, `.claude/patterns/`. Changes to these are committed normally in sdp_lab and published to the public sdp repo via `scripts/sdp-publish.sh` when needed.
 
 **Ambiguous task?** Ask: "should this be published to the public sdp repo?" — See [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md).
 
@@ -288,17 +289,17 @@ docs/topic                  # documentation-only changes
 |---|---|---|
 | Go code (`internal/`, `cmd/`) | sdp_lab only | F004 reconciler rewrite |
 | Lab binaries (orchestrate, ci-loop, evidence, guard, eval) | sdp_lab `cmd/` | `make build-sdp-orchestrate` |
-| Protocol CLI (`sdp quality`, `sdp apply`, etc.) | sdp_lab `sdp/sdp-plugin/` | Published to sdp repo via publish script |
+| Protocol CLI (`sdp quality`, `sdp apply`, etc.) | Public sdp repo (`sdp-plugin/`) | Published to sdp repo via publish script |
 | K8s manifests (`deploy/`) | sdp_lab only | F009 beads-bridge CronJob |
 | Tests | sdp_lab only | F004 integration test |
 | Roadmap, workstreams, plans | sdp_lab only | Any planning work |
 | JSON Schema for evidence | sdp_lab (create and edit) → publish to sdp repo when ready | F001 |
 | Prompts, hooks | sdp_lab (develop) → publish to sdp repo when ready | Rare |
-| README, Manifesto | sdp_lab `sdp/` directory → publish when changed | Rare |
+| README, Manifesto | sdp_lab native → publish to public sdp repo when changed | Rare |
 
 **Boundary:** See [docs/architecture/REPO-BOUNDARY.md](docs/architecture/REPO-BOUNDARY.md) for component → publish mapping.
 
-**If unsure:** it goes in sdp_lab. Files in `sdp/` are protocol artifacts that may need publishing to the public repo.
+**If unsure:** it goes in sdp_lab. Protocol artifacts at native paths (`prompts/`, `schema/`, `templates/`, `.claude/hooks/`) may need publishing to the public repo via `scripts/sdp-publish.sh`.
 
 ### Artifact Placement
 

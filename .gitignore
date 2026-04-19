@@ -80,7 +80,8 @@ ORIG_HEAD
 sdp_bin
 sdp-beads-bridge
 
-# Main CLI binary (rebuilt from source)
+# sdp/ — optional local checkout of public sdp repo (https://github.com/fall-out-bug/sdp)
+# Protocol artifacts live at native paths: prompts/, schema/, templates/, .claude/hooks/
 /sdp
 
 # Git worktrees

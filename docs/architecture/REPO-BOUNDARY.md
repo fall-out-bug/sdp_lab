@@ -24,9 +24,9 @@
 | **sdp-guard** | `bin/sdp-guard` | No -- lab only |
 | **sdp-eval** | `bin/sdp-eval` | No -- lab only |
 | **sdp** (quality, apply, build, verify) | `sdp` CLI | Yes -- via `scripts/sdp-publish.sh` |
-| **Schemas** | `sdp/schema/*.json` | Yes |
-| **Prompts/Skills** | `sdp/prompts/skills/*` | Yes |
-| **Hooks** | `sdp/hooks/` | Yes -- native directory in sdp_lab |
+| **Schemas** | `schema/*.json` (native) | Yes |
+| **Prompts/Skills** | `prompts/skills/*` (native) | Yes |
+| **Hooks** | `.claude/hooks/`, `scripts/hooks/` (native) | Yes |
 
 ---
 
@@ -42,9 +42,14 @@ make build-sdp-evidence      # -> bin/sdp-evidence
 ```
 
 **sdp (protocol CLI):**
+
+> **Note:** The `sdp/` directory is gitignored in sdp_lab. To build the sdp CLI locally, first clone the public repo:
+> ```bash
+> git clone https://github.com/fall-out-bug/sdp.git sdp
+> ```
+
 ```bash
 cd sdp/sdp-plugin && go build -o sdp ./cmd/sdp   # -> sdp CLI (quality, apply, build, verify)
-# Note: sdp/ is gitignored in sdp_lab. Build locally if cloned, or use the public sdp repo.
 ```
 
 ---
