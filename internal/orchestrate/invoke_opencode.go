@@ -154,9 +154,29 @@ func RunBuildPhase(ctx context.Context, projectRoot, featureID, wsID string, inv
 	return "", nil
 }
 
+// ReviewPhaseResult captures the structured outcome of a review phase.
+type ReviewPhaseResult struct {
+	Approved bool
+	Output   string
+	Verdict  string // "APPROVED", "CHANGES_REQUESTED", "PARTIALLY_APPROVED", "ESCALATED"
+}
+
 // RunReviewPhase invokes the LLM to execute @review for a feature.
 // If invoker is nil, uses DefaultLLMInvoker.
 func RunReviewPhase(ctx context.Context, dir, featureID string, invoker LLMInvoker) (approved bool, output string, err error) {
+	res, err := runReviewPhase(ctx, dir, featureID, invoker)
+	if err != nil {
+		return false, "", err
+	}
+	return res.Approved, res.Output, nil
+}
+
+// RunReviewPhaseDetailed returns the full structured review result including verdict.
+func RunReviewPhaseDetailed(ctx context.Context, dir, featureID string, invoker LLMInvoker) (*ReviewPhaseResult, error) {
+	return runReviewPhase(ctx, dir, featureID, invoker)
+}
+
+func runReviewPhase(ctx context.Context, dir, featureID string, invoker LLMInvoker) (*ReviewPhaseResult, error) {
 	if invoker == nil {
 		invoker = GetDefaultInvoker()
 	}
@@ -167,10 +187,39 @@ func RunReviewPhase(ctx context.Context, dir, featureID string, invoker LLMInvok
 		Prompt:  prompt,
 	})
 	if err != nil {
-		return false, "", err
+		return nil, err
 	}
-	approved = res.ExitCode == 0 && strings.Contains(strings.ToUpper(res.Output), "APPROVED")
-	return approved, res.Output, nil
+	upper := strings.ToUpper(res.Output)
+	verdict := "CHANGES_REQUESTED"
+	approved := false
+	switch {
+	case res.ExitCode == 0 && containsExactVerdict(upper, "APPROVED") && !containsExactVerdict(upper, "PARTIALLY_APPROVED"):
+		verdict = "APPROVED"
+		approved = true
+	case containsExactVerdict(upper, "PARTIALLY_APPROVED"):
+		verdict = "PARTIALLY_APPROVED"
+	case containsExactVerdict(upper, "ESCALATED"):
+		verdict = "ESCALATED"
+	}
+	return &ReviewPhaseResult{Approved: approved, Output: res.Output, Verdict: verdict}, nil
+}
+
+// containsExactVerdict checks for a verdict keyword as a standalone word,
+// avoiding false positives like "APPROVED" matching inside "PARTIALLY_APPROVED".
+func containsExactVerdict(output, verdict string) bool {
+	idx := strings.Index(output, verdict)
+	if idx == -1 {
+		return false
+	}
+	// Check word boundary before
+	if idx > 0 {
+		before := output[idx-1]
+		if before != ' ' && before != '\n' && before != '\t' && before != '"' && before != ':' && before != '\'' {
+			// Could be part of PARTIALLY_APPROVED — skip
+			return false
+		}
+	}
+	return true
 }
 
 func RunQAPhase(ctx context.Context, dir, featureID string, invoker LLMInvoker) (passed bool, output string, err error) {

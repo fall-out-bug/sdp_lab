@@ -155,29 +155,39 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				return fmt.Errorf("hydrate for review: %w", err)
 			}
 			phaseCtx, cancel := context.WithTimeout(ctx, reviewPhaseTimeout)
-			approved, reviewOutput, err := RunReviewPhase(phaseCtx, projectRoot, action.Feature, nil)
+			reviewResult, reviewErr := RunReviewPhaseDetailed(phaseCtx, projectRoot, action.Feature, nil)
 			cancel()
-			if err != nil || !approved {
-				findingID, findingErr := EmitReviewFailureFinding(ctx, projectRoot, cp, reviewOutput, err)
+			if reviewErr != nil || !reviewResult.Approved {
+				var reviewOutput string
+				if reviewResult != nil {
+					reviewOutput = reviewResult.Output
+				}
+				findingID, findingErr := EmitReviewFailureFinding(ctx, projectRoot, cp, reviewOutput, reviewErr)
 				if findingErr != nil {
 					slog.Warn("review finding emission failed", "error", findingErr, "feature", action.Feature)
 				}
-				if _, verdictErr := WriteReviewVerdict(projectRoot, cp, buildChangesRequestedReviewVerdict(cp, firstNonEmpty(strings.TrimSpace(reviewOutput), "review not approved"), findingID)); verdictErr != nil {
+				verdict := buildChangesRequestedReviewVerdict(cp, firstNonEmpty(strings.TrimSpace(reviewOutput), "review not approved"), findingID)
+				if reviewResult != nil && reviewResult.Verdict == "PARTIALLY_APPROVED" {
+					verdict.Verdict = "PARTIALLY_APPROVED"
+				} else if reviewResult != nil && reviewResult.Verdict == "ESCALATED" {
+					verdict.Verdict = "ESCALATED"
+				}
+				if _, verdictErr := WriteReviewVerdict(projectRoot, cp, verdict); verdictErr != nil {
 					slog.Warn("review verdict write failed", "error", verdictErr, "feature", action.Feature)
 				}
 				if saveErr := SaveCheckpoint(cpPath, cp); saveErr != nil {
 					slog.Error("failed to save checkpoint after review failure", "error", saveErr)
 				}
-				slog.Error("opencode review failed", "error", err, "approved", approved, "feature", action.Feature)
-				if err != nil {
-					return fmt.Errorf("review phase: %w", err)
+				slog.Error("opencode review failed", "error", reviewErr, "verdict", reviewResult.Verdict, "feature", action.Feature)
+				if reviewErr != nil {
+					return fmt.Errorf("review phase: %w", reviewErr)
 				}
-				return fmt.Errorf("opencode review not approved")
+				return fmt.Errorf("opencode review %s", reviewResult.Verdict)
 			}
 			if err := RunHooks(ctx, projectRoot, "review", "post", hookEnv, func(msg string) { slog.Info("hook", "msg", msg) }); err != nil {
 				return failf("error: post-review hook: %v", err)
 			}
-			if _, verdictErr := WriteReviewVerdict(projectRoot, cp, buildApprovedReviewVerdict(cp, strings.TrimSpace(reviewOutput))); verdictErr != nil {
+			if _, verdictErr := WriteReviewVerdict(projectRoot, cp, buildApprovedReviewVerdict(cp, strings.TrimSpace(reviewResult.Output))); verdictErr != nil {
 				return failf("error: write review verdict: %v", verdictErr)
 			}
 			if report, err := EnforceContractGate(projectRoot, featureID); err != nil {
