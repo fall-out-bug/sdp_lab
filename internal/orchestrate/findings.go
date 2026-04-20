@@ -33,14 +33,19 @@ func EmitQAFailureFinding(ctx context.Context, projectRoot string, cp *Checkpoin
 }
 
 type ReviewVerdict struct {
-	Feature     string                    `json:"feature"`
-	Verdict     string                    `json:"verdict"`
-	Timestamp   string                    `json:"timestamp"`
-	Round       int                       `json:"round"`
-	Reviewers   map[string]ReviewerResult `json:"reviewers"`
-	FindingIDs  []string                  `json:"finding_ids,omitempty"`
-	BlockingIDs []string                  `json:"blocking_ids,omitempty"`
-	Summary     string                    `json:"summary,omitempty"`
+	Feature             string                    `json:"feature"`
+	Verdict             string                    `json:"verdict"`
+	Timestamp           string                    `json:"timestamp"`
+	Round               int                       `json:"round"`
+	Reviewers           map[string]ReviewerResult `json:"reviewers"`
+	FindingIDs          []string                  `json:"finding_ids,omitempty"`
+	BlockingIDs         []string                  `json:"blocking_ids,omitempty"`
+	Summary             string                    `json:"summary,omitempty"`
+	OverrideReason      string                    `json:"override_reason,omitempty"`
+	PartialFailingRoles []string                  `json:"partial_failing_roles,omitempty"`
+	EscalationIssue     string                    `json:"escalation_issue,omitempty"`
+	P0Count             int                       `json:"p0_count,omitempty"`
+	P1Count             int                       `json:"p1_count,omitempty"`
 }
 
 type ReviewerResult struct {
@@ -109,6 +114,45 @@ func buildBlockedReviewVerdict(cp *Checkpoint, summary string, findingIDs []stri
 	return buildReviewVerdictWithFindings(cp, "CHANGES_REQUESTED", "BLOCKED", summary, findingIDs)
 }
 
+func buildOverrideReviewVerdict(cp *Checkpoint, summary, overrideReason string) ReviewVerdict {
+	return ReviewVerdict{
+		Feature:        checkpointFeatureID(cp),
+		Verdict:        "APPROVED",
+		Timestamp:      time.Now().UTC().Format(time.RFC3339),
+		Round:          checkpointReviewRound(cp),
+		Reviewers:      reviewerResults("PASS", nil, summary),
+		Summary:        strings.TrimSpace(summary),
+		OverrideReason: strings.TrimSpace(overrideReason),
+	}
+}
+
+func buildPartialReviewVerdict(cp *Checkpoint, summary string, failingRoles []string, findingIDs []string) ReviewVerdict {
+	ids := nonEmptyStrings(findingIDs...)
+	return ReviewVerdict{
+		Feature:             checkpointFeatureID(cp),
+		Verdict:             "PARTIALLY_APPROVED",
+		Timestamp:           time.Now().UTC().Format(time.RFC3339),
+		Round:               checkpointReviewRound(cp),
+		Reviewers:           reviewerPartialResults(failingRoles, ids, summary),
+		FindingIDs:          ids,
+		BlockingIDs:         ids,
+		Summary:             strings.TrimSpace(summary),
+		PartialFailingRoles: nonEmptyStrings(failingRoles...),
+	}
+}
+
+func buildEscalatedReviewVerdict(cp *Checkpoint, summary, escalationIssue string) ReviewVerdict {
+	return ReviewVerdict{
+		Feature:         checkpointFeatureID(cp),
+		Verdict:         "ESCALATED",
+		Timestamp:       time.Now().UTC().Format(time.RFC3339),
+		Round:           checkpointReviewRound(cp),
+		Reviewers:       reviewerResults("FAIL", nil, summary),
+		Summary:         strings.TrimSpace(summary),
+		EscalationIssue: strings.TrimSpace(escalationIssue),
+	}
+}
+
 func buildReviewVerdictWithFindings(cp *Checkpoint, verdict, reviewerVerdict, summary string, findingIDs []string) ReviewVerdict {
 	ids := nonEmptyStrings(findingIDs...)
 	return ReviewVerdict{
@@ -163,6 +207,23 @@ func reviewerResults(verdict string, findings []string, notes string) map[string
 	results := make(map[string]ReviewerResult, len(roles))
 	for _, role := range roles {
 		results[role] = ReviewerResult{Verdict: verdict, Findings: append([]string(nil), findings...), Notes: strings.TrimSpace(notes)}
+	}
+	return results
+}
+
+func reviewerPartialResults(failingRoles []string, findings []string, notes string) map[string]ReviewerResult {
+	roles := []string{"qa", "security", "devops", "sre", "techlead", "docs", "promptops"}
+	failSet := make(map[string]bool, len(failingRoles))
+	for _, r := range failingRoles {
+		failSet[strings.ToLower(strings.TrimSpace(r))] = true
+	}
+	results := make(map[string]ReviewerResult, len(roles))
+	for _, role := range roles {
+		if failSet[role] {
+			results[role] = ReviewerResult{Verdict: "FAIL", Findings: append([]string(nil), findings...), Notes: strings.TrimSpace(notes)}
+		} else {
+			results[role] = ReviewerResult{Verdict: "PASS", Findings: nil, Notes: strings.TrimSpace(notes)}
+		}
 	}
 	return results
 }
