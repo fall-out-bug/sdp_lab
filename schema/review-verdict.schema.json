@@ -21,9 +21,11 @@
       "type": "string",
       "enum": [
         "APPROVED",
-        "CHANGES_REQUESTED"
+        "CHANGES_REQUESTED",
+        "PARTIALLY_APPROVED",
+        "ESCALATED"
       ],
-      "description": "Overall verdict. APPROVED only if all reviewers PASS."
+      "description": "Overall verdict. APPROVED only if all reviewers PASS. PARTIALLY_APPROVED: some reviewers passed, issues filed for failing. ESCALATED: deferred to human review."
     },
     "round": {
       "type": "integer",
@@ -135,6 +137,21 @@
     "summary": {
       "type": "string",
       "description": "Brief human-readable summary of the review"
+    },
+    "override_reason": {
+      "type": "string",
+      "description": "Justification when verdict overridden via --override"
+    },
+    "partial_failing_roles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Roles that failed in PARTIALLY_APPROVED verdict"
+    },
+    "escalation_issue": {
+      "type": "string",
+      "description": "Beads issue ID for human escalation"
     }
   },
   "$defs": {
