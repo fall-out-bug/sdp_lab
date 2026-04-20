@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"sdp_dev/internal/harnesscfg"
 )
 
 var (
@@ -267,6 +269,69 @@ func TestBootstrapConventions_WithEvidence(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "RULE-") {
 		t.Errorf("expected at least one rule in adapter output, got:\n%s", string(data))
+	}
+}
+
+// --- Draft filename derivation tests ---
+
+// TestDraftFilename_StandardPath verifies standard ConfigFile paths.
+func TestDraftFilename_StandardPath(t *testing.T) {
+	tests := []struct {
+		config   string
+		expected string
+	}{
+		{"CLAUDE.md", "DRAFT-CLAUDE-rules.md"},
+		{".cursorrules", "DRAFT-cursorrules-rules.md"},
+		{".cursor/rules.md", "DRAFT-.cursor/rules-rules.md"},
+		{"", "DRAFT-harness-rules.md"},
+	}
+	for _, tc := range tests {
+		h := &harnesscfg.Harness{ConfigFile: tc.config}
+		got := draftFilenameFromHarness(h)
+		if got != tc.expected {
+			t.Errorf("draftFilenameFromHarness(%q) = %q, want %q", tc.config, got, tc.expected)
+		}
+	}
+	// Nil harness should return default.
+	if got := draftFilenameFromHarness(nil); got != "DRAFT-harness-rules.md" {
+		t.Errorf("draftFilenameFromHarness(nil) = %q, want DRAFT-harness-rules.md", got)
+	}
+}
+
+// TestBootstrapArtifactName_Dotfile verifies bootstrapRulesArtifactName handles dotfiles.
+func TestBootstrapArtifactName_Dotfile(t *testing.T) {
+	tests := []struct {
+		config   string
+		draft    bool
+		expected string
+	}{
+		{"CLAUDE.md", false, "CLAUDE-rules.md"},
+		{"CLAUDE.md", true, "DRAFT-CLAUDE-rules.md"},
+		{".cursorrules", false, "cursorrules-rules.md"},
+		{".cursorrules", true, "DRAFT-cursorrules-rules.md"},
+	}
+	for _, tc := range tests {
+		h := &harnesscfg.Harness{ConfigFile: tc.config}
+		got := bootstrapRulesArtifactName(h, tc.draft)
+		if got != tc.expected {
+			t.Errorf("bootstrapRulesArtifactName(%q, draft=%v) = %q, want %q",
+				tc.config, tc.draft, got, tc.expected)
+		}
+	}
+}
+
+// TestRulesUpdate_ExplicitManifestError verifies that providing an explicit
+// --manifest path that doesn't exist causes a fatal error (not silent fallback).
+func TestRulesUpdate_ExplicitManifestError(t *testing.T) {
+	bin := buildRulesBinary(t)
+	repoDir := setupRulesTestRepo(t)
+
+	out := runCmd(bin, "rules", "update", "--manifest", "/nonexistent/manifest.json", repoDir)
+	if out.err == nil {
+		t.Fatal("expected non-zero exit for explicit --manifest with missing file")
+	}
+	if !strings.Contains(out.combined(), "error") {
+		t.Errorf("expected error message, got: %s", out.combined())
 	}
 }
 

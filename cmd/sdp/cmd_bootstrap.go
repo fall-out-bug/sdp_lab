@@ -336,28 +336,45 @@ func appendBrownfieldArtifacts(report *bootstrap.BootstrapReport, repoPath strin
 }
 
 // readExistingRules reads existing rule files from the repo for brownfield comparison.
+// Reads all enabled harness config files from the manifest, falling back to
+// AGENTS.md and CLAUDE.md when no manifest is available.
 func readExistingRules(repoPath string) map[string]string {
 	existing := make(map[string]string)
-	// Try reading sections from AGENTS.md if it exists.
-	agentsPath := filepath.Join(repoPath, "AGENTS.md")
-	data, err := os.ReadFile(agentsPath)
-	if err != nil {
-		return existing
-	}
-	// Simple section extraction: split by ## headers.
-	section := "header"
-	var content strings.Builder
-	for _, line := range strings.Split(string(data), "\n") {
-		if strings.HasPrefix(line, "## ") {
-			existing[section] = content.String()
-			section = strings.TrimSpace(strings.TrimPrefix(line, "## "))
-			content.Reset()
-		} else {
-			content.WriteString(line)
-			content.WriteByte('\n')
+
+	// Determine which files to read from manifest.
+	manifest := loadManifestOrDefault("", repoPath)
+	var files []string
+	for _, h := range manifest.Harnesses {
+		if h.ConfigFile != "" {
+			files = append(files, h.ConfigFile)
 		}
 	}
-	existing[section] = content.String()
+	// Fallback: read conventional files if no manifest harnesses found.
+	if len(files) == 0 {
+		files = []string{"AGENTS.md", "CLAUDE.md"}
+	}
+
+	for _, f := range files {
+		data, err := os.ReadFile(filepath.Join(repoPath, f))
+		if err != nil {
+			continue
+		}
+		// Simple section extraction: split by ## headers.
+		prefix := f + ":"
+		section := prefix + "header"
+		var content strings.Builder
+		for _, line := range strings.Split(string(data), "\n") {
+			if strings.HasPrefix(line, "## ") {
+				existing[section] = content.String()
+				section = prefix + strings.TrimSpace(strings.TrimPrefix(line, "## "))
+				content.Reset()
+			} else {
+				content.WriteString(line)
+				content.WriteByte('\n')
+			}
+		}
+		existing[section] = content.String()
+	}
 	return existing
 }
 
@@ -392,16 +409,26 @@ func writeDraftArtifact(report *bootstrap.BootstrapReport, repoPath, basename, c
 		Message: fmt.Sprintf("%d bytes", len(content)),
 	})
 }
-// bootstrap conventions. Uses ConfigFile from manifest to derive a rules-specific
-// filename (inserts "-rules" before the extension). When useDraft is true,
-// files get a DRAFT- prefix.
+// bootstrapRulesArtifactName derives a rules-specific filename from the manifest
+// harness ConfigFile. Handles dotfiles like .cursorrules correctly.
+// When useDraft is true, files get a DRAFT- prefix.
 func bootstrapRulesArtifactName(h *harnesscfg.Harness, useDraft bool) string {
 	var base string
 	if h != nil && h.ConfigFile != "" {
-		// Derive rules filename from config file: CLAUDE.md -> CLAUDE-RULES.md
 		ext := filepath.Ext(h.ConfigFile)
 		nameWithoutExt := strings.TrimSuffix(h.ConfigFile, ext)
-		base = nameWithoutExt + "-rules" + ext
+		if nameWithoutExt == "" {
+			// Dotfile like .cursorrules: strip dot, append -rules.md
+			b := strings.TrimPrefix(filepath.Base(h.ConfigFile), ".")
+			dir := filepath.Dir(h.ConfigFile)
+			if dir == "." {
+				base = b + "-rules.md"
+			} else {
+				base = dir + "/" + b + "-rules.md"
+			}
+		} else {
+			base = nameWithoutExt + "-rules" + ext
+		}
 	} else {
 		base = "harness-rules.md"
 	}

@@ -200,13 +200,33 @@ func manifestHarness(m *harnesscfg.Manifest, name string) *harnesscfg.Harness {
 // draftFilenameFromHarness derives a DRAFT output filename from the manifest harness.
 // Uses ConfigFile from manifest to derive a rules-specific filename, otherwise falls
 // back to a default.
+//   CLAUDE.md          -> DRAFT-CLAUDE-rules.md
+//   .cursorrules       -> DRAFT-cursorrules-rules.md
+//   .cursor/rules.md   -> DRAFT-.cursor/rules-rules.md
 func draftFilenameFromHarness(h *harnesscfg.Harness) string {
 	if h != nil && h.ConfigFile != "" {
-		// Derive DRAFT rules filename preserving directory component.
-		// .cursor/rules.md -> DRAFT-.cursor/rules-rules.md
-		// CLAUDE.md -> DRAFT-CLAUDE-RULES.md
-		ext := filepath.Ext(h.ConfigFile)
-		nameWithoutExt := strings.TrimSuffix(h.ConfigFile, ext)
+		cf := h.ConfigFile
+		ext := filepath.Ext(cf)
+		nameWithoutExt := strings.TrimSuffix(cf, ext)
+		// Handle dotfiles like .cursorrules (no base name before the dot).
+		// filepath.Ext returns ".cursorrules" for ".cursorrules", leaving
+		// nameWithoutExt empty. Detect this and strip the leading dot.
+		if nameWithoutExt == "" && strings.HasPrefix(ext, ".") && strings.Contains(ext[1:], ".") {
+			// Rare case: file like "some.backup.md" — normal path works fine.
+			// Only enters here for pure dotfiles like ".cursorrules".
+		}
+		// For dotfiles where TrimSuffix empties the name part (e.g. ".cursorrules"),
+		// treat the whole segment as the name with extension ".md" appended.
+		if nameWithoutExt == "" {
+			base := filepath.Base(cf)
+			// Strip leading dot for the artifact name.
+			base = strings.TrimPrefix(base, ".")
+			dir := filepath.Dir(cf)
+			if dir == "." {
+				return "DRAFT-" + base + "-rules.md"
+			}
+			return "DRAFT-" + dir + "/" + base + "-rules.md"
+		}
 		return "DRAFT-" + nameWithoutExt + "-rules" + ext
 	}
 	// Fallback default
@@ -214,20 +234,30 @@ func draftFilenameFromHarness(h *harnesscfg.Harness) string {
 }
 
 // loadManifestOrDefault loads a manifest from the given file path, or creates
-// a default manifest for the repo. Returns nil-safe default on any error.
+// a default manifest for the repo. When manifestFile is explicitly provided
+// (non-empty), read/parse errors are fatal. Otherwise, errors fall back to defaults.
 func loadManifestOrDefault(manifestFile, repoPath string) *harnesscfg.Manifest {
 	path := manifestFile
-	if path == "" {
+	explicit := path != ""
+	if !explicit {
 		path = filepath.Join(repoPath, ".sdp", "harness-config.json")
 	}
 
 	data, err := os.ReadFile(path)
 	if err != nil {
+		if explicit {
+			fmt.Fprintf(os.Stderr, "error: cannot read manifest %q: %v\n", path, err)
+			os.Exit(1)
+		}
 		return defaultManifest()
 	}
 
 	var m harnesscfg.Manifest
 	if err := json.Unmarshal(data, &m); err != nil {
+		if explicit {
+			fmt.Fprintf(os.Stderr, "error: manifest %q parse error: %v\n", path, err)
+			os.Exit(1)
+		}
 		fmt.Fprintf(os.Stderr, "warning: manifest parse error: %v; using defaults\n", err)
 		return defaultManifest()
 	}
