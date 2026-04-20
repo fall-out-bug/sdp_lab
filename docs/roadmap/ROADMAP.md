@@ -1,7 +1,7 @@
 # sdp_lab Roadmap — Agent Platform + Trust Lane
 
 > **Status: CANONICAL (active roadmap)** — this is the current source of truth. Other files in `docs/roadmap/` are supporting context; see [docs/roadmap/README.md](README.md).
-> **Updated:** 2026-04-19
+> **Updated:** 2026-04-20
 > **Repo naming:** GitHub repo is `sdp_lab`; historical workstreams and bead IDs may still use `sdp_dev` as a legacy label for the same codebase
 > **Direction:** Reusable agent platform (`kernel`, `adapters`, `augmentation`, `evals`) with standards-based trust and evidence as a secondary lane
 
@@ -71,6 +71,10 @@ The remaining toolkit work is therefore smaller and more concrete:
 - `F125` — finish the intent-routed UX migration and close the review-readiness/doc-sweep tail
 
 This is the current next lane after the P0 UX/runtime work and remains the canonical plan for "unknown repo -> AI-native workspace".
+
+A new repo-native collaboration-memory pilot is now shaped and queued:
+
+- `F136` — Peer Memory Foundation (H1). Actor-aware episodic memory for humans + agents with repo-scoped local storage, FTS5 retrieval, CLI writes, agentloop auto-capture, and MCP read resources. H2/H3 stay parked in beads until the 2026-07-06 gate.
 
 Backlog triage 2026-04-18 (active backlog features are tracked in beads for consistency — search with `bd search FNNN`):
 
