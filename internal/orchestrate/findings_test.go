@@ -126,7 +126,10 @@ func TestBuildBlockedVerdictsCarryBlockingIDs(t *testing.T) {
 
 func TestBuildOverrideReviewVerdict(t *testing.T) {
 	cp := &Checkpoint{FeatureID: "F098", Review: &ReviewStatus{Iteration: 4}}
-	v := buildOverrideReviewVerdict(cp, "P2 findings only", "doc-only findings, no code risk")
+	v, err := buildOverrideReviewVerdict(cp, "P2 findings only", "doc-only findings, no code risk")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if v.Verdict != "APPROVED" {
 		t.Fatalf("expected APPROVED, got %q", v.Verdict)
 	}
@@ -143,6 +146,21 @@ func TestBuildOverrideReviewVerdict(t *testing.T) {
 		if v.Reviewers[role].Verdict != "PASS" {
 			t.Fatalf("expected reviewer %s PASS, got %q", role, v.Reviewers[role].Verdict)
 		}
+	}
+}
+
+func TestBuildOverrideReviewVerdictRejectsEmpty(t *testing.T) {
+	cp := &Checkpoint{FeatureID: "F098", Review: &ReviewStatus{Iteration: 4}}
+	_, err := buildOverrideReviewVerdict(cp, "summary", "")
+	if err == nil {
+		t.Fatal("expected error for empty override reason")
+	}
+	if err != ErrEmptyOverrideReason {
+		t.Fatalf("expected ErrEmptyOverrideReason, got: %v", err)
+	}
+	_, err = buildOverrideReviewVerdict(cp, "summary", "   ")
+	if err == nil {
+		t.Fatal("expected error for whitespace-only override reason")
 	}
 }
 
@@ -179,6 +197,10 @@ func TestBuildPartialReviewVerdict(t *testing.T) {
 	}
 	if len(v.FindingIDs) != 2 {
 		t.Fatalf("expected 2 total finding ids, got %d", len(v.FindingIDs))
+	}
+	// Verify deterministic ordering
+	if v.FindingIDs[0] > v.FindingIDs[1] {
+		t.Fatalf("expected sorted finding ids, got %v", v.FindingIDs)
 	}
 }
 

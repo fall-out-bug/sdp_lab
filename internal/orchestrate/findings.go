@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -128,7 +129,10 @@ func ValidateOverrideReason(reason string) error {
 	return nil
 }
 
-func buildOverrideReviewVerdict(cp *Checkpoint, summary, overrideReason string) ReviewVerdict {
+func buildOverrideReviewVerdict(cp *Checkpoint, summary, overrideReason string) (ReviewVerdict, error) {
+	if err := ValidateOverrideReason(overrideReason); err != nil {
+		return ReviewVerdict{}, err
+	}
 	return ReviewVerdict{
 		Feature:        checkpointFeatureID(cp),
 		Verdict:        "APPROVED",
@@ -137,7 +141,7 @@ func buildOverrideReviewVerdict(cp *Checkpoint, summary, overrideReason string) 
 		Reviewers:      reviewerResults("PASS", nil, summary),
 		Summary:        strings.TrimSpace(summary),
 		OverrideReason: strings.TrimSpace(overrideReason),
-	}
+	}, nil
 }
 
 func buildPartialReviewVerdict(cp *Checkpoint, summary string, failingRoles []string, roleFindings map[string][]string) ReviewVerdict {
@@ -152,6 +156,7 @@ func buildPartialReviewVerdict(cp *Checkpoint, summary string, failingRoles []st
 			}
 		}
 	}
+	sort.Strings(allIDs)
 	return ReviewVerdict{
 		Feature:             checkpointFeatureID(cp),
 		Verdict:             "PARTIALLY_APPROVED",
