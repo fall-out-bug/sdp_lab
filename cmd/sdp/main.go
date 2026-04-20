@@ -75,6 +75,8 @@ func main() {
 		os.Exit(runCoverageScan(os.Args[2:]))
 	case "phase":
 		runPhase(os.Args[2:])
+	case "reset":
+		runReset(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -155,6 +157,9 @@ func usage() {
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Build commands:")
 	fmt.Fprintln(os.Stderr, "  sdp build \"<idea>\" [--strict] [--local] [--sandbox=<type>] [--dry-run] [--format json|text] [--output DIR] [--timeout DURATION]")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Reset commands:")
+	fmt.Fprintln(os.Stderr, "  sdp reset --feature F042 [--dry-run] [--yes]  Reset checkpoint for a feature")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Coverage commands:")
 	fmt.Fprintln(os.Stderr, "  sdp coverage-scan [--path DIR] [--threshold PCT] [--format text|json] [--skip-test] [--package PATTERN] [--coverprofile FILE]")
