@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"sdp_dev/internal/orchestrate"
+	"sdp_dev/internal/sdputil"
 )
 
 func runReset(args []string) {
@@ -27,6 +28,12 @@ func runReset(args []string) {
 	featureID := strings.ToUpper(*feature)
 	if !strings.HasPrefix(featureID, "F") {
 		featureID = "F" + featureID
+	}
+
+	// Validate feature ID format to prevent path traversal (e.g. --feature '001/../../etc')
+	if err := sdputil.ValidateFeatureID(featureID); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
 	}
 
 	wd, err := os.Getwd()
