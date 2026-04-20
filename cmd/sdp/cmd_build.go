@@ -105,10 +105,19 @@ func runBuild(args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("build [%s] starting\n", runID[:8])
-	fmt.Printf("  idea: %s\n", idea)
-	fmt.Printf("  strict: %v | local: %v | sandbox: %s\n", *strict, *local, *sandbox)
-	fmt.Println()
+	// Progress logs go to stderr so --format json produces clean JSON on stdout.
+	logf := func(msg string, args ...any) {
+		if *format == "json" {
+			fmt.Fprintf(os.Stderr, msg, args...)
+		} else {
+			fmt.Printf(msg, args...)
+		}
+	}
+
+	logf("build [%s] starting\n", runID[:8])
+	logf("  idea: %s\n", idea)
+	logf("  strict: %v | local: %v | sandbox: %s\n", *strict, *local, *sandbox)
+	logf("\n")
 
 	ctx := context.Background()
 	if *timeout > 0 {
@@ -123,22 +132,22 @@ func runBuild(args []string) {
 		os.Exit(1)
 	}
 
-	// Print stage trace.
+	// Print stage trace to logf (stderr in json mode).
 	for _, s := range result.Stages {
 		status := s.Status
 		if status == "" {
 			status = "unknown"
 		}
-		fmt.Printf("  %-10s %s (%s)\n", s.Stage, status, s.Duration.Round(1e6))
+		logf("  %-10s %s (%s)\n", s.Stage, status, s.Duration.Round(1e6))
 		if s.Output != "" {
-			fmt.Printf("             %s\n", s.Output)
+			logf("             %s\n", s.Output)
 		}
 		if s.Error != "" {
-			fmt.Printf("             error: %s\n", s.Error)
+			logf("             error: %s\n", s.Error)
 		}
 	}
 
-	fmt.Println()
+	logf("\n")
 
 	if *format == "json" {
 		printJSON(result)

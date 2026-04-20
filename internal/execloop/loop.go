@@ -76,6 +76,9 @@ func NewDefaultLoop(cfg Config) (*DefaultLoop, error) {
 
 // Run executes the self-testing loop.
 func (l *DefaultLoop) Run(ctx context.Context) (*LoopResult, error) {
+	if l.cfg.Sandbox != nil {
+		defer l.cfg.Sandbox.Cleanup()
+	}
 	start := time.Now()
 	result := &LoopResult{
 		RunID: l.cfg.RunID,
@@ -231,17 +234,18 @@ func (l *DefaultLoop) runAttempt(ctx context.Context, attempt int) AttemptResult
 	return ar
 }
 
-// detectScopeCreep checks if files outside ScopeFiles were modified.
-// Returns (true, diffOutput, nil) if scope creep is detected.
+// detectScopeCreep checks if files outside ScopeFiles were modified,
+// staged, or created (untracked). Returns (true, diffOutput, nil) if
+// scope creep is detected.
 func (l *DefaultLoop) detectScopeCreep(repo string) (bool, string, error) {
-	cmd := exec.Command("git", "diff", "--name-only")
+	// Use --porcelain to capture staged, unstaged, and untracked files.
+	cmd := exec.Command("git", "status", "--porcelain", "--untracked-files=all")
 	cmd.Dir = repo
 	out, err := cmd.Output()
 	if err != nil {
-		return false, "", fmt.Errorf("git diff --name-only: %w", err)
+		return false, "", fmt.Errorf("git status --porcelain: %w", err)
 	}
 
-	changedFiles := strings.Split(strings.TrimSpace(string(out)), "\n")
 	// Build a set of allowed files for O(1) lookup.
 	allowed := make(map[string]struct{}, len(l.cfg.ScopeFiles))
 	for _, f := range l.cfg.ScopeFiles {
@@ -249,9 +253,22 @@ func (l *DefaultLoop) detectScopeCreep(repo string) (bool, string, error) {
 	}
 
 	var outside []string
-	for _, f := range changedFiles {
-		f = strings.TrimSpace(f)
-		if f == "" {
+	for _, line := range strings.Split(string(out), "\n") {
+		if line == "" {
+			continue
+		}
+		// porcelain format: "XY filename" — strip the 2-char status + space.
+		// Do NOT TrimSpace: XY may be " M" (space+M) for unstaged changes.
+		if len(line) <= 3 {
+			continue
+		}
+		f := line[3:]
+		// Renames show as "XY old -> new" — extract the new name.
+		if idx := strings.Index(line, "->"); idx >= 0 {
+			f = strings.TrimSpace(line[idx+2:])
+		}
+		// Skip evidence artifacts created by the loop itself.
+		if strings.HasPrefix(f, ".sdp/") {
 			continue
 		}
 		if _, ok := allowed[f]; !ok {

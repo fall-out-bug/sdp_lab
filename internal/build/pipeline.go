@@ -159,6 +159,7 @@ func (p *DefaultPipeline) Run(ctx context.Context) (*BuildResult, error) {
 		return result, nil
 	}
 
+	result.EndedAt = time.Now().UTC()
 	result.Summary = p.buildSummary(result)
 	return result, nil
 }

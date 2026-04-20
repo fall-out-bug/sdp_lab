@@ -30,6 +30,7 @@ type Finding struct {
 // ScanResult holds the complete scan result.
 type ScanResult struct {
 	FilesScanned int       `json:"files_scanned"`
+	FilesSkipped int       `json:"files_skipped"` // Files that could not be scanned
 	Findings     []Finding `json:"findings"`
 	Duration     string    `json:"duration"`
 	Status       string    `json:"status"` // "clean" or "findings"
@@ -220,6 +221,9 @@ func (s *Scanner) ScanDir(ctx context.Context, dir string) (*ScanResult, error) 
 	start := time.Now()
 	result := &ScanResult{}
 
+	// Reset per-scan ignores to prevent state leakage across calls.
+	s.localIgnores = nil
+
 	// Load project-local ignore file if present.
 	s.loadIgnoreFile(dir)
 
@@ -254,7 +258,8 @@ func (s *Scanner) ScanDir(ctx context.Context, dir string) (*ScanResult, error) 
 
 		findings, err := s.ScanFile(ctx, path)
 		if err != nil {
-			// Skip files we cannot read but do not abort the entire scan.
+			// Skip files we cannot read but track them.
+			result.FilesSkipped++
 			return nil
 		}
 
@@ -267,9 +272,16 @@ func (s *Scanner) ScanDir(ctx context.Context, dir string) (*ScanResult, error) 
 	}
 
 	result.Duration = time.Since(start).Round(time.Millisecond).String()
-	if len(result.Findings) > 0 {
+	switch {
+	case err == context.Canceled || err == context.DeadlineExceeded:
+		result.Status = "partial"
+	case result.FilesSkipped > 0 && len(result.Findings) > 0:
 		result.Status = "findings"
-	} else {
+	case result.FilesSkipped > 0:
+		result.Status = "partial"
+	case len(result.Findings) > 0:
+		result.Status = "findings"
+	default:
 		result.Status = "clean"
 	}
 	return result, nil
@@ -307,6 +319,8 @@ func (s *Scanner) ScanReader(ctx context.Context, r io.Reader, filename string) 
 	detected := s.rules
 
 	scanner := bufio.NewScanner(r)
+	// Increase buffer to handle long lines (default 64KB may miss secrets in minified files).
+	scanner.Buffer(make([]byte, 0, 256*1024), 256*1024)
 	lineNum := 0
 	for scanner.Scan() {
 		lineNum++
