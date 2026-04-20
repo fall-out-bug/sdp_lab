@@ -1,0 +1,9 @@
+{
+  "setup_commands_unix": [
+    "echo 'Worktree ready (SDP project)'"
+  ],
+  "setup_commands_windows": [
+    "echo Worktree ready (SDP project)"
+  ],
+  "description": "Template for SDP project worktree setup."
+}

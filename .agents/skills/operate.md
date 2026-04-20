@@ -37,6 +37,14 @@ Session management:
 - resume: Restore work state from checkpoint, continue from last position
 - background: Execute plan steps in background, report progress
 
+**Compaction recovery protocol** — triggers when: user says "continue", "продолжай", "Continue from where", or session restarts without clear context:
+1. `cat .sdp/checkpoint.json` — if exists, read: skill, feature_id, branch, worktree, step
+2. `bd list --status=in_progress` — find all claimed issues
+3. `git worktree list` — verify worktrees still exist
+4. `git status` in worktree — check dirty state
+5. Resume from checkpoint.step without asking the user "what were we doing"
+6. If checkpoint missing: reconstruct from in_progress issues + git worktree list
+
 ## Routing Rules
 
 Mode based on: (1) Context: PR merged?→deploy, CI red?→triage, insights gathered?→plan.
@@ -72,6 +80,13 @@ Mode based on: (1) Context: PR merged?→deploy, CI red?→triage, insights gath
 @deploy → deploy mode, @ci-triage → triage mode, @plan → plan mode (NOT standalone planning session)
 
 **@guard:** Pre-deployment quality gate. All tests pass, no critical security findings, docs updated, rollback plan exists. Automatic via hooks — NOT a user-facing skill.
+
+## Deploy Gate Pre-Flight
+
+Before any deploy:
+- All phase gates (plan, review, eval) must be resolved
+- Run `sdp phase eval --feature-id <F>` to verify all gates passed
+- Deploy is BLOCKED if any phase gate is unresolved
 
 ## Artifacts Created
 

@@ -17,18 +17,22 @@ func RenderDoctorControl(report *control.DoctorReport) string {
 
 	warnings := 0
 	errors := 0
+	infos := 0
 	byCheck := map[string]int{}
 	for _, check := range issues {
 		byCheck[check.CheckID]++
-		if check.Severity == "error" {
+		switch check.Severity {
+		case "error":
 			errors++
-		} else {
+		case "info":
+			infos++
+		default:
 			warnings++
 		}
 	}
 
 	b.WriteString("DOCTOR CONTROL\n")
-	fmt.Fprintf(&b, "Checks: %d total | %d passed | %d issues\n", report.TotalChecks, report.Passed, report.Failed)
+	fmt.Fprintf(&b, "Checks: %d total | %d passed | %d issues | %d info\n", report.TotalChecks, report.Passed, report.Failed, report.Infos)
 
 	if len(issues) == 0 {
 		b.WriteString("Status: healthy\n")
@@ -36,8 +40,8 @@ func RenderDoctorControl(report *control.DoctorReport) string {
 		return strings.TrimSpace(b.String())
 	}
 
-	fmt.Fprintf(&b, "Status: action needed (%d errors, %d warnings)\n", errors, warnings)
-	b.WriteString("Next action: fix errors first, then clear the oldest/stalest warnings.\n")
+	fmt.Fprintf(&b, "Status: action needed (%d errors, %d warnings, %d info)\n", errors, warnings, infos)
+	b.WriteString("Next action: fix errors first, then clear warnings; info items are advisory.\n")
 	b.WriteString("\nIssue groups:\n")
 	for _, line := range summarizeCheckCounts(byCheck) {
 		b.WriteString("- " + line + "\n")
@@ -85,7 +89,10 @@ func severityRank(severity string) int {
 	if severity == "error" {
 		return 0
 	}
-	return 1
+	if severity == "warning" {
+		return 1
+	}
+	return 2 // info and others sort last
 }
 
 func summarizeCheckCounts(byCheck map[string]int) []string {
@@ -133,6 +140,8 @@ func recommendedDoctorAction(check control.DoctorCheck) string {
 		return "make the blocking reason explicit and decide whether to unblock, escalate, or park it."
 	case "done-without-result-summary":
 		return "ingest or write the executor result summary so completion is auditable."
+	case "draft-files":
+		return "curate DRAFT files into canonical artifacts, then remove the DRAFT- prefix."
 	default:
 		if scope != "" {
 			return "inspect " + scope + " and clear this hygiene issue."

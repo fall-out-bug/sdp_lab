@@ -69,6 +69,10 @@ func main() {
 		runBootstrap(os.Args[2:])
 	case "build":
 		runBuild(os.Args[2:])
+	case "coverage-scan":
+		os.Exit(runCoverageScan(os.Args[2:]))
+	case "phase":
+		runPhase(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -76,7 +80,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention|bootstrap> <subcommand> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention|bootstrap|build|coverage-scan|phase> <subcommand> [flags]")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Card commands:")
 	fmt.Fprintln(os.Stderr, "  sdp card <create|show|clarify|needs-input|ready|park|execute|heartbeat|feedback|feedback-export|message-export|resume|resume-import|reply-ingest|deliver>")
@@ -121,6 +125,11 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  sdp plan <card-id>         Show plan for a card")
 	fmt.Fprintln(os.Stderr, "  sdp approve-plan <card-id> Approve a pending plan")
 	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Phase commands:")
+	fmt.Fprintln(os.Stderr, "  sdp phase plan [--feature-id ID] [--ws-id ID] [--run-id ID] [--strict]")
+	fmt.Fprintln(os.Stderr, "  sdp phase review [--feature-id ID] [--ws-id ID] [--run-id ID] [--strict]")
+	fmt.Fprintln(os.Stderr, "  sdp phase eval [--feature-id ID] [--ws-id ID] [--run-id ID] [--strict]")
+	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Other:")
 	fmt.Fprintln(os.Stderr, "  sdp attention")
 	fmt.Fprintln(os.Stderr)
@@ -136,9 +145,11 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  sdp index manifest [--output DIR] <repo-path>")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Bootstrap commands:")
-	fmt.Fprintln(os.Stderr, "  sdp bootstrap [--dry-run] [--force] [--only TYPES] <repo-path>")
+	fmt.Fprintln(os.Stderr, "  sdp bootstrap [--dry-run] [--force] [--beads] [--yes] [--auto-curate] [--only TYPES] <repo-path>")
 	fmt.Fprintln(os.Stderr, "  sdp bootstrap status <repo-path>")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Build commands:")
 	fmt.Fprintln(os.Stderr, "  sdp build \"<idea>\" [--strict] [--local] [--sandbox=<type>] [--dry-run] [--format json|text] [--output DIR] [--timeout DURATION]")
+	fmt.Fprintln(os.Stderr, "Coverage commands:")
+	fmt.Fprintln(os.Stderr, "  sdp coverage-scan [--path DIR] [--threshold PCT] [--format text|json] [--skip-test] [--package PATTERN] [--coverprofile FILE]")
 }

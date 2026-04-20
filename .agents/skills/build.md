@@ -26,6 +26,25 @@ Absorbs: @feature, @idea, @design, @ux, @vision, @oneshot, @prototype.
 
 Implementing features, creating designs, prototyping, user-facing work with acceptance criteria.
 
+## Session Bootstrap (ALWAYS FIRST — before any other step)
+
+**On fresh start:**
+1. `bd update <id> --claim` — claim the beads issue atomically
+2. Determine branch slug from feature ID: `f<N>-<slug>` (e.g. `f132-testing-intel`)
+3. `git worktree add .worktrees/<slug> -b <slug> main` — create isolated worktree
+4. `git submodule update --init --recursive` inside worktree
+5. Write `.sdp/checkpoint.json`:
+   ```json
+   {"skill":"build","feature_id":"<id>","branch":"<slug>","worktree":".worktrees/<slug>","step":"bootstrap","ts":"<iso>"}
+   ```
+6. All subsequent work runs inside the worktree. Never edit files in the main tree.
+
+**On compaction recovery** (user says "continue", "продолжай", or session restart with existing checkpoint):
+1. `cat .sdp/checkpoint.json` — read last state
+2. `bd list --status=in_progress` — verify claim is still held
+3. `cd <worktree>` — switch to the worktree
+4. Resume from `checkpoint.step` — do NOT restart from scratch
+
 ## Modes
 
 **idea:** Problem → design doc (no implementation). Output: design with requirements, approach, tradeoffs. For: "design a...", "how should we...", planning phase.
@@ -62,6 +81,31 @@ Scope based on: (1) Request type: "Design..."→idea, "Implement..."→feature, 
 **idea:** Design document (`docs/design/*.md`)
 **feature:** Implementation code with TDD tests, docs, PR
 **prototype:** Working code, [PROTOTYPE] label, TODO list for productionization
+
+## Strict Mode (SDP Flow 2)
+
+When `--strict-mode` flag or `SDP_STRICT=true` env is active:
+
+1. MUST invoke `sdp phase plan --feature-id <F> --strict --evidence-path .sdp/evidence/plan.json` before implementation
+2. MUST invoke `sdp phase eval --feature-id <F> --strict --evidence-path .sdp/evidence/eval.json` after implementation
+3. MUST add provenance trailer to every commit using `internal/provenance` package
+
+## Provenance Pattern
+
+Every commit in SDP-managed repos SHOULD carry provenance trailer:
+- Agent commits: `AI-Attribution: agent/<model>/<session>`
+- Human commits: No trailer needed
+- Hybrid commits: `AI-Attribution: hybrid/<model>/<session>`
+
+## MUST DO
+- Run quality gates before committing
+- Claim beads issue before starting work
+- Add provenance trailer to commits when in SDP context
+
+## MUST NOT DO
+- Skip quality gates
+- Commit without claiming beads issue
+- Push directly to main branch
 
 ## Acceptance Boundaries
 

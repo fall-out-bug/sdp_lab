@@ -1,62 +1,86 @@
-# sdp_lab <-> sdp Workflow
+# sdp_lab <-> sdp Publish Workflow
 
-If your real goal is "install SDP into my own repo and start using it", leave this doc and go to [../sdp/docs/QUICKSTART.md](../sdp/docs/QUICKSTART.md). This file is only for contributors working across the private parent repo and the public submodule.
+If your real goal is "install SDP into my own repo and start using it", leave this doc and go to the [SDP public repo QUICKSTART](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md). This file is for contributors who need to publish protocol artifacts to the public `sdp` repo.
 
-Use this repo as a two-repo workspace:
+## How It Works
+
+All files live natively in `sdp_lab`. There is no submodule, no separate git checkout, and no pointer updates.
 
 | Path | Repo | Remote | Typical change |
 |------|------|--------|----------------|
-| Root, `internal/`, `cmd/`, `docs/` | `sdp_lab` | `https://github.com/fall-out-bug/sdp_lab` | Lab code, research docs, orchestration |
-| `sdp/` | `sdp` submodule | `https://github.com/fall-out-bug/sdp.git` | Public protocol artifacts, prompts, hooks, `sdp-plugin` |
+| Root, `internal/`, `cmd/`, `docs/`, `sdp/` | `sdp_lab` | `https://github.com/fall-out-bug/sdp_lab` | All work happens here |
+| `fall-out-bug/sdp` (separate repo) | `sdp` (public mirror) | `https://github.com/fall-out-bug/sdp` | Published artifacts only |
 
 Historical note: many workstreams and beads IDs still use `sdp_dev-*` as a legacy label for the root repo. That is history, not a third repo.
 
-## Branch defaults
+## When to Publish
+
+Publish to the public `sdp` repo when protocol artifacts change and external consumers need the update:
+
+- Schema changes (evidence, intent, ws-verdict)
+- New or updated prompts/skills
+- Hook changes
+- Harness entrypoint files (`.cursorrules`, `.codex/*`, `.opencode/*`)
+- Fallback and operator-facing reference docs
+- Quickstart or CLI reference updates
+
+**Not published via this script:** `sdp-plugin` Go source code lives exclusively in the public `sdp` repo. It is not part of the publish surface.
+
+## Publish with sdp-publish.sh
+
+```bash
+# Publish changed artifacts (copy, commit, push to sdp repo):
+scripts/sdp-publish.sh
+
+# Preview what would be published without pushing:
+scripts/sdp-publish.sh --dry-run
+
+# Check for drift between sdp_lab source and published sdp repo:
+scripts/sdp-publish.sh --check
+```
+
+The script copies the relevant files from `sdp_lab` into a checkout of `fall-out-bug/sdp`, commits, and pushes. It uses a manifest to determine which paths to publish.
+
+## Artifacts Published
+
+| Source (sdp_lab) | Destination (sdp repo) |
+|---|---|
+| `prompts/` | `prompts/` (includes `prompts/skills/`) |
+| `schema/` | `schema/` |
+| `templates/` | `templates/` |
+| `scripts/hooks/` | `hooks/` |
+| `.claude/hooks/` | `.claude/hooks/` |
+| `.claude/patterns/` | `.claude/patterns/` |
+| `.opencode/hooks/` | `.opencode/hooks/` |
+| `.cursorrules` | `.cursorrules` |
+| `.cursor/README.md` | `.cursor/README.md` |
+| `.cursor/worktrees.json` | `.cursor/worktrees.json` |
+| `.codex/AGENTS.md` | `.codex/AGENTS.md` |
+| `.codex/INSTALL.md` | `.codex/INSTALL.md` |
+| `.codex/skills/README.md` | `.codex/skills/README.md` |
+| `.opencode/README.md` | `.opencode/README.md` |
+| `docs/reference/FALLBACK_MODE.md` | `docs/reference/FALLBACK_MODE.md` |
+| `prompts/commands.yml` | `prompts/commands.yml` |
+
+The manifest is maintained in `sdp_lab`. Add or remove paths there when the publish surface changes.
+
+## Branch Defaults
 
 | Repo | Default branch |
 |------|----------------|
 | `sdp_lab` | `main` |
 | `sdp` | `main` |
 
-## Decide the repo first
+## Commit Workflow
 
-- If the file path starts with `sdp/`, you are in the OSS repo.
-- If the file path is outside `sdp/`, you are in `sdp_lab`.
-- If the request says "protocol", "public CLI", "prompts", "schema", or "hooks", confirm whether it belongs in `sdp`.
+1. Make changes in `sdp_lab`. Protocol artifacts live at native tracked paths (`prompts/`, `schema/`, `templates/`, `.claude/hooks/`, harness entrypoints, fallback docs). The `sdp/` directory is an optional local checkout of the public repo used only by the publish script.
+2. Commit and push in `sdp_lab` as usual.
+3. After merge to `main`, run `scripts/sdp-publish.sh` if protocol artifacts changed.
 
-## Commit order
+## CI Integration
 
-1. Commit and push inside `sdp/` first when you changed public protocol files.
-2. Return to `sdp_lab`, stage the submodule pointer with `git add sdp`.
-3. Commit and push the parent repo update.
+(TODO: add CI workflow for drift detection.) The intended design is that CI runs `scripts/sdp-publish.sh --check` on every push to `main`. If the check fails, the published `sdp` repo has drifted from the source and someone needs to publish. This workflow has not been implemented yet.
 
-## Canonical submodule rule
+## Historical Reference
 
-- `.gitmodules` must point `sdp` at `https://github.com/fall-out-bug/sdp.git`.
-- Do not use `../sdp` or another local sibling path as the canonical submodule URL.
-- Local sibling clones are fine for manual work, but they must not leak into the tracked submodule config.
-
-## Recovery
-
-If `git submodule status` prints `-<sha> sdp`, the path is missing.
-
-```bash
-git submodule sync -- sdp
-git submodule update --init --checkout sdp
-```
-
-If the printed sha does not exist in `fall-out-bug/sdp`, the parent repo points at a broken commit. Fix it by checking out a valid commit inside `sdp/`, then stage the new gitlink:
-
-```bash
-cd sdp
-git fetch origin
-git checkout origin/main
-cd ..
-git add sdp
-```
-
-## PR flow
-
-- `sdp` changes get their own PR in `fall-out-bug/sdp`.
-- `sdp_lab` changes get their own PR in `fall-out-bug/sdp_lab`.
-- When one task touches both repos, link the two PRs in their descriptions.
+The `sdp/` directory was previously a git submodule. That model was retired in F128 (ADR: `docs/architecture/adr-retire-sdp-submodule.md`). The old two-phase commit workflow (commit in `sdp/` submodule, then update pointer in `sdp_lab`) no longer applies.

@@ -148,7 +148,7 @@ Sequential: F127-03 после F127-02 (знает, куда писать skills
 
 ## 6. Open questions
 
-- **Q1:** Стоит ли публиковать pattern doc в `sdp/` submodule (public protocol)? Рекомендация: да, в `sdp/docs/patterns/` — это общая вещь, не sdp_lab-specific.
+- **Q1:** Стоит ли публиковать pattern doc в `sdp/` native directory (public protocol)? Рекомендация: да, в `sdp/docs/patterns/` — это общая вещь, не sdp_lab-specific.
 - **Q2:** Сохранить ли `/skills/` как симлинк или удалить (breaking для ссылок в commands.json)? Рекомендация: сохранить симлинк — zero breakage.
 - **Q3:** Включать ли Windsurf, Amp, Devin явно в `compatibility`? Рекомендация: нет — достаточно `[claude-code, opencode, cursor, codex]`, остальные читают AGENTS.md автоматически.
 

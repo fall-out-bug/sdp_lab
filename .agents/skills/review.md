@@ -34,6 +34,15 @@ PR ready for engineering review, before merging to main, architecture/security c
 **performance:** Complexity, query efficiency, memory usage, caching, bottlenecks. For optimization work.
 **readiness:** Quality gates, docs, migration guides, rollback plan, observability. For pre-release.
 **reality:** Code matches docs, no hidden assumptions, no drift, tests actually test. For verification.
+**impact:** Blast radius — run before creating any PR. Required checks:
+  - `go list -deps ./...` diff vs main: new dependencies introduced?
+  - `grep -r "<changed_package>"` across repo: who imports the changed packages?
+  - Exported symbol delta: any added/removed/renamed exported functions, types, interfaces?
+  - Backward compatibility: can callers of changed APIs compile without changes?
+  - `go test ./...` coverage delta vs main branch
+  - `go vet ./...` clean?
+  - Any `//go:build` constraints or init() side-effects in changed files?
+  Auto-triggered when: diff touches >2 packages, or any exported symbol changes, or PR targets main.
 
 ## Routing Rules
 
@@ -68,6 +77,13 @@ All these route to ONE @review skill with dimension parameters.
 ## Embedded Practices
 
 **@guard:** Pre-commit quality gate runs automatically via hooks. NOT invoked manually.
+
+## SDP Phase Integration
+
+MUST DO when reviewing in SDP context:
+- Invoke `sdp phase review --feature-id <F> --strict --evidence-path .sdp/evidence/review.json` for compliance reviews
+- Verify evidence.json is present (F134-03 gate enforcement)
+- Quote disclosure labels from delta artifacts when reporting findings
 
 ## Artifacts Created
 

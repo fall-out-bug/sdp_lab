@@ -54,7 +54,7 @@
     "builder": {
       "mode": "primary",
       "description": "TDD execution agent. Implements workstreams following Red-Green-Refactor cycle.",
-      "prompt": "See @sdp/prompts/commands/build.md for full TDD workflow and execution report template",
+      "prompt": "See @prompts/commands/build.md for full TDD workflow and execution report template",
       "tools": {
         "write": true,
         "edit": true,
@@ -69,14 +69,14 @@
     "reviewer": {
       "mode": "primary",
       "description": "Code review agent. Performs 17-point quality checks for workstreams.",
-      "prompt": "See @sdp/prompts/commands/codereview.md for full review workflow",
+      "prompt": "See @prompts/commands/codereview.md for full review workflow",
       "tools": { "write": false, "edit": false }
     },
 
     "planner": {
       "mode": "primary",
       "description": "Planning agent. Analyzes requirements and creates workstream specifications.",
-      "prompt": "See @sdp/prompts/commands/design.md for full design workflow",
+      "prompt": "See @prompts/commands/design.md for full design workflow",
       "tools": { "read": true, "glob": true, "grep": true }
     }
   }

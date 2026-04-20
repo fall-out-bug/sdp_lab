@@ -7,8 +7,8 @@
 - [UX Improvement Proposals](2026-04-05-ux-improvement-proposals.md)
 - [UX Improvement Specifications](2026-04-05-ux-improvement-specs.md)
 - [Canonical Happy Path](../reference/canonical-happy-path.md)
-- [Public Quick Start](../../sdp/docs/QUICKSTART.md)
-- [Public Protocol Overview](../../sdp/docs/PROTOCOL.md)
+- [Public Quick Start](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md)
+- [Public Protocol Overview](https://github.com/fall-out-bug/sdp/blob/main/docs/PROTOCOL.md)
 
 ---
 

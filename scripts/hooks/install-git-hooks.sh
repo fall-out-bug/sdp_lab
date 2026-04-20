@@ -1,17 +1,17 @@
 #!/bin/sh
 # Install Git hooks: symlink .git/hooks/* to sdp/hooks/ or scripts/hooks/*.sh
-# Run from repo root. Idempotent. Prefers sdp/hooks/ when sdp submodule present.
+# Run from repo root. Idempotent.
 set -e
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-# Prefer sdp/hooks/ when sdp submodule has hooks (protocol source)
+# sdp/hooks/ is the protocol source (now native, formerly a submodule)
 if [ -f "$ROOT/sdp/hooks/install-git-hooks.sh" ]; then
   exec sh "$ROOT/sdp/hooks/install-git-hooks.sh"
 fi
 
-# Fallback: scripts/hooks/ (sdp_dev without sdp or legacy)
+# Fallback: scripts/hooks/ (legacy)
 HOOKS_DIR=".git/hooks"
 SCRIPTS_DIR="scripts/hooks"
 mkdir -p "$HOOKS_DIR"

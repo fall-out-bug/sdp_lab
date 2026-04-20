@@ -25,7 +25,7 @@ Execution priority has changed.
 
 Current execution priority is the remaining UX/runtime lane:
 
-- `F100`..`F101` — release discipline and write boundaries
+- `F100` — release discipline gates
 - `F106` — real `agentloop` integration into the delivery path
 - `F108` — architecture normalization and missing production gaps
 - `F125` — finish the intent-routed UX migration and close the remaining cutover tail
@@ -36,9 +36,10 @@ Recently shipped on 2026-04-18:
 - `F097` — Product Truth and Activation Loop
 - `F098` — Simplified Progressive Disclosure
 - `F099` — Brownfield Safe Overlay
+- `F101` — Write Plan Emission and Confirmation
 - `F105` — AI Architect Phase A
 
-`F098` is merged, but post-merge docs/security/SRE follow-up remains tracked in beads. `F100` (#96) and `F101` (#95) are still open implementation PRs, so they stay `in_progress` until merge. Shipped status in this roadmap means merged implementation, not zero open findings.
+`F098` is merged, but post-merge docs/security/SRE follow-up remains tracked in beads. `F100` (#96) is the remaining open P0 UX implementation PR. Shipped status in this roadmap means merged implementation, not zero open findings.
 
 The platform reset lane established the base rather than remaining the active queue:
 

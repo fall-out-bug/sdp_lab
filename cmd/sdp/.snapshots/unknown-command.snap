@@ -1,4 +1,4 @@
-usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention|bootstrap> <subcommand> [flags]
+usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention|bootstrap|build|coverage-scan|phase> <subcommand> [flags]
 
 Card commands:
   sdp card <create|show|clarify|needs-input|ready|park|execute|heartbeat|feedback|feedback-export|message-export|resume|resume-import|reply-ingest|deliver>
@@ -43,6 +43,11 @@ Pipeline commands:
   sdp plan <card-id>         Show plan for a card
   sdp approve-plan <card-id> Approve a pending plan
 
+Phase commands:
+  sdp phase plan [--feature-id ID] [--ws-id ID] [--run-id ID] [--strict]
+  sdp phase review [--feature-id ID] [--ws-id ID] [--run-id ID] [--strict]
+  sdp phase eval [--feature-id ID] [--ws-id ID] [--run-id ID] [--strict]
+
 Other:
   sdp attention
 
@@ -58,8 +63,10 @@ Index commands:
   sdp index manifest [--output DIR] <repo-path>
 
 Bootstrap commands:
-  sdp bootstrap [--dry-run] [--force] [--only TYPES] <repo-path>
+  sdp bootstrap [--dry-run] [--force] [--beads] [--yes] [--auto-curate] [--only TYPES] <repo-path>
   sdp bootstrap status <repo-path>
 
 Build commands:
   sdp build "<idea>" [--strict] [--local] [--sandbox=<type>] [--dry-run] [--format json|text] [--output DIR] [--timeout DURATION]
+Coverage commands:
+  sdp coverage-scan [--path DIR] [--threshold PCT] [--format text|json] [--skip-test] [--package PATTERN] [--coverprofile FILE]

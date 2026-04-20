@@ -16,6 +16,8 @@ func runBootstrap(args []string) {
 	force := fs.Bool("force", false, "overwrite existing artifacts")
 	noVerify := fs.Bool("no-verify", false, "skip build/test/lint verification")
 	beads := fs.Bool("beads", false, "enable beads initialization (opt-in)")
+	yes := fs.Bool("yes", false, "CI automation: approve final artifacts without DRAFT prefix")
+	autoCurate := fs.Bool("auto-curate", false, "CI automation: bypass DRAFT prefix and produce final artifacts")
 	format := fs.String("format", "text", "output format: json, text")
 	onlyStr := fs.String("only", "", "generate only these artifacts (comma-separated: claude-md,agents-md,policies,hooks,beads)")
 
@@ -23,8 +25,10 @@ func runBootstrap(args []string) {
 
 	// Determine subcommand: "status" or repo path.
 	if fs.NArg() < 1 {
-		fmt.Fprintln(os.Stderr, "usage: sdp bootstrap [--dry-run] [--force] [--beads] [--only TYPES] <repo-path>")
+		fmt.Fprintln(os.Stderr, "usage: sdp bootstrap [--dry-run] [--force] [--beads] [--yes] [--auto-curate] [--only TYPES] <repo-path>")
 		fmt.Fprintln(os.Stderr, "       sdp bootstrap status <repo-path>")
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "CI automation flags (--yes, --auto-curate) bypass DRAFT prefix for unattended runs.")
 		os.Exit(2)
 	}
 
@@ -41,12 +45,16 @@ func runBootstrap(args []string) {
 	repoPath := fs.Arg(0)
 	validateFormat(*format)
 
+	// Default: UseDraft=true (DRAFT-prefixed files). CI flags bypass this.
+	useDraft := !(*yes || *autoCurate)
+
 	cfg := bootstrap.BootstrapConfig{
 		RepoPath: repoPath,
 		DryRun:   *dryRun,
 		Force:    *force,
 		NoVerify: *noVerify,
 		Beads:    *beads,
+		UseDraft: useDraft,
 	}
 
 	if *onlyStr != "" {
