@@ -166,7 +166,8 @@
           "type": "string",
           "enum": [
             "PASS",
-            "FAIL"
+            "FAIL",
+            "BLOCKED"
           ]
         },
         "findings": {

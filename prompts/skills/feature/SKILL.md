@@ -210,7 +210,7 @@ Next: @build 00-{FFF}-01  or  @oneshot F{XX}
 
 | Symptom | Fix |
 |---------|-----|
-| Skill produces no output | Ensure `@init` ran and `docs/workstreams/backlog/` exists; run `sdp-orchestrate --feature <ID>` to bootstrap |
+| Skill produces no output | Run `@init` first to scaffold project structure; then re-run `@feature` |
 | "checkpoint not found" | Run `sdp-orchestrate --feature <ID>` to create initial checkpoint |
 | "workstream files missing" | Run `sdp-orchestrate --index` to verify, then `@feature` to regenerate |
 | Skill hangs / no progress | Check `.sdp/log/events.jsonl` for last event; use `sdp reset --feature <ID>` if stuck |

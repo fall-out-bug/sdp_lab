@@ -123,3 +123,64 @@ func TestBuildBlockedVerdictsCarryBlockingIDs(t *testing.T) {
 		t.Fatalf("unexpected blocked qa verdict: %+v", qa)
 	}
 }
+
+func TestBuildOverrideReviewVerdict(t *testing.T) {
+	cp := &Checkpoint{FeatureID: "F098", Review: &ReviewStatus{Iteration: 4}}
+	v := buildOverrideReviewVerdict(cp, "P2 findings only", "doc-only findings, no code risk")
+	if v.Verdict != "APPROVED" {
+		t.Fatalf("expected APPROVED, got %q", v.Verdict)
+	}
+	if v.Round != 4 {
+		t.Fatalf("expected round 4, got %d", v.Round)
+	}
+	if v.OverrideReason != "doc-only findings, no code risk" {
+		t.Fatalf("unexpected override reason: %q", v.OverrideReason)
+	}
+	if v.Feature != "F098" {
+		t.Fatalf("expected feature F098, got %q", v.Feature)
+	}
+	for _, role := range []string{"qa", "security", "devops", "sre", "techlead", "docs", "promptops"} {
+		if v.Reviewers[role].Verdict != "PASS" {
+			t.Fatalf("expected reviewer %s PASS, got %q", role, v.Reviewers[role].Verdict)
+		}
+	}
+}
+
+func TestBuildPartialReviewVerdict(t *testing.T) {
+	cp := &Checkpoint{FeatureID: "F098", Review: &ReviewStatus{Iteration: 4}}
+	v := buildPartialReviewVerdict(cp, "partial pass", []string{"security", "docs"}, []string{"sdplab-10", "sdplab-11"})
+	if v.Verdict != "PARTIALLY_APPROVED" {
+		t.Fatalf("expected PARTIALLY_APPROVED, got %q", v.Verdict)
+	}
+	if len(v.PartialFailingRoles) != 2 {
+		t.Fatalf("expected 2 failing roles, got %d", len(v.PartialFailingRoles))
+	}
+	if v.Reviewers["security"].Verdict != "FAIL" {
+		t.Fatalf("expected security FAIL, got %q", v.Reviewers["security"].Verdict)
+	}
+	if v.Reviewers["docs"].Verdict != "FAIL" {
+		t.Fatalf("expected docs FAIL, got %q", v.Reviewers["docs"].Verdict)
+	}
+	if v.Reviewers["qa"].Verdict != "PASS" {
+		t.Fatalf("expected qa PASS, got %q", v.Reviewers["qa"].Verdict)
+	}
+	if len(v.FindingIDs) != 2 {
+		t.Fatalf("expected 2 finding ids, got %d", len(v.FindingIDs))
+	}
+}
+
+func TestBuildEscalatedReviewVerdict(t *testing.T) {
+	cp := &Checkpoint{FeatureID: "F098", Review: &ReviewStatus{Iteration: 4}}
+	v := buildEscalatedReviewVerdict(cp, "escalated to human", "sdplab-99")
+	if v.Verdict != "ESCALATED" {
+		t.Fatalf("expected ESCALATED, got %q", v.Verdict)
+	}
+	if v.EscalationIssue != "sdplab-99" {
+		t.Fatalf("expected escalation issue sdplab-99, got %q", v.EscalationIssue)
+	}
+	for _, role := range []string{"qa", "security", "devops", "sre", "techlead", "docs", "promptops"} {
+		if v.Reviewers[role].Verdict != "FAIL" {
+			t.Fatalf("expected reviewer %s FAIL, got %q", role, v.Reviewers[role].Verdict)
+		}
+	}
+}

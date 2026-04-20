@@ -179,6 +179,8 @@ Run `@design phase4-remediation` with findings to create workstreams.
 
 ## Post-Max-Retry Escape Hatches (F104)
 
+> **Implementation note:** These escape hatches are prompt-level constructs for LLM-driven review. The builder functions exist in `internal/orchestrate/findings.go` but the CLI review command does not yet accept `--override`/`--partial`/`--escalate` flags. When using this skill via an LLM agent, the agent writes the verdict JSON directly using the new verdict values.
+
 After **3 consecutive CHANGES_REQUESTED** verdicts on the same feature, the review loop must offer escape options. Present this block:
 
 ```
