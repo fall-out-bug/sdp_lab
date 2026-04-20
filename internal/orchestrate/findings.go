@@ -2,6 +2,7 @@ package orchestrate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -114,6 +115,19 @@ func buildBlockedReviewVerdict(cp *Checkpoint, summary string, findingIDs []stri
 	return buildReviewVerdictWithFindings(cp, "CHANGES_REQUESTED", "BLOCKED", summary, findingIDs)
 }
 
+// ErrEmptyOverrideReason is returned when an override verdict is attempted
+// without a justification string.
+var ErrEmptyOverrideReason = errors.New("override requires non-empty justification")
+
+// ValidateOverrideReason rejects empty justification as required by
+// the governed override contract (prompts/skills/review/SKILL.md).
+func ValidateOverrideReason(reason string) error {
+	if strings.TrimSpace(reason) == "" {
+		return ErrEmptyOverrideReason
+	}
+	return nil
+}
+
 func buildOverrideReviewVerdict(cp *Checkpoint, summary, overrideReason string) ReviewVerdict {
 	return ReviewVerdict{
 		Feature:        checkpointFeatureID(cp),
@@ -126,16 +140,26 @@ func buildOverrideReviewVerdict(cp *Checkpoint, summary, overrideReason string) 
 	}
 }
 
-func buildPartialReviewVerdict(cp *Checkpoint, summary string, failingRoles []string, findingIDs []string) ReviewVerdict {
-	ids := nonEmptyStrings(findingIDs...)
+func buildPartialReviewVerdict(cp *Checkpoint, summary string, failingRoles []string, roleFindings map[string][]string) ReviewVerdict {
+	reviewers := reviewerPartialResults(failingRoles, roleFindings, summary)
+	var allIDs []string
+	seen := make(map[string]bool)
+	for _, ids := range roleFindings {
+		for _, id := range ids {
+			if !seen[id] {
+				seen[id] = true
+				allIDs = append(allIDs, id)
+			}
+		}
+	}
 	return ReviewVerdict{
 		Feature:             checkpointFeatureID(cp),
 		Verdict:             "PARTIALLY_APPROVED",
 		Timestamp:           time.Now().UTC().Format(time.RFC3339),
 		Round:               checkpointReviewRound(cp),
-		Reviewers:           reviewerPartialResults(failingRoles, ids, summary),
-		FindingIDs:          ids,
-		BlockingIDs:         ids,
+		Reviewers:           reviewers,
+		FindingIDs:          allIDs,
+		BlockingIDs:         allIDs,
 		Summary:             strings.TrimSpace(summary),
 		PartialFailingRoles: nonEmptyStrings(failingRoles...),
 	}
@@ -211,7 +235,7 @@ func reviewerResults(verdict string, findings []string, notes string) map[string
 	return results
 }
 
-func reviewerPartialResults(failingRoles []string, findings []string, notes string) map[string]ReviewerResult {
+func reviewerPartialResults(failingRoles []string, roleFindings map[string][]string, notes string) map[string]ReviewerResult {
 	roles := []string{"qa", "security", "devops", "sre", "techlead", "docs", "promptops"}
 	failSet := make(map[string]bool, len(failingRoles))
 	for _, r := range failingRoles {
@@ -220,6 +244,7 @@ func reviewerPartialResults(failingRoles []string, findings []string, notes stri
 	results := make(map[string]ReviewerResult, len(roles))
 	for _, role := range roles {
 		if failSet[role] {
+			findings := roleFindings[role]
 			results[role] = ReviewerResult{Verdict: "FAIL", Findings: append([]string(nil), findings...), Notes: strings.TrimSpace(notes)}
 		} else {
 			results[role] = ReviewerResult{Verdict: "PASS", Findings: nil, Notes: strings.TrimSpace(notes)}

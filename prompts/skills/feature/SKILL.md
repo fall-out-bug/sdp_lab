@@ -215,7 +215,7 @@ Next: @build 00-{FFF}-01  or  @oneshot F{XX}
 | "workstream files missing" | Run `sdp-orchestrate --index` to verify, then `@feature` to regenerate |
 | Skill hangs / no progress | Check `.sdp/log/events.jsonl` for last event; use `sdp reset --feature <ID>` if stuck |
 | Review loop exceeds 3 rounds | Use `@review --override "reason"`, `@review --partial`, or `@review --escalate` |
-| --design-only produces no workstreams | Verify `docs/workstreams/backlog/` exists; check @design skill is present |
+| --design-only produces no workstreams | Run `@init` to scaffold project structure, then re-run with `--design-only` |
 
 ## See Also
 

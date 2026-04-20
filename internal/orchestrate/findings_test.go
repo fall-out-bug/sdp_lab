@@ -148,7 +148,11 @@ func TestBuildOverrideReviewVerdict(t *testing.T) {
 
 func TestBuildPartialReviewVerdict(t *testing.T) {
 	cp := &Checkpoint{FeatureID: "F098", Review: &ReviewStatus{Iteration: 4}}
-	v := buildPartialReviewVerdict(cp, "partial pass", []string{"security", "docs"}, []string{"sdplab-10", "sdplab-11"})
+	roleFindings := map[string][]string{
+		"security": {"sdplab-10"},
+		"docs":     {"sdplab-11"},
+	}
+	v := buildPartialReviewVerdict(cp, "partial pass", []string{"security", "docs"}, roleFindings)
 	if v.Verdict != "PARTIALLY_APPROVED" {
 		t.Fatalf("expected PARTIALLY_APPROVED, got %q", v.Verdict)
 	}
@@ -158,14 +162,23 @@ func TestBuildPartialReviewVerdict(t *testing.T) {
 	if v.Reviewers["security"].Verdict != "FAIL" {
 		t.Fatalf("expected security FAIL, got %q", v.Reviewers["security"].Verdict)
 	}
+	if len(v.Reviewers["security"].Findings) != 1 || v.Reviewers["security"].Findings[0] != "sdplab-10" {
+		t.Fatalf("expected security finding sdplab-10, got %v", v.Reviewers["security"].Findings)
+	}
 	if v.Reviewers["docs"].Verdict != "FAIL" {
 		t.Fatalf("expected docs FAIL, got %q", v.Reviewers["docs"].Verdict)
+	}
+	if len(v.Reviewers["docs"].Findings) != 1 || v.Reviewers["docs"].Findings[0] != "sdplab-11" {
+		t.Fatalf("expected docs finding sdplab-11, got %v", v.Reviewers["docs"].Findings)
 	}
 	if v.Reviewers["qa"].Verdict != "PASS" {
 		t.Fatalf("expected qa PASS, got %q", v.Reviewers["qa"].Verdict)
 	}
+	if len(v.Reviewers["qa"].Findings) != 0 {
+		t.Fatalf("expected qa no findings, got %v", v.Reviewers["qa"].Findings)
+	}
 	if len(v.FindingIDs) != 2 {
-		t.Fatalf("expected 2 finding ids, got %d", len(v.FindingIDs))
+		t.Fatalf("expected 2 total finding ids, got %d", len(v.FindingIDs))
 	}
 }
 
@@ -182,5 +195,17 @@ func TestBuildEscalatedReviewVerdict(t *testing.T) {
 		if v.Reviewers[role].Verdict != "FAIL" {
 			t.Fatalf("expected reviewer %s FAIL, got %q", role, v.Reviewers[role].Verdict)
 		}
+	}
+}
+
+func TestValidateOverrideReason(t *testing.T) {
+	if err := ValidateOverrideReason(""); err == nil {
+		t.Fatal("expected error for empty override reason")
+	}
+	if err := ValidateOverrideReason("   "); err == nil {
+		t.Fatal("expected error for whitespace-only override reason")
+	}
+	if err := ValidateOverrideReason("valid reason"); err != nil {
+		t.Fatalf("unexpected error for valid reason: %v", err)
 	}
 }
