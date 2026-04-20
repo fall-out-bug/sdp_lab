@@ -74,6 +74,24 @@ func runBootstrap(args []string) {
 		cfg.Only = strings.Split(*onlyStr, ",")
 	}
 
+	// Early mode handling: greenfield/brownfield bypass the standard planner
+	// entirely, since the planner expects an existing project with files.
+	if *mode == "greenfield" || *mode == "brownfield" {
+		report := &bootstrap.BootstrapReport{
+			Repo:        repoPath,
+			Version:     "1.0.0",
+			DataSources: make(map[string]bool),
+		}
+		switch *mode {
+		case "greenfield":
+			appendGreenfieldArtifacts(report, repoPath, useDraft, *preset)
+		case "brownfield":
+			appendBrownfieldArtifacts(report, repoPath, useDraft)
+		}
+		renderBootstrapReport(report, *format)
+		return
+	}
+
 	planner := bootstrap.NewPlanner(cfg)
 
 	if *dryRun {
@@ -95,19 +113,6 @@ func runBootstrap(args []string) {
 	// Optional: conventions + rules + adapter pipeline.
 	if *conventions {
 		appendConventionsArtifacts(report, repoPath, useDraft, *force)
-	}
-
-	// Optional: mode-specific pipeline (greenfield / brownfield).
-	switch *mode {
-	case "greenfield":
-		appendGreenfieldArtifacts(report, repoPath, useDraft, *preset)
-	case "brownfield":
-		appendBrownfieldArtifacts(report, repoPath, useDraft)
-	case "":
-		// no mode
-	default:
-		fmt.Fprintf(os.Stderr, "error: unknown mode %q (use greenfield or brownfield)\n", *mode)
-		os.Exit(2)
 	}
 
 	renderBootstrapReport(report, *format)
@@ -269,8 +274,13 @@ func appendGreenfieldArtifacts(report *bootstrap.BootstrapReport, repoPath strin
 	writeDraftArtifact(report, repoPath, "ROADMAP.md", roadmapContent, useDraft, "greenfield-roadmap")
 
 	// Save bootstrap answers for reproducibility.
+	// Resolve the actual preset name used (may differ from CLI arg when default is applied).
+	resolvedPreset := presetName
+	if resolvedPreset == "" {
+		resolvedPreset = "go-web-service"
+	}
 	var presetCfg bootstrap.GreenfieldConfig
-	if pc, ok := bootstrap.Presets[presetName]; ok {
+	if pc, ok := bootstrap.Presets[resolvedPreset]; ok {
 		presetCfg = pc
 	}
 	answersPath := filepath.Join(repoPath, ".sdp", "bootstrap-answers.json")

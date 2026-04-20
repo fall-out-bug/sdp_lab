@@ -202,10 +202,11 @@ func manifestHarness(m *harnesscfg.Manifest, name string) *harnesscfg.Harness {
 // back to a default.
 func draftFilenameFromHarness(h *harnesscfg.Harness) string {
 	if h != nil && h.ConfigFile != "" {
-		// Derive DRAFT rules filename: CLAUDE.md -> DRAFT-CLAUDE-RULES.md
-		base := filepath.Base(h.ConfigFile)
-		ext := filepath.Ext(base)
-		nameWithoutExt := strings.TrimSuffix(base, ext)
+		// Derive DRAFT rules filename preserving directory component.
+		// .cursor/rules.md -> DRAFT-.cursor/rules-rules.md
+		// CLAUDE.md -> DRAFT-CLAUDE-RULES.md
+		ext := filepath.Ext(h.ConfigFile)
+		nameWithoutExt := strings.TrimSuffix(h.ConfigFile, ext)
 		return "DRAFT-" + nameWithoutExt + "-rules" + ext
 	}
 	// Fallback default

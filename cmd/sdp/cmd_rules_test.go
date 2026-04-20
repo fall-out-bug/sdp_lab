@@ -80,10 +80,10 @@ func TestRulesUpdate_CreatesDraftFiles(t *testing.T) {
 		t.Fatalf("rules update failed: %v\n%s", out.err, out.combined())
 	}
 
-	// Verify DRAFT-CLAUDE-RULES.md was created.
-	draftPath := filepath.Join(repoDir, "DRAFT-CLAUDE-RULES.md")
+	// Verify DRAFT-CLAUDE-rules.md was created.
+	draftPath := filepath.Join(repoDir, "DRAFT-CLAUDE-rules.md")
 	if _, err := os.Stat(draftPath); os.IsNotExist(err) {
-		t.Errorf("expected DRAFT-CLAUDE-RULES.md to exist, got output:\n%s", out.combined())
+		t.Errorf("expected DRAFT-CLAUDE-rules.md to exist, got output:\n%s", out.combined())
 	}
 
 	// Verify it has DRAFT header.
@@ -110,7 +110,7 @@ func TestRulesUpdate_WithEvidence(t *testing.T) {
 	}
 
 	// Read DRAFT file and check it contains at least one rule.
-	draftPath := filepath.Join(repoDir, "DRAFT-CLAUDE-RULES.md")
+	draftPath := filepath.Join(repoDir, "DRAFT-CLAUDE-rules.md")
 	data, err := os.ReadFile(draftPath)
 	if err != nil {
 		t.Fatalf("failed to read DRAFT file: %v", err)
@@ -166,7 +166,7 @@ func TestRulesUpdate_CustomEvidenceDir(t *testing.T) {
 	}
 
 	// Check the DRAFT file for rule content.
-	draftPath := filepath.Join(repoDir, "DRAFT-CLAUDE-RULES.md")
+	draftPath := filepath.Join(repoDir, "DRAFT-CLAUDE-rules.md")
 	data, err := os.ReadFile(draftPath)
 	if err != nil {
 		t.Fatalf("failed to read DRAFT file: %v", err)
@@ -211,16 +211,16 @@ func TestBootstrapConventions_CreatesAdapterFiles(t *testing.T) {
 		t.Fatalf("bootstrap --conventions failed: %v\n%s", out.err, out.combined())
 	}
 
-	// Should still produce standard DRAFT-CLAUDE-RULES.md.
-	draftClaude := filepath.Join(repoDir, "DRAFT-CLAUDE-RULES.md")
+	// Should still produce standard DRAFT-CLAUDE-rules.md.
+	draftClaude := filepath.Join(repoDir, "DRAFT-CLAUDE-rules.md")
 	if _, err := os.Stat(draftClaude); os.IsNotExist(err) {
-		t.Errorf("expected DRAFT-CLAUDE-RULES.md, got output:\n%s", out.combined())
+		t.Errorf("expected DRAFT-CLAUDE-rules.md, got output:\n%s", out.combined())
 	}
 
-	// Should also produce adapter output (DRAFT-CLAUDE-RULES.md).
-	draftRules := filepath.Join(repoDir, "DRAFT-CLAUDE-RULES.md")
+	// Should also produce adapter output (DRAFT-CLAUDE-rules.md).
+	draftRules := filepath.Join(repoDir, "DRAFT-CLAUDE-rules.md")
 	if _, err := os.Stat(draftRules); os.IsNotExist(err) {
-		t.Errorf("expected DRAFT-CLAUDE-RULES.md with --conventions, got output:\n%s", out.combined())
+		t.Errorf("expected DRAFT-CLAUDE-rules.md with --conventions, got output:\n%s", out.combined())
 	}
 }
 
@@ -235,10 +235,10 @@ func TestBootstrapWithoutConventions_Unchanged(t *testing.T) {
 		t.Fatalf("bootstrap without --conventions failed: %v\n%s", out.err, out.combined())
 	}
 
-	// DRAFT-CLAUDE-RULES.md should NOT exist (no --conventions).
-	draftRules := filepath.Join(repoDir, "DRAFT-CLAUDE-RULES.md")
+	// DRAFT-CLAUDE-rules.md should NOT exist (no --conventions).
+	draftRules := filepath.Join(repoDir, "DRAFT-CLAUDE-rules.md")
 	if _, err := os.Stat(draftRules); err == nil {
-		t.Error("DRAFT-CLAUDE-RULES.md should NOT exist without --conventions")
+		t.Error("DRAFT-CLAUDE-rules.md should NOT exist without --conventions")
 	}
 }
 
@@ -260,10 +260,10 @@ func TestBootstrapConventions_WithEvidence(t *testing.T) {
 	}
 
 	// Adapter output file should contain rule content.
-	draftRules := filepath.Join(repoDir, "DRAFT-CLAUDE-RULES.md")
+	draftRules := filepath.Join(repoDir, "DRAFT-CLAUDE-rules.md")
 	data, err := os.ReadFile(draftRules)
 	if err != nil {
-		t.Fatalf("failed to read DRAFT-CLAUDE-RULES.md: %v", err)
+		t.Fatalf("failed to read DRAFT-CLAUDE-rules.md: %v", err)
 	}
 	if !strings.Contains(string(data), "RULE-") {
 		t.Errorf("expected at least one rule in adapter output, got:\n%s", string(data))
