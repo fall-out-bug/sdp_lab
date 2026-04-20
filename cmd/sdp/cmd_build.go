@@ -17,7 +17,7 @@ func runBuild(args []string) {
 	fs := flag.NewFlagSet("build", flag.ExitOnError)
 	strict := fs.Bool("strict", false, "route through Phase FSM (plan gate + review gate + eval gate)")
 	local := fs.Bool("local", false, "prefer Ollama/local models via dispatch")
-	sandbox := fs.String("sandbox", "none", "sandbox type: docker|testcontainers|none")
+	sandbox := fs.String("sandbox", "none", "sandbox type: docker|none")
 	dryRun := fs.Bool("dry-run", false, "show plan without executing")
 	format := fs.String("format", "text", "output format: json|text")
 	output := fs.String("output", "", "output directory for evidence (default: .sdp/evidence/<run_id>)")
@@ -29,15 +29,15 @@ func runBuild(args []string) {
 
 	// Validate --sandbox values.
 	switch *sandbox {
-	case "docker", "testcontainers", "none":
+	case "docker", "none":
 	default:
-		fmt.Fprintf(os.Stderr, "error: unknown sandbox type %q (use docker, testcontainers, or none)\n", *sandbox)
+		fmt.Fprintf(os.Stderr, "error: unknown sandbox type %q (use docker or none)\n", *sandbox)
 		os.Exit(2)
 	}
 
 	// Idea string is required.
 	if fs.NArg() < 1 {
-		fmt.Fprintln(os.Stderr, "usage: sdp build \"<idea>\" [--strict] [--local] [--sandbox=<type>] [--dry-run] [--format json|text] [--output DIR] [--timeout DURATION]")
+		fmt.Fprintln(os.Stderr, "usage: sdp build \"<idea>\" [--strict] [--local] [--sandbox=docker|none] [--dry-run] [--format json|text] [--output DIR] [--timeout DURATION]")
 		os.Exit(2)
 	}
 
@@ -55,6 +55,7 @@ func runBuild(args []string) {
 			Sandbox: *sandbox,
 			Strict:  *strict,
 			Local:   *local,
+			DryRun:  true,
 			Format:  *format,
 			RunID:   runID,
 		}

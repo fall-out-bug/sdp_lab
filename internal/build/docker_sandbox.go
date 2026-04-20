@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -178,6 +179,8 @@ func (s *DockerSandbox) buildDockerArgs(dir string, goCmd string, extraArgs ...s
 	args = append(args, "-v", absDir+":/work", "-w", "/work")
 
 	// Use container-local paths for Go cache to avoid polluting host.
+	// Create the dirs inside the container via a shell wrapper so go doesn't
+	// fail on missing GOCACHE/GOTMPDIR directories.
 	args = append(args, "-e", "GOCACHE=/tmp/go-build-cache")
 	args = append(args, "-e", "GOMODCACHE=/tmp/go-mod-cache")
 	args = append(args, "-e", "GOTMPDIR=/tmp/go-tmp")
@@ -209,9 +212,11 @@ func (s *DockerSandbox) buildDockerArgs(dir string, goCmd string, extraArgs ...s
 	// Docker image.
 	args = append(args, s.image)
 
-	// Go command and arguments.
-	args = append(args, "go", goCmd)
-	args = append(args, extraArgs...)
+	// Create cache dirs then run the go command inside the container.
+	// Using a shell wrapper ensures GOCACHE/GOTMPDIR exist before go needs them.
+	goArgs := fmt.Sprintf("mkdir -p /tmp/go-build-cache /tmp/go-mod-cache /tmp/go-tmp && go %s %s",
+		goCmd, strings.Join(extraArgs, " "))
+	args = append(args, "sh", "-c", goArgs)
 
 	return args
 }

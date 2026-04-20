@@ -152,7 +152,14 @@ func (p *DefaultPipeline) Run(ctx context.Context) (*BuildResult, error) {
 
 	// Stage 4: Commit — write evidence.
 	commitResult := p.runCommitStage(ctx, result)
+	// Append after write: evidence.json must reflect all stages including commit.
 	result.Stages = append(result.Stages, commitResult)
+	// Rewrite evidence with the commit stage included.
+	if commitResult.Status == "success" {
+		if err := WriteBuildResult(result, p.config.OutputDir); err != nil {
+			slog.Error("build: failed to rewrite evidence with commit stage", "error", err, "run_id", p.config.RunID)
+		}
+	}
 	if commitResult.Status == "failed" {
 		result.Status = "partial"
 		result.Summary = fmt.Sprintf("commit stage failed: %s", commitResult.Error)
