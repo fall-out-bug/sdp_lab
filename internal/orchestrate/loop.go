@@ -157,20 +157,25 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 			phaseCtx, cancel := context.WithTimeout(ctx, reviewPhaseTimeout)
 			reviewResult, reviewErr := RunReviewPhaseDetailed(phaseCtx, projectRoot, action.Feature, nil)
 			cancel()
-			if reviewErr != nil || !reviewResult.Approved {
+			if reviewErr != nil || reviewResult == nil || !reviewResult.Approved {
 				var reviewOutput string
+				var resultVerdict string
 				if reviewResult != nil {
 					reviewOutput = reviewResult.Output
+					resultVerdict = reviewResult.Verdict
 				}
 				findingID, findingErr := EmitReviewFailureFinding(ctx, projectRoot, cp, reviewOutput, reviewErr)
 				if findingErr != nil {
 					slog.Warn("review finding emission failed", "error", findingErr, "feature", action.Feature)
 				}
-				verdict := buildChangesRequestedReviewVerdict(cp, firstNonEmpty(strings.TrimSpace(reviewOutput), "review not approved"), findingID)
-				if reviewResult != nil && reviewResult.Verdict == "PARTIALLY_APPROVED" {
-					verdict.Verdict = "PARTIALLY_APPROVED"
-				} else if reviewResult != nil && reviewResult.Verdict == "ESCALATED" {
-					verdict.Verdict = "ESCALATED"
+				var verdict ReviewVerdict
+				switch resultVerdict {
+				case "PARTIALLY_APPROVED":
+					verdict = buildPartialReviewVerdict(cp, firstNonEmpty(strings.TrimSpace(reviewOutput), "review partially approved"), nil, nil)
+				case "ESCALATED":
+					verdict = buildEscalatedReviewVerdict(cp, firstNonEmpty(strings.TrimSpace(reviewOutput), "review escalated"), findingID)
+				default:
+					verdict = buildChangesRequestedReviewVerdict(cp, firstNonEmpty(strings.TrimSpace(reviewOutput), "review not approved"), findingID)
 				}
 				if _, verdictErr := WriteReviewVerdict(projectRoot, cp, verdict); verdictErr != nil {
 					slog.Warn("review verdict write failed", "error", verdictErr, "feature", action.Feature)
@@ -178,11 +183,11 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				if saveErr := SaveCheckpoint(cpPath, cp); saveErr != nil {
 					slog.Error("failed to save checkpoint after review failure", "error", saveErr)
 				}
-				slog.Error("opencode review failed", "error", reviewErr, "verdict", reviewResult.Verdict, "feature", action.Feature)
+				slog.Error("opencode review failed", "error", reviewErr, "verdict", resultVerdict, "feature", action.Feature)
 				if reviewErr != nil {
 					return fmt.Errorf("review phase: %w", reviewErr)
 				}
-				return fmt.Errorf("opencode review %s", reviewResult.Verdict)
+				return fmt.Errorf("opencode review %s", resultVerdict)
 			}
 			if err := RunHooks(ctx, projectRoot, "review", "post", hookEnv, func(msg string) { slog.Info("hook", "msg", msg) }); err != nil {
 				return failf("error: post-review hook: %v", err)

@@ -205,21 +205,30 @@ func runReviewPhase(ctx context.Context, dir, featureID string, invoker LLMInvok
 }
 
 // containsExactVerdict checks for a verdict keyword as a standalone word,
-// avoiding false positives like "APPROVED" matching inside "PARTIALLY_APPROVED".
+// avoiding false positives like "APPROVED" matching inside "PARTIALLY_APPROVED"
+// or "APPROVEDLY".
 func containsExactVerdict(output, verdict string) bool {
-	idx := strings.Index(output, verdict)
-	if idx == -1 {
-		return false
+	nonWord := func(ch byte) bool {
+		return ch == ' ' || ch == '\n' || ch == '\t' || ch == '"' || ch == ':' || ch == '\'' || ch == ',' || ch == '.'
 	}
-	// Check word boundary before
-	if idx > 0 {
-		before := output[idx-1]
-		if before != ' ' && before != '\n' && before != '\t' && before != '"' && before != ':' && before != '\'' {
-			// Could be part of PARTIALLY_APPROVED — skip
+	for {
+		idx := strings.Index(output, verdict)
+		if idx == -1 {
 			return false
 		}
+		// Check word boundary before
+		if idx > 0 && !nonWord(output[idx-1]) {
+			output = output[idx+len(verdict):]
+			continue
+		}
+		// Check word boundary after
+		afterIdx := idx + len(verdict)
+		if afterIdx < len(output) && !nonWord(output[afterIdx]) {
+			output = output[afterIdx:]
+			continue
+		}
+		return true
 	}
-	return true
 }
 
 func RunQAPhase(ctx context.Context, dir, featureID string, invoker LLMInvoker) (passed bool, output string, err error) {
