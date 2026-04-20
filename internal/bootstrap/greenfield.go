@@ -9,11 +9,12 @@ import (
 // GreenfieldConfig holds answers from the interactive bootstrap flow.
 // Each field controls which constitution sections are generated.
 type GreenfieldConfig struct {
-	ProjectType     string `json:"project_type"`     // "web-service", "cli", "library", "monorepo"
-	PrimaryLanguage string `json:"primary_language"`  // "go", "python", "typescript", etc.
-	TestStrategy    string `json:"test_strategy"`     // "unit", "integration", "tdd", "minimal"
-	CIPreference    string `json:"ci_preference"`     // "github-actions", "gitlab-ci", "none"
-	DeployTarget    string `json:"deploy_target"`     // "docker", "kubernetes", "serverless", "none"
+	PresetName      string `json:"preset_name,omitempty"` // Resolved preset name (e.g. "go-web-service")
+	ProjectType     string `json:"project_type"`          // "web-service", "cli", "library", "monorepo"
+	PrimaryLanguage string `json:"primary_language"`      // "go", "python", "typescript", etc.
+	TestStrategy    string `json:"test_strategy"`         // "unit", "integration", "tdd", "minimal"
+	CIPreference    string `json:"ci_preference"`         // "github-actions", "gitlab-ci", "none"
+	DeployTarget    string `json:"deploy_target"`         // "docker", "kubernetes", "serverless", "none"
 }
 
 // Preset configurations for non-interactive mode. Each preset maps a short

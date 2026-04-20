@@ -264,13 +264,15 @@ func loadManifestOrDefault(manifestFile, repoPath string) *harnesscfg.Manifest {
 	return &m
 }
 
-// defaultManifest creates a manifest with claude-code enabled as a sensible default.
+// defaultManifest creates a manifest with claude-code and codex-cli enabled
+// as sensible defaults, ensuring brownfield reads both CLAUDE.md and AGENTS.md.
 func defaultManifest() *harnesscfg.Manifest {
 	return &harnesscfg.Manifest{
 		Version:        "0.1.0",
 		LifecycleStage: harnesscfg.StageGreenfieldStr,
 		Harnesses: []harnesscfg.Harness{
 			{Name: "claude-code", ConfigFile: "CLAUDE.md"},
+			{Name: "codex-cli", ConfigFile: "AGENTS.md"},
 		},
 	}
 }

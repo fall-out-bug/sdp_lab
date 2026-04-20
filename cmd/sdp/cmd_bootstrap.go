@@ -283,6 +283,7 @@ func appendGreenfieldArtifacts(report *bootstrap.BootstrapReport, repoPath strin
 	if pc, ok := bootstrap.Presets[resolvedPreset]; ok {
 		presetCfg = pc
 	}
+	presetCfg.PresetName = resolvedPreset
 	answersPath := filepath.Join(repoPath, ".sdp", "bootstrap-answers.json")
 	if cfgBytes, jsonErr := bootstrap.MarshalAnswers(presetCfg); jsonErr == nil {
 		if mkdirErr := os.MkdirAll(filepath.Dir(answersPath), 0o755); mkdirErr == nil {
@@ -345,6 +346,9 @@ func readExistingRules(repoPath string) map[string]string {
 	manifest := loadManifestOrDefault("", repoPath)
 	var files []string
 	for _, h := range manifest.Harnesses {
+		if !isHarnessEnabled(h) {
+			continue
+		}
 		if h.ConfigFile != "" {
 			files = append(files, h.ConfigFile)
 		}
@@ -376,6 +380,12 @@ func readExistingRules(repoPath string) map[string]string {
 		existing[section] = content.String()
 	}
 	return existing
+}
+
+// isHarnessEnabled returns true unless the harness has enabled explicitly set
+// to false. Nil or missing enabled means true.
+func isHarnessEnabled(h harnesscfg.Harness) bool {
+	return h.Enabled == nil || *h.Enabled
 }
 
 // writeDraftArtifact writes a single DRAFT artifact and appends to the report.
