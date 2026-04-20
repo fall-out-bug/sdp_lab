@@ -1,6 +1,6 @@
 ---
 name: spec-interrogate
-description: Закалка спеки через сократический диалог — context-stripped агент итеративно задаёт вопросы автору до convergence.
+description: Validate a spec through context-stripped questioning before planning or implementation begins.
 version: 1.0.0
 tags:
   - discovery
@@ -18,150 +18,252 @@ compatibility:
 
 ## Purpose
 
-Pressure-test любой артефакт (спека, план, дизайн-doc) через сократический диалог.
-Interrogator получает **только артефакт** — без истории разговора, без beads-контекста, без имплицитных допущений автора. Цель: найти gap'ы, которые автор не видит из-за proximity bias.
+Pressure-test a text artifact before the next delivery step.
+The interrogator gets only the artifact, with no chat history, beads context, or author explanation. That strips proximity bias and exposes what the future implementer still cannot infer from the document alone.
 
-## Роли
+## Use When
 
-**Author** — агент или человек, написавший артефакт. Владеет итерацией.
+- Before `sdp phase plan` for non-trivial Discovery output.
+- Before committing to a risky architecture or API plan.
+- When a spec looks coherent to the author, but may still hide undefined terms, missing failure paths, or scope leaks.
 
-**Interrogator** — отдельный агент, запускаемый с нуля. Получает ТОЛЬКО файл артефакта. Не правит, не предлагает решений. Только задаёт вопросы.
+Do not use this skill for code review, implementation, or general research. Use `@review`, `@build`, or `@research` for those jobs.
 
-Принцип: Author решает что менять. Interrogator обнаруживает что непонятно.
+## Roles
 
-## Конфигурация
+**Author** owns the artifact and makes edits.
 
-| Параметр | По умолчанию | Описание |
-|----------|-------------|----------|
-| `--questions` | 5 | Максимум вопросов за раунд |
-| `--rounds` | 5 | Максимум раундов диалога |
-| `--mode` | `socratic` | Режим (см. ниже) |
+**Interrogator** is a fresh agent. It receives only the artifact and invocation parameters. It does not edit, negotiate scope, or invent product decisions. It only challenges what the artifact fails to make explicit.
 
-### Режимы (`--mode`)
+## Inputs
 
-**`socratic` (default):** Interrogator задаёт вопросы → Author отвечает правками → повтор. Итеративно, дорого, максимально точно.
+| Parameter | Default | Meaning |
+|---|---|---|
+| `artifact-path` | required | Path to the spec, plan, design doc, or schema under review |
+| `--mode` | `socratic` | Interrogation mode |
+| `--questions` | `5` | Max questions per round in `socratic` mode |
+| `--rounds` | `5` | Max rounds in `socratic` mode |
+| `--feature-id` | optional | Feature identifier for SDP traces |
+| `--evidence-path` | `.sdp/evidence/spec-interrogate.json` | Machine-readable result |
+| `--report-path` | `.sdp/reports/spec-interrogate.md` | Human-readable blocking report |
 
-**`cold-read`:** Один проход — Interrogator пересказывает понятое своими словами. Быстро, выявляет грубые ambiguities.
+## Common Contract
 
-**`adversarial`:** Interrogator ищет дыры без вопросов — выдаёт список уязвимостей. Для security/risk review.
+Every mode must produce both outputs:
 
-**`impl-test`:** Interrogator пытается составить implementation plan только по артефакту. Провал → спека неполная.
+1. **Human report** at `report-path`
+2. **Evidence JSON** at `evidence-path`
 
-## Протокол (режим `socratic`)
+### Report Requirements
 
-### Шаг 1 — Подготовка
+The report is mandatory for `PASS`, `REWORK`, and `ABORT`.
+It must contain:
 
-Author передаёт Interrogator:
-- Файл артефакта (путь или содержимое)
-- Параметры: `--questions N --rounds M`
+- artifact path and mode
+- short summary of what was tested
+- ordered list of unresolved questions or vulnerabilities
+- explicit verdict
+- next action for the author
 
-Interrogator НЕ получает:
-- Историю разговора
-- beads issue / контекст фичи
-- Объяснения автора
-- PR / код
+For `PASS`, the unresolved list is empty.
+For `REWORK` and `ABORT`, the unresolved list is the canonical handoff artifact. Stdout is only a transport, not the source of truth.
 
-### Шаг 2 — Раунд
+### Evidence Requirements
 
-Interrogator читает артефакт и задаёт до N вопросов, ранжированных по impact:
-
-**Taxonomy вопросов (по приоритету):**
-1. **WHY** — почему именно это решение, какова мотивация
-2. **Undefined terms** — термин используется, но не определён в артефакте
-3. **Missing error path** — что происходит когда X не работает
-4. **Scope ambiguity** — граница ответственности не ясна
-5. **Unstated assumption** — автор предполагает, но не пишет
-
-Interrogator НЕ задаёт вопросы про: стиль, форматирование, предпочтения без impact на смысл.
-
-### Шаг 3 — Ответ Author
-
-Author обновляет артефакт. Не отвечает словами — только правит документ.
-
-### Шаг 4 — Convergence check
-
-- **Converged:** Interrogator не нашёл новых вопросов → артефакт прошёл gate.
-- **Not converged:** Есть вопросы, раундов не исчерпано → следующий раунд.
-- **Rounds exhausted:** Достигнут лимит раундов, вопросы остаются → **возврат на доработку**.
-
-## Исходы
-
-| Исход | Условие | Следующий шаг |
-|-------|---------|---------------|
-| **PASS** | Interrogator: 0 вопросов | Артефакт готов к следующей фазе |
-| **REWORK** | Раунды исчерпаны, вопросы остаются | Author дорабатывает артефакт, запускает снова |
-| **ABORT** | Author явно останавливает | Беадс-тикет с фиксацией открытых вопросов |
-
-При **REWORK**: Interrogator выдаёт финальный список незакрытых вопросов как `rework-report`. Author не начинает следующую фазу до нового прогона.
-
-## SDP Phase Integration
-
-Встраивается как **agent discipline** перед эмиссией Plan gate. Это не tooling-enforcement — агент обязан запустить `@spec-interrogate` и уважать REWORK вердикт до вызова `sdp phase plan`.
-
-### Discovery → Plan (обязательно для non-trivial фич)
-
-```
-@spec-interrogate docs/discovery/<slug>/validation.md --feature-id <F>
-# → .sdp/evidence/spec-interrogate.json
-
-# Только после PASS:
-sdp phase plan --feature-id <F> --strict --evidence-path .sdp/evidence/plan.json
-```
-
-При **REWORK** агент не вызывает `sdp phase plan`. Discovery возобновляется с `rework-report` как входными данными.
-
-### Plan → Build (опционально, для сложных архитектурных планов)
-
-```
-@spec-interrogate docs/plans/<feature>-design.md --feature-id <F> --mode adversarial
-```
-
-### Evidence schema
-
-Скилл записывает `.sdp/evidence/spec-interrogate.json`:
+The JSON file must reference the report and preserve the blocking questions in structured form:
 
 ```json
 {
-  "interrogate_verdict": "PASS | REWORK | ABORT",
-  "rounds_completed": 3,
-  "open_questions_count": 0,
+  "interrogate_verdict": "PASS",
   "artifact_path": "docs/discovery/my-feature/validation.md",
-  "mode": "socratic"
+  "feature_id": "F042",
+  "mode": "socratic",
+  "rounds_completed": 2,
+  "max_rounds": 5,
+  "open_questions_count": 0,
+  "open_questions": [],
+  "report_path": ".sdp/reports/spec-interrogate.md",
+  "report_summary": "No unresolved implementation-blocking questions remain."
 }
 ```
 
-### Когда пропустить
+Each `open_questions[]` item must contain:
 
-- Тривиальные задачи (bugfix, однострочные изменения)
-- Прямой Delivery без Discovery (контекст уже известен)
-- Явный флаг `--skip-interrogate` с обоснованием в beads issue
+```json
+{
+  "id": "Q1",
+  "type": "scope-ambiguity",
+  "impact": "plan-blocking",
+  "question": "What is the fallback behavior when the upstream model call times out?"
+}
+```
+
+`open_questions_count` is the count of unresolved items in the final report, not the total number ever raised.
+
+## Question Taxonomy
+
+Prioritize questions that block planning or implementation:
+
+1. `why` — why this decision exists
+2. `undefined-term` — a key term appears but is not defined
+3. `missing-error-path` — failure behavior is unspecified
+4. `scope-ambiguity` — ownership or boundary is unclear
+5. `unstated-assumption` — the author relies on context not present in the artifact
+
+Do not spend rounds on style, formatting, or taste unless they hide meaning.
+
+## Protocol (mode `socratic`)
+
+Use this when the author can iteratively revise the artifact.
+
+### Steps
+
+1. Interrogator reads only the artifact and parameters.
+2. It asks up to `N` high-impact questions.
+3. Author updates the artifact. The answer is the edit, not a chat reply.
+4. Interrogator re-reads the updated artifact and checks whether the blocking questions are resolved.
+5. Repeat until convergence or `--rounds` is exhausted.
+
+### Verdict Rules
+
+- `PASS`: final round finds `0` unresolved questions
+- `REWORK`: round limit reached and unresolved questions remain
+- `ABORT`: author explicitly stops the process
+
+### Accounting Rules
+
+- `rounds_completed` = actual rounds performed
+- `max_rounds` = configured cap
+- `open_questions_count` = unresolved questions after the final artifact revision
+
+## Protocol (mode `cold-read`)
+
+Use this for a cheap first pass.
+
+### Steps
+
+1. Interrogator reads the artifact once.
+2. It writes three sections to the report:
+   - `What I believe this artifact says`
+   - `What I still cannot infer`
+   - `What I would refuse to assume`
+3. It converts every unresolved inference into `open_questions[]`.
+
+### Verdict Rules
+
+- `PASS`: the summary is coherent and `open_questions_count = 0`
+- `REWORK`: any unresolved inference remains
+- `ABORT`: author explicitly stops after the report
+
+### Accounting Rules
+
+- `rounds_completed = 1`
+- `max_rounds = 1`
+
+## Protocol (mode `adversarial`)
+
+Use this for security, reliability, or abuse-case review of the artifact itself.
+
+### Steps
+
+1. Interrogator reads the artifact once.
+2. It lists concrete failure modes, trust-boundary gaps, abuse vectors, and mitigation holes.
+3. Every unresolved issue becomes an `open_questions[]` item with `impact = plan-blocking` unless the gap is explicitly minor.
+
+### Verdict Rules
+
+- `PASS`: no unresolved blocking vulnerabilities or failure-mode gaps
+- `REWORK`: any unresolved vulnerability or mitigation gap remains
+- `ABORT`: author explicitly stops after the report
+
+### Accounting Rules
+
+- `rounds_completed = 1`
+- `max_rounds = 1`
+
+## Protocol (mode `impl-test`)
+
+Use this when the real question is: "Could another agent implement this without hallucinating?"
+
+### Steps
+
+1. Interrogator tries to outline a minimal implementation plan using only the artifact.
+2. For each step it cannot ground in the artifact, it records the missing dependency as an `open_questions[]` item.
+3. The report must separate:
+   - `Grounded implementation steps`
+   - `Steps that would require invented assumptions`
+
+### Verdict Rules
+
+- `PASS`: a minimal implementation outline can be produced with `0` invented assumptions
+- `REWORK`: any implementation step would require invented assumptions
+- `ABORT`: author explicitly stops after the report
+
+### Accounting Rules
+
+- `rounds_completed = 1`
+- `max_rounds = 1`
+
+## SDP Integration
+
+This is an agent-discipline precondition before emitting the Plan gate. It is not tooling enforcement. The agent must run `@spec-interrogate` and respect a `REWORK` verdict before invoking `sdp phase plan`.
+
+### Discovery -> Plan
+
+```bash
+@spec-interrogate docs/discovery/<slug>/validation.md --feature-id <F>
+# writes:
+#   .sdp/evidence/spec-interrogate.json
+#   .sdp/reports/spec-interrogate.md
+
+# only after PASS:
+sdp phase plan --feature-id <F> --strict --evidence-path .sdp/evidence/plan.json
+```
+
+If the verdict is `REWORK`, do not call `sdp phase plan`. Resume Discovery using the unresolved questions from `report-path`.
+
+### Plan -> Build
+
+```bash
+@spec-interrogate docs/plans/<feature>-design.md --feature-id <F> --mode adversarial
+```
+
+## Skip Rules
+
+Skip only when one of these is true:
+
+- trivial change or one-line bugfix
+- direct Delivery task with no Discovery artifact
+- explicit `--skip-interrogate` decision documented in beads
+
+If skipped, the reason must be explicit. "Felt unnecessary" is not a valid reason.
 
 ## Invocation Contract
 
-```
-@spec-interrogate <artifact-path> [--questions N] [--rounds M] [--mode MODE] [--feature-id F]
+```bash
+@spec-interrogate <artifact-path> \
+  [--mode MODE] \
+  [--questions N] \
+  [--rounds M] \
+  [--feature-id F] \
+  [--evidence-path PATH] \
+  [--report-path PATH]
 ```
 
-Примеры:
+Examples:
+
 ```bash
-# Дефолт: socratic, 5 вопросов, 5 раундов
+# default iterative hardening
 @spec-interrogate docs/discovery/my-feature/validation.md --feature-id F042
 
-# Быстрая проверка перед совещанием
+# cheap first-pass sanity check
 @spec-interrogate docs/plans/arch-decision.md --mode cold-read
 
-# Жёсткий прогон перед сложным PR
-@spec-interrogate docs/plans/auth-redesign.md --rounds 3 --mode adversarial
+# risky plan before implementation
+@spec-interrogate docs/plans/auth-redesign.md --mode adversarial --report-path .sdp/reports/auth-redesign-interrogate.md
 ```
-
-## Артефакты
-
-- **`.sdp/evidence/spec-interrogate.json`** — machine-readable результат для Plan gate
-- **Round log** — вопросы и версии артефакта по раундам (в stdout)
-- **Rework-report (при REWORK)** — нумерованный список незакрытых вопросов для следующего прогона
 
 ## Acceptance Boundaries
 
-NOT for: реализацию (@build), code review (@review), исследование (@research).
-
-Этот скилл работает только с **текстовыми артефактами** (md, txt, json-schema). Не применять к коду напрямую — для кода используй @review.
+This skill works only with text artifacts such as `md`, `txt`, and schema docs.
+Do not apply it directly to code. If the thing under review is executable code, use `@review`.
