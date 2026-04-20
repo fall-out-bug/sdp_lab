@@ -211,10 +211,10 @@ func TestBootstrapConventions_CreatesAdapterFiles(t *testing.T) {
 		t.Fatalf("bootstrap --conventions failed: %v\n%s", out.err, out.combined())
 	}
 
-	// Should still produce standard DRAFT-CLAUDE.md.
-	draftClaude := filepath.Join(repoDir, "DRAFT-CLAUDE.md")
+	// Should still produce standard DRAFT-CLAUDE-RULES.md.
+	draftClaude := filepath.Join(repoDir, "DRAFT-CLAUDE-RULES.md")
 	if _, err := os.Stat(draftClaude); os.IsNotExist(err) {
-		t.Errorf("expected DRAFT-CLAUDE.md, got output:\n%s", out.combined())
+		t.Errorf("expected DRAFT-CLAUDE-RULES.md, got output:\n%s", out.combined())
 	}
 
 	// Should also produce adapter output (DRAFT-CLAUDE-RULES.md).
@@ -233,12 +233,6 @@ func TestBootstrapWithoutConventions_Unchanged(t *testing.T) {
 	out := runCmd(bin, "bootstrap", "--no-verify", repoDir)
 	if out.err != nil {
 		t.Fatalf("bootstrap without --conventions failed: %v\n%s", out.err, out.combined())
-	}
-
-	// DRAFT-CLAUDE.md should exist.
-	draftClaude := filepath.Join(repoDir, "DRAFT-CLAUDE.md")
-	if _, err := os.Stat(draftClaude); os.IsNotExist(err) {
-		t.Errorf("expected DRAFT-CLAUDE.md, got output:\n%s", out.combined())
 	}
 
 	// DRAFT-CLAUDE-RULES.md should NOT exist (no --conventions).

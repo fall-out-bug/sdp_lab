@@ -42,7 +42,7 @@ func writeConventions(b *strings.Builder, conv *scout.Conventions) {
 	}
 
 	testStyle := conv.TestStructure.Style
-	if testStyle != "" {
+	if testStyle != "" && testStyle != "unknown" {
 		hasContent = true
 	}
 
@@ -71,7 +71,7 @@ func writeConventions(b *strings.Builder, conv *scout.Conventions) {
 		}
 	}
 
-	if testStyle != "" {
+	if testStyle != "" && testStyle != "unknown" {
 		b.WriteString("### Test Layout\n")
 		fmt.Fprintf(b, "- Style: %s\n", testStyle)
 		if conv.TestStructure.DirPattern != "" {

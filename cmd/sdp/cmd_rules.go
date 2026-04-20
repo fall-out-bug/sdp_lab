@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"sdp_dev/internal/bootstrap"
@@ -141,11 +142,30 @@ func executeRulesUpdate(repoPath, evidenceDir, manifestFile string) (*rulesRepor
 	}
 
 	for adapterName, content := range rendered {
-		filename := draftFilename(adapterName)
+		harness := manifestHarness(manifest, adapterName)
+		filename := draftFilenameFromHarness(harness)
 		fullPath := filepath.Join(repoPath, filename)
 
 		header := bootstrap.DraftHeader(start.UTC().Format("2006-01-02"))
 		finalContent := header + string(content)
+
+		// Preserve existing content: skip if identical, error if different.
+		existing, err := os.ReadFile(fullPath)
+		if err == nil {
+			if string(existing) == finalContent {
+				report.Adapters[adapterName] = adapterResult{
+					File: filename, Size: len(existing),
+					Message: "unchanged",
+				}
+				continue
+			}
+			// File exists with different content — do not overwrite.
+			report.Adapters[adapterName] = adapterResult{
+				File: filename, Size: len(existing),
+				Message: "skipped: file exists with different content (resolve manually)",
+			}
+			continue
+		}
 
 		if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
 			return nil, fmt.Errorf("create dir for %s: %w", filename, err)
@@ -165,16 +185,31 @@ func executeRulesUpdate(repoPath, evidenceDir, manifestFile string) (*rulesRepor
 	return report, nil
 }
 
-// draftFilename maps a harness name to a DRAFT-prefixed output filename.
-func draftFilename(harnessName string) string {
-	switch harnessName {
-	case "claude-code":
-		return "DRAFT-CLAUDE-RULES.md"
-	case "cursor":
-		return "DRAFT-.cursorrules"
-	default:
-		return "DRAFT-" + harnessName + "-rules.md"
+// manifestHarness finds the Harness entry from manifest by name, or returns nil.
+func manifestHarness(m *harnesscfg.Manifest, name string) *harnesscfg.Harness {
+	if m != nil {
+		for i := range m.Harnesses {
+			if m.Harnesses[i].Name == name {
+				return &m.Harnesses[i]
+			}
+		}
 	}
+	return nil
+}
+
+// draftFilenameFromHarness derives a DRAFT output filename from the manifest harness.
+// Uses ConfigFile from manifest to derive a rules-specific filename, otherwise falls
+// back to a default.
+func draftFilenameFromHarness(h *harnesscfg.Harness) string {
+	if h != nil && h.ConfigFile != "" {
+		// Derive DRAFT rules filename: CLAUDE.md -> DRAFT-CLAUDE-RULES.md
+		base := filepath.Base(h.ConfigFile)
+		ext := filepath.Ext(base)
+		nameWithoutExt := strings.TrimSuffix(base, ext)
+		return "DRAFT-" + nameWithoutExt + "-rules" + ext
+	}
+	// Fallback default
+	return "DRAFT-harness-rules.md"
 }
 
 // loadManifestOrDefault loads a manifest from the given file path, or creates
