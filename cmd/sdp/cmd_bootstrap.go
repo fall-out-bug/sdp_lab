@@ -191,7 +191,7 @@ func appendConventionsArtifacts(report *bootstrap.BootstrapReport, repoPath stri
 			if !force {
 				report.Artifacts = append(report.Artifacts, bootstrap.ArtifactResult{
 					Type: "adapter", Path: filename,
-					Action: "skip", Status: "ok",
+					Action: "skip", Status: "skipped",
 					Message: fmt.Sprintf("conventions: %s exists with different content (use --force to overwrite)", adapterName),
 				})
 				continue
@@ -421,23 +421,24 @@ func writeDraftArtifact(report *bootstrap.BootstrapReport, repoPath, basename, c
 }
 // bootstrapRulesArtifactName derives a rules-specific filename from the manifest
 // harness ConfigFile. Handles dotfiles like .cursorrules correctly.
-// When useDraft is true, files get a DRAFT- prefix.
+// When useDraft is true, files get a DRAFT- prefix on the filename only.
 func bootstrapRulesArtifactName(h *harnesscfg.Harness, useDraft bool) string {
 	var base string
 	if h != nil && h.ConfigFile != "" {
-		ext := filepath.Ext(h.ConfigFile)
-		nameWithoutExt := strings.TrimSuffix(h.ConfigFile, ext)
+		dir := filepath.Dir(h.ConfigFile)
+		filename := filepath.Base(h.ConfigFile)
+		ext := filepath.Ext(filename)
+		nameWithoutExt := strings.TrimSuffix(filename, ext)
 		if nameWithoutExt == "" {
 			// Dotfile like .cursorrules: strip dot, append -rules.md
-			b := strings.TrimPrefix(filepath.Base(h.ConfigFile), ".")
-			dir := filepath.Dir(h.ConfigFile)
-			if dir == "." {
-				base = b + "-rules.md"
-			} else {
-				base = dir + "/" + b + "-rules.md"
-			}
+			nameWithoutExt = strings.TrimPrefix(filename, ".")
+			ext = ".md"
+		}
+		rulesFilename := nameWithoutExt + "-rules" + ext
+		if dir == "." {
+			base = rulesFilename
 		} else {
-			base = nameWithoutExt + "-rules" + ext
+			base = dir + "/" + rulesFilename
 		}
 	} else {
 		base = "harness-rules.md"

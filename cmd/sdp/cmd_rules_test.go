@@ -282,7 +282,8 @@ func TestDraftFilename_StandardPath(t *testing.T) {
 	}{
 		{"CLAUDE.md", "DRAFT-CLAUDE-rules.md"},
 		{".cursorrules", "DRAFT-cursorrules-rules.md"},
-		{".cursor/rules.md", "DRAFT-.cursor/rules-rules.md"},
+		{".cursor/rules.md", ".cursor/DRAFT-rules-rules.md"},
+		{".cursor/rules/project.mdc", ".cursor/rules/DRAFT-project-rules.mdc"},
 		{"", "DRAFT-harness-rules.md"},
 	}
 	for _, tc := range tests {
@@ -309,6 +310,8 @@ func TestBootstrapArtifactName_Dotfile(t *testing.T) {
 		{"CLAUDE.md", true, "DRAFT-CLAUDE-rules.md"},
 		{".cursorrules", false, "cursorrules-rules.md"},
 		{".cursorrules", true, "DRAFT-cursorrules-rules.md"},
+		{".cursor/rules/project.mdc", false, ".cursor/rules/project-rules.mdc"},
+		{".cursor/rules/project.mdc", true, ".cursor/rules/DRAFT-project-rules.mdc"},
 	}
 	for _, tc := range tests {
 		h := &harnesscfg.Harness{ConfigFile: tc.config}

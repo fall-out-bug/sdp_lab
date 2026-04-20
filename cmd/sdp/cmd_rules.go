@@ -199,38 +199,34 @@ func manifestHarness(m *harnesscfg.Manifest, name string) *harnesscfg.Harness {
 
 // draftFilenameFromHarness derives a DRAFT output filename from the manifest harness.
 // Uses ConfigFile from manifest to derive a rules-specific filename, otherwise falls
-// back to a default.
-//   CLAUDE.md          -> DRAFT-CLAUDE-rules.md
-//   .cursorrules       -> DRAFT-cursorrules-rules.md
-//   .cursor/rules.md   -> DRAFT-.cursor/rules-rules.md
+// back to a default. DRAFT- prefix is applied to the filename only, preserving
+// directory structure.
+//   CLAUDE.md                  -> DRAFT-CLAUDE-rules.md
+//   .cursorrules               -> DRAFT-cursorrules-rules.md
+//   .cursor/rules/project.mdc  -> .cursor/rules/DRAFT-project-rules.mdc
 func draftFilenameFromHarness(h *harnesscfg.Harness) string {
+	var base string
 	if h != nil && h.ConfigFile != "" {
 		cf := h.ConfigFile
-		ext := filepath.Ext(cf)
-		nameWithoutExt := strings.TrimSuffix(cf, ext)
-		// Handle dotfiles like .cursorrules (no base name before the dot).
-		// filepath.Ext returns ".cursorrules" for ".cursorrules", leaving
-		// nameWithoutExt empty. Detect this and strip the leading dot.
-		if nameWithoutExt == "" && strings.HasPrefix(ext, ".") && strings.Contains(ext[1:], ".") {
-			// Rare case: file like "some.backup.md" — normal path works fine.
-			// Only enters here for pure dotfiles like ".cursorrules".
-		}
-		// For dotfiles where TrimSuffix empties the name part (e.g. ".cursorrules"),
-		// treat the whole segment as the name with extension ".md" appended.
+		dir := filepath.Dir(cf)
+		filename := filepath.Base(cf)
+		ext := filepath.Ext(filename)
+		nameWithoutExt := strings.TrimSuffix(filename, ext)
 		if nameWithoutExt == "" {
-			base := filepath.Base(cf)
-			// Strip leading dot for the artifact name.
-			base = strings.TrimPrefix(base, ".")
-			dir := filepath.Dir(cf)
-			if dir == "." {
-				return "DRAFT-" + base + "-rules.md"
-			}
-			return "DRAFT-" + dir + "/" + base + "-rules.md"
+			// Dotfile like .cursorrules: strip dot, append -rules.md
+			nameWithoutExt = strings.TrimPrefix(filename, ".")
+			ext = ".md"
 		}
-		return "DRAFT-" + nameWithoutExt + "-rules" + ext
+		rulesFilename := nameWithoutExt + "-rules" + ext
+		if dir == "." {
+			base = rulesFilename
+		} else {
+			base = dir + "/" + rulesFilename
+		}
+	} else {
+		base = "harness-rules.md"
 	}
-	// Fallback default
-	return "DRAFT-harness-rules.md"
+	return bootstrap.DraftPath(base)
 }
 
 // loadManifestOrDefault loads a manifest from the given file path, or creates
