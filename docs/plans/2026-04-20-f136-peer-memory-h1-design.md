@@ -41,6 +41,13 @@ H1 цель: доказать в реальном использовании, ч
 Если **да** — открываем H2 в июле.
 Если **нет** — park, возможно, проблема в модели триггеринга, не в инфре.
 
+## Validation Target
+
+Проверяем не на абстракции, а на одном реальном сбое из `sdp_lab`: F122 edge-loss regression.
+
+- В review round по F122 несколько агентов независимо переоткрывали один и тот же root cause: после re-parse `SourceID/TargetID` оставались нулевыми, а старый контекст приходилось восстанавливать из PR, Beads и разрозненных заметок.
+- H1 считается полезным только если по вопросу вроде `why do refresh edges disappear?` память поднимает цепочку discovery/decision без ручного похода по старым PR и review findings.
+
 ## Architecture
 
 ```
@@ -54,10 +61,11 @@ H1 цель: доказать в реальном использовании, ч
                          ▼
 ┌────────────────────────────────────────────────────────┐
 │  STORE                                                 │
-│    .sdp/memory/                                        │
-│      events.jsonl        ← append-only                 │
-│      summaries/YYYY-MM-DD.md   ← LLM-compacted         │
-│      index.db               ← FTS5 over events+summaries│
+│    <git-common-dir>/sdp/memory/                        │
+│      events.jsonl        ← append-only, shared across  │
+│                           all worktrees of this repo   │
+│      summaries/YYYY-MM-DD-<session>.md ← compacted     │
+│      index.db           ← FTS5 over events+summaries   │
 └────────────────────────────────────────────────────────┘
                          │
                          ▼
@@ -96,6 +104,7 @@ type MemoryEntry struct {
 - `links` — дешёвая проекция на существующий граф (beads, F122 chunks, PR).
 - `session_id` — группировка для компакции.
 - **Нет** `trust_tier` в H1 — это H2 territory. В H1 все записи равны.
+- Store root должен быть worktree-safe: одна память на репо, а не отдельная память на каждый checkout.
 
 ## Write Triggers (H1 — три категории)
 
@@ -130,7 +139,7 @@ type MemoryEntry struct {
    ```
 4. `events.jsonl` **не** удаляем — summary это read-optimized view, events — ground truth
 
-Garbage collection: `sdp memory compact --older-than=90d` опционально архивирует old events в `.sdp/memory/archive/`.
+Garbage collection: `sdp memory compact --older-than=90d` опционально архивирует old events в `<git-common-dir>/sdp/memory/archive/`.
 
 ## Read Path
 
@@ -156,6 +165,7 @@ Write path через MCP **сознательно не делаем** в H1 (с
 | Существующее | Что меняем |
 |---|---|
 | `internal/agentloop/` | добавить `memory.Append` в phase transitions |
+| `internal/memory/` | root resolution через `git rev-parse --git-common-dir`, чтобы память не дробилась по worktree |
 | `internal/sdpctx/` или аналог | session_id из context |
 | `cmd/sdp/` | `cmd_memory.go` — новая subcommand |
 | `.claude/hooks/` | новый `session-stop-memory.sh` |
@@ -164,18 +174,19 @@ Write path через MCP **сознательно не делаем** в H1 (с
 
 ## Storage & Privacy
 
-- `.sdp/memory/` — **в `.gitignore` по умолчанию**. Локальный state.
+- Store root: `<git-common-dir>/sdp/memory/`. Это локальный repo-scoped state, общий для всех worktree и не попадает в tracked tree.
 - Summaries/markdown можно опционально коммитить (`sdp memory share --summary=2026-04-20`), но это opt-in в H1.
 - Никакой автоматической отправки наружу. H2/H3 подумают про sync.
-- No secrets: regex-scanner перед записью блокирует запись при совпадении `(password|token|api_key|secret|BEGIN (RSA|OPENSSH) PRIVATE KEY)` и типовых env-var форматах.
+- No secrets: scanner блокирует только high-confidence credential shapes: assignment-like patterns (`password=`, `api_key:`, `Authorization: Bearer ...`), provider token prefixes, private-key blocks. Голые слова вроде `token budget`, `secret rotation`, `API key flow` только warn, а не block.
 
 ## Testing
 
-1. `store_test.go` — append, query, filter by author/type, concurrent appends
+1. `store_test.go` — append, query, filter by author/type, concurrent appends, shared-root resolution across worktrees
 2. `compact_test.go` — mock LLM, verify summary structure
 3. `cli_test.go` — golden files для `sdp memory query` output
 4. Integration: запустить agentloop на mock-issue, verify entries появились
-5. MCP resource tests — запрос через MCP клиент возвращает JSON
+5. `secrets_test.go` — high-confidence secrets blocked, benign phrases (`token budget`, `secret rotation`) allowed
+6. MCP resource tests — запрос через MCP клиент возвращает JSON
 
 ## Package Layout
 
