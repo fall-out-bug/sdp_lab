@@ -231,3 +231,76 @@ func TestValidateOverrideReason(t *testing.T) {
 		t.Fatalf("unexpected error for valid reason: %v", err)
 	}
 }
+
+func TestAdoptExistingReviewVerdictPreservesAgentWrittenOverride(t *testing.T) {
+	projectRoot := t.TempDir()
+	sdpDir := filepath.Join(projectRoot, ".sdp")
+	if err := os.MkdirAll(sdpDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	verdictPath := filepath.Join(sdpDir, "review_verdict.json")
+	if err := os.WriteFile(verdictPath, []byte(`{
+		"feature":"F104",
+		"verdict":"APPROVED",
+		"round":3,
+		"timestamp":"2026-04-21T12:00:00Z",
+		"override_reason":"P2 docs-only findings",
+		"reviewers":{
+			"qa":{"verdict":"PASS","findings":[]},
+			"security":{"verdict":"PASS","findings":[]},
+			"devops":{"verdict":"PASS","findings":[]},
+			"sre":{"verdict":"PASS","findings":[]},
+			"techlead":{"verdict":"PASS","findings":[]},
+			"docs":{"verdict":"PASS","findings":[]},
+			"promptops":{"verdict":"PASS","findings":[]}
+		}
+	}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cp := &Checkpoint{FeatureID: "F104"}
+	adopted, err := adoptExistingReviewVerdict(projectRoot, cp, "APPROVED")
+	if err != nil {
+		t.Fatalf("adoptExistingReviewVerdict: %v", err)
+	}
+	if !adopted {
+		t.Fatal("expected existing verdict to be adopted")
+	}
+	if cp.Review == nil || cp.Review.VerdictFile != verdictPath {
+		t.Fatalf("checkpoint did not retain verdict path: %+v", cp.Review)
+	}
+}
+
+func TestAdoptExistingReviewVerdictRejectsMismatchedVerdict(t *testing.T) {
+	projectRoot := t.TempDir()
+	sdpDir := filepath.Join(projectRoot, ".sdp")
+	if err := os.MkdirAll(sdpDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sdpDir, "review_verdict.json"), []byte(`{
+		"feature":"F104",
+		"verdict":"CHANGES_REQUESTED",
+		"round":3,
+		"timestamp":"2026-04-21T12:00:00Z",
+		"reviewers":{
+			"qa":{"verdict":"FAIL","findings":["sdplab-1"]},
+			"security":{"verdict":"FAIL","findings":["sdplab-1"]},
+			"devops":{"verdict":"FAIL","findings":["sdplab-1"]},
+			"sre":{"verdict":"FAIL","findings":["sdplab-1"]},
+			"techlead":{"verdict":"FAIL","findings":["sdplab-1"]},
+			"docs":{"verdict":"FAIL","findings":["sdplab-1"]},
+			"promptops":{"verdict":"FAIL","findings":["sdplab-1"]}
+		}
+	}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cp := &Checkpoint{FeatureID: "F104"}
+	adopted, err := adoptExistingReviewVerdict(projectRoot, cp, "APPROVED")
+	if err == nil {
+		t.Fatal("expected mismatch error")
+	}
+	if adopted {
+		t.Fatal("mismatched verdict must not be adopted")
+	}
+}

@@ -127,31 +127,35 @@ func walkText(node ast.Node, result *strings.Builder) {
 		result.WriteString(string(v.Literal))
 	case *ast.CodeBlock:
 		result.Write(v.Literal)
+	case *ast.Image:
+		result.WriteString("[image: ")
+		walkTextChildren(v, result)
+		if len(v.Destination) > 0 {
+			result.WriteString(" ")
+			result.WriteString(string(v.Destination))
+		}
+		result.WriteString("]")
 	case *ast.Link:
 		// Add link text and URL
-		ast.WalkFunc(v, func(node ast.Node, entering bool) ast.WalkStatus {
-			if entering && node.AsLeaf() != nil {
-				walkText(node, result)
-			}
-			return ast.GoToNext
-		})
+		walkTextChildren(v, result)
 		result.WriteString(" (")
 		result.WriteString(string(v.Destination))
 		result.WriteString(")")
 	default:
 		// Recursively process children
-		ast.WalkFunc(v, func(node ast.Node, entering bool) ast.WalkStatus {
-			if entering {
-				walkText(node, result)
-			}
-			return ast.GoToNext
-		})
+		walkTextChildren(v, result)
 	}
 
 	// Add appropriate whitespace
 	switch node.(type) {
 	case *ast.Paragraph, *ast.Heading, *ast.ListItem:
 		result.WriteString("\n")
+	}
+}
+
+func walkTextChildren(node ast.Node, result *strings.Builder) {
+	for _, child := range node.GetChildren() {
+		walkText(child, result)
 	}
 }
 

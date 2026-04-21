@@ -2,8 +2,10 @@ package orchestrate
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -69,7 +71,7 @@ type QAVerdict struct {
 }
 
 func WriteReviewVerdict(projectRoot string, cp *Checkpoint, verdict ReviewVerdict) (string, error) {
-	path := filepath.Join(projectRoot, ".sdp", "review_verdict.json")
+	path := reviewVerdictArtifactPath(projectRoot)
 	if err := writeJSONArtifact(path, verdict); err != nil {
 		return "", err
 	}
@@ -80,6 +82,68 @@ func WriteReviewVerdict(projectRoot string, cp *Checkpoint, verdict ReviewVerdic
 		cp.Review.VerdictFile = path
 	}
 	return path, nil
+}
+
+func reviewVerdictArtifactPath(projectRoot string) string {
+	return filepath.Join(projectRoot, ".sdp", "review_verdict.json")
+}
+
+func adoptExistingReviewVerdict(projectRoot string, cp *Checkpoint, expectedVerdict string) (bool, error) {
+	return adoptExistingReviewVerdictSince(projectRoot, cp, expectedVerdict, time.Time{})
+}
+
+func adoptExistingReviewVerdictSince(projectRoot string, cp *Checkpoint, expectedVerdict string, notBefore time.Time) (bool, error) {
+	path := reviewVerdictArtifactPath(projectRoot)
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("stat review verdict: %w", err)
+	}
+	if !notBefore.IsZero() && info.ModTime().Before(notBefore) {
+		return false, nil
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false, fmt.Errorf("read review verdict: %w", err)
+	}
+	var verdict ReviewVerdict
+	if err := json.Unmarshal(data, &verdict); err != nil {
+		return false, fmt.Errorf("parse review verdict: %w", err)
+	}
+	if !strings.EqualFold(strings.TrimSpace(verdict.Verdict), strings.TrimSpace(expectedVerdict)) {
+		return false, fmt.Errorf("existing review verdict %q does not match expected %q", verdict.Verdict, expectedVerdict)
+	}
+	if err := validateReviewVerdictEscapeFields(verdict); err != nil {
+		return false, err
+	}
+	if cp != nil {
+		if cp.Review == nil {
+			cp.Review = &ReviewStatus{}
+		}
+		cp.Review.VerdictFile = path
+	}
+	return true, nil
+}
+
+func validateReviewVerdictEscapeFields(verdict ReviewVerdict) error {
+	switch strings.ToUpper(strings.TrimSpace(verdict.Verdict)) {
+	case "APPROVED":
+		if verdict.OverrideReason != "" {
+			return ValidateOverrideReason(verdict.OverrideReason)
+		}
+	case "PARTIALLY_APPROVED":
+		if len(nonEmptyStrings(verdict.PartialFailingRoles...)) == 0 {
+			return errors.New("partial review verdict requires partial_failing_roles")
+		}
+	case "ESCALATED":
+		if strings.TrimSpace(verdict.EscalationIssue) == "" {
+			return errors.New("escalated review verdict requires escalation_issue")
+		}
+	}
+	return nil
 }
 
 func WriteQAVerdict(projectRoot string, cp *Checkpoint, verdict QAVerdict) (string, error) {

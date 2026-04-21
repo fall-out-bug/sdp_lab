@@ -11,6 +11,42 @@
     "round",
     "timestamp"
   ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "PARTIALLY_APPROVED"
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "required": [
+          "partial_failing_roles"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "ESCALATED"
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "required": [
+          "escalation_issue"
+        ]
+      }
+    }
+  ],
   "properties": {
     "feature": {
       "type": "string",
@@ -140,17 +176,31 @@
     },
     "override_reason": {
       "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
       "description": "Justification when verdict overridden via --override"
     },
     "partial_failing_roles": {
       "type": "array",
+      "minItems": 1,
       "items": {
-        "type": "string"
+        "type": "string",
+        "enum": [
+          "qa",
+          "security",
+          "devops",
+          "sre",
+          "techlead",
+          "docs",
+          "promptops"
+        ]
       },
       "description": "Roles that failed in PARTIALLY_APPROVED verdict"
     },
     "escalation_issue": {
       "type": "string",
+      "minLength": 1,
+      "pattern": "\\S",
       "description": "Beads issue ID for human escalation"
     }
   },

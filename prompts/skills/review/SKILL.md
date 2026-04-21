@@ -137,7 +137,7 @@ Proceed? [y/n]
 ```json
 {
   "feature": "F{XX}",
-  "verdict": "APPROVED|CHANGES_REQUESTED",
+  "verdict": "APPROVED|CHANGES_REQUESTED|PARTIALLY_APPROVED|ESCALATED",
   "timestamp": "...",
   "round": 1,
   "reviewers": {
@@ -163,6 +163,11 @@ Proceed? [y/n]
   "summary": "..."
 }
 ```
+
+Escape hatch fields:
+- `--override`: add non-empty `override_reason`.
+- `PARTIALLY_APPROVED`: add non-empty `partial_failing_roles` using reviewer role names.
+- `ESCALATED`: add non-empty `escalation_issue`.
 
 **Priority:** P0/P1 block; P2/P3 track only.
 

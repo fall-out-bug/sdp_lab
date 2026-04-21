@@ -4,6 +4,7 @@ package golang
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -33,8 +34,8 @@ type PackageNode struct {
 	Name        string   `json:"name"`
 	Cluster     string   `json:"cluster"` // parent directory relative to module root
 	IsGenerated bool     `json:"is_generated"`
-	Interfaces  []string `json:"interfaces,omitempty"`  // interfaces defined in this package
-	Implements  []string `json:"implements,omitempty"`  // interfaces implemented by this package
+	Interfaces  []string `json:"interfaces,omitempty"` // interfaces defined in this package
+	Implements  []string `json:"implements,omitempty"` // interfaces implemented by this package
 }
 
 // Cycle is a sequence of package import paths that form a circular dependency.
@@ -75,16 +76,16 @@ type DeployUnit struct {
 
 // ImportGraph is the result of running an Extractor against a Go module.
 type ImportGraph struct {
-	ModulePath       string             `json:"module_path"`
-	Nodes            []PackageNode      `json:"nodes"`
-	Edges            []ImportEdge       `json:"edges"`
-	Clusters         []string           `json:"clusters"`
-	Cycles           []Cycle            `json:"cycles"`
+	ModulePath       string              `json:"module_path"`
+	Nodes            []PackageNode       `json:"nodes"`
+	Edges            []ImportEdge        `json:"edges"`
+	Clusters         []string            `json:"clusters"`
+	Cycles           []Cycle             `json:"cycles"`
 	Frameworks       []DetectedFramework `json:"frameworks,omitempty"`
-	ModuleInfo       *ModuleInfo        `json:"module_info,omitempty"`
-	DeployUnits      []DeployUnit       `json:"deploy_units,omitempty"`
-	ExtractionMethod string             `json:"extraction_method"`
-	AccuracyEstimate float64            `json:"accuracy_estimate"`
+	ModuleInfo       *ModuleInfo         `json:"module_info,omitempty"`
+	DeployUnits      []DeployUnit        `json:"deploy_units,omitempty"`
+	ExtractionMethod string              `json:"extraction_method"`
+	AccuracyEstimate float64             `json:"accuracy_estimate"`
 }
 
 // Extractor loads Go packages via go/packages and builds an import graph
@@ -212,6 +213,7 @@ func (e *Extractor) extractModule(ctx context.Context, dir, modPath string) (*Im
 	cfg := &packages.Config{
 		Mode:  packages.NeedName | packages.NeedImports | packages.NeedTypes | packages.NeedSyntax,
 		Dir:   dir,
+		Env:   append(os.Environ(), "GOWORK=off"),
 		Tests: e.IncludeTests,
 	}
 
@@ -222,6 +224,7 @@ func (e *Extractor) extractModule(ctx context.Context, dir, modPath string) (*Im
 
 	// Collect all internal packages
 	nodeMap := make(map[string]*PackageNode)
+	edgeSet := make(map[ImportEdge]struct{})
 	var edges []ImportEdge
 	externalImports := make(map[string]struct{})
 
@@ -237,7 +240,11 @@ func (e *Extractor) extractModule(ctx context.Context, dir, modPath string) (*Im
 		// Build edges from import graph
 		for imp := range pkg.Imports {
 			if isInternal(imp, modPath) {
-				edges = append(edges, ImportEdge{From: pkg.PkgPath, To: imp})
+				edge := ImportEdge{From: pkg.PkgPath, To: imp}
+				if _, ok := edgeSet[edge]; !ok {
+					edgeSet[edge] = struct{}{}
+					edges = append(edges, edge)
+				}
 				// Ensure the target node exists
 				if _, ok := nodeMap[imp]; !ok {
 					target := pkg.Imports[imp]
@@ -250,6 +257,7 @@ func (e *Extractor) extractModule(ctx context.Context, dir, modPath string) (*Im
 			}
 		}
 	}
+	scanSourceGraph(dir, modPath, nodeMap, &edges, edgeSet, externalImports)
 
 	nodes := make([]PackageNode, 0, len(nodeMap))
 	clusterSet := make(map[string]struct{})

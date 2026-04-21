@@ -64,6 +64,63 @@ func TestRunBuildPhase_WithFakeInvoker_NonZeroExit(t *testing.T) {
 	}
 }
 
+func TestRunReviewPhaseDetailedParsesExplicitVerdicts(t *testing.T) {
+	cases := []struct {
+		name         string
+		output       string
+		exitCode     int
+		wantApproved bool
+		wantVerdict  string
+	}{
+		{
+			name:         "explicit approved line",
+			output:       "review complete\nVERDICT: APPROVED\n",
+			exitCode:     0,
+			wantApproved: true,
+			wantVerdict:  "APPROVED",
+		},
+		{
+			name:         "negative approved phrase is not approval",
+			output:       "Review is not approved because blockers remain.\nVERDICT: CHANGES_REQUESTED\n",
+			exitCode:     0,
+			wantApproved: false,
+			wantVerdict:  "CHANGES_REQUESTED",
+		},
+		{
+			name:         "json partial verdict",
+			output:       `{"feature":"F104","verdict":"PARTIALLY_APPROVED","partial_failing_roles":["docs"]}`,
+			exitCode:     0,
+			wantApproved: false,
+			wantVerdict:  "PARTIALLY_APPROVED",
+		},
+		{
+			name:         "json escalated verdict",
+			output:       `{"feature":"F104","verdict":"ESCALATED","escalation_issue":"sdplab-123"}`,
+			exitCode:     0,
+			wantApproved: false,
+			wantVerdict:  "ESCALATED",
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			res, err := RunReviewPhaseDetailed(context.Background(), t.TempDir(), "F104", &fakeLLMInvoker{
+				output:   tt.output,
+				exitCode: tt.exitCode,
+			})
+			if err != nil {
+				t.Fatalf("RunReviewPhaseDetailed: %v", err)
+			}
+			if res.Approved != tt.wantApproved {
+				t.Fatalf("Approved = %v, want %v", res.Approved, tt.wantApproved)
+			}
+			if res.Verdict != tt.wantVerdict {
+				t.Fatalf("Verdict = %q, want %q", res.Verdict, tt.wantVerdict)
+			}
+		})
+	}
+}
+
 type fakeLLMInvoker struct {
 	output   string
 	exitCode int

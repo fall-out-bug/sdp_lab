@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"sdp_dev/internal/kernel"
@@ -189,45 +190,38 @@ func runReviewPhase(ctx context.Context, dir, featureID string, invoker LLMInvok
 	if err != nil {
 		return nil, err
 	}
-	upper := strings.ToUpper(res.Output)
-	verdict := "CHANGES_REQUESTED"
-	approved := false
-	switch {
-	case res.ExitCode == 0 && containsExactVerdict(upper, "APPROVED") && !containsExactVerdict(upper, "PARTIALLY_APPROVED"):
-		verdict = "APPROVED"
-		approved = true
-	case containsExactVerdict(upper, "PARTIALLY_APPROVED"):
-		verdict = "PARTIALLY_APPROVED"
-	case containsExactVerdict(upper, "ESCALATED"):
-		verdict = "ESCALATED"
-	}
+	verdict := extractReviewVerdict(res.Output)
+	approved := res.ExitCode == 0 && verdict == "APPROVED"
 	return &ReviewPhaseResult{Approved: approved, Output: res.Output, Verdict: verdict}, nil
 }
 
-// containsExactVerdict checks for a verdict keyword as a standalone word,
-// avoiding false positives like "APPROVED" matching inside "PARTIALLY_APPROVED"
-// or "APPROVEDLY".
-func containsExactVerdict(output, verdict string) bool {
-	nonWord := func(ch byte) bool {
-		return ch == ' ' || ch == '\n' || ch == '\t' || ch == '"' || ch == ':' || ch == '\'' || ch == ',' || ch == '.'
+var reviewVerdictFieldPattern = regexp.MustCompile(`(?i)"verdict"\s*:\s*"(APPROVED|CHANGES_REQUESTED|PARTIALLY_APPROVED|ESCALATED)"`)
+
+func extractReviewVerdict(output string) string {
+	matches := reviewVerdictFieldPattern.FindAllStringSubmatch(output, -1)
+	if len(matches) > 0 {
+		return strings.ToUpper(matches[len(matches)-1][1])
 	}
-	for {
-		idx := strings.Index(output, verdict)
-		if idx == -1 {
-			return false
+
+	lines := strings.Split(output, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if verdict := normalizeReviewVerdictLine(lines[i]); verdict != "" {
+			return verdict
 		}
-		// Check word boundary before
-		if idx > 0 && !nonWord(output[idx-1]) {
-			output = output[idx+len(verdict):]
-			continue
-		}
-		// Check word boundary after
-		afterIdx := idx + len(verdict)
-		if afterIdx < len(output) && !nonWord(output[afterIdx]) {
-			output = output[afterIdx:]
-			continue
-		}
-		return true
+	}
+	return "CHANGES_REQUESTED"
+}
+
+func normalizeReviewVerdictLine(line string) string {
+	normalized := strings.ToUpper(strings.TrimSpace(line))
+	normalized = strings.TrimPrefix(normalized, "VERDICT:")
+	normalized = strings.TrimSpace(normalized)
+	normalized = strings.Trim(normalized, " .!;")
+	switch normalized {
+	case "APPROVED", "CHANGES_REQUESTED", "PARTIALLY_APPROVED", "ESCALATED":
+		return normalized
+	default:
+		return ""
 	}
 }
 
