@@ -14,16 +14,13 @@ func addNode(m map[string]*PackageNode, pkg *packages.Package, modPath string) {
 	if _, ok := m[pkg.PkgPath]; ok {
 		return
 	}
-	rel := strings.TrimPrefix(pkg.PkgPath, modPath+"/")
-	cluster := ""
-	if idx := strings.LastIndex(rel, "/"); idx > 0 {
-		cluster = rel[:idx]
-	}
+	rel := strings.TrimPrefix(pkg.PkgPath, modPath)
+	rel = strings.TrimPrefix(rel, "/")
 	m[pkg.PkgPath] = &PackageNode{
 		ImportPath:  pkg.PkgPath,
 		Dir:         dirOf(pkg),
 		Name:        pkg.Name,
-		Cluster:     cluster,
+		Cluster:     filepath.ToSlash(rel),
 		IsGenerated: isGenerated(pkg),
 	}
 }
@@ -65,7 +62,7 @@ func isGeneratedFile(filename string) bool {
 
 	base := strings.ToLower(filename)
 	patterns := []string{
-		"zz_generated", "generated", "wire", "mock", "facade", "deepcopy", "tbls",
+		"zz_generated", "wire", "mock", "facade", "deepcopy", "tbls",
 	}
 	for _, pattern := range patterns {
 		if strings.Contains(base, pattern) {

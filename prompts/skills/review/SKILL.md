@@ -2,8 +2,9 @@
 name: review
 description: Multi-agent quality review (QA + Security + DevOps + SRE + TechLead + Documentation + PromptOps)
 cli: sdp quality all
-version: 16.0.0
+version: 17.0.0
 changes:
+  - "17.0.0: Post-max-retry escape hatches (--override, --partial, --escalate)"
   - "16.0.0: Fixed schema consistency - all 7 reviewers always spawned (F098 P1 fix)"
   - "15.0.0: Add risk-based reviewer selection"
   - "14.3.0: Add @go-modern checks for Go review surfaces"
@@ -136,7 +137,7 @@ Proceed? [y/n]
 ```json
 {
   "feature": "F{XX}",
-  "verdict": "APPROVED|CHANGES_REQUESTED",
+  "verdict": "APPROVED|CHANGES_REQUESTED|PARTIALLY_APPROVED|ESCALATED",
   "timestamp": "...",
   "round": 1,
   "reviewers": {
@@ -163,6 +164,11 @@ Proceed? [y/n]
 }
 ```
 
+Escape hatch fields:
+- `--override`: add non-empty `override_reason`.
+- `PARTIALLY_APPROVED`: add non-empty `partial_failing_roles` using reviewer role names.
+- `ESCALATED`: add non-empty `escalation_issue`.
+
 **Priority:** P0/P1 block; P2/P3 track only.
 
 **When verdict=CHANGES_REQUESTED** — output this handoff block prominently:
@@ -173,6 +179,68 @@ Proceed? [y/n]
 Run `@design phase4-remediation` with findings to create workstreams.
 ---
 ```
+
+---
+
+## Post-Max-Retry Escape Hatches (F104)
+
+> **Implementation note:** These escape hatches are prompt-level constructs for LLM-driven review. The builder functions exist in `internal/orchestrate/findings.go` but the CLI review command does not yet accept `--override`/`--partial`/`--escalate` flags. When using this skill via an LLM agent, the agent writes the verdict JSON directly using the new verdict values.
+
+After **3 consecutive CHANGES_REQUESTED** verdicts on the same feature, the review loop must offer escape options. Present this block:
+
+```
+---
+## Review Max Retries Reached (3/3)
+
+Choose an escape hatch:
+  @review --override "reason"  — Override: force APPROVED with logged justification
+  @review --partial            — Partial: approve passing reviewers, create issues for failing
+  @review --escalate           — Escalate: create beads issue for human review
+
+Default (no flag): re-run @design phase4-remediation with latest findings.
+---
+```
+
+### --override (Governed Override)
+
+Overrides verdict to APPROVED. **Requires non-empty justification string.**
+
+```
+@review F098 --override "P2 findings are documentation-only, no code risk"
+```
+
+**Rules:**
+- Empty justification (`--override ""`) → **REJECTED**. Must provide a reason.
+- Justification logged to `.sdp/review_verdict.json` → `override_reason` field.
+- Justification visible in PR body (append `## Review Override: <reason>` section).
+- Branch protection still requires human approval — override does NOT bypass branch rules.
+
+### --partial (Partial Approval)
+
+Approves reviewers that passed, creates beads issues for failing reviewers.
+
+```
+@review F098 --partial
+```
+
+**Behavior:**
+- Passing reviewers: verdict stays PASS.
+- Failing reviewers: create one beads issue per failing reviewer with all their findings.
+- Overall verdict: `PARTIALLY_APPROVED` (new verdict value).
+- `.sdp/review_verdict.json` → `verdict: "PARTIALLY_APPROVED"`, `partial_failing_roles: [...]`.
+
+### --escalate (Human Escalation)
+
+Creates a beads issue assigned to the project owner for human review.
+
+```
+@review F098 --escalate
+```
+
+**Behavior:**
+- Creates: `bd create --title "Human Review Required: F098 (3 failed rounds)" --priority 1 --type task`
+- Overall verdict: `ESCALATED` (new verdict value).
+- `.sdp/review_verdict.json` → `verdict: "ESCALATED"`, `escalation_issue: "sdplab-XXXX"`.
 
 ---
 
@@ -210,6 +278,17 @@ SCOPE: internal/auth/*.go (3 files). RISK MAP: token validation, rate limit. EVI
 FINDINGS_CREATED: (none)
 PASS
 ```
+
+## Recovery
+
+| Symptom | Fix |
+|---------|-----|
+| Skill produces no output | Check working directory is project root with `docs/workstreams/backlog/` |
+| "checkpoint not found" | Run `sdp-orchestrate --feature <ID>` to create initial checkpoint |
+| "workstream files missing" | Run `sdp-orchestrate --index` to verify, then `@feature` to regenerate |
+| Skill hangs / no progress | Check `.sdp/log/events.jsonl` for last event; use `sdp reset --feature <ID>` if stuck |
+| Review loop exceeds 3 rounds | Use `@review --override "reason"`, `@review --partial`, or `@review --escalate` |
+| Review verdict file corrupted | Delete `.sdp/review_verdict.json`, re-run `@review` |
 
 ## See Also
 @oneshot — review-fix loop | @deploy — requires APPROVED verdict | @go-modern — Go modernization checklist

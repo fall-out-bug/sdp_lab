@@ -1,4 +1,4 @@
-usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention|bootstrap|rules|build|coverage-scan|phase> <subcommand> [flags]
+usage: sdp <command> [subcommand] [flags]
 
 Card commands:
   sdp card <create|show|clarify|needs-input|ready|park|execute|heartbeat|feedback|feedback-export|message-export|resume|resume-import|reply-ingest|deliver>
@@ -71,6 +71,9 @@ Rules commands:
 
 Build commands:
   sdp build "<idea>" [--strict] [--local] [--sandbox=<type>] [--dry-run] [--format json|text] [--output DIR] [--timeout DURATION]
+
+Reset commands:
+  sdp reset --feature F042 [--dry-run] [--yes]  Reset checkpoint for a feature
 
 Coverage commands:
   sdp coverage-scan [--path DIR] [--threshold PCT] [--format text|json] [--skip-test] [--package PATTERN] [--coverprofile FILE]

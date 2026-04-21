@@ -14,10 +14,10 @@ import (
 
 // Exit codes for orchestrator (CI contract).
 const (
-	ExitSuccess   = 0
-	ExitFailure   = 1
+	ExitSuccess    = 0
+	ExitFailure    = 1
 	ExitNeedsHuman = 2
-	ExitCorrupted = 3
+	ExitCorrupted  = 3
 )
 
 func failf(format string, args ...any) error {
@@ -155,30 +155,66 @@ func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkp
 				return fmt.Errorf("hydrate for review: %w", err)
 			}
 			phaseCtx, cancel := context.WithTimeout(ctx, reviewPhaseTimeout)
-			approved, reviewOutput, err := RunReviewPhase(phaseCtx, projectRoot, action.Feature, nil)
+			reviewStartedAt := time.Now()
+			reviewResult, reviewErr := RunReviewPhaseDetailed(phaseCtx, projectRoot, action.Feature, nil)
 			cancel()
-			if err != nil || !approved {
-				findingID, findingErr := EmitReviewFailureFinding(ctx, projectRoot, cp, reviewOutput, err)
+			if reviewErr != nil || reviewResult == nil || !reviewResult.Approved {
+				var reviewOutput string
+				var resultVerdict string
+				if reviewResult != nil {
+					reviewOutput = reviewResult.Output
+					resultVerdict = reviewResult.Verdict
+				}
+				findingID, findingErr := EmitReviewFailureFinding(ctx, projectRoot, cp, reviewOutput, reviewErr)
 				if findingErr != nil {
 					slog.Warn("review finding emission failed", "error", findingErr, "feature", action.Feature)
 				}
-				if _, verdictErr := WriteReviewVerdict(projectRoot, cp, buildChangesRequestedReviewVerdict(cp, firstNonEmpty(strings.TrimSpace(reviewOutput), "review not approved"), findingID)); verdictErr != nil {
-					slog.Warn("review verdict write failed", "error", verdictErr, "feature", action.Feature)
+				adopted := false
+				if resultVerdict == "PARTIALLY_APPROVED" || resultVerdict == "ESCALATED" {
+					var adoptErr error
+					adopted, adoptErr = adoptExistingReviewVerdictSince(projectRoot, cp, resultVerdict, reviewStartedAt)
+					if adoptErr != nil {
+						slog.Warn("agent-written review verdict not adopted", "error", adoptErr, "feature", action.Feature, "verdict", resultVerdict)
+					}
+				}
+				if !adopted {
+					var verdict ReviewVerdict
+					switch resultVerdict {
+					case "ESCALATED":
+						if strings.TrimSpace(findingID) == "" {
+							verdict = buildChangesRequestedReviewVerdict(cp, firstNonEmpty(strings.TrimSpace(reviewOutput), "review escalated without escalation issue"), findingID)
+						} else {
+							verdict = buildEscalatedReviewVerdict(cp, firstNonEmpty(strings.TrimSpace(reviewOutput), "review escalated"), findingID)
+						}
+					case "PARTIALLY_APPROVED":
+						verdict = buildChangesRequestedReviewVerdict(cp, firstNonEmpty(strings.TrimSpace(reviewOutput), "review partially approved without structured verdict"), findingID)
+					default:
+						verdict = buildChangesRequestedReviewVerdict(cp, firstNonEmpty(strings.TrimSpace(reviewOutput), "review not approved"), findingID)
+					}
+					if _, verdictErr := WriteReviewVerdict(projectRoot, cp, verdict); verdictErr != nil {
+						slog.Warn("review verdict write failed", "error", verdictErr, "feature", action.Feature)
+					}
 				}
 				if saveErr := SaveCheckpoint(cpPath, cp); saveErr != nil {
 					slog.Error("failed to save checkpoint after review failure", "error", saveErr)
 				}
-				slog.Error("opencode review failed", "error", err, "approved", approved, "feature", action.Feature)
-				if err != nil {
-					return fmt.Errorf("review phase: %w", err)
+				slog.Error("opencode review failed", "error", reviewErr, "verdict", resultVerdict, "feature", action.Feature)
+				if reviewErr != nil {
+					return fmt.Errorf("review phase: %w", reviewErr)
 				}
-				return fmt.Errorf("opencode review not approved")
+				return fmt.Errorf("opencode review %s", resultVerdict)
 			}
 			if err := RunHooks(ctx, projectRoot, "review", "post", hookEnv, func(msg string) { slog.Info("hook", "msg", msg) }); err != nil {
 				return failf("error: post-review hook: %v", err)
 			}
-			if _, verdictErr := WriteReviewVerdict(projectRoot, cp, buildApprovedReviewVerdict(cp, strings.TrimSpace(reviewOutput))); verdictErr != nil {
-				return failf("error: write review verdict: %v", verdictErr)
+			adopted, adoptErr := adoptExistingReviewVerdictSince(projectRoot, cp, "APPROVED", reviewStartedAt)
+			if adoptErr != nil {
+				slog.Warn("agent-written approved verdict not adopted", "error", adoptErr, "feature", action.Feature)
+			}
+			if !adopted {
+				if _, verdictErr := WriteReviewVerdict(projectRoot, cp, buildApprovedReviewVerdict(cp, strings.TrimSpace(reviewResult.Output))); verdictErr != nil {
+					return failf("error: write review verdict: %v", verdictErr)
+				}
 			}
 			if report, err := EnforceContractGate(projectRoot, featureID); err != nil {
 				if report != nil {

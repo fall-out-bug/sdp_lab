@@ -122,6 +122,15 @@ Next steps:
   @feature "add X"              # Plan a feature
 ```
 
+## Recovery
+
+| Symptom | Fix |
+|---------|-----|
+| Skill produces no output | Re-run `@init` with `--auto` flag to skip prompts; verify you have write permissions in current directory |
+| Harness config not created | Check harness CLI is installed; re-run `@init --harness <name>` for missing harness |
+| "bd init fails" | Verify beads CLI installed (`bd --version`); run `bd init` manually |
+| Quality gates not detected | Manually specify: `@init --lang <lang>` |
+
 ## See Also
 
 - @vision -- Strategic planning

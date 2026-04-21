@@ -71,6 +71,15 @@ When all artifacts are generated, output:
 Next: @reality --quick  or  @feature "description"
 ```
 
+## Recovery
+
+| Symptom | Fix |
+|---------|-----|
+| Skill produces no output | Ensure `@init` was run first; verify `docs/` directory exists and is writable |
+| Artifacts not generated | Check disk space and write permissions; re-run with `--yes` to skip prompts |
+| PRD sections missing | Project type not detected — specify manually via interview answers |
+| Roadmap empty | No features extracted from vision — re-run interview with more specific answers |
+
 ## See Also
 
 - @idea — Feature-level requirements

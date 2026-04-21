@@ -123,3 +123,184 @@ func TestBuildBlockedVerdictsCarryBlockingIDs(t *testing.T) {
 		t.Fatalf("unexpected blocked qa verdict: %+v", qa)
 	}
 }
+
+func TestBuildOverrideReviewVerdict(t *testing.T) {
+	cp := &Checkpoint{FeatureID: "F098", Review: &ReviewStatus{Iteration: 4}}
+	v, err := buildOverrideReviewVerdict(cp, "P2 findings only", "doc-only findings, no code risk")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if v.Verdict != "APPROVED" {
+		t.Fatalf("expected APPROVED, got %q", v.Verdict)
+	}
+	if v.Round != 4 {
+		t.Fatalf("expected round 4, got %d", v.Round)
+	}
+	if v.OverrideReason != "doc-only findings, no code risk" {
+		t.Fatalf("unexpected override reason: %q", v.OverrideReason)
+	}
+	if v.Feature != "F098" {
+		t.Fatalf("expected feature F098, got %q", v.Feature)
+	}
+	for _, role := range []string{"qa", "security", "devops", "sre", "techlead", "docs", "promptops"} {
+		if v.Reviewers[role].Verdict != "PASS" {
+			t.Fatalf("expected reviewer %s PASS, got %q", role, v.Reviewers[role].Verdict)
+		}
+	}
+}
+
+func TestBuildOverrideReviewVerdictRejectsEmpty(t *testing.T) {
+	cp := &Checkpoint{FeatureID: "F098", Review: &ReviewStatus{Iteration: 4}}
+	_, err := buildOverrideReviewVerdict(cp, "summary", "")
+	if err == nil {
+		t.Fatal("expected error for empty override reason")
+	}
+	if err != ErrEmptyOverrideReason {
+		t.Fatalf("expected ErrEmptyOverrideReason, got: %v", err)
+	}
+	_, err = buildOverrideReviewVerdict(cp, "summary", "   ")
+	if err == nil {
+		t.Fatal("expected error for whitespace-only override reason")
+	}
+}
+
+func TestBuildPartialReviewVerdict(t *testing.T) {
+	cp := &Checkpoint{FeatureID: "F098", Review: &ReviewStatus{Iteration: 4}}
+	roleFindings := map[string][]string{
+		"security": {"sdplab-10"},
+		"docs":     {"sdplab-11"},
+	}
+	v := buildPartialReviewVerdict(cp, "partial pass", []string{"security", "docs"}, roleFindings)
+	if v.Verdict != "PARTIALLY_APPROVED" {
+		t.Fatalf("expected PARTIALLY_APPROVED, got %q", v.Verdict)
+	}
+	if len(v.PartialFailingRoles) != 2 {
+		t.Fatalf("expected 2 failing roles, got %d", len(v.PartialFailingRoles))
+	}
+	if v.Reviewers["security"].Verdict != "FAIL" {
+		t.Fatalf("expected security FAIL, got %q", v.Reviewers["security"].Verdict)
+	}
+	if len(v.Reviewers["security"].Findings) != 1 || v.Reviewers["security"].Findings[0] != "sdplab-10" {
+		t.Fatalf("expected security finding sdplab-10, got %v", v.Reviewers["security"].Findings)
+	}
+	if v.Reviewers["docs"].Verdict != "FAIL" {
+		t.Fatalf("expected docs FAIL, got %q", v.Reviewers["docs"].Verdict)
+	}
+	if len(v.Reviewers["docs"].Findings) != 1 || v.Reviewers["docs"].Findings[0] != "sdplab-11" {
+		t.Fatalf("expected docs finding sdplab-11, got %v", v.Reviewers["docs"].Findings)
+	}
+	if v.Reviewers["qa"].Verdict != "PASS" {
+		t.Fatalf("expected qa PASS, got %q", v.Reviewers["qa"].Verdict)
+	}
+	if len(v.Reviewers["qa"].Findings) != 0 {
+		t.Fatalf("expected qa no findings, got %v", v.Reviewers["qa"].Findings)
+	}
+	if len(v.FindingIDs) != 2 {
+		t.Fatalf("expected 2 total finding ids, got %d", len(v.FindingIDs))
+	}
+	// Verify deterministic ordering
+	if v.FindingIDs[0] > v.FindingIDs[1] {
+		t.Fatalf("expected sorted finding ids, got %v", v.FindingIDs)
+	}
+}
+
+func TestBuildEscalatedReviewVerdict(t *testing.T) {
+	cp := &Checkpoint{FeatureID: "F098", Review: &ReviewStatus{Iteration: 4}}
+	v := buildEscalatedReviewVerdict(cp, "escalated to human", "sdplab-99")
+	if v.Verdict != "ESCALATED" {
+		t.Fatalf("expected ESCALATED, got %q", v.Verdict)
+	}
+	if v.EscalationIssue != "sdplab-99" {
+		t.Fatalf("expected escalation issue sdplab-99, got %q", v.EscalationIssue)
+	}
+	for _, role := range []string{"qa", "security", "devops", "sre", "techlead", "docs", "promptops"} {
+		if v.Reviewers[role].Verdict != "FAIL" {
+			t.Fatalf("expected reviewer %s FAIL, got %q", role, v.Reviewers[role].Verdict)
+		}
+	}
+}
+
+func TestValidateOverrideReason(t *testing.T) {
+	if err := ValidateOverrideReason(""); err == nil {
+		t.Fatal("expected error for empty override reason")
+	}
+	if err := ValidateOverrideReason("   "); err == nil {
+		t.Fatal("expected error for whitespace-only override reason")
+	}
+	if err := ValidateOverrideReason("valid reason"); err != nil {
+		t.Fatalf("unexpected error for valid reason: %v", err)
+	}
+}
+
+func TestAdoptExistingReviewVerdictPreservesAgentWrittenOverride(t *testing.T) {
+	projectRoot := t.TempDir()
+	sdpDir := filepath.Join(projectRoot, ".sdp")
+	if err := os.MkdirAll(sdpDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	verdictPath := filepath.Join(sdpDir, "review_verdict.json")
+	if err := os.WriteFile(verdictPath, []byte(`{
+		"feature":"F104",
+		"verdict":"APPROVED",
+		"round":3,
+		"timestamp":"2026-04-21T12:00:00Z",
+		"override_reason":"P2 docs-only findings",
+		"reviewers":{
+			"qa":{"verdict":"PASS","findings":[]},
+			"security":{"verdict":"PASS","findings":[]},
+			"devops":{"verdict":"PASS","findings":[]},
+			"sre":{"verdict":"PASS","findings":[]},
+			"techlead":{"verdict":"PASS","findings":[]},
+			"docs":{"verdict":"PASS","findings":[]},
+			"promptops":{"verdict":"PASS","findings":[]}
+		}
+	}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cp := &Checkpoint{FeatureID: "F104"}
+	adopted, err := adoptExistingReviewVerdict(projectRoot, cp, "APPROVED")
+	if err != nil {
+		t.Fatalf("adoptExistingReviewVerdict: %v", err)
+	}
+	if !adopted {
+		t.Fatal("expected existing verdict to be adopted")
+	}
+	if cp.Review == nil || cp.Review.VerdictFile != verdictPath {
+		t.Fatalf("checkpoint did not retain verdict path: %+v", cp.Review)
+	}
+}
+
+func TestAdoptExistingReviewVerdictRejectsMismatchedVerdict(t *testing.T) {
+	projectRoot := t.TempDir()
+	sdpDir := filepath.Join(projectRoot, ".sdp")
+	if err := os.MkdirAll(sdpDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sdpDir, "review_verdict.json"), []byte(`{
+		"feature":"F104",
+		"verdict":"CHANGES_REQUESTED",
+		"round":3,
+		"timestamp":"2026-04-21T12:00:00Z",
+		"reviewers":{
+			"qa":{"verdict":"FAIL","findings":["sdplab-1"]},
+			"security":{"verdict":"FAIL","findings":["sdplab-1"]},
+			"devops":{"verdict":"FAIL","findings":["sdplab-1"]},
+			"sre":{"verdict":"FAIL","findings":["sdplab-1"]},
+			"techlead":{"verdict":"FAIL","findings":["sdplab-1"]},
+			"docs":{"verdict":"FAIL","findings":["sdplab-1"]},
+			"promptops":{"verdict":"FAIL","findings":["sdplab-1"]}
+		}
+	}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cp := &Checkpoint{FeatureID: "F104"}
+	adopted, err := adoptExistingReviewVerdict(projectRoot, cp, "APPROVED")
+	if err == nil {
+		t.Fatal("expected mismatch error")
+	}
+	if adopted {
+		t.Fatal("mismatched verdict must not be adopted")
+	}
+}

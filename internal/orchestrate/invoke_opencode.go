@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"sdp_dev/internal/kernel"
@@ -154,9 +155,29 @@ func RunBuildPhase(ctx context.Context, projectRoot, featureID, wsID string, inv
 	return "", nil
 }
 
+// ReviewPhaseResult captures the structured outcome of a review phase.
+type ReviewPhaseResult struct {
+	Approved bool
+	Output   string
+	Verdict  string // "APPROVED", "CHANGES_REQUESTED", "PARTIALLY_APPROVED", "ESCALATED"
+}
+
 // RunReviewPhase invokes the LLM to execute @review for a feature.
 // If invoker is nil, uses DefaultLLMInvoker.
 func RunReviewPhase(ctx context.Context, dir, featureID string, invoker LLMInvoker) (approved bool, output string, err error) {
+	res, err := runReviewPhase(ctx, dir, featureID, invoker)
+	if err != nil {
+		return false, "", err
+	}
+	return res.Approved, res.Output, nil
+}
+
+// RunReviewPhaseDetailed returns the full structured review result including verdict.
+func RunReviewPhaseDetailed(ctx context.Context, dir, featureID string, invoker LLMInvoker) (*ReviewPhaseResult, error) {
+	return runReviewPhase(ctx, dir, featureID, invoker)
+}
+
+func runReviewPhase(ctx context.Context, dir, featureID string, invoker LLMInvoker) (*ReviewPhaseResult, error) {
 	if invoker == nil {
 		invoker = GetDefaultInvoker()
 	}
@@ -167,10 +188,41 @@ func RunReviewPhase(ctx context.Context, dir, featureID string, invoker LLMInvok
 		Prompt:  prompt,
 	})
 	if err != nil {
-		return false, "", err
+		return nil, err
 	}
-	approved = res.ExitCode == 0 && strings.Contains(strings.ToUpper(res.Output), "APPROVED")
-	return approved, res.Output, nil
+	verdict := extractReviewVerdict(res.Output)
+	approved := res.ExitCode == 0 && verdict == "APPROVED"
+	return &ReviewPhaseResult{Approved: approved, Output: res.Output, Verdict: verdict}, nil
+}
+
+var reviewVerdictFieldPattern = regexp.MustCompile(`(?i)"verdict"\s*:\s*"(APPROVED|CHANGES_REQUESTED|PARTIALLY_APPROVED|ESCALATED)"`)
+
+func extractReviewVerdict(output string) string {
+	matches := reviewVerdictFieldPattern.FindAllStringSubmatch(output, -1)
+	if len(matches) > 0 {
+		return strings.ToUpper(matches[len(matches)-1][1])
+	}
+
+	lines := strings.Split(output, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if verdict := normalizeReviewVerdictLine(lines[i]); verdict != "" {
+			return verdict
+		}
+	}
+	return "CHANGES_REQUESTED"
+}
+
+func normalizeReviewVerdictLine(line string) string {
+	normalized := strings.ToUpper(strings.TrimSpace(line))
+	normalized = strings.TrimPrefix(normalized, "VERDICT:")
+	normalized = strings.TrimSpace(normalized)
+	normalized = strings.Trim(normalized, " .!;")
+	switch normalized {
+	case "APPROVED", "CHANGES_REQUESTED", "PARTIALLY_APPROVED", "ESCALATED":
+		return normalized
+	default:
+		return ""
+	}
 }
 
 func RunQAPhase(ctx context.Context, dir, featureID string, invoker LLMInvoker) (passed bool, output string, err error) {

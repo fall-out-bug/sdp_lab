@@ -5,7 +5,6 @@ package security
 import (
 	"fmt"
 	"syscall"
-	"unsafe"
 )
 
 // realPathFromFD gets the real path from a file descriptor on Linux.
@@ -21,11 +20,11 @@ func realPathFromFD(fd int) (string, error) {
 
 	n, err := syscall.Readlink(path, buf[:])
 	if err != nil {
-		return nil, fmt.Errorf("readlink %s failed: %w", path, err)
+		return "", fmt.Errorf("readlink %s failed: %w", path, err)
 	}
 
 	if n >= len(buf) {
-		return nil, fmt.Errorf("path too long (>= %d)", len(buf))
+		return "", fmt.Errorf("path too long (>= %d)", len(buf))
 	}
 
 	return string(buf[:n]), nil

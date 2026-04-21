@@ -72,7 +72,7 @@ func (pv *PathValidator) ValidatePath(rawPath string) (io.ReadSeekCloser, error)
 	// Step 2: Reject absolute paths — must be relative to repoRoot
 	if filepath.IsAbs(relPath) {
 		return nil, &PathValidationError{
-			Path: rawPath,
+			Path:   rawPath,
 			Reason: "absolute path not allowed; must be relative to repo root",
 		}
 	}
@@ -80,7 +80,7 @@ func (pv *PathValidator) ValidatePath(rawPath string) (io.ReadSeekCloser, error)
 	// Step 3: Reject path traversal attempts
 	if strings.HasPrefix(relPath, "..") {
 		return nil, &PathValidationError{
-			Path: rawPath,
+			Path:   rawPath,
 			Reason: "path escapes repo root",
 		}
 	}
@@ -90,7 +90,7 @@ func (pv *PathValidator) ValidatePath(rawPath string) (io.ReadSeekCloser, error)
 	for _, part := range parts {
 		if part == ".." {
 			return nil, &PathValidationError{
-				Path: rawPath,
+				Path:   rawPath,
 				Reason: "path traversal (..) not allowed",
 			}
 		}
@@ -100,9 +100,9 @@ func (pv *PathValidator) ValidatePath(rawPath string) (io.ReadSeekCloser, error)
 	fd, err := unix.Openat(pv.rootFd, relPath, unix.O_RDONLY|unix.O_NOFOLLOW, 0)
 	if err != nil {
 		return nil, &PathValidationError{
-			Path: rawPath,
+			Path:   rawPath,
 			Reason: fmt.Sprintf("open failed: %v", err),
-			Err: err,
+			Err:    err,
 		}
 	}
 
@@ -111,9 +111,9 @@ func (pv *PathValidator) ValidatePath(rawPath string) (io.ReadSeekCloser, error)
 	if err != nil {
 		unix.Close(fd)
 		return nil, &PathValidationError{
-			Path: rawPath,
+			Path:   rawPath,
 			Reason: fmt.Sprintf("resolve real path: %v", err),
-			Err: err,
+			Err:    err,
 		}
 	}
 
@@ -122,9 +122,9 @@ func (pv *PathValidator) ValidatePath(rawPath string) (io.ReadSeekCloser, error)
 	if err != nil {
 		unix.Close(fd)
 		return nil, &PathValidationError{
-			Path: rawPath,
+			Path:   rawPath,
 			Reason: fmt.Sprintf("resolve repo root: %v", err),
-			Err: err,
+			Err:    err,
 		}
 	}
 
@@ -132,14 +132,14 @@ func (pv *PathValidator) ValidatePath(rawPath string) (io.ReadSeekCloser, error)
 	if !strings.HasPrefix(realPath, rootResolved+string(filepath.Separator)) && realPath != rootResolved {
 		unix.Close(fd)
 		return nil, &PathValidationError{
-			Path: rawPath,
+			Path:   rawPath,
 			Reason: fmt.Sprintf("path resolves to %q which is outside repo root %q", realPath, rootResolved),
 		}
 	}
 
 	// Step 8: Return the ValidatedFile wrapper
 	vf := &ValidatedFile{
-		fd: fd,
+		fd:   fd,
 		path: realPath,
 	}
 	runtime.SetFinalizer(vf, func(f *ValidatedFile) {
@@ -171,7 +171,11 @@ type ValidatedFile struct {
 
 // Read reads up to len(p) bytes from the validated file.
 func (f *ValidatedFile) Read(p []byte) (n int, err error) {
-	return unix.Read(f.fd, p)
+	n, err = unix.Read(f.fd, p)
+	if n == 0 && err == nil {
+		return 0, io.EOF
+	}
+	return n, err
 }
 
 // Seek sets the offset for the next Read on the validated file.
@@ -249,4 +253,3 @@ func SafeOpenFile(rawPath, repoRoot string) (*os.File, error) {
 
 	return nil, fmt.Errorf("invalid file type")
 }
-

@@ -32,8 +32,8 @@ func TestMainUsage(t *testing.T) {
 	if !strings.Contains(output, "usage: sdp") {
 		t.Fatalf("expected usage message in output, got: %s", output)
 	}
-	if !strings.Contains(output, "card|board|doctor|dispatch|result|orchestrate|attention") {
-		t.Fatalf("expected subcommand list in output, got: %s", output)
+	if !strings.Contains(output, "Card commands:") {
+		t.Fatalf("expected command sections in output, got: %s", output)
 	}
 }
 
