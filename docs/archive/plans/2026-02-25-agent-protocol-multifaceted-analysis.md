@@ -31,6 +31,6 @@ This analysis captures how SDP should inherit useful ideas from OhMyOpenCode, Ga
 
 ## References
 
-- [ECOSYSTEM_SYNERGIES.md](../integrations/ECOSYSTEM_SYNERGIES.md)
-- [ROADMAP.md](../roadmap/ROADMAP.md)
-- [CI_LOCAL_BRIDGE.md](../runbooks/CI_LOCAL_BRIDGE.md)
+- [ECOSYSTEM_SYNERGIES.md](../../integrations/ECOSYSTEM_SYNERGIES.md)
+- [ROADMAP.md](../../roadmap/ROADMAP.md)
+- [CI_LOCAL_BRIDGE.md](../../runbooks/CI_LOCAL_BRIDGE.md)

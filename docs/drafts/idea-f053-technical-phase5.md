@@ -1,7 +1,7 @@
 # Idea: F053 Phase 5 — Technical Findings from Multifaceted Analysis
 
-**Source:** [2026-02-25-agent-protocol-multifaceted-analysis.md](../plans/2026-02-25-agent-protocol-multifaceted-analysis.md)  
-**Feature:** F053 (extended)  
+**Source:** [2026-02-25-agent-protocol-multifaceted-analysis.md](../archive/plans/2026-02-25-agent-protocol-multifaceted-analysis.md)
+**Feature:** F053 (extended)
 **Design:** `/design f053-technical-phase5`
 
 ---

@@ -7,7 +7,7 @@
 Related:
 
 - [2026-03-15-canonical-sdp-loop-and-agent-stack.md](2026-03-15-canonical-sdp-loop-and-agent-stack.md)
-- [../../AGENTS.md](../../AGENTS.md)
+- [../../AGENTS.md](../../../AGENTS.md)
 
 ---
 

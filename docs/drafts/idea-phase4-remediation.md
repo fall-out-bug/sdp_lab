@@ -1,7 +1,7 @@
 # Idea: Phase 4 Remediation — sdp Review Findings
 
-**Source:** [2026-02-25-beads-remediation-plan.md](../plans/2026-02-25-beads-remediation-plan.md) Phase 4  
-**Scope:** sdp submodule (sdp-plugin Go, schemas, prompts)  
+**Source:** [2026-02-25-beads-remediation-plan.md](../archive/plans/2026-02-25-beads-remediation-plan.md) Phase 4
+**Scope:** sdp submodule (sdp-plugin Go, schemas, prompts)
 **Beads:** dg5t, 0cgy, ppha, zq8l, 2mu6
 
 ---

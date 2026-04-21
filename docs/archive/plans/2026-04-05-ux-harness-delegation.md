@@ -1,7 +1,7 @@
 # UX Workstream Delegation by Harness
 
 **Date:** 2026-04-05
-**Source:** [Council Synthesis](2026-04-05-ux-council-synthesis.md)
+**Source:** [Council Synthesis](../council-rounds/2026-04-05-ux-council-synthesis.md)
 **Method:** LLM Council — each harness reviews and executes work suited to its strengths
 
 ---

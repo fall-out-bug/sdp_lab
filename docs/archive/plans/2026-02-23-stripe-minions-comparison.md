@@ -226,5 +226,5 @@ Stripe's blog post (Feb 9, 2026) created a moment. Thousands of engineers are as
 - [Oneshot Autonomous Design](2026-02-23-oneshot-autonomous-design.md)
 - [Prompt Provenance Design](2026-02-23-prompt-provenance-design.md)
 - [Dream Swarm Design](2026-02-22-dream-swarm-design.md)
-- [Manifesto](../MANIFESTO.md)
-- [Roadmap](../roadmap/ROADMAP.md)
+- [Manifesto](../../MANIFESTO.md)
+- [Roadmap](../../roadmap/ROADMAP.md)

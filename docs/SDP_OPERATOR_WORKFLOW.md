@@ -21,7 +21,7 @@ Canonical design references:
 - [../AGENTS.md](../AGENTS.md)
 - [reference/project-map.md](reference/project-map.md)
 - [reference/canonical-happy-path.md](reference/canonical-happy-path.md)
-- [plans/2026-04-05-canonical-sdp-happy-path-consistency.md](plans/2026-04-05-canonical-sdp-happy-path-consistency.md)
+- [plans/2026-04-05-canonical-sdp-happy-path-consistency.md](archive/plans/2026-04-05-canonical-sdp-happy-path-consistency.md)
 
 ## Workflow Diagram
 
@@ -153,7 +153,7 @@ If none of those are true, stay on the local path.
 - [reference/project-map.md](reference/project-map.md)
 - [BEADS_AUTONOMY_SPEC.md](BEADS_AUTONOMY_SPEC.md)
 - [BEADS_SDP_REQUIREMENTS.md](BEADS_SDP_REQUIREMENTS.md)
-- [K8S_OPERATOR_BACKLOG_PLAN.md](K8S_OPERATOR_BACKLOG_PLAN.md)
+- [K8S_OPERATOR_BACKLOG_PLAN.md](archive/k8s/K8S_OPERATOR_BACKLOG_PLAN.md)
 - [AGENT_HOOKS_SPEC.md](AGENT_HOOKS_SPEC.md)
 - [AGENT_SKILLS_SPEC.md](AGENT_SKILLS_SPEC.md)
 - [PROJECT_REGISTRY_SPEC.md](PROJECT_REGISTRY_SPEC.md)

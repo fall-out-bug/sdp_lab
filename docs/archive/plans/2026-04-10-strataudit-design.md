@@ -7,7 +7,7 @@
 **Council models:** MiniMax M2.7, Kimi K2.5, Gemini 3.1 Pro, DeepSeek V3.2, Xiaomi Mimo V2 Pro
 
 > Note: the report/evidence layer in this design is partially superseded by
-> [docs/plans/2026-04-12-strataudit-evidence-report-redesign-design.md](2026-04-12-strataudit-evidence-report-redesign-design.md).
+> [docs/plans/2026-04-12-strataudit-evidence-report-redesign-design.md](../../plans/2026-04-12-strataudit-evidence-report-redesign-design.md).
 > Keep this document as the original module baseline. Use the newer spec for
 > trust model, multilingual extraction policy, report JSON v2, and HTML report IA.
 

@@ -41,8 +41,8 @@
 **Проблема:** JSON example в @review имеет `blocking_ids`, `summary` — схема review-verdict имеет `finding_ids`. Несоответствие.
 
 **Действия:**
-1. В [review-verdict.schema.json](sdp/schema/review-verdict.schema.json): добавить `blocking_ids`, `summary` как optional, если нужны для обратной совместимости
-2. Или в [review/SKILL.md](sdp/prompts/skills/review/SKILL.md): убрать из example поля, которых нет в схеме
+1. В [review-verdict.schema.json](../../../schema/review-verdict.schema.json): добавить `blocking_ids`, `summary` как optional, если нужны для обратной совместимости
+2. Или в [review/SKILL.md](../../../prompts/skills/review/SKILL.md): убрать из example поля, которых нет в схеме
 3. Выбрать один подход, выровнять
 4. `bd close sdp_dev-ho9y` и `bd close sdp_dev-z2ce`
 

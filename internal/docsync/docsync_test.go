@@ -276,6 +276,8 @@ func TestCheckMarkdownLinks_ExternalSkipped(t *testing.T) {
 		{"https", `[remote](https://example.com/page)`},
 		{"http", `[remote](http://example.com/page)`},
 		{"mailto", `[email](mailto:user@example.com)`},
+		{"plugin scheme", `[skills](plugin:superpowers:skills)`},
+		{"javascript scheme", `[xss example](javascript:alert(1))`},
 		{"mixed", "See [https](https://a.com) and [http](http://b.com) and [mail](mailto:c@d.com)."},
 	}
 
@@ -295,6 +297,26 @@ func TestCheckMarkdownLinks_ExternalSkipped(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestCheckMarkdownLinks_CodeExamplesSkipped(t *testing.T) {
+	root := t.TempDir()
+	mkdir(t, filepath.Join(root, "docs"))
+
+	write(t, filepath.Join(root, "docs", "guide.md"), "# Guide\n\n"+
+		"Inline code: `fmt.Sprintf(\"[%s](%s)\", text, url)`.\n\n"+
+		"```go\n"+
+		"regexp.MustCompile(`@app\\.route\\s*\\(\\s*[\"']([^\"']+)[\"']\\s*`)\n"+
+		"fmt.Println(\"[missing](./absent.md)\")\n"+
+		"```\n")
+
+	issues, err := checkMarkdownLinks(root, true)
+	if err != nil {
+		t.Fatalf("checkMarkdownLinks error: %v", err)
+	}
+	if len(issues) != 0 {
+		t.Fatalf("expected code examples to be ignored, got: %+v", issues)
 	}
 }
 

@@ -3,7 +3,7 @@
 **Date:** 2026-04-05 (updated with council corrections)
 **Scope:** End-to-end UX from task to PR across 3 personas, 3 happy paths, 4 harnesses, and the orchestrator
 **Method:** Walk-through of actual user journeys against skill files, harness configs, CLI output, and documentation. Benchmarked against 9 reference projects (superpowers, gstack, Gas Town, paperclip, oh-my-openagent, sgr-agent-core, deer-flow, hyperpowers, openclaw).
-**Council review:** Reviewed by Codex, Cursor, and OpenCode+OhMyOpenAgent sessions. Three factual corrections applied (F6, F21, F52). See [Council Synthesis](2026-04-05-ux-council-synthesis.md) for full cross-review.
+**Council review:** Reviewed by Codex, Cursor, and OpenCode+OhMyOpenAgent sessions. Three factual corrections applied (F6, F21, F52). See [Council Synthesis](../council-rounds/2026-04-05-ux-council-synthesis.md) for full cross-review.
 
 ---
 

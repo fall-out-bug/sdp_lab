@@ -3,12 +3,12 @@
 **Date:** 2026-04-05
 **Status:** Final synthesis — supersedes individual proposals for prioritization and scope
 **Inputs:**
-- [UX Audit Results](2026-04-05-ux-audit-results.md) — original audit (Claude Code session)
-- [UX Improvement Proposals](2026-04-05-ux-improvement-proposals.md) — original proposals
-- [UX Improvement Specifications](2026-04-05-ux-improvement-specs.md) — original specs
-- [Alternative Recommendations](2026-04-05-ux-alternative-recommendations.md) — Codex review
-- [Improvement Addendum](2026-04-05-ux-improvement-addendum.md) — Cursor review
-- [Alternative Perspective](2026-04-05-ux-audit-alternative-perspective.md) — OpenCode + Oh My OpenAgent review
+- [UX Audit Results](../plans/2026-04-05-ux-audit-results.md) — original audit (Claude Code session)
+- [UX Improvement Proposals](../plans/2026-04-05-ux-improvement-proposals.md) — original proposals
+- [UX Improvement Specifications](../plans/2026-04-05-ux-improvement-specs.md) — original specs
+- [Alternative Recommendations](../plans/2026-04-05-ux-alternative-recommendations.md) — Codex review
+- [Improvement Addendum](../plans/2026-04-05-ux-improvement-addendum.md) — Cursor review
+- [Alternative Perspective](../plans/2026-04-05-ux-audit-alternative-perspective.md) — OpenCode + Oh My OpenAgent review
 
 ---
 

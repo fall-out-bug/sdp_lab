@@ -187,13 +187,13 @@ func checkMarkdownLinks(projectRoot string, strict bool) ([]Issue, error) {
 			issues = append(issues, Issue{Severity: "warning", File: relPath, Message: fmt.Sprintf("read file: %v", err)})
 			continue
 		}
-		matches := re.FindAllStringSubmatch(string(b), -1)
+		matches := re.FindAllStringSubmatch(maskMarkdownCode(string(b)), -1)
 		for _, m := range matches {
 			if len(m) < 2 {
 				continue
 			}
 			target := strings.TrimSpace(m[1])
-			if target == "" || strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") || strings.HasPrefix(target, "mailto:") || strings.HasPrefix(target, "#") {
+			if shouldSkipMarkdownLinkTarget(target) {
 				continue
 			}
 			if i := strings.Index(target, "#"); i >= 0 {
@@ -248,6 +248,75 @@ func rel(projectRoot, path string) string {
 		return p
 	}
 	return path
+}
+
+// maskMarkdownCode preserves byte offsets while hiding code fences and inline
+// code spans from the naive markdown-link regexp. This keeps archived code
+// examples such as fmt.Sprintf("[%s](%s)", ...) from becoming broken-link noise.
+func maskMarkdownCode(content string) string {
+	masked := []byte(content)
+	inFence := false
+	lineStart := 0
+	for lineStart < len(content) {
+		next := strings.IndexByte(content[lineStart:], '\n')
+		lineEnd := len(content)
+		if next >= 0 {
+			lineEnd = lineStart + next
+		}
+
+		line := content[lineStart:lineEnd]
+		trimmed := strings.TrimSpace(line)
+		isFence := strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~")
+		if isFence {
+			maskRange(masked, lineStart, lineEnd)
+			inFence = !inFence
+		} else if inFence {
+			maskRange(masked, lineStart, lineEnd)
+		}
+
+		if next < 0 {
+			break
+		}
+		lineStart = lineEnd + 1
+	}
+
+	inlineCodeRe := regexp.MustCompile("`[^`\\n]*`")
+	for _, loc := range inlineCodeRe.FindAllStringIndex(string(masked), -1) {
+		maskRange(masked, loc[0], loc[1])
+	}
+	return string(masked)
+}
+
+func maskRange(b []byte, start, end int) {
+	for i := start; i < end; i++ {
+		if b[i] != '\n' && b[i] != '\r' {
+			b[i] = ' '
+		}
+	}
+}
+
+func shouldSkipMarkdownLinkTarget(target string) bool {
+	target = strings.TrimSpace(target)
+	return target == "" || strings.HasPrefix(target, "#") || hasURIScheme(target)
+}
+
+func hasURIScheme(target string) bool {
+	colon := strings.IndexByte(target, ':')
+	if colon <= 0 {
+		return false
+	}
+	first := target[0]
+	if !((first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z')) {
+		return false
+	}
+	for i := 1; i < colon; i++ {
+		c := target[i]
+		if (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '-' || c == '.' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 // resolvedInUninitSubmodule reports whether resolved path lives inside the
@@ -365,7 +434,7 @@ func FixTrailingSlashes(projectRoot string) ([]FixAction, []Issue, error) {
 			continue
 		}
 		content := string(b)
-		matches := linkRe.FindAllStringSubmatchIndex(content, -1)
+		matches := linkRe.FindAllStringSubmatchIndex(maskMarkdownCode(content), -1)
 
 		type replace struct {
 			start int
@@ -378,7 +447,7 @@ func FixTrailingSlashes(projectRoot string) ([]FixAction, []Issue, error) {
 			// group 2 is the link target
 			targetStart, targetEnd := loc[4], loc[5]
 			target := content[targetStart:targetEnd]
-			if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") || strings.HasPrefix(target, "mailto:") || strings.HasPrefix(target, "#") {
+			if shouldSkipMarkdownLinkTarget(target) {
 				continue
 			}
 
@@ -586,7 +655,7 @@ func FixRelativeLinks(projectRoot string) ([]FixAction, []Issue, error) {
 			continue
 		}
 		content := string(b)
-		matches := linkRe.FindAllStringSubmatchIndex(content, -1)
+		matches := linkRe.FindAllStringSubmatchIndex(maskMarkdownCode(content), -1)
 
 		type replace struct {
 			start int
@@ -598,7 +667,7 @@ func FixRelativeLinks(projectRoot string) ([]FixAction, []Issue, error) {
 		for _, loc := range matches {
 			targetStart, targetEnd := loc[4], loc[5]
 			target := content[targetStart:targetEnd]
-			if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") || strings.HasPrefix(target, "mailto:") || strings.HasPrefix(target, "#") || target == "" {
+			if shouldSkipMarkdownLinkTarget(target) {
 				continue
 			}
 

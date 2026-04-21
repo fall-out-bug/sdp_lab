@@ -35,6 +35,6 @@ autonomy, strict-evidence, lane:commit, model:glm-5, workstream:kubeopencode-ups
 
 ## References
 
-- [KUBEOPENCODE_UP_001_PR_REVIEW.md](KUBEOPENCODE_UP_001_PR_REVIEW.md)
-- [KUBEOPENCODE_UPSTREAM_PR_CANDIDATE_PLAN.md](KUBEOPENCODE_UPSTREAM_PR_CANDIDATE_PLAN.md)
+- [KUBEOPENCODE_UP_001_PR_REVIEW.md](archive/k8s/KUBEOPENCODE_UP_001_PR_REVIEW.md)
+- [KUBEOPENCODE_UPSTREAM_PR_CANDIDATE_PLAN.md](archive/k8s/KUBEOPENCODE_UPSTREAM_PR_CANDIDATE_PLAN.md)
 - [docs/upstream/UP-001-pr-body.md](upstream/UP-001-pr-body.md)

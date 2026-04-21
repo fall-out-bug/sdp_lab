@@ -1,7 +1,7 @@
 # Idea: F054 — Continuous Protocol Improvement
 
-**Source:** [2026-02-25-agent-protocol-multifaceted-analysis.md](../plans/2026-02-25-agent-protocol-multifaceted-analysis.md)  
-**Feature:** F054 (new)  
+**Source:** [2026-02-25-agent-protocol-multifaceted-analysis.md](../archive/plans/2026-02-25-agent-protocol-multifaceted-analysis.md)
+**Feature:** F054 (new)
 **Design:** `/design f054-protocol-improvement`
 
 ---

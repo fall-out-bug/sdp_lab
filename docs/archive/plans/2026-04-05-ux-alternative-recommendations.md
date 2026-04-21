@@ -3,10 +3,10 @@
 **Date:** 2026-04-05
 **Status:** Additive review, does not replace existing UX documents
 **Related:**
-- [UX Audit Results](2026-04-05-ux-audit-results.md)
-- [UX Improvement Proposals](2026-04-05-ux-improvement-proposals.md)
-- [UX Improvement Specifications](2026-04-05-ux-improvement-specs.md)
-- [Canonical Happy Path](../reference/canonical-happy-path.md)
+- [UX Audit Results](../plans/2026-04-05-ux-audit-results.md)
+- [UX Improvement Proposals](../plans/2026-04-05-ux-improvement-proposals.md)
+- [UX Improvement Specifications](../plans/2026-04-05-ux-improvement-specs.md)
+- [Canonical Happy Path](../../reference/canonical-happy-path.md)
 - [Public Quick Start](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md)
 - [Public Protocol Overview](https://github.com/fall-out-bug/sdp/blob/main/docs/PROTOCOL.md)
 

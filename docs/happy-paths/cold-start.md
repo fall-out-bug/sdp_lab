@@ -65,13 +65,13 @@ cat docs/workstreams/backlog/00-FFF-SS.md
 cat docs/plans/2026-*-discovery-*.md 2>/dev/null
 ls docs/discovery/ 2>/dev/null
 ```
-→ Читай [docs/guides/agent-discovery.md](agent-discovery.md)
+→ Читай [docs/guides/agent-discovery.md](../guides/agent-discovery.md)
 
 **Delivery задача?**
 ```bash
 ls .sdp/sessions/ 2>/dev/null       # есть ли незавершённые сессии?
 ```
-→ Читай [docs/guides/agent-delivery.md](agent-delivery.md)
+→ Читай [docs/guides/agent-delivery.md](../guides/agent-delivery.md)
 
 ---
 

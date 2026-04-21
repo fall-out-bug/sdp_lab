@@ -6,12 +6,12 @@
 
 Related:
 
-- [docs/reviews/2026-04-05-sdp-happy-path-audit.md](../reviews/2026-04-05-sdp-happy-path-audit.md)
+- [docs/reviews/2026-04-05-sdp-happy-path-audit.md](../../reviews/2026-04-05-sdp-happy-path-audit.md)
 - [docs/plans/2026-03-15-canonical-sdp-loop-and-agent-stack.md](2026-03-15-canonical-sdp-loop-and-agent-stack.md)
-- [docs/SDP_OPERATOR_WORKFLOW.md](../SDP_OPERATOR_WORKFLOW.md)
-- [docs/REAL_FEATURE_TO_PR_RUNBOOK.md](../REAL_FEATURE_TO_PR_RUNBOOK.md)
-- [docs/CONTROL_TOWER_V2_WORKING_MODEL.md](../CONTROL_TOWER_V2_WORKING_MODEL.md)
-- [docs/decisions/ADR-BEADS-FIRST-SOURCE-OF-TRUTH.md](../decisions/ADR-BEADS-FIRST-SOURCE-OF-TRUTH.md)
+- [docs/SDP_OPERATOR_WORKFLOW.md](../../SDP_OPERATOR_WORKFLOW.md)
+- [docs/REAL_FEATURE_TO_PR_RUNBOOK.md](../../REAL_FEATURE_TO_PR_RUNBOOK.md)
+- [docs/CONTROL_TOWER_V2_WORKING_MODEL.md](../../CONTROL_TOWER_V2_WORKING_MODEL.md)
+- [docs/decisions/ADR-BEADS-FIRST-SOURCE-OF-TRUTH.md](../../decisions/ADR-BEADS-FIRST-SOURCE-OF-TRUTH.md)
 
 ---
 
@@ -147,7 +147,7 @@ The system must state explicitly what is authoritative at each layer.
 The board is a derived view over Beads-backed operational truth.
 
 This is not optional.
-It follows directly from [ADR-BEADS-FIRST-SOURCE-OF-TRUTH.md](../decisions/ADR-BEADS-FIRST-SOURCE-OF-TRUTH.md).
+It follows directly from [ADR-BEADS-FIRST-SOURCE-OF-TRUTH.md](../../decisions/ADR-BEADS-FIRST-SOURCE-OF-TRUTH.md).
 
 Therefore:
 
