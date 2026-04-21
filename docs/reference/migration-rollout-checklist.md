@@ -9,7 +9,7 @@
 ### Documentation ✅
 
 - [x] Create migration guide (`docs/reference/migration-guide.md`)
-- [x] Create deprecated aliases mapping (`.agents/skills/deprecated-aliases.md`)
+- [x] Create deprecated aliases mapping (`docs/reference/internal/deprecated-aliases.md`)
 - [x] Create deprecation implementation guide (`docs/reference/deprecation-implementation-guide.md`)
 - [x] Update skills reference (`docs/reference/skills.md`) with intents first
 - [x] Add deprecation warnings to legacy skill section
@@ -175,7 +175,7 @@ If critical issues arise:
 ## References
 
 - **Migration guide:** `docs/reference/migration-guide.md`
-- **Deprecated aliases:** `.agents/skills/deprecated-aliases.md`
+- **Deprecated aliases:** `docs/reference/internal/deprecated-aliases.md`
 - **Implementation guide:** `docs/reference/deprecation-implementation-guide.md`
 - **Skills reference:** `docs/reference/skills.md`
 - **Intent design:** `docs/plans/2026-04-13-sdp-skill-architecture-design.md`

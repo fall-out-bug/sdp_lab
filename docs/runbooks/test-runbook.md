@@ -259,7 +259,7 @@ pytest /tmp/test_temp.py -v
 **Problem:** Command not available
 
 **Solution:**
-- Claude Code: Check `.claude/skills/test/SKILL.md` exists
+- Claude Code: Check `.claude/commands/test.md` exists (command is in commands/, not skills/)
 - Cursor: Check `.cursor/commands/test.md` exists
 - OpenCode: Check `.opencode/commands/test.md` exists
 
