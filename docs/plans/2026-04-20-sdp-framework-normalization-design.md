@@ -1,218 +1,227 @@
-# SDP Framework Normalization — BASELINE Design
+# SDP Surface Contract Normalization — Delta Design
 
 **Date:** 2026-04-20
-**Status:** BASELINE — draft для углублённой проработки
-**Supersedes:** частично объединяет идеи [2026-04-13-sdp-toolkit-vision-design.md](2026-04-13-sdp-toolkit-vision-design.md), [2026-04-13-sdp-mcp-design.md](2026-04-13-sdp-mcp-design.md), [2026-04-13-sdp-skill-architecture-design.md](2026-04-13-sdp-skill-architecture-design.md)
-**Owner:** TBD
-**Dependencies:** none (этот эпик — фундамент, блокирует sweep и mini-harness)
+**Status:** Proposed
+**Reframes:** previous monolithic baseline at the same path into delta features `F137`–`F139`
+**Related:** [2026-04-20-mini-harness-orchestrator-design.md](2026-04-20-mini-harness-orchestrator-design.md), [2026-04-20-sweep-v2-design.md](2026-04-20-sweep-v2-design.md), [2026-04-13-sdp-toolkit-vision-design.md](2026-04-13-sdp-toolkit-vision-design.md), [2026-04-13-sdp-skill-architecture-design.md](2026-04-13-sdp-skill-architecture-design.md), [2026-04-13-sdp-mcp-design.md](2026-04-13-sdp-mcp-design.md)
 
 ---
 
-## 1. Контекст и проблема
+## 1. Problem Statement
 
-Репо `sdp_lab` накопил техдолг организации кода и документации. Симптомы:
+The repo already shipped the first useful versions of the toolkit surface:
 
-1. **Дубликат CLI surface.** Существует два параллельных способа вызова SDP-команд:
-   - Монолит `cmd/sdp/` (30+ subcommands: scout, architect, metrics, index, bootstrap, dispatch, orchestrate, card, board, doctor, …) — ≈200K LOC
-   - Отдельные бинари `cmd/sdp-*/` (23 директории: sdp-dispatch, sdp-harness, sdp-mcp, sdp-orchestrate, sdp-orchestrate-daemon, sdp-a2a, sdp-control 708 LOC, sdp-ci-loop, sdp-doc-sync, sdp-session-audit, …)
+- `F125` shipped the intent-model transition
+- `F126` shipped the initial MCP server
 
-   Часть пересекается (`cmd/sdp/cmd_dispatch.go` vs `cmd/sdp-dispatch/main.go`). Владелец правды — не определён. Новые фичи добавляются то туда, то сюда.
+That is not the same as having one coherent, machine-readable surface contract.
 
-2. **Скилы раздуты.** `.agents/skills/` содержит **41 файл**. Vision-доки 2026-04-13 предполагали 5 интентов (`@understand`, `@build`, `@fix`, `@review`, `@operate`) + практики, но фактически в репо живут:
-   - 5 целевых интентов (частично): build.md, review.md, operate.md, understand.md
-   - Legacy / дубли: bugfix.md+bug-fix.md, fix.md, hotfix.md, feature.md+feature-delivery.md, oneshot.md, debug.md, design.md, architect.md, vision.md, idea.md, ux.md, landscape.md, plan.md+plan-phase.md, eval-phase.md, review-phase.md, deploy.md, ci-triage.md, metrics.md, scout.md, strataudit.md, reality-check.md, verify-workstream.md, llm-council.md (14.5K!), parallel-dispatch.md, test-coverage.md, test-writer.md, git-worktree.md, session-audit.md, smoke-test.md, feature-delivery.md, issue.md, prototype.md, gate.md, research.md, understand.md
-   - Многие — stub-файлы 300-400 байт (`vision.md` 363B, `plan.md` 362B, `design.md` 373B) без содержания
+Current gaps:
 
-3. **MCP server не интегрирован.** `internal/mcp/` готов (server.go 20.5K, tools.go, prompts.go, resources.go, templates/*.tmpl) с тестами. Но `cmd/sdp-mcp/main.go` — 100 строк, не привязан к workflow агентов. Ни Claude Code, ни Codex не ходят через MCP сегодня.
+1. **CLI truth is fragmented.** `cmd/sdp/` and `cmd/sdp-*` still act like parallel entrypoints. A human can guess the right binary. A downstream orchestrator cannot.
+2. **Skill catalog is noisy.** The repo still carries a large mixed catalog of active, partial, duplicate, and legacy skill files. This is bad UX for operators and bad DX for automation.
+3. **MCP parity is not contract-driven.** `F126` shipped a working server, but tool/resource/prompt discovery is still too hand-wired. That invites drift from the CLI and skill truth.
+4. **Docs drift is still cheap.** There is no single parity rule that forces `CLI registry -> reference docs`, `active skill set -> catalog`, and `catalog/registry -> MCP exposure`.
+5. **Downstream design work is blocked on surface stability.** Mini-harness orchestration and sweep need a stable contract. They should not depend on an informal reading of `cmd/` and `.agents/skills/`.
 
-4. **Документация дрейфует.** Vision-доки 2026-04-13 описывают целевое состояние. Реальность: `cmd/sdp` имеет свою эволюцию, часть команд из vision (`sdp spec`, `sdp scout`, `sdp index`, `sdp bootstrap`) существует как файлы, но степень реализации не задокументирована.
+This is why the old one-epic framing is wrong. The repo does not need a new root epic that reopens shipped work. It needs delta features that normalize the surface above already shipped `F125` and `F126`.
 
-5. **Отсутствует единая help/reference система.** `sdp --help` и `sdp <subcommand> --help` непоследовательны. Агенту негде взять "список всех команд + schema" одним вызовом — поэтому subagent'ы тратят токены на `ls cmd/` и чтение main.go.
+## 2. Why Existing F125 and F126 Are Not Enough
 
----
+### `F125` remains shipped
 
-## 2. Цели (North Star)
+`F125` owns the intent model. It already established the product decision that the user-facing workflow is intent-routed rather than a flat skill zoo.
 
-1. **Единый entrypoint.** `sdp <subcommand>` — единственный способ вызова. `cmd/sdp-*` становятся internal или исчезают.
-2. **Единый skill catalog.** `.agents/skills/` — минимальный набор интентов + машинно-читаемый `skills/index.json`.
-3. **MCP как second-class interface.** Всё, что делает `sdp <subcommand>`, доступно через MCP tools. Агенты могут работать через CLI или MCP.
-4. **Docs lint.** `sdp doc-sync` / `bd doctor` ловят drift между реализацией, vision-доками и skills.
-5. **Non-breaking migration.** Существующие `cmd/sdp-*` работают до явной deprecation. Агенты и скрипты не ломаются в момент выкатки.
+What `F125` does **not** own:
 
----
+- historical cleanup of every legacy skill file
+- machine-readable catalog packaging
+- deprecation headers and alias policy
+- harness-facing docs parity across the remaining skill surface
 
-## 3. Архитектурные решения
+Those are normalization tasks, not a rewrite of the intent model.
 
-### AD-1 — Единый CLI entrypoint `sdp`, старые бинари → shim wrappers
+### `F126` remains shipped
 
-`cmd/sdp/main.go` — владелец правды. Все `cmd/sdp-*` становятся thin shim'ами:
+`F126` owns the initial MCP server. It already proved that SDP can expose tools, resources, and prompts over MCP.
 
-```go
-// cmd/sdp-dispatch/main.go
-package main
-import "sdp_dev/internal/sdpcli"
-func main() { sdpcli.Run(append([]string{"dispatch"}, os.Args[1:]...)) }
-```
+What `F126` does **not** own:
 
-Альтернатива (отклонена): удалить `cmd/sdp-*` немедленно. Ломает CI, скрипты, привычки.
+- registry-driven CLI discovery as the canonical upstream contract
+- automatic parity between CLI registry and MCP tools
+- automatic parity between skill catalog and MCP prompts/resources
+- version/hash surfaces that let downstream automation reason about compatibility
 
-Бинари, чья функциональность **не в** `cmd/sdp/` (sdp-harness, sdp-orchestrate-daemon, sdp-mcp, sdp-up, sdp-a2a, sdp-healthcheck, sdp-doc-sync, sdp-ci-loop, sdp-session-audit), **мигрируют в `cmd/sdp/`** как subcommands; их директории остаются shim'ами.
+Those are extension tasks, not evidence that `F126` was incomplete or not shipped.
 
-### AD-2 — Command registry с discovery
+### `F134` remains the phase CLI owner
 
-`internal/sdpcli/registry.go`:
+`F134` owns the phase command surface and runtime phase semantics. This design must not absorb `sdp plan`, `sdp review`, or `sdp eval` semantics into a new generic CLI epic.
 
-```go
-type Command struct {
-    Name        string
-    Short       string
-    Long        string
-    RunFunc     func(args []string) int
-    MCPExpose   bool     // экспонировать ли как MCP tool
-    MCPSchema   json.RawMessage
-}
+## 3. Feature Split
 
-func Register(c Command)
-func List() []Command
-func Lookup(name string) (Command, bool)
-```
+This design creates three delta features, not one umbrella epic.
 
-Каждый subcommand в `cmd/sdp/cmd_<name>.go` регистрируется через `init()`. Help, `--json`, MCP schema — генерируются из registry. Отсутствие команды в registry = не существует.
+| Feature | ID | Owns | Does not own |
+|---|---|---|---|
+| CLI Surface Normalization | `F137` | unified `sdp` entrypoint, registry/discovery, help/json/version contract, shim/deprecation policy | skill merge, MCP parity logic, phase semantics |
+| Skill Catalog Normalization | `F138` | skill inventory cleanup, canonical catalog artifact, deprecation map, docs/harness sync | new intent model, bootstrap generation, MCP server internals |
+| MCP Contract Parity | `F139` | registry/catalog-driven MCP parity, schema/version/hash surface, handshake validation | the original shipped `F126` server scope, skill rationalization itself |
 
-### AD-3 — MCP server = автоматический proxy в registry
+### Why this split is the least wrong
 
-`cmd/sdp-mcp/main.go` (переименовать позже в `sdp mcp serve`) не пишет tools вручную. Цикл:
+- `F137` gives downstream automation a stable CLI contract.
+- `F138` isolates UX/DX cleanup from registry refactor risk.
+- `F139` extends shipped MCP instead of rewriting roadmap history.
 
-```go
-for _, c := range sdpcli.List() {
-    if !c.MCPExpose { continue }
-    mcpserver.RegisterTool(c.Name, c.MCPSchema, func(args map[string]any) (string, error) {
-        // exec sdp <name> with args mapped to flags
-    })
-}
-```
+### No umbrella tracker
 
-Новая `sdp` команда автоматически доступна через MCP. Конфиги клиентов (Claude Code, Cursor, OpenCode) — без изменений.
+Do **not** create a separate "framework normalization master epic".
 
-### AD-4 — Skills: до 7 файлов + index.json
+That would create a second status layer with no operational value and blur ownership across three distinct execution lanes.
 
-Целевой набор:
+## 4. Ownership Boundaries
 
-| Skill | Назначение | Источники (merge) |
-|-------|-----------|-------------------|
-| `build.md` | Реализация WS / фичи | build.md, oneshot.md, feature.md, feature-delivery.md, prototype.md |
-| `fix.md` | Исправление багов | fix.md, bugfix.md, bug-fix.md, hotfix.md, debug.md, issue.md |
-| `review.md` | Code / impact / security review | review.md, review-phase.md, reality-check.md, verify-workstream.md |
-| `operate.md` | Деплой, CI-triage, плейнинг | operate.md, deploy.md, ci-triage.md, plan.md, plan-phase.md, gate.md |
-| `understand.md` | Исследование кодбейза | understand.md, research.md, scout.md, landscape.md, architect.md, metrics.md, strataudit.md |
-| `delivery-loop.md` | Автономный цикл build+review+PR | delivery-loop.md, parallel-dispatch.md |
-| `session-audit.md` | Аналитика сессий | session-audit.md |
+These boundaries are explicit and must stay explicit in roadmap, workstreams, and beads.
 
-Остальные (vision.md, idea.md, ux.md, design.md, eval-phase.md, test-coverage.md, test-writer.md, llm-council.md, smoke-test.md, git-worktree.md) — удалить или слить в соответствующий интент.
+- `F125` remains the shipped owner of the intent model.
+- `F126` remains the shipped owner of the initial MCP server.
+- `F134` remains the owner of phase commands and runtime phase semantics.
+- `F130` remains a downstream consumer of normalized outputs for harness config generation.
+- `F135` and mini-harness orchestration depend on the normalized CLI contract but are not part of this design.
+- `F136` peer memory may extend MCP later, but it is not a driver for this normalization lane.
 
-`.agents/skills/index.json` (generated): `{name, path, description, tags, requires_cli, compatibility}` для каждого скила. Используется MCP prompts и CLI `sdp skills list`.
+## 5. Per-Feature Workstreams
 
-### AD-5 — Deprecation policy
+### F137 — CLI Surface Normalization
 
-Каждый удаляемый файл / бинарь проходит:
-1. Добавление `DEPRECATED` header с датой и указанием замены
-2. Runtime warning в stderr при вызове shim'а
-3. 2 спринта grace period (≥14 дней)
-4. Удаление с bump minor version + CHANGELOG
+**Priority:** `P1`
+**Primary downstream:** mini-harness, sweep, any machine caller that needs stable discovery
 
-Фиксируется в `docs/reference/deprecations.md`.
+| WS | Title | Outcome |
+|---|---|---|
+| `00-137-01` | Command inventory + contract freeze | authoritative inventory of `cmd/sdp` and `cmd/sdp-*`, with keep/shim/retire decisions |
+| `00-137-02` | Registry core + discovery contract | canonical registry, `sdp help --json`, and version/hash metadata |
+| `00-137-03` | Command migration onto registry | high-value commands moved under the registry without changing product behavior |
+| `00-137-04` | Shim wrappers + deprecation warnings | thin wrappers for legacy binaries, with explicit stderr warnings and grace policy |
+| `00-137-05` | CLI reference + parity gate | reference docs and lint rules that keep registry and docs aligned |
 
-### AD-6 — Docs-as-code lint
+**DAG:** `00-137-01 -> 00-137-02 -> {00-137-03, 00-137-04} -> 00-137-05`
 
-`sdp doc-sync check` (уже есть `cmd/sdp-doc-sync`, 143 строки) расширяется правилами:
-- Каждая команда в registry → упомянута в `docs/reference/sdp-cli.md`
-- Каждый skill → запись в `skills/index.json`, ссылка из `docs/reference/skills.md`
-- Vision-доки `docs/plans/2026-04-13-*` → linkcheck + "Status:" field sync
+### F138 — Skill Catalog Normalization
 
-Встроить в `./scripts/run_go_quality_gates.sh` как non-blocking warning; в `bd preflight` — blocker.
+**Priority:** `P1`
+**Primary downstream:** operators, harness docs, skill consumers, future bootstrap generation
 
-### AD-7 — `sdp help` / `sdp <cmd> --help` унификация
+| WS | Title | Outcome |
+|---|---|---|
+| `00-138-01` | Skill inventory + canonical merge map | authoritative keep/merge/deprecate/remove map for current skill files |
+| `00-138-02` | Catalog artifact generation | machine-readable `skills/index.json` source of truth |
+| `00-138-03` | Canonical skill consolidation | active skill surface reduced to the intended catalog with explicit legacy treatment |
+| `00-138-04` | Harness/docs sync + catalog lint | docs and harness-facing command surfaces follow the same catalog truth |
 
-- `sdp help` — дерево: intent (build/fix/review/operate/understand) → subcommand → flags
-- `sdp help <cmd>` = `sdp <cmd> --help`
-- `--json` flag на `help` выдаёт registry dump (для агентов/MCP)
-- Flag conventions (AD-adjacent): `--json` везде, где output — структурированный; `--dry-run` на mutating ops; `--verbose` не `-v` (последнее — version).
+**DAG:** `00-138-01 -> {00-138-02, 00-138-03} -> 00-138-04`
 
-### AD-8 — Versioning и compatibility
+### F139 — MCP Contract Parity
 
-- `sdp version` → `{cli_version, go_version, registry_hash, mcp_schema_version}`
-- Major bump при breaking изменении в registry signatures
-- MCP schema имеет отдельный version tag — клиент может проверить совместимость
+**Priority:** `P1`
+**Primary downstream:** MCP clients, discovery tooling, cross-harness verification
 
-### AD-9 — Config и state
+| WS | Title | Outcome |
+|---|---|---|
+| `00-139-01` | CLI-to-MCP mapping contract | explicit rules for mapping registry and catalog truth into MCP surfaces |
+| `00-139-02` | Auto-generated MCP tool exposure | tool registration derived from CLI registry rather than manual duplication |
+| `00-139-03` | Prompt/resource parity | prompt/resource exposure follows the same truth as `F125` and `F138` |
+| `00-139-04` | Handshake validation + reference docs | end-to-end verification plus durable docs for the parity surface |
 
-- Runtime config: `$XDG_CONFIG_HOME/sdp/config.toml` (уже частично реализовано — проверить в `cmd/sdp/helpers.go`)
-- Project state: `.sdp/` в корне репо (уже используется — `.sdp/architecture/`, `.sdp/metrics/`, `.sdp/checkpoint.json`)
-- Новая схема: `.sdp/config.toml` per-repo overrides
+**DAG:** `00-139-01 -> {00-139-02, 00-139-03} -> 00-139-04`
 
-### AD-10 — Testing & CI
+## 6. Beads Structure
 
-- Unit tests для каждого subcommand — в `cmd/sdp/cmd_<name>_test.go` (конвенция уже есть: cmd_architect_test.go, cmd_discover_test.go, cmd_phase_test.go)
-- Integration test: `sdp_test.go` прогоняет `sdp help`, `sdp --json help`, MCP handshake
-- `./scripts/run_go_quality_gates.sh` не должен замедлиться >20%
+### Required issue shape
 
----
+- `3` feature-level beads of type `epic`
+- `13` workstream-level beads of type `task`
 
-## 4. Migration Path (M1-M7)
+### Parent/child model
 
-**M1 — Inventory (1-2 дня):** audit 23 `cmd/sdp-*` директорий. Для каждой: зависимости, уникальная функциональность, используется ли в скриптах/CI/agents. Артефакт: `docs/reference/cmd-inventory.md`.
+- each `F137` / `F138` / `F139` epic owns only its own leaf tasks
+- later findings are created as `bug` or `task` with `discovered-from:<leaf-id>`
 
-**M2 — Skills merge (2-3 дня):** свести 41 skill → 7 файлов по AD-4. Сгенерировать `skills/index.json`. Обновить все `@skill` ссылки в `.claude/commands/*`, `AGENTS.md`, `CLAUDE.md`, `docs/`.
+### Cross-feature dependency model
 
-**M3 — Registry core (2-3 дня):** `internal/sdpcli/registry.go` + перевести 5 самых используемых subcommand'ов (`scout`, `architect`, `metrics`, `dispatch`, `orchestrate`) на новый registry. Остальные пока через switch.
+- `00-139-02` depends on `00-139-01` and `00-137-03`
+- `00-139-03` depends on `00-139-01` and `00-138-03`
+- `00-139-04` depends on `00-139-02` and `00-139-03`
 
-**M4 — Shim generation (1 день):** скрипт `scripts/gen_shims.sh` создаёт `cmd/sdp-<name>/main.go` как forwarder. Добавить deprecation warnings.
+`F138` should generally follow `F137`, but it is not a blanket hard block. The dependency should live at the leaf level where it is real.
 
-**M5 — MCP proxy (2 дня):** `sdp-mcp` автогенерирует tools из registry (AD-3). Тестовый MCP client прогоняет handshake и вызов 3-4 команд.
+## 7. Roadmap and Index Impact
 
-**M6 — Docs lint (1-2 дня):** `sdp doc-sync check` с правилами AD-6. Встроить в quality gates и `bd preflight`.
+The roadmap and workstream index must add a new lane:
 
-**M7 — Cleanup (1 день):** удалить skills-дубли, опустевшие legacy файлы, обновить ROADMAP.md и project-map.md.
+`Phase Surface Contract Normalization`
 
-Итого: ≈2 недели calendar time для solo executor.
+That lane contains only:
 
----
+- `F137` CLI Surface Normalization
+- `F138` Skill Catalog Normalization
+- `F139` MCP Contract Parity
 
-## 5. Open Questions
+What must stay unchanged:
 
-1. **Судьба `cmd/sdp/`.** Он монолит с 30+ subcommand и 200K LOC. Рефакторить на registry — риск сломать существующий behavior. Делать incremental (AD-2) или форкнуть в `internal/sdpcli/` и постепенно переносить?
+- `F125` remains shipped with follow-up tail only
+- `F126` remains shipped
+- historical toolkit docs remain historical
 
-2. **Shim performance.** Каждый вызов `sdp-dispatch` через shim = double exec (shim → sdp). Приемлемо? Или shim'ы тупо alias через `go:linkname`?
+The new lane must explicitly state that these are delta features on top of shipped `F125` and `F126`.
 
-3. **Intent routing vs subcommand tree.** Vision-доки говорят про 5 интентов (@understand, @build, @fix, @review, @operate). Это скилы или CLI-команды? Если оба — как синхронизировать (skill читает output `sdp <intent> <mode>`)?
+## 8. Dependencies and Sequencing
 
-4. **MCP schema source.** Ручной JSON в registry (verbose) vs cobra reflection (требует перевода на cobra) vs генерация из Go-doc (fragile)?
+### Primary sequence
 
-5. **Skills format evolution.** Текущие `.md` с YAML-frontmatter. Достаточно ли этого для версионирования, или нужен `skill.yaml` manifest + `skill.md` body (как в superpowers)?
+`F137 -> F138 -> F139`
 
-6. **Legacy `.claude/commands/`.** Это Claude-специфика. Для Codex/OpenCode — свои `.agents/...`? Или `sdp skills install --harness=claude` генерирует из единого источника?
+This is the recommended sequence because it minimizes churn:
 
----
+1. stabilize CLI truth
+2. normalize catalog and docs against that truth
+3. expose parity into MCP against stable CLI and catalog inputs
 
-## 6. Dependencies
+### Downstream dependencies
 
-- **Этот эпик — root** для sweep и mini-harness-orchestrator (оба используют core `sdpcli` libs и `sdp <subcommand>` вызовы).
-- Блокирующее условие для downstream: M3 (registry core) + M5 (MCP proxy) должны быть shipped.
-- Внешних зависимостей нет.
+- mini-harness has a **hard dependency** on `F137`, especially `00-137-02` and `00-137-03`
+- sweep has a **hard dependency** on `F137` and a **soft/downstream dependency** on `F139`
+- `F130` consumes normalized catalog outputs later but is not blocked on the whole lane
 
-## 7. Acceptance Criteria
+## 9. Acceptance Criteria Per Feature
 
-- [ ] `sdp help` показывает ≤ 30 команд, все из registry
-- [ ] 7 skill файлов + `index.json`, старые 34 удалены или помечены DEPRECATED
-- [ ] MCP server автоматически отдаёт tools из registry; Claude Code может вызвать `sdp scout` через MCP tool
-- [ ] `cmd/sdp-*` (все 23) либо удалены, либо shim'ы с deprecation warning
-- [ ] `./scripts/run_go_quality_gates.sh` зелёный, регрессий по latency ≤ 20%
-- [ ] `docs/reference/sdp-cli.md` и `docs/reference/skills.md` обновлены и проходят `sdp doc-sync check`
-- [ ] CHANGELOG.md описывает breaking changes и migration path
+### F137
 
-## 8. Non-Goals
+- [ ] a single CLI registry is the source of truth for documented commands in scope
+- [ ] `sdp help --json` returns a machine-readable discovery surface
+- [ ] `sdp version` includes compatibility metadata needed by downstream automation
+- [ ] legacy binaries in scope are either wrapped by shims or explicitly declared out of scope
+- [ ] CLI reference docs and doc lint can detect registry/doc drift
 
-- Переписывание логики subcommand'ов (только каркас)
-- Замена beads
-- Новые фичи (scout/architect/metrics остаются как есть функционально)
-- Poly-language bindings (python/node wrappers) — отдельный эпик
+### F138
+
+- [ ] active skill files have an authoritative keep/merge/deprecate map
+- [ ] `skills/index.json` exists as machine-readable truth
+- [ ] deprecated skill names are handled explicitly instead of lingering silently
+- [ ] `AGENTS.md`, harness-facing commands, and reference docs stop disagreeing about the active catalog
+
+### F139
+
+- [ ] MCP tool exposure is derived from CLI truth rather than handwritten duplication
+- [ ] MCP prompts/resources match the post-normalization skill catalog and intent surface
+- [ ] the parity surface is versioned and testable
+- [ ] end-to-end handshake validation and reference docs exist for the normalized MCP contract
+
+## 10. Non-Goals
+
+- reopening or rewriting shipped `F125` as if intent routing had not shipped
+- reopening or rewriting shipped `F126` as if MCP had not shipped
+- absorbing `F134` phase command ownership into a generic CLI normalization track
+- rewriting command business logic for feature behavior changes unrelated to surface normalization
+- introducing an umbrella epic that duplicates the three-feature execution model

@@ -2,9 +2,9 @@
 
 **Date:** 2026-04-20
 **Status:** BASELINE — draft для углублённой проработки
-**Related:** [2026-04-10-sdp-mini-harness-design.md](../archive/plans/2026-04-10-sdp-mini-harness-design.md) (archived — другой scope: phase-based single-session harness), [2026-04-20-sdp-framework-normalization-design.md](2026-04-20-sdp-framework-normalization-design.md) (HARD dep)
+**Related:** [2026-04-10-sdp-mini-harness-design.md](../archive/plans/2026-04-10-sdp-mini-harness-design.md) (archived — другой scope: phase-based single-session harness), [2026-04-20-sdp-framework-normalization-design.md](2026-04-20-sdp-framework-normalization-design.md) (surface-contract dependency via `F137`)
 **Owner:** TBD
-**Dependencies:** SDP Framework Normalization M3+ (нужен stable `sdpcli` registry)
+**Dependencies:** Surface Contract Normalization `F137-02` + `F137-03` (нужен stable `sdpcli` registry and migrated command surface)
 
 ---
 
@@ -240,7 +240,7 @@ Deploy skit: `scripts/deploy_orchestrator_pi.sh` — ssh + systemd + config.
 
 ## 6. Dependencies
 
-- **HARD:** [SDP Framework Normalization](2026-04-20-sdp-framework-normalization-design.md) до M3 (registry) и M5 (MCP proxy). Оркестратор использует `internal/sdpcli` и расширяет existing `cmd/sdp-orchestrate*` через unified surface.
+- **HARD:** [Surface Contract Normalization](2026-04-20-sdp-framework-normalization-design.md) до `F137-02` (registry/discovery) и `F137-03` (command migration). Оркестратор использует `internal/sdpcli` и расширяет existing `cmd/sdp-orchestrate*` через unified surface.
 - **SOFT:** beads stable API (`bd claim`, `bd close`, `bd ready --json`)
 - **EXTERNAL:** установленные CLI harness'ы (`claude`, `codex`, `opencode`, опционально `cursor-agent`)
 
