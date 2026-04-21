@@ -140,7 +140,7 @@ release:
   footer: |
     ---
     Predicate spec: `https://sdp.dev/attestation/coding-workflow/v1`
-    Schema: `sdp/schema/coding-workflow-predicate.schema.json`
+    Schema: `schema/coding-workflow-predicate.schema.json`
 
 changelog:
   sort: asc

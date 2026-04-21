@@ -44,7 +44,7 @@ Examples already present:
 - `docs/templates/handoff-note.template.md`
 - `internal/workstream/template.go`
 - `internal/profile/config_templates.go`
-- `sdp/templates/`
+- `templates/`
 
 ### C. Doctor / validation lineage already exists
 Signals already present:
