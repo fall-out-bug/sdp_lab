@@ -27,6 +27,8 @@
 | **Schemas** | `schema/*.json` (native) | Yes -- via `sdp-publish.sh` |
 | **Prompts/Skills** | `prompts/skills/*` (native) | Yes -- via `sdp-publish.sh` |
 | **Hooks** | `.claude/hooks/`, `scripts/hooks/` (native) | Yes -- via `sdp-publish.sh` |
+| **Harness entrypoints** | `.cursorrules`, `.cursor/*.md`, `.codex/*.md`, `.opencode/hooks/*`, `.opencode/README.md` | Yes -- via `sdp-publish.sh` |
+| **Fallback docs** | `docs/reference/FALLBACK_MODE.md`, `prompts/commands.yml` | Yes -- via `sdp-publish.sh` |
 
 ---
 
@@ -59,6 +61,8 @@ cd sdp/sdp-plugin && go build -o sdp ./cmd/sdp   # -> sdp CLI (quality, apply, b
 - Schema changes (evidence, intent, ws-verdict)
 - New or updated prompts/skills
 - Hook changes
+- Harness entrypoint changes
+- Fallback or command-mapping docs
 - Quickstart or CLI reference updates
 
 Run `scripts/sdp-publish.sh` after merge to `main`. See [docs/MULTI-REPO-WORKFLOW.md](../MULTI-REPO-WORKFLOW.md) for the full publish workflow.

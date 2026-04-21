@@ -2,6 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1.1.0",
   "description": "LLM-agnostic command to skill mapping for SDP",
+  "canonical_source": "prompts/commands.yml",
+  "sync_note": "When the command surface changes, update prompts/commands.yml and this file in the same PR.",
   "execution_modes": {
     "cli_only": "CLI command handles everything",
     "llm_only": "LLM spawning required (no CLI equivalent)",

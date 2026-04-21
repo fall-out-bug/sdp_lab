@@ -82,6 +82,31 @@ Scope based on: (1) Request type: "Design..."→idea, "Implement..."→feature, 
 **feature:** Implementation code with TDD tests, docs, PR
 **prototype:** Working code, [PROTOTYPE] label, TODO list for productionization
 
+## Strict Mode (SDP Flow 2)
+
+When `--strict-mode` flag or `SDP_STRICT=true` env is active:
+
+1. MUST invoke `sdp phase plan --feature-id <F> --strict --evidence-path .sdp/evidence/plan.json` before implementation
+2. MUST invoke `sdp phase eval --feature-id <F> --strict --evidence-path .sdp/evidence/eval.json` after implementation
+3. MUST add provenance trailer to every commit using `internal/provenance` package
+
+## Provenance Pattern
+
+Every commit in SDP-managed repos SHOULD carry provenance trailer:
+- Agent commits: `AI-Attribution: agent/<model>/<session>`
+- Human commits: No trailer needed
+- Hybrid commits: `AI-Attribution: hybrid/<model>/<session>`
+
+## MUST DO
+- Run quality gates before committing
+- Claim beads issue before starting work
+- Add provenance trailer to commits when in SDP context
+
+## MUST NOT DO
+- Skip quality gates
+- Commit without claiming beads issue
+- Push directly to main branch
+
 ## Acceptance Boundaries
 
 NOT for: understanding code (@understand), fixing bugs (@fix), review (@review), deployment (@operate)

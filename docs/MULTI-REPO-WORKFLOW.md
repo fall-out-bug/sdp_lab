@@ -20,6 +20,8 @@ Publish to the public `sdp` repo when protocol artifacts change and external con
 - Schema changes (evidence, intent, ws-verdict)
 - New or updated prompts/skills
 - Hook changes
+- Harness entrypoint files (`.cursorrules`, `.codex/*`, `.opencode/*`)
+- Fallback and operator-facing reference docs
 - Quickstart or CLI reference updates
 
 **Not published via this script:** `sdp-plugin` Go source code lives exclusively in the public `sdp` repo. It is not part of the publish surface.
@@ -49,6 +51,16 @@ The script copies the relevant files from `sdp_lab` into a checkout of `fall-out
 | `scripts/hooks/` | `hooks/` |
 | `.claude/hooks/` | `.claude/hooks/` |
 | `.claude/patterns/` | `.claude/patterns/` |
+| `.opencode/hooks/` | `.opencode/hooks/` |
+| `.cursorrules` | `.cursorrules` |
+| `.cursor/README.md` | `.cursor/README.md` |
+| `.cursor/worktrees.json` | `.cursor/worktrees.json` |
+| `.codex/AGENTS.md` | `.codex/AGENTS.md` |
+| `.codex/INSTALL.md` | `.codex/INSTALL.md` |
+| `.codex/skills/README.md` | `.codex/skills/README.md` |
+| `.opencode/README.md` | `.opencode/README.md` |
+| `docs/reference/FALLBACK_MODE.md` | `docs/reference/FALLBACK_MODE.md` |
+| `prompts/commands.yml` | `prompts/commands.yml` |
 
 The manifest is maintained in `sdp_lab`. Add or remove paths there when the publish surface changes.
 
@@ -61,7 +73,7 @@ The manifest is maintained in `sdp_lab`. Add or remove paths there when the publ
 
 ## Commit Workflow
 
-1. Make changes in `sdp_lab`. Protocol artifacts live at native tracked paths (`prompts/`, `schema/`, `templates/`, `.claude/hooks/`). The `sdp/` directory is an optional local checkout of the public repo used only by the publish script.
+1. Make changes in `sdp_lab`. Protocol artifacts live at native tracked paths (`prompts/`, `schema/`, `templates/`, `.claude/hooks/`, harness entrypoints, fallback docs). The `sdp/` directory is an optional local checkout of the public repo used only by the publish script.
 2. Commit and push in `sdp_lab` as usual.
 3. After merge to `main`, run `scripts/sdp-publish.sh` if protocol artifacts changed.
 

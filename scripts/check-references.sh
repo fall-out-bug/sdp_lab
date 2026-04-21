@@ -7,18 +7,19 @@
 # Checks:
 #   1. Skills mentioned in CLAUDE.md exist in prompts/skills/
 #   2. Commands in .claude/commands.json map to existing skill files
-#   3. Patterns in .claude/commands.json map to existing pattern files
-#   4. Agents in .claude/commands.json map to existing agent files
-#   5. Harness READMEs (.cursor/README.md, .codex/INSTALL.md,
+#   3. Commands in prompts/commands.yml map to existing skill files
+#   4. Patterns in .claude/commands.json / prompts/commands.yml map to existing pattern files
+#   5. Agents in .claude/commands.json / prompts/commands.yml map to existing agent files
+#   6. Harness docs (.cursorrules, .cursor/README.md, .codex/*.md,
 #      .opencode/README.md) reference existing skills
-#   6. All symlinks resolve correctly
+#   7. All symlinks resolve correctly
 #
 # Requirements:
 #   - GNU grep (for grep -oE extended regex). Ubuntu-latest CI ships GNU grep.
 #   - POSIX sh, find, sed, readlink.
 #
 # Usage:
-#   ./scripts/check-references.sh          # from sdp/ root
+#   ./scripts/check-references.sh          # from project root
 #   ./scripts/check-references.sh /path    # explicit root
 
 # --- Resolve SDP root ---
@@ -68,6 +69,21 @@ skill_file_exists() {
     [ -f "${SDP_ROOT}/prompts/skills/${_name}/SKILL.md" ]
 }
 
+KNOWN_COMMANDS=""
+if [ -f "${SDP_ROOT}/.claude/commands.json" ]; then
+    KNOWN_COMMANDS=$(grep -E '^[[:space:]]*"[a-zA-Z0-9_-]+"\s*:\s*\{' "${SDP_ROOT}/.claude/commands.json" \
+        | sed 's/^[[:space:]]*"\([^"]*\)".*/\1/' \
+        | sort -u)
+fi
+
+is_known_command() {
+    _s="$1"
+    for k in $KNOWN_COMMANDS; do
+        [ "$_s" = "$k" ] && return 0
+    done
+    return 1
+}
+
 # --- Preamble ---
 printf "%s\n" "=== SDP Reference Integrity Check ==="
 printf "Root: %s\n\n" "$SDP_ROOT"
@@ -115,6 +131,7 @@ fi
 printf "\n%s\n" "--- Checking .claude/commands.json command references ---"
 
 COMMANDS_JSON="${SDP_ROOT}/.claude/commands.json"
+COMMANDS_YAML="${SDP_ROOT}/prompts/commands.yml"
 if [ ! -f "$COMMANDS_JSON" ]; then
     log_warn ".claude/commands.json not found"
 else
@@ -153,7 +170,42 @@ else
 fi
 
 # ============================================================
-# 3. Patterns in .claude/commands.json -> pattern files
+# 3. Commands in prompts/commands.yml -> skill files
+# ============================================================
+printf "\n%s\n" "--- Checking prompts/commands.yml command references ---"
+
+if [ ! -f "$COMMANDS_YAML" ]; then
+    log_warn "prompts/commands.yml not found"
+else
+    file_refs=$(grep '^[[:space:]]*file:' "$COMMANDS_YAML" | sed 's/.*file:[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}.*/\1/')
+
+    for ref in $file_refs; do
+        case "$ref" in
+            skills/*)
+                skill_name=$(printf '%s' "$ref" | sed 's|skills/||; s|\.md$||')
+                if skill_file_exists "$skill_name"; then
+                    log_ok "commands.yml ${ref} -> prompts/skills/${skill_name}/SKILL.md"
+                else
+                    log_error "commands.yml references ${ref} but prompts/skills/${skill_name}/SKILL.md not found"
+                fi
+                ;;
+            .agents/skills/*)
+                skill_file="${SDP_ROOT}/${ref}"
+                if [ -f "$skill_file" ]; then
+                    log_ok "commands.yml ${ref} -> ${ref}"
+                else
+                    log_error "commands.yml references ${ref} but ${ref} not found"
+                fi
+                ;;
+            *)
+                log_warn "commands.yml: unexpected file reference format: ${ref}"
+                ;;
+        esac
+    done
+fi
+
+# ============================================================
+# 4. Patterns in .claude/commands.json / prompts/commands.yml -> pattern files
 # ============================================================
 printf "\n%s\n" "--- Checking .claude/commands.json pattern references ---"
 
@@ -178,8 +230,28 @@ if [ -f "$COMMANDS_JSON" ]; then
     done
 fi
 
+if [ -f "$COMMANDS_YAML" ]; then
+    pattern_refs=$(grep 'patterns/' "$COMMANDS_YAML" | sed 's/.*[[:space:]]\([^[:space:]]*patterns\/[^[:space:]]*\).*/\1/' | tr -d '"')
+
+    for ref in $pattern_refs; do
+        case "$ref" in
+            patterns/*)
+                pattern_path="${SDP_ROOT}/.claude/${ref}"
+                if [ -f "$pattern_path" ]; then
+                    log_ok "commands.yml ${ref} -> .claude/${ref}"
+                else
+                    log_error "commands.yml references ${ref} but .claude/${ref} not found"
+                fi
+                ;;
+            *)
+                log_warn "commands.yml: unexpected pattern reference format: ${ref}"
+                ;;
+        esac
+    done
+fi
+
 # ============================================================
-# 4. Agents in .claude/commands.json -> agent files
+# 5. Agents in .claude/commands.json / prompts/commands.yml -> agent files
 # ============================================================
 printf "\n%s\n" "--- Checking .claude/commands.json agent references ---"
 
@@ -194,8 +266,8 @@ if [ -f "$COMMANDS_JSON" ]; then
                 if [ -f "$agent_path" ]; then
                     log_ok "commands.json ${ref} -> prompts/${ref}"
                 else
-                    # Agent files may be optional — they can live in the
-                    # gitignored sdp/ submodule or be provided by the runtime.
+                    # Agent files may be optional — some roles are runtime-only
+                    # and are not published as prompt files in this repo.
                     # Soft-fail as a warning instead of a hard error.
                     log_warn "commands.json references ${ref} but prompts/${ref} not found (optional agent)"
                 fi
@@ -207,10 +279,30 @@ if [ -f "$COMMANDS_JSON" ]; then
     done
 fi
 
+if [ -f "$COMMANDS_YAML" ]; then
+    agent_refs=$(grep -E '^[[:space:]]+[a-zA-Z0-9_-]+:[[:space:]]*agents/' "$COMMANDS_YAML" | sed 's/.*:[[:space:]]*\([^[:space:]]*agents\/[^[:space:]]*\).*/\1/' | tr -d '"')
+
+    for ref in $agent_refs; do
+        case "$ref" in
+            agents/*)
+                agent_path="${SDP_ROOT}/prompts/${ref}"
+                if [ -f "$agent_path" ]; then
+                    log_ok "commands.yml ${ref} -> prompts/${ref}"
+                else
+                    log_warn "commands.yml references ${ref} but prompts/${ref} not found (optional agent)"
+                fi
+                ;;
+            *)
+                log_warn "commands.yml: unexpected agent reference format: ${ref}"
+                ;;
+        esac
+    done
+fi
+
 # ============================================================
-# 5. Harness READMEs reference existing skills
+# 6. Harness docs reference existing skills
 # ============================================================
-printf "\n%s\n" "--- Checking harness README skill references ---"
+printf "\n%s\n" "--- Checking harness doc skill references ---"
 
 # Known skill names — discovered dynamically from prompts/skills/*/SKILL.md
 KNOWN_SKILLS=""
@@ -242,21 +334,24 @@ check_harness_readme() {
         skill_name="${token#@}"
         if skill_file_exists "$skill_name"; then
             log_ok "${_label} @${skill_name} -> prompts/skills/${skill_name}/SKILL.md"
+        elif is_known_command "$skill_name"; then
+            log_ok "${_label} @${skill_name} -> command alias in .claude/commands.json"
         else
             log_error "${_label} references @${skill_name} but prompts/skills/${skill_name}/SKILL.md not found"
         fi
     done
 }
 
+check_harness_readme "${SDP_ROOT}/.cursorrules" ".cursorrules"
 check_harness_readme "${SDP_ROOT}/.cursor/README.md" ".cursor/README.md"
+check_harness_readme "${SDP_ROOT}/.codex/AGENTS.md" ".codex/AGENTS.md"
 check_harness_readme "${SDP_ROOT}/.codex/INSTALL.md" ".codex/INSTALL.md"
-check_harness_readme "${SDP_ROOT}/.opencode/README.md" ".opencode/README.md"
-
-# Also check .codex/skills/README.md if it exists
 check_harness_readme "${SDP_ROOT}/.codex/skills/README.md" ".codex/skills/README.md"
+check_harness_readme "${SDP_ROOT}/.opencode/README.md" ".opencode/README.md"
+check_harness_readme "${SDP_ROOT}/.opencode/hooks/README.md" ".opencode/hooks/README.md"
 
 # ============================================================
-# 6. All symlinks resolve correctly
+# 7. All symlinks resolve correctly
 # ============================================================
 printf "\n%s\n" "--- Checking symlink integrity ---"
 
@@ -276,7 +371,7 @@ while read -r link; do
 done < "$_SYMLINKS_TMP"
 
 # ============================================================
-# 7. llm_subagents in commands.json — logical names, NOT file refs
+# 8. llm_subagents in commands.json — logical names, NOT file refs
 # ============================================================
 printf "\n%s\n" "--- Checking .claude/commands.json llm_subagents references ---"
 
@@ -293,7 +388,7 @@ if [ -f "$COMMANDS_JSON" ]; then
 fi
 
 # ============================================================
-# 8. Harness symlink directories resolve to prompts/skills
+# 9. Harness symlink directories resolve to prompts/skills
 # ============================================================
 printf "\n%s\n" "--- Checking harness skill/agent symlinks ---"
 
