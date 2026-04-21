@@ -304,4 +304,3 @@ pytest /tmp/test_temp.py -v
 
 - Master prompt: `prompts/commands/test.md`
 - Contract-Driven WS spec: `tools/hw_checker/docs/workstreams/completed/2026-01/WS-410-01-contract-driven-ws-spec.md`
-- Capability-tier validator: `sdp/src/sdp/validators/capability_tier.py`

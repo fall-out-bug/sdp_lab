@@ -9,12 +9,12 @@ SDP works with OpenCode (Windsurf) and GLM models. This guide covers a minimal s
 curl -sSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/install.sh | SDP_IDE=opencode sh
 ```
 
-This creates `.opencode/skills` → `sdp/prompts/skills` and `.opencode/agents` → `sdp/prompts/agents`.
+Post-F128, `.opencode/agents` is a tracked symlink to `../prompts/agents` (native). OpenCode discovers skills from `.agents/skills/` via symlink or direct path — no submodule required.
 
 ## 2. OpenCode (Windsurf) Setup
 
 - Install [Windsurf](https://codeium.com/windsurf) or OpenCode CLI
-- SDP skills load from `.opencode/skills/` (symlinked to sdp repo)
+- SDP skills load from `.agents/skills/` (native, no submodule)
 
 ## 3. GLM Model
 
@@ -41,12 +41,12 @@ docker run -d -p 12434:12434 ...
 ## 4. Verify Install
 
 ```bash
-# Check skills are linked
-ls -la .opencode/skills
-# Should show: .opencode/skills -> ../sdp/prompts/skills
-
-# Check agents
+# Check agents are linked (post-F128 native symlink)
 ls -la .opencode/agents
+# Should show: .opencode/agents -> ../prompts/agents
+
+# Skills live in .agents/skills/
+ls .agents/skills/
 ```
 
 ## 5. Run @oneshot

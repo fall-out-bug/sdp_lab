@@ -69,13 +69,13 @@ These assets are real, but they are **not** the same thing as the canonical cont
 
 ### Workstream generation
 - `internal/workstream/template.go`
-- `sdp/templates/workstream.md`
-- `sdp/templates/workstream-v2.md`
-- `sdp/templates/workstream-frontmatter.md`
+- `templates/workstream.md`
+- `templates/workstream-v2.md`
+- `templates/workstream-frontmatter.md`
 
 Classification:
 - `internal/workstream/template.go` = generator code
-- `sdp/templates/workstream*.md` = generator source templates / legacy template assets
+- `templates/workstream*.md` = generator source templates / legacy template assets
 - generated workstream markdown under `docs/workstreams/` = generated or instantiated operator artifacts, not canonical source templates
 
 ### Profile/config generation
@@ -85,14 +85,14 @@ Classification:
 - generator code for file outputs like `config.yaml`, `adapters.yaml`, `guard.yaml`
 - useful template lineage, but not part of the Phase 3 control-tower canonical template set
 
-### Other reusable source templates under `sdp/templates/`
-- `sdp/templates/breaking-changes.md`
-- `sdp/templates/idea-draft.md`
-- `sdp/templates/migration-guide.md`
-- `sdp/templates/PROJECT_CONVENTIONS.md`
-- `sdp/templates/release-notes.md`
-- `sdp/templates/skill-template.md`
-- `sdp/templates/uat-guide.md`
+### Other reusable source templates under `templates/`
+- `templates/breaking-changes.md`
+- `templates/idea-draft.md`
+- `templates/migration-guide.md`
+- `templates/PROJECT_CONVENTIONS.md`
+- `templates/release-notes.md`
+- `templates/skill-template.md`
+- `templates/uat-guide.md`
 
 Classification:
 - reusable source templates for older/broader SDP surfaces
@@ -128,13 +128,13 @@ Why:
 
 ## D. Ambiguous / needs cleanup / honesty notes
 
-### `sdp/templates/` as a whole
+### `templates/` as a whole
 This directory is real and useful, but it is a mixed bag:
 - some files are genuine reusable templates
 - some belong to older workstream flows
 - some are not relevant to the current control-tower slice
 
-Rule: do not describe `sdp/templates/` as if it were the canonical Phase 3 template home.
+Rule: do not describe `templates/` as if it were the canonical Phase 3 template home.
 
 ### Nonexistent `sdp-plugin/templates/`
 The roadmap/spec lineage mentioned `sdp-plugin/templates/`, but that path is not present in the current repo.
@@ -161,7 +161,7 @@ Unless they are promoted into a stable source file, treat them as documentation 
 3. Packs may reference canonical templates, but only when the file actually exists and is useful for the stage.
 4. CLI renderings, packets, and board snapshots are output/rendering surfaces, not canonical templates.
 5. Do not imply a bigger generator framework than the repo actually implements today.
-6. Do not treat all historical `sdp/templates/` files as part of the new control-tower canon automatically.
+6. Do not treat all historical `templates/` files as part of the new control-tower canon automatically.
 
 ---
 

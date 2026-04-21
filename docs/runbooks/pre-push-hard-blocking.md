@@ -273,8 +273,8 @@ If issues arise:
 
 ## References
 
-- Pre-push hook: `sdp/hooks/pre-push.sh`
-- Installation script: `sdp/hooks/install-git-hooks.sh`
+- Pre-push hook: `scripts/hooks/pre-push.sh`
+- Installation script: `scripts/hooks/install-git-hooks.sh`
 - Documentation: `docs/runbooks/git-hooks-installation.md`
 - Test script: `tests/test_pre_push_hook.sh`
 

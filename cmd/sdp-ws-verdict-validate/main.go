@@ -1,4 +1,4 @@
-// sdp-ws-verdict-validate validates docs/ws-verdicts/*.json against sdp/schema/ws-verdict.schema.json.
+// sdp-ws-verdict-validate validates docs/ws-verdicts/*.json against schema/ws-verdict.schema.json.
 // Used by post-build hook to catch invalid verdicts before merge.
 package main
 

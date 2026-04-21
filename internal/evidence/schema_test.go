@@ -178,10 +178,10 @@ func mustReadFile(t *testing.T, path string) []byte {
 // $ref to predicate $id resolves when predicate is pre-loaded (AC 00-053-13: $ref works from any cwd).
 func TestCodingWorkflowStatementSchemaRefResolves(t *testing.T) {
 	root := moduleRoot(t)
-	schemaDir := filepath.Join(root, "sdp", "schema")
+	schemaDir := filepath.Join(root, "schema")
 	stmtPath := filepath.Join(schemaDir, "coding-workflow-statement.schema.json")
 	if _, err := os.Stat(stmtPath); err != nil {
-		t.Skip("sdp/schema/coding-workflow-statement.schema.json not found (submodule?)")
+		t.Skip("schema/coding-workflow-statement.schema.json not found")
 	}
 	compiler := jsonschema.NewCompiler()
 	// Pre-load predicate by its $id so $ref "https://sdp.dev/attestation/coding-workflow/v1" resolves
