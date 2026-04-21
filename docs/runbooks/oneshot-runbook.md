@@ -218,6 +218,6 @@ Human UAT
 
 ## References
 
-- Master prompt: `sdp/prompts/commands/oneshot.md`
+- Master prompt: `prompts/commands/oneshot.md`
 - Orchestrator agent: `.claude/agents/orchestrator.md`
 - Feature spec: `tools/hw_checker/docs/specs/feature_{XX}/feature.md`

@@ -285,7 +285,7 @@ Create GitHub issue for future work
 
 ## References
 
-- Master prompt: `sdp/prompts/commands/issue.md` → Section 4.0
-- Issue command: `sdp/prompts/commands/issue.md`
-- Hotfix command: `sdp/prompts/commands/hotfix.md`
-- Bugfix command: `sdp/prompts/commands/bugfix.md`
+- Master prompt: `prompts/commands/issue.md` → Section 4.0
+- Issue command: `prompts/commands/issue.md`
+- Hotfix command: `prompts/commands/hotfix.md`
+- Bugfix command: `prompts/commands/bugfix.md`

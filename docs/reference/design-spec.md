@@ -1,7 +1,7 @@
 # Design Command Full Specification
 
 This document contains the complete specification for `@design`.
-For quick reference, see [SKILL.md](../../.claude/skills/design/SKILL.md).
+For quick reference, see [SKILL.md](../../prompts/skills/design/SKILL.md).
 
 ## Overview
 

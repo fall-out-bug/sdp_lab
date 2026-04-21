@@ -1,9 +1,9 @@
 #!/bin/sh
-# Validate docs/ws-verdicts/*.json against sdp/schema/ws-verdict.schema.json.
+# Validate docs/ws-verdicts/*.json against schema/ws-verdict.schema.json.
 # Used by post-build pipeline hook. Exits 1 if any verdict fails schema validation.
 # CWD = project root (set by RunHooks).
 set -e
-if [ ! -f sdp/schema/ws-verdict.schema.json ]; then
+if [ ! -f schema/ws-verdict.schema.json ]; then
   echo "ws-verdict-validate: schema not found" >&2
   exit 1
 fi
