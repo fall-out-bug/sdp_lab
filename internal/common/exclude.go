@@ -20,12 +20,23 @@ var DefaultExcludes = []string{
 	"target",
 	"build",
 	"dist",
+	"out",
 	".next",
 	".nuxt",
 	// Infrastructure
 	".terraform",
 	".gradle",
 	".mvn",
+	// AI coding harness config dirs (not source code)
+	".claude",
+	".cursor",
+	".opencode",
+	// Worktrees and archives (large, non-source)
+	".worktrees",
+	"archive",
+	// Deployment and spec directories (YAML/JSON manifests, not source)
+	"deploy",
+	"specs",
 }
 
 // generatedPatterns matches filenames that are typically auto-generated.

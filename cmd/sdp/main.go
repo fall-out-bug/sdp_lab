@@ -67,6 +67,8 @@ func main() {
 		runIndex(os.Args[2:])
 	case "bootstrap":
 		runBootstrap(os.Args[2:])
+	case "rules":
+		runRules(os.Args[2:])
 	case "build":
 		runBuild(os.Args[2:])
 	case "coverage-scan":
@@ -80,7 +82,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention|bootstrap|build|coverage-scan|phase> <subcommand> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: sdp <card|board|doctor|dispatch|result|orchestrate|attention|bootstrap|rules|build|coverage-scan|phase> <subcommand> [flags]")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Card commands:")
 	fmt.Fprintln(os.Stderr, "  sdp card <create|show|clarify|needs-input|ready|park|execute|heartbeat|feedback|feedback-export|message-export|resume|resume-import|reply-ingest|deliver>")
@@ -148,8 +150,12 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  sdp bootstrap [--dry-run] [--force] [--beads] [--yes] [--auto-curate] [--only TYPES] <repo-path>")
 	fmt.Fprintln(os.Stderr, "  sdp bootstrap status <repo-path>")
 	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Rules commands:")
+	fmt.Fprintln(os.Stderr, "  sdp rules update <repo-path> [--source-evidence=<dir>] [--manifest=<file>] [--format json|text]")
+	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Build commands:")
 	fmt.Fprintln(os.Stderr, "  sdp build \"<idea>\" [--strict] [--local] [--sandbox=<type>] [--dry-run] [--format json|text] [--output DIR] [--timeout DURATION]")
+	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Coverage commands:")
 	fmt.Fprintln(os.Stderr, "  sdp coverage-scan [--path DIR] [--threshold PCT] [--format text|json] [--skip-test] [--package PATTERN] [--coverprofile FILE]")
 }
