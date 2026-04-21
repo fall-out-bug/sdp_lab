@@ -4,10 +4,10 @@
 **Status:** BASELINE v2 — ревизия v1 для углублённой проработки
 **Supersedes:** [2026-04-19-sweep-design.md](2026-04-19-sweep-design.md)
 **Dependencies (HARD):**
-- [2026-04-20-sdp-framework-normalization-design.md](2026-04-20-sdp-framework-normalization-design.md) — до M3 (registry) и M5 (MCP proxy)
+- [2026-04-20-sdp-framework-normalization-design.md](2026-04-20-sdp-framework-normalization-design.md) — до `F137-03` как минимум; `F139` желателен для full parity/discovery
 - [2026-04-20-mini-harness-orchestrator-design.md](2026-04-20-mini-harness-orchestrator-design.md) — до M3 (dispatch core) минимум; M4+ желательно
 
-**Sequencing:** sweep — **последний из трёх** эпиков. Не начинаем implementation пока normalization Phase 2 и mini-harness M3 не зелёные.
+**Sequencing:** sweep — **последний из трёх** эпиков. Не начинаем implementation пока `F137` CLI contract и mini-harness dispatch core не зелёные.
 
 ---
 

@@ -76,6 +76,14 @@ A new repo-native collaboration-memory pilot is now shaped and queued:
 
 - `F136` — Peer Memory Foundation (H1). Actor-aware episodic memory for humans + agents with repo-scoped local storage, FTS5 retrieval, CLI writes, agentloop auto-capture, and MCP read resources. H2/H3 stay parked in beads until the 2026-07-06 gate.
 
+A separate follow-on lane now exists on top of that shipped toolkit foundation:
+
+- `F137` — normalize the CLI surface into one machine-readable contract for downstream automation
+- `F138` — normalize the skill catalog and harness-facing docs without reopening the shipped `F125` intent model
+- `F139` — normalize MCP parity and discovery on top of the shipped `F126` server
+
+This is a delta lane, not a retroactive rewrite of `F125` or `F126`.
+
 Backlog triage 2026-04-18 (active backlog features are tracked in beads for consistency — search with `bd search FNNN`):
 
 - **Closed (historical placeholders):** `F032`, `F034`, `F036`–`F049`, `F052` — closed with supersede reasons pointing to shipped tracks (F064–F067 auto-attestation, F134 Phase FSM, F108 drift).
@@ -340,6 +348,28 @@ it; it does not create a second architect backlog on top of `F105`.
 
 **Canonical plan:** [2026-04-13-sdp-toolkit-implementation-plan.md](../plans/2026-04-13-sdp-toolkit-implementation-plan.md)
 **Detailed child plans:** [F120 Scout](../plans/2026-04-13-sdp-scout-implementation-plan.md), [F121 Metrics](../plans/2026-04-13-sdp-metrics-implementation-plan.md), [F122 Index](../plans/2026-04-13-sdp-index-implementation-plan.md), [F123 Spec](../plans/2026-04-13-sdp-spec-implementation-plan.md), [F124 Bootstrap](../plans/2026-04-13-sdp-bootstrap-implementation-plan.md), [F126 MCP](../plans/2026-04-13-sdp-mcp-implementation-plan.md)
+
+---
+
+## Phase Surface Contract Normalization
+
+**Goal:** normalize the post-toolkit surface so CLI discovery, skill catalog truth, and MCP exposure stop drifting from one another.
+
+This lane is explicitly a delta lane over shipped toolkit foundations:
+
+- `F125` stays shipped and remains the owner of the intent model
+- `F126` stays shipped and remains the owner of the initial MCP server
+- `F137` is the hard dependency for mini-harness and sweep because they need a stable CLI contract
+- `F139` depends on `F137` and `F138`
+
+| Feature | Priority | Outcome | Depends On | Status |
+|--------|----------|---------|------------|--------|
+| `F137` CLI Surface Normalization | P1 | unified `sdp` entrypoint, registry/discovery contract, shim and deprecation policy | - | Backlog |
+| `F138` Skill Catalog Normalization | P1 | canonical skill catalog, deprecation map, and harness-facing docs parity | `F125`, `F137` | Backlog |
+| `F139` MCP Contract Parity | P1 | registry/catalog-driven MCP tool, prompt, and resource parity with handshake validation | `F137`, `F138`, `F126` | Backlog |
+
+**Source design:** [2026-04-20-sdp-framework-normalization-design.md](../plans/2026-04-20-sdp-framework-normalization-design.md)
+**Execution note:** these features extend shipped surfaces; they do not reopen them.
 
 ---
 

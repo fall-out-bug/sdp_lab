@@ -12,6 +12,7 @@
 > - **Compliance lane (coupled with F134 for EU AI Act 2026-08):** `F074`, `F078`, `F079`, `F080`, `F082`
 > - **Critical path:** `F081` (30-min production pilot); shipped prerequisite `F077` now unblocks F129/F135 self-healing
 > - **Reframe pending F134:** `F060` (gastown — evidence chain dependency), `F070` (observability — evidence schema dependency)
+> - **Surface delta lane:** `F137`–`F139` extend the shipped `F125`/`F126` surfaces; they do not reopen those features
 > - **Keep as-is (long-horizon trust):** `F075`, `F083`, `F084`, `F085`
 
 ## Features
@@ -85,7 +86,19 @@
 
 > **Source:** [Peer Memory H1 Design](../plans/2026-04-20-f136-peer-memory-h1-design.md) · **Beads:** `sdplab-t1ty`
 > **DAG:** 01→02→{03,04,05}; {03,04,05}→06
-> **Status note:** H1 is the only active horizon. `F137` and `F138` remain parked in beads until the dated revisit gates.
+> **Status note:** H1 is the only active horizon. Peer-memory H2/H3 remain parked until the dated revisit gates.
+
+### Phase Surface Contract Normalization
+
+| Feature | Description | Workstreams | Status | Priority |
+|---------|-------------|-------------|--------|----------|
+| **F137** | CLI Surface Normalization — unified `sdp` entrypoint, registry/discovery contract, shim/deprecation policy | 00-137-01 ... 00-137-05 | Backlog | P1 |
+| **F138** | Skill Catalog Normalization — canonical skill catalog, deprecation map, docs/harness sync | 00-138-01 ... 00-138-04 | Backlog | P1 |
+| **F139** | MCP Contract Parity — registry/catalog-driven MCP tools, prompt/resource parity, handshake validation | 00-139-01 ... 00-139-04 | Backlog | P1 |
+
+> **Source:** [Surface Contract Normalization Design](../plans/2026-04-20-sdp-framework-normalization-design.md)
+> **DAG:** `F137 -> F138 -> F139`
+> **Boundary note:** `F125` and `F126` remain shipped owners of the intent model and initial MCP server. `F137`–`F139` are delta features on top.
 
 ### Phase Autonomy & Regression Hardening
 
