@@ -327,8 +327,10 @@ Tracked symlinks: `.claude/agents` и `.opencode/agents` → `../prompts/agents`
 
 | Path | Count | Format | Consumed by |
 |---|---|---|---|
-| `.agents/skills/*.md` | 43 | Плоский inline markdown с YAML frontmatter | Claude Code (via `.claude/skills` symlink), OpenCode |
-| `prompts/skills/<name>/SKILL.md` | 28 | Claude plugin format (директория + ресурсы) | Claude Code plugin system |
+| `prompts/skills/<name>/SKILL.md` | 28 | Claude plugin format (директория + SKILL.md) | Claude Code (via `.claude/skills` symlink → `../prompts/skills`), Claude plugin system |
+| `.agents/skills/*.md` | 43 | Плоский inline markdown с YAML frontmatter | OpenCode (`.agents/skills/` native), Cursor (`.cursor/skills` symlink), harness без plugin discovery |
+
+`.claude/skills → ../prompts/skills` (F128-21, 2026-04-21): команды в `prompts/commands/*.md` и агенты ссылаются на plugin-формат `@.claude/skills/<name>/SKILL.md`. Flat-формат `.agents/skills/*.md` остаётся каноническим источником для OpenCode/Cursor/Kimi.
 
 Консолидация в один канонический формат — [F138-03 Canonical Skill Consolidation](docs/plans/2026-04-16-f127-multi-harness-modernization-design.md) (`sdplab-yocw.3`). До завершения migration harness должен проверять обе локации.
 
