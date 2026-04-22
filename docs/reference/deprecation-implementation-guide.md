@@ -98,7 +98,7 @@ def invoke_skill(skill_name, args):
 
 ### Data Structure
 
-Use `.agents/skills/deprecated-aliases.md` as the source of truth:
+Use `docs/reference/internal/deprecated-aliases.md` as the source of truth:
 
 ```json
 {
@@ -207,7 +207,7 @@ Use metrics to:
 
 ## References
 
-- **Full mapping:** `.agents/skills/deprecated-aliases.md`
+- **Full mapping:** `docs/reference/internal/deprecated-aliases.md`
 - **User migration guide:** `docs/reference/migration-guide.md`
 - **Intent design:** `docs/plans/2026-04-13-sdp-skill-architecture-design.md`
 - **Skills reference:** `docs/reference/skills.md`

@@ -69,7 +69,7 @@ Before the TDD cycle (step 2 of EXECUTE THIS NOW), emit a write plan:
    ```json
    {"spec_version":"v1.0","event_id":"<uuid>","timestamp":"<ISO-8601>","source":{"system":"sdp-lab","component":"build"},"event_type":"decision.made","payload":{"decision_type":"write_plan","plan":[{"path":"...","action":"CREATE|MODIFY|DELETE","reason":"..."}]},"context":{"feature_id":"<F-id>","workstream_id":"<ws-id>"}}
    ```
-   > **Note:** Phase 1 uses prompt-level write boundaries (CLI out of scope). Aligns with `sdp/schema/contracts/orchestration-event.schema.json` via `event_type: "decision.made"`. Phase 2 CLI will emit natively.
+   > **Note:** Phase 1 uses prompt-level write boundaries (CLI out of scope). Aligns with `schema/contracts/orchestration-event.schema.json` via `event_type: "decision.made"`. Phase 2 CLI will emit natively.
 
 **Output format:**
 ```
@@ -189,7 +189,7 @@ Reason: `existing_work_summary` is required. Add one-line summary of pre-existin
 ```
 Reason: Each ac_evidence entry must include `evidence` (file:line or test name).
 
-Schema: `schema/ws-verdict.schema.json` (from sdp root; project: `sdp/schema/`)
+Schema: `schema/ws-verdict.schema.json`
 
 ---
 

@@ -16,9 +16,9 @@ SDP-skills must work identically in all major harnesses (Claude Code, OpenCode, 
 **Canonical:** `.agents/skills/<skill-name>.md`.
 
 **Do not** put real files in:
-- `skills/` (old root directory -- reserved for compat symlinks);
+- `skills/` (removed in F128; no longer exists);
 - `.claude/skills/` (symlink to `.agents/skills/`);
-- `sdp/prompts/skills/` (submodule-publish path -- only for published artifacts, goes via separate PR to `sdp` repo).
+- `prompts/skills/<name>/SKILL.md` (published artifacts: edit the source in `.agents/skills/` and publish to the public `sdp` repo via `scripts/sdp-publish.sh`).
 
 Filename is `<kebab-case>.md`, matches `name:` in frontmatter.
 

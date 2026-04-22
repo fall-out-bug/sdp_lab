@@ -155,7 +155,7 @@ git log --oneline --grep="WS-060"
 **Problem:** Command not found
 
 **Solution:** Use `@build --mode prototype` instead:
-- Claude Code: Check `.claude/skills/build.md` exists
+- Claude Code: Check `.claude/skills/build/SKILL.md` exists
 - Cursor: Check `.cursor/commands/build.md` exists
 - OpenCode: Check `.opencode/commands/build.md` exists
 
@@ -218,6 +218,6 @@ Human UAT
 
 ## References
 
-- Master prompt: `sdp/prompts/commands/oneshot.md`
+- Master prompt: `prompts/commands/oneshot.md`
 - Orchestrator agent: `.claude/agents/orchestrator.md`
 - Feature spec: `tools/hw_checker/docs/specs/feature_{XX}/feature.md`

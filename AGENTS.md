@@ -311,6 +311,48 @@ docs/topic                  # documentation-only changes
 
 Evidence and checkpoint must be committed with the PR. When running as part of @oneshot, after `sdp-orchestrate --advance` writes `.sdp/evidence/` and `.sdp/checkpoints/`, commit them (see @build skill step 3b).
 
+## Skill & Agent Registry
+
+Harness без авто-discovery (Kimi, Codex CLI, Copilot, Zed, Warp и др.) читает этот реестр для загрузки skill/agent промптов. Claude Code и OpenCode используют ту же структуру через tracked symlinks.
+
+### Agents — canonical path
+
+`prompts/agents/` — 13 агентских промптов: architect, deployer, devops, implementer, orchestrator, planner, qa, reviewer, security, spec-reviewer, sre, tech-lead.
+
+Tracked symlinks: `.claude/agents` и `.opencode/agents` → `../prompts/agents` (F128-06).
+
+### Skills — two locations, migration in progress
+
+Пока не завершена F138-03 консолидация, skill'ы живут в двух форматах:
+
+| Path | Count | Format | Consumed by |
+|---|---|---|---|
+| `prompts/skills/<name>/SKILL.md` | 28 | Claude plugin format (директория + SKILL.md) | Claude Code (via `.claude/skills` symlink → `../prompts/skills`), Claude plugin system |
+| `.agents/skills/*.md` | 43 | Плоский inline markdown с YAML frontmatter | OpenCode (`.agents/skills/` native), Cursor (`.cursor/skills` symlink), harness без plugin discovery |
+
+`.claude/skills → ../prompts/skills` (F128-21, 2026-04-21): команды в `prompts/commands/*.md` и агенты ссылаются на plugin-формат `@.claude/skills/<name>/SKILL.md`. Flat-формат `.agents/skills/*.md` остаётся каноническим источником для OpenCode/Cursor/Kimi.
+
+Консолидация в один канонический формат — [F138-03 Canonical Skill Consolidation](docs/plans/2026-04-16-f127-multi-harness-modernization-design.md) (`sdplab-yocw.3`). До завершения migration harness должен проверять обе локации.
+
+### Frontmatter requirement (F127-03)
+
+Каждый skill/agent файл должен содержать YAML frontmatter:
+
+```yaml
+---
+name: <slug>
+description: <one line>
+version: <semver>
+compatibility: [claude-code, codex, opencode, cursor, kimi]
+---
+```
+
+### Loading protocol for AGENTS.md-only harnesses
+
+1. Читай `prompts/agents/README.md` — индекс агентов.
+2. Читай `.agents/skills/README.md` (flat index) и `ls prompts/skills/` (structured index).
+3. По запрошенному имени: для agent — `prompts/agents/<name>.md`; для skill — сначала `.agents/skills/<name>.md`, если нет — `prompts/skills/<name>/SKILL.md`.
+
 ## Quality Gates
 
 Before pushing code changes:
@@ -374,7 +416,7 @@ Reference: [docs/phases/DELIVERY.md](docs/phases/DELIVERY.md)
 
 ### llm-council skill
 
-`skills/llm-council.md` — multi-model deliberation для ключевых решений в Discovery и при архитектурных выборах.
+`.agents/skills/llm-council.md` — multi-model deliberation для ключевых решений в Discovery и при архитектурных выборах.
 
 Вызывать когда: архитектурное решение, риск-анализ, валидация spec, ADR требует deliberation.  
 Результат включает minority reports — не игнорировать несогласных моделей.

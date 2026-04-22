@@ -214,15 +214,9 @@ which bd
 
 ### "ModuleNotFoundError: No module named 'sdp'"
 
-**Problem:** Python path not set.
+**Problem:** Python path not set, or this doc predates the current native integration.
 
-**Solution:**
-```bash
-export PYTHONPATH=/path/to/sdp/src:$PYTHONPATH
-
-# Or run from project root with -m flag
-python -m sdp.cli beads status
-```
+**Solution:** This integration guide describes a legacy Python `sdp` package that is no longer bundled with sdp_lab (Go-native post-F128). Use `bd` CLI directly — see [AGENTS.md](../../AGENTS.md) "Beads basics" section.
 
 ### "Beads connection error"
 

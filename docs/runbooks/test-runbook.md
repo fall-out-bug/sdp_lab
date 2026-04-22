@@ -259,7 +259,7 @@ pytest /tmp/test_temp.py -v
 **Problem:** Command not available
 
 **Solution:**
-- Claude Code: Check `.claude/skills/test/SKILL.md` exists
+- Claude Code: Check `.claude/commands/test.md` exists (command is in commands/, not skills/)
 - Cursor: Check `.cursor/commands/test.md` exists
 - OpenCode: Check `.opencode/commands/test.md` exists
 
@@ -302,6 +302,5 @@ pytest /tmp/test_temp.py -v
 
 ## References
 
-- Master prompt: `sdp/prompts/commands/test.md`
+- Master prompt: `prompts/commands/test.md`
 - Contract-Driven WS spec: `tools/hw_checker/docs/workstreams/completed/2026-01/WS-410-01-contract-driven-ws-spec.md`
-- Capability-tier validator: `sdp/src/sdp/validators/capability_tier.py`

@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://sdp.dev/schema/ux-metrics/v1",
   "title": "SDP UX Metrics",
   "description": "User experience metrics for SDP CLI adoption journey (local-first, no cloud dependency)",
   "type": "object",

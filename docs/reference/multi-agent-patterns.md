@@ -429,7 +429,7 @@ Three independent skill files need YAML frontmatter added. Each file is self-con
 Dispatch:
   Sub-agent-1: add frontmatter to .agents/skills/llm-council.md
   Sub-agent-2: add frontmatter to .agents/skills/strataudit.md
-  Sub-agent-3: add frontmatter to .agents/skills/review-readiness.md
+  Sub-agent-3: add frontmatter to docs/reference/internal/review-readiness.md
 
 Result: all three complete in parallel; wall-clock ~= max(single edit time).
 ```

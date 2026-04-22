@@ -9,7 +9,7 @@ Workstream verdicts record completion and acceptance-criteria evidence for each 
 
 ## Schema
 
-Each verdict file must conform to `sdp/schema/ws-verdict.schema.json`. Required fields:
+Each verdict file must conform to `schema/ws-verdict.schema.json`. Required fields:
 
 - `ws_id` — workstream ID (e.g. `00-015-01`)
 - `feature_id` — feature ID (e.g. `F001`)

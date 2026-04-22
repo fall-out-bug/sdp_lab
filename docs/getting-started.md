@@ -201,7 +201,7 @@ Each attestation is an [in-toto](https://github.com/in-toto/attestation) stateme
 }
 ```
 
-Predicate schema: `sdp/schema/coding-workflow-predicate.schema.json`
+Predicate schema: `schema/coding-workflow-predicate.schema.json`
 
 ---
 

@@ -45,9 +45,10 @@ bin/
 # Execution state
 .oneshot/
 
-# SDP harness config (agents/hooks are native dirs, not symlinks since F128)
-# Note: .claude/skills is now a tracked symlink → ../.agents/skills (F127-02)
-.claude/agents
+# SDP harness config (F128: sdp/ submodule retired, F128-06: tracked symlinks → prompts/)
+# Tracked symlinks: .claude/agents → ../prompts/agents, .claude/skills → ../.agents/skills
+# sdp/ is a local live clone of github.com/fall-out-bug/sdp for scripts/sdp-publish.sh (F128-07)
+sdp/
 .claude/worktrees/
 .cursor/skills
 .cursor/agents

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://sdp-lab.local/schema/harness-config-manifest.schema.json",
+  "$id": "https://sdp.dev/schema/harness-config-manifest/v1",
   "title": "Harness Config Manifest",
   "description": "Describes which AI coding harnesses are active for a project, their config file paths, the project lifecycle stage, and the rules document to generate. Used for drift detection and onboarding automation.",
   "type": "object",

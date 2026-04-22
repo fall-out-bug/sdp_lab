@@ -117,7 +117,7 @@ We don't rebuild what the ecosystem already does well. We add the one thing it d
 
 | What | When | How |
 |------|------|-----|
-| Evidence JSON Schema published | Done | `sdp/schema/evidence-envelope.schema.json` (evidence-envelope/v1) |
+| Evidence JSON Schema published | Done | `schema/evidence-envelope.schema.json` (evidence-envelope/v1) |
 | `sdp-evidence` CLI as standalone binary | Soon | `go install` or binary release |
 | awesome-opencode listing | After first release | Protocol + evidence CLI |
 | kubeopencode upstream contributions (retry budget, evidence hooks) | In progress | PRs to kubeopencode |

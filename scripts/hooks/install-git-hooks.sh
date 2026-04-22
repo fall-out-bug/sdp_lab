@@ -1,17 +1,13 @@
 #!/bin/sh
-# Install Git hooks: symlink .git/hooks/* to sdp/hooks/ or scripts/hooks/*.sh
+# Install Git hooks: symlink .git/hooks/* to scripts/hooks/*.sh.
 # Run from repo root. Idempotent.
+# F128: hooks are native in scripts/hooks/. The sdp/ local clone is a downstream
+# mirror (gitignored) and must not provide hook sources to avoid split-brain.
 set -e
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-# sdp/hooks/ is the protocol source (now native, formerly a submodule)
-if [ -f "$ROOT/sdp/hooks/install-git-hooks.sh" ]; then
-  exec sh "$ROOT/sdp/hooks/install-git-hooks.sh"
-fi
-
-# Fallback: scripts/hooks/ (legacy)
 HOOKS_DIR=".git/hooks"
 SCRIPTS_DIR="scripts/hooks"
 mkdir -p "$HOOKS_DIR"

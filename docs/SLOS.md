@@ -80,7 +80,7 @@ SDP commands execute fast enough to not interrupt developer workflow.
   - `sdp doctor`: ≤ 500ms
   - `sdp quality check`: ≤ 5 seconds
   - `sdp guard activate`: ≤ 100ms
-  - `sdp guard complete`: ≤ 100ms
+  - `sdp guard deactivate`: ≤ 100ms
   - `sdp verify`: ≤ 3 seconds
 
 - **Measurement Window:** Rolling 24 hours

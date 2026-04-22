@@ -373,10 +373,10 @@ test -x .git/hooks/pre-push
 
 # 3. Check hooks are symlinks
 file .git/hooks/pre-commit
-# Expected: symbolic link to sdp/hooks/pre-commit.sh (or scripts/hooks/pre-commit.sh)
+# Expected: symbolic link to scripts/hooks/pre-commit.sh
 
 # 4. Re-install
-bash sdp/hooks/install-git-hooks.sh
+bash scripts/hooks/install-git-hooks.sh
 ```
 
 ### Hooks causing build to fail
@@ -498,5 +498,4 @@ For the sdp_dev lab repo (Go, evidence, ws-verdict):
 
 ## References
 
-- **sdp (protocol):** `sdp/hooks/pre-commit.sh`, `sdp/hooks/pre-push.sh`, `sdp/hooks/install-git-hooks.sh`
-- **sdp_lab (lab):** `scripts/hooks/` — delegates to `sdp/hooks/` when present; `scripts/hooks/validate-ws-verdicts.sh` for ws-verdict schema validation
+- **sdp_lab (lab):** `scripts/hooks/pre-commit.sh`, `scripts/hooks/pre-push.sh`, `scripts/hooks/install-git-hooks.sh` (native post-F128; no submodule delegation); `scripts/hooks/validate-ws-verdicts.sh` for ws-verdict schema validation

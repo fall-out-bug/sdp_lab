@@ -25,7 +25,8 @@
 | **sdp-eval** | `bin/sdp-eval` | No -- lab only |
 | **sdp** (quality, apply, build, verify) | `sdp` CLI | No -- Go source code lives in public `sdp` repo only, not published by `sdp-publish.sh` |
 | **Schemas** | `schema/*.json` (native) | Yes -- via `sdp-publish.sh` |
-| **Prompts/Skills** | `prompts/skills/*` (native) | Yes -- via `sdp-publish.sh` |
+| **Agents** | `prompts/agents/*.md` (native) | Yes -- via `sdp-publish.sh` |
+| **Prompts/Skills** | `prompts/skills/*/SKILL.md` + `.agents/skills/*.md` (native, dual format pending F138-03) | Yes -- via `sdp-publish.sh` |
 | **Hooks** | `.claude/hooks/`, `scripts/hooks/` (native) | Yes -- via `sdp-publish.sh` |
 | **Harness entrypoints** | `.cursorrules`, `.cursor/*.md`, `.codex/*.md`, `.opencode/hooks/*`, `.opencode/README.md` | Yes -- via `sdp-publish.sh` |
 | **Fallback docs** | `docs/reference/FALLBACK_MODE.md`, `prompts/commands.yml` | Yes -- via `sdp-publish.sh` |

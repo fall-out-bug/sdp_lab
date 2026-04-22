@@ -60,7 +60,7 @@
 
 ### Files NOT to Create (per plan) — VERIFIED
 
-- Agents: `sdp/prompts/agents/*.md` — used via `--agent`
+- Agents: `prompts/agents/*.md` — used via `--agent`
 - opencode config, kubeopencode agents, adapter — unchanged
 - Quality infra — used from `internal/agent/`
 
