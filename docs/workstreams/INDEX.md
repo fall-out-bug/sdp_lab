@@ -100,6 +100,17 @@
 > **DAG:** `F137 -> F138 -> F139`
 > **Boundary note:** `F125` and `F126` remain shipped owners of the intent model and initial MCP server. `F137`–`F139` are delta features on top.
 
+### Phase AI SDLC Telemetry (Observability Foundation)
+
+| Feature | Description | Workstreams | Status | Priority |
+|---------|-------------|-------------|--------|----------|
+| **F140** | AI SDLC Telemetry v1 (MVP) — allowlist trace schema, `sdp trace` CLI + daemon, delivery-loop phase spans, M1–M7 reducer, `sdp usage report` CLI | 00-140-01 ... 00-140-05 | Backlog | P1 |
+
+> **Source:** [AI SDLC Telemetry Design](../plans/2026-04-22-ai-sdlc-telemetry-design.md) · **Beads:** `sdplab-snn1` (epic)
+> **DAG:** `01 → 02 → 03 → 04 → 05`; `04` also depends on `01`
+> **Hypothesis:** H1 — SDP's review loop lowers post-merge rework (M7) vs baseline within 8 weeks of dogfood
+> **Deferred to v2:** Collector service (TEL-03), universal hook shims (TEL-04), dashboard (TEL-08), trace integrity signing
+
 ### Phase Autonomy & Regression Hardening
 
 | Feature | Description | Workstreams | Status | Priority |
