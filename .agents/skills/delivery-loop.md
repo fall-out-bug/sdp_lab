@@ -1,7 +1,7 @@
 ---
 name: delivery-loop
-description: Autonomous delivery cycle — build all WS in subagents, review, fix design gaps, repeat until APPROVED, create PR, codex review with tests, repeat until clean.
-version: 1.0.0
+description: Autonomous delivery cycle — bootstrap → preflight → build/review/fix loop (bounded) → PR → codex review (bounded, stable-N) → closeout. Replaces manual "build ws → review → fix → PR → codex → fix".
+version: 2.0.0
 tags:
   - delivery
   - orchestration
@@ -10,6 +10,8 @@ requires_cli:
   - bd
   - git
   - go
+  - gh
+  - codex
 compatibility:
   - claude-code
   - opencode
@@ -22,128 +24,247 @@ compatibility:
 ## Purpose
 
 Run the full feature delivery cycle autonomously without user intervention.
-Replaces manual "build ws в сабагентах → review → fix → build → ... → PR → codex → fix".
 
-**Entry condition:** worktree exists, feature claimed, workstreams defined in `docs/workstreams/backlog/`.
-**Exit condition:** PR merged OR PR approved + all codex findings fixed + tests green.
+**Entry condition:** operator invoked `@delivery-loop` (no arguments) or `@delivery-loop --resume` after compaction.
+**Exit condition:** PR merged + children closed + worktree removed, OR explicit `--abort`.
 
-## Loop Structure
+## Invocation
 
 ```
-PHASE 1: BUILD LOOP
+@delivery-loop           # full run, picks feature from bd ready
+@delivery-loop --resume  # read .sdp/checkpoints/${FEATURE}.json, continue
+@delivery-loop --abort   # cleanup: kill subagents, stash work, archive checkpoint
+```
+
+Per-harness dispatch is delegated to `scripts/sdp-dispatch.sh`. Adding a harness = one `case` branch in that script.
+
+## Loop structure
+
+```
+PHASE 0: BOOTSTRAP
+  1. Pick feature via `bd ready -n 50` (highest-priority epic/feature; NOT [bug], NOT leaf task with "← F" in title)
+  2. Identify workstreams: cross-reference `docs/workstreams/backlog/${FEATURE}-*.md` with `bd list -n 200 | grep "^${FEATURE}-"`
+  3. Acquire lock: `.sdp/locks/deliver-${FEATURE}.lock` (flock, PID+host+ts; stale>2h+dead-pid requires --force)
+  4. Claim atomically: `bd update ${EPIC_ID} --claim`
+  5. Create worktree: `git worktree add .worktrees/${FEATURE}`
+  6. Write initial `.sdp/checkpoints/${FEATURE}.json` (schema v2)
+
+PHASE 0.5: PREFLIGHT
+  # Fail-fast before any build work
+  - command -v bd gh go codex       # all required CLIs present
+  - gh auth status                  # gh authenticated
+  - ws_count == bd_count            # workstream files match bead children
+  - ws_count > 0                    # feature has at least one workstream
+  - bd show ${EPIC_ID} assignee == ${USER}   # epic claimed to this operator
+  - disk free > 2GB                 # room for worktree + build artifacts
+  On any failure: emit actionable error, release lock, unclaim epic, exit 2.
+
+PHASE 1: BUILD LOOP (max 5 cycles, max 4h wallclock)
   repeat:
-    1. Dispatch @build subagents (one per WS, parallel, haiku/sonnet)
-    2. Dispatch @review subagent (fresh context, sonnet)
-    3. If APPROVED (zero findings including P3) → break
-    4. If findings exist:
-       - P1/P2 → dispatch @fix subagents per finding (haiku)
-       - P3 → dispatch @fix subagents per finding (haiku)
-       - Design gaps (new requirements revealed) → dispatch @design → new WS files → continue loop
-  until: APPROVED with zero findings
+    1. Dispatch @build subagents (one per WS, parallel, haiku; per-subagent timeout 20m)
+    2. Dispatch @review subagent (fresh context, sonnet; timeout 10m)
+    3. If APPROVED (zero findings) → break
+    4. Else:
+       - P1/P2/P3 findings → dispatch @fix subagents per finding (haiku; timeout 15m)
+       - Design gaps → dispatch @design subagent; cap: max 2 new WS per feature (scope_delta ≤ 2)
+    5. Exponential backoff between cycles: 30s / 2m / 5m / 10m
+  until: APPROVED, OR cycle=5 hit, OR 4h wallclock hit
+
+  On cap hit with residual P3:
+    Operator MUST paste the deferred-P3 list into a new bead description
+    (file:line: description for each P3). NOT a plain y/N prompt.
+    Create: `bd create --parent ${EPIC_ID} --type=task --priority=3 \
+            --title="Deferred P3 from ${FEATURE}" --description=<pasted list>`
+    Continue to Phase 2.
 
 PHASE 2: PR CREATION
-  1. @review --dimension impact (check blast radius before PR)
-  2. If impact review passes → create PR: gh pr create
-  3. Run quality gates locally: ./scripts/run_go_quality_gates.sh
+  1. @review --dimension impact (check blast radius; timeout 10m)
+  2. If impact OK: run `./scripts/run_go_quality_gates.sh` LOCALLY — must be green
+  3. `gh pr create` — MUST NOT run before gates green
+  4. Record `pr_number` in checkpoint
 
-PHASE 3: CODEX REVIEW LOOP
+PHASE 3: CODEX REVIEW LOOP (max 4 cycles, max 2h wallclock, stable-N=2)
   repeat:
-    1. /codex:rescue "Review PR #<N>. Steps: (1) read all changed files, (2) run ./scripts/run_go_quality_gates.sh, (3) report all failing tests and all code findings. Do not skip tests."
-    2. Wait for codex output
-    3. If "no findings + tests pass" → done
-    4. Dispatch @fix subagents per finding (haiku/sonnet)
-    5. Run quality gates locally
-    6. git push
-  until: codex reports zero findings AND tests pass
+    1. scripts/sdp-dispatch.sh codex_review "Review PR #${PR}. Steps: (1) read all changed files, (2) run ./scripts/run_go_quality_gates.sh, (3) emit JSON {tests_passed: bool, findings: [{file, line, rule, symbol, severity, msg}]}. Do not skip tests."
+    2. Parse codex JSON output
+    3. Dedupe findings against prior cycle by hash(rule + symbol_path + normalized_snippet). NOT file:line:rule — line shifts invalidate naive hashes.
+    4. Mark findings absent for ≥2 consecutive cycles as "non-reproducible candidate" — DO NOT auto-close; flag for operator confirmation in Phase 4.
+    5. If zero NEW findings + tests pass → consecutive_clean_cycles++. Break when consecutive_clean_cycles == 2.
+    6. Else: dispatch @fix per finding (haiku/sonnet; timeout 15m), run gates locally, `git push`.
+  until: 2 consecutive clean cycles, OR cycle=4 hit, OR 2h wallclock hit
+
+PHASE 4: CLOSEOUT
+  1. Confirm merge: `gh pr view ${PR} --json state -q .state == "MERGED"`
+  2. Operator confirms "non-reproducible candidates" from Phase 3 (list shown with file:line). Either close or re-raise as follow-up bead.
+  3. Batch close children: `bd close ${WS1} ${WS2} ... --reason "merged via PR#${PR}"`
+  4. Close epic: `bd close ${EPIC_ID}`
+  5. `scripts/beads_transport.sh export && git push`
+  6. `git worktree remove .worktrees/${FEATURE}`
+  7. `git push origin --delete ${BRANCH}` (remote branch cleanup)
+  8. Archive: `mv .sdp/checkpoints/${FEATURE}.json .sdp/archive/delivered/${FEATURE}-$(date -u +%Y%m%dT%H%M%SZ).json`
+  9. Release lock
+
+WHOLE-LOOP BUDGET
+  72h hard ceiling (runaway detector only — not a delivery SLO).
+  On ceiling: write `phase_status: "exhausted"`, post PR comment summarizing state, exit non-zero.
 ```
 
-## Subagent Model Policy
+## Subagent model policy
 
-| Task | Model |
-|------|-------|
-| @build per WS | haiku |
-| @fix per finding | haiku |
-| @review | sonnet |
-| @design (new WS) | sonnet |
-| @review --dimension impact | sonnet |
-| codex:rescue | default (Codex CLI) |
+| Task | Model | Timeout |
+|------|-------|---------|
+| @build per WS | haiku | 20m |
+| @fix per finding | haiku | 15m |
+| @review | sonnet | 10m |
+| @review --dimension impact | sonnet | 10m |
+| @design (new WS) | sonnet | 15m |
+| codex:rescue | default (Codex CLI) | 30m |
+
+Whole-loop wallclock ceiling: 72h. Phase budgets: build=4h, codex=2h.
 
 ## Rules
 
-**Never skip P3.** All findings from @review block the loop, including P3 nitpicks.
+**Resolve or explicitly defer P3 with operator signoff.** (Renamed from "Never skip P3".) All findings from @review block the loop inside cycles 1–4. At cycle 5 the operator may defer remaining P3 — but only by manually pasting the `file:line: description` list into a new bead. Plain confirmation prompts are disallowed.
 
-**Never create PR with red tests.** `./scripts/run_go_quality_gates.sh` must be green before `gh pr create`.
+**Never create PR with red tests.** `./scripts/run_go_quality_gates.sh` must be green **locally** before `gh pr create`. Not after.
 
-**Codex must run tests.** The codex:rescue prompt MUST include: "run ./scripts/run_go_quality_gates.sh and report failures". Never send codex a code-only review prompt.
+**Codex must run tests.** The codex prompt MUST include "run ./scripts/run_go_quality_gates.sh and report failures". Never send codex a code-only review prompt.
 
-**Independent WS → parallel subagents.** Check for file overlap before dispatching parallel @build agents. Overlapping WS → sequential.
+**Codex output must be structured.** Codex is invoked with a JSON output contract so findings can be deduped across non-deterministic runs.
 
-**Max parallel subagents: 5.** Queue beyond that.
+**Independent WS → parallel subagents.** Check for file overlap before dispatching parallel @build agents. Overlapping WS → sequential. (Enforcement mechanism: WS frontmatter `touches:` — tracked as deferred work.)
 
-## Compaction Recovery
+**Max parallel subagents: 5.** Orchestrator enforces via a semaphore; queued agents start after first batch completes.
+
+## Checkpoint schema v2
+
+Location: `.sdp/checkpoints/${FEATURE}.json` (per-feature, not single-slot).
+Atomic writes: `scripts/sdp-checkpoint-write.sh` (tmp+rename; only orchestrator writes, subagents return structured output which orchestrator merges).
+
+```json
+{
+  "schema_version": 2,
+  "skill": "delivery-loop",
+  "feature_id": "F134",
+  "epic_bead_id": "sdplab-xxx",
+  "worktree_path": ".worktrees/F134",
+  "branch": "feature/F134-...",
+  "pr_number": null,
+  "phase": 1,
+  "step": "build",
+  "phase_status": "running",
+  "cycle_number": 2,
+  "max_cycles": 5,
+  "consecutive_clean_cycles": 0,
+  "ws_done": ["00-134-01"],
+  "ws_in_progress": ["00-134-02", "00-134-03"],
+  "findings": [
+    {
+      "id": "F-001",
+      "hash": "sha1(rule+symbol_path+normalized_snippet)",
+      "file": "x.go",
+      "line": 42,
+      "rule": "gofmt",
+      "severity": "P2",
+      "status": "fixing"
+    }
+  ],
+  "scope_delta_count": 0,
+  "started_at": "2026-04-22T09:00:00Z",
+  "deadline": "2026-04-25T09:00:00Z",
+  "last_heartbeat": "2026-04-22T11:00:00Z",
+  "subagent_pids": [12345, 12346]
+}
+```
+
+Heartbeat: every 2 min orchestrator updates `last_heartbeat`. External tooling (e.g., `bd status` extension) can distinguish stuck from working.
+
+## Abort & rollback
+
+`@delivery-loop --abort` performs:
+
+1. Kill tracked subagent PIDs from `checkpoint.subagent_pids`
+2. `bd update ${EPIC_ID} --status blocked --notes "aborted at phase=${P} cycle=${C}"`
+   (NOT `--release` / unclaim — preserve claim history)
+3. `git stash push -u -m "delivery-loop abort ${FEATURE}"` in worktree
+4. `mv .sdp/checkpoints/${FEATURE}.json .sdp/archive/aborted/${FEATURE}-$(date -u +%Y%m%dT%H%M%SZ).json`
+5. Release the lock: `rm .sdp/locks/deliver-${FEATURE}.lock`
+6. Print recovery steps: stash ref, checkpoint archive path, how to resume later
+
+## Compaction recovery
 
 If loop is interrupted (compaction, crash):
-1. `cat .sdp/checkpoint.json` → read loop phase + last completed step
-2. `bd list --status=in_progress` → verify claim
-3. Check which WS are implemented: `git diff main --name-only`
-4. Resume from last incomplete phase — do NOT restart from WS 1
 
-Update `.sdp/checkpoint.json` at the start of each phase:
-```json
-{"skill":"delivery-loop","feature_id":"<id>","phase":1,"step":"build","ws_done":["00-FFF-01"],"ts":"<iso>"}
-```
-
-## Checkpoint Update Points
-
-- Phase 1 start: `{"phase":1,"step":"build","ws_done":[]}`
-- After each WS built: add to `ws_done`
-- After @review: `{"step":"review","verdict":"<APPROVED|FINDINGS>","findings_count":<N>}`
-- Phase 2 start: `{"phase":2,"step":"impact-review"}`
-- After PR created: `{"phase":3,"step":"codex","pr":"<N>"}`
-- After each codex cycle: `{"step":"codex","cycle":<N>,"findings":<N>}`
-
-## Input
-
-Called with feature ID or auto-detected from `.sdp/checkpoint.json` / `bd list --status=in_progress`.
-
-```
-@delivery-loop [feature_id]
-@delivery-loop --resume   # force checkpoint recovery
-```
+1. `cat .sdp/checkpoints/${FEATURE}.json` → read phase + step + cycle_number + last_heartbeat
+2. `bd show ${EPIC_ID}` → verify claim still held by ${USER}
+3. `git diff main --name-only` → confirm which WS are implemented
+4. Resume from the current phase's step — do NOT restart from WS 1
+5. Stale heartbeat (>10 min old + no live subagent PIDs) → treat as interrupted, resume from the last completed step
 
 ## Output (per phase)
 
 ```
-## Phase 1: Build Loop — Cycle N
-WS built: 00-FFF-01, 00-FFF-02 (parallel, haiku)
-@review verdict: FINDINGS (3 findings: 1xP2, 2xP3)
-  P2: [file:line] description → dispatching @fix
-  P3: [file:line] description → dispatching @fix
+## Phase 0: Bootstrap
+Feature picked: F134 (sdplab-xxx) — "Feature title"
+Workstreams: 00-134-01, 00-134-02, 00-134-03 (3 files, 3 beads, drift=0)
+Lock: .sdp/locks/deliver-F134.lock acquired (pid=12340)
+Worktree: .worktrees/F134 created
+Checkpoint: .sdp/checkpoints/F134.json initialized
 
-## Phase 1: Build Loop — Cycle N+1
+## Phase 0.5: Preflight
+bd✓ gh✓ go✓ codex✓  gh-auth✓  ws-count=3  bd-count=3  claim=${USER}✓  disk=45GB✓
+
+## Phase 1: Build Loop — Cycle 1/5 [00:02 elapsed]
+WS dispatched: 00-134-01, 00-134-02, 00-134-03 (parallel, haiku)
+WS completed: 3/3 (4m avg)
+@review verdict: FINDINGS (3: 1×P2, 2×P3)
+  P2: pkg/x/foo.go:42 missing error wrap → dispatching @fix
+  P3: pkg/x/bar.go:91 inconsistent naming → dispatching @fix
+  P3: pkg/y/baz.go:12 missing doc comment → dispatching @fix
+
+## Phase 1: Build Loop — Cycle 2/5 [00:08 elapsed]
 @review verdict: APPROVED — zero findings
 
 ## Phase 2: PR
-@review --impact: OK (blast radius: 2 packages, 0 exported symbols changed)
-Tests: go test ./... — 47 passed, 0 failed
-PR: #<N> created
+Impact review: OK (blast radius: 2 packages, 0 exported symbols changed)
+Quality gates (local): 47/47 passed, 0 failed
+PR: #123 created
 
-## Phase 3: Codex Review — Cycle 1
+## Phase 3: Codex Review — Cycle 1/4 [00:15 elapsed]
 Codex findings: 2 (1 test failure, 1 code issue)
-  test: TestFoo panics — dispatching @fix
-  code: [file:line] — dispatching @fix
-Tests after fix: 47 passed, 0 failed
+  test: TestFoo panics → dispatching @fix
+  code: pkg/y/baz.go:91 unused import → dispatching @fix
+Tests after fix: 47/47 passed
 Push: done
+consecutive_clean_cycles: 0
 
-## Phase 3: Codex Review — Cycle 2
+## Phase 3: Codex Review — Cycle 2/4 [00:22 elapsed]
 Codex: zero findings, tests pass
-Done. PR #<N> ready for merge.
+consecutive_clean_cycles: 1
+
+## Phase 3: Codex Review — Cycle 3/4 [00:28 elapsed]
+Codex: zero findings, tests pass
+consecutive_clean_cycles: 2 → EXIT
+
+## Phase 4: Closeout
+Non-reproducible candidates: (none)
+Beads closed: 00-134-01, 00-134-02, 00-134-03, sdplab-xxx (4 issues)
+Beads export: pushed
+Worktree: removed
+Branch (remote): deleted
+Checkpoint archived: .sdp/archive/delivered/F134-20260422T113000Z.json
+Lock released.
+
+Done. PR #123 merged, F134 closed.
 ```
 
 ## References
 
 - `docs/reference/go-patterns.md` — Go conventions for @build subagents
 - `AGENTS.md` — beads workflow, quality gates
-- `.agents/skills/build.md` — build skill (worktree bootstrap)
+- `.agents/skills/build.md` — build skill (worktree bootstrap anchor)
 - `.agents/skills/review.md` — review dimensions
 - `scripts/run_go_quality_gates.sh` — quality gate script
+- `scripts/sdp-dispatch.sh` — per-harness subagent + codex invocation
+- `scripts/sdp-checkpoint-write.sh` — atomic checkpoint writer
+- `docs/plans/2026-04-22-deliver-skill-review-design.md` — design rationale and consensus record
