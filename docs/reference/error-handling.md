@@ -504,10 +504,9 @@ if coverage < 80:
 
 ## Resources
 
-- [Troubleshooting Guide](./troubleshooting.md)
 - [Quality Gates](./quality-gates.md)
-- [Workstreams](./workstreams.md)
-- [API Reference](../api/errors.md)
+- [Build Spec](./build-spec.md) — workstream lifecycle and gates
+- [Runbooks](../runbooks/) — operational troubleshooting guides
 
 ---
 
