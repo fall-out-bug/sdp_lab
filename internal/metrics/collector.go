@@ -189,6 +189,9 @@ func gitCmdErr(ctx context.Context, dir string, args ...string) (string, error) 
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
+	// Force C locale so git error messages are deterministic English.
+	// Without this, isEmptyRepoError fails under localized locales (e.g. ru_RU).
+	cmd.Env = append(os.Environ(), "LC_ALL=C", "LANG=C")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		exitCode := -1

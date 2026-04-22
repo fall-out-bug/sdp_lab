@@ -85,8 +85,8 @@ find src/ -name "*.py" -exec wc -l {} \; | awk '$1 > 200 {print}'
 After all quality gates pass:
 
 ```bash
-# Complete WS
-sdp guard complete {WS-ID}
+# Deactivate guard after WS completion
+sdp guard deactivate {WS-ID}
 
 # Move to completed
 mv docs/workstreams/backlog/{WS-ID}-*.md docs/workstreams/completed/

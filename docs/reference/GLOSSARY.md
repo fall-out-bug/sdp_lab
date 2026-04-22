@@ -1574,7 +1574,7 @@ TELEGRAM_CHAT_ID=your_chat_id
 
 **Purpose:** Create maintainable, scalable software.
 
-**See Also:** [docs/PRINCIPLES.md](docs/PRINCIPLES.md), Clean Architecture
+**See Also:** [PRINCIPLES.md](./PRINCIPLES.md), Clean Architecture
 
 ---
 
@@ -2406,5 +2406,5 @@ To add or update terms:
 **See Also:**
 - [PROTOCOL.md](PROTOCOL.md) — Full SDP specification
 - [CODE_PATTERNS.md](CODE_PATTERNS.md) — Code patterns reference
-- [docs/PRINCIPLES.md](docs/PRINCIPLES.md) — Engineering principles
+- [PRINCIPLES.md](./PRINCIPLES.md) — Engineering principles
 - [CLAUDE.md](CLAUDE.md) — Claude Code integration guide
