@@ -38,6 +38,64 @@ Run the full feature delivery cycle autonomously without user intervention.
 
 Per-harness dispatch is delegated to `scripts/sdp-dispatch.sh`. Adding a harness = one `case` branch in that script.
 
+## Phases (declarative)
+
+Phases below are **the source of truth**; the prose "Loop structure" section renders each of them for humans. Per-feature overrides live at `.sdp/delivery.yaml` (same schema; any key present there wins; phases can be disabled with `enabled: false`).
+
+```yaml
+phases:
+  - name: bootstrap
+    required: true
+  - name: preflight
+    required: true
+  - name: build
+    required: true
+    max_cycles: 5
+    wallclock_budget_hours: 4
+    backoff_seconds: [30, 120, 300, 600]
+  - name: design_gap          # triggered only from build review
+    required: false
+    max_scope_delta: 2
+  - name: impact_review
+    required: true
+    subagent_timeout_minutes: 10
+  - name: traceability        # advisory — see "Traceability gate"
+    required: false
+    mode: advisory            # warn-only; promote by setting mode: gate
+  - name: pr
+    required: true
+  - name: codex
+    required: true
+    max_cycles: 4
+    wallclock_budget_hours: 2
+    stable_n: 2
+    enabled: true             # set false for offline mode (.sdp/delivery.yaml override)
+  - name: closeout
+    required: true
+whole_loop_budget_hours: 72   # runaway detector only, not a delivery SLO
+```
+
+**Override example** — offline dogfood that skips codex:
+
+```yaml
+# .sdp/delivery.yaml
+phases:
+  - name: codex
+    enabled: false
+```
+
+**Override example** — feature-specific contract-gen stage:
+
+```yaml
+# .sdp/delivery.yaml
+phases:
+  - name: contract_gen        # new phase, must be defined in skill logic
+    required: true
+    before: build
+```
+
+Phases not listed in an override inherit the skill defaults. Unknown phase names in an override are errors (operator gets a message; loop refuses to start).
+
 ## Loop structure
 
 ```
@@ -79,23 +137,30 @@ PHASE 1: BUILD LOOP (max 5 cycles, max 4h wallclock)
 
 PHASE 2: PR CREATION
   1. @review --dimension impact (check blast radius; timeout 10m)
-  2. If impact OK: run `./scripts/run_go_quality_gates.sh` LOCALLY — must be green
-  3. `gh pr create` — MUST NOT run before gates green
-  4. Record `pr_number` in checkpoint
+  2. Traceability gate — `scripts/traceability-gate.sh ${FEATURE}`
+     - For each WS: grep AC[0-9]+ tokens in `docs/workstreams/backlog/${FEATURE}-*.md`
+       confirm they appear in the touched `*_test.go` files (or marked NONE).
+     - For schema changes (schema/*.schema.json): require an adjacent `_test.go`
+       invoking `jsonschema.Validate` OR a `testdata/<schema>` directory.
+     - Mode `advisory` (default): emit warnings, do NOT block.
+     - Mode `gate` (promoted via `.sdp/delivery.yaml`): missing coverage → fail phase 2.
+  3. If impact + traceability OK: run `./scripts/run_go_quality_gates.sh` LOCALLY — must be green
+  4. `gh pr create` — MUST NOT run before gates green
+  5. Record `pr_number` in checkpoint
 
 PHASE 3: CODEX REVIEW LOOP (max 4 cycles, max 2h wallclock, stable-N=2)
   repeat:
     1. scripts/sdp-dispatch.sh codex_review "Review PR #${PR}. Steps: (1) read all changed files, (2) run ./scripts/run_go_quality_gates.sh, (3) emit JSON {tests_passed: bool, findings: [{file, line, rule, symbol, severity, msg}]}. Do not skip tests."
     2. Parse codex JSON output
     3. Dedupe findings against prior cycle by hash(rule + symbol_path + normalized_snippet). NOT file:line:rule — line shifts invalidate naive hashes.
-    4. Mark findings absent for ≥2 consecutive cycles as "non-reproducible candidate" — DO NOT auto-close; flag for operator confirmation in Phase 4.
+    4. Mark findings absent for ≥2 consecutive cycles as "non-reproducible candidate" — these are NEVER auto-closed at v1. They enter **manual Phase-4 triage**: the operator sees the list in Phase 4 and decides close vs re-raise. (Technician minority: rename this to "auto-close" only if/when an AST-unchanged check lands — see §7.3 of the design doc.)
     5. If zero NEW findings + tests pass → consecutive_clean_cycles++. Break when consecutive_clean_cycles == 2.
     6. Else: dispatch @fix per finding (haiku/sonnet; timeout 15m), run gates locally, `git push`.
   until: 2 consecutive clean cycles, OR cycle=4 hit, OR 2h wallclock hit
 
 PHASE 4: CLOSEOUT
   1. Confirm merge: `gh pr view ${PR} --json state -q .state == "MERGED"`
-  2. Operator confirms "non-reproducible candidates" from Phase 3 (list shown with file:line). Either close or re-raise as follow-up bead.
+  2. Manual Phase-4 triage: operator reviews "non-reproducible candidates" from Phase 3 (list shown with file:line). Either close-as-resolved or re-raise as follow-up bead. No silent auto-close.
   3. Batch close children: `bd close ${WS1} ${WS2} ... --reason "merged via PR#${PR}"`
   4. Close epic: `bd close ${EPIC_ID}`
   5. `scripts/beads_transport.sh export && git push`

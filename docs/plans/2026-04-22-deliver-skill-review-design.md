@@ -332,17 +332,17 @@ All six roles issued vetoes in round 1. Round 2 produced refined positions; five
 
 7. **Invariant renamed.** In `delivery-loop.md`, "Never skip P3" becomes **"Resolve or explicitly defer P3 with operator signoff."** Rule semantics honesty (Philosopher).
 
-### 7.2 Deferred to follow-up beads (Pragmatist cut)
+### 7.2 Deferred items — shipped in follow-up commit
 
-These were in the synthesis but not judged urgent; shipping them now would gold-plate a 36-line command into a 400-line skill with no triggering pain.
+Originally deferred by the Pragmatist cut, but the operator asked to drive remaining findings to zero. All three ship alongside the core redesign with minimal footprint (advisory mode on the gate, declarative YAML as a doc-level override not a loader yet):
 
-- **§3.9 Traceability gate** (AC-ID grep + schema-validator coverage check).
-- **§3.10 YAML phase declarations + `.sdp/delivery.yaml` override.**
-- **§3.11 Skill-anchor contract verifier (`scripts/verify_skill_anchors.sh`).**
+- **§3.9 Traceability gate** — `scripts/traceability-gate.sh`, wired into Phase 2 as advisory mode. Greps AC IDs from WS files, cross-checks against changed `*_test.go`; schema changes require adjacent `jsonschema.Validate` tests or `testdata/<schema>/`. Promote to `gate` mode via `.sdp/delivery.yaml`. (Closes sdplab-ghk4.)
+- **§3.10 YAML phase declarations** — new "Phases (declarative)" section at the top of `delivery-loop.md` defines the canonical phase list; `.sdp/delivery.yaml` override documented with offline-mode + contract-gen examples. Prose section below renders phases for humans. (Closes sdplab-h1co.)
+- **§3.11 Skill-anchor contract verifier** — `scripts/verify_skill_anchors.sh` asserts 11 cross-reference anchors; integrated into `scripts/run_go_quality_gates.sh` so drift fails CI. (Closes sdplab-3pcb.)
 
 ### 7.3 Minority positions (logged for revisit)
 
-- **Technician:** if AST-level unchanged-check is skipped at v1, auto-close should be labeled *"manual Phase-4 triage"*, not *"auto-close"* — naming sets expectations.
+- **Technician:** if AST-level unchanged-check is skipped at v1, auto-close should be labeled *"manual Phase-4 triage"*, not *"auto-close"* — naming sets expectations. **Resolved:** skill text now uses "manual Phase-4 triage" verbatim (no silent auto-close).
 - **Engineer:** prefers eliminating the cycle-5 escape hatch entirely (halt + manual triage) over the friction compromise. Revisit trigger: >30% of features hit the cap.
 - **Architect:** if a fifth harness lands within 3 months, consider converting `scripts/sdp-dispatch.sh` to declarative TOML loaded by the skill.
 
@@ -356,8 +356,11 @@ These were in the synthesis but not judged urgent; shipping them now would gold-
 | 04 | `.agents/skills/delivery-loop.md` + `docs/reference/checkpoint-schema.md` (new) | Checkpoint v2 schema + atomic-write helper `scripts/sdp-checkpoint-write.sh` |
 | 05 | `.agents/skills/delivery-loop.md` | Lock + multi-operator safety (`.sdp/locks/`, `.sdp/checkpoints/${FEATURE}.json`) |
 | 06 | `docs/plans/2026-04-22-deliver-skill-review-design.md` (this file) | Design closeout |
+| 07 | `scripts/traceability-gate.sh` + delivery-loop.md Phase 2 step 2 | §3.9 traceability gate (advisory mode default) |
+| 08 | delivery-loop.md "Phases (declarative)" section | §3.10 YAML phase definitions + `.sdp/delivery.yaml` override |
+| 09 | `scripts/verify_skill_anchors.sh` + hook in `run_go_quality_gates.sh` | §3.11 skill-anchor contract test |
 
-Deferred (new beads): §3.9, §3.10, §3.11.
+All items shipped in this session.
 
 ## 9. Signoff
 

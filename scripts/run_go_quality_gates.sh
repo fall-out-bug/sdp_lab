@@ -8,6 +8,9 @@ DOCKER_IMAGE="${SDP_GO_QUALITY_DOCKER_IMAGE:-golang:1.26-bookworm}"
 
 cd "$ROOT"
 
+echo "==> Skill anchors contract test"
+"$ROOT/scripts/verify_skill_anchors.sh"
+
 run_host_quality_gates() {
   if [[ ! -x "$GO" ]]; then
     echo "missing executable: $GO" >&2
