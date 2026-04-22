@@ -305,8 +305,226 @@ span: sdp.bead.event
 
 Reducer (TEL-06) joins traces ⨝ beads on `bead.id`. If traces are purged, beads survive intact. No dual-write risk: trace emission is best-effort; bead state is transactional.
 
+> ⚠ **§3 and §4 above are the pre-critique design.** Post-Socratic/Council consensus supersedes them — see §10 for the authoritative architecture and WS breakdown.
+
 ## 7. Closeout
 
-This doc is the **design** for sdplab-6x39. Open questions resolved (§6). Ready for WS spinup (TEL-01..TEL-08).
+This doc is the **design** for sdplab-6x39. Open questions resolved (§6). Stress-tested via Socratic (§8) + Council critique (§9). Consensus architecture + revised WS plan in §10. Ready for bead spinup of TEL-01, TEL-02, TEL-05, TEL-06, TEL-07 (4-WS MVP).
 
-Remaining operator decision: invoke Socratic/council critique on §3 architecture before implementation, or proceed straight to WS bead creation (§4).
+## 8. Socratic stress-test (§3/§4)
+
+Five pointed questions posed to break the architecture. All resolved; fixes folded into §10.
+
+| # | Question | Failure mode | Fix |
+|---|---|---|---|
+| **S1** | What happens on first clone if the Collector isn't installed? | Native OTel SDK gets `ECONNREFUSED`; hooks silently drop; new users hit broken state | MVP emits JSONL directly via `sdp trace`; Collector is v2 upgrade (§10.1) |
+| **S2** | Does `sdp.epic.bead_id` propagation survive compaction? | Model forgets bead_id post-compaction; `TRACEPARENT` env doesn't cross subagent fork | `.sdp/state/current-feature` is canonical source; `sdp trace init` fails loud if missing; reducer has "unattributed" bucket for orphan spans |
+| **S3** | `otel-cli` cold-start × 500 tool calls = 25–200s overhead per session | Unacceptable latency; users feel every tool call slower | Mandatory daemon/socket mode; `sdp trace` writes via Unix socket to a session-lifetime daemon; CI latency budget <5 ms/span-start |
+| **S4** | Critical path TEL-01→02→03/04→05→06→07 = 15–25 days to first M1–M7 | Too slow to validate hypothesis; OTel GenAI semconv will drift meanwhile | MVP trim: 4 WS (TEL-01, 02, 05, 06, 07); Collector + hook shims → v2 |
+| **S5** | Is Collector-side `transform` processor early enough for privacy? | WAL may persist sensitive attrs before processor runs; also exporter sees content if export enabled | Defence-in-depth: emit-site redaction in `sdp trace` CLI **first**, Collector processor second; CI contract test greps JSONL for known secret pattern |
+
+## 9. Council critique (§3/§4)
+
+6-role blind review (Architect/Critic/Technician/Philosopher/Pragmatist/Engineer). Two vetoes claimed — both resolved in §10.
+
+### 9.1 Issue ledger (18 issues after dedup with §8)
+
+| ID | Source | Severity | Issue | Status |
+|---|---|---|---|---|
+| C-01 | Critic **VETO** | **P0** | §3.5 privacy gate is a denylist; OTel GenAI semconv is experimental — first unexpected attribute leaks prompt text to disk | Accepted (§10.4) |
+| C-02 | Engineer **VETO** | **P0** | §3.3 PostToolUse end-span breaks under concurrent tool execution; `.sdp/traces/current.env` is a single slot, last-writer-wins | Accepted (§10.5) |
+| C-03 | Pragmatist | **P0** | 8 WS for a system that answers one question (M1+M7); scope bloat will prevent shipping | Accepted (§10.6) |
+| C-04 | Architect | P1 | Collector daemon as hard dependency violates offline-first | Accepted (§10.1) — Collector is v2 upgrade |
+| C-05 | Architect | P1 | 4 parallel propagation channels = distrust smell; pick canonical two | Accepted (§10.2) — TRACEPARENT + `sdp.epic.bead_id` only; `conversation.id` is diagnostic |
+| C-06 | Critic | P1 | Command injection via `$TOOL_NAME` in PreToolUse shell hook | Accepted (§10.5) — `sdp trace` CLI reads from env/stdin, never shells out |
+| C-07 | Critic | P1 | No trace integrity; malicious dep can forge spans to fake M1 pass-rate | Accepted (§10.7) — documented as v2 with append-only + daily SHA-256 Merkle root in beads note |
+| C-08 | Technician | P1 | `otel-cli` cold-start latency; subprocess-per-span is unworkable | Accepted (§10.5) — mirrors S3; daemon socket mandatory |
+| C-09 | Philosopher | P1 | SDP semantic layer tied to experimental OTel semconv; drift = codebase-wide sed | Accepted (§10.3) — `sdp trace span-start --phase build --cycle N` abstracts; semconv mapping is 1-file change |
+| C-10 | Pragmatist | P1 | No disk-footprint estimate / sampling strategy | Accepted (§10.1) — TEL-01 includes footprint envelope + head/tail/hash sampling defaults |
+| C-11 | Engineer | P1 | `.jsonl.zst` concurrent append corrupts zstd frames | Accepted (§10.5) — write plain `.jsonl`, compress on day-rotation |
+| C-12 | Engineer | P1 | `sdp.epic.bead_id` as resource attribute is wrong; OTel resources are per-SDK-instance, multi-epic session breaks | Accepted (§10.2) — promoted to span attribute |
+| C-13 | Architect | P2 | TEL-05 (delivery-loop) should precede TEL-04 (hooks); delivery-loop is the M1/M2/M3 source, hooks only feed M5/M6 | Accepted (§10.6) — new sequence puts TEL-05 on critical path |
+| C-14 | Technician | P2 | TEL-08 SQLite+Grafana combo uses third-party plugin with sporadic maintenance | Accepted (§10.8) — DuckDB as default if TEL-08 revives; SQLite dropped |
+| C-15 | Technician | P2 | `gen_ai.conversation.id` stability across compaction is harness-specific and undocumented | Accepted (§10.2) — per-harness capability probe in TEL-02; degrade to bead_id-only if probe fails |
+| C-16 | Philosopher | P2 | No falsifiable hypothesis stated; doc jumps to "we need a dashboard" | Accepted (§10.9) — hypothesis statement added |
+| C-17 | Pragmatist | P2 | TEL-08 is flagged optional but has a WS number; formalize as parking-lot | Accepted (§10.6) — TEL-08 removed from WS numbering |
+| C-18 | Philosopher | P3 | `sdp usage report` CLI (TEL-07) is the real default; Grafana is aspirational — be honest | Accepted (§10.8) — doc reflects this |
+
+### 9.2 Council synthesis verdict
+
+> Highest-risk unresolved pair: **span lifecycle under concurrent tool execution + denylist privacy gate**. Fix the hook-level span registry and flip to allowlist before any hook instrumentation lands.
+
+Both addressed in §10.4 + §10.5. No residual blockers.
+
+---
+
+## 10. Consensus — revised architecture & WS plan
+
+Supersedes §3, §4, partially §5. Drives directly to TEL-* bead spinup.
+
+### 10.1 Principle revision — Collector is upgrade, not core
+
+```
+v1 (MVP)        : harness → sdp trace daemon (session-lifetime) → .sdp/traces/*.jsonl
+                                                                   (plain, compressed on rotation)
+v2 (upgrade)    : harness → sdp trace daemon → local OTel Collector → .jsonl.zst + otlphttp export
+```
+
+MVP has zero background services. Collector is additive — same on-disk format, same schema.
+
+**Disk footprint envelope (TEL-01 must validate):**
+
+| Load | Spans/day | Bytes/span (avg) | JSONL/day | 30-day uncompressed |
+|---|---|---|---|---|
+| Light (1 session/day) | 2 k | 1.2 kB | 2.4 MB | 72 MB |
+| Typical (3–5 sessions) | 10 k | 1.2 kB | 12 MB | 360 MB |
+| Heavy (parallel loops) | 50 k | 1.2 kB | 60 MB | 1.8 GB |
+
+Compression ratio `zstd -3` on JSONL ≈ 8–12×. 30-day footprint heavy case: ~150–220 MB compressed. Acceptable.
+
+**Sampling defaults (TEL-01):**
+- Head-based: 100% for all spans by default.
+- Tail-based drop: `execute_tool Read` / `Glob` / `Grep` with duration <10 ms and no error → drop (noise).
+- Hash-based: for sessions exceeding 100 k spans, sample 1/N on `trace_id` hash.
+
+### 10.2 Propagation — two canonical channels
+
+| Channel | Scope | Source of truth |
+|---|---|---|
+| `TRACEPARENT` (W3C Trace Context) | In-process + child subprocesses | Generated by root span in `sdp trace init` |
+| `sdp.epic.bead_id` **span attribute** (not resource) | Cross-session / cross-compaction aggregation | Resolved at `sdp trace init` from `.sdp/state/current-feature` (fail-loud if absent) |
+
+`gen_ai.conversation.id` kept as **diagnostic** attribute; never authoritative. Per-harness probe (TEL-02 sub-task) verifies stability; degraded aggregation path documented.
+
+`.sdp/state/current-feature` is written by `delivery-loop` Phase 0 Bootstrap. Contract: exactly one line with `<bead_id>\n`. `sdp trace init` reads it; missing → exit 2 with remediation message.
+
+### 10.3 `sdp trace` CLI is the abstraction layer (C-09)
+
+All instrumentation call sites use `sdp trace` verbs, not raw `otel-cli` and not raw OTel SDK attribute names:
+
+```
+sdp trace init --feature "$BEAD_ID"                 # root span, writes current.env
+sdp trace span-start --kind tool --name "Bash" --phase build --cycle 2
+sdp trace span-end   --status ok --duration-ms 142
+sdp trace event      --name vote --attrs role=architect,verdict=block
+sdp trace shutdown   --flush
+```
+
+Internally, `sdp trace` maps to OTel GenAI semconv (v1.36 experimental, opt-in via `OTEL_SEMCONV_STABILITY_OPT_IN`). When semconv stabilizes, mapping is one file: `internal/trace/semconv_mapping.go`.
+
+### 10.4 Privacy gate — allowlist (C-01 resolution)
+
+Both emit-site (TEL-02) and processor-site (TEL-03, v2) use **allowlist** schema, not denylist:
+
+```json
+// schema/sdp-trace-events.schema.json (TEL-01 ships this)
+{
+  "execute_tool": { "allowed_attrs": ["gen_ai.tool.name", "gen_ai.tool.call.id", "sdp.session.id", "sdp.epic.bead_id", "sdp.harness", "sdp.phase.name", "sdp.phase.cycle_number", "sdp.tool.exit_code", "sdp.tool.duration_ms"] },
+  "invoke_agent": { "allowed_attrs": [...] }
+}
+```
+
+**Emit-site:** `sdp trace span-start` rejects any attribute not in the allowlist for that span kind (exit 1 with message naming the unknown attribute). New attribute = schema PR required.
+
+**CI contract test:** `scripts/verify_trace_attrs.sh` — runs `sdp trace` test fixtures, diffs emitted attrs vs schema; fails on drift. Wired into `run_go_quality_gates.sh` (same pattern as `verify_skill_anchors.sh`).
+
+**Content levels** (§6.1 unchanged): `metadata` / `findings` / `content`. At `metadata` consent, findings fields are limited to `rule`, `severity`, `file`, `line`, `sha1(snippet[:8])`.
+
+**Anti-goals §5 addition:** *"v1 uses denylist-free allowlist privacy model; any new span attribute requires schema change + CI green."*
+
+### 10.5 Span lifecycle — daemon-backed per-call registry (C-02, C-06, C-08, C-11 resolution)
+
+`sdp trace daemon` is session-lifetime background process started by SessionStart hook:
+
+```
+~/.sdp/sockets/trace-<session_id>.sock   # Unix domain socket, 0600 mode
+```
+
+Protocol: length-prefixed JSON over Unix socket. `sdp trace span-start|end|event` clients connect, send payload, get `{span_id, trace_id}` back, disconnect. ~1 ms round-trip (benchmark budget).
+
+**Concurrent-safe span registry (C-02 fix):**
+- Daemon holds in-memory `HashMap<(trace_id, tool_call_id), SpanHandle>`.
+- PreToolUse sends `span-start` with `--tool-call-id "$CLAUDE_TOOL_CALL_ID"` (harness provides unique ID per call).
+- PostToolUse sends `span-end --tool-call-id "$CLAUDE_TOOL_CALL_ID"` — matches on the pair, independent of other concurrent tools.
+- No reliance on `.sdp/traces/current.env` for tool-call end correlation.
+
+`.sdp/traces/current.env` is demoted to **session bootstrap only** — read once by `sdp trace init` to resume trace_id after harness restart.
+
+**Concurrent writer safety (C-11 fix):**
+- Daemon is the **sole writer** to `.sdp/traces/YYYY-MM-DD/spans.jsonl` — plain JSONL with `O_APPEND`, one writer, no compression.
+- SessionEnd hook: `sdp trace shutdown --flush` — daemon closes file, optional `zstd -3 --rm` on previous day's file.
+- Cron (or pre-commit): rotate + compress day-old files. Never compress live-write file.
+
+**Command injection hardening (C-06):**
+- Hook scripts pass `$TOOL_NAME` via `--tool-name "$TOOL_NAME"` argv, never interpolate into shell.
+- `sdp trace` CLI is a Go binary (not shell); treats args as data.
+
+### 10.6 Revised WS plan — 4-WS MVP (C-03, C-13, C-17 resolution)
+
+```
+v1 MVP:
+  TEL-01 (schema+consent+footprint)
+       ├─▶ TEL-02 (sdp trace CLI + daemon)
+                ├─▶ TEL-05 (delivery-loop emission — M1/M2/M3/M4 signal)
+                │        └─▶ TEL-06 (reducer — M1/M7 first, then M2–M6)
+                │                 └─▶ TEL-07 (sdp usage report CLI)
+                └─▶ (TEL-04 hook shims — M5/M6 signal, v1.1)
+
+v2 upgrades:
+  TEL-03  Collector service (adds crash-safe WAL, transform fallback, OTLP export)
+  TEL-04  universal hook shims (when MCP semconv stabilizes)
+  v2-01   Trace integrity (append-only + daily Merkle root in beads note)
+  v2-02   Optional dashboard (DuckDB + Grafana, or Langfuse self-host)
+
+Removed from WS numbering:
+  TEL-08  (former dashboard WS) — moved to v2 parking lot, no number
+```
+
+Critical path to first M1/M7 report: **TEL-01 → TEL-02 → TEL-05 → TEL-06 → TEL-07** = 5 beds, estimated ~10–15 calendar days.
+
+### 10.7 Trace integrity — v2 (C-07 resolution)
+
+**v1 posture:** traces are observational, not adversarial. No signing, no tamper-evidence.
+
+**v2 work (deferred):**
+- Daemon writes `.sdp/traces/YYYY-MM-DD/spans.jsonl` append-only + per-line `sha256(prev_hash || line)` chain.
+- End-of-day: compute Merkle root, write to bead note on the session's epic bead (`bd update <epic> --notes "trace_root=<sha>"`).
+- Verifier: `sdp trace verify --since 7d` walks chain, checks Merkle roots vs bead notes.
+
+Documented in `docs/reference/threat-model.md` (new doc in v2). §5 anti-goals updated.
+
+### 10.8 Dashboard posture — honest reframe (C-14, C-18 resolution)
+
+**Default operator path:** `sdp usage report` CLI (TEL-07). Text tables, `--since`, `--feature`, `--by-phase`.
+
+**Optional v2:** DuckDB-backed store (not SQLite). Reducer emits Parquet. Grafana via FlightSQL (native support, no third-party plugin). Or Langfuse self-host.
+
+No v1 Grafana promise. No SQLite plugin dependency.
+
+### 10.9 Falsifiable hypothesis (C-16 resolution)
+
+> **H1:** SDP's review-centric delivery loop produces a lower M7 (post-merge rework rate within 14 days) than a baseline delivery mode on comparable repos, with the effect measurable within 8 weeks of dogfood.
+>
+> **H0 (null):** M7 is not statistically different between SDP and baseline modes, or SDP M7 is worse.
+
+This is the question the telemetry must answer. If M7 trend is ambiguous at week 8, we revisit the instrumentation design, not the metric choice.
+
+Secondary hypothesis (H2): **M3 (codex stability index ≥ 2)** correlates with lower M7 → justifies the `/codex:rescue` cost. Testable after H1 has enough data.
+
+### 10.10 Changelog vs §3/§4 (quick diff)
+
+| Original (§3/§4) | Revised (§10) | Reason |
+|---|---|---|
+| Collector required | Collector v2 upgrade | C-04, S1 |
+| Denylist `transform` | Allowlist schema + CI test | C-01 VETO |
+| `otel-cli` per-call | `sdp trace` CLI + daemon socket | C-08, S3 |
+| `TRACEPARENT` + `current.env` + `conversation.id` + bead_id (4 channels) | TRACEPARENT + `sdp.epic.bead_id` (2 channels) | C-05 |
+| `sdp.epic.bead_id` as resource attr | span attribute per span | C-12 VETO-adjacent |
+| `.jsonl.zst` live writes | plain `.jsonl` live + compress on rotate | C-11 |
+| 8 WS TEL-01..08 | 4-WS MVP + v2 upgrades | C-03, S4 |
+| TEL-04 (hooks) before TEL-05 | TEL-05 (loop) before TEL-04 | C-13 |
+| No hypothesis | H1/H2 stated | C-16 |
+
+---
+
+**Ready for WS spinup.** Next action: create TEL-01, TEL-02, TEL-05, TEL-06, TEL-07 beads (with §10 scope definitions), close sdplab-6x39 as "design complete".
