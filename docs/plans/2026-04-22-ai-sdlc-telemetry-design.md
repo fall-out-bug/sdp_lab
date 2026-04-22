@@ -243,16 +243,70 @@ W3C Trace Context via `TRACEPARENT` env var. Flow:
 | **Cloud analytics at v1** | Offline-first. Langfuse self-host is v2 option, not v1 dependency. |
 | **Real-time streaming dashboards** | Cron reducer + Grafana-at-rest is enough; real-time is a v2 affordance. |
 
-## 6. Minority / open questions (for next cycle)
+## 6. Resolved decisions (operator ack 2026-04-22)
 
-1. **Does capturing `@review` finding bodies cross a privacy line?** Findings reference code file:line — possibly OK but depends on repo sensitivity. Propose: capture severity + rule + hash of snippet by default; full body only under `SDP_TRACE_CONSENT=content`.
-2. **Should MCP servers emit spans?** MCP has no native OTel today. We'd need a propagator shim — probably v2.
-3. **How do we handle `@llm-council` traces?** 6-role multi-round sessions can blow up span counts (6 × 5 rounds = 30 spans per council). Propose: emit one `invoke_agent` per role-round, flatten votes into attributes, not child spans.
-4. **Cost attribution for subagent models.** Haiku/Sonnet mix in delivery-loop — need per-model pricing table (pull from Anthropic billing API or hardcode).
-5. **Beads-telemetry joint store.** Should bead events (open/close/claim) live in the same trace stream or a parallel one? Trace is transient (30 d retention); beads are ground truth. Propose: emit a correlation span `sdp.bead.event` with bead_id and trace_id but keep beads as SoT.
+Open questions from first-pass synthesis, resolved before WS spinup.
+
+### 6.1 Finding privacy — three-tier consent (Q1)
+
+Default `SDP_TRACE_CONSENT=metadata`. Three levels:
+
+| Level | Payload | Use case |
+|---|---|---|
+| `metadata` (default) | `rule`, `severity`, `file`, `line`, `sha1(snippet)` | M1/M2 + rule clustering; safe to share traces |
+| `findings` | +`message` (prose, no code) | Analytics on why reviews fail |
+| `content` | +`snippet`, +patch diffs, +prompts | Debug-only; manual opt-in per session |
+
+Hash of snippet (first 8 chars of SHA-1) lets us detect recurring issues without storing code. `@review` emitter reads `SDP_TRACE_CONSENT` env at call time.
+
+### 6.2 MCP tracing deferred to v2 (Q2)
+
+v1 traces only host-tools (Bash, Read, Edit, Grep, Glob, Write). MCP calls emit `execute_tool` span with `gen_ai.tool.type=mcp` + `gen_ai.tool.traced=false` attribute as explicit marker of untraced dependency.
+
+Re-evaluate when MCP OTel semconv stabilizes (tracking: modelcontextprotocol/specification #274).
+
+### 6.3 Council span model — hybrid per-round (Q3)
+
+One `invoke_agent` span per **round** (not per role). Role votes live as span events.
+
+```
+span: invoke_agent (gen_ai.agent.name="llm-council", gen_ai.council.round=N, gen_ai.council.roles=[...])
+├── event: vote (role=architect, verdict=block, rationale_hash=...)
+├── event: vote (role=critic, verdict=approve, rationale_hash=...)
+└── ...
+```
+
+Cost per council call: ≤5 spans instead of ≤30. Timeline of rounds preserved; drill-down via events in Tempo/Jaeger.
+
+### 6.4 Model pricing — checked-in JSON + monthly drift CI (Q4)
+
+`configs/model_pricing.json` committed to repo:
+
+```json
+{
+  "claude-sonnet-4-5": {"input": 3.00, "output": 15.00, "unit": "per_1M_tokens", "effective": "2026-01-15"},
+  "claude-haiku-4-5":  {"input": 0.80, "output": 4.00,  "unit": "per_1M_tokens", "effective": "2026-01-15"},
+  "claude-opus-4-1":   {"input": 15.00, "output": 75.00, "unit": "per_1M_tokens", "effective": "2025-11-01"}
+}
+```
+
+Reducer (TEL-06) joins token counts × pricing by model name. CI job (`scripts/verify_pricing_freshness.sh`, monthly cron) fails if `effective` > 60 days old — forces manual refresh against vendor pricing page. Public repo, no secrets involved.
+
+Codex/OpenAI/other harnesses: extra rows in same file.
+
+### 6.5 Beads ↔ trace — correlation span, beads remain SoT (Q5)
+
+Beads stay canonical in Dolt. Traces are ephemeral (30d retention) and purely observational. Bridge via `sdp.bead.event` correlation span emitted on bead state transitions:
+
+```
+span: sdp.bead.event
+  attrs: {bead.id: "sdplab-xxxx", bead.event: "claimed|closed", trace.id: "<current>"}
+```
+
+Reducer (TEL-06) joins traces ⨝ beads on `bead.id`. If traces are purged, beads survive intact. No dual-write risk: trace emission is best-effort; bead state is transactional.
 
 ## 7. Closeout
 
-This doc is the **design** for sdplab-6x39. Next: socratic dialogue + council critique on §3 (architecture) and §4 (WS breakdown), then spin up the TEL-01–08 WS beads.
+This doc is the **design** for sdplab-6x39. Open questions resolved (§6). Ready for WS spinup (TEL-01..TEL-08).
 
-Synthesis is complete. Ready for operator decision: which WS to spin up first, and whether to invoke council before implementation.
+Remaining operator decision: invoke Socratic/council critique on §3 architecture before implementation, or proceed straight to WS bead creation (§4).
