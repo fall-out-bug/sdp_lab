@@ -83,7 +83,7 @@ func runGenerateAdapters(args []string) int {
 		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
 	}
 
-	generated, err := adapters.Generate(res.Manifest)
+	generated, err := adapters.Generate(res.Manifest, repoRoot)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: generate adapters: %v\n", err)
 		return 1

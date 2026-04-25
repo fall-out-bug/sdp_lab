@@ -5,6 +5,8 @@ package adapters
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"sort"
 	"text/template"
 
@@ -20,10 +22,39 @@ var (
 	tmplCursorCommand = mustParse("cursor-command", "templates/cursor/command.tmpl")
 )
 
+// renderItem is the template data type passed to all templates.
+// Body holds the file contents referenced by Path/SystemPromptPath, or ""
+// when path is empty or the file cannot be read (non-fatal).
+type renderItem struct {
+	Name    string
+	Summary string
+	Role    string   // agents only
+	Type    string   // commands only
+	Path    string   // source path (relative to repo root)
+	Body    string   // contents of the file at Path, "" if unavailable
+}
+
+// readBody reads the file at filepath.Join(repoRoot, path) and returns its
+// contents as a string.  If repoRoot is empty, path is empty, or the file
+// cannot be read, it returns "" without error.
+func readBody(repoRoot, path string) string {
+	if repoRoot == "" || path == "" {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(repoRoot, path))
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
 // Generate renders adapter files for all harnesses declared in the manifest.
+// repoRoot is used to resolve relative paths declared in the manifest so that
+// file bodies can be embedded in the generated output.  Pass "" to skip body
+// embedding (useful in tests that don't have filesystem fixtures).
 // Returns a deterministic map of relative output path → file contents.
 // Relative paths are anchored at the repo root (e.g. ".sdp/generated/.claude/commands/build.md").
-func Generate(m *manifest.Manifest) (map[string][]byte, error) {
+func Generate(m *manifest.Manifest, repoRoot string) (map[string][]byte, error) {
 	out := make(map[string][]byte)
 
 	allHarnesses := m.Harnesses
@@ -40,16 +71,16 @@ func Generate(m *manifest.Manifest) (map[string][]byte, error) {
 		harnessEnabled[h] = true
 	}
 
-	if err := generateClaudeCode(m, harnessEnabled, out); err != nil {
+	if err := generateClaudeCode(m, harnessEnabled, repoRoot, out); err != nil {
 		return nil, err
 	}
-	if err := generateOpenCode(m, harnessEnabled, out); err != nil {
+	if err := generateOpenCode(m, harnessEnabled, repoRoot, out); err != nil {
 		return nil, err
 	}
-	if err := generateCodex(m, harnessEnabled, out); err != nil {
+	if err := generateCodex(m, harnessEnabled, repoRoot, out); err != nil {
 		return nil, err
 	}
-	if err := generateCursor(m, harnessEnabled, out); err != nil {
+	if err := generateCursor(m, harnessEnabled, repoRoot, out); err != nil {
 		return nil, err
 	}
 
@@ -81,7 +112,7 @@ func render(t *template.Template, data any) ([]byte, error) {
 }
 
 // generateClaudeCode emits .claude/commands/<name>.md and .claude/agents/<name>.md
-func generateClaudeCode(m *manifest.Manifest, enabled map[manifest.Harness]bool, out map[string][]byte) error {
+func generateClaudeCode(m *manifest.Manifest, enabled map[manifest.Harness]bool, repoRoot string, out map[string][]byte) error {
 	if !enabled[manifest.HarnessClaudeCode] {
 		return nil
 	}
@@ -96,7 +127,14 @@ func generateClaudeCode(m *manifest.Manifest, enabled map[manifest.Harness]bool,
 		if !ih[manifest.HarnessClaudeCode] {
 			continue
 		}
-		data, err := render(tmplClaudeCommand, c)
+		item := renderItem{
+			Name:    c.Name,
+			Summary: c.Summary,
+			Type:    c.Type,
+			Path:    c.Path,
+			Body:    readBody(repoRoot, c.Path),
+		}
+		data, err := render(tmplClaudeCommand, item)
 		if err != nil {
 			return err
 		}
@@ -113,7 +151,14 @@ func generateClaudeCode(m *manifest.Manifest, enabled map[manifest.Harness]bool,
 		if !ih[manifest.HarnessClaudeCode] {
 			continue
 		}
-		data, err := render(tmplClaudeAgent, a)
+		item := renderItem{
+			Name:    a.Name,
+			Summary: a.Summary,
+			Role:    a.Role,
+			Path:    a.SystemPromptPath,
+			Body:    readBody(repoRoot, a.SystemPromptPath),
+		}
+		data, err := render(tmplClaudeAgent, item)
 		if err != nil {
 			return err
 		}
@@ -123,7 +168,7 @@ func generateClaudeCode(m *manifest.Manifest, enabled map[manifest.Harness]bool,
 }
 
 // generateOpenCode emits .opencode/agent/<name>.json and .opencode/skill/<name>.md
-func generateOpenCode(m *manifest.Manifest, enabled map[manifest.Harness]bool, out map[string][]byte) error {
+func generateOpenCode(m *manifest.Manifest, enabled map[manifest.Harness]bool, repoRoot string, out map[string][]byte) error {
 	if !enabled[manifest.HarnessOpenCode] {
 		return nil
 	}
@@ -137,7 +182,14 @@ func generateOpenCode(m *manifest.Manifest, enabled map[manifest.Harness]bool, o
 		if !ih[manifest.HarnessOpenCode] {
 			continue
 		}
-		data, err := render(tmplOpenCodeAgent, a)
+		item := renderItem{
+			Name:    a.Name,
+			Summary: a.Summary,
+			Role:    a.Role,
+			Path:    a.SystemPromptPath,
+			// Body intentionally omitted for OpenCode JSON: body goes in separate .md per design
+		}
+		data, err := render(tmplOpenCodeAgent, item)
 		if err != nil {
 			return err
 		}
@@ -153,7 +205,13 @@ func generateOpenCode(m *manifest.Manifest, enabled map[manifest.Harness]bool, o
 		if !ih[manifest.HarnessOpenCode] {
 			continue
 		}
-		data, err := render(tmplOpenCodeSkill, s)
+		item := renderItem{
+			Name:    s.Name,
+			Summary: s.Summary,
+			Path:    s.Path,
+			Body:    readBody(repoRoot, s.Path),
+		}
+		data, err := render(tmplOpenCodeSkill, item)
 		if err != nil {
 			return err
 		}
@@ -163,7 +221,7 @@ func generateOpenCode(m *manifest.Manifest, enabled map[manifest.Harness]bool, o
 }
 
 // generateCodex emits .codex/skills/<name>.md
-func generateCodex(m *manifest.Manifest, enabled map[manifest.Harness]bool, out map[string][]byte) error {
+func generateCodex(m *manifest.Manifest, enabled map[manifest.Harness]bool, repoRoot string, out map[string][]byte) error {
 	if !enabled[manifest.HarnessCodex] {
 		return nil
 	}
@@ -177,7 +235,13 @@ func generateCodex(m *manifest.Manifest, enabled map[manifest.Harness]bool, out 
 		if !ih[manifest.HarnessCodex] {
 			continue
 		}
-		data, err := render(tmplCodexSkill, s)
+		item := renderItem{
+			Name:    s.Name,
+			Summary: s.Summary,
+			Path:    s.Path,
+			Body:    readBody(repoRoot, s.Path),
+		}
+		data, err := render(tmplCodexSkill, item)
 		if err != nil {
 			return err
 		}
@@ -187,7 +251,7 @@ func generateCodex(m *manifest.Manifest, enabled map[manifest.Harness]bool, out 
 }
 
 // generateCursor emits .cursor/rules/<name>.mdc
-func generateCursor(m *manifest.Manifest, enabled map[manifest.Harness]bool, out map[string][]byte) error {
+func generateCursor(m *manifest.Manifest, enabled map[manifest.Harness]bool, repoRoot string, out map[string][]byte) error {
 	if !enabled[manifest.HarnessCursor] {
 		return nil
 	}
@@ -201,7 +265,14 @@ func generateCursor(m *manifest.Manifest, enabled map[manifest.Harness]bool, out
 		if !ih[manifest.HarnessCursor] {
 			continue
 		}
-		data, err := render(tmplCursorCommand, c)
+		item := renderItem{
+			Name:    c.Name,
+			Summary: c.Summary,
+			Type:    c.Type,
+			Path:    c.Path,
+			Body:    readBody(repoRoot, c.Path),
+		}
+		data, err := render(tmplCursorCommand, item)
 		if err != nil {
 			return err
 		}
