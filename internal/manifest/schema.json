@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sdp.dev/schemas/sdp-manifest.schema.json",
+  "title": "SDP Manifest",
+  "description": "Single source of truth for skills, commands, agents, hooks, and MCP servers across all SDP-supported harnesses. Drives the adapter generator (F141-02) and doctor drift gate (F141-04).",
+  "type": "object",
+  "required": ["version", "sdp_version"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "description": "Manifest schema version (semver). Bumped when manifest fields evolve in breaking ways.",
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "sdp_version": {
+      "description": "Version of SDP that this manifest is pinned to. Compared against `sdp --version` by `sdp doctor`.",
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[A-Za-z0-9.+-]+)?$"
+    },
+    "harnesses": {
+      "description": "List of harnesses targeted by this manifest. Adapters are generated only for listed harnesses.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["claude-code", "opencode", "codex", "cursor"]
+      },
+      "uniqueItems": true,
+      "default": ["claude-code", "opencode", "codex", "cursor"]
+    },
+    "skills": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/skill" }
+    },
+    "commands": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/command" }
+    },
+    "agents": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/agent" }
+    },
+    "hooks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/hook" }
+    },
+    "mcp_servers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/mcp_server" }
+    }
+  },
+  "$defs": {
+    "harness": {
+      "type": "string",
+      "enum": ["claude-code", "opencode", "codex", "cursor"]
+    },
+    "harness_list": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/harness" },
+      "uniqueItems": true,
+      "minItems": 1
+    },
+    "skill": {
+      "type": "object",
+      "required": ["name", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "Lowercase kebab-case skill identifier."
+        },
+        "path": {
+          "type": "string",
+          "description": "Path to skill body (SKILL.md or flat .md), relative to repo root."
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "harnesses": { "$ref": "#/$defs/harness_list" },
+        "compatibility": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/harness" },
+          "uniqueItems": true,
+          "description": "Harnesses where the skill is known to work. Subset of `harnesses`."
+        },
+        "summary": { "type": "string" }
+      }
+    },
+    "command": {
+      "type": "object",
+      "required": ["name", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "path": {
+          "type": "string",
+          "description": "Canonical command body path relative to repo root."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["skill", "cli"],
+          "default": "skill",
+          "description": "`skill` — command body is a skill prompt; `cli` — command invokes the sdp binary."
+        },
+        "harnesses": { "$ref": "#/$defs/harness_list" },
+        "dispatch": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Per-harness dispatch override. If absent, generator uses default mapping (e.g. .claude/commands/<name>.md).",
+          "properties": {
+            "claude-code": { "type": "string" },
+            "opencode": { "type": "string" },
+            "codex": { "type": "string" },
+            "cursor": { "type": "string" }
+          }
+        },
+        "parity_notes": {
+          "type": "string",
+          "description": "Free-text explanation when a command intentionally differs across harnesses or is missing in some."
+        },
+        "summary": { "type": "string" }
+      }
+    },
+    "agent": {
+      "type": "object",
+      "required": ["name", "system_prompt_path"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "role": { "type": "string" },
+        "system_prompt_path": {
+          "type": "string",
+          "description": "Path to agent system-prompt body relative to repo root."
+        },
+        "harnesses": { "$ref": "#/$defs/harness_list" },
+        "summary": { "type": "string" }
+      }
+    },
+    "hook": {
+      "type": "object",
+      "required": ["event", "script"],
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "type": "string",
+          "description": "Harness-agnostic event name (e.g. `pre-commit`, `session-start`, `post-edit`)."
+        },
+        "script": {
+          "type": "string",
+          "description": "Script path relative to repo root."
+        },
+        "harnesses": { "$ref": "#/$defs/harness_list" },
+        "summary": { "type": "string" }
+      }
+    },
+    "mcp_server": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "url": { "type": "string", "format": "uri" },
+        "scopes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "optional": {
+          "type": "boolean",
+          "default": false
+        },
+        "harnesses": { "$ref": "#/$defs/harness_list" },
+        "summary": { "type": "string" }
+      }
+    }
+  }
+}

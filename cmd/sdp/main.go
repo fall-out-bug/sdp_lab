@@ -77,6 +77,8 @@ func main() {
 		runPhase(os.Args[2:])
 	case "reset":
 		runReset(os.Args[2:])
+	case "manifest":
+		runManifest(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
