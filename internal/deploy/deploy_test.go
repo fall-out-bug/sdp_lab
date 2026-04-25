@@ -121,6 +121,9 @@ func TestDefaultGatesConfig(t *testing.T) {
 	if g.CanaryPct != 10 {
 		t.Errorf("CanaryPct = %d, want 10", g.CanaryPct)
 	}
+	if g.CanaryService != "app" {
+		t.Errorf("CanaryService = %q, want %q", g.CanaryService, "app")
+	}
 }
 
 func TestCheckGates_AllPass(t *testing.T) {
@@ -360,7 +363,7 @@ func TestWriteRollbackEvidence(t *testing.T) {
 func TestStagedRollout_InvalidCanaryPct(t *testing.T) {
 	dir := t.TempDir()
 	cfg := DefaultConfig(dir)
-	gates := &GatesConfig{CanaryPct: 0}
+	gates := &GatesConfig{CanaryPct: 0, CanaryService: "app"}
 
 	_, err := StagedRollout(context.Background(), cfg, gates, "test:latest")
 	if err == nil {
@@ -371,6 +374,81 @@ func TestStagedRollout_InvalidCanaryPct(t *testing.T) {
 	_, err = StagedRollout(context.Background(), cfg, gates, "test:latest")
 	if err == nil {
 		t.Error("expected error for 100% canary")
+	}
+}
+
+func TestStagedRollout_EmptyCanaryService(t *testing.T) {
+	dir := t.TempDir()
+	cfg := DefaultConfig(dir)
+	gates := &GatesConfig{CanaryPct: 10, CanaryService: ""}
+
+	_, err := StagedRollout(context.Background(), cfg, gates, "test:latest")
+	if err == nil {
+		t.Error("expected error for empty canary service")
+	}
+}
+
+func TestCheckEvidenceGate_PerRunEvidence(t *testing.T) {
+	dir := t.TempDir()
+	cfg := DefaultConfig(dir)
+
+	// Create per-run evidence under .sdp/evidence/<run_id>/evidence.json.
+	runDir := filepath.Join(dir, ".sdp", "evidence", "run-123")
+	if err := os.MkdirAll(runDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ev := map[string]any{"status": "converged", "run_id": "run-123"}
+	data, _ := json.Marshal(ev)
+	if err := os.WriteFile(filepath.Join(runDir, "evidence.json"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	gates := &GatesConfig{Evidence: true}
+	results, err := CheckGates(context.Background(), cfg, gates)
+	if err != nil {
+		t.Fatalf("CheckGates: %v", err)
+	}
+
+	var found bool
+	for _, r := range results {
+		if r.Gate == "evidence" && r.Passed {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("evidence gate should pass with per-run evidence file")
+	}
+}
+
+func TestCheckEvidenceGate_PerFeatureEvidence(t *testing.T) {
+	dir := t.TempDir()
+	cfg := DefaultConfig(dir)
+
+	// Create per-feature evidence under .sdp/evidence/F135.json.
+	evDir := filepath.Join(dir, ".sdp", "evidence")
+	if err := os.MkdirAll(evDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ev := map[string]any{"status": "ok", "feature": "F135"}
+	data, _ := json.Marshal(ev)
+	if err := os.WriteFile(filepath.Join(evDir, "F135.json"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	gates := &GatesConfig{Evidence: true}
+	results, err := CheckGates(context.Background(), cfg, gates)
+	if err != nil {
+		t.Fatalf("CheckGates: %v", err)
+	}
+
+	var found bool
+	for _, r := range results {
+		if r.Gate == "evidence" && r.Passed {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("evidence gate should pass with per-feature evidence file")
 	}
 }
 

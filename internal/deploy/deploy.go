@@ -24,23 +24,25 @@ type Config struct {
 
 // GatesConfig controls which hard gates are enforced before deploy.
 type GatesConfig struct {
-	SecretScan  bool // Block if secretscan has findings (default: true)
-	Evidence    bool // Block if no evidence.json present (default: true)
-	SmokeTest   bool // Block if smoke tests fail (default: true)
-	Staged      bool // Enable staged (canary) rollout (default: false)
-	CanaryPct   int  // Canary traffic percentage (default: 10)
-	CanaryWait  time.Duration // How long to monitor canary before full rollout (default: 2m)
+	SecretScan    bool          // Block if secretscan has findings (default: true)
+	Evidence      bool          // Block if no evidence present (default: true)
+	SmokeTest     bool          // Block if smoke tests fail (default: true)
+	Staged        bool          // Enable staged (canary) rollout (default: false)
+	CanaryPct     int           // Canary traffic percentage (default: 10)
+	CanaryWait    time.Duration // How long to monitor canary before full rollout (default: 2m)
+	CanaryService string        // Docker Compose service name for canary (default: "app")
 }
 
 // DefaultGatesConfig returns the default gate configuration (all hard gates on, no staged rollout).
 func DefaultGatesConfig() *GatesConfig {
 	return &GatesConfig{
-		SecretScan: true,
-		Evidence:   true,
-		SmokeTest:  true,
-		Staged:     false,
-		CanaryPct:  10,
-		CanaryWait: 2 * time.Minute,
+		SecretScan:    true,
+		Evidence:      true,
+		SmokeTest:     true,
+		Staged:        false,
+		CanaryPct:     10,
+		CanaryWait:    2 * time.Minute,
+		CanaryService: "app",
 	}
 }
 
@@ -130,31 +132,54 @@ func checkSecretScanGate(ctx context.Context, cfg *Config) GateResult {
 	}
 }
 
-// checkEvidenceGate verifies evidence.json exists for the current run.
+// checkEvidenceGate verifies evidence exists for the current run.
+// Looks for evidence in two locations:
+//   1. .sdp/evidence.json (legacy/top-level)
+//   2. .sdp/evidence/<run_id>/evidence.json (per-run, written by sdp build)
+//   3. .sdp/evidence/<feature>.json (per-feature)
 func checkEvidenceGate(cfg *Config) GateResult {
-	evidencePath := filepath.Join(cfg.ProjectRoot, ".sdp", "evidence.json")
-	data, err := os.ReadFile(evidencePath)
-	if err != nil {
-		return GateResult{
-			Gate:    "evidence",
-			Passed:  false,
-			Message: "no evidence.json found — run sdp build first",
+	sdpDir := filepath.Join(cfg.ProjectRoot, ".sdp")
+
+	// Check top-level evidence.json first.
+	topLevel := filepath.Join(sdpDir, "evidence.json")
+	if data, err := os.ReadFile(topLevel); err == nil {
+		if validateEvidenceJSON(data) {
+			return GateResult{Gate: "evidence", Passed: true, Message: "evidence.json present and valid"}
+		}
+		return GateResult{Gate: "evidence", Passed: false, Message: "evidence.json present but invalid JSON"}
+	}
+
+	// Check per-run evidence files under .sdp/evidence/.
+	evidenceDir := filepath.Join(sdpDir, "evidence")
+	matches, err := filepath.Glob(filepath.Join(evidenceDir, "*", "evidence.json"))
+	if err == nil && len(matches) > 0 {
+		// Use the most recently modified evidence file.
+		latest := matches[len(matches)-1]
+		if data, err := os.ReadFile(latest); err == nil && validateEvidenceJSON(data) {
+			return GateResult{Gate: "evidence", Passed: true, Message: fmt.Sprintf("evidence found: %s", latest)}
 		}
 	}
-	// Validate it's parseable JSON with at least a status field.
-	var ev map[string]any
-	if err := json.Unmarshal(data, &ev); err != nil {
-		return GateResult{
-			Gate:    "evidence",
-			Passed:  false,
-			Message: fmt.Sprintf("evidence.json invalid: %v", err),
+
+	// Check per-feature evidence files.
+	featureMatches, err := filepath.Glob(filepath.Join(evidenceDir, "*.json"))
+	if err == nil && len(featureMatches) > 0 {
+		latest := featureMatches[len(featureMatches)-1]
+		if data, err := os.ReadFile(latest); err == nil && validateEvidenceJSON(data) {
+			return GateResult{Gate: "evidence", Passed: true, Message: fmt.Sprintf("evidence found: %s", latest)}
 		}
 	}
+
 	return GateResult{
-		Gate:   "evidence",
-		Passed: true,
-		Message: "evidence.json present and valid",
+		Gate:    "evidence",
+		Passed:  false,
+		Message: "no evidence found — run sdp build first",
 	}
+}
+
+// validateEvidenceJSON checks that data is valid JSON.
+func validateEvidenceJSON(data []byte) bool {
+	var ev map[string]any
+	return json.Unmarshal(data, &ev) == nil
 }
 
 // checkSmokeTestGate runs the smoke test script.
@@ -194,6 +219,9 @@ func StagedRollout(ctx context.Context, cfg *Config, gates *GatesConfig, imageTa
 	if gates.CanaryPct <= 0 || gates.CanaryPct >= 100 {
 		return nil, fmt.Errorf("canary percentage must be between 1 and 99, got %d", gates.CanaryPct)
 	}
+	if gates.CanaryService == "" {
+		return nil, fmt.Errorf("canary service name is required for staged rollout")
+	}
 
 	result := &Result{
 		Phase:     "staged_rollout",
@@ -212,7 +240,7 @@ func StagedRollout(ctx context.Context, cfg *Config, gates *GatesConfig, imageTa
 
 	// Deploy canary with limited scale.
 	canaryProject := cfg.ProjectName + "-canary"
-	deployArgs := []string{"-f", cfg.ComposeProd, "-p", canaryProject, "up", "-d", "--scale", fmt.Sprintf("app=%d", gates.CanaryPct/100+1)}
+	deployArgs := []string{"-f", cfg.ComposeProd, "-p", canaryProject, "up", "-d", "--scale", fmt.Sprintf("%s=%d", gates.CanaryService, gates.CanaryPct/100+1)}
 	deployCmd := dockerComposeCmd(ctx, deployArgs)
 	deployCmd.Dir = cfg.ProjectRoot
 	if output, err := deployCmd.CombinedOutput(); err != nil {
@@ -223,8 +251,8 @@ func StagedRollout(ctx context.Context, cfg *Config, gates *GatesConfig, imageTa
 		return result, fmt.Errorf("canary deploy: %w", err)
 	}
 
-	// Phase 2: Monitor canary.
-	monitorResult := runHealthCheck(ctx, cfg, "canary", int(gates.CanaryWait.Seconds()))
+	// Phase 2: Monitor canary for the configured wait window.
+	monitorResult := monitorCanary(ctx, cfg, gates.CanaryWait)
 	if !monitorResult.Passed {
 		slog.Warn("staged rollout: canary unhealthy, rolling back", "errors", monitorResult.Errors)
 		rollbackCanary(ctx, cfg)
@@ -262,6 +290,46 @@ func StagedRollout(ctx context.Context, cfg *Config, gates *GatesConfig, imageTa
 	result.FinishedAt = time.Now().UTC().Format(time.RFC3339)
 	result.Duration = time.Since(parseTime(result.StartedAt)).String()
 	return result, nil
+}
+
+// monitorCanary polls container health for the given duration.
+// Checks every 10s (or sooner if duration < 10s) and fails fast
+// if containers go unhealthy.
+func monitorCanary(ctx context.Context, cfg *Config, wait time.Duration) *HealthCheckResult {
+	result := &HealthCheckResult{Minutes: wait.Minutes()}
+	interval := 10 * time.Second
+	if wait < interval {
+		interval = wait
+	}
+
+	deadline := time.After(wait)
+	checkNum := 0
+	for {
+		select {
+		case <-ctx.Done():
+			result.Passed = false
+			result.Errors = append(result.Errors, "context cancelled")
+			return result
+		case <-deadline:
+			// Final health check before promoting.
+			final := runHealthCheck(ctx, cfg, "canary", int(wait.Seconds()))
+			result.Checks = final.Checks
+			result.Errors = final.Errors
+			result.Passed = final.Passed
+			return result
+		case <-time.After(interval):
+			checkNum++
+			hc := runHealthCheck(ctx, cfg, "canary", int(wait.Seconds()))
+			if !hc.Passed && len(hc.Errors) > 0 {
+				// Fail fast: containers are already unhealthy.
+				result.Checks = hc.Checks
+				result.Errors = hc.Errors
+				result.Passed = false
+				return result
+			}
+			result.Checks = append(result.Checks, hc.Checks...)
+		}
+	}
 }
 
 // rollbackCanary tears down the canary deployment.

@@ -41,8 +41,9 @@ func runDeploy(args []string) {
 	gates := deploy.DefaultGatesConfig()
 	gates.Staged = staged
 
-	// Run gates before any deploy action (unless explicitly skipped).
-	if !skipGates {
+	// Run gates before any deploy action (unless explicitly skipped or rollback).
+	// Rollback is an emergency recovery path — gates must not block it.
+	if !skipGates && target != "rollback" {
 		fmt.Println("Checking deploy gates...")
 		results, err := deploy.CheckGates(ctx, cfg, gates)
 		for _, gr := range results {
