@@ -100,7 +100,11 @@ Phases not listed in an override inherit the skill defaults. Unknown phase names
 
 ```
 PHASE 0: BOOTSTRAP
-  1. Pick feature via `bd ready -n 50` (highest-priority epic/feature; NOT [bug], NOT leaf task with "← F" in title)
+  1. **Pick feature (deterministic):** `pick="$(scripts/deliver-pick.sh)"; EPIC_ID="${pick%%$'\t'*}"; TITLE="${pick#*$'\t'}"`
+       - exit 0 → EPIC_ID + title printed; derive `FEATURE` from EPIC_ID metadata or title (e.g. F129 from "F129: ...")
+       - exit 4 → no deliverable feature in ready queue → exit Phase 0 cleanly (no work)
+       - exit 1 → bd error → escalate
+       - **Do NOT improvise a picker. Do NOT pick a workstream-leaf task. Do NOT pick a coordination/meta epic.** Tag any program/coordination epic with `bd label add <id> coordination` so the picker skips it.
   2. Identify workstreams: cross-reference `docs/workstreams/backlog/${FEATURE}-*.md` with `bd list -n 200 | grep "^${FEATURE}-"`
   3. **Acquire delivery slot (HARD GATE):** `scripts/deliver-acquire.sh ${FEATURE} ${EPIC_ID}`
        - exit 0 → claim + lock acquired, proceed
