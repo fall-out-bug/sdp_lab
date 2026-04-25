@@ -270,3 +270,29 @@ func TestBuildPhaseEvidence_Mapping(t *testing.T) {
 		}
 	}
 }
+
+func TestPromoteFromRun_RunIDMismatch(t *testing.T) {
+	tmp := t.TempDir()
+	evDir := filepath.Join(tmp, ".sdp", "evidence", "wrong-run-id")
+
+	ev := &build.BuildEvidence{
+		RunID:     "wrong-run-id",
+		Idea:      "test",
+		Timestamp: "2026-04-25T12:00:00Z",
+		Status:    "success",
+	}
+	if err := os.MkdirAll(evDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := json.MarshalIndent(ev, "", "  ")
+	os.WriteFile(filepath.Join(evDir, "evidence.json"), data, 0o644)
+
+	_, err := PromoteFromRun(PromoteOptions{
+		RunID:       "correct-run-id",
+		FeatureID:   "F135-05",
+		EvidenceDir: evDir,
+	})
+	if err == nil {
+		t.Fatal("expected error for RunID mismatch")
+	}
+}

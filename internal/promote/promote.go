@@ -22,13 +22,13 @@ const SourceLabel = "vibecode-promoted"
 
 // PromoteResult holds the output of a promotion operation.
 type PromoteResult struct {
-	RunID       string            `json:"run_id"`
-	FeatureID   string            `json:"feature_id"`
-	EvidenceDir string            `json:"evidence_dir"`
-	PhaseDir    string            `json:"phase_dir"`
-	Deltas      []DeltaArtifact   `json:"deltas"`
-	Gates       []GateArtifact    `json:"gates"`
-	Errors      []string          `json:"errors,omitempty"`
+	RunID       string          `json:"run_id"`
+	FeatureID   string          `json:"feature_id"`
+	EvidenceDir string          `json:"evidence_dir"`
+	PhaseDir    string          `json:"phase_dir"`
+	Deltas      []DeltaArtifact `json:"deltas"`
+	Gates       []GateArtifact  `json:"gates"`
+	Errors      []string        `json:"errors,omitempty"`
 }
 
 // DeltaArtifact records a generated delta file.
@@ -82,6 +82,11 @@ func PromoteFromRun(opts PromoteOptions) (*PromoteResult, error) {
 		return nil, fmt.Errorf("promote: read evidence: %w", err)
 	}
 
+	// Validate evidence RunID matches the requested run to prevent mismatches.
+	if evidence.RunID != "" && evidence.RunID != opts.RunID {
+		return nil, fmt.Errorf("promote: evidence RunID %q does not match requested RunID %q", evidence.RunID, opts.RunID)
+	}
+
 	result := &PromoteResult{
 		RunID:       opts.RunID,
 		FeatureID:   opts.FeatureID,
@@ -99,6 +104,9 @@ func PromoteFromRun(opts PromoteOptions) (*PromoteResult, error) {
 	// Generate phase-evidence JSON from vibecode evidence.
 	phaseEvidence := buildPhaseEvidence(evidence)
 
+	// Track which phases had successful evidence writes.
+	evidenceWritten := make(map[string]bool)
+
 	// Write per-phase evidence files.
 	for _, phase := range []string{"plan", "review", "eval"} {
 		evPath := filepath.Join(opts.PhaseDir, phase+".evidence.json")
@@ -106,11 +114,12 @@ func PromoteFromRun(opts PromoteOptions) (*PromoteResult, error) {
 			result.Errors = append(result.Errors, fmt.Sprintf("write %s evidence: %v", phase, err))
 			continue
 		}
+		evidenceWritten[phase] = true
 	}
 
 	// Generate delta artifacts and gates for each phase.
 	phases := []struct {
-		name    string
+		name     string
 		gateType gate.GateType
 		question string
 		options  []string
@@ -129,6 +138,13 @@ func PromoteFromRun(opts PromoteOptions) (*PromoteResult, error) {
 			continue
 		}
 		result.Deltas = append(result.Deltas, DeltaArtifact{Phase: p.name, Path: deltaPath})
+
+		// Skip gate creation if evidence write failed — gate would reference
+		// missing evidence and fail validation.
+		if !evidenceWritten[p.name] {
+			result.Errors = append(result.Errors, fmt.Sprintf("skip %s gate: evidence file not written", p.name))
+			continue
+		}
 
 		// Create gate with pre-populated evidence.
 		g := &gate.Gate{
@@ -241,7 +257,6 @@ func buildPhaseDelta(phase string, opts PromoteOptions, ev *build.BuildEvidence)
 }
 
 // --- Evidence derivation helpers ---
-// These map vibecode BuildEvidence fields to phase-gate evidence fields.
 
 func deriveTestCoverage(ev *build.BuildEvidence) string {
 	if ev.Sandbox.TestsOK {
