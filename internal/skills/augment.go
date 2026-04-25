@@ -68,35 +68,29 @@ func NewAugmenter(projectRoot string) (*Augmenter, error) {
 
 // safePath validates and sanitizes a file path to prevent path traversal attacks.
 // It resolves the path to an absolute path and cleans any ".." or "." components.
-// For relative paths, it resolves them relative to baseDir and validates they don't escape.
-// For absolute paths, it just resolves and cleans them (no escape check needed).
+// It ALWAYS validates that the resolved path stays within baseDir, regardless of
+// whether the input is absolute or relative.
 func safePath(baseDir, untrusted string) (string, error) {
-	absBase, err := filepath.Abs(baseDir)
+	absBase, err := filepath.Abs(filepath.Clean(baseDir))
 	if err != nil {
-		return "", fmt.Errorf("resolve base dir: %w", err)
+		return "", fmt.Errorf("resolve base: %w", err)
 	}
 
 	var resolved string
 	if filepath.IsAbs(untrusted) {
-		// Absolute path - just resolve and clean it
-		resolved = untrusted
+		resolved = filepath.Clean(untrusted)
 	} else {
-		// Relative path - join with base and then resolve
 		resolved = filepath.Join(absBase, untrusted)
 	}
 
-	// Resolve to absolute path (cleans up ../ etc.)
 	resolved, err = filepath.Abs(resolved)
 	if err != nil {
 		return "", fmt.Errorf("resolve path: %w", err)
 	}
 
-	// For relative paths, ensure they don't escape the base directory
-	if !filepath.IsAbs(untrusted) {
-		// Ensure the resolved path is under the base directory
-		if !strings.HasPrefix(resolved, absBase+string(os.PathSeparator)) && resolved != absBase {
-			return "", fmt.Errorf("path escapes base directory: %s", untrusted)
-		}
+	// ALWAYS check containment, even for absolute paths
+	if !strings.HasPrefix(resolved, absBase+string(os.PathSeparator)) && resolved != absBase {
+		return "", fmt.Errorf("path escapes base directory: %s", untrusted)
 	}
 
 	return resolved, nil

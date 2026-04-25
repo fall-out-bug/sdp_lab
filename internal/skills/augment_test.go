@@ -247,7 +247,15 @@ go test ./...
 				t.Fatalf("failed to create temp file: %v", err)
 			}
 
-			err := ValidateMarkers(tmpFile)
+			// Change to temp directory so absolute paths are within the "current" directory
+			originalDir, _ := os.Getwd()
+			defer os.Chdir(originalDir)
+			if err := os.Chdir(tmpDir); err != nil {
+				t.Fatalf("failed to change to temp directory: %v", err)
+			}
+
+			// Use relative path since we changed to the temp directory
+			err := ValidateMarkers("skill.md")
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateMarkers() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -319,7 +327,14 @@ func TestLoadStackConfig(t *testing.T) {
 				t.Fatalf("failed to create temp file: %v", err)
 			}
 
-			config, err := LoadStackConfig(tmpFile)
+			// Change to temp directory so absolute paths are within the "current" directory
+			originalDir, _ := os.Getwd()
+			defer os.Chdir(originalDir)
+			if err := os.Chdir(tmpDir); err != nil {
+				t.Fatalf("failed to change to temp directory: %v", err)
+			}
+
+			config, err := LoadStackConfig("config.json")
 			if (err != nil) != tt.wantErr {
 				t.Errorf("LoadStackConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -369,27 +384,34 @@ More content.
 		t.Fatalf("failed to create temp file: %v", err)
 	}
 
+	// Change to temp directory so absolute paths are within the "current" directory
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change to temp directory: %v", err)
+	}
+
 	// Augment file1 once
-	if err := AugmentSkill(file1, goConfig); err != nil {
+	if err := AugmentSkill("skill1.md", goConfig); err != nil {
 		t.Fatalf("first AugmentSkill() failed: %v", err)
 	}
 
 	// Augment file1 again (should be idempotent)
-	if err := AugmentSkill(file1, goConfig); err != nil {
+	if err := AugmentSkill("skill1.md", goConfig); err != nil {
 		t.Fatalf("second AugmentSkill() failed: %v", err)
 	}
 
 	// Augment file2 once for comparison
-	if err := AugmentSkill(file2, goConfig); err != nil {
+	if err := AugmentSkill("skill2.md", goConfig); err != nil {
 		t.Fatalf("AugmentSkill() on file2 failed: %v", err)
 	}
 
 	// Read both files
-	content1, err := os.ReadFile(file1)
+	content1, err := os.ReadFile("skill1.md")
 	if err != nil {
 		t.Fatalf("failed to read file1: %v", err)
 	}
-	content2, err := os.ReadFile(file2)
+	content2, err := os.ReadFile("skill2.md")
 	if err != nil {
 		t.Fatalf("failed to read file2: %v", err)
 	}
@@ -440,13 +462,20 @@ go test ./...
 		t.Fatalf("failed to create temp file: %v", err)
 	}
 
+	// Change to temp directory so absolute paths are within the "current" directory
+	originalDir, _ := os.Getwd()
+	defer os.Chdir(originalDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change to temp directory: %v", err)
+	}
+
 	// Augment the file
-	if err := AugmentSkill(tmpFile, goConfig); err != nil {
+	if err := AugmentSkill("skill.md", goConfig); err != nil {
 		t.Fatalf("AugmentSkill() failed: %v", err)
 	}
 
 	// Read the augmented content
-	augmentedContent, err := os.ReadFile(tmpFile)
+	augmentedContent, err := os.ReadFile("skill.md")
 	if err != nil {
 		t.Fatalf("failed to read augmented file: %v", err)
 	}
@@ -519,8 +548,15 @@ go test ./...
 				t.Fatalf("failed to create temp file: %v", err)
 			}
 
+			// Change to temp directory so absolute paths are within the "current" directory
+			originalDir, _ := os.Getwd()
+			defer os.Chdir(originalDir)
+			if err := os.Chdir(tmpDir); err != nil {
+				t.Fatalf("failed to change to temp directory: %v", err)
+			}
+
 			// Run dry-run
-			output, err := DryRunAugment(tmpFile, goConfig)
+			output, err := DryRunAugment("skill.md", goConfig)
 			if err != nil {
 				t.Fatalf("DryRunAugment() failed: %v", err)
 			}
@@ -531,7 +567,7 @@ go test ./...
 			}
 
 			// Check that file was not modified
-			content, _ := os.ReadFile(tmpFile)
+			content, _ := os.ReadFile("skill.md")
 			if string(content) != tt.content {
 				t.Errorf("DryRunAugment() modified file when it should not have")
 			}
@@ -608,18 +644,21 @@ func TestSafePath(t *testing.T) {
 		untrusted   string
 		wantErr     bool
 		errContains string
+		special     string
 	}{
 		{
 			name:      "valid relative path",
 			baseDir:   "/tmp/test",
 			untrusted: "file.txt",
 			wantErr:   false,
+			special:   "",
 		},
 		{
 			name:      "valid nested path",
 			baseDir:   "/tmp/test",
 			untrusted: "subdir/file.txt",
 			wantErr:   false,
+			special:   "",
 		},
 		{
 			name:        "path traversal with ..",
@@ -627,30 +666,43 @@ func TestSafePath(t *testing.T) {
 			untrusted:   "../../../etc/passwd",
 			wantErr:     true,
 			errContains: "escapes base directory",
+			special:     "",
 		},
 		{
-			name:        "absolute path allowed",
+			name:        "absolute path outside base is rejected",
 			baseDir:     "/tmp/test",
 			untrusted:   "/etc/passwd",
-			wantErr:     false, // Absolute paths are allowed and just resolved/cleaned
+			wantErr:     true,
+			errContains: "escapes base directory",
+			special:     "",
+		},
+		{
+			name:      "absolute path within base is accepted",
+			baseDir:   ".",
+			untrusted: "", // Will be replaced with actual path in test
+			wantErr:   false,
+			special:   "absolute-within-base",
 		},
 		{
 			name:      "path with .. but still in base",
 			baseDir:   "/tmp/test",
 			untrusted: "sub/../file.txt",
 			wantErr:   false,
+			special:   "",
 		},
 		{
 			name:      "empty path stays in base",
 			baseDir:   "/tmp/test",
 			untrusted: "",
 			wantErr:   false,
+			special:   "",
 		},
 		{
 			name:      "current directory reference",
 			baseDir:   "/tmp/test",
 			untrusted: "./file.txt",
 			wantErr:   false,
+			special:   "",
 		},
 	}
 
@@ -668,7 +720,18 @@ func TestSafePath(t *testing.T) {
 				t.Fatalf("failed to create base directory: %v", err)
 			}
 
-			got, err := safePath(baseDir, tt.untrusted)
+			// Handle special test case for absolute path within base
+			untrusted := tt.untrusted
+			if tt.special == "absolute-within-base" {
+				// Create a subdirectory and use its absolute path
+				subdir := filepath.Join(baseDir, "subdir")
+				if err := os.MkdirAll(subdir, 0755); err != nil {
+					t.Fatalf("failed to create subdirectory: %v", err)
+				}
+				untrusted = subdir
+			}
+
+			got, err := safePath(baseDir, untrusted)
 
 			if tt.wantErr {
 				if err == nil {
@@ -686,18 +749,10 @@ func TestSafePath(t *testing.T) {
 				return
 			}
 
-			// For relative paths, verify the result is under baseDir
-			// For absolute paths, just verify it's an absolute path
-			if !filepath.IsAbs(tt.untrusted) {
-				absBase, _ := filepath.Abs(baseDir)
-				if !strings.HasPrefix(got, absBase+string(os.PathSeparator)) && got != absBase {
-					t.Errorf("safePath() result %q is not under base directory %q", got, absBase)
-				}
-			} else {
-				// Absolute paths should remain absolute
-				if !filepath.IsAbs(got) {
-					t.Errorf("safePath() result %q is not absolute", got)
-				}
+			// ALL paths (relative and absolute) must stay within baseDir
+			absBase, _ := filepath.Abs(baseDir)
+			if !strings.HasPrefix(got, absBase+string(os.PathSeparator)) && got != absBase {
+				t.Errorf("safePath() result %q is not under base directory %q", got, absBase)
 			}
 		})
 	}
@@ -908,7 +963,14 @@ content2
 				t.Fatalf("failed to create temp file: %v", err)
 			}
 
-			err := ValidateMarkers(tmpFile)
+			// Change to temp directory so absolute paths are within the "current" directory
+			originalDir, _ := os.Getwd()
+			defer os.Chdir(originalDir)
+			if err := os.Chdir(tmpDir); err != nil {
+				t.Fatalf("failed to change to temp directory: %v", err)
+			}
+
+			err := ValidateMarkers("skill.md")
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateMarkers() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -1028,32 +1090,24 @@ go test ./...
 			t.Fatalf("failed to create temp file: %v", err)
 		}
 
+		// Change to temp directory so the valid file is accessible
+		originalDir, _ := os.Getwd()
+		defer os.Chdir(originalDir)
+		if err := os.Chdir(tmpDir); err != nil {
+			t.Fatalf("failed to change to temp directory: %v", err)
+		}
+
 		// Try to use path traversal to escape the directory
-		traversalPath := filepath.Join(tmpDir, "skill.md")
+		traversalPath := "../../../etc/passwd"
 
-		// This should succeed because the path is resolved relative to tmpDir
-		// and safePath validates it stays within bounds
+		// This should fail because the path traversal attempts to escape
 		err := AugmentSkill(traversalPath, goConfig)
-		if err != nil {
-			// Check if it's a path traversal error or some other error
-			if strings.Contains(err.Error(), "escapes base directory") {
-				// This is expected - the path traversal was blocked
-				return
-			}
-			// Some other error occurred
-			t.Fatalf("AugmentSkill() failed: %v", err)
+		if err == nil {
+			t.Errorf("AugmentSkill() expected error for path traversal but got none")
+			return
 		}
-
-		// If we got here, the operation succeeded - verify the file was modified
-		// (it should be the valid file, not a path traversal target)
-		modifiedContent, err := os.ReadFile(validFile)
-		if err != nil {
-			t.Fatalf("failed to read modified file: %v", err)
-		}
-
-		// Verify the content was augmented
-		if !strings.Contains(string(modifiedContent), "### Go Testing") {
-			t.Errorf("AugmentSkill() did not augment the file as expected")
+		if !strings.Contains(err.Error(), "escapes base directory") {
+			t.Errorf("AugmentSkill() error = %v, want error containing 'escapes base directory'", err)
 		}
 	})
 
@@ -1069,8 +1123,15 @@ go test ./...
 			t.Fatalf("failed to create temp file: %v", err)
 		}
 
+		// Change to temp directory so the valid file is accessible
+		originalDir, _ := os.Getwd()
+		defer os.Chdir(originalDir)
+		if err := os.Chdir(tmpDir); err != nil {
+			t.Fatalf("failed to change to temp directory: %v", err)
+		}
+
 		// Validate should work with the valid file
-		err := ValidateMarkers(validFile)
+		err := ValidateMarkers("skill.md")
 		if err != nil {
 			t.Fatalf("ValidateMarkers() failed on valid file: %v", err)
 		}
@@ -1099,8 +1160,15 @@ go test ./...
 			t.Fatalf("failed to create temp config: %v", err)
 		}
 
+		// Change to temp directory so the valid file is accessible
+		originalDir, _ := os.Getwd()
+		defer os.Chdir(originalDir)
+		if err := os.Chdir(tmpDir); err != nil {
+			t.Fatalf("failed to change to temp directory: %v", err)
+		}
+
 		// Load should work with the valid config
-		_, err := LoadStackConfig(validConfig)
+		_, err := LoadStackConfig("config.json")
 		if err != nil {
 			t.Fatalf("LoadStackConfig() failed on valid config: %v", err)
 		}
