@@ -81,6 +81,8 @@ func main() {
 		runManifest(os.Args[2:])
 	case "generate-adapters":
 		os.Exit(runGenerateAdapters(os.Args[2:]))
+	case "init":
+		os.Exit(runInit(os.Args[2:]))
 	default:
 		usage()
 		os.Exit(2)
