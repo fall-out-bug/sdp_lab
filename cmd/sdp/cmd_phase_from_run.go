@@ -10,12 +10,13 @@ import (
 
 func runPhaseFromRun(args []string) {
 	fs := flag.NewFlagSet("phase from-run", flag.ExitOnError)
-	featureID := fs.String("feature-id", "", "Feature ID for delta artifacts (e.g., F135-05)")
+	featureID := fs.String("feature-id", "", "Feature ID for delta artifacts (required, e.g., F135-05)")
 	evidenceDir := fs.String("evidence-dir", "", "Evidence directory (default: .sdp/evidence/<run_id>)")
 	phaseDir := fs.String("phase-dir", "", "Output directory for Phase FSM artifacts (default: .sdp/phases/<run_id>)")
 	format := fs.String("format", "text", "output format: json|text")
 
-	fs.Parse(args)
+	// Reorder flags before positional args so `sdp phase from-run <run_id> --feature-id ID` works.
+	fs.Parse(reorderFlagsFirst(args, fs))
 
 	if fs.NArg() < 1 {
 		fmt.Fprintln(os.Stderr, "usage: sdp phase from-run <run_id> --feature-id ID [--evidence-dir DIR] [--phase-dir DIR]")
@@ -52,9 +53,17 @@ func runPhaseFromRun(args []string) {
 
 	if *format == "json" {
 		printJSON(result)
-		return
+	} else {
+		printPromoteResult(result)
 	}
 
+	// Exit non-zero if any artifact writes failed.
+	if len(result.Errors) > 0 {
+		os.Exit(1)
+	}
+}
+
+func printPromoteResult(result *promote.PromoteResult) {
 	fmt.Printf("Phase: from-run (vibecode promotion)\n")
 	fmt.Printf("  Run ID:     %s\n", result.RunID)
 	fmt.Printf("  Feature:    %s\n", result.FeatureID)
