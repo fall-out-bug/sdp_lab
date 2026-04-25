@@ -174,4 +174,5 @@ func usage() {
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Skills commands:")
 	fmt.Fprintln(os.Stderr, "  sdp skills augment --stack <config.json> [--skills-dir DIR] [--dry-run] [--validate] [-v]")
+	fmt.Fprintln(os.Stderr, "  sdp skills update [--project-root DIR] [--dry-run] [-v]")
 }

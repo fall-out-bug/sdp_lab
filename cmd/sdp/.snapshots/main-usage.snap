@@ -80,3 +80,4 @@ Coverage commands:
 
 Skills commands:
   sdp skills augment --stack <config.json> [--skills-dir DIR] [--dry-run] [--validate] [-v]
+  sdp skills update [--project-root DIR] [--dry-run] [-v]

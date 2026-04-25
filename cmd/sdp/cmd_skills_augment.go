@@ -169,6 +169,7 @@ func runSkills(args []string) {
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "Available commands:")
 		fmt.Fprintln(os.Stderr, "  augment    Augment skill files with stack-specific content")
+		fmt.Fprintln(os.Stderr, "  update     Auto-detect stack and augment all skills")
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "Use 'sdp skills <command> -h' for more information on a command.")
 		os.Exit(2)
@@ -177,9 +178,11 @@ func runSkills(args []string) {
 	switch args[0] {
 	case "augment":
 		runSkillsAugment(args[1:])
+	case "update":
+		runSkillsUpdate(args[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "error: unknown skills command '%s'\n", args[0])
-		fmt.Fprintln(os.Stderr, "Available commands: augment")
+		fmt.Fprintln(os.Stderr, "Available commands: augment, update")
 		os.Exit(2)
 	}
 }
