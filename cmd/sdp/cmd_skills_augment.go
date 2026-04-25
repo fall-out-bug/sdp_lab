@@ -81,15 +81,8 @@ func runSkillsAugment(args []string) {
 		}
 		changeCount := 0
 		for _, skillFile := range skillFiles {
-			// Skip files without markers in dry-run (they'd show no changes)
-			markers, _ := skills.ParseMarkers(readFileContent(skillFile))
-			if len(markers) == 0 {
-				if *verbose {
-					fmt.Printf("SKIP: %s (no markers)\n", skillFile)
-				}
-				continue
-			}
-
+			// Run dry-run for all files, including those without markers
+			// The actual augmentation may add new markers to files without them
 			output, err := skills.DryRunAugment(skillFile, config)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error: failed to dry-run %s: %v\n", skillFile, err)

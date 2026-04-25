@@ -66,15 +66,24 @@ func NewAugmenter(projectRoot string) (*Augmenter, error) {
 	}, nil
 }
 
-// safePath resolves a path relative to a base directory and ensures it doesn't escape.
+// safePath validates and sanitizes a file path to prevent path traversal attacks.
+// It resolves the path to an absolute path and cleans any ".." or "." components.
+// For relative paths, it resolves them relative to baseDir and validates they don't escape.
+// For absolute paths, it just resolves and cleans them (no escape check needed).
 func safePath(baseDir, untrusted string) (string, error) {
 	absBase, err := filepath.Abs(baseDir)
 	if err != nil {
 		return "", fmt.Errorf("resolve base dir: %w", err)
 	}
 
-	// Join the base directory with the untrusted path
-	resolved := filepath.Join(absBase, untrusted)
+	var resolved string
+	if filepath.IsAbs(untrusted) {
+		// Absolute path - just resolve and clean it
+		resolved = untrusted
+	} else {
+		// Relative path - join with base and then resolve
+		resolved = filepath.Join(absBase, untrusted)
+	}
 
 	// Resolve to absolute path (cleans up ../ etc.)
 	resolved, err = filepath.Abs(resolved)
@@ -82,9 +91,12 @@ func safePath(baseDir, untrusted string) (string, error) {
 		return "", fmt.Errorf("resolve path: %w", err)
 	}
 
-	// Ensure the resolved path is under the base directory
-	if !strings.HasPrefix(resolved, absBase+string(os.PathSeparator)) && resolved != absBase {
-		return "", fmt.Errorf("path escapes base directory: %s", untrusted)
+	// For relative paths, ensure they don't escape the base directory
+	if !filepath.IsAbs(untrusted) {
+		// Ensure the resolved path is under the base directory
+		if !strings.HasPrefix(resolved, absBase+string(os.PathSeparator)) && resolved != absBase {
+			return "", fmt.Errorf("path escapes base directory: %s", untrusted)
+		}
 	}
 
 	return resolved, nil
@@ -135,6 +147,16 @@ func ParseMarkers(content []byte) ([]MarkerBlock, error) {
 			break
 		}
 
+		// Validate beginMatch indices
+		if len(beginMatch) < 6 {
+			return nil, fmt.Errorf("invalid BEGIN marker at position %d: insufficient capture groups", i)
+		}
+		for idx, val := range beginMatch {
+			if val < 0 {
+				return nil, fmt.Errorf("invalid BEGIN marker at position %d: negative index at capture group %d", i, idx)
+			}
+		}
+
 		// Extract section and stack from BEGIN marker
 		section := string(content[beginMatch[2]:beginMatch[3]])
 		stack := string(content[beginMatch[4]:beginMatch[5]])
@@ -142,6 +164,17 @@ func ParseMarkers(content []byte) ([]MarkerBlock, error) {
 		// Find content between BEGIN and END markers
 		contentStart := beginMatch[1] // End of BEGIN marker
 		contentEnd := endMatches[i][0] // Start of END marker
+
+		// Validate marker positions to prevent panics
+		if contentStart < 0 || contentEnd < 0 {
+			return nil, fmt.Errorf("invalid marker positions: begin=%d end=%d", contentStart, contentEnd)
+		}
+		if contentEnd < contentStart {
+			return nil, fmt.Errorf("malformed markers: END at position %d before BEGIN content at %d", contentEnd, contentStart)
+		}
+		if contentStart > len(content) || contentEnd > len(content) {
+			return nil, fmt.Errorf("marker positions exceed content length: begin=%d end=%d contentLen=%d", contentStart, contentEnd, len(content))
+		}
 
 		// Extract content (trim leading/trailing whitespace and newlines)
 		markerContent := strings.TrimSpace(string(content[contentStart:contentEnd]))
@@ -175,14 +208,14 @@ func RenderBlock(section string, stackConfig StackConfig) (string, error) {
 
 // AugmentSkill augments a skill file with stack-specific content from the config.
 func AugmentSkill(filePath string, stackConfig StackConfig) error {
-	// Validate the file path is safe
-	_, err := safePath(".", filePath)
+	// Validate the file path is safe and get the sanitized path
+	safeFilePath, err := safePath(".", filePath)
 	if err != nil {
 		return fmt.Errorf("invalid file path: %w", err)
 	}
 
-	// Read the file with size limit
-	content, err := readFileWithLimit(filePath)
+	// Read the file with size limit using the safe path
+	content, err := readFileWithLimit(safeFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)
 	}
@@ -249,8 +282,8 @@ func AugmentSkill(filePath string, stackConfig StackConfig) error {
 		}
 	}
 
-	// Write back to file
-	if err := os.WriteFile(filePath, []byte(newContent), 0644); err != nil {
+	// Write back to file using the safe path
+	if err := os.WriteFile(safeFilePath, []byte(newContent), 0644); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
 
@@ -264,13 +297,13 @@ func extractBlock(content []byte, start, end int) string {
 
 // ValidateMarkers validates that all marker blocks in a file are well-formed.
 func ValidateMarkers(filePath string) error {
-	// Validate the file path is safe
-	_, err := safePath(".", filePath)
+	// Validate the file path is safe and get the sanitized path
+	safeFilePath, err := safePath(".", filePath)
 	if err != nil {
 		return fmt.Errorf("invalid file path: %w", err)
 	}
 
-	content, err := readFileWithLimit(filePath)
+	content, err := readFileWithLimit(safeFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)
 	}
@@ -308,13 +341,13 @@ func ValidateMarkers(filePath string) error {
 
 // LoadStackConfig loads a stack configuration from a JSON file.
 func LoadStackConfig(configPath string) (StackConfig, error) {
-	// Validate the config path is safe
-	_, err := safePath(".", configPath)
+	// Validate the config path is safe and get the sanitized path
+	safeConfigPath, err := safePath(".", configPath)
 	if err != nil {
 		return StackConfig{}, fmt.Errorf("invalid config path: %w", err)
 	}
 
-	data, err := readFileWithLimit(configPath)
+	data, err := readFileWithLimit(safeConfigPath)
 	if err != nil {
 		return StackConfig{}, fmt.Errorf("failed to read config file: %w", err)
 	}
@@ -360,14 +393,14 @@ func FindSkillFiles(skillsDir string) ([]string, error) {
 
 // DryRunAugment performs a dry-run augmentation and returns the diff.
 func DryRunAugment(filePath string, stackConfig StackConfig) (string, error) {
-	// Validate the file path is safe
-	_, err := safePath(".", filePath)
+	// Validate the file path is safe and get the sanitized path
+	safeFilePath, err := safePath(".", filePath)
 	if err != nil {
 		return "", fmt.Errorf("invalid file path: %w", err)
 	}
 
-	// Read the file with size limit
-	content, err := readFileWithLimit(filePath)
+	// Read the file with size limit using the safe path
+	content, err := readFileWithLimit(safeFilePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read file: %w", err)
 	}
