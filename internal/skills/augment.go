@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 )
+
+const maxSkillFileSize = 10 << 20 // 10MB
 
 // MarkerBlock represents a stack-specific marker block in a skill file.
 type MarkerBlock struct {
@@ -34,6 +37,80 @@ type StackConfig struct {
 type Section struct {
 	Heading string `json:"heading"`
 	Content string `json:"content"`
+}
+
+// Augmenter handles skill file augmentation with path safety.
+type Augmenter struct {
+	projectRoot string
+}
+
+// NewAugmenter creates a new Augmenter with a validated project root.
+func NewAugmenter(projectRoot string) (*Augmenter, error) {
+	// Validate projectRoot exists and is a directory
+	info, err := os.Stat(projectRoot)
+	if err != nil {
+		return nil, fmt.Errorf("project root does not exist: %w", err)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("project root is not a directory: %s", projectRoot)
+	}
+
+	// Resolve to absolute path
+	absRoot, err := filepath.Abs(projectRoot)
+	if err != nil {
+		return nil, fmt.Errorf("resolve absolute path: %w", err)
+	}
+
+	return &Augmenter{
+		projectRoot: absRoot,
+	}, nil
+}
+
+// safePath resolves a path relative to a base directory and ensures it doesn't escape.
+func safePath(baseDir, untrusted string) (string, error) {
+	absBase, err := filepath.Abs(baseDir)
+	if err != nil {
+		return "", fmt.Errorf("resolve base dir: %w", err)
+	}
+
+	// Join the base directory with the untrusted path
+	resolved := filepath.Join(absBase, untrusted)
+
+	// Resolve to absolute path (cleans up ../ etc.)
+	resolved, err = filepath.Abs(resolved)
+	if err != nil {
+		return "", fmt.Errorf("resolve path: %w", err)
+	}
+
+	// Ensure the resolved path is under the base directory
+	if !strings.HasPrefix(resolved, absBase+string(os.PathSeparator)) && resolved != absBase {
+		return "", fmt.Errorf("path escapes base directory: %s", untrusted)
+	}
+
+	return resolved, nil
+}
+
+// readFileWithLimit reads a file with a size limit to prevent excessive memory usage.
+func readFileWithLimit(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	// Use LimitReader to enforce size limit
+limitedReader := io.LimitReader(f, maxSkillFileSize+1)
+	data, err := io.ReadAll(limitedReader)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if we hit the limit
+	if len(data) > maxSkillFileSize {
+		return nil, fmt.Errorf("file size exceeds limit of %d bytes", maxSkillFileSize)
+	}
+
+	return data, nil
 }
 
 // ParseMarkers parses all STACK_SPECIFIC marker blocks from a file.
@@ -98,8 +175,14 @@ func RenderBlock(section string, stackConfig StackConfig) (string, error) {
 
 // AugmentSkill augments a skill file with stack-specific content from the config.
 func AugmentSkill(filePath string, stackConfig StackConfig) error {
-	// Read the file
-	content, err := os.ReadFile(filePath)
+	// Validate the file path is safe
+	_, err := safePath(".", filePath)
+	if err != nil {
+		return fmt.Errorf("invalid file path: %w", err)
+	}
+
+	// Read the file with size limit
+	content, err := readFileWithLimit(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)
 	}
@@ -181,7 +264,13 @@ func extractBlock(content []byte, start, end int) string {
 
 // ValidateMarkers validates that all marker blocks in a file are well-formed.
 func ValidateMarkers(filePath string) error {
-	content, err := os.ReadFile(filePath)
+	// Validate the file path is safe
+	_, err := safePath(".", filePath)
+	if err != nil {
+		return fmt.Errorf("invalid file path: %w", err)
+	}
+
+	content, err := readFileWithLimit(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)
 	}
@@ -219,7 +308,13 @@ func ValidateMarkers(filePath string) error {
 
 // LoadStackConfig loads a stack configuration from a JSON file.
 func LoadStackConfig(configPath string) (StackConfig, error) {
-	data, err := os.ReadFile(configPath)
+	// Validate the config path is safe
+	_, err := safePath(".", configPath)
+	if err != nil {
+		return StackConfig{}, fmt.Errorf("invalid config path: %w", err)
+	}
+
+	data, err := readFileWithLimit(configPath)
 	if err != nil {
 		return StackConfig{}, fmt.Errorf("failed to read config file: %w", err)
 	}
@@ -265,8 +360,14 @@ func FindSkillFiles(skillsDir string) ([]string, error) {
 
 // DryRunAugment performs a dry-run augmentation and returns the diff.
 func DryRunAugment(filePath string, stackConfig StackConfig) (string, error) {
-	// Read the file
-	content, err := os.ReadFile(filePath)
+	// Validate the file path is safe
+	_, err := safePath(".", filePath)
+	if err != nil {
+		return "", fmt.Errorf("invalid file path: %w", err)
+	}
+
+	// Read the file with size limit
+	content, err := readFileWithLimit(filePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read file: %w", err)
 	}
