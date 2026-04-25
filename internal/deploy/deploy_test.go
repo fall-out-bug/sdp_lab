@@ -118,8 +118,8 @@ func TestDefaultGatesConfig(t *testing.T) {
 	if g.Staged {
 		t.Error("staged rollout should be off by default")
 	}
-	if g.CanaryPct != 10 {
-		t.Errorf("CanaryPct = %d, want 10", g.CanaryPct)
+	if g.CanaryReplicas != 1 {
+		t.Errorf("CanaryReplicas = %d, want 1", g.CanaryReplicas)
 	}
 	if g.CanaryService != "app" {
 		t.Errorf("CanaryService = %q, want %q", g.CanaryService, "app")
@@ -360,31 +360,36 @@ func TestWriteRollbackEvidence(t *testing.T) {
 	}
 }
 
-func TestStagedRollout_InvalidCanaryPct(t *testing.T) {
+func TestStagedRollout_InvalidCanaryReplicas(t *testing.T) {
 	dir := t.TempDir()
 	cfg := DefaultConfig(dir)
-	gates := &GatesConfig{CanaryPct: 0, CanaryService: "app"}
+	gates := &GatesConfig{CanaryReplicas: 0, CanaryService: "app"}
 
 	_, err := StagedRollout(context.Background(), cfg, gates, "test:latest")
 	if err == nil {
-		t.Error("expected error for invalid canary percentage")
-	}
-
-	gates.CanaryPct = 100
-	_, err = StagedRollout(context.Background(), cfg, gates, "test:latest")
-	if err == nil {
-		t.Error("expected error for 100% canary")
+		t.Error("expected error for zero canary replicas")
 	}
 }
 
 func TestStagedRollout_EmptyCanaryService(t *testing.T) {
 	dir := t.TempDir()
 	cfg := DefaultConfig(dir)
-	gates := &GatesConfig{CanaryPct: 10, CanaryService: ""}
+	gates := &GatesConfig{CanaryReplicas: 1, CanaryService: ""}
 
 	_, err := StagedRollout(context.Background(), cfg, gates, "test:latest")
 	if err == nil {
 		t.Error("expected error for empty canary service")
+	}
+}
+
+func TestStagedRollout_EmptyImageTag(t *testing.T) {
+	dir := t.TempDir()
+	cfg := DefaultConfig(dir)
+	gates := &GatesConfig{CanaryReplicas: 1, CanaryService: "app"}
+
+	_, err := StagedRollout(context.Background(), cfg, gates, "")
+	if err == nil {
+		t.Error("expected error for empty image tag")
 	}
 }
 

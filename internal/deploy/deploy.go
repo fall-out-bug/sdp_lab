@@ -28,7 +28,7 @@ type GatesConfig struct {
 	Evidence      bool          // Block if no evidence present (default: true)
 	SmokeTest     bool          // Block if smoke tests fail (default: true)
 	Staged        bool          // Enable staged (canary) rollout (default: false)
-	CanaryPct     int           // Canary traffic percentage (default: 10)
+	CanaryReplicas int          // Number of canary replicas (default: 1)
 	CanaryWait    time.Duration // How long to monitor canary before full rollout (default: 2m)
 	CanaryService string        // Docker Compose service name for canary (default: "app")
 }
@@ -36,13 +36,13 @@ type GatesConfig struct {
 // DefaultGatesConfig returns the default gate configuration (all hard gates on, no staged rollout).
 func DefaultGatesConfig() *GatesConfig {
 	return &GatesConfig{
-		SecretScan:    true,
-		Evidence:      true,
-		SmokeTest:     true,
-		Staged:        false,
-		CanaryPct:     10,
-		CanaryWait:    2 * time.Minute,
-		CanaryService: "app",
+		SecretScan:     true,
+		Evidence:       true,
+		SmokeTest:      true,
+		Staged:         false,
+		CanaryReplicas: 1,
+		CanaryWait:     2 * time.Minute,
+		CanaryService:  "app",
 	}
 }
 
@@ -216,11 +216,14 @@ func StagedRollout(ctx context.Context, cfg *Config, gates *GatesConfig, imageTa
 	if gates == nil {
 		gates = DefaultGatesConfig()
 	}
-	if gates.CanaryPct <= 0 || gates.CanaryPct >= 100 {
-		return nil, fmt.Errorf("canary percentage must be between 1 and 99, got %d", gates.CanaryPct)
+	if gates.CanaryReplicas < 1 {
+		return nil, fmt.Errorf("canary replicas must be >= 1, got %d", gates.CanaryReplicas)
 	}
 	if gates.CanaryService == "" {
 		return nil, fmt.Errorf("canary service name is required for staged rollout")
+	}
+	if imageTag == "" {
+		return nil, fmt.Errorf("image tag is required for staged rollout")
 	}
 
 	result := &Result{
@@ -238,11 +241,19 @@ func StagedRollout(ctx context.Context, cfg *Config, gates *GatesConfig, imageTa
 		return result, fmt.Errorf("canary tag: %w", err)
 	}
 
-	// Deploy canary with limited scale.
+	// Deploy canary with limited scale and explicit image override.
+	// Use environment variable to override the image for the canary service.
 	canaryProject := cfg.ProjectName + "-canary"
-	deployArgs := []string{"-f", cfg.ComposeProd, "-p", canaryProject, "up", "-d", "--scale", fmt.Sprintf("%s=%d", gates.CanaryService, gates.CanaryPct/100+1)}
+	deployArgs := []string{
+		"-f", cfg.ComposeProd,
+		"-p", canaryProject,
+		"up", "-d",
+		"--scale", fmt.Sprintf("%s=%d", gates.CanaryService, gates.CanaryReplicas),
+	}
 	deployCmd := dockerComposeCmd(ctx, deployArgs)
 	deployCmd.Dir = cfg.ProjectRoot
+	// Set env var so compose files can reference ${CANARY_IMAGE}.
+	deployCmd.Env = append(os.Environ(), fmt.Sprintf("CANARY_IMAGE=%s", canaryTag))
 	if output, err := deployCmd.CombinedOutput(); err != nil {
 		result.Error = fmt.Sprintf("canary deploy: %s: %s", err, string(output))
 		result.FinishedAt = time.Now().UTC().Format(time.RFC3339)

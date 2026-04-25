@@ -72,18 +72,15 @@ func runDeploy(args []string) {
 		fmt.Printf("Deploying to staging (commit: %s)...\n", commitHash)
 		result, err = deploy.Staging(ctx, cfg, commitHash)
 	case "prod":
+		if len(cleanArgs) < 1 || cleanArgs[0] == "" {
+			fmt.Fprintln(os.Stderr, "usage: sdp deploy prod <image_tag> [--staged] [--skip-gates]")
+			os.Exit(2)
+		}
+		imageTag := cleanArgs[0]
 		if staged {
-			imageTag := ""
-			if len(cleanArgs) > 0 {
-				imageTag = cleanArgs[0]
-			}
 			fmt.Printf("Staged rollout to production (image: %s)...\n", imageTag)
 			result, err = deploy.StagedRollout(ctx, cfg, gates, imageTag)
 		} else {
-			imageTag := ""
-			if len(cleanArgs) > 0 {
-				imageTag = cleanArgs[0]
-			}
 			fmt.Printf("Deploying to production (image: %s)...\n", imageTag)
 			result, err = deploy.Production(ctx, cfg, imageTag)
 		}
@@ -138,4 +135,3 @@ func min(a, b int) int {
 	}
 	return b
 }
-
