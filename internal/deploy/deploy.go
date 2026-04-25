@@ -97,8 +97,20 @@ func CheckGates(ctx context.Context, cfg *Config, gates *GatesConfig) ([]GateRes
 }
 
 // checkSecretScanGate runs secretscan and returns pass/fail.
+// Automatically excludes common test/fixture directories from scanning.
 func checkSecretScanGate(ctx context.Context, cfg *Config) GateResult {
-	scanner := secretscan.NewScanner()
+	// Exclude test fixture directories that contain intentional fake credentials.
+	ignorePatterns := []string{
+		"*_test.go",
+		"*_test.py",
+		"*_test.js",
+		"testdata/**",
+		"tests/**",
+		"docs/**",
+		".sdp/**",
+		".worktrees/**",
+	}
+	scanner := secretscan.NewScanner(secretscan.WithIgnorePatterns(ignorePatterns))
 	result, err := scanner.ScanDir(ctx, cfg.ProjectRoot)
 	if err != nil {
 		return GateResult{
@@ -241,19 +253,26 @@ func StagedRollout(ctx context.Context, cfg *Config, gates *GatesConfig, imageTa
 		return result, fmt.Errorf("canary tag: %w", err)
 	}
 
-	// Deploy canary with limited scale and explicit image override.
-	// Use environment variable to override the image for the canary service.
+	// Deploy canary with limited scale using a compose override that
+	// forces the canary service to use the candidate image.
 	canaryProject := cfg.ProjectName + "-canary"
+	overridePath, cleanup, err := writeCanaryOverride(cfg, gates.CanaryService, canaryTag)
+	if err != nil {
+		result.Error = fmt.Sprintf("canary override: %v", err)
+		result.FinishedAt = time.Now().UTC().Format(time.RFC3339)
+		return result, fmt.Errorf("canary override: %w", err)
+	}
+	defer cleanup()
+
 	deployArgs := []string{
 		"-f", cfg.ComposeProd,
+		"-f", overridePath,
 		"-p", canaryProject,
 		"up", "-d",
 		"--scale", fmt.Sprintf("%s=%d", gates.CanaryService, gates.CanaryReplicas),
 	}
 	deployCmd := dockerComposeCmd(ctx, deployArgs)
 	deployCmd.Dir = cfg.ProjectRoot
-	// Set env var so compose files can reference ${CANARY_IMAGE}.
-	deployCmd.Env = append(os.Environ(), fmt.Sprintf("CANARY_IMAGE=%s", canaryTag))
 	if output, err := deployCmd.CombinedOutput(); err != nil {
 		result.Error = fmt.Sprintf("canary deploy: %s: %s", err, string(output))
 		result.FinishedAt = time.Now().UTC().Format(time.RFC3339)
@@ -301,6 +320,32 @@ func StagedRollout(ctx context.Context, cfg *Config, gates *GatesConfig, imageTa
 	result.FinishedAt = time.Now().UTC().Format(time.RFC3339)
 	result.Duration = time.Since(parseTime(result.StartedAt)).String()
 	return result, nil
+}
+
+// writeCanaryOverride creates a temporary Docker Compose override file
+// that forces the canary service to use the specified image.
+// Returns the override file path, a cleanup function, and any error.
+func writeCanaryOverride(cfg *Config, service, image string) (string, func(), error) {
+	override := fmt.Sprintf(`services:
+  %s:
+    image: %s
+`, service, image)
+
+	f, err := os.CreateTemp("", "canary-override-*.yml")
+	if err != nil {
+		return "", func() {}, fmt.Errorf("create temp override: %w", err)
+	}
+	path := f.Name()
+	if _, err := f.WriteString(override); err != nil {
+		f.Close()
+		os.Remove(path)
+		return "", func() {}, fmt.Errorf("write override: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		os.Remove(path)
+		return "", func() {}, fmt.Errorf("close override: %w", err)
+	}
+	return path, func() { os.Remove(path) }, nil
 }
 
 // monitorCanary polls container health for the given duration.

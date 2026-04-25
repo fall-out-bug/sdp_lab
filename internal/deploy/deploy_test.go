@@ -425,6 +425,35 @@ func TestCheckEvidenceGate_PerRunEvidence(t *testing.T) {
 	}
 }
 
+func TestWriteCanaryOverride(t *testing.T) {
+	dir := t.TempDir()
+	cfg := DefaultConfig(dir)
+
+	path, cleanup, err := writeCanaryOverride(cfg, "web", "myapp:canary")
+	if err != nil {
+		t.Fatalf("writeCanaryOverride: %v", err)
+	}
+	defer cleanup()
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read override: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "web:") {
+		t.Error("override should contain service name")
+	}
+	if !strings.Contains(content, "myapp:canary") {
+		t.Error("override should contain image tag")
+	}
+
+	// Verify cleanup removes the file.
+	cleanup()
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Error("cleanup should remove the override file")
+	}
+}
+
 func TestCheckEvidenceGate_PerFeatureEvidence(t *testing.T) {
 	dir := t.TempDir()
 	cfg := DefaultConfig(dir)
@@ -454,6 +483,22 @@ func TestCheckEvidenceGate_PerFeatureEvidence(t *testing.T) {
 	}
 	if !found {
 		t.Error("evidence gate should pass with per-feature evidence file")
+	}
+}
+
+func TestCheckSecretScanGate_IgnoresTestFiles(t *testing.T) {
+	dir := t.TempDir()
+	cfg := DefaultConfig(dir)
+
+	// Create a Go test file with a fake secret (should be ignored).
+	testFile := filepath.Join(dir, "foo_test.go")
+	if err := os.WriteFile(testFile, []byte(`aws_secret_access_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	gr := checkSecretScanGate(context.Background(), cfg)
+	if !gr.Passed {
+		t.Errorf("secret_scan should pass when only test files have fake secrets: %s", gr.Message)
 	}
 }
 
