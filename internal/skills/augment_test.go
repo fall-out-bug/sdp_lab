@@ -749,12 +749,45 @@ func TestSafePath(t *testing.T) {
 				return
 			}
 
-			// ALL paths (relative and absolute) must stay within baseDir
+			// ALL paths (relative and absolute) must stay within baseDir.
+			// EvalSymlinks on expected base to match macOS /var -> /private/var.
 			absBase, _ := filepath.Abs(baseDir)
+			absBase, _ = filepath.EvalSymlinks(absBase)
 			if !strings.HasPrefix(got, absBase+string(os.PathSeparator)) && got != absBase {
 				t.Errorf("safePath() result %q is not under base directory %q", got, absBase)
 			}
 		})
+	}
+}
+
+func TestSafePath_SymlinkEscape(t *testing.T) {
+	// Create a temp base directory with a symlink pointing outside
+	tmpDir := t.TempDir()
+	subDir := filepath.Join(tmpDir, "subdir")
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	// Create a file outside the base
+	outsideDir := t.TempDir()
+	outsideFile := filepath.Join(outsideDir, "secret.txt")
+	if err := os.WriteFile(outsideFile, []byte("secret"), 0644); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	// Create symlink inside base pointing to outside
+	linkPath := filepath.Join(subDir, "evil.md")
+	if err := os.Symlink(outsideFile, linkPath); err != nil {
+		t.Fatalf("setup symlink: %v", err)
+	}
+
+	// The relative path to the symlink should be rejected
+	_, err := safePath(tmpDir, "subdir/evil.md")
+	if err == nil {
+		t.Error("safePath() expected error for symlink escaping base, got nil")
+	}
+	if err != nil && !strings.Contains(err.Error(), "escapes base directory") {
+		t.Errorf("safePath() error = %v, want error containing 'escapes base directory'", err)
 	}
 }
 

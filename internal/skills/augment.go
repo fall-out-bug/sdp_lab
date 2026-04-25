@@ -67,13 +67,18 @@ func NewAugmenter(projectRoot string) (*Augmenter, error) {
 }
 
 // safePath validates and sanitizes a file path to prevent path traversal attacks.
-// It resolves the path to an absolute path and cleans any ".." or "." components.
-// It ALWAYS validates that the resolved path stays within baseDir, regardless of
-// whether the input is absolute or relative.
+// It resolves the path to an absolute path, evaluates symlinks, and cleans any
+// ".." or "." components. It ALWAYS validates that the resolved path stays within
+// baseDir, regardless of whether the input is absolute or relative.
 func safePath(baseDir, untrusted string) (string, error) {
 	absBase, err := filepath.Abs(filepath.Clean(baseDir))
 	if err != nil {
 		return "", fmt.Errorf("resolve base: %w", err)
+	}
+	// Resolve symlinks in base directory too
+	absBase, err = filepath.EvalSymlinks(absBase)
+	if err != nil {
+		return "", fmt.Errorf("eval base symlinks: %w", err)
 	}
 
 	var resolved string
@@ -86,6 +91,30 @@ func safePath(baseDir, untrusted string) (string, error) {
 	resolved, err = filepath.Abs(resolved)
 	if err != nil {
 		return "", fmt.Errorf("resolve path: %w", err)
+	}
+	// Resolve symlinks before containment check to prevent symlink-based escape.
+	// If the file doesn't exist yet, walk up parents to check for symlink escape.
+	evaluated, evalErr := filepath.EvalSymlinks(resolved)
+	if evalErr == nil {
+		resolved = evaluated
+	} else if !os.IsNotExist(evalErr) {
+		return "", fmt.Errorf("eval symlinks: %w", evalErr)
+	} else {
+		// File doesn't exist — walk parents to find and eval symlinks
+		parent := filepath.Dir(resolved)
+		for parent != "/" && parent != "." {
+			parentEval, pErr := filepath.EvalSymlinks(parent)
+			if pErr == nil {
+				if !strings.HasPrefix(parentEval, absBase+string(os.PathSeparator)) && parentEval != absBase {
+					return "", fmt.Errorf("path escapes base directory via symlink: %s", untrusted)
+				}
+				break
+			}
+			if !os.IsNotExist(pErr) {
+				return "", fmt.Errorf("eval parent symlinks: %w", pErr)
+			}
+			parent = filepath.Dir(parent)
+		}
 	}
 
 	// ALWAYS check containment, even for absolute paths
