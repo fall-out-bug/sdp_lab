@@ -102,10 +102,14 @@ Phases not listed in an override inherit the skill defaults. Unknown phase names
 PHASE 0: BOOTSTRAP
   1. Pick feature via `bd ready -n 50` (highest-priority epic/feature; NOT [bug], NOT leaf task with "← F" in title)
   2. Identify workstreams: cross-reference `docs/workstreams/backlog/${FEATURE}-*.md` with `bd list -n 200 | grep "^${FEATURE}-"`
-  3. Acquire lock: `.sdp/locks/deliver-${FEATURE}.lock` (flock, PID+host+ts; stale>2h+dead-pid requires --force)
-  4. Claim atomically: `bd update ${EPIC_ID} --claim`
-  5. Create worktree: `git worktree add .worktrees/${FEATURE}`
-  6. Write initial `.sdp/checkpoints/${FEATURE}.json` (schema v2)
+  3. **Acquire delivery slot (HARD GATE):** `scripts/deliver-acquire.sh ${FEATURE} ${EPIC_ID}`
+       - exit 0 → claim + lock acquired, proceed
+       - exit 2 → foreign claim (another operator owns this epic) → exit Phase 0 cleanly
+       - exit 3 → lock held by live PID on this host (parallel shell of same user) → exit Phase 0 cleanly
+       - exit 1 → bd error → escalate
+       - **No state-mutating step (worktree create, checkpoint write, @build dispatch) may run before this returns 0.**
+  4. Create worktree: `git worktree add .worktrees/${FEATURE}`
+  5. Write initial `.sdp/checkpoints/${FEATURE}.json` (schema v2)
 
 PHASE 0.5: PREFLIGHT
   # Fail-fast before any build work
@@ -114,6 +118,7 @@ PHASE 0.5: PREFLIGHT
   - ws_count == bd_count            # workstream files match bead children
   - ws_count > 0                    # feature has at least one workstream
   - bd show ${EPIC_ID} assignee == ${USER}   # epic claimed to this operator
+  - lock file pid == $$              # we still hold the delivery slot (no hijack)
   - disk free > 2GB                 # room for worktree + build artifacts
   On any failure: emit actionable error, release lock, unclaim epic, exit 2.
 
