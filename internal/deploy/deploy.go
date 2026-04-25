@@ -119,27 +119,36 @@ func checkSecretScanGate(ctx context.Context, cfg *Config) GateResult {
 			Message: fmt.Sprintf("scan error: %v", err),
 		}
 	}
-	if result.Status == "findings" && len(result.Findings) > 0 {
-		critical, high, med := 0, 0, 0
-		for _, f := range result.Findings {
-			switch f.Severity {
-			case "critical":
-				critical++
-			case "high":
-				high++
-			default:
-				med++
+	// Fail closed: block on findings OR partial/incomplete scans.
+	if result.Status != "clean" {
+		if len(result.Findings) > 0 {
+			critical, high, med := 0, 0, 0
+			for _, f := range result.Findings {
+				switch f.Severity {
+				case "critical":
+					critical++
+				case "high":
+					high++
+				default:
+					med++
+				}
+			}
+			return GateResult{
+				Gate:    "secret_scan",
+				Passed:  false,
+				Message: fmt.Sprintf("%d findings (%d critical, %d high, %d medium)", len(result.Findings), critical, high, med),
 			}
 		}
+		// No findings but scan was incomplete (partial).
 		return GateResult{
 			Gate:    "secret_scan",
 			Passed:  false,
-			Message: fmt.Sprintf("%d findings (%d critical, %d high, %d medium)", len(result.Findings), critical, high, med),
+			Message: fmt.Sprintf("scan incomplete: %d files scanned, %d skipped", result.FilesScanned, result.FilesSkipped),
 		}
 	}
 	return GateResult{
-		Gate:   "secret_scan",
-		Passed: true,
+		Gate:    "secret_scan",
+		Passed:  true,
 		Message: fmt.Sprintf("clean (%d files scanned)", result.FilesScanned),
 	}
 }
@@ -165,8 +174,7 @@ func checkEvidenceGate(cfg *Config) GateResult {
 	evidenceDir := filepath.Join(sdpDir, "evidence")
 	matches, err := filepath.Glob(filepath.Join(evidenceDir, "*", "evidence.json"))
 	if err == nil && len(matches) > 0 {
-		// Use the most recently modified evidence file.
-		latest := matches[len(matches)-1]
+		latest := newestFile(matches)
 		if data, err := os.ReadFile(latest); err == nil && validateEvidenceJSON(data) {
 			return GateResult{Gate: "evidence", Passed: true, Message: fmt.Sprintf("evidence found: %s", latest)}
 		}
@@ -175,7 +183,7 @@ func checkEvidenceGate(cfg *Config) GateResult {
 	// Check per-feature evidence files.
 	featureMatches, err := filepath.Glob(filepath.Join(evidenceDir, "*.json"))
 	if err == nil && len(featureMatches) > 0 {
-		latest := featureMatches[len(featureMatches)-1]
+		latest := newestFile(featureMatches)
 		if data, err := os.ReadFile(latest); err == nil && validateEvidenceJSON(data) {
 			return GateResult{Gate: "evidence", Passed: true, Message: fmt.Sprintf("evidence found: %s", latest)}
 		}
@@ -192,6 +200,26 @@ func checkEvidenceGate(cfg *Config) GateResult {
 func validateEvidenceJSON(data []byte) bool {
 	var ev map[string]any
 	return json.Unmarshal(data, &ev) == nil
+}
+
+// newestFile returns the path with the most recent modification time.
+func newestFile(paths []string) string {
+	var best string
+	var bestTime time.Time
+	for _, p := range paths {
+		info, err := os.Stat(p)
+		if err != nil {
+			continue
+		}
+		if info.ModTime().After(bestTime) {
+			bestTime = info.ModTime()
+			best = p
+		}
+	}
+	if best == "" && len(paths) > 0 {
+		return paths[0]
+	}
+	return best
 }
 
 // checkSmokeTestGate runs the smoke test script.
@@ -313,7 +341,8 @@ func StagedRollout(ctx context.Context, cfg *Config, gates *GatesConfig, imageTa
 	// Cleanup canary.
 	rollbackCanary(ctx, cfg)
 
-	result.Health = monitorResult
+	// Run production health check on the promoted stack (not canary).
+	result.Health = runHealthCheck(ctx, cfg, "prod", 30)
 	result.SmokeTest = runSmokeTest(ctx, cfg, "prod")
 	containers, _ := listContainers(cfg, "prod")
 	result.Containers = containers
