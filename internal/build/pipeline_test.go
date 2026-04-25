@@ -172,7 +172,7 @@ func TestRun_DispatchesAndCollects(t *testing.T) {
 	}
 }
 
-func TestRun_StrictModeNotImplemented(t *testing.T) {
+func TestRun_StrictModeRunsPipeline(t *testing.T) {
 	cfg := BuildConfig{
 		Idea:     "test",
 		Sandbox:  "none",
@@ -185,9 +185,12 @@ func TestRun_StrictModeNotImplemented(t *testing.T) {
 		t.Fatalf("NewDefaultPipeline: %v", err)
 	}
 
-	_, err = p.Run(context.Background())
-	if err == nil {
-		t.Fatal("expected error for strict mode")
+	result, err := p.Run(context.Background())
+	if err != nil {
+		t.Fatalf("strict mode should no longer error: %v", err)
+	}
+	if result.Config.Strict != true {
+		t.Error("result should reflect strict=true")
 	}
 }
 

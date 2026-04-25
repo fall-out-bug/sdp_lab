@@ -14,12 +14,13 @@ import (
 
 func runPhase(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: sdp phase <plan|review|eval> [flags]")
+		fmt.Fprintln(os.Stderr, "usage: sdp phase <plan|review|eval|from-run> [flags]")
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "Phase commands:")
 		fmt.Fprintln(os.Stderr, "  sdp phase plan [--feature-id ID] [--evidence-path PATH] [--strict]")
 		fmt.Fprintln(os.Stderr, "  sdp phase review [--feature-id ID] [--evidence-path PATH] [--strict]")
 		fmt.Fprintln(os.Stderr, "  sdp phase eval [--feature-id ID] [--evidence-path PATH] [--strict]")
+		fmt.Fprintln(os.Stderr, "  sdp phase from-run <run_id> [--feature-id ID]  (promote vibecode run to Phase FSM)")
 		os.Exit(2)
 	}
 
@@ -30,6 +31,8 @@ func runPhase(args []string) {
 		runPhaseCommand("review", args[1:], gate.GateTypeReview, "Approve review delta?", []string{"approve", "reject", "request-changes"})
 	case "eval":
 		runPhaseCommand("eval", args[1:], gate.GateTypeEval, "Approve eval results?", []string{"approve", "reject", "retry"})
+	case "from-run":
+		runPhaseFromRun(args[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown phase: %s\n", args[0])
 		os.Exit(2)
