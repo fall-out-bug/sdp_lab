@@ -252,21 +252,6 @@ commands:
     cli:
     mode: llm_only
     description: Document-backed strategy traceability audit
-  delivery-loop:
-    file: ".agents/skills/delivery-loop.md"
-    cli:
-    mode: llm_only
-    llm_subagents:
-      - implementer
-      - quality-reviewer
-    description: Autonomous delivery cycle — bootstrap → preflight → build/review/fix loop → PR → codex → closeout
-    phase: execution
-  deliver:
-    file: "prompts/commands/deliver.md"
-    cli:
-    mode: llm_only
-    description: Thin alias for @delivery-loop with --resume / --abort flags
-    phase: execution
 patterns:
   tdd: patterns/tdd.md
   git-safety: patterns/git-safety.md
