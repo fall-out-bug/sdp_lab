@@ -83,6 +83,8 @@ func main() {
 		os.Exit(runGenerateAdapters(os.Args[2:]))
 	case "init":
 		os.Exit(runInit(os.Args[2:]))
+	case "skills":
+		runSkills(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -169,4 +171,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Coverage commands:")
 	fmt.Fprintln(os.Stderr, "  sdp coverage-scan [--path DIR] [--threshold PCT] [--format text|json] [--skip-test] [--package PATTERN] [--coverprofile FILE]")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Skills commands:")
+	fmt.Fprintln(os.Stderr, "  sdp skills augment --stack <config.json> [--skills-dir DIR] [--dry-run] [--validate] [-v]")
 }

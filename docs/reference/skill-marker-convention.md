@@ -286,6 +286,111 @@ done
 4. **Nested sections**: Support nested markers for complex scenarios
 5. **Marker inheritance**: Allow base templates to be extended by stack-specific templates
 
+## Stack Configuration Schema
+
+The augmenter (F131-02) uses stack configuration files to define stack-specific content. These JSON files are stored in `configs/stack-configs/`.
+
+### Stack Config Schema
+
+```json
+{
+  "stack": "go",                    // Required: Stack identifier (go, python, typescript, etc.)
+  "version": "1.0",                 // Required: Config version
+  "display_name": "Go",             // Optional: Human-readable name
+  "commands": {                     // Optional: Map of command names to shell commands
+    "test": "go test ./...",
+    "build": "go build ./...",
+    "lint": "golangci-lint run",
+    "coverage": "go test -cover ./..."
+  },
+  "quality_gates": [                // Optional: List of quality gate commands
+    "go vet ./...",
+    "go test ./...",
+    "golangci-lint run"
+  ],
+  "file_patterns": [                // Optional: File patterns for this stack
+    "*.go",
+    "go.mod",
+    "go.sum"
+  ],
+  "sections": {                     // Required: Map of section configs
+    "test": {                       // Section name (test, build, lint, etc.)
+      "heading": "### Go Testing",  // Markdown heading for this section
+      "content": "Run all tests:\n```bash\ngo test ./... -v\n```"  // Full markdown content
+    },
+    "build": {
+      "heading": "### Go Building",
+      "content": "Build all:\n```bash\ngo build ./...\n```"
+    }
+  }
+}
+```
+
+### Section Types
+
+| Section | Description | Example Content |
+|---------|-------------|-----------------|
+| **test** | Test execution commands | `go test`, `pytest`, `npm test` |
+| **build** | Build compilation commands | `go build`, `npm run build`, `cargo build` |
+| **lint** | Linting/static analysis | `go vet`, `flake8`, `eslint` |
+| **debug** | Debugging commands | `dlv`, `pdb`, `node --inspect` |
+| **quality-gate** | Quality gate commands | Combined test+build+lint checks |
+| **coverage** | Coverage analysis | `go tool cover`, `pytest-cov`, `nyc` |
+
+### Available Stack Configs
+
+The following stack configurations are available in `configs/stack-configs/`:
+
+- **go-default.json** — Go stack (go test, go build, go vet, golangci-lint)
+- **python-default.json** — Python stack (pytest, pip, flake8, mypy)
+- **typescript-default.json** — TypeScript stack (npm test, tsc, eslint, prettier)
+
+### Using the Augmenter
+
+The augmenter CLI is invoked via `sdp skills augment`:
+
+```bash
+# Augment all skills with Go-specific content
+sdp skills augment --stack configs/stack-configs/go-default.json
+
+# Augment with Python stack, custom skills directory
+sdp skills augment --stack configs/stack-configs/python-default.json --skills-dir .agents/skills
+
+# Dry-run: show what would change without writing
+sdp skills augment --stack configs/stack-configs/go-default.json --dry-run
+
+# Validate markers only (no augmentation)
+sdp skills augment --stack configs/stack-configs/go-default.json --validate
+
+# Verbose output
+sdp skills augment --stack configs/stack-configs/go-default.json -v
+```
+
+### Creating Custom Stack Configs
+
+To add a new stack configuration:
+
+1. Create a new JSON file in `configs/stack-configs/` (e.g., `rust-default.json`)
+2. Follow the schema above, defining all required sections
+3. Test the config: `sdp skills augment --stack configs/stack-configs/rust-default.json --dry-run`
+4. Document any new sections in the marker convention
+
+Example minimal config:
+
+```json
+{
+  "stack": "rust",
+  "version": "1.0",
+  "display_name": "Rust",
+  "sections": {
+    "test": {
+      "heading": "### Rust Testing",
+      "content": "Run all tests:\n```bash\ncargo test\n```"
+    }
+  }
+}
+```
+
 ## References
 
 - [F131-01 Skills Audit](./skill-stack-audit-f131.md) - Complete classification of 43 skills
