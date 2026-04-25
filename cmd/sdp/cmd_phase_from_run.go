@@ -18,15 +18,22 @@ func runPhaseFromRun(args []string) {
 	fs.Parse(args)
 
 	if fs.NArg() < 1 {
-		fmt.Fprintln(os.Stderr, "usage: sdp phase from-run <run_id> [--feature-id ID] [--evidence-dir DIR] [--phase-dir DIR]")
+		fmt.Fprintln(os.Stderr, "usage: sdp phase from-run <run_id> --feature-id ID [--evidence-dir DIR] [--phase-dir DIR]")
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "Promotes a completed vibecode run to strict Phase FSM.")
 		fmt.Fprintln(os.Stderr, "Reads .sdp/evidence/<run_id>/evidence.json and generates")
 		fmt.Fprintln(os.Stderr, "plan/review/eval delta artifacts + gates with pre-populated evidence.")
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "Required: --feature-id ID (e.g., F135-05)")
 		os.Exit(2)
 	}
 
 	runID := fs.Arg(0)
+
+	if *featureID == "" {
+		fmt.Fprintln(os.Stderr, "error: --feature-id is required (e.g., --feature-id F135-05)")
+		os.Exit(2)
+	}
 
 	validateFormat(*format)
 

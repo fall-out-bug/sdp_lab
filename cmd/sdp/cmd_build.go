@@ -16,7 +16,7 @@ import (
 
 func runBuild(args []string) {
 	fs := flag.NewFlagSet("build", flag.ExitOnError)
-	strict := fs.Bool("strict", false, "route through Phase FSM (plan gate + review gate + eval gate)")
+	strict := fs.Bool("strict", false, "run in strict mode (logs intent; use --promote-to-strict for full Phase FSM bridge)")
 	promoteToStrict := fs.Bool("promote-to-strict", false, "run vibecode pipeline, then promote to strict Phase FSM (creates deltas + gates from run evidence)")
 	local := fs.Bool("local", false, "prefer Ollama/local models via dispatch")
 	sandbox := fs.String("sandbox", "none", "sandbox type: docker|none")
