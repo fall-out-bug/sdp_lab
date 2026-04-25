@@ -5,6 +5,7 @@
 !.sdp/agent-constraints.yaml
 !.sdp/metrics/
 !.sdp/metrics/coverage.txt
+!.sdp/generated/
 
 # opencode-mem storage
 .sdp/mem/
