@@ -1,0 +1,35 @@
+name: SDP Doctor (drift gate)
+
+# F141-04: Verify that adapter files in .sdp/generated/ are in sync with
+# sdp.manifest.yaml on every PR and push to main.  Orphan files are reported
+# as warnings (not errors) in this first iteration — use --strict once sweep.md
+# and similar hand-authored files are either removed or added to the manifest.
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main, feature/*]
+  workflow_dispatch: {}
+
+jobs:
+  doctor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+
+      - name: Build sdp binary
+        run: go build -o sdp ./cmd/sdp
+
+      - name: Validate manifest
+        run: ./sdp manifest validate
+
+      - name: Doctor — adapter drift gate
+        run: ./sdp doctor adapters
+        # Exit 1 when .sdp/generated/ is out of sync with sdp.manifest.yaml.
+        # Orphan files emit warnings only (no --strict) in this first iteration.

@@ -1,1 +1,1 @@
-usage: sdp doctor control
+usage: sdp doctor <control|adapters|all>

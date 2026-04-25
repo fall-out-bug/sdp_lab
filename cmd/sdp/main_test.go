@@ -83,7 +83,7 @@ func TestDoctorControlUsage(t *testing.T) {
 		t.Fatalf("expected error exit, got nil")
 	}
 	output := out.String()
-	if !strings.Contains(output, "usage: sdp doctor control") {
+	if !strings.Contains(output, "usage: sdp doctor") {
 		t.Fatalf("expected doctor usage in output, got: %s", output)
 	}
 }
