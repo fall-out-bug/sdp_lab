@@ -11,11 +11,13 @@ import (
 	"github.com/google/uuid"
 
 	build "sdp_dev/internal/build"
+	"sdp_dev/internal/promote"
 )
 
 func runBuild(args []string) {
 	fs := flag.NewFlagSet("build", flag.ExitOnError)
 	strict := fs.Bool("strict", false, "route through Phase FSM (plan gate + review gate + eval gate)")
+	promoteToStrict := fs.Bool("promote-to-strict", false, "run vibecode pipeline, then promote to strict Phase FSM (creates deltas + gates from run evidence)")
 	local := fs.Bool("local", false, "prefer Ollama/local models via dispatch")
 	sandbox := fs.String("sandbox", "none", "sandbox type: docker|none")
 	dryRun := fs.Bool("dry-run", false, "show plan without executing")
@@ -37,7 +39,7 @@ func runBuild(args []string) {
 
 	// Idea string is required.
 	if fs.NArg() < 1 {
-		fmt.Fprintln(os.Stderr, "usage: sdp build \"<idea>\" [--strict] [--local] [--sandbox=docker|none] [--dry-run] [--format json|text] [--output DIR] [--timeout DURATION]")
+		fmt.Fprintln(os.Stderr, "usage: sdp build \"<idea>\" [--strict] [--promote-to-strict] [--local] [--sandbox=docker|none] [--dry-run] [--format json|text] [--output DIR] [--timeout DURATION]")
 		os.Exit(2)
 	}
 
@@ -160,6 +162,23 @@ func runBuild(args []string) {
 
 	if result.Status != "success" {
 		os.Exit(1)
+	}
+
+	// --promote-to-strict: after successful vibecode run, promote to Phase FSM.
+	if *promoteToStrict {
+		logf("promoting run %s to strict Phase FSM...\n", runID[:8])
+		promoteResult, err := promote.PromoteFromRun(promote.PromoteOptions{
+			RunID:       runID,
+			FeatureID:   fmt.Sprintf("promoted-%s", runID[:8]),
+			EvidenceDir: evidenceDir,
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: promotion failed: %v\n", err)
+			os.Exit(1)
+		}
+		logf("  deltas: %d, gates: %d\n", len(promoteResult.Deltas), len(promoteResult.Gates))
+		logf("  phase dir: %s\n", promoteResult.PhaseDir)
+		logf("  gates are AWAITING human approval\n")
 	}
 }
 
