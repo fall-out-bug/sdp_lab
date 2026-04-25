@@ -1,0 +1,282 @@
+// Package adapters generates per-harness adapter files from an SDP manifest.
+// Output is a map of relative path → file contents; the caller decides where
+// to write them (typically .sdp/generated/).
+package adapters
+
+import (
+	"bytes"
+	"os"
+	"path/filepath"
+	"sort"
+	"text/template"
+
+	"sdp_dev/internal/manifest"
+)
+
+var (
+	tmplClaudeCommand = mustParse("claude-command", "templates/claude-code/command.tmpl")
+	tmplClaudeAgent   = mustParse("claude-agent", "templates/claude-code/agent.tmpl")
+	tmplOpenCodeAgent = mustParse("opencode-agent", "templates/opencode/agent.tmpl")
+	tmplOpenCodeSkill = mustParse("opencode-skill", "templates/opencode/skill.tmpl")
+	tmplCodexSkill    = mustParse("codex-skill", "templates/codex/skill.tmpl")
+	tmplCursorCommand = mustParse("cursor-command", "templates/cursor/command.tmpl")
+)
+
+// renderItem is the template data type passed to all templates.
+// Body holds the file contents referenced by Path/SystemPromptPath, or ""
+// when path is empty or the file cannot be read (non-fatal).
+type renderItem struct {
+	Name    string
+	Summary string
+	Role    string   // agents only
+	Type    string   // commands only
+	Path    string   // source path (relative to repo root)
+	Body    string   // contents of the file at Path, "" if unavailable
+}
+
+// readBody reads the file at filepath.Join(repoRoot, path) and returns its
+// contents as a string.  If repoRoot is empty, path is empty, or the file
+// cannot be read, it returns "" without error.
+func readBody(repoRoot, path string) string {
+	if repoRoot == "" || path == "" {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(repoRoot, path))
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+// Generate renders adapter files for all harnesses declared in the manifest.
+// repoRoot is used to resolve relative paths declared in the manifest so that
+// file bodies can be embedded in the generated output.  Pass "" to skip body
+// embedding (useful in tests that don't have filesystem fixtures).
+// Returns a deterministic map of relative output path → file contents.
+// Relative paths are anchored at the repo root (e.g. ".sdp/generated/.claude/commands/build.md").
+func Generate(m *manifest.Manifest, repoRoot string) (map[string][]byte, error) {
+	out := make(map[string][]byte)
+
+	allHarnesses := m.Harnesses
+	if len(allHarnesses) == 0 {
+		allHarnesses = []manifest.Harness{
+			manifest.HarnessClaudeCode,
+			manifest.HarnessOpenCode,
+			manifest.HarnessCodex,
+			manifest.HarnessCursor,
+		}
+	}
+	harnessEnabled := make(map[manifest.Harness]bool, len(allHarnesses))
+	for _, h := range allHarnesses {
+		harnessEnabled[h] = true
+	}
+
+	if err := generateClaudeCode(m, harnessEnabled, repoRoot, out); err != nil {
+		return nil, err
+	}
+	if err := generateOpenCode(m, harnessEnabled, repoRoot, out); err != nil {
+		return nil, err
+	}
+	if err := generateCodex(m, harnessEnabled, repoRoot, out); err != nil {
+		return nil, err
+	}
+	if err := generateCursor(m, harnessEnabled, repoRoot, out); err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+// itemHarnesses returns the effective harness set for an item: if the item's
+// own Harnesses list is empty, it inherits all harnesses enabled in the manifest.
+func itemHarnesses(declared []manifest.Harness, manifestEnabled map[manifest.Harness]bool) map[manifest.Harness]bool {
+	if len(declared) == 0 {
+		// empty list = "all manifest harnesses"
+		return manifestEnabled
+	}
+	out := make(map[manifest.Harness]bool, len(declared))
+	for _, h := range declared {
+		if manifestEnabled[h] {
+			out[h] = true
+		}
+	}
+	return out
+}
+
+func render(t *template.Template, data any) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := t.Execute(&buf, data); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// generateClaudeCode emits .claude/commands/<name>.md and .claude/agents/<name>.md
+func generateClaudeCode(m *manifest.Manifest, enabled map[manifest.Harness]bool, repoRoot string, out map[string][]byte) error {
+	if !enabled[manifest.HarnessClaudeCode] {
+		return nil
+	}
+
+	// Sort commands for determinism
+	cmds := make([]manifest.Command, len(m.Commands))
+	copy(cmds, m.Commands)
+	sort.Slice(cmds, func(i, j int) bool { return cmds[i].Name < cmds[j].Name })
+
+	for _, c := range cmds {
+		ih := itemHarnesses(c.Harnesses, enabled)
+		if !ih[manifest.HarnessClaudeCode] {
+			continue
+		}
+		item := renderItem{
+			Name:    c.Name,
+			Summary: c.Summary,
+			Type:    c.Type,
+			Path:    c.Path,
+			Body:    readBody(repoRoot, c.Path),
+		}
+		data, err := render(tmplClaudeCommand, item)
+		if err != nil {
+			return err
+		}
+		out[".claude/commands/"+c.Name+".md"] = data
+	}
+
+	// Sort agents for determinism
+	agents := make([]manifest.Agent, len(m.Agents))
+	copy(agents, m.Agents)
+	sort.Slice(agents, func(i, j int) bool { return agents[i].Name < agents[j].Name })
+
+	for _, a := range agents {
+		ih := itemHarnesses(a.Harnesses, enabled)
+		if !ih[manifest.HarnessClaudeCode] {
+			continue
+		}
+		item := renderItem{
+			Name:    a.Name,
+			Summary: a.Summary,
+			Role:    a.Role,
+			Path:    a.SystemPromptPath,
+			Body:    readBody(repoRoot, a.SystemPromptPath),
+		}
+		data, err := render(tmplClaudeAgent, item)
+		if err != nil {
+			return err
+		}
+		out[".claude/agents/"+a.Name+".md"] = data
+	}
+	return nil
+}
+
+// generateOpenCode emits .opencode/agent/<name>.json and .opencode/skill/<name>.md
+func generateOpenCode(m *manifest.Manifest, enabled map[manifest.Harness]bool, repoRoot string, out map[string][]byte) error {
+	if !enabled[manifest.HarnessOpenCode] {
+		return nil
+	}
+
+	agents := make([]manifest.Agent, len(m.Agents))
+	copy(agents, m.Agents)
+	sort.Slice(agents, func(i, j int) bool { return agents[i].Name < agents[j].Name })
+
+	for _, a := range agents {
+		ih := itemHarnesses(a.Harnesses, enabled)
+		if !ih[manifest.HarnessOpenCode] {
+			continue
+		}
+		item := renderItem{
+			Name:    a.Name,
+			Summary: a.Summary,
+			Role:    a.Role,
+			Path:    a.SystemPromptPath,
+			// Body intentionally omitted for OpenCode JSON: body goes in separate .md per design
+		}
+		data, err := render(tmplOpenCodeAgent, item)
+		if err != nil {
+			return err
+		}
+		out[".opencode/agent/"+a.Name+".json"] = data
+	}
+
+	skills := make([]manifest.Skill, len(m.Skills))
+	copy(skills, m.Skills)
+	sort.Slice(skills, func(i, j int) bool { return skills[i].Name < skills[j].Name })
+
+	for _, s := range skills {
+		ih := itemHarnesses(s.Harnesses, enabled)
+		if !ih[manifest.HarnessOpenCode] {
+			continue
+		}
+		item := renderItem{
+			Name:    s.Name,
+			Summary: s.Summary,
+			Path:    s.Path,
+			Body:    readBody(repoRoot, s.Path),
+		}
+		data, err := render(tmplOpenCodeSkill, item)
+		if err != nil {
+			return err
+		}
+		out[".opencode/skill/"+s.Name+".md"] = data
+	}
+	return nil
+}
+
+// generateCodex emits .codex/skills/<name>.md
+func generateCodex(m *manifest.Manifest, enabled map[manifest.Harness]bool, repoRoot string, out map[string][]byte) error {
+	if !enabled[manifest.HarnessCodex] {
+		return nil
+	}
+
+	skills := make([]manifest.Skill, len(m.Skills))
+	copy(skills, m.Skills)
+	sort.Slice(skills, func(i, j int) bool { return skills[i].Name < skills[j].Name })
+
+	for _, s := range skills {
+		ih := itemHarnesses(s.Harnesses, enabled)
+		if !ih[manifest.HarnessCodex] {
+			continue
+		}
+		item := renderItem{
+			Name:    s.Name,
+			Summary: s.Summary,
+			Path:    s.Path,
+			Body:    readBody(repoRoot, s.Path),
+		}
+		data, err := render(tmplCodexSkill, item)
+		if err != nil {
+			return err
+		}
+		out[".codex/skills/"+s.Name+".md"] = data
+	}
+	return nil
+}
+
+// generateCursor emits .cursor/rules/<name>.mdc
+func generateCursor(m *manifest.Manifest, enabled map[manifest.Harness]bool, repoRoot string, out map[string][]byte) error {
+	if !enabled[manifest.HarnessCursor] {
+		return nil
+	}
+
+	cmds := make([]manifest.Command, len(m.Commands))
+	copy(cmds, m.Commands)
+	sort.Slice(cmds, func(i, j int) bool { return cmds[i].Name < cmds[j].Name })
+
+	for _, c := range cmds {
+		ih := itemHarnesses(c.Harnesses, enabled)
+		if !ih[manifest.HarnessCursor] {
+			continue
+		}
+		item := renderItem{
+			Name:    c.Name,
+			Summary: c.Summary,
+			Type:    c.Type,
+			Path:    c.Path,
+			Body:    readBody(repoRoot, c.Path),
+		}
+		data, err := render(tmplCursorCommand, item)
+		if err != nil {
+			return err
+		}
+		out[".cursor/rules/"+c.Name+".mdc"] = data
+	}
+	return nil
+}

@@ -1,0 +1,94 @@
+# SDP Manifest — single source of truth for skills, commands, agents, hooks,
+# and MCP servers across all SDP-supported harnesses.
+#
+# Validate: `sdp manifest validate`
+# Schema:   `sdp manifest schema` (or internal/manifest/schema.json)
+# Design:   docs/plans/2026-04-25-f141-multi-harness-install-bootstrap-design.md
+#
+# This manifest captures the *current* canonical inventory. F141-02 (adapter
+# generator) and F141-06 (migration) make harness adapter trees derive from
+# these entries; until then the manifest is read-only inventory + drift gate.
+version: "1.0.0"
+sdp_version: "1.0.0"
+harnesses:
+  - claude-code
+  - opencode
+  - codex
+  - cursor
+
+skills:
+  - { name: beads,                path: prompts/skills/beads/SKILL.md }
+  - { name: bugfix,               path: prompts/skills/bugfix/SKILL.md }
+  - { name: build,                path: prompts/skills/build/SKILL.md }
+  - { name: ci-triage,            path: prompts/skills/ci-triage/SKILL.md }
+  - { name: debug,                path: prompts/skills/debug/SKILL.md }
+  - { name: delivery-loop,        path: prompts/skills/delivery-loop/SKILL.md }
+  - { name: deploy,               path: prompts/skills/deploy/SKILL.md }
+  - { name: design,               path: prompts/skills/design/SKILL.md }
+  - { name: discovery,            path: prompts/skills/discovery/SKILL.md }
+  - { name: feature,              path: prompts/skills/feature/SKILL.md }
+  - { name: go-modern,            path: prompts/skills/go-modern/SKILL.md }
+  - { name: guard,                path: prompts/skills/guard/SKILL.md }
+  - { name: hotfix,               path: prompts/skills/hotfix/SKILL.md }
+  - { name: idea,                 path: prompts/skills/idea/SKILL.md }
+  - { name: init,                 path: prompts/skills/init/SKILL.md }
+  - { name: issue,                path: prompts/skills/issue/SKILL.md }
+  - { name: oneshot,              path: prompts/skills/oneshot/SKILL.md }
+  - { name: protocol-consistency, path: prompts/skills/protocol-consistency/SKILL.md }
+  - { name: prototype,            path: prompts/skills/prototype/SKILL.md }
+  - { name: reality,              path: prompts/skills/reality/SKILL.md }
+  - { name: reality-check,        path: prompts/skills/reality-check/SKILL.md }
+  - { name: review,               path: prompts/skills/review/SKILL.md }
+  - { name: spec-interrogate,     path: prompts/skills/spec-interrogate/SKILL.md }
+  - { name: strataudit,           path: prompts/skills/strataudit/SKILL.md }
+  - { name: tdd,                  path: prompts/skills/tdd/SKILL.md }
+  - { name: think,                path: prompts/skills/think/SKILL.md }
+  - { name: ux,                   path: prompts/skills/ux/SKILL.md }
+  - { name: verify-workstream,    path: prompts/skills/verify-workstream/SKILL.md }
+  - { name: vision,               path: prompts/skills/vision/SKILL.md }
+
+commands:
+  - { name: beads,                path: prompts/commands/beads.md }
+  - { name: bugfix,               path: prompts/commands/bugfix.md }
+  - { name: build,                path: prompts/commands/build.md }
+  - { name: ci-triage,            path: prompts/commands/ci-triage.md }
+  - { name: codereview,           path: prompts/commands/codereview.md }
+  - { name: debug,                path: prompts/commands/debug.md }
+  - { name: deliver,              path: prompts/commands/deliver.md }
+  - { name: deploy,               path: prompts/commands/deploy.md }
+  - { name: design,               path: prompts/commands/design.md }
+  - { name: feature,              path: prompts/commands/feature.md }
+  - { name: hotfix,               path: prompts/commands/hotfix.md }
+  - { name: idea,                 path: prompts/commands/idea.md }
+  - { name: issue,                path: prompts/commands/issue.md }
+  - { name: oneshot,              path: prompts/commands/oneshot.md }
+  - { name: prd,                  path: prompts/commands/prd.md }
+  - { name: protocol-consistency, path: prompts/commands/protocol-consistency.md }
+  - { name: prototype,            path: prompts/commands/prototype.md }
+  - { name: reality,              path: prompts/commands/reality.md }
+  - { name: reality-check,        path: prompts/commands/reality-check.md }
+  - { name: review,               path: prompts/commands/review.md }
+  - { name: submit-to-swarm,      path: prompts/commands/submit-to-swarm.md }
+  - { name: test,                 path: prompts/commands/test.md }
+  - { name: verify-workstream,    path: prompts/commands/verify-workstream.md }
+  - { name: vision,               path: prompts/commands/vision.md }
+
+agents:
+  - { name: architect,     role: architect,    system_prompt_path: prompts/agents/architect.md }
+  - { name: deployer,      role: deployer,     system_prompt_path: prompts/agents/deployer.md }
+  - { name: devops,        role: devops,       system_prompt_path: prompts/agents/devops.md }
+  - { name: implementer,   role: implementer,  system_prompt_path: prompts/agents/implementer.md }
+  - { name: orchestrator,  role: orchestrator, system_prompt_path: prompts/agents/orchestrator.md }
+  - { name: planner,       role: planner,      system_prompt_path: prompts/agents/planner.md }
+  - { name: qa,            role: qa,           system_prompt_path: prompts/agents/qa.md }
+  - { name: reviewer,      role: reviewer,     system_prompt_path: prompts/agents/reviewer.md }
+  - { name: security,      role: security,     system_prompt_path: prompts/agents/security.md }
+  - { name: spec-reviewer, role: spec-reviewer, system_prompt_path: prompts/agents/spec-reviewer.md }
+  - { name: sre,           role: sre,          system_prompt_path: prompts/agents/sre.md }
+  - { name: tech-lead,     role: tech-lead,    system_prompt_path: prompts/agents/tech-lead.md }
+
+# Hooks: populated by F141-04 (sdp doctor pre-commit) and F127 follow-ups.
+hooks: []
+
+# MCP servers: populated when F141-03 bootstrap installer wires them.
+mcp_servers: []

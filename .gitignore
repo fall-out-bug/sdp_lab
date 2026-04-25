@@ -5,6 +5,7 @@
 !.sdp/agent-constraints.yaml
 !.sdp/metrics/
 !.sdp/metrics/coverage.txt
+!.sdp/generated/
 
 # opencode-mem storage
 .sdp/mem/
@@ -47,8 +48,10 @@ bin/
 
 # SDP harness config (F128: sdp/ submodule retired, F128-06: tracked symlinks → prompts/)
 # Tracked symlinks: .claude/agents → ../prompts/agents, .claude/skills → ../.agents/skills
-# sdp/ is a local live clone of github.com/fall-out-bug/sdp for scripts/sdp-publish.sh (F128-07)
-sdp/
+# /sdp/ is a local live clone of github.com/fall-out-bug/sdp for scripts/sdp-publish.sh (F128-07)
+# Anchored with leading slash so it does NOT match cmd/sdp/ — that match silently
+# ignored new files in cmd/sdp/ (e.g. cmd_manifest.go added in F141-01).
+/sdp/
 .claude/worktrees/
 .cursor/skills
 .cursor/agents
