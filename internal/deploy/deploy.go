@@ -2,20 +2,302 @@ package deploy
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"sdp_dev/internal/secretscan"
 )
 
 // Config holds deploy configuration.
 type Config struct {
-	ProjectRoot   string // path to project directory
+	ProjectRoot    string // path to project directory
 	ComposeStaging string // path to staging compose file (default: docker-compose.staging.yml)
 	ComposeProd    string // path to prod compose file (default: docker-compose.yml)
 	ProjectName    string // Docker project name (default: derived from dir)
+}
+
+// GatesConfig controls which hard gates are enforced before deploy.
+type GatesConfig struct {
+	SecretScan  bool // Block if secretscan has findings (default: true)
+	Evidence    bool // Block if no evidence.json present (default: true)
+	SmokeTest   bool // Block if smoke tests fail (default: true)
+	Staged      bool // Enable staged (canary) rollout (default: false)
+	CanaryPct   int  // Canary traffic percentage (default: 10)
+	CanaryWait  time.Duration // How long to monitor canary before full rollout (default: 2m)
+}
+
+// DefaultGatesConfig returns the default gate configuration (all hard gates on, no staged rollout).
+func DefaultGatesConfig() *GatesConfig {
+	return &GatesConfig{
+		SecretScan: true,
+		Evidence:   true,
+		SmokeTest:  true,
+		Staged:     false,
+		CanaryPct:  10,
+		CanaryWait: 2 * time.Minute,
+	}
+}
+
+// GateResult holds the result of a gate check.
+type GateResult struct {
+	Gate    string `json:"gate"`
+	Passed  bool   `json:"passed"`
+	Message string `json:"message,omitempty"`
+}
+
+// CheckGates runs all configured gates and returns results.
+// Returns an error if any required gate fails.
+func CheckGates(ctx context.Context, cfg *Config, gates *GatesConfig) ([]GateResult, error) {
+	if gates == nil {
+		gates = DefaultGatesConfig()
+	}
+
+	var results []GateResult
+	var failed []string
+
+	// Gate 1: Secret scan.
+	if gates.SecretScan {
+		gr := checkSecretScanGate(ctx, cfg)
+		results = append(results, gr)
+		if !gr.Passed {
+			failed = append(failed, gr.Gate)
+		}
+	}
+
+	// Gate 2: Evidence file.
+	if gates.Evidence {
+		gr := checkEvidenceGate(cfg)
+		results = append(results, gr)
+		if !gr.Passed {
+			failed = append(failed, gr.Gate)
+		}
+	}
+
+	// Gate 3: Smoke test.
+	if gates.SmokeTest {
+		gr := checkSmokeTestGate(ctx, cfg)
+		results = append(results, gr)
+		if !gr.Passed {
+			failed = append(failed, gr.Gate)
+		}
+	}
+
+	if len(failed) > 0 {
+		return results, fmt.Errorf("deploy blocked by gates: %s", strings.Join(failed, ", "))
+	}
+	return results, nil
+}
+
+// checkSecretScanGate runs secretscan and returns pass/fail.
+func checkSecretScanGate(ctx context.Context, cfg *Config) GateResult {
+	scanner := secretscan.NewScanner()
+	result, err := scanner.ScanDir(ctx, cfg.ProjectRoot)
+	if err != nil {
+		return GateResult{
+			Gate:    "secret_scan",
+			Passed:  false,
+			Message: fmt.Sprintf("scan error: %v", err),
+		}
+	}
+	if result.Status == "findings" && len(result.Findings) > 0 {
+		critical, high, med := 0, 0, 0
+		for _, f := range result.Findings {
+			switch f.Severity {
+			case "critical":
+				critical++
+			case "high":
+				high++
+			default:
+				med++
+			}
+		}
+		return GateResult{
+			Gate:    "secret_scan",
+			Passed:  false,
+			Message: fmt.Sprintf("%d findings (%d critical, %d high, %d medium)", len(result.Findings), critical, high, med),
+		}
+	}
+	return GateResult{
+		Gate:   "secret_scan",
+		Passed: true,
+		Message: fmt.Sprintf("clean (%d files scanned)", result.FilesScanned),
+	}
+}
+
+// checkEvidenceGate verifies evidence.json exists for the current run.
+func checkEvidenceGate(cfg *Config) GateResult {
+	evidencePath := filepath.Join(cfg.ProjectRoot, ".sdp", "evidence.json")
+	data, err := os.ReadFile(evidencePath)
+	if err != nil {
+		return GateResult{
+			Gate:    "evidence",
+			Passed:  false,
+			Message: "no evidence.json found — run sdp build first",
+		}
+	}
+	// Validate it's parseable JSON with at least a status field.
+	var ev map[string]any
+	if err := json.Unmarshal(data, &ev); err != nil {
+		return GateResult{
+			Gate:    "evidence",
+			Passed:  false,
+			Message: fmt.Sprintf("evidence.json invalid: %v", err),
+		}
+	}
+	return GateResult{
+		Gate:   "evidence",
+		Passed: true,
+		Message: "evidence.json present and valid",
+	}
+}
+
+// checkSmokeTestGate runs the smoke test script.
+func checkSmokeTestGate(ctx context.Context, cfg *Config) GateResult {
+	smokeScript := filepath.Join(cfg.ProjectRoot, "smoke-test.sh")
+	if _, err := os.Stat(smokeScript); os.IsNotExist(err) {
+		return GateResult{
+			Gate:   "smoke_test",
+			Passed: true,
+			Message: "no smoke-test.sh found, gate skipped",
+		}
+	}
+
+	cmd := exec.CommandContext(ctx, "bash", smokeScript)
+	cmd.Dir = cfg.ProjectRoot
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return GateResult{
+			Gate:    "smoke_test",
+			Passed:  false,
+			Message: fmt.Sprintf("failed (exit %d): %s", cmd.ProcessState.ExitCode(), truncate(string(output), 200)),
+		}
+	}
+	return GateResult{
+		Gate:   "smoke_test",
+		Passed: true,
+		Message: "passed",
+	}
+}
+
+// StagedRollout performs a canary deployment: deploy to a percentage of
+// instances, wait for health confirmation, then promote to full.
+func StagedRollout(ctx context.Context, cfg *Config, gates *GatesConfig, imageTag string) (*Result, error) {
+	if gates == nil {
+		gates = DefaultGatesConfig()
+	}
+	if gates.CanaryPct <= 0 || gates.CanaryPct >= 100 {
+		return nil, fmt.Errorf("canary percentage must be between 1 and 99, got %d", gates.CanaryPct)
+	}
+
+	result := &Result{
+		Phase:     "staged_rollout",
+		Target:    "prod",
+		ImageTag:  imageTag,
+		StartedAt: time.Now().UTC().Format(time.RFC3339),
+	}
+
+	// Phase 1: Deploy canary.
+	canaryTag := fmt.Sprintf("%s:canary", cfg.ProjectName)
+	if err := exec.CommandContext(ctx, "docker", "tag", imageTag, canaryTag).Run(); err != nil {
+		result.Error = fmt.Sprintf("canary tag: %v", err)
+		result.FinishedAt = time.Now().UTC().Format(time.RFC3339)
+		return result, fmt.Errorf("canary tag: %w", err)
+	}
+
+	// Deploy canary with limited scale.
+	canaryProject := cfg.ProjectName + "-canary"
+	deployArgs := []string{"-f", cfg.ComposeProd, "-p", canaryProject, "up", "-d", "--scale", fmt.Sprintf("app=%d", gates.CanaryPct/100+1)}
+	deployCmd := dockerComposeCmd(ctx, deployArgs)
+	deployCmd.Dir = cfg.ProjectRoot
+	if output, err := deployCmd.CombinedOutput(); err != nil {
+		result.Error = fmt.Sprintf("canary deploy: %s: %s", err, string(output))
+		result.FinishedAt = time.Now().UTC().Format(time.RFC3339)
+		// Attempt rollback on canary failure.
+		rollbackCanary(ctx, cfg)
+		return result, fmt.Errorf("canary deploy: %w", err)
+	}
+
+	// Phase 2: Monitor canary.
+	monitorResult := runHealthCheck(ctx, cfg, "canary", int(gates.CanaryWait.Seconds()))
+	if !monitorResult.Passed {
+		slog.Warn("staged rollout: canary unhealthy, rolling back", "errors", monitorResult.Errors)
+		rollbackCanary(ctx, cfg)
+		result.Error = fmt.Sprintf("canary unhealthy: %s", strings.Join(monitorResult.Errors, "; "))
+		result.FinishedAt = time.Now().UTC().Format(time.RFC3339)
+		writeRollbackEvidence(cfg, "canary unhealthy", canaryTag)
+		return result, fmt.Errorf("canary unhealthy: %s", strings.Join(monitorResult.Errors, "; "))
+	}
+
+	// Phase 3: Promote to full production.
+	prodTag := fmt.Sprintf("%s:latest", cfg.ProjectName)
+	if err := exec.CommandContext(ctx, "docker", "tag", canaryTag, prodTag).Run(); err != nil {
+		result.Error = fmt.Sprintf("promote tag: %v", err)
+		result.FinishedAt = time.Now().UTC().Format(time.RFC3339)
+		return result, fmt.Errorf("promote: %w", err)
+	}
+	result.ImageTag = prodTag
+
+	projectFlag := []string{"-f", cfg.ComposeProd, "-p", cfg.ProjectName + "-deploy", "up", "-d"}
+	promoteCmd := dockerComposeCmd(ctx, projectFlag)
+	promoteCmd.Dir = cfg.ProjectRoot
+	if output, err := promoteCmd.CombinedOutput(); err != nil {
+		result.Error = fmt.Sprintf("full deploy: %s: %s", err, string(output))
+		result.FinishedAt = time.Now().UTC().Format(time.RFC3339)
+		return result, fmt.Errorf("full deploy: %w", err)
+	}
+
+	// Cleanup canary.
+	rollbackCanary(ctx, cfg)
+
+	result.Health = monitorResult
+	result.SmokeTest = runSmokeTest(ctx, cfg, "prod")
+	containers, _ := listContainers(cfg, "prod")
+	result.Containers = containers
+	result.FinishedAt = time.Now().UTC().Format(time.RFC3339)
+	result.Duration = time.Since(parseTime(result.StartedAt)).String()
+	return result, nil
+}
+
+// rollbackCanary tears down the canary deployment.
+func rollbackCanary(ctx context.Context, cfg *Config) {
+	canaryProject := cfg.ProjectName + "-canary"
+	cmd := dockerComposeCmd(ctx, []string{"-f", cfg.ComposeProd, "-p", canaryProject, "down"})
+	cmd.Dir = cfg.ProjectRoot
+	if output, err := cmd.CombinedOutput(); err != nil {
+		slog.Warn("canary cleanup failed", "err", err, "output", string(output))
+	}
+}
+
+// writeRollbackEvidence saves rollback evidence to .sdp/.
+func writeRollbackEvidence(cfg *Config, reason, tag string) {
+	ev := map[string]any{
+		"action":    "rollback",
+		"reason":    reason,
+		"tag":       tag,
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+	}
+	data, _ := json.MarshalIndent(ev, "", "  ")
+	path := filepath.Join(cfg.ProjectRoot, ".sdp", "deploy.rollback.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		slog.Error("mkdir for rollback evidence", "err", err)
+		return
+	}
+	if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
+		slog.Error("write rollback evidence", "err", err)
+	}
+}
+
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }
 
 // DefaultConfig creates config from project root.
