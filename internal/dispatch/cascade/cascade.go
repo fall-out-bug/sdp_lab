@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"sdp_dev/internal/dispatch"
@@ -220,12 +221,16 @@ func (ci *CascadingInvoker) Invoke(ctx context.Context, req InvokeRequest) (*Inv
 	}
 
 	// All tiers exhausted
+	msg := fmt.Sprintf("all %d tiers exhausted", len(ci.tierOrder))
+	if lastError != nil {
+		msg = lastError.Error()
+	}
 	return &InvokeResult{
 		Tier:      lastTier,
 		Hops:      hop,
 		Output:    conditionalOutput(lastResult),
 		Cause:     "max_depth",
-		LastError: lastError.Error(),
+		LastError: msg,
 	}, nil
 }
 
@@ -251,38 +256,14 @@ func checkShortCircuit(output string, cfg ShortCircuitConfig) (bool, string) {
 		"unable to", "sorry",
 		"i'm unable", "i cannot",
 	}
+	lowerOutput := strings.ToLower(output)
 	for _, kw := range refusalKeywords {
-		if containsCaseInsensitive(output, kw) {
+		if strings.Contains(lowerOutput, strings.ToLower(kw)) {
 			return true, fmt.Sprintf("refusal:%s", kw)
 		}
 	}
 
 	return false, ""
-}
-
-// containsCaseInsensitive checks if haystack contains needle (case-insensitive).
-func containsCaseInsensitive(haystack, needle string) bool {
-	for i := 0; i <= len(haystack)-len(needle); i++ {
-		match := true
-		for j := 0; j < len(needle); j++ {
-			h := haystack[i+j]
-			n := needle[j]
-			if h >= 'A' && h <= 'Z' {
-				h = h - 'A' + 'a'
-			}
-			if n >= 'A' && n <= 'Z' {
-				n = n - 'A' + 'a'
-			}
-			if h != n {
-				match = false
-				break
-			}
-		}
-		if match {
-			return true
-		}
-	}
-	return false
 }
 
 // conditionalOutput returns output if result is not nil, else empty string.
@@ -293,10 +274,3 @@ func conditionalOutput(result *harness.Result) string {
 	return result.Output
 }
 
-// min returns the smaller of a and b.
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}

@@ -369,27 +369,6 @@ func TestCheckShortCircuit_ValidResponse(t *testing.T) {
 	}
 }
 
-func TestContainsCaseInsensitive(t *testing.T) {
-	tests := []struct {
-		haystack string
-		needle   string
-		want     bool
-	}{
-		{"Hello World", "hello", true},
-		{"CANNOT", "cannot", true},
-		{"I'm unable to help", "unable", true},
-		{"yes", "no", false},
-		{"ABC", "abc", true},
-	}
-
-	for _, tt := range tests {
-		got := containsCaseInsensitive(tt.haystack, tt.needle)
-		if got != tt.want {
-			t.Errorf("containsCaseInsensitive(%q, %q) = %v, want %v",
-				tt.haystack, tt.needle, got, tt.want)
-		}
-	}
-}
 
 func TestConditionalOutput(t *testing.T) {
 	// Test conditional output extraction
@@ -443,24 +422,6 @@ func TestBudget_NotExhausted(t *testing.T) {
 	}
 }
 
-func TestMin(t *testing.T) {
-	tests := []struct {
-		a, b int
-		want int
-	}{
-		{5, 3, 3},
-		{3, 5, 3},
-		{5, 5, 5},
-		{-1, 1, -1},
-	}
-
-	for _, tt := range tests {
-		got := min(tt.a, tt.b)
-		if got != tt.want {
-			t.Errorf("min(%d, %d) = %d, want %d", tt.a, tt.b, got, tt.want)
-		}
-	}
-}
 
 func contains(s, substr string) bool {
 	for i := 0; i <= len(s)-len(substr); i++ {
@@ -513,4 +474,34 @@ func TestInvoker_MaxDepthExceeded(t *testing.T) {
 	if result.Cause != "max_depth" && result.Cause != "ok" {
 		t.Logf("Cause = %s (acceptable for test)", result.Cause)
 	}
+}
+
+func TestCascade_AllTiersRejected_NoNilPanic(t *testing.T) {
+	// AC: Regression test for line 228 nil deref panic
+	// When Checker rejects every tier, on the last tier we return at line 202-209.
+	// BUT the original code path at line 223-229 is reached when the for loop exits
+	// naturally (which happens if startIdx >= len(tierOrder), i.e., invalid start tier).
+	// In that case, lastError is never assigned and is nil, causing panic on line 228.
+
+	invoker := NewInvoker(nil, newMockChecker(), nil)
+	invoker.tierOrder = []dispatch.TierClass{} // Empty tier order
+
+	ctx := context.Background()
+	req := InvokeRequest{
+		Prompt:    "test prompt",
+		StartTier: dispatch.TierLocal, // Invalid start tier
+	}
+
+	// This used to panic at line 228 on lastError.Error() when tierOrder is empty
+	// Now it should safely return a result without panic
+	result, err := invoker.Invoke(ctx, req)
+	if err != nil {
+		t.Fatalf("Invoke returned error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("result should not be nil")
+	}
+
+	// Verify safe LastError string is set (not a panic)
+	t.Logf("SUCCESS: No panic on empty tierOrder. Cause=%s, LastError=%q", result.Cause, result.LastError)
 }
