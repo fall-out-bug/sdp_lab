@@ -150,7 +150,7 @@ func (b *ExportBundle) Verify() bool {
 func (b *ExportBundle) computeBundleChecksum() string {
 	h := sha256.New()
 	// Include all structural fields for tamper detection
-	fmt.Fprintf(h, "%s\n%s\n%s\n%d\n", b.BundleID, b.TenantID, b.FeatureID, b.RecordCount)
+	fmt.Fprintf(h, "%s\n%s\n%s\n%s\n%d\n", b.BundleID, b.TenantID, b.FeatureID, b.CreatedAt.Format(time.RFC3339Nano), b.RecordCount)
 	for _, rec := range b.Records {
 		h.Write([]byte(rec.Checksum))
 		h.Write([]byte{0})

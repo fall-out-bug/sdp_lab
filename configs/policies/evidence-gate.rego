@@ -35,19 +35,32 @@ default_threshold("high") := 0
 default_threshold("medium") := 5
 default_threshold("low") := 20
 
-get_actual_count(severity) := count([d | d := input.discrepancies[_]; strings.lower(d.severity) == severity])
+get_actual_count(severity) := count([d | d := input.discrepancies[_]; lower(d.severity) == severity])
 
 verification_passed if {
 	input.attestation.verified == true
 } else := false
 
-# Deny reasons for audit trail
+# Deny reasons for audit trail — handles missing attestation gracefully
 deny_reasons contains msg if {
+	not input.attestation
+	msg := "attestation is missing"
+}
+
+deny_reasons contains msg if {
+	input.attestation
+	not input.attestation.signed
+	msg := "attestation is not signed"
+}
+
+deny_reasons contains msg if {
+	input.attestation
 	input.attestation.signed != true
 	msg := "attestation is not signed"
 }
 
 deny_reasons contains msg if {
+	input.attestation
 	verification_passed != true
 	msg := sprintf("attestation verification failed: %s", [input.attestation.verification_error])
 }
