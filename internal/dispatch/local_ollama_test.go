@@ -37,7 +37,7 @@ func TestOllamaClient_HealthCheck_Success(t *testing.T) {
 			t.Errorf("unexpected method: %s", r.Method)
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"models": []interface{}{},
 		})
 	}))
@@ -95,7 +95,7 @@ func TestOllamaClient_Generate_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"response": "generated response",
 		})
 	}))
@@ -130,7 +130,7 @@ func TestOllamaClient_Generate_EmptyPrompt(t *testing.T) {
 func TestOllamaClient_Generate_APIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"error": "model not found",
 		})
 	}))
@@ -147,7 +147,7 @@ func TestOllamaClient_Generate_Timeout(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"response": "response",
 		})
 	}))
@@ -171,7 +171,7 @@ func TestOllamaClient_ListModels_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"models": []map[string]string{
 				{"name": "qwen2.5-coder:7b"},
 				{"name": "codegemma:7b"},
@@ -199,7 +199,7 @@ func TestOllamaClient_ListModels_Success(t *testing.T) {
 func TestOllamaClient_ListModels_Empty(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"models": []interface{}{},
 		})
 	}))
