@@ -41,7 +41,7 @@ No agent action required. Evidence is generated from CI observation (Tekton Chai
 
 ```bash
 # macOS/Linux: download from GitHub Releases
-curl -sLO https://github.com/fall-out-bug/sdp_dev/releases/latest/download/sdp-evidence_Darwin_arm64.tar.gz
+curl -sLO https://github.com/fall-out-bug/sdp_lab/releases/latest/download/sdp-evidence_Darwin_arm64.tar.gz
 tar xf sdp-evidence_Darwin_arm64.tar.gz
 sudo mv sdp-evidence /usr/local/bin/
 ```
@@ -49,8 +49,8 @@ sudo mv sdp-evidence /usr/local/bin/
 Or build from source:
 
 ```bash
-git clone https://github.com/fall-out-bug/sdp_dev
-cd sdp_dev
+git clone https://github.com/fall-out-bug/sdp_lab
+cd sdp_lab
 go build ./cmd/sdp-evidence
 ```
 
@@ -86,7 +86,7 @@ auto-attestation:
         BASE_REF: ${{ github.base_ref }}
       run: |
         mkdir -p .sdp/attestations
-        go run github.com/fall-out-bug/sdp_dev/internal/evidence/cmd/auto-attest@latest \
+        go run github.com/fall-out-bug/sdp_lab/internal/evidence/cmd/auto-attest@latest \
           --base-branch "$BASE_REF" \
           --pr-number "$PR_NUMBER" \
           --pr-url "$PR_URL" \
