@@ -113,6 +113,17 @@ func (m *Matcher) MatchAny(path string) bool {
 	return false
 }
 
+// MatchAnyPattern checks if the path matches any pattern.
+// Returns the original pattern string on first match, or "" if no pattern matches.
+func (m *Matcher) MatchAnyPattern(path string) string {
+	for _, p := range m.patterns {
+		if p.MatchString(path) {
+			return p.original
+		}
+	}
+	return ""
+}
+
 // MatchAnyWithError checks if the path matches any pattern, returning the first error.
 func (m *Matcher) MatchAnyWithError(path string) (bool, error) {
 	for _, p := range m.patterns {

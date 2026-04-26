@@ -588,7 +588,7 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 
 	// Resolve symbolic edges for all changed/added files and repaired callers WITHIN the transaction.
 	// This ensures atomicity - if edge resolution fails, the entire refresh is rolled back.
-	_ = resolveAndInsertEdgesTx(tx, allSymEdges, fileImports)
+	_ = resolveAndInsertEdgesTx(tx, allSymEdges, fileImports) // edge count not tracked in RefreshResult
 
 	// Update metadata within the transaction
 	if mErr := SetMetaTx(tx, "indexed_at", time.Now().UTC().Format(time.RFC3339)); mErr != nil {

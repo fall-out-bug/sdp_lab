@@ -40,10 +40,12 @@ func (c *OutOfScopeChecker) Check(ctx context.Context, actualFiles []string) Out
 
 	for _, file := range actualFiles {
 		// Check denied patterns first
-		if c.deniedMatcher != nil && c.deniedMatcher.MatchAny(file) {
-			report.Violations = append(report.Violations, fmt.Sprintf("%s matches denied pattern", file))
-			report.Clean = false
-			continue
+		if c.deniedMatcher != nil {
+			if matched := c.deniedMatcher.MatchAnyPattern(file); matched != "" {
+				report.Violations = append(report.Violations, fmt.Sprintf("%s matches denied pattern: %s", file, matched))
+				report.Clean = false
+				continue
+			}
 		}
 
 		// Check allowed patterns
