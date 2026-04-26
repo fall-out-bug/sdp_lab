@@ -80,8 +80,12 @@ if [[ -z "${bd_out}" ]]; then
 fi
 
 # Sorted candidate list (id\ttitle per line) after coarse jq filter.
+# F142-10 defense-in-depth: explicitly require .status == "open". `bd ready`
+# already excludes in_progress, but if a stale snapshot or a different command
+# leaks an in-flight item, the explicit filter prevents double-claim.
 candidates="$(printf '%s' "${bd_out}" | jq -r '
   [.[]
+    | select(.status == "open")
     | select(.issue_type == "epic" or .issue_type == "feature")
     | select(.title | test("^\\[bug\\]") | not)
     | select(.title | test(" ← F") | not)
