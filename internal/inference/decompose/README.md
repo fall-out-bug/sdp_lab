@@ -158,3 +158,56 @@ decompose.Then(p, myStage, decompose.StageConfig{
 | Stage error (Fallback)    | FAIL               | 0.0                  |
 
 Pipeline `Result.Status` = aggregated: any FAIL → FAIL; any UNSURE (no FAIL) → UNSURE; all OK → OK.
+
+## MicroFirst tier (F147)
+
+`WithEscalation` composes a cheap micro-classifier and a full LLM stage into a
+single `Stage[In, Out]`. The micro stage runs first; the LLM is only invoked
+when the micro output lacks confidence.
+
+```go
+// Define an output type that reports its own confidence.
+type ClassifyOut struct {
+    Label      string
+    conf       float64
+    confStatus decompose.Status
+}
+
+func (c ClassifyOut) Confidence() float64          { return c.conf }
+func (c ClassifyOut) ConfStatus() decompose.Status { return c.confStatus }
+
+// Build stages.
+micro := decompose.NewStage[Diff, ClassifyOut]("micro-heuristic", func(ctx context.Context, d Diff) (ClassifyOut, decompose.StageTrace, error) {
+    // fast regex / rule-based classifier
+    return ClassifyOut{Label: label, conf: score, confStatus: status}, trace, nil
+})
+
+llm := decompose.NewStage[Diff, ClassifyOut]("llm-sonnet", func(ctx context.Context, d Diff) (ClassifyOut, decompose.StageTrace, error) {
+    // full LLM call
+    return ClassifyOut{Label: label, conf: 1.0, confStatus: decompose.StatusOK}, trace, nil
+})
+
+// Compose: micro runs first; if confidence >= 0.85 and status OK, llm is skipped.
+composed := decompose.WithEscalation(micro, llm, decompose.EscalationConfig{
+    ConfidenceThreshold: 0.85,
+    EscalateOnError:     true,   // micro error → try llm
+    RecordSkippedTrace:  true,   // trace Attempts=1, TokensIn/Out=0 when skipped
+})
+
+// Drop into a pipeline as any other stage.
+p := decompose.New[ClassifyOut]("ws-classify")
+decompose.Then(p, composed, decompose.StageConfig{OnFailure: decompose.Abort})
+result, err := p.Run(ctx, diff)
+// result.Trace reflects only the tokens actually consumed.
+```
+
+### Escalation decision table
+
+| micro result                        | EscalateOnError | Action          | Attempts |
+|-------------------------------------|-----------------|-----------------|----------|
+| Confider OK, confidence >= threshold | any             | return micro    | 1        |
+| Confider OK, confidence < threshold  | any             | invoke llm      | 2        |
+| Confider status != OK               | any             | invoke llm      | 2        |
+| Out does not implement Confider     | any             | invoke llm      | 2        |
+| error                               | true            | invoke llm      | 2        |
+| error                               | false           | propagate error | —        |
