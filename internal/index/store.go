@@ -8,6 +8,10 @@ import (
 	"sort"
 	"strings"
 
+	// SQLite driver (mattn/go-sqlite3) requires CGO.
+	// Build requirements: CGO_ENABLED=1, GCC/Clang compiler, SQLite dev headers.
+	// Cross-compilation requires appropriate CC toolchain (see https://github.com/mattn/go-sqlite3#cross-compile).
+	// For pure Go builds without CGO, use modernc.org/sqlite instead.
 	_ "github.com/mattn/go-sqlite3"
 )
 

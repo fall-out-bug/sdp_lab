@@ -85,14 +85,15 @@ type MetaEntry struct {
 
 // BuildResult holds the output of a cold build operation.
 type BuildResult struct {
-	TotalChunks int           `json:"total_chunks"`
-	TotalFiles  int           `json:"total_files"`
-	TotalEdges  int           `json:"total_edges"`
-	FilesSkipped int          `json:"files_skipped"` // Files that failed to parse or produced no chunks
-	Duration    time.Duration `json:"duration"`
-	Languages   []string      `json:"languages"`
-	DBPath      string        `json:"db_path"`
-	Errors      []error       `json:"-"`
+	TotalChunks  int           `json:"total_chunks"`
+	TotalFiles   int           `json:"total_files"`
+	TotalEdges   int           `json:"total_edges"`
+	FilesSkipped int           `json:"files_skipped"` // Files that failed to parse or produced no chunks
+	Duration     time.Duration `json:"duration"`
+	Languages    []string      `json:"languages"`
+	DBPath       string        `json:"db_path"`
+	Errors       []error       `json:"-"`
+	LimitReached bool          `json:"limit_reached"` // True if MaxFiles or MaxChunks limit was hit
 }
 
 // BuildOptions configures the cold build behavior.
@@ -105,6 +106,10 @@ type BuildOptions struct {
 	MaxFileSizeBytes int64
 	// Languages restricts indexing to these languages. Empty means all supported.
 	Languages []string
+	// MaxFiles is the maximum number of files to index. 0 means no limit (default: 10000).
+	MaxFiles int
+	// MaxChunks is the maximum number of chunks to store. 0 means no limit (default: 100000).
+	MaxChunks int
 }
 
 // RefreshOptions configures incremental refresh behavior.
@@ -117,6 +122,10 @@ type RefreshOptions struct {
 	MaxFileSizeBytes int64
 	// Languages restricts indexing to these languages. Empty means all supported.
 	Languages []string
+	// MaxFiles is the maximum number of files to index. 0 means no limit (default: 10000).
+	MaxFiles int
+	// MaxChunks is the maximum number of chunks to store. 0 means no limit (default: 100000).
+	MaxChunks int
 }
 
 // RefreshResult holds the output of an incremental refresh operation.
@@ -266,14 +275,17 @@ type ManifestStore interface {
 	// Meta operations (used by both manifest and enricher)
 	GetMeta(key string) (string, error)
 	SetMeta(key, value string) error
+	SaveMeta(key, value string) error
 	LoadMeta(keys ...string) (map[string]string, error)
 
 	// Module operations
+	ListModules() ([]ModuleMeta, error)
 	LoadModules() ([]ModuleMeta, error)
 	UpsertModuleMeta(mm ModuleMeta) error
 	UpdateModules(modules []ModuleMeta) error
 
 	// Entry points
+	ListEntryPoints() ([]string, error)
 	LoadEntryPoints() ([]string, error)
 
 	// Stats

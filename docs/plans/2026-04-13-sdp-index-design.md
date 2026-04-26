@@ -4,9 +4,9 @@
 
 **Goal:** Build persistent, queryable codebase index so agents never rescan from scratch. Three query modes: semantic ("how does routing work"), structural ("what depends on dispatch"), navigational ("where is ExecutorBridge").
 
-**Architecture:** tree-sitter AST + embeddings + FTS5 in single SQLite file. Hybrid search with RRF fusion. Incremental updates via content hashing.
+**Architecture:** regex-based AST + embeddings + FTS5 in single SQLite file. Hybrid search with RRF fusion. Incremental updates via content hashing.
 
-**Tech Stack:** Go, tree-sitter (go-tree-sitter), sqlite-vec (CGO), SQLite FTS5, Ollama (Jina Code 0.5B) or Voyage Code 3 API.
+**Tech Stack:** Go, regex-based parser (no CGO dependency), sqlite-vec (CGO), SQLite FTS5 via mattn/go-sqlite3, Ollama (Jina Code 0.5B) or Voyage Code 3 API.
 
 **Parent design:** `2026-04-13-sdp-toolkit-vision-design.md`
 
@@ -356,24 +356,27 @@ Enrichment is additive and optional. Index works without any of these.
 
 ```bash
 # Build & maintain
-sdp index build <repo-path>              # Full index (cold start)
-sdp index refresh                        # Incremental update
-sdp index build --watch                  # Background daemon
-sdp index manifest                       # Regenerate manifest.md
-sdp index stats                          # Show index statistics
+sdp index build <repo-path>              # ✅ Implemented: Full index (cold start)
+sdp index refresh                        # ✅ Implemented: Incremental update
+sdp index build --watch                  # ⚠️  TODO: Background daemon (not yet implemented)
+sdp index manifest                       # ✅ Implemented: Regenerate manifest.md
+sdp index stats                          # ✅ Implemented: Show index statistics
 
 # Query
-sdp index query "how does routing work"  # Semantic search
-sdp index find "ExecutorBridge"          # Keyword/symbol search
-sdp index deps <module>                  # Dependencies
-sdp index deps --reverse <module>        # Reverse dependencies
-sdp index modules                        # List all modules with metadata
+sdp index query "how does routing work"  # ✅ Implemented: Semantic search
+sdp index find "ExecutorBridge"          # ✅ Implemented: Keyword/symbol search
+sdp index deps <module>                  # ✅ Implemented: Dependencies
+sdp index deps --reverse <module>        # ✅ Implemented: Reverse dependencies
+sdp index modules                        # ✅ Implemented: List all modules with metadata
 
 # Configuration
-sdp index config                         # Show current config
-sdp index config --embedding ollama      # Set embedding backend
-sdp index config --embedding voyage      # Set embedding backend
-sdp index config --embedding none        # Disable embeddings (FTS + graph only)
+sdp index config                         # ⚠️  TODO: Show/set config (not yet implemented)
+sdp index config --embedding ollama      # ⚠️  TODO: Set embedding backend (not yet implemented)
+sdp index config --embedding voyage      # ⚠️  TODO: Set embedding backend (not yet implemented)
+sdp index config --embedding none        # ⚠️  TODO: Disable embeddings (not yet implemented)
+
+# Future: Multi-repo queries
+sdp index query "auth" --repo <name>     # ⚠️  PLANNED: Query across specific repo (Level 2)
 ```
 
 ## Performance Targets
@@ -420,10 +423,22 @@ cmd/sdp/
 ## Dependencies
 
 ```
-github.com/smacker/go-tree-sitter       # AST parsing (CGO)
-github.com/asg017/sqlite-vec-go-bindings # Vector search (CGO)
-github.com/mattn/go-sqlite3              # SQLite driver (CGO, already in project?)
+github.com/mattn/go-sqlite3              # SQLite driver (CGO, already in project)
 ```
+
+### Implementation Note
+
+The current implementation uses Go regex-based parsers instead of tree-sitter. This was a pragmatic decision to avoid CGO dependencies in the parsing layer. The regex parsers handle:
+
+- Go: functions, methods, types, interfaces, consts, vars
+- Python: functions, classes (indentation-based)
+- TypeScript/JavaScript: functions, classes, interfaces, arrow functions
+- Java: classes, interfaces, enums
+- Rust: functions, structs, impl blocks, enums
+- Ruby: classes, methods
+- C/C++: functions, structs
+
+The `findBraceEnd` function includes proper state tracking for string literals, template literals, and comments to ensure accurate brace matching across all supported languages.
 
 Optional:
 ```

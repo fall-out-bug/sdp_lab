@@ -598,18 +598,95 @@ func parseTypeScript(filePath, content string) ([]Chunk, []Edge, error) {
 	return chunks, nil, nil
 }
 
+// findBraceEnd finds the line where the brace block started at startLine ends.
+// It handles string literals (single-quoted, double-quoted, template literals),
+// and line/block comments for TypeScript/JavaScript, Java, Rust, and C/C++.
 func findBraceEnd(lines []string, startLine int) int {
+	type braceState struct {
+		inSingleQuote  bool
+		inDoubleQuote  bool
+		inTemplate     bool // Template literals (backticks)
+		inLineComment  bool
+		inBlockComment bool
+	}
+	state := braceState{}
 	depth := 0
 	started := false
+
 	for i := startLine; i < len(lines); i++ {
-		for _, ch := range lines[i] {
-			if ch == '{' {
-				depth++
-				started = true
-			} else if ch == '}' {
-				depth--
+		line := lines[i]
+		for j := 0; j < len(line); j++ {
+			ch := line[j]
+			nextCh := byte(0)
+			if j+1 < len(line) {
+				nextCh = line[j+1]
+			}
+
+			// Handle line comments (//) - skip rest of line
+			if !state.inBlockComment && !state.inSingleQuote && !state.inDoubleQuote && !state.inTemplate {
+				if ch == '/' && nextCh == '/' {
+					state.inLineComment = true
+					break // Skip rest of line
+				}
+			}
+
+			// Handle block comments (/* */)
+			if !state.inLineComment && !state.inSingleQuote && !state.inDoubleQuote && !state.inTemplate {
+				if ch == '/' && nextCh == '*' && !state.inBlockComment {
+					state.inBlockComment = true
+					j++ // Skip next char
+					continue
+				}
+				if ch == '*' && nextCh == '/' && state.inBlockComment {
+					state.inBlockComment = false
+					j++ // Skip next char
+					continue
+				}
+			}
+
+			// Skip all processing if in comments
+			if state.inLineComment || state.inBlockComment {
+				continue
+			}
+
+			// Handle escape sequences
+			if ch == '\\' && j+1 < len(line) {
+				j++ // Skip escaped character
+				continue
+			}
+
+			// Handle template literals (backticks) - for TypeScript/JavaScript
+			if ch == '`' {
+				state.inTemplate = !state.inTemplate
+				continue
+			}
+
+			// Handle single quotes
+			if ch == '\'' && !state.inDoubleQuote && !state.inTemplate {
+				state.inSingleQuote = !state.inSingleQuote
+				continue
+			}
+
+			// Handle double quotes
+			if ch == '"' && !state.inSingleQuote && !state.inTemplate {
+				state.inDoubleQuote = !state.inDoubleQuote
+				continue
+			}
+
+			// Count braces only when not in strings or comments
+			if !state.inSingleQuote && !state.inDoubleQuote && !state.inTemplate {
+				if ch == '{' {
+					depth++
+					started = true
+				} else if ch == '}' {
+					depth--
+				}
 			}
 		}
+
+		// Reset line comment state at end of line
+		state.inLineComment = false
+
 		if started && depth <= 0 {
 			return i
 		}

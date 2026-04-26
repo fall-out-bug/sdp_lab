@@ -1,0 +1,41 @@
+# CODEOWNERS for SDP Lab
+#
+# This file defines who should review changes to specific paths.
+# It serves as a partial substitute for GitHub branch protection
+# (which requires GitHub Pro for private repos).
+#
+# Documentation: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Core maintainers - full repository access
+* @fall-out-bug
+
+# Protocol artifacts require protocol team review
+/prompts/ @fall-out-bug
+/schema/ @fall-out-bug
+/.claude/hooks/ @fall-out-bug
+/.codex/ @fall-out-bug
+
+# Documentation changes
+/docs/ @fall-out-bug
+
+# CI/CD infrastructure
+/.github/ @fall-out-bug
+/scripts/ @fall-out-bug
+
+# Core platform code
+/internal/kernel/ @fall-out-bug
+/internal/policy/ @fall-out-bug
+/internal/evidence/ @fall-out-bug
+/internal/gate/ @fall-out-bug
+
+# Command-line tools
+/cmd/sdp-* @fall-out-bug
+
+# Quality gates and tests
+/tests/ @fall-out-bug
+
+# Workstream backlog
+/docs/workstreams/ @fall-out-bug
+
+# Beads issue tracker
+.beads* @fall-out-bug

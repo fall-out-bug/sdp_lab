@@ -1,0 +1,95 @@
+{
+  "version": "1.0",
+  "has_git": true,
+  "has_claude": true,
+  "has_sdp": true,
+  "has_beads": true,
+  "environment": {
+    "project_root": "/Users/fall_out_bug/projects/vibe_coding/sdp_lab",
+    "git_branch": "feature/F068-contracts",
+    "main_branch": "main",
+    "uncommitted": false,
+    "has_sdp_config": true,
+    "has_sdp_dir": true,
+    "has_claude_dir": true,
+    "has_beads_issues": true,
+    "has_evidence_log": true
+  },
+  "workstreams": {
+    "total": 5,
+    "backlog": 2,
+    "completed": 1,
+    "ready": [
+      {
+        "id": "00-068-02",
+        "status": "ready",
+        "priority": 1,
+        "feature": "F068",
+        "size": "M"
+      }
+    ],
+    "in_progress": [
+      {
+        "id": "00-068-01",
+        "status": "in_progress",
+        "priority": 1,
+        "feature": "F068",
+        "size": "M"
+      }
+    ],
+    "blocked": [
+      {
+        "id": "00-068-03",
+        "status": "blocked",
+        "priority": 1,
+        "feature": "F068",
+        "size": "S",
+        "blocked_by": ["00-068-01", "00-068-02"]
+      }
+    ],
+    "failed": []
+  },
+  "active_session": {
+    "workstream_id": "00-068-01",
+    "feature_id": "F068",
+    "worktree_path": "/Users/fall_out_bug/projects/vibe_coding/sdp_lab/.claude/worktrees/bulk-deliver",
+    "expected_branch": "feature/F068-contracts",
+    "expected_remote": "origin",
+    "source": "oneshot"
+  },
+  "next_action": "Implement Adapter SDK interfaces and validation",
+  "next_step": {
+    "action_id": "sdp-next-001",
+    "command": "bd update 00-068-02 --claim && sdp build 00-068-02",
+    "reason": "Workstream 00-068-02 is ready and unblocked. Claim it and start implementation.",
+    "confidence": 0.95,
+    "category": "execution",
+    "version": "1.0",
+    "alternatives": [
+      {
+        "command": "sdp status --json",
+        "reason": "View current status before claiming"
+      }
+    ],
+    "required_context": {
+      "workstream_id": "00-068-02",
+      "feature_id": "F068"
+    },
+    "optional_context": {
+      "estimated_duration": "2 hours",
+      "dependencies": ["00-068-01"]
+    },
+    "policy_expectations": [
+      "Scope boundary: internal/adapters/sdk/* only",
+      "Quality gate: all tests must pass"
+    ],
+    "evidence_expectations": [
+      "Unit tests for SDK interfaces",
+      "Example adapters compile against SDK"
+    ],
+    "metadata": {
+      "suggested_order": 2,
+      "blocking": ["00-068-03"]
+    }
+  }
+}

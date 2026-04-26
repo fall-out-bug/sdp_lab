@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"sdp_dev/archive/adapters-sdk"
+	"sdp_dev/internal/adapters/sdk"
 
 	"github.com/stretchr/testify/require"
 )

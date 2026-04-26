@@ -34,6 +34,16 @@ func ColdBuild(opts BuildOptions) (*BuildResult, error) {
 		maxSize = 100 * 1024
 	}
 
+	// Default limits: 10000 files, 100000 chunks
+	maxFiles := opts.MaxFiles
+	if maxFiles <= 0 {
+		maxFiles = 10000
+	}
+	maxChunks := opts.MaxChunks
+	if maxChunks <= 0 {
+		maxChunks = 100000
+	}
+
 	// Build language filter set
 	langFilter := map[string]bool{}
 	for _, l := range opts.Languages {
@@ -106,6 +116,12 @@ func ColdBuild(opts BuildOptions) (*BuildResult, error) {
 			return nil
 		}
 
+		// Check file count limit
+		if maxFiles > 0 && result.TotalFiles >= maxFiles {
+			result.LimitReached = true
+			return filepath.SkipDir
+		}
+
 		// Parse file
 		chunks, _, parseErr := ParseFile(path, language)
 		if parseErr != nil {
@@ -149,6 +165,11 @@ func ColdBuild(opts BuildOptions) (*BuildResult, error) {
 		// Track successful inserts separately for accurate reporting
 		chunksInserted := 0
 		for _, chunk := range chunks {
+			// Check chunk limit before inserting
+			if maxChunks > 0 && result.TotalChunks >= maxChunks {
+				result.LimitReached = true
+				break
+			}
 			_, insertErr := InsertChunkTx(tx, chunk)
 			if insertErr != nil {
 				result.Errors = append(result.Errors, fmt.Errorf("insert chunk %s/%s: %w", relPath, chunk.SymbolName, insertErr))
@@ -316,6 +337,16 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 		maxSize = 100 * 1024
 	}
 
+	// Default limits: 10000 files, 100000 chunks
+	maxFiles := opts.MaxFiles
+	if maxFiles <= 0 {
+		maxFiles = 10000
+	}
+	maxChunks := opts.MaxChunks
+	if maxChunks <= 0 {
+		maxChunks = 100000
+	}
+
 	// Build language filter set
 	langFilter := map[string]bool{}
 	for _, l := range opts.Languages {
@@ -330,6 +361,10 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 	defer func() { _ = store.Close() }()
 
 	result := &RefreshResult{DBPath: dbPath}
+
+	// Track files processed in this refresh for limit enforcement
+	filesProcessed := 0
+	chunksProcessed := 0
 
 	// Build map of currently indexed files: path -> hash
 	indexedFiles, err := buildIndexedFileMap(store)
@@ -487,6 +522,12 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 			result.FilesAdded++
 		}
 
+		// Check file count limit
+		filesProcessed++
+		if maxFiles > 0 && filesProcessed > maxFiles {
+			return filepath.SkipDir
+		}
+
 		// Delete old chunks for this file (CASCADE handles edges)
 		if _, delErr := DeleteChunksByFileTx(tx, relPath); delErr != nil {
 			result.Errors = append(result.Errors, fmt.Errorf("delete chunks %s: %w", relPath, delErr))
@@ -519,6 +560,11 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 
 		// Insert chunks within transaction
 		for _, chunk := range chunks {
+			// Check chunk limit before inserting
+			chunksProcessed++
+			if maxChunks > 0 && chunksProcessed > maxChunks {
+				break
+			}
 			_, insertErr := InsertChunkTx(tx, chunk)
 			if insertErr != nil {
 				result.Errors = append(result.Errors, fmt.Errorf("insert chunk %s/%s: %w", relPath, chunk.SymbolName, insertErr))

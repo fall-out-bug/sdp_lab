@@ -1,0 +1,646 @@
+{
+  "$schema": "https://sdp.dev/schema/skill-catalog-v1.json",
+  "version": "1.0.0",
+  "generated": "2026-04-26",
+  "description": "Canonical machine-readable skill catalog for SDP framework",
+  "skills": [
+    {
+      "name": "understand",
+      "type": "intent",
+      "status": "active",
+      "description": "Explore and synthesize codebase knowledge — architecture, health, metrics, and documentation",
+      "path": ".agents/skills/understand.md",
+      "tags": ["discovery", "architecture", "analysis"],
+      "modes": ["quick", "standard", "deep"],
+      "absorbs": ["scout", "architect", "metrics", "landscape", "spec", "discovery"],
+      "compatibility": ["claude-code", "opencode", "cursor", "codex"],
+      "requires_cli": ["sdp"]
+    },
+    {
+      "name": "build",
+      "type": "intent",
+      "status": "active",
+      "description": "Create something new — features, prototypes, designs with TDD",
+      "path": ".agents/skills/build.md",
+      "tags": ["feature", "prototype", "design"],
+      "modes": ["idea", "feature", "prototype"],
+      "absorbs": ["feature", "idea", "design", "ux", "vision", "oneshot", "prototype"],
+      "compatibility": ["claude-code", "opencode", "cursor", "codex"],
+      "requires_cli": ["sdp"]
+    },
+    {
+      "name": "fix",
+      "type": "intent",
+      "status": "active",
+      "description": "Diagnose and resolve bugs, errors, and failures — from quick hotfixes to systematic investigations",
+      "path": ".agents/skills/fix.md",
+      "tags": ["debug", "bugfix", "troubleshooting"],
+      "modes": ["quick", "investigate", "systematic"],
+      "absorbs": ["hotfix", "bugfix", "issue", "debug"],
+      "compatibility": ["claude-code", "opencode", "cursor", "codex"],
+      "requires_cli": ["sdp"]
+    },
+    {
+      "name": "review",
+      "type": "intent",
+      "status": "active",
+      "description": "Quality gates — code, architecture, security, readiness verification",
+      "path": ".agents/skills/review.md",
+      "tags": ["review", "quality", "verification"],
+      "dimensions": ["code", "architecture", "security", "readiness", "reality"],
+      "absorbs": ["reality-check", "verify-workstream"],
+      "compatibility": ["claude-code", "opencode", "cursor", "codex"]
+    },
+    {
+      "name": "operate",
+      "type": "intent",
+      "status": "active",
+      "description": "Keep it running — deploy, triage, backlog planning",
+      "path": ".agents/skills/operate.md",
+      "tags": ["operations", "deployment", "triage"],
+      "modes": ["deploy", "triage", "plan"],
+      "absorbs": ["deploy", "ci-triage", "plan"],
+      "compatibility": ["claude-code", "opencode", "cursor", "codex"],
+      "requires_cli": ["sdp"]
+    },
+    {
+      "name": "ship",
+      "type": "command",
+      "status": "active",
+      "description": "Deployment and release command",
+      "path": ".agents/skills/ship.md",
+      "tags": ["deployment", "release"],
+      "absorbs": ["deploy"],
+      "compatibility": ["claude-code", "opencode", "cursor", "codex"]
+    },
+    {
+      "name": "strataudit",
+      "type": "specialized",
+      "status": "active",
+      "description": "Strategy traceability audit — evidence-backed alignment and trace coverage",
+      "path": ".agents/skills/strataudit.md",
+      "tags": ["audit", "strategy", "traceability"],
+      "modes": ["corpus-audit", "traceability-audit", "coverage-audit", "evidence-pack", "report-redraft"],
+      "compatibility": ["claude-code", "opencode", "cursor", "codex"]
+    },
+    {
+      "name": "git-worktree",
+      "type": "specialized",
+      "status": "active",
+      "description": "Safety-first git worktree setup for parallel feature work",
+      "path": ".agents/skills/git-worktree.md",
+      "tags": ["git", "worktree", "parallel"],
+      "compatibility": ["claude-code", "opencode", "cursor", "codex"]
+    },
+    {
+      "name": "parallel-dispatch",
+      "type": "specialized",
+      "status": "active",
+      "description": "Delegate independent tasks to parallel subagent sessions",
+      "path": ".agents/skills/parallel-dispatch.md",
+      "tags": ["parallel", "dispatch", "subagent"],
+      "compatibility": ["claude-code", "opencode", "cursor", "codex"]
+    },
+    {
+      "name": "llm-council",
+      "type": "specialized",
+      "status": "active",
+      "description": "Multi-model synthesis for complex decisions requiring diverse AI perspectives",
+      "path": ".agents/skills/llm-council.md",
+      "tags": ["multi-model", "synthesis", "decision"],
+      "compatibility": ["claude-code", "opencode", "cursor", "codex"]
+    },
+    {
+      "name": "spec-interrogate",
+      "type": "specialized",
+      "status": "active",
+      "description": "Spec interrogation capability for requirements validation",
+      "path": ".agents/skills/spec-interrogate.md",
+      "tags": ["spec", "interrogation", "validation"],
+      "compatibility": ["claude-code", "opencode", "cursor", "codex"]
+    },
+    {
+      "name": "beads",
+      "type": "cli-tool",
+      "status": "active",
+      "description": "Beads task tracker integration (CLI tool, not an AI skill)",
+      "path": "prompts/skills/beads/SKILL.md",
+      "tags": ["task-tracker", "cli", "beads"],
+      "note": "Use bd commands directly - not invoked as an AI skill",
+      "compatibility": ["claude-code", "opencode", "cursor", "codex"]
+    },
+    {
+      "name": "init",
+      "type": "cli-tool",
+      "status": "active",
+      "description": "SDP initialization capability",
+      "path": "prompts/skills/init/SKILL.md",
+      "tags": ["initialization", "setup"],
+      "compatibility": ["claude-code", "opencode", "cursor", "codex"]
+    },
+    {
+      "name": "delivery-loop",
+      "type": "cli-tool",
+      "status": "active",
+      "description": "Autonomous delivery cycle",
+      "path": ".agents/skills/delivery-loop.md",
+      "tags": ["delivery", "automation", "loop"],
+      "compatibility": ["claude-code", "opencode", "cursor", "codex"]
+    },
+    {
+      "name": "protocol-consistency",
+      "type": "cli-tool",
+      "status": "active",
+      "description": "Protocol consistency audit",
+      "path": "prompts/skills/protocol-consistency/SKILL.md",
+      "tags": ["protocol", "consistency", "audit"],
+      "compatibility": ["claude-code", "opencode", "cursor", "codex"]
+    }
+  ],
+  "deprecated": [
+    {
+      "name": "scout",
+      "status": "deprecated",
+      "description": "Legacy: Quick codebase discovery",
+      "redirect_to": "understand",
+      "redirect_mode": "--depth quick",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/scout.md"
+      ]
+    },
+    {
+      "name": "architect",
+      "status": "deprecated",
+      "description": "Legacy: Architecture analysis",
+      "redirect_to": "understand",
+      "redirect_mode": "--depth standard",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/architect.md"
+      ]
+    },
+    {
+      "name": "metrics",
+      "status": "deprecated",
+      "description": "Legacy: Metrics collection",
+      "redirect_to": "understand",
+      "redirect_mode": "--depth standard",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/metrics.md"
+      ]
+    },
+    {
+      "name": "landscape",
+      "status": "deprecated",
+      "description": "Legacy: Codebase landscape analysis",
+      "redirect_to": "understand",
+      "redirect_mode": "--depth standard",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/landscape.md"
+      ]
+    },
+    {
+      "name": "discovery",
+      "status": "deprecated",
+      "description": "Legacy: Codebase discovery",
+      "redirect_to": "understand",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        "prompts/skills/discovery/SKILL.md",
+        ".codex/skills/discovery.md",
+        ".opencode/skill/discovery.md"
+      ]
+    },
+    {
+      "name": "feature",
+      "status": "deprecated",
+      "description": "Legacy: Feature implementation",
+      "redirect_to": "build",
+      "redirect_mode": "--mode feature",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/feature.md",
+        "prompts/skills/feature/SKILL.md",
+        ".codex/skills/feature.md",
+        ".opencode/skill/feature.md"
+      ]
+    },
+    {
+      "name": "idea",
+      "status": "deprecated",
+      "description": "Legacy: Brainstorming and ideation",
+      "redirect_to": "build",
+      "redirect_mode": "--mode idea",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/idea.md",
+        "prompts/skills/idea/SKILL.md",
+        ".codex/skills/idea.md",
+        ".opencode/skill/idea.md"
+      ]
+    },
+    {
+      "name": "design",
+      "status": "deprecated",
+      "description": "Legacy: Design work",
+      "redirect_to": "build",
+      "redirect_mode": "--mode idea",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/design.md",
+        "prompts/skills/design/SKILL.md",
+        ".codex/skills/design.md",
+        ".opencode/skill/design.md"
+      ]
+    },
+    {
+      "name": "ux",
+      "status": "deprecated",
+      "description": "Legacy: UX design",
+      "redirect_to": "build",
+      "redirect_mode": "--mode idea",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/ux.md",
+        "prompts/skills/ux/SKILL.md",
+        ".codex/skills/ux.md",
+        ".opencode/skill/ux.md"
+      ]
+    },
+    {
+      "name": "vision",
+      "status": "deprecated",
+      "description": "Legacy: Vision work",
+      "redirect_to": "build",
+      "redirect_mode": "--mode idea",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/vision.md",
+        "prompts/skills/vision/SKILL.md",
+        ".codex/skills/vision.md",
+        ".opencode/skill/vision.md"
+      ]
+    },
+    {
+      "name": "prototype",
+      "status": "deprecated",
+      "description": "Legacy: Prototyping",
+      "redirect_to": "build",
+      "redirect_mode": "--mode prototype",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/prototype.md",
+        "prompts/skills/prototype/SKILL.md",
+        ".codex/skills/prototype.md",
+        ".opencode/skill/prototype.md"
+      ]
+    },
+    {
+      "name": "oneshot",
+      "status": "deprecated",
+      "description": "Legacy: One-shot implementation",
+      "redirect_to": "build",
+      "redirect_mode": "--mode prototype",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/oneshot.md",
+        "prompts/skills/oneshot/SKILL.md",
+        ".codex/skills/oneshot.md",
+        ".opencode/skill/oneshot.md"
+      ],
+      "note": "Checkpoint/resume behavior now via @operate --mode plan"
+    },
+    {
+      "name": "hotfix",
+      "status": "deprecated",
+      "description": "Legacy: Hotfix",
+      "redirect_to": "fix",
+      "redirect_mode": "--mode quick",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/hotfix.md",
+        "prompts/skills/hotfix/SKILL.md",
+        ".codex/skills/hotfix.md",
+        ".opencode/skill/hotfix.md"
+      ]
+    },
+    {
+      "name": "bugfix",
+      "status": "deprecated",
+      "description": "Legacy: Bugfix",
+      "redirect_to": "fix",
+      "redirect_mode": "--mode systematic",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/bugfix.md",
+        "prompts/skills/bugfix/SKILL.md",
+        ".codex/skills/bugfix.md",
+        ".opencode/skill/bugfix.md"
+      ]
+    },
+    {
+      "name": "issue",
+      "status": "deprecated",
+      "description": "Legacy: Issue tracking and bugfix",
+      "redirect_to": "fix",
+      "redirect_mode": "--mode systematic",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/issue.md",
+        "prompts/skills/issue/SKILL.md",
+        ".codex/skills/issue.md",
+        ".opencode/skill/issue.md"
+      ]
+    },
+    {
+      "name": "debug",
+      "status": "deprecated",
+      "description": "Legacy: Debugging",
+      "redirect_to": "fix",
+      "redirect_mode": "--mode investigate",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/debug.md",
+        "prompts/skills/debug/SKILL.md",
+        ".codex/skills/debug.md",
+        ".opencode/skill/debug.md"
+      ]
+    },
+    {
+      "name": "reality-check",
+      "status": "deprecated",
+      "description": "Legacy: Reality checking",
+      "redirect_to": "review",
+      "redirect_mode": "--dimension reality",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/reality-check.md",
+        "prompts/skills/reality-check/SKILL.md",
+        ".codex/skills/reality-check.md",
+        ".opencode/skill/reality-check.md"
+      ]
+    },
+    {
+      "name": "verify-workstream",
+      "status": "deprecated",
+      "description": "Legacy: Workstream verification",
+      "redirect_to": "review",
+      "redirect_mode": "--dimension readiness",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/verify-workstream.md",
+        "prompts/skills/verify-workstream/SKILL.md",
+        ".codex/skills/verify-workstream.md",
+        ".opencode/skill/verify-workstream.md"
+      ]
+    },
+    {
+      "name": "deploy",
+      "status": "deprecated",
+      "description": "Legacy: Deployment",
+      "redirect_to": "ship",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/deploy.md",
+        "prompts/skills/deploy/SKILL.md",
+        ".codex/skills/deploy.md",
+        ".opencode/skill/deploy.md"
+      ]
+    },
+    {
+      "name": "ci-triage",
+      "status": "deprecated",
+      "description": "Legacy: CI triage",
+      "redirect_to": "operate",
+      "redirect_mode": "--mode triage",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/ci-triage.md",
+        "prompts/skills/ci-triage/SKILL.md",
+        ".codex/skills/ci-triage.md",
+        ".opencode/skill/ci-triage.md"
+      ]
+    },
+    {
+      "name": "plan",
+      "status": "deprecated",
+      "description": "Legacy: Planning",
+      "redirect_to": "operate",
+      "redirect_mode": "--mode plan",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        ".agents/skills/plan.md",
+        ".codex/skills/plan.md",
+        ".opencode/skill/plan.md"
+      ]
+    },
+    {
+      "name": "reality",
+      "status": "deprecated",
+      "description": "Legacy: Reality checking (duplicate of reality-check)",
+      "redirect_to": "review",
+      "redirect_mode": "--dimension reality",
+      "deprecation_date": "2026-04-17",
+      "hard_cutover": "2026-06-01",
+      "paths": [
+        "prompts/skills/reality/SKILL.md",
+        ".codex/skills/reality.md",
+        ".opencode/skill/reality.md"
+      ]
+    }
+  ],
+  "removed": [
+    {
+      "name": "bug-fix",
+      "status": "removed",
+      "description": "Duplicate of bugfix.md (typo variant)",
+      "reason": "duplicate",
+      "paths": [
+        ".agents/skills/bug-fix.md"
+      ]
+    },
+    {
+      "name": "plan-phase",
+      "status": "removed",
+      "description": "Internal phase implementation",
+      "reason": "internal-implementation",
+      "paths": [
+        ".agents/skills/plan-phase.md"
+      ]
+    },
+    {
+      "name": "eval-phase",
+      "status": "removed",
+      "description": "Internal phase implementation",
+      "reason": "internal-implementation",
+      "paths": [
+        ".agents/skills/eval-phase.md"
+      ]
+    },
+    {
+      "name": "review-phase",
+      "status": "removed",
+      "description": "Internal phase implementation",
+      "reason": "internal-implementation",
+      "paths": [
+        ".agents/skills/review-phase.md"
+      ]
+    },
+    {
+      "name": "feature-delivery",
+      "status": "removed",
+      "description": "Duplicate of delivery-loop.md",
+      "reason": "duplicate",
+      "paths": [
+        ".agents/skills/feature-delivery.md"
+      ]
+    },
+    {
+      "name": "gate",
+      "status": "removed",
+      "description": "Internal gate mechanism",
+      "reason": "internal-implementation",
+      "paths": [
+        ".agents/skills/gate.md"
+      ]
+    },
+    {
+      "name": "research",
+      "status": "removed",
+      "description": "Unused research skill",
+      "reason": "unused",
+      "paths": [
+        ".agents/skills/research.md"
+      ]
+    },
+    {
+      "name": "session-audit",
+      "status": "removed",
+      "description": "Internal audit mechanism",
+      "reason": "internal-implementation",
+      "paths": [
+        ".agents/skills/session-audit.md"
+      ]
+    },
+    {
+      "name": "smoke-test",
+      "status": "removed",
+      "description": "Subsumed by deployment verification",
+      "reason": "subsumed",
+      "paths": [
+        ".agents/skills/smoke-test.md"
+      ]
+    },
+    {
+      "name": "test-coverage",
+      "status": "removed",
+      "description": "Subsumed by quality gates",
+      "reason": "subsumed",
+      "paths": [
+        ".agents/skills/test-coverage.md"
+      ]
+    },
+    {
+      "name": "test-writer",
+      "status": "removed",
+      "description": "Subsumed by TDD in @build/@fix",
+      "reason": "subsumed",
+      "paths": [
+        ".agents/skills/test-writer.md"
+      ]
+    },
+    {
+      "name": "ship/SKILL.md",
+      "status": "removed",
+      "description": "Duplicate of ship.md",
+      "reason": "duplicate",
+      "paths": [
+        ".agents/skills/ship/SKILL.md"
+      ]
+    },
+    {
+      "name": "go-modern",
+      "status": "removed",
+      "description": "Language style convention (not a skill)",
+      "reason": "not-a-skill",
+      "paths": [
+        "prompts/skills/go-modern/SKILL.md",
+        ".codex/skills/go-modern.md",
+        ".opencode/skill/go-modern.md"
+      ]
+    },
+    {
+      "name": "guard",
+      "status": "removed",
+      "description": "Pre-commit gate (automatic, not invoked)",
+      "reason": "not-a-skill",
+      "paths": [
+        "prompts/skills/guard/SKILL.md",
+        ".codex/skills/guard.md",
+        ".opencode/skill/guard.md"
+      ]
+    },
+    {
+      "name": "tdd",
+      "status": "removed",
+      "description": "Embedded in @build/@fix (not a skill)",
+      "reason": "not-a-skill",
+      "paths": [
+        "prompts/skills/tdd/SKILL.md",
+        ".codex/skills/tdd.md",
+        ".opencode/skill/tdd.md"
+      ]
+    },
+    {
+      "name": "think",
+      "status": "removed",
+      "description": "Prompt technique (not a skill)",
+      "reason": "not-a-skill",
+      "paths": [
+        "prompts/skills/think/SKILL.md",
+        ".codex/skills/think.md",
+        ".opencode/skill/think.md"
+      ]
+    }
+  ],
+  "summary": {
+    "total_skills": 134,
+    "active_skills": 15,
+    "active_intents": 6,
+    "active_specialized": 5,
+    "active_cli_tools": 4,
+    "deprecated_skills": 23,
+    "removed_skills": 16,
+    "harnesses": ["claude-code", "codex", "opencode"],
+    "canonical_path": ".agents/skills/",
+    "deprecation_timeline": {
+      "soft_launch": "2026-04-17",
+      "warning_period_end": "2026-06-01",
+      "hard_cutover": "2026-06-01"
+    }
+  }
+}
