@@ -1,12 +1,12 @@
 {
   "classifier": "bdtype",
-  "total_requests": 18,
-  "micro_handled": 0,
-  "escalated": 18,
-  "fallback_rate": 1,
-  "p50_ms": 0.016,
-  "p95_ms": 0.018,
-  "accuracy": 0,
-  "llm_calls_saved_pct": 0,
-  "est_token_savings_pct": 0
+  "total_requests": 30,
+  "micro_handled": 20,
+  "escalated": 10,
+  "fallback_rate": 0.3333333333333333,
+  "p50_ms": 0.011,
+  "p95_ms": 0.012,
+  "accuracy": 100,
+  "llm_calls_saved_pct": 66.66666666666666,
+  "est_token_savings_pct": 66.66666666666666
 }

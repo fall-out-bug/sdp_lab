@@ -18,7 +18,7 @@ const testDataDir = "testdata"
 
 // TestBenchWsVerdict_Smoke runs wsverdict bench with a tiny corpus (5 items).
 func TestBenchWsVerdict_Smoke(t *testing.T) {
-	result, err := benchWsVerdict(context.Background(), testDataDir, 5)
+	result, err := benchWsVerdict(context.Background(), testDataDir, 5, benchOpts{})
 	if err != nil {
 		t.Fatalf("benchWsVerdict: %v", err)
 	}
@@ -35,7 +35,7 @@ func TestBenchWsVerdict_Smoke(t *testing.T) {
 
 // TestBenchBdSeverity_Smoke runs bdseverity bench with a tiny corpus.
 func TestBenchBdSeverity_Smoke(t *testing.T) {
-	result, err := benchBdSeverity(context.Background(), testDataDir, 5)
+	result, err := benchBdSeverity(context.Background(), testDataDir, 5, benchOpts{})
 	if err != nil {
 		t.Fatalf("benchBdSeverity: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestBenchBdSeverity_Smoke(t *testing.T) {
 
 // TestBenchBdType_Smoke runs bdtype bench with a tiny corpus.
 func TestBenchBdType_Smoke(t *testing.T) {
-	result, err := benchBdType(context.Background(), testDataDir, 5)
+	result, err := benchBdType(context.Background(), testDataDir, 5, benchOpts{})
 	if err != nil {
 		t.Fatalf("benchBdType: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestBenchBdType_Smoke(t *testing.T) {
 
 // TestBenchRouting_Smoke runs routing bench with a tiny corpus.
 func TestBenchRouting_Smoke(t *testing.T) {
-	result, err := benchRouting(context.Background(), testDataDir, 5)
+	result, err := benchRouting(context.Background(), testDataDir, 5, benchOpts{})
 	if err != nil {
 		t.Fatalf("benchRouting: %v", err)
 	}

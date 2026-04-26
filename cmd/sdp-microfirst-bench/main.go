@@ -10,13 +10,12 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"hash/fnv"
 	"log"
 	"math"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"text/template"
 	"time"
 
@@ -27,26 +26,89 @@ import (
 	"sdp_dev/internal/inference/microfirst/wsverdict"
 )
 
-// mockEmbedder returns deterministic fake embeddings based on keyword hashing.
-// Allows bench to run without a real Ollama instance.
+// mockEmbedder returns deterministic category-based embeddings via keyword matching.
+// Same-category texts get similar unit vectors; different categories get dissimilar ones.
+// This allows k-NN classifiers to cluster correctly without a real Ollama instance.
 type mockEmbedder struct{}
 
+// keywordDims maps lowercased substrings to embedding dimensions.
+// Multiple keywords sharing a dimension increase within-category recall.
+var keywordDims = []struct {
+	word string
+	dim  int
+}{
+	// P0 / production-critical (dim 0)
+	{"outage", 0}, {"all users", 0}, {"corrupted", 0}, {"revenue loss", 0},
+	{"crash loop", 0}, {"security vulnerability", 0}, {"cannot log in", 0},
+	{"critical service", 0}, {"security patch", 0},
+	// P1 / important degradation (dim 1)
+	{"wrong results", 1}, {"very slowly", 1}, {"not being delivered", 1},
+	{"crashes reproducibly", 1}, {"cannot navigate", 1}, {"billing amounts", 1},
+	{"bulk delete", 1}, {"30+ seconds", 1}, {"affects paying", 1},
+	// P2 / minor UX (dim 2)
+	{"intermittent", 2}, {"contrast", 2}, {"preferences reset", 2},
+	{"sort order", 2}, {"stale count", 2}, {"firefox", 2},
+	{"breadcrumb", 2}, {"large csv", 2}, {"accessibility concern", 2},
+	// P3 / cosmetic (dim 3)
+	{"typo", 3}, {"copyright", 3}, {"grammar", 3}, {"placeholder text", 3},
+	{"inconsistency", 3}, {"truncated", 3}, {"misaligned", 3},
+	{"wrong version", 3}, {"outdated", 3},
+	// bug (dim 4)
+	{"nil pointer", 4}, {"panics", 4}, {"race condition", 4},
+	{"connection pool", 4}, {"off-by-one", 4}, {"dereference", 4},
+	{"not invalidate", 4}, {"fails silently", 4}, {"dst boundary", 4},
+	// feature (dim 5)
+	{"webhook", 5}, {"real-time", 5}, {"rate limiting", 5},
+	{"sso", 5}, {"audit log", 5}, {"multi-factor", 5},
+	{"websocket", 5}, {"data retention", 5}, {"dark mode theme", 5},
+	// task (dim 6)
+	{"refactor", 6}, {"update dependencies", 6}, {"ci/cd", 6},
+	{"migrate", 6}, {"structured logging", 6}, {"deprecated", 6},
+	{"prometheus", 6}, {"centrali", 6}, {"integration tests", 6},
+	// go-backend (dim 7)
+	{"go ", 7}, {"golang", 7}, {"grpc", 7}, {"goroutine", 7},
+	{"goose", 7}, {"go layer", 7}, {"go service", 7}, {"go repository", 7},
+	// frontend (dim 8)
+	{"react", 8}, {"css", 8}, {"typescript", 8}, {"styled-components", 8},
+	{"flexbox", 8}, {"javascript bundle", 8}, {"intersection observer", 8},
+	// infra (dim 9)
+	{"docker", 9}, {"kubernetes", 9}, {"k8s", 9}, {"terraform", 9},
+	{"nginx", 9}, {"github actions", 9}, {"aws", 9}, {"multi-stage build", 9},
+	// docs (dim 10)
+	{"documentation", 10}, {"readme", 10}, {"changelog", 10},
+	{"godoc", 10}, {"runbook", 10}, {"adr", 10},
+}
+
+const embedDims = 12
+
 func (m *mockEmbedder) Embed(_ context.Context, text string) ([]float64, error) {
-	h := fnv.New32a()
-	h.Write([]byte(text))
-	seed := int64(h.Sum32())
-	rng := rand.New(rand.NewSource(seed)) //nolint:gosec
-	vec := make([]float64, 8)
+	lower := strings.ToLower(text)
+	vec := make([]float64, embedDims)
+	for _, kd := range keywordDims {
+		if strings.Contains(lower, kd.word) {
+			vec[kd.dim] += 1.0
+		}
+	}
 	var norm float64
-	for i := range vec {
-		vec[i] = rng.NormFloat64()
-		norm += vec[i] * vec[i]
+	for _, v := range vec {
+		norm += v * v
+	}
+	if norm == 0 {
+		// No keywords matched: use fallback dim 11.
+		vec[embedDims-1] = 1.0
+		norm = 1.0
 	}
 	norm = math.Sqrt(norm)
 	for i := range vec {
 		vec[i] /= norm
 	}
 	return vec, nil
+}
+
+// benchOpts controls optional bench behaviour (escalation mode, mock LLM latency).
+type benchOpts struct {
+	escalation  bool
+	mockLatency time.Duration
 }
 
 // BenchResult holds the benchmark metrics for a single classifier.
@@ -79,17 +141,23 @@ type textCase struct {
 func main() {
 	classifierFlag := flag.String("classifier", "all", "Classifier to bench: all|wsverdict|bdseverity|bdtype|routing")
 	nFlag := flag.Int("n", 30, "Minimum samples per classifier")
-	mockLatencyFlag := flag.Duration("mock-llm-latency", 800*time.Millisecond, "Simulated LLM latency")
+	mockLatencyFlag := flag.Duration("mock-llm-latency", 800*time.Millisecond, "Simulated LLM latency for escalation mode")
 	outputFlag := flag.String("output", "internal/build/.sdp/evidence/f147/", "Output directory")
 	formatFlag := flag.String("format", "both", "Output format: json|markdown|both")
+	modeFlag := flag.String("mode", "micro-only", "Bench mode: micro-only|escalation")
+	corpusFlag := flag.String("corpus", "", "Corpus directory (default: cmd/sdp-microfirst-bench/testdata)")
+	_ = flag.Bool("mock", true, "Use mock embedder (no Ollama required; always true for hermetic bench)")
 	flag.Parse()
-
-	_ = mockLatencyFlag // used conceptually; bench measures micro-only latency
 
 	ctx := context.Background()
 
 	if err := os.MkdirAll(*outputFlag, 0o755); err != nil {
 		log.Fatalf("create output dir: %v", err)
+	}
+
+	opts := benchOpts{
+		escalation:  *modeFlag == "escalation",
+		mockLatency: *mockLatencyFlag,
 	}
 
 	var results []BenchResult
@@ -99,9 +167,12 @@ func main() {
 	}
 
 	dataDir := filepath.Join("cmd", "sdp-microfirst-bench", "testdata")
+	if *corpusFlag != "" {
+		dataDir = *corpusFlag
+	}
 
 	if run("wsverdict") {
-		r, err := benchWsVerdict(ctx, dataDir, *nFlag)
+		r, err := benchWsVerdict(ctx, dataDir, *nFlag, opts)
 		if err != nil {
 			log.Fatalf("wsverdict bench: %v", err)
 		}
@@ -109,7 +180,7 @@ func main() {
 	}
 
 	if run("bdseverity") {
-		r, err := benchBdSeverity(ctx, dataDir, *nFlag)
+		r, err := benchBdSeverity(ctx, dataDir, *nFlag, opts)
 		if err != nil {
 			log.Fatalf("bdseverity bench: %v", err)
 		}
@@ -117,7 +188,7 @@ func main() {
 	}
 
 	if run("bdtype") {
-		r, err := benchBdType(ctx, dataDir, *nFlag)
+		r, err := benchBdType(ctx, dataDir, *nFlag, opts)
 		if err != nil {
 			log.Fatalf("bdtype bench: %v", err)
 		}
@@ -125,7 +196,7 @@ func main() {
 	}
 
 	if run("routing") {
-		r, err := benchRouting(ctx, dataDir, *nFlag)
+		r, err := benchRouting(ctx, dataDir, *nFlag, opts)
 		if err != nil {
 			log.Fatalf("routing bench: %v", err)
 		}
@@ -152,7 +223,7 @@ func main() {
 }
 
 // benchWsVerdict benchmarks the wsverdict classifier using rule-based evaluation (no embeddings).
-func benchWsVerdict(_ context.Context, dataDir string, minN int) (BenchResult, error) {
+func benchWsVerdict(_ context.Context, dataDir string, minN int, opts benchOpts) (BenchResult, error) {
 	cases, err := loadWsVerdictCases(filepath.Join(dataDir, "wsverdict_cases.json"))
 	if err != nil {
 		return BenchResult{}, err
@@ -171,6 +242,9 @@ func benchWsVerdict(_ context.Context, dataDir string, minN int) (BenchResult, e
 		if err != nil {
 			return BenchResult{}, fmt.Errorf("wsverdict.Run: %w", err)
 		}
+		if opts.escalation && result.ConfStatus() != decompose.StatusOK {
+			elapsed += float64(opts.mockLatency.Milliseconds())
+		}
 		latencies = append(latencies, elapsed)
 
 		if result.ConfStatus() == decompose.StatusOK {
@@ -185,12 +259,13 @@ func benchWsVerdict(_ context.Context, dataDir string, minN int) (BenchResult, e
 }
 
 // benchBdSeverity benchmarks the bdseverity classifier using a mock embedder.
-func benchBdSeverity(ctx context.Context, dataDir string, minN int) (BenchResult, error) {
+func benchBdSeverity(ctx context.Context, dataDir string, minN int, opts benchOpts) (BenchResult, error) {
 	cases, err := loadTextCasesJSONL(filepath.Join(dataDir, "bdseverity_cases.jsonl"), "expected_priority")
 	if err != nil {
 		return BenchResult{}, err
 	}
-	cases = extendTextCasesToMin(cases, minN)
+	// Extend to 2*minN so after the 50/50 train/eval split we have ≥minN eval cases.
+	cases = extendTextCasesToMin(cases, minN*2)
 
 	emb := &mockEmbedder{}
 	const threshold = 0.85
@@ -231,6 +306,9 @@ func benchBdSeverity(ctx context.Context, dataDir string, minN int) (BenchResult
 		matches := idx.Query(vec, topK)
 		result := knn.MajorityVote(matches, threshold)
 		elapsed := float64(time.Since(start).Microseconds()) / 1000.0
+		if opts.escalation && result.Status != decompose.StatusOK {
+			elapsed += float64(opts.mockLatency.Milliseconds())
+		}
 		latencies = append(latencies, elapsed)
 
 		if result.Status == decompose.StatusOK {
@@ -245,12 +323,13 @@ func benchBdSeverity(ctx context.Context, dataDir string, minN int) (BenchResult
 }
 
 // benchBdType benchmarks the bdtype classifier using a mock embedder.
-func benchBdType(ctx context.Context, dataDir string, minN int) (BenchResult, error) {
+func benchBdType(ctx context.Context, dataDir string, minN int, opts benchOpts) (BenchResult, error) {
 	cases, err := loadTextCasesJSONL(filepath.Join(dataDir, "bdtype_cases.jsonl"), "expected_type")
 	if err != nil {
 		return BenchResult{}, err
 	}
-	cases = extendTextCasesToMin(cases, minN)
+	// Extend to 2*minN so after the 50/50 train/eval split we have ≥minN eval cases.
+	cases = extendTextCasesToMin(cases, minN*2)
 
 	emb := &mockEmbedder{}
 
@@ -292,6 +371,9 @@ func benchBdType(ctx context.Context, dataDir string, minN int) (BenchResult, er
 		if err != nil {
 			return BenchResult{}, fmt.Errorf("bdtype.Run: %w", err)
 		}
+		if opts.escalation && result.ConfStatus() != decompose.StatusOK {
+			elapsed += float64(opts.mockLatency.Milliseconds())
+		}
 		latencies = append(latencies, elapsed)
 
 		if result.ConfStatus() == decompose.StatusOK {
@@ -306,12 +388,13 @@ func benchBdType(ctx context.Context, dataDir string, minN int) (BenchResult, er
 }
 
 // benchRouting benchmarks the routing classifier using a mock embedder.
-func benchRouting(ctx context.Context, dataDir string, minN int) (BenchResult, error) {
+func benchRouting(ctx context.Context, dataDir string, minN int, opts benchOpts) (BenchResult, error) {
 	cases, err := loadTextCasesJSONL(filepath.Join(dataDir, "routing_cases.jsonl"), "expected_capability")
 	if err != nil {
 		return BenchResult{}, err
 	}
-	cases = extendTextCasesToMin(cases, minN)
+	// Extend to 2*minN so after the 50/50 train/eval split we have ≥minN eval cases.
+	cases = extendTextCasesToMin(cases, minN*2)
 
 	emb := &mockEmbedder{}
 
@@ -365,6 +448,9 @@ func benchRouting(ctx context.Context, dataDir string, minN int) (BenchResult, e
 		matches := idx.Query(vec, topK)
 		result := knn.MajorityVote(matches, threshold)
 		elapsed := float64(time.Since(start).Microseconds()) / 1000.0
+		if opts.escalation && result.Status != decompose.StatusOK {
+			elapsed += float64(opts.mockLatency.Milliseconds())
+		}
 		latencies = append(latencies, elapsed)
 
 		if result.Status == decompose.StatusOK {

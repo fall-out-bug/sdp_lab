@@ -5,7 +5,7 @@
 //
 //	sdp-bd-suggest --title="fix nil pointer" [--description="..."] \
 //	               [--format=json|human] [--ollama-url=http://localhost:11434] \
-//	               [--corpus-path=.beads/issues.jsonl]
+//	               [--corpus-path=.beads/issues.jsonl] [--escalate]
 package main
 
 import (
@@ -14,10 +14,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
+	"sdp_dev/internal/inference/decompose"
 	"sdp_dev/internal/inference/microfirst/bdseverity"
 	"sdp_dev/internal/inference/microfirst/bdtype"
 	"sdp_dev/internal/inference/microfirst/embed"
+	"sdp_dev/internal/llmclient"
 )
 
 // config holds all CLI parameters.
@@ -27,6 +30,7 @@ type config struct {
 	format      string
 	ollamaURL   string
 	corpusPath  string
+	escalate    bool
 }
 
 func main() {
@@ -44,6 +48,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	fs.StringVar(&cfg.format, "format", "json", "Output format: json or human")
 	fs.StringVar(&cfg.ollamaURL, "ollama-url", "http://localhost:11434", "Ollama base URL")
 	fs.StringVar(&cfg.corpusPath, "corpus-path", ".beads/issues.jsonl", "Path to corpus JSONL file")
+	fs.BoolVar(&cfg.escalate, "escalate", false, "Escalate Unsure results to LLM (requires OPENROUTER_API_KEY)")
 
 	if err := fs.Parse(args); err != nil {
 		return 1
@@ -114,11 +119,57 @@ func runClassify(ctx context.Context, cfg config, w io.Writer) error {
 		return fmt.Errorf("type classify: %w", err)
 	}
 
+	sevEscalated := false
+	typeEscalated := false
+
+	if cfg.escalate {
+		apiKey := os.Getenv("OPENROUTER_API_KEY")
+		if apiKey == "" {
+			return fmt.Errorf("--escalate requires OPENROUTER_API_KEY env var")
+		}
+		llmCli := llmclient.New(apiKey, "https://openrouter.ai/api/v1")
+
+		if sevResult.ConfStatus() == decompose.StatusUnsure {
+			priority, err := llmClassify(ctx, llmCli, cfg.title, cfg.description,
+				"priority (one of: P0, P1, P2, P3)")
+			if err != nil {
+				return fmt.Errorf("llm severity escalation: %w", err)
+			}
+			sevResult.Priority = priority
+			sevEscalated = true
+		}
+
+		if typeResult.ConfStatus() == decompose.StatusUnsure {
+			issueType, err := llmClassify(ctx, llmCli, cfg.title, cfg.description,
+				"type (one of: bug, feature, task)")
+			if err != nil {
+				return fmt.Errorf("llm type escalation: %w", err)
+			}
+			typeResult.Type = issueType
+			typeEscalated = true
+		}
+	}
+
 	// Render output.
 	switch cfg.format {
 	case "human":
-		return renderHuman(w, cfg.title, sevResult, typeResult)
+		return renderHuman(w, cfg.title, sevResult, typeResult, sevEscalated, typeEscalated)
 	default:
-		return renderJSON(w, cfg.title, sevResult, typeResult)
+		return renderJSON(w, cfg.title, sevResult, typeResult, sevEscalated, typeEscalated)
 	}
+}
+
+// llmClassify calls the LLM to classify an issue attribute when micro-tier is Unsure.
+func llmClassify(ctx context.Context, cli *llmclient.Client, title, description, what string) (string, error) {
+	prompt := fmt.Sprintf("Classify this issue.\nTitle: %s\nDescription: %s\nRespond with the %s only, one word.",
+		title, description, what)
+	resp, err := cli.Chat(ctx, llmclient.ChatRequest{
+		Model:     "anthropic/claude-haiku-4-5",
+		Messages:  []llmclient.Message{{Role: "user", Content: prompt}},
+		MaxTokens: 10,
+	})
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(strings.ToLower(resp.Content)), nil
 }

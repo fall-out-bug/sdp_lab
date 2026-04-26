@@ -22,6 +22,7 @@ type classifierOutput struct {
 	Value      string         `json:"value"`
 	Confidence float64        `json:"confidence"`
 	Status     string         `json:"status"`
+	Escalated  bool           `json:"escalated"`
 	Neighbors  []neighborJSON `json:"neighbors,omitempty"`
 }
 
@@ -46,19 +47,21 @@ func toNeighborJSON(matches []knn.Match[string]) []neighborJSON {
 }
 
 // renderJSON writes the JSON output to w.
-func renderJSON(w io.Writer, title string, sev bdseverity.BdSeverityResult, typ bdtype.BdTypeResult) error {
+func renderJSON(w io.Writer, title string, sev bdseverity.BdSeverityResult, typ bdtype.BdTypeResult, sevEscalated, typeEscalated bool) error {
 	out := jsonOutput{
 		Title: title,
 		Type: classifierOutput{
 			Value:      typ.Type,
 			Confidence: typ.Confidence(),
 			Status:     string(typ.ConfStatus()),
+			Escalated:  typeEscalated,
 			Neighbors:  toNeighborJSON(typ.Neighbors),
 		},
 		Priority: classifierOutput{
 			Value:      sev.Priority,
 			Confidence: sev.Confidence(),
 			Status:     string(sev.ConfStatus()),
+			Escalated:  sevEscalated,
 			Neighbors:  toNeighborJSON(sev.Neighbors),
 		},
 	}
@@ -72,12 +75,22 @@ func renderJSON(w io.Writer, title string, sev bdseverity.BdSeverityResult, typ 
 }
 
 // renderHuman writes a human-readable summary to w.
-func renderHuman(w io.Writer, title string, sev bdseverity.BdSeverityResult, typ bdtype.BdTypeResult) error {
+func renderHuman(w io.Writer, title string, sev bdseverity.BdSeverityResult, typ bdtype.BdTypeResult, sevEscalated, typeEscalated bool) error {
 	fmt.Fprintf(w, "Title: %s\n\n", title)
-	fmt.Fprintf(w, "Type:     %-8s [%s, confidence: %.2f]\n",
-		typ.Type, string(typ.ConfStatus()), typ.Confidence())
-	fmt.Fprintf(w, "Priority: %-8s [%s, confidence: %.2f]\n\n",
-		sev.Priority, string(sev.ConfStatus()), sev.Confidence())
+
+	typeEscStr := ""
+	if typeEscalated {
+		typeEscStr = " (escalated)"
+	}
+	fmt.Fprintf(w, "Type:     %-8s [%s, confidence: %.2f%s]\n",
+		typ.Type, string(typ.ConfStatus()), typ.Confidence(), typeEscStr)
+
+	sevEscStr := ""
+	if sevEscalated {
+		sevEscStr = " (escalated)"
+	}
+	fmt.Fprintf(w, "Priority: %-8s [%s, confidence: %.2f%s]\n\n",
+		sev.Priority, string(sev.ConfStatus()), sev.Confidence(), sevEscStr)
 
 	// Show top neighbors for type classifier.
 	if len(typ.Neighbors) > 0 {
