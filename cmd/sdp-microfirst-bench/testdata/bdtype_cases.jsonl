@@ -1,0 +1,35 @@
+{"title": "Fix nil pointer dereference in auth handler", "description": "HTTP handler panics when user session is nil, needs nil check", "expected_type": "bug"}
+{"title": "API returns 500 on malformed JSON input", "description": "Missing input validation causes server error instead of 400 Bad Request", "expected_type": "bug"}
+{"title": "Race condition in cache invalidation logic", "description": "Concurrent writes to shared cache map without mutex causes data race", "expected_type": "bug"}
+{"title": "Database connection pool exhaustion under load", "description": "Connection pool runs out during traffic spikes, queries hang indefinitely", "expected_type": "bug"}
+{"title": "Wrong calculation in invoice total", "description": "Tax calculation applies wrong rate for EU customers, billing amounts incorrect", "expected_type": "bug"}
+{"title": "File upload fails with special characters in filename", "description": "Filenames containing parentheses or brackets cause 400 error on upload", "expected_type": "bug"}
+{"title": "Search pagination skips items at page boundary", "description": "Cursor-based pagination has off-by-one error, some items appear twice others skipped", "expected_type": "bug"}
+{"title": "Logout does not invalidate server-side session", "description": "Session token remains valid after logout, security issue", "expected_type": "bug"}
+{"title": "Email template renders HTML tags as literal text", "description": "HTML in email body is not rendered, shows raw tags to users", "expected_type": "bug"}
+{"title": "Timezone conversion off by one hour in winter", "description": "DST boundary not handled correctly, events show wrong time in winter", "expected_type": "bug"}
+{"title": "Implement multi-factor authentication", "description": "Add TOTP-based 2FA for user accounts with backup codes", "expected_type": "feature"}
+{"title": "Add CSV export for analytics reports", "description": "Allow users to download analytics data as CSV file from dashboard", "expected_type": "feature"}
+{"title": "Build team workspace feature", "description": "Allow multiple users to collaborate in shared workspace with roles and permissions", "expected_type": "feature"}
+{"title": "Add webhook notifications for events", "description": "Implement outbound webhooks so external systems can subscribe to events", "expected_type": "feature"}
+{"title": "Implement real-time collaboration with WebSockets", "description": "Multiple users can edit document simultaneously with live cursor sharing", "expected_type": "feature"}
+{"title": "Add API rate limiting per user", "description": "Implement per-user rate limiting with configurable quotas and 429 responses", "expected_type": "feature"}
+{"title": "Create public API documentation portal", "description": "Build interactive API docs site with authentication and try-it functionality", "expected_type": "feature"}
+{"title": "Add SSO integration with Google Workspace", "description": "Allow enterprise customers to sign in with their Google Workspace credentials", "expected_type": "feature"}
+{"title": "Implement data retention policy controls", "description": "Let admins configure automatic deletion of data older than N days", "expected_type": "feature"}
+{"title": "Add audit log for admin actions", "description": "Track all administrative actions with user, timestamp, and change details", "expected_type": "feature"}
+{"title": "Refactor database access layer to use repository pattern", "description": "Extract all SQL queries into typed repositories, improve testability", "expected_type": "task"}
+{"title": "Update dependencies to latest stable versions", "description": "Bump all Go module dependencies, resolve security advisories", "expected_type": "task"}
+{"title": "Set up CI/CD pipeline for staging environment", "description": "Configure GitHub Actions workflow to deploy to staging on PR merge", "expected_type": "task"}
+{"title": "Migrate authentication from JWT to Paseto", "description": "Replace JWT library with Paseto v4 tokens for better security properties", "expected_type": "task"}
+{"title": "Write integration tests for payment flow", "description": "Add end-to-end tests covering checkout, payment, and confirmation steps", "expected_type": "task"}
+{"title": "Configure Prometheus metrics and Grafana dashboard", "description": "Add business and system metrics, create operational dashboard", "expected_type": "task"}
+{"title": "Optimize Docker image build time", "description": "Add build cache layers, reduce final image size using multi-stage build", "expected_type": "task"}
+{"title": "Clean up deprecated API endpoints", "description": "Remove v1 API endpoints that have been sunset, update routing", "expected_type": "task"}
+{"title": "Add structured logging with trace IDs", "description": "Replace fmt.Printf with structured JSON logging, add request trace IDs", "expected_type": "task"}
+{"title": "Extract config loading into shared config package", "description": "Centralise environment variable parsing and validation into dedicated package", "expected_type": "task"}
+{"title": "Profile image not saved after account update", "description": "Avatar change is lost after navigating away, save operation fails silently", "expected_type": "bug"}
+{"title": "Implement dark mode theme", "description": "Add dark color scheme with user preference stored in account settings", "expected_type": "feature"}
+{"title": "Run database performance analysis", "description": "Profile slow queries, add missing indexes, document findings", "expected_type": "task"}
+{"title": "Build notification preferences center", "description": "Allow users to control which events trigger email, push, and in-app notifications", "expected_type": "feature"}
+{"title": "Password reset link expires too quickly", "description": "Reset links expire after 5 minutes, should be 30 minutes per requirements", "expected_type": "bug"}
