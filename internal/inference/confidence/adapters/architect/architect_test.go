@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -14,11 +15,16 @@ import (
 // fakeCaller cycles through a queue of responses. selfcheck call always
 // returns first; subsequent N-sample calls return classifications.
 type fakeCaller struct {
-	calls    int32
+	mu        sync.Mutex
+	calls     int32
 	responses []string
+	prompts   []string
 }
 
-func (f *fakeCaller) Call(_ context.Context, _ string, _ confidence.CallOptions) (string, confidence.TokenUsage, error) {
+func (f *fakeCaller) Call(_ context.Context, prompt string, _ confidence.CallOptions) (string, confidence.TokenUsage, error) {
+	f.mu.Lock()
+	f.prompts = append(f.prompts, prompt)
+	f.mu.Unlock()
 	idx := int(atomic.AddInt32(&f.calls, 1)) - 1
 	if idx >= len(f.responses) {
 		return "", confidence.TokenUsage{}, nil
@@ -52,7 +58,7 @@ func TestVerifyHappyPath(t *testing.T) {
 	good := `{"items":[{"kind":"style","name":"layered","confidence":0.9}]}`
 	caller := &fakeCaller{responses: []string{
 		`{"verdict":"agree","confidence":0.95}`, // selfcheck critic
-		good, good, good,                         // 3 nsample responses
+		good, good, good,                        // 3 nsample responses
 	}}
 	checker, err := architect.New(architect.Options{
 		Caller:        caller,
@@ -63,12 +69,35 @@ func TestVerifyHappyPath(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 	parsed, _ := parseClassification(good)
-	res, err := architect.Verify(context.Background(), checker, parsed, good)
+	res, err := architect.Verify(context.Background(), checker, "classify prompt", parsed, good)
 	if err != nil {
 		t.Fatalf("Verify: %v", err)
 	}
 	if res.Status != confidence.StatusOK {
 		t.Errorf("Status = %q, want OK; reasons=%v", res.Status, res.Reasons)
+	}
+}
+
+func TestVerifyPassesOriginalInputToSelfCheck(t *testing.T) {
+	good := `{"items":[{"kind":"style","name":"layered","confidence":0.9}]}`
+	caller := &fakeCaller{responses: []string{
+		`{"verdict":"agree","confidence":0.95}`,
+		good, good, good,
+	}}
+	checker, err := architect.New(architect.Options{
+		Caller: caller,
+		Parser: parseClassification,
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	parsed, _ := parseClassification(good)
+	input := "classify repository architecture from these files"
+	if _, err := architect.Verify(context.Background(), checker, input, parsed, good); err != nil {
+		t.Fatalf("Verify: %v", err)
+	}
+	if len(caller.prompts) == 0 || !strings.Contains(caller.prompts[0], input) {
+		t.Fatalf("first prompt did not include original input: %v", caller.prompts)
 	}
 }
 
@@ -84,7 +113,7 @@ func TestVerifyEmptyItemsViolatesInvariant(t *testing.T) {
 		NSamplePrompt: "classify",
 	})
 	parsed, _ := parseClassification(empty)
-	res, err := architect.Verify(context.Background(), checker, parsed, empty)
+	res, err := architect.Verify(context.Background(), checker, "classify prompt", parsed, empty)
 	if err != nil {
 		t.Fatalf("Verify: %v", err)
 	}
@@ -108,7 +137,7 @@ func TestVerifyDisagreementGivesLowerScore(t *testing.T) {
 		NSamplePrompt: "classify",
 	})
 	parsed, _ := parseClassification(a)
-	res, err := architect.Verify(context.Background(), checker, parsed, a)
+	res, err := architect.Verify(context.Background(), checker, "classify prompt", parsed, a)
 	if err != nil {
 		t.Fatalf("Verify: %v", err)
 	}
@@ -148,7 +177,7 @@ func TestVerifyKindUnknownInvariant(t *testing.T) {
 		Caller: caller, Parser: parseClassification, NSamplePrompt: "x",
 	})
 	parsed, _ := parseClassification(bad)
-	res, _ := architect.Verify(context.Background(), checker, parsed, bad)
+	res, _ := architect.Verify(context.Background(), checker, "classify prompt", parsed, bad)
 	joined := strings.Join(res.Reasons, "|")
 	if !strings.Contains(joined, "kind-known") {
 		t.Errorf("Reasons missing kind-known invariant: %v", res.Reasons)

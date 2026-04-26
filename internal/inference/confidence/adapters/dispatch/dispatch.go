@@ -18,10 +18,10 @@ import (
 
 // Decision is one routing decision: which harness/agent should handle a task.
 type Decision struct {
-	Harness    string `json:"harness"`     // "claude-code" | "opencode" | "codex" | "cursor"
-	Agent      string `json:"agent"`       // role name; arbitrary
+	Harness    string  `json:"harness"`    // "claude-code" | "opencode" | "codex" | "cursor"
+	Agent      string  `json:"agent"`      // role name; arbitrary
 	Confidence float64 `json:"confidence"` // self-reported [0, 1]
-	Rationale  string `json:"rationale,omitempty"`
+	Rationale  string  `json:"rationale,omitempty"`
 }
 
 // Options configures a dispatch Checker.
@@ -111,10 +111,12 @@ func New(opts Options) (*confidence.Checker[Decision], error) {
 		[]confidence.Strategy[Decision]{cs, sc}, policy)
 }
 
-// Verify runs the Checker on a parsed Decision.
-func Verify(ctx context.Context, checker *confidence.Checker[Decision], parsed Decision, raw string) (confidence.Result[Decision], error) {
+// Verify runs the Checker on a parsed Decision. input is the original routing
+// prompt; lite dispatch currently uses raw for self_score extraction, but
+// preserving input keeps the adapter compatible with future full strategies.
+func Verify(ctx context.Context, checker *confidence.Checker[Decision], input string, parsed Decision, raw string) (confidence.Result[Decision], error) {
 	return checker.Check(ctx, confidence.Request[Decision]{
-		Input:  raw,
+		Input:  input,
 		Answer: parsed,
 		Raw:    raw,
 	})

@@ -33,7 +33,7 @@ type Options[T any] struct {
 	// non-empty.
 	Temperatures []float64
 	// BasePrompt is the prompt to re-sample. Adapters typically pass
-	// Request.Input here.
+	// Request.Input here. If empty, Run uses the current request input.
 	BasePrompt string
 	// Parser parses each sample's raw text into T. Sample-level parse
 	// failures are tolerated; majority parse-failure forces SubScore=0.
@@ -123,7 +123,7 @@ func (s *Strategy[T]) Run(ctx context.Context, in confidence.StrategyInput[T]) (
 	for i, t := range s.temps {
 		i, t := i, t
 		g.Go(func() error {
-			raw, usage, err := in.Caller.Call(gctx, s.prompt, confidence.CallOptions{
+			raw, usage, err := in.Caller.Call(gctx, s.promptFor(in), confidence.CallOptions{
 				Temperature: t,
 				MaxTokens:   s.maxTokens,
 			})
@@ -184,6 +184,13 @@ func (s *Strategy[T]) Run(ctx context.Context, in confidence.StrategyInput[T]) (
 		Tokens:   tokens,
 		Log:      Log{Samples: traces, Agreement: score, ParseFailures: parseFails},
 	}, nil
+}
+
+func (s *Strategy[T]) promptFor(in confidence.StrategyInput[T]) string {
+	if s.prompt != "" {
+		return s.prompt
+	}
+	return in.Request.Input
 }
 
 func truncate(s string, n int) string {

@@ -51,7 +51,7 @@ func TestRunWsVerdictCorpus(t *testing.T) {
 		Checker:   checker,
 		CorpusDir: filepath.Join(corpusRoot(t), "ws-verdict"),
 		Verify: func(ctx context.Context, raw []byte) (confidence.Result[wsverdict.Verdict], error) {
-			return wsverdict.Verify(ctx, checker, raw)
+			return wsverdict.Verify(ctx, checker, string(raw), raw)
 		},
 	}
 	rep, err := r.Run(context.Background(), "ws-verdict")
@@ -121,6 +121,22 @@ func TestRenderMarkdownFail(t *testing.T) {
 	}
 }
 
+func TestRenderMarkdownFailsOnFixtureErrors(t *testing.T) {
+	reports := []replay.CallSiteReport{
+		{
+			CallSite: "test",
+			Categories: []replay.CategoryMetrics{
+				{Category: replay.Correct, N: 10, OK: 9, Errors: 1, RejectionRate: 0.0},
+				{Category: replay.Adversarial, N: 5, Fail: 5, RejectionRate: 1.0},
+			},
+		},
+	}
+	md := replay.RenderMarkdown(reports)
+	if !strings.Contains(md, "FAIL") || !strings.Contains(md, "fixture errors") {
+		t.Errorf("markdown should fail on fixture errors, got:\n%s", md)
+	}
+}
+
 func TestPercentileEdges(t *testing.T) {
 	// Indirect — exposed via Run with one fixture per category.
 	// The single-element latency slice should produce p50=p95=that value.
@@ -129,7 +145,7 @@ func TestPercentileEdges(t *testing.T) {
 		Checker:   checker,
 		CorpusDir: filepath.Join(corpusRoot(t), "ws-verdict"),
 		Verify: func(ctx context.Context, raw []byte) (confidence.Result[wsverdict.Verdict], error) {
-			return wsverdict.Verify(ctx, checker, raw)
+			return wsverdict.Verify(ctx, checker, string(raw), raw)
 		},
 	}
 	rep, err := r.Run(context.Background(), "ws-verdict")

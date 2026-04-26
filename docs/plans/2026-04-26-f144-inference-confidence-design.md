@@ -87,7 +87,7 @@ type Policy struct {
     Weights         map[string]float64 // strategy name → weight, normalized
     UnsureBehavior  UnsureBehavior     // RetryOnce | HumanHandoff | ConservativeFallback
     MaxLatencyMs    int64      // soft budget; strategies short-circuit if exceeded
-    MaxCostUSD      float64    // hard budget; strategies short-circuit if exceeded
+    MaxCostUSD      float64    // reserved budget hint; enforced after pricing sink wiring
 }
 
 type Checker[T any] struct {
@@ -214,7 +214,7 @@ func (c *Checker[T]) Check(ctx context.Context, req Request[T]) (Result[T], erro
 |---|---|---|
 | Self-check критик соглашается с любым ответом основного вызова (sycophancy) | False high confidence | Adversarial test cases в corpus специально подбираются на sycophancy; metric `disagree_rate_on_adversarial` ≥ 60% — гейт для merge F144 |
 | Temperature jitter не даёт реального разброса на детерминированных задачах | Consensus всегда 1.0 → no signal | Fallback: при `agreement = 1.0` для всех пар проверяем variance в reasoning text, не только в structured output. Если рассуждения тоже identical, признаём задачу легко-стабильной (это OK signal) |
-| Cost overhead 2-3× ломает бюджет на горячих путях | Бюджет проекта | Per-call-site policy: lite mode для dispatch (N=1), full только для critical. Hard `MaxCostUSD` cap в `Policy` |
+| Cost overhead 2-3× ломает бюджет на горячих путях | Бюджет проекта | Per-call-site policy: lite mode для dispatch (N=1), full только для critical. `MaxCostUSD` остаётся reserved budget hint до wiring provider pricing в telemetry sink |
 | UNSURE → human handoff заваливает inbox | Operator burnout | UNSURE rate измеряется в reporting; если > 10% на ws-verdict, поднимаем threshold до калибровки |
 | Generic library добавляет dependency на architect/llm_client.go | Cross-package coupling | `confidence` зависит только от `llmclient` (общий низкоуровневый клиент), не от architect. Архитектурное правило фиксируется в README пакета |
 | JSON schema constraint реализован неконсистентно в архитектурных промптах vs ws-verdict | False FAIL/OK | Re-export канонических схем из `schema/` через `confidence.NewJSONSchemaConstraint(path)` — single source |

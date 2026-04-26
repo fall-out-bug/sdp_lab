@@ -59,11 +59,11 @@ type ACEvidence struct {
 // false because re-sampling a verdict requires the original prompt and an
 // LLMCaller wired to the same model.
 type Options struct {
-	SchemaJSON  []byte
-	Caller      confidence.LLMCaller
+	SchemaJSON    []byte
+	Caller        confidence.LLMCaller
 	EnableNSample bool
 	NSamplePrompt string
-	Policy      *confidence.Policy
+	Policy        *confidence.Policy
 }
 
 // New constructs a confidence.Checker[Verdict] for ws-verdict gating. If
@@ -137,8 +137,10 @@ func New(opts Options) (*confidence.Checker[Verdict], error) {
 
 // Verify is a one-shot helper that parses raw, then runs the Checker.
 // Returns the confidence.Result[Verdict] for inspection (Status, Score,
-// SubScores, Reasons, Trace).
-func Verify(ctx context.Context, checker *confidence.Checker[Verdict], rawJSON []byte) (confidence.Result[Verdict], error) {
+// SubScores, Reasons, Trace). input must be the original prompt/evidence that
+// produced rawJSON; self-check and N-sample strategies need it to validate the
+// answer against the actual task rather than against itself.
+func Verify(ctx context.Context, checker *confidence.Checker[Verdict], input string, rawJSON []byte) (confidence.Result[Verdict], error) {
 	v, perr := parseVerdict(string(rawJSON))
 	// We pass the parsed Verdict (or zero value) regardless — the
 	// constraint strategy will hard-fail on schema violation, surfacing
@@ -152,7 +154,7 @@ func Verify(ctx context.Context, checker *confidence.Checker[Verdict], rawJSON [
 		_ = perr
 	}
 	return checker.Check(ctx, confidence.Request[Verdict]{
-		Input:  rawStr,
+		Input:  input,
 		Answer: answer,
 		Raw:    rawStr,
 	})
@@ -258,7 +260,7 @@ func defaultInvariants() []constraint.Invariant[Verdict] {
 					return false, "empty ws_id"
 				}
 				if !wsIDPattern.MatchString(v.WSID) {
-					return false, "ws_id %q does not match NN-NNN-NN: " + v.WSID
+					return false, fmt.Sprintf("ws_id %q does not match NN-NNN-NN", v.WSID)
 				}
 				return true, ""
 			},

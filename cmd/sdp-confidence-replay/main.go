@@ -83,7 +83,7 @@ func runAll(ctx context.Context, corpusRoot, schemaPath string) ([]replay.CallSi
 		Checker:   checker,
 		CorpusDir: filepath.Join(corpusRoot, "ws-verdict"),
 		Verify: func(ctx context.Context, raw []byte) (confidence.Result[wsverdict.Verdict], error) {
-			return wsverdict.Verify(ctx, checker, raw)
+			return wsverdict.Verify(ctx, checker, string(raw), raw)
 		},
 	}
 	wsv, err := r.Run(ctx, "ws-verdict")
@@ -96,7 +96,9 @@ func runAll(ctx context.Context, corpusRoot, schemaPath string) ([]replay.CallSi
 func allPass(reports []replay.CallSiteReport) bool {
 	for _, r := range reports {
 		var advRej, corrFalseFail float64
+		var errors int
 		for _, c := range r.Categories {
+			errors += c.Errors
 			switch c.Category {
 			case replay.Adversarial:
 				advRej = c.RejectionRate
@@ -104,7 +106,7 @@ func allPass(reports []replay.CallSiteReport) bool {
 				corrFalseFail = c.RejectionRate
 			}
 		}
-		if advRej < 0.80 || corrFalseFail > 0.02 {
+		if errors > 0 || advRej < 0.80 || corrFalseFail > 0.02 {
 			return false
 		}
 	}

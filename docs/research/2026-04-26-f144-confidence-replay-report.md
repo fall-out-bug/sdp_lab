@@ -8,11 +8,11 @@ Acceptance gates (from F144 design §9):
 
 ## ws-verdict
 
-| Category | N | OK | UNSURE | FAIL | Rejection rate | Unsure rate | p50 ms | p95 ms | Mean tokens |
-|---|---|---|---|---|---|---|---|---|---|
-| correct | 2 | 2 | 0 | 0 | 0.00 | 0.00 | 0 | 0 | 0 |
-| edge | 2 | 2 | 0 | 0 | 0.00 | 0.00 | 0 | 0 | 0 |
-| adversarial | 4 | 0 | 0 | 4 | 1.00 | 0.00 | 0 | 0 | 0 |
+| Category | N | OK | UNSURE | FAIL | Errors | Rejection rate | Unsure rate | p50 ms | p95 ms | Mean tokens |
+|---|---|---|---|---|---|---|---|---|---|---|
+| correct | 2 | 2 | 0 | 0 | 0 | 0.00 | 0.00 | 0 | 0 | 0 |
+| edge | 2 | 2 | 0 | 0 | 0 | 0.00 | 0.00 | 0 | 0 | 0 |
+| adversarial | 4 | 0 | 0 | 4 | 0 | 1.00 | 0.00 | 0 | 0 | 0 |
 
 Verdict: **PASS** — adversarial rejection 1.00 ≥ 0.80, correct false-FAIL 0.00 ≤ 0.02
 

@@ -76,7 +76,7 @@ func TestNewWithCallerAddsSelfCheck(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	res, err := wsverdict.Verify(context.Background(), checker, []byte(validVerdict))
+	res, err := wsverdict.Verify(context.Background(), checker, "ws verdict prompt", []byte(validVerdict))
 	if err != nil {
 		t.Fatalf("Verify: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestVerifyValidPassesWithOK(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	res, err := wsverdict.Verify(context.Background(), checker, []byte(validVerdict))
+	res, err := wsverdict.Verify(context.Background(), checker, "ws verdict prompt", []byte(validVerdict))
 	if err != nil {
 		t.Fatalf("Verify: %v", err)
 	}
@@ -108,7 +108,7 @@ func TestVerifyValidPassesWithOK(t *testing.T) {
 
 func TestVerifyMalformedJSONHardFails(t *testing.T) {
 	checker, _ := wsverdict.New(wsverdict.Options{SchemaJSON: loadSchema(t)})
-	res, err := wsverdict.Verify(context.Background(), checker, []byte(malformedJSON))
+	res, err := wsverdict.Verify(context.Background(), checker, "ws verdict prompt", []byte(malformedJSON))
 	if err != nil {
 		t.Fatalf("Verify: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestVerifyMalformedJSONHardFails(t *testing.T) {
 
 func TestVerifySchemaViolationHardFails(t *testing.T) {
 	checker, _ := wsverdict.New(wsverdict.Options{SchemaJSON: loadSchema(t)})
-	res, err := wsverdict.Verify(context.Background(), checker, []byte(schemaInvalidVerdict))
+	res, err := wsverdict.Verify(context.Background(), checker, "ws verdict prompt", []byte(schemaInvalidVerdict))
 	if err != nil {
 		t.Fatalf("Verify: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestVerifyPassButTestsFailHardFails(t *testing.T) {
 	// adapter's semantic-consistency check hard-fails it at the schema
 	// layer, forcing Status=FAIL.
 	checker, _ := wsverdict.New(wsverdict.Options{SchemaJSON: loadSchema(t)})
-	res, err := wsverdict.Verify(context.Background(), checker, []byte(passButTestsFail))
+	res, err := wsverdict.Verify(context.Background(), checker, "ws verdict prompt", []byte(passButTestsFail))
 	if err != nil {
 		t.Fatalf("Verify: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestVerifyPassButTestsFailHardFails(t *testing.T) {
 
 func TestVerifyPassWithUnmetACHardFails(t *testing.T) {
 	checker, _ := wsverdict.New(wsverdict.Options{SchemaJSON: loadSchema(t)})
-	res, err := wsverdict.Verify(context.Background(), checker, []byte(passWithUnmetAC))
+	res, err := wsverdict.Verify(context.Background(), checker, "ws verdict prompt", []byte(passWithUnmetAC))
 	if err != nil {
 		t.Fatalf("Verify: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestVerifyUnknownVerdictValue(t *testing.T) {
 	// JSON-Schema rejects "MAYBE" via enum constraint, so this is a
 	// schema-level hard fail.
 	checker, _ := wsverdict.New(wsverdict.Options{SchemaJSON: loadSchema(t)})
-	res, err := wsverdict.Verify(context.Background(), checker, []byte(unknownVerdictValue))
+	res, err := wsverdict.Verify(context.Background(), checker, "ws verdict prompt", []byte(unknownVerdictValue))
 	if err != nil {
 		t.Fatalf("Verify: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestVerifyUnknownVerdictValue(t *testing.T) {
 func TestVerifyFailVerdictPassesValidation(t *testing.T) {
 	// "FAIL" with tests_pass=false is consistent — validation should accept it.
 	checker, _ := wsverdict.New(wsverdict.Options{SchemaJSON: loadSchema(t)})
-	res, err := wsverdict.Verify(context.Background(), checker, []byte(failVerdict))
+	res, err := wsverdict.Verify(context.Background(), checker, "ws verdict prompt", []byte(failVerdict))
 	if err != nil {
 		t.Fatalf("Verify: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestUnsureBehaviorIsHumanHandoff(t *testing.T) {
 	// Indirect verification: drive the checker to UNSURE by providing a
 	// caller whose self-check returns mid-confidence verdict, but here we
 	// don't have caller. Instead verify policy via the exposed Result.
-	res, err := wsverdict.Verify(context.Background(), checker, []byte(validVerdict))
+	res, err := wsverdict.Verify(context.Background(), checker, "ws verdict prompt", []byte(validVerdict))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,10 +205,12 @@ func TestUnsureBehaviorIsHumanHandoff(t *testing.T) {
 
 // fakeCaller for selfcheck wiring tests.
 type fakeCaller struct {
-	resp string
+	resp   string
+	prompt string
 }
 
-func (c *fakeCaller) Call(_ context.Context, _ string, _ confidence.CallOptions) (string, confidence.TokenUsage, error) {
+func (c *fakeCaller) Call(_ context.Context, prompt string, _ confidence.CallOptions) (string, confidence.TokenUsage, error) {
+	c.prompt = prompt
 	return c.resp, confidence.TokenUsage{In: 50, Out: 20}, nil
 }
 
@@ -219,5 +221,23 @@ func TestEnableNSampleRequiresCaller(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected error: EnableNSample without Caller")
+	}
+}
+
+func TestVerifyPassesOriginalInputToSelfCheck(t *testing.T) {
+	caller := &fakeCaller{resp: `{"verdict":"agree","confidence":1.0}`}
+	checker, err := wsverdict.New(wsverdict.Options{
+		SchemaJSON: loadSchema(t),
+		Caller:     caller,
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	input := "workstream evidence: tests and AC proof"
+	if _, err := wsverdict.Verify(context.Background(), checker, input, []byte(validVerdict)); err != nil {
+		t.Fatalf("Verify: %v", err)
+	}
+	if !strings.Contains(caller.prompt, input) {
+		t.Fatalf("critic prompt did not include original input: %q", caller.prompt)
 	}
 }

@@ -30,7 +30,6 @@ func equalityAgreement[T comparable](s []T) float64 {
 ```go
 s, _ := nsample.New[MyAnswer](nsample.Options[MyAnswer]{
     Temperatures: []float64{0.0, 0.3, 0.7}, // N=3 default
-    BasePrompt:   request.Input,
     Parser:       parseAnswer,
     Agreement:    answerAgreement,
     MaxTokens:    1024,        // default
@@ -39,6 +38,7 @@ s, _ := nsample.New[MyAnswer](nsample.Options[MyAnswer]{
 ```
 
 `N = len(Temperatures)`. Constructor rejects empty `Temperatures` and nil `Parser` / `Agreement`.
+Leave `BasePrompt` empty for reusable checkers; `Run` will re-sample the current `Request.Input`. Use `BasePrompt` only for a single-use strategy pinned to one prompt.
 
 ## Concurrency & errors
 

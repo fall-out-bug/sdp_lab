@@ -85,6 +85,16 @@ func TestPolicyValidate(t *testing.T) {
 			mutate:  func(p *confidence.Policy) { p.UnsureBehavior = "garbage" },
 			wantErr: "UnsureBehavior",
 		},
+		{
+			name:    "negative latency budget",
+			mutate:  func(p *confidence.Policy) { p.MaxLatencyMs = -1 },
+			wantErr: "MaxLatencyMs",
+		},
+		{
+			name:    "negative cost budget",
+			mutate:  func(p *confidence.Policy) { p.MaxCostUSD = -0.01 },
+			wantErr: "MaxCostUSD",
+		},
 	}
 
 	for _, tt := range tests {

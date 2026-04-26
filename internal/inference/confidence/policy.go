@@ -53,8 +53,9 @@ type Policy struct {
 	// MaxLatencyMs is a soft budget — strategies that exceed it short-
 	// circuit with a neutral subscore. 0 means no limit.
 	MaxLatencyMs int64
-	// MaxCostUSD is a hard budget — exceeding it returns an error from
-	// Check. 0 means no limit.
+	// MaxCostUSD is reserved for call-sites that wire provider pricing into
+	// Trace.CostUSD. The generic Checker validates the value but does not
+	// compute USD from tokens by itself. 0 means no limit.
 	MaxCostUSD float64
 }
 
@@ -92,6 +93,12 @@ func (p Policy) Validate() error {
 	}
 	if len(p.Weights) == 0 {
 		return errors.New("weights must contain at least one entry")
+	}
+	if p.MaxLatencyMs < 0 {
+		return fmt.Errorf("MaxLatencyMs must be >= 0: %d", p.MaxLatencyMs)
+	}
+	if p.MaxCostUSD < 0 || math.IsNaN(p.MaxCostUSD) || math.IsInf(p.MaxCostUSD, 0) {
+		return fmt.Errorf("MaxCostUSD must be a finite value >= 0: %v", p.MaxCostUSD)
 	}
 	var sum float64
 	for name, w := range p.Weights {

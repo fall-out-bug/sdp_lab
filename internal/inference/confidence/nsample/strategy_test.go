@@ -21,13 +21,15 @@ type fakeCaller struct {
 	delay          time.Duration
 	errOnTemp      map[float64]error
 	startTimes     []time.Time
+	prompts        []string
 	calls          int32
 	respondInOrder []string
 }
 
-func (c *fakeCaller) Call(ctx context.Context, _ string, opts confidence.CallOptions) (string, confidence.TokenUsage, error) {
+func (c *fakeCaller) Call(ctx context.Context, prompt string, opts confidence.CallOptions) (string, confidence.TokenUsage, error) {
 	c.mu.Lock()
 	c.startTimes = append(c.startTimes, time.Now())
+	c.prompts = append(c.prompts, prompt)
 	idx := int(atomic.AddInt32(&c.calls, 1)) - 1
 	c.mu.Unlock()
 
@@ -152,6 +154,29 @@ func TestRunIdenticalSamplesFullAgreement(t *testing.T) {
 	}
 	if out.Tokens.In != 30 || out.Tokens.Out != 15 {
 		t.Errorf("Tokens = %+v, want In=30 Out=15", out.Tokens)
+	}
+}
+
+func TestRunUsesRequestInputWhenBasePromptEmpty(t *testing.T) {
+	caller := &fakeCaller{samplesByTemp: map[float64]string{0.0: "A", 0.3: "A"}}
+	s, _ := nsample.New[string](nsample.Options[string]{
+		Temperatures: []float64{0.0, 0.3},
+		Parser:       passParser,
+		Agreement:    equalityAgreement,
+	})
+	_, err := s.Run(context.Background(), confidence.StrategyInput[string]{
+		Caller: caller,
+		Request: confidence.Request[string]{
+			Input: "current request prompt",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	for _, prompt := range caller.prompts {
+		if prompt != "current request prompt" {
+			t.Fatalf("prompt = %q, want current request prompt", prompt)
+		}
 	}
 }
 

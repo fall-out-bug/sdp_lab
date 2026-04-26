@@ -23,9 +23,9 @@ type Classification struct {
 }
 
 type ClassifiedItem struct {
-	Kind       string   `json:"kind"`        // "style" | "pattern"
-	Name       string   `json:"name"`        // e.g. "layered", "ddd-aggregate"
-	Confidence float64  `json:"confidence"`  // [0, 1] per-item
+	Kind       string   `json:"kind"`       // "style" | "pattern"
+	Name       string   `json:"name"`       // e.g. "layered", "ddd-aggregate"
+	Confidence float64  `json:"confidence"` // [0, 1] per-item
 	Evidence   []string `json:"evidence,omitempty"`
 }
 
@@ -116,11 +116,12 @@ func New(opts Options) (*confidence.Checker[Classification], error) {
 }
 
 // Verify is a thin wrapper that runs the Checker on a parsed Classification.
-// Use AggregateScore to derive a per-item-confidence rollup score for
-// telemetry; it is independent of the gating Score.
-func Verify(ctx context.Context, checker *confidence.Checker[Classification], parsed Classification, raw string) (confidence.Result[Classification], error) {
+// input must be the original classification prompt. Use AggregateScore to
+// derive a per-item-confidence rollup score for telemetry; it is independent of
+// the gating Score.
+func Verify(ctx context.Context, checker *confidence.Checker[Classification], input string, parsed Classification, raw string) (confidence.Result[Classification], error) {
 	return checker.Check(ctx, confidence.Request[Classification]{
-		Input:  raw,
+		Input:  input,
 		Answer: parsed,
 		Raw:    raw,
 	})

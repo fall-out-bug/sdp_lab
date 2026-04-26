@@ -17,6 +17,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -38,39 +39,39 @@ func AllCategories() []Category { return []Category{Correct, Edge, Adversarial} 
 
 // FixtureResult is the per-fixture record emitted by Run.
 type FixtureResult struct {
-	Path      string                 `json:"path"`
-	Category  Category               `json:"category"`
-	Status    confidence.Status      `json:"status"`
-	Score     float64                `json:"score"`
-	SubScores map[string]float64     `json:"sub_scores"`
-	Reasons   []string               `json:"reasons"`
-	LatencyMs int64                  `json:"latency_ms"`
-	TokensIn  int                    `json:"tokens_in"`
-	TokensOut int                    `json:"tokens_out"`
-	Err       string                 `json:"err,omitempty"`
+	Path      string             `json:"path"`
+	Category  Category           `json:"category"`
+	Status    confidence.Status  `json:"status"`
+	Score     float64            `json:"score"`
+	SubScores map[string]float64 `json:"sub_scores"`
+	Reasons   []string           `json:"reasons"`
+	LatencyMs int64              `json:"latency_ms"`
+	TokensIn  int                `json:"tokens_in"`
+	TokensOut int                `json:"tokens_out"`
+	Err       string             `json:"err,omitempty"`
 }
 
 // CategoryMetrics summarizes one category for one call-site.
 type CategoryMetrics struct {
-	Category       Category `json:"category"`
-	N              int      `json:"n"`
-	OK             int      `json:"ok"`
-	Unsure         int      `json:"unsure"`
-	Fail           int      `json:"fail"`
-	Errors         int      `json:"errors"`
-	RejectionRate  float64  `json:"rejection_rate"`  // fail / n
-	UnsureRate     float64  `json:"unsure_rate"`     // unsure / n
-	OKRate         float64  `json:"ok_rate"`         // ok / n
-	LatencyMsP50   int64    `json:"latency_ms_p50"`
-	LatencyMsP95   int64    `json:"latency_ms_p95"`
-	MeanTokensTot  float64  `json:"mean_tokens_total"`
+	Category      Category `json:"category"`
+	N             int      `json:"n"`
+	OK            int      `json:"ok"`
+	Unsure        int      `json:"unsure"`
+	Fail          int      `json:"fail"`
+	Errors        int      `json:"errors"`
+	RejectionRate float64  `json:"rejection_rate"` // fail / n
+	UnsureRate    float64  `json:"unsure_rate"`    // unsure / n
+	OKRate        float64  `json:"ok_rate"`        // ok / n
+	LatencyMsP50  int64    `json:"latency_ms_p50"`
+	LatencyMsP95  int64    `json:"latency_ms_p95"`
+	MeanTokensTot float64  `json:"mean_tokens_total"`
 }
 
 // CallSiteReport groups all categories for one call-site.
 type CallSiteReport struct {
-	CallSite   string             `json:"call_site"`
-	Categories []CategoryMetrics  `json:"categories"`
-	Fixtures   []FixtureResult    `json:"fixtures,omitempty"`
+	CallSite   string            `json:"call_site"`
+	Categories []CategoryMetrics `json:"categories"`
+	Fixtures   []FixtureResult   `json:"fixtures,omitempty"`
 }
 
 // Runner runs a checker against a corpus directory.
@@ -95,9 +96,9 @@ func (r *Runner[T]) Run(ctx context.Context, callSite string) (CallSiteReport, e
 			return report, fmt.Errorf("read %s: %w", dir, err)
 		}
 		var (
-			fixtures   []FixtureResult
-			latencies  []int64
-			tokenSum   float64
+			fixtures          []FixtureResult
+			latencies         []int64
+			tokenSum          float64
 			ok, uns, fl, errs int
 		)
 		for _, e := range entries {
@@ -194,7 +195,13 @@ func percentile(xs []int64, p float64) int64 {
 	if p >= 1 {
 		return sorted[len(sorted)-1]
 	}
-	idx := int(float64(len(sorted)-1) * p)
+	idx := int(math.Ceil(p*float64(len(sorted)))) - 1
+	if idx < 0 {
+		idx = 0
+	}
+	if idx >= len(sorted) {
+		idx = len(sorted) - 1
+	}
 	return sorted[idx]
 }
 
@@ -216,11 +223,11 @@ func RenderMarkdown(reports []CallSiteReport) string {
 
 	for _, r := range reports {
 		b = append(b, []byte(fmt.Sprintf("## %s\n\n", r.CallSite))...)
-		b = append(b, []byte("| Category | N | OK | UNSURE | FAIL | Rejection rate | Unsure rate | p50 ms | p95 ms | Mean tokens |\n")...)
-		b = append(b, []byte("|---|---|---|---|---|---|---|---|---|---|\n")...)
+		b = append(b, []byte("| Category | N | OK | UNSURE | FAIL | Errors | Rejection rate | Unsure rate | p50 ms | p95 ms | Mean tokens |\n")...)
+		b = append(b, []byte("|---|---|---|---|---|---|---|---|---|---|---|\n")...)
 		for _, c := range r.Categories {
-			b = append(b, []byte(fmt.Sprintf("| %s | %d | %d | %d | %d | %.2f | %.2f | %d | %d | %.0f |\n",
-				c.Category, c.N, c.OK, c.Unsure, c.Fail, c.RejectionRate, c.UnsureRate,
+			b = append(b, []byte(fmt.Sprintf("| %s | %d | %d | %d | %d | %d | %.2f | %.2f | %d | %d | %.0f |\n",
+				c.Category, c.N, c.OK, c.Unsure, c.Fail, c.Errors, c.RejectionRate, c.UnsureRate,
 				c.LatencyMsP50, c.LatencyMsP95, c.MeanTokensTot))...)
 		}
 		b = append(b, []byte("\nVerdict: ")...)
@@ -232,7 +239,9 @@ func RenderMarkdown(reports []CallSiteReport) string {
 
 func verdictLine(r CallSiteReport) string {
 	var advRej, corrFalseFail float64
+	var errors int
 	for _, c := range r.Categories {
+		errors += c.Errors
 		switch c.Category {
 		case Adversarial:
 			advRej = c.RejectionRate
@@ -240,9 +249,12 @@ func verdictLine(r CallSiteReport) string {
 			corrFalseFail = c.RejectionRate
 		}
 	}
-	pass := advRej >= 0.80 && corrFalseFail <= 0.02
+	pass := errors == 0 && advRej >= 0.80 && corrFalseFail <= 0.02
 	if pass {
 		return fmt.Sprintf("**PASS** — adversarial rejection %.2f ≥ 0.80, correct false-FAIL %.2f ≤ 0.02", advRej, corrFalseFail)
+	}
+	if errors > 0 {
+		return fmt.Sprintf("**FAIL** — %d fixture errors; adversarial rejection %.2f, correct false-FAIL %.2f", errors, advRej, corrFalseFail)
 	}
 	return fmt.Sprintf("**FAIL** — adversarial rejection %.2f, correct false-FAIL %.2f (gates 0.80 / 0.02)", advRej, corrFalseFail)
 }
