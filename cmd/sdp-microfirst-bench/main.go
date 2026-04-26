@@ -640,7 +640,7 @@ type reportRow struct {
 }
 
 // writeMarkdown renders the markdown report.
-func writeMarkdown(path string, results []BenchResult) error {
+func writeMarkdown(path string, results []BenchResult) (retErr error) {
 	var totalSaved, count float64
 	rows := make([]reportRow, len(results))
 	for i, r := range results {
@@ -664,15 +664,16 @@ func writeMarkdown(path string, results []BenchResult) error {
 	if err != nil {
 		return err
 	}
+	// Named return allows the deferred close error to be propagated
+	// when the execute succeeded but the final OS flush/close failed.
 	defer func() {
-		if cerr := f.Close(); cerr != nil && err == nil {
-			err = cerr
+		if cerr := f.Close(); cerr != nil && retErr == nil {
+			retErr = cerr
 		}
 	}()
-	err = tmpl.Execute(f, reportData{
+	return tmpl.Execute(f, reportData{
 		Timestamp:     time.Now().UTC().Format(time.RFC3339),
 		Results:       rows,
 		TotalLLMSaved: avg,
 	})
-	return err
 }

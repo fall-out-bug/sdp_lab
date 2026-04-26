@@ -45,7 +45,14 @@ func (w *WsVerdictMicro) classify(in WsVerdictInput) WsVerdictMicroResult {
 	if skipThreshold == 0 {
 		skipThreshold = 5
 	}
-	coverageOK := in.MinCoverage == 0 || in.Report.Coverage >= in.MinCoverage
+	// Effective coverage floor: per-call value takes precedence; fall back to
+	// the configured RulesConfig value so New(RulesConfig{MinCoverage: X}) works
+	// even when the caller omits MinCoverage from WsVerdictInput.
+	minCov := in.MinCoverage
+	if minCov == 0 {
+		minCov = w.cfg.MinCoverage
+	}
+	coverageOK := minCov == 0 || in.Report.Coverage >= minCov
 
 	// R2: no failures, no errors, no out-of-scope files, skipped within threshold,
 	// coverage meets minimum → confident PASS.
