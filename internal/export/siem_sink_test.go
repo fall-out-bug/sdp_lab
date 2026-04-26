@@ -358,6 +358,36 @@ func TestBatchSinkEmpty(t *testing.T) {
 	}
 }
 
+func TestBatchSinkZeroSize(t *testing.T) {
+	var buf bytes.Buffer
+	sink := NewBatchSink(NewSyslogSink(&buf), 0)
+
+	if sink.batchSize != 1 {
+		t.Errorf("expected batchSize 1 for zero input, got %d", sink.batchSize)
+	}
+}
+
+func TestBatchSinkHTTPAuth(t *testing.T) {
+	var authHeader string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	httpSink := NewHTTPSink(server.URL, "Bearer batch-token")
+	sink := NewBatchSink(httpSink, 10)
+
+	records := []SIEMRecord{{Timestamp: time.Now().UTC(), EventType: "batch.auth"}}
+	err := sink.WriteBatch(records)
+	if err != nil {
+		t.Fatalf("batch write failed: %v", err)
+	}
+	if authHeader != "Bearer batch-token" {
+		t.Errorf("expected 'Bearer batch-token', got '%s'", authHeader)
+	}
+}
+
 // --- ExportBundle tests ---
 
 func TestExportBundleIntegrity(t *testing.T) {
@@ -365,11 +395,15 @@ func TestExportBundleIntegrity(t *testing.T) {
 		{Timestamp: time.Now().UTC(), EventType: "event.1", Source: "sdp-lab", Actor: "a1"},
 		{Timestamp: time.Now().UTC(), EventType: "event.2", Source: "sdp-lab", Actor: "a2"},
 	}
-	for i := range records {
-		records[i].Checksum = records[i].ComputeChecksum()
-	}
 
 	bundle := NewExportBundle("tenant-1", "F074", records)
+
+	// Verify auto-computed checksums
+	for i, rec := range bundle.Records {
+		if rec.Checksum == "" {
+			t.Errorf("record %d should have auto-computed checksum", i)
+		}
+	}
 
 	if bundle.TenantID != "tenant-1" {
 		t.Errorf("expected tenant-1, got %s", bundle.TenantID)

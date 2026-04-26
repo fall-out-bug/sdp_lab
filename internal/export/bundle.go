@@ -12,21 +12,22 @@ import (
 
 // BatchSink wraps another sink and sends records in batches for backfill mode.
 type BatchSink struct {
-	inner      SinkWriter
-	batchSize  int
-	httpClient *http.Client
-	httpURL    string
+	inner     SinkWriter
+	batchSize int
+	httpSink  *HTTPSink
 }
 
 // NewBatchSink creates a batch sink. For HTTP sinks, it sends batches as JSON arrays.
 func NewBatchSink(inner SinkWriter, batchSize int) *BatchSink {
+	if batchSize <= 0 {
+		batchSize = 1
+	}
 	s := &BatchSink{
 		inner:     inner,
 		batchSize: batchSize,
 	}
 	if hs, ok := inner.(*HTTPSink); ok {
-		s.httpClient = hs.client
-		s.httpURL = hs.endpoint
+		s.httpSink = hs
 	}
 	return s
 }
@@ -36,11 +37,12 @@ func (s *BatchSink) WriteBatch(records []SIEMRecord) error {
 	if len(records) == 0 {
 		return nil
 	}
-	if s.httpClient != nil && s.httpURL != "" {
+	if s.httpSink != nil {
 		return s.writeHTTPBatches(records)
 	}
+	ctx := context.Background()
 	for _, rec := range records {
-		if err := s.inner.Write(context.Background(), rec); err != nil {
+		if err := s.inner.Write(ctx, rec); err != nil {
 			return err
 		}
 	}
@@ -58,7 +60,17 @@ func (s *BatchSink) writeHTTPBatches(records []SIEMRecord) error {
 		if err != nil {
 			return fmt.Errorf("marshal batch: %w", err)
 		}
-		resp, err := s.httpClient.Post(s.httpURL, "application/json", bytes.NewReader(data))
+
+		req, err := http.NewRequest(http.MethodPost, s.httpSink.endpoint, bytes.NewReader(data))
+		if err != nil {
+			return fmt.Errorf("create request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		if s.httpSink.authToken != "" {
+			req.Header.Set("Authorization", s.httpSink.authToken)
+		}
+
+		resp, err := s.httpSink.client.Do(req)
 		if err != nil {
 			return fmt.Errorf("post batch: %w", err)
 		}
@@ -85,6 +97,14 @@ type ExportBundle struct {
 func NewExportBundle(tenantID, featureID string, records []SIEMRecord) *ExportBundle {
 	now := time.Now().UTC()
 	bundleID := fmt.Sprintf("bundle-%s-%s-%d", tenantID, featureID, now.Unix())
+
+	// Compute checksums for records that don't already have one
+	for i := range records {
+		if records[i].Checksum == "" {
+			records[i].Checksum = records[i].ComputeChecksum()
+		}
+	}
+
 	b := &ExportBundle{
 		BundleID:    bundleID,
 		TenantID:    tenantID,
