@@ -1,0 +1,8 @@
+id,category,monolithic_status,decomposed_status,latency_mono,latency_decomp,tokens_mono,tokens_decomp,cost_mono,cost_decomp
+adversarial/malformed-id,adversarial,passed,passed,0,0,277,458,0.001431,0.000518
+adversarial/pass-with-failed-tests,adversarial,passed,passed,0,0,294,476,0.001482,0.000522
+adversarial/unmet-ac-but-pass,adversarial,passed,passed,0,0,313,495,0.001539,0.000527
+correct/clean-fail,correct,passed,passed,0,0,291,473,0.001473,0.000522
+correct/clean-pass,correct,passed,passed,0,0,387,569,0.001761,0.000546
+edge/empty-evidence,edge,passed,passed,0,0,287,469,0.001461,0.000521
+edge/partial-coverage,edge,passed,passed,0,0,338,520,0.001614,0.000534
