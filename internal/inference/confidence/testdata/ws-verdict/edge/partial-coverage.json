@@ -1,0 +1,11 @@
+{
+  "ws_id": "00-150-01",
+  "feature_id": "F150",
+  "verdict": "PARTIAL",
+  "quality_gates": {"tests_pass": true, "lint_clean": true, "coverage_pct": 67.5},
+  "ac_evidence": [
+    {"ac": "Implements happy path", "met": true, "evidence": "happy_test.go"},
+    {"ac": "Implements error paths", "met": false, "evidence": "skipped: out of scope this iteration"}
+  ],
+  "existing_work_summary": "scaffolding existed from F148"
+}

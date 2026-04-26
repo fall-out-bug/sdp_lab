@@ -1,0 +1,7 @@
+{
+  "ws_id": "00-099-03",
+  "feature_id": "F099",
+  "verdict": "FAIL",
+  "quality_gates": {"tests_pass": false, "lint_clean": true},
+  "existing_work_summary": "no prior work; broken integration on first attempt"
+}

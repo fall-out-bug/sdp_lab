@@ -1,0 +1,14 @@
+{
+  "ws_id": "00-144-08",
+  "feature_id": "F144-08",
+  "verdict": "PASS",
+  "commit": "abc123def",
+  "timestamp": "2026-04-26T15:00:00Z",
+  "quality_gates": {"tests_pass": true, "lint_clean": true, "coverage_pct": 96.2, "build_ok": true, "vet_ok": true},
+  "ac_evidence": [
+    {"ac": "Replay corpus exists", "met": true, "evidence": "testdata/ws-verdict/correct/"},
+    {"ac": "Metrics report generated", "met": true, "evidence": "docs/research/2026-04-26-f144-confidence-replay-report.md"}
+  ],
+  "existing_work_summary": "F144-01..07 prior; this WS adds the replay harness",
+  "tdd_cycles": 4
+}

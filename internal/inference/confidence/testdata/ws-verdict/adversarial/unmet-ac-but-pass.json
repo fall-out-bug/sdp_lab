@@ -1,0 +1,10 @@
+{
+  "ws_id": "00-244-01",
+  "feature_id": "F244",
+  "verdict": "PASS",
+  "quality_gates": {"tests_pass": true, "lint_clean": true},
+  "ac_evidence": [
+    {"ac": "Authentication works", "met": false, "evidence": "still TODO, will do later"}
+  ],
+  "existing_work_summary": "Optimistic PASS despite known unmet AC"
+}
