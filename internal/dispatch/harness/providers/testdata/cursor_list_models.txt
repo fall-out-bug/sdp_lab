@@ -1,0 +1,31 @@
+Available models:
+
+claude-3.5-sonnet - Anthropic Claude 3.5 Sonnet
+gpt-4o - OpenAI GPT-4o
+gpt-4-turbo - OpenAI GPT-4 Turbo
+claude-opus-4 - Anthropic Claude Opus 4
+gpt-4 - OpenAI GPT-4
+composer-1.5 - Cursor Composer 1.5
+composer-2 - Cursor Composer 2
+composer-2-fast - Cursor Composer 2 Fast
+claude-3-opus - Anthropic Claude 3 Opus
+claude-3-sonnet - Anthropic Claude 3 Sonnet
+gpt-3.5-turbo - OpenAI GPT-3.5 Turbo
+o1 - OpenAI O1
+o1-mini - OpenAI O1 Mini
+gpt-4-vision - OpenAI GPT-4 Vision
+llama-2-7b - Meta Llama 2 7B
+mistral-7b - Mistral 7B
+mixtral-8x7b - Mixtral 8x7B
+phi-2 - Microsoft Phi 2
+falcon-40b - Falcon 40B
+yi-34b - Yi 34B
+neural-chat-7b - Intel Neural Chat 7B
+zephyr-7b - Zephyr 7B
+orca-2-13b - ORCA 2 13B
+starcoder-15b - StarCoder 15B
+code-llama-34b - Code Llama 34B
+deepseek-coder-33b - DeepSeek Coder 33B
+vicuna-33b - Vicuna 33B
+alpaca-7b - Alpaca 7B
+dolly-v2-12b - Dolly v2 12B
