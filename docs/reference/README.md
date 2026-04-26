@@ -24,6 +24,8 @@ Start here:
 | Configuration | [configuration.md](configuration.md) |
 | Runbooks index | [runbooks.md](runbooks.md) |
 | Glossary | [GLOSSARY.md](GLOSSARY.md) |
+| Maturity matrix | [maturity-matrix.md](maturity-matrix.md) |
+| Trust guarantees | [trust-guarantees.md](trust-guarantees.md) |
 | Principles | [PRINCIPLES.md](PRINCIPLES.md) |
 
 ## Rules
