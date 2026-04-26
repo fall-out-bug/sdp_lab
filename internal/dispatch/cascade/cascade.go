@@ -195,6 +195,10 @@ func (ci *CascadingInvoker) Invoke(ctx context.Context, req InvokeRequest) (*Inv
 				// Escalate to next tier on router error
 				continue
 			}
+			if decision == nil {
+				lastError = fmt.Errorf("router returned nil decision for tier %v", tier)
+				continue
+			}
 
 			// Build output from dispatch decision
 			// Harness execution (Spawn + read output) is wired in follow-up bead F148-XX.

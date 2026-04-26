@@ -563,6 +563,38 @@ func TestCascade_RouterCalledOnNonNilRouter(t *testing.T) {
 	t.Logf("SUCCESS: Router.Route called %d times, output=%q", router.callCount, result.Output)
 }
 
+// nilDecisionRouter returns (nil, nil) to simulate misbehaving router implementations.
+type nilDecisionRouter struct{ callCount int }
+
+func (r *nilDecisionRouter) Route(ctx context.Context, task dispatch.TaskClassification, limits map[string]*harness.Limits) (*dispatch.DispatchDecision, error) {
+	r.callCount++
+	return nil, nil
+}
+
+func TestCascade_NilDecision_NoPanic(t *testing.T) {
+	// Regression: router returning (nil, nil) must not panic Invoke; cascade
+	// should record an error and escalate to next tier.
+	router := &nilDecisionRouter{}
+	invoker := NewInvoker(router, nil, nil)
+
+	ctx := context.Background()
+	req := InvokeRequest{
+		Prompt:    "test prompt",
+		StartTier: dispatch.TierFast,
+	}
+
+	result, err := invoker.Invoke(ctx, req)
+	if err != nil {
+		t.Fatalf("Invoke returned error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("result should not be nil")
+	}
+	if router.callCount == 0 {
+		t.Error("Router.Route was not called")
+	}
+}
+
 func TestCascade_TimeoutEnforced(t *testing.T) {
 	// AC: InvokeRequest.Timeout > 0 wraps ctx with context.WithTimeout,
 	// allowing context deadline to be exceeded mid-invocation.
