@@ -30,6 +30,16 @@ func NewJSONStitcherFromBytes(name string, schema []byte) (*JSONStitcher, error)
 	return &JSONStitcher{name: name, schema: sch}, nil
 }
 
+// MustNewJSONStitcherFromBytes is like NewJSONStitcherFromBytes but panics on error.
+// Use only with hardcoded schemas in init-time constructors.
+func MustNewJSONStitcherFromBytes(name string, schema []byte) *JSONStitcher {
+	s, err := NewJSONStitcherFromBytes(name, schema)
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
 func (j *JSONStitcher) Name() string { return j.name }
 
 // Validate marshals out to JSON and validates it against the schema.
