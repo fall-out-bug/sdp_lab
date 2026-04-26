@@ -1,7 +1,6 @@
 package index
 
 import (
-	"database/sql"
 	"fmt"
 	"math"
 	"slices"
@@ -135,76 +134,41 @@ type rankedItem struct {
 }
 
 // ftsSearch runs an FTS5 MATCH query and returns ranked items (BM25 score).
+// Now uses Store method instead of direct db access (fixes sdplab-9zb).
 func ftsSearch(store *SQLiteStore, query string, limit int) ([]rankedItem, error) {
 	ftsQuery := sanitizeFTSQuery(query)
 	if ftsQuery == "" {
 		return nil, nil
 	}
 
-	rows, err := store.db.Query(`
-		SELECT rowid, bm25(chunks_fts) AS score
-		FROM chunks_fts
-		WHERE chunks_fts MATCH ?
-		ORDER BY score
-		LIMIT ?`, ftsQuery, limit)
+	results, err := store.FTS5Search(ftsQuery, limit)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	var items []rankedItem
-	for rows.Next() {
-		var id int64
-		var score float64
-		if err := rows.Scan(&id, &score); err != nil {
-			continue
-		}
-		items = append(items, rankedItem{chunkID: id, score: score})
+	items := make([]rankedItem, len(results))
+	for i, r := range results {
+		items[i] = rankedItem{chunkID: r.ChunkID, score: r.Score}
 	}
 	return items, nil
 }
 
 // ftsExactSearch runs an exact FTS5 keyword search for identifier/path lookup.
+// Now uses Store method instead of direct db access (fixes sdplab-9zb).
 func ftsExactSearch(store *SQLiteStore, query string, limit int) ([]SearchResult, error) {
 	ftsQuery := sanitizeFTSQuery(query)
 	if ftsQuery == "" {
 		return nil, nil
 	}
 
-	rows, err := store.db.Query(`
-		SELECT c.id, c.file_path, c.symbol_name, c.kind, c.scope, c.language,
-			c.line_start, c.line_end, c.content, c.description, c.pagerank, c.hash,
-			bm25(chunks_fts) AS score
-		FROM chunks_fts f
-		JOIN chunks c ON c.id = f.rowid
-		WHERE f.chunks_fts MATCH ?
-		ORDER BY score
-		LIMIT ?`, ftsQuery, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	return scanSearchResults(rows, "fts")
+	return store.FTS5ExactSearchWithChunks(ftsQuery, limit)
 }
 
 // regexSearch performs a LIKE-based search when regex mode is requested.
+// Now uses Store method instead of direct db access (fixes sdplab-9zb).
 func regexSearch(store *SQLiteStore, pattern string, limit int) ([]SearchResult, error) {
 	likePattern := regexToLike(pattern)
-
-	rows, err := store.db.Query(`
-		SELECT id, file_path, symbol_name, kind, scope, language,
-			line_start, line_end, content, description, pagerank, hash,
-			1.0 AS score
-		FROM chunks
-		WHERE symbol_name LIKE ? OR content LIKE ?
-		LIMIT ?`, likePattern, likePattern, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	return scanSearchResults(rows, "fts")
+	return store.RegexSearchWithChunks(likePattern, limit)
 }
 
 // vectorSearch is a placeholder for vector similarity search.
@@ -361,31 +325,14 @@ func regexToLike(pattern string) string {
 }
 
 // findModuleChunks returns all chunk IDs whose file_path starts with the module prefix.
+// Now uses Store method instead of direct db access (fixes sdplab-9zb).
 func findModuleChunks(store *SQLiteStore, module string) ([]int64, error) {
 	prefix := strings.TrimSuffix(module, "/") + "/"
-
-	rows, err := store.db.Query(`
-		SELECT id FROM chunks
-		WHERE file_path LIKE ?
-		   OR file_path = ?`,
-		prefix+"%", strings.TrimSuffix(module, "/"))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var ids []int64
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			continue
-		}
-		ids = append(ids, id)
-	}
-	return ids, nil
+	return store.QueryChunksByFilePrefix(prefix, strings.TrimSuffix(module, "/"))
 }
 
 // traverseEdges follows forward or reverse edges from a chunk using BFS.
+// Now uses Store method instead of direct db access (fixes sdplab-9zb).
 func traverseEdges(store *SQLiteStore, chunkID int64, reverse bool, maxDepth int, visited map[int64]bool) []DepsResult {
 	var results []DepsResult
 
@@ -403,29 +350,16 @@ func traverseEdges(store *SQLiteStore, chunkID int64, reverse bool, maxDepth int
 			continue
 		}
 
-		var queryStr string
-		if reverse {
-			queryStr = `SELECT e.source_id, c.file_path FROM edges e
-				JOIN chunks c ON c.id = e.source_id
-				WHERE e.target_id = ?`
-		} else {
-			queryStr = `SELECT e.target_id, c.file_path FROM edges e
-				JOIN chunks c ON c.id = e.target_id
-				WHERE e.source_id = ?`
-		}
-
-		rows, err := store.db.Query(queryStr, current.id)
+		// Use Store method instead of direct db access (fixes sdplab-9zb)
+		edges, err := store.QueryEdgesBySourceOrTarget(current.id, reverse)
 		if err != nil {
 			continue
 		}
 
 		var nextEntries []frontier
-		for rows.Next() {
-			var nextID int64
-			var filePath string
-			if err := rows.Scan(&nextID, &filePath); err != nil {
-				continue
-			}
+		for _, edge := range edges {
+			nextID := edge.ID
+			filePath := edge.FilePath
 
 			if visited[nextID] {
 				continue
@@ -445,7 +379,6 @@ func traverseEdges(store *SQLiteStore, chunkID int64, reverse bool, maxDepth int
 
 			nextEntries = append(nextEntries, frontier{id: nextID, depth: current.depth + 1})
 		}
-		rows.Close()
 
 		queue = append(queue, nextEntries...)
 	}
@@ -489,49 +422,15 @@ func enrichDepsResults(store *SQLiteStore, results []DepsResult) {
 }
 
 // lookupModule tries to find a module by name, then by path.
+// Now uses Store method instead of direct db access (fixes sdplab-9zb).
 func lookupModule(store *SQLiteStore, moduleRef string) *ModuleMeta {
 	// Try by name first
 	if mm, err := store.GetModuleMeta(moduleRef); err == nil && mm != nil {
 		return mm
 	}
-	// Try by path
-	rows, err := store.db.Query(
-		"SELECT name, path, purpose, owner, bus_factor, files_count, loc, is_hotspot FROM modules WHERE path = ?",
-		moduleRef)
-	if err != nil {
-		return nil
-	}
-	defer rows.Close()
-	if rows.Next() {
-		var m ModuleMeta
-		if err := rows.Scan(&m.Name, &m.Path, &m.Purpose, &m.Owner,
-			&m.BusFactor, &m.FilesCount, &m.Loc, &m.IsHotspot); err != nil {
-			return nil
-		}
-		return &m
+	// Try by path using Store method (fixes sdplab-9zb)
+	if mm, err := store.QueryModuleByPath(moduleRef); err == nil && mm != nil {
+		return mm
 	}
 	return nil
-}
-
-// scanSearchResults reads rows into SearchResult slice.
-func scanSearchResults(rows *sql.Rows, matchSrc string) ([]SearchResult, error) {
-	var results []SearchResult
-	for rows.Next() {
-		var c Chunk
-		var score float64
-		err := rows.Scan(
-			&c.ID, &c.FilePath, &c.SymbolName, &c.Kind, &c.Scope,
-			&c.Language, &c.LineStart, &c.LineEnd, &c.Content,
-			&c.Description, &c.PageRank, &c.Hash, &score,
-		)
-		if err != nil {
-			continue
-		}
-		results = append(results, SearchResult{
-			Chunk:    c,
-			Score:    math.Round(score*10000) / 10000,
-			MatchSrc: matchSrc,
-		})
-	}
-	return results, nil
 }

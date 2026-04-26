@@ -31,6 +31,11 @@ func (m *memStore) SetMeta(key, value string) error {
 	return nil
 }
 
+func (m *memStore) SaveMeta(key, value string) error {
+	m.meta[key] = value
+	return nil
+}
+
 func (m *memStore) UpsertModuleMeta(mm ModuleMeta) error {
 	for i, existing := range m.modules {
 		if existing.Name == mm.Name {
@@ -40,6 +45,10 @@ func (m *memStore) UpsertModuleMeta(mm ModuleMeta) error {
 	}
 	m.modules = append(m.modules, mm)
 	return nil
+}
+
+func (m *memStore) ListModules() ([]ModuleMeta, error) {
+	return m.modules, nil
 }
 
 func (m *memStore) LoadModules() ([]ModuleMeta, error) {
@@ -62,6 +71,10 @@ func (m *memStore) UpdateModules(modules []ModuleMeta) error {
 }
 
 func (m *memStore) LoadEntryPoints() ([]string, error) {
+	return m.entryPoints, nil
+}
+
+func (m *memStore) ListEntryPoints() ([]string, error) {
 	return m.entryPoints, nil
 }
 

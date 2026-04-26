@@ -765,3 +765,219 @@ func buildSymbolIDMapTx(tx *sql.Tx) (map[string]int64, error) {
 	}
 	return m, nil
 }
+
+// ── PageRank Support Methods ─────────────────────────────────────────────
+
+// UpdatePageRank updates the PageRank score for a single chunk by ID.
+func (s *SQLiteStore) UpdatePageRank(chunkID int64, score float64) error {
+	_, err := s.db.Exec("UPDATE chunks SET pagerank = ? WHERE id = ?", score, chunkID)
+	return err
+}
+
+// GetAllEdges retrieves all edges from the database.
+// Returns an error count if any rows fail to scan, along with the edges and error.
+func (s *SQLiteStore) GetAllEdges() ([]Edge, int, error) {
+	rows, err := s.db.Query("SELECT id, source_id, target_id, relation, weight FROM edges")
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var edges []Edge
+	scanErrors := 0
+	for rows.Next() {
+		var e Edge
+		if err := rows.Scan(&e.ID, &e.SourceID, &e.TargetID, &e.Relation, &e.Weight); err != nil {
+			scanErrors++
+			continue
+		}
+		edges = append(edges, e)
+	}
+	return edges, scanErrors, nil
+}
+
+// GetEdgeCount returns the total number of edges in the database.
+func (s *SQLiteStore) GetEdgeCount() (int, error) {
+	var count int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM edges").Scan(&count)
+	return count, err
+}
+
+// QueryChunksByFilePrefix queries chunks whose file_path matches a prefix or exact path.
+// Used by dependency traversal to find all chunks in a module.
+func (s *SQLiteStore) QueryChunksByFilePrefix(prefix, exactPath string) ([]int64, error) {
+	rows, err := s.db.Query(`
+		SELECT id FROM chunks
+		WHERE file_path LIKE ?
+		   OR file_path = ?`,
+		prefix+"%", exactPath)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+// QueryEdgesBySourceOrTarget queries edges by source_id or target_id based on the direction.
+// If reverse is true, queries edges where target_id = ? (incoming edges).
+// If reverse is false, queries edges where source_id = ? (outgoing edges).
+// Returns edge IDs and file paths for dependency traversal.
+func (s *SQLiteStore) QueryEdgesBySourceOrTarget(chunkID int64, reverse bool) ([]struct {
+	ID       int64
+	FilePath string
+}, error) {
+	var rows *sql.Rows
+	var err error
+
+	if reverse {
+		rows, err = s.db.Query(`SELECT e.source_id, c.file_path FROM edges e
+			JOIN chunks c ON c.id = e.source_id
+			WHERE e.target_id = ?`, chunkID)
+	} else {
+		rows, err = s.db.Query(`SELECT e.target_id, c.file_path FROM edges e
+			JOIN chunks c ON c.id = e.target_id
+			WHERE e.source_id = ?`, chunkID)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []struct {
+		ID       int64
+		FilePath string
+	}
+	for rows.Next() {
+		var id int64
+		var filePath string
+		if err := rows.Scan(&id, &filePath); err != nil {
+			continue
+		}
+		results = append(results, struct {
+			ID       int64
+			FilePath string
+		}{ID: id, FilePath: filePath})
+	}
+	return results, nil
+}
+
+// QueryModuleByPath looks up a module by its path (fallback for dependency lookup).
+func (s *SQLiteStore) QueryModuleByPath(path string) (*ModuleMeta, error) {
+	mm := &ModuleMeta{}
+	err := s.db.QueryRow(`
+		SELECT name, path, purpose, owner, bus_factor, files_count, loc, is_hotspot
+		FROM modules WHERE path = ?`, path,
+	).Scan(&mm.Name, &mm.Path, &mm.Purpose, &mm.Owner,
+		&mm.BusFactor, &mm.FilesCount, &mm.Loc, &mm.IsHotspot)
+	if err != nil {
+		return nil, err
+	}
+	return mm, nil
+}
+
+// ── FTS Search Support Methods ────────────────────────────────────────────
+
+// FTS5Search performs a full-text search using BM25 scoring and returns ranked chunk IDs with scores.
+func (s *SQLiteStore) FTS5Search(query string, limit int) ([]struct {
+	ChunkID int64
+	Score   float64
+}, error) {
+	rows, err := s.db.Query(`
+		SELECT rowid, bm25(chunks_fts) AS score
+		FROM chunks_fts
+		WHERE chunks_fts MATCH ?
+		ORDER BY score
+		LIMIT ?`, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []struct {
+		ChunkID int64
+		Score   float64
+	}
+	for rows.Next() {
+		var id int64
+		var score float64
+		if err := rows.Scan(&id, &score); err != nil {
+			continue
+		}
+		results = append(results, struct {
+			ChunkID int64
+			Score   float64
+		}{ChunkID: id, Score: score})
+	}
+	return results, nil
+}
+
+// FTS5ExactSearchWithChunks performs an exact FTS5 keyword search and returns full SearchResult structs.
+// This avoids N+1 queries by joining chunks with chunks_fts.
+func (s *SQLiteStore) FTS5ExactSearchWithChunks(query string, limit int) ([]SearchResult, error) {
+	rows, err := s.db.Query(`
+		SELECT c.id, c.file_path, c.symbol_name, c.kind, c.scope, c.language,
+			c.line_start, c.line_end, c.content, c.description, c.pagerank, c.hash,
+			bm25(chunks_fts) AS score
+		FROM chunks_fts f
+		JOIN chunks c ON c.id = f.rowid
+		WHERE f.chunks_fts MATCH ?
+		ORDER BY score
+		LIMIT ?`, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return scanSearchResultsFromRows(rows, "fts")
+}
+
+// RegexSearchWithChunks performs a LIKE-based search for pattern matching and returns full SearchResult structs.
+func (s *SQLiteStore) RegexSearchWithChunks(pattern string, limit int) ([]SearchResult, error) {
+	rows, err := s.db.Query(`
+		SELECT id, file_path, symbol_name, kind, scope, language,
+			line_start, line_end, content, description, pagerank, hash,
+			1.0 AS score
+		FROM chunks
+		WHERE symbol_name LIKE ? OR content LIKE ?
+		LIMIT ?`, pattern, pattern, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return scanSearchResultsFromRows(rows, "fts")
+}
+
+// scanSearchResultsFromRows reads rows into SearchResult slice.
+// Helper function used by FTS and regex search methods.
+func scanSearchResultsFromRows(rows *sql.Rows, matchSrc string) ([]SearchResult, error) {
+	var results []SearchResult
+	for rows.Next() {
+		var c Chunk
+		var score float64
+		err := rows.Scan(
+			&c.ID, &c.FilePath, &c.SymbolName, &c.Kind, &c.Scope,
+			&c.Language, &c.LineStart, &c.LineEnd, &c.Content,
+			&c.Description, &c.PageRank, &c.Hash, &score,
+		)
+		if err != nil {
+			continue
+		}
+		results = append(results, SearchResult{
+			Chunk:    c,
+			Score:    score,
+			MatchSrc: matchSrc,
+		})
+	}
+	return results, nil
+}

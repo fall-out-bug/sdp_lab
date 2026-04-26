@@ -384,8 +384,28 @@ func (f *failUpdateStore) SetMeta(key, value string) error {
 	return nil
 }
 
+func (f *failUpdateStore) SaveMeta(key, value string) error {
+	return nil
+}
+
+func (f *failUpdateStore) LoadMeta(keys ...string) (map[string]string, error) {
+	return f.memStore.LoadMeta(keys...)
+}
+
+func (f *failUpdateStore) ListModules() ([]ModuleMeta, error) {
+	return f.memStore.modules, nil
+}
+
 func (f *failUpdateStore) LoadEntryPoints() ([]string, error) {
 	return nil, nil
+}
+
+func (f *failUpdateStore) ListEntryPoints() ([]string, error) {
+	return nil, nil
+}
+
+func (f *failUpdateStore) LoadStats() (*IndexStats, error) {
+	return f.memStore.stats, nil
 }
 
 // Verify failUpdateStore satisfies ManifestStore at compile time.
