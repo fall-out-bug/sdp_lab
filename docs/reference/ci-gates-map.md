@@ -1,148 +1,188 @@
 # CI Gates Map
 
-Reference map of all SDP CI gates, their purpose, dependencies, and configuration.
+Reference map of all SDP CI gates: purpose, owner, failure semantics, and local reproduce commands.
+
+> **See also:** [trust-guarantees.md](./trust-guarantees.md), [quality-gates.md](./quality-gates.md), [maturity-matrix.md](./maturity-matrix.md)
+> **CI workflow source:** `.github/workflows/ci.yml`
 
 ## Gate Dependency Graph
 
 ```
-build-test ──────────────────────┐
-snapshot-test ───────────────────┤
-push-protection ─────────────────┤
-                                 │
-evidence-gate ───────────┐       │
-scope-gate ──────────────┤       │
-consistency-gate ────────┼──┐    │
-                         │  │    │
-coverage-gate ───────────┤  │    │
-                         │  │    │
-policy-gate ◄────────────┘  │    │
-   (needs: evidence,        │    │
-    consistency, coverage)  │    │
-                            │    │
-ci-pass ◄───────────────────┴────┘
+build-test ─────────────────────┐
+snapshot-test ──────────────────┤
+push-protection ────────────────┤
+architect-tests ────────────────┤
+contract-compat ────────────────┤
+                                │
+evidence-gate ───────────┐      │
+scope-gate ──────────────┤      │
+protocol-compliance ─────┤      │  (needs: build-test)
+consistency-gate ────────┤      │
+                         │      │
+coverage-gate ───────────┤      │  (needs: build-test)
+                         │      │
+policy-gate ◄────────────┘      │
+   (needs: evidence,            │
+    protocol-compliance,        │
+    consistency)                │
+auto-attestation ───────────────┤  (needs: build-test)
+                                │
+required-checks ◄───────────────┴──┘
    (needs: ALL gates must pass)
 ```
 
 ## Gate Reference
 
-| Gate | CI Job Name | Blocks Merge | Default Mode | Timeout |
-|------|-------------|-------------|-------------|---------|
-| Build & Test | `build-test` | Yes | Required | 10 min |
-| Snapshot Tests | `snapshot-test` | Yes | Required | 15 min |
-| Push Protection | `push-protection` | Yes (main only) | Required | 1 min |
-| Evidence Gate | `evidence-gate` | Yes | Fail-closed | 5 min |
-| Scope Gate | `scope-gate` | Yes | Fail-closed | 5 min |
-| Consistency Gate | `consistency-gate` | Yes | Fail-closed | 5 min |
-| Coverage Gate | `coverage-gate` | Yes | Fail-open (pilot) | 10 min |
-| Policy Gate | `policy-gate` | Yes | Fail-closed | 5 min |
-| Final Gate | `ci-pass` | Yes | Required | 1 min |
+| Gate | CI Job Name | Blocks Merge | Mode | Local Reproduce |
+|------|-------------|-------------|------|-----------------|
+| Build & Test | `build-test` | Yes | Required | `./scripts/run_go_quality_gates.sh` |
+| Snapshot Tests | `snapshot-test` | Yes | Required | `go test -tags sqlite_fts5 -run TestSnapshot ./internal/snapshot/ ./cmd/sdp/ -v` |
+| Push Protection | `push-protection` | Yes (main only) | Required | N/A (commit message check, see details) |
+| Architect Tests | `architect-tests` | Yes | Required | `go test -tags sqlite_fts5 ./tests/architect/... -v` |
+| Contract Compat | `contract-compat` | Yes | Required | `go test -tags sqlite_fts5 ./tests/contracts/... -v` |
+| Evidence Gate | `evidence-gate` | Yes | Fail-closed | `go run ./cmd/sdp-evidence validate --require-pr-url=false <file>` |
+| Scope Gate | `scope-gate` | Yes | Fail-closed | `go run ./cmd/sdp-guard --ws <ws-id>` |
+| Protocol Compliance | `protocol-compliance` | Yes | Fail-closed | `go run ./cmd/sdp-guard --check-contract --contract <file> --snapshot <file>` |
+| Consistency Gate | `consistency-gate` | Yes | Fail-closed | `python3 scripts/check_repo_consistency.py --strict-ac --json` |
+| Coverage Gate | `coverage-gate` | Yes | Blocking (baseline delta) | `go test -tags sqlite_fts5 -coverprofile=cover.out ./... && go tool cover -func=cover.out` |
+| Policy Gate | `policy-gate` | Yes | Advisory (configurable) | See details (OPA eval) |
+| Auto-Attestation | `auto-attestation` | Yes | Required | `go run ./internal/evidence/cmd/auto-attest --branch <branch>` |
+| Required Checks | `required-checks` | Yes | Required | Verify all gate jobs pass |
 
 ## Gate Details
 
 ### build-test
+- **Owner**: platform
 - **Triggers**: push, PR to main/master/feature/*
-- **Steps**: `go build`, `go test`, `golangci-lint`
-- **Tags**: `sqlite_fts5`
+- **Steps**: `go build -tags sqlite_fts5`, `go test -tags sqlite_fts5`, `golangci-lint`
+- **Failure semantics**: Blocks merge. All tests must pass, zero lint errors.
+- **Local reproduce**: `./scripts/run_go_quality_gates.sh`
+- **Output**: stdout (pass/fail + test names); no file artifacts.
 
 ### snapshot-test
+- **Owner**: platform
 - **Triggers**: push, PR
-- **Steps**: `go test -run TestSnapshot`
+- **Steps**: `go test -tags sqlite_fts5 -run TestSnapshot ./internal/snapshot/ ./cmd/sdp/`
 - **Special**: `UPDATE_SNAPSHOTS=1` mode for local updates (fails in CI)
+- **Failure semantics**: Blocks merge on snapshot diff. Must update snapshots intentionally.
+- **Local reproduce**: `go test -tags sqlite_fts5 -run TestSnapshot ./internal/snapshot/ ./cmd/sdp/ -v`
+- **Output**: Snapshot diff in test output; updated files in testdata/.
 
 ### push-protection
+- **Owner**: platform
 - **Triggers**: push to main/master only
 - **Purpose**: Prevent direct pushes bypassing PR review
-- **Allows**: Merge commits, squash commits with PR reference
+- **Allows**: Merge commits (`Merge pull request #N`), squash commits with PR reference (`(#N)`), merge-prefixed commits
+- **Failure semantics**: Rejects direct push to protected branches.
+- **Local reproduce**: Not applicable — this gate checks commit message patterns on push to main. Verify locally by checking commit message format.
+- **Output**: Error message with rejection reason.
+
+### architect-tests
+- **Owner**: platform
+- **Triggers**: push, PR
+- **Steps**: `go test -tags sqlite_fts5 ./tests/architect/...`
+- **Failure semantics**: Blocks merge. Architect regression detected.
+- **Local reproduce**: `go test -tags sqlite_fts5 ./tests/architect/... -v`
+- **Output**: stdout (test results); no file artifacts.
+
+### contract-compat
+- **Owner**: platform
+- **Triggers**: push, PR
+- **Steps**: `go test -tags sqlite_fts5 ./tests/contracts/...`
+- **Failure semantics**: Blocks merge. Contract compatibility regression detected.
+- **Local reproduce**: `go test -tags sqlite_fts5 ./tests/contracts/... -v`
+- **Output**: stdout (test results); no file artifacts.
 
 ### evidence-gate
+- **Owner**: platform
 - **Triggers**: PR with `.sdp/evidence/*.json` files in diff
-- **Steps**: Validates each evidence file against `schema/evidence.schema.json`
+- **Steps**: Validates each evidence file via `go run ./cmd/sdp-evidence validate`; validates review verdict JSON if present
 - **Required fields**: `id`, `type`, `timestamp`, `ws_id`
 - **Valid types**: `plan`, `generation`, `verification`, `approval`, `decision`, `lesson`
-- **Skip condition**: No evidence files in diff → PASS
+- **Skip condition**: No evidence files in diff -> PASS
+- **Failure semantics**: Blocks merge. Invalid evidence schema = hard failure.
+- **Local reproduce**: `go run ./cmd/sdp-evidence validate --require-pr-url=false <file>`
+- **Output schema**: `schema/evidence.schema.json`
+- **Artifact path**: `.sdp/evidence/*.json`
 
 ### scope-gate
+- **Owner**: platform
 - **Triggers**: PR with `.sdp/checkpoints/*.json` files in diff
-- **Steps**: Validates changed files match declared workstream scope
-- **Skip condition**: No checkpoint files → PASS
+- **Steps**: Reads checkpoint workstream IDs, runs `go run ./cmd/sdp-guard --ws <ws-id>` per workstream
+- **Skip condition**: No checkpoint files -> PASS
+- **Failure semantics**: Blocks merge on scope violation. Out-of-scope files detected.
+- **Local reproduce**: `go run ./cmd/sdp-guard --ws <ws-id>`
+- **Output**: stdout listing scope violations; no file artifacts.
+
+### protocol-compliance
+- **Owner**: platform
+- **Triggers**: PR with `.sdp/contracts/F*.json` files in diff
+- **Steps**: Validates each contract has an adjacent snapshot; runs `go run ./cmd/sdp-guard --check-contract`
+- **Skip condition**: No contract files changed -> PASS
+- **Dependencies**: `build-test`
+- **Failure semantics**: Blocks merge. Contract compliance violation.
+- **Local reproduce**: `go run ./cmd/sdp-guard --check-contract --contract <file> --snapshot <file>`
+- **Output**: stdout with compliance report; no file artifacts.
 
 ### consistency-gate
+- **Owner**: platform
 - **Triggers**: Every PR
-- **Steps**: `sdp verify` — checks guard-rules, schema conformance, file hygiene
+- **Steps**: `python3 scripts/check_repo_consistency.py --strict-ac --json` + `go run ./cmd/sdp-protocol-check --format json` + `go run ./cmd/sdp-doc-sync --mode check --format json` + `go run ./cmd/sdp-protocol-check --lint-skills --format json`
 - **Never skipped**
+- **Failure semantics**: Blocks merge on repo consistency failure. Protocol check and doc-sync are non-blocking advisory. Skill-lint is non-blocking in advisory rollout.
+- **Local reproduce**: `python3 scripts/check_repo_consistency.py --strict-ac --json`
+- **Output schema**: JSON findings file
+- **Artifact path**: `.sdp/findings/*.json` (uploaded as CI artifact)
 
 ### coverage-gate
-- **Triggers**: Every PR
-- **Steps**: `go test -coverprofile`, `sdp coverage check --minimum=60`
-- **Configurable**: Minimum threshold in `.sdp/config.yml`
+- **Owner**: platform
+- **Triggers**: push, PR
+- **Steps**: `go test -tags sqlite_fts5 -coverprofile=cov.out ./...` + compare against baseline in `.sdp/metrics/coverage.txt` with -2pp threshold
+- **Dependencies**: `build-test`
+- **Failure semantics**: Blocking. Fails if coverage drops more than 2pp below baseline. Requires baseline file to exist.
+- **Local reproduce**: `go test -tags sqlite_fts5 -coverprofile=cover.out ./... && go tool cover -func=cover.out | grep total`
+- **Output**: Coverage percentage in stdout; `cov.out` locally.
+- **Baseline**: `.sdp/metrics/coverage.txt` (auto-updated on push to main)
 
 ### policy-gate
-- **Triggers**: Every PR (after evidence, consistency, coverage gates)
-- **Dependencies**: `evidence-gate`, `consistency-gate`, `coverage-gate`
-- **Steps**: Aggregates all gate results, runs auto-attestation if configured
-- **Produces**: Policy summary JSON with gate results
+- **Owner**: platform
+- **Triggers**: Every PR
+- **Dependencies**: `evidence-gate`, `protocol-compliance`, `consistency-gate`
+- **Steps**: Collects policy input from PR diff + gate results, evaluates OPA policies in `.sdp/policies/`
+- **Enforcement mode**: Configurable via `SDP_POLICY_ENFORCEMENT_MODE` env var. Default: `advisory` (denials logged but non-blocking). Set to `blocking` to enforce denials.
+- **Failure semantics**: Blocks merge only when `SDP_POLICY_ENFORCEMENT_MODE=blocking` and denials exist. Otherwise advisory (warnings logged).
+- **Local reproduce**: `opa eval --data .sdp/policies/ --input /tmp/policy-input.json 'data.sdp.policies.effective_deny'`
+- **Output**: Policy evaluation results in CI log.
 
-### ci-pass
+### auto-attestation
+- **Owner**: platform
+- **Triggers**: Every PR
+- **Dependencies**: `build-test`
+- **Steps**: Runs `go run ./internal/evidence/cmd/auto-attest` to generate attestation, signs with Sigstore keyless
+- **Failure semantics**: Blocks merge. Attestation generation failure = hard failure.
+- **Local reproduce**: `go run ./internal/evidence/cmd/auto-attest --branch <branch> --base-branch main --output .sdp/attestations/ci-auto.json`
+- **Output schema**: Attestation JSON + Sigstore bundle
+- **Artifact path**: `.sdp/attestations/ci-auto.json`, `.sdp/attestations/ci-auto.bundle` (uploaded as CI artifact, 90-day retention)
+
+### required-checks
+- **Owner**: platform
 - **Triggers**: Every PR (after ALL other gates)
-- **Dependencies**: All gates listed above
-- **Purpose**: Final merge gate — ALL must pass
+- **Dependencies**: All 12 gates listed above
+- **Purpose**: Final merge gate -- ALL must pass (success or skipped)
+- **Failure semantics**: Blocks merge until all dependencies are green.
+- **Local reproduce**: Verify each gate individually using local reproduce commands above.
+- **Output**: Per-gate pass/fail summary in CI log.
 
-## Configuration
+## Policy Configuration
 
-### .sdp/guard-rules.yml
+Policies are defined as OPA/Rego files in `.sdp/policies/`. The default enforcement mode is `advisory`.
 
-```yaml
-gates:
-  evidence:
-    enabled: true
-    mode: fail-closed
-    schema: schema/evidence.schema.json
-  scope:
-    enabled: true
-    mode: fail-closed
-  consistency:
-    enabled: true
-    mode: fail-closed
-  coverage:
-    enabled: true
-    mode: fail-open  # warn during pilot
-    minimum: 60
-  policy:
-    enabled: true
-    mode: fail-closed
-    auto_attest: false
-  secretscan:
-    enabled: true
-    mode: fail-closed  # hard gate — always block on secrets
-```
-
-### .sdp/config.yml
-
-```yaml
-project:
-  name: my-project
-  go_version: "1.26"
-
-gates:
-  enabled: true
-
-runtime:
-  mode: ci-only  # or "contracted"
-
-coverage:
-  minimum: 60
-
-evidence:
-  log_path: .sdp/log/events.jsonl
-  tracked: true
+To enforce blocking policy:
+```bash
+# In CI environment
+export SDP_POLICY_ENFORCEMENT_MODE=blocking
 ```
 
 ## Disabling Gates
 
 See [enterprise-pilot-rollback.md](./enterprise-pilot-rollback.md) for full disable procedures.
-
-Quick disable:
-```bash
-sdp config set gates.enabled false          # all gates
-sdp config set gates.coverage.enabled false  # specific gate
-```

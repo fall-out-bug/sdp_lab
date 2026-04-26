@@ -1,0 +1,48 @@
+{
+  "stack": "go",
+  "version": "1.0",
+  "display_name": "Go",
+  "commands": {
+    "test": "go test ./...",
+    "test_verbose": "go test ./... -v",
+    "test_coverage": "go test -coverprofile=/tmp/coverage.out ./... && go tool cover -html=/tmp/coverage.out -o /tmp/coverage.html",
+    "test_race": "go test -race ./...",
+    "test_short": "go test -short ./...",
+    "build": "go build ./...",
+    "build_binary": "go build -o bin/myapp ./cmd/myapp",
+    "build_optimized": "go build -ldflags=\"-s -w\" -o bin/myapp ./cmd/myapp",
+    "install": "go install ./cmd/myapp",
+    "lint": "golangci-lint run",
+    "vet": "go vet ./...",
+    "fmt": "gofmt -l .",
+    "fmt_check": "gofmt -l . && test -z \"$(gofmt -l .)\"",
+    "staticcheck": "staticcheck ./...",
+    "quality_gate": "go vet ./... && go test ./... && go build ./...",
+    "quality_gate_strict": "go vet ./... && go test -race ./... && golangci-lint run && go build ./..."
+  },
+  "quality_gates": [
+    "go vet ./...",
+    "go test ./...",
+    "golangci-lint run",
+    "go build ./..."
+  ],
+  "file_patterns": [
+    "*.go",
+    "go.mod",
+    "go.sum"
+  ],
+  "sections": {
+    "test": {
+      "heading": "### Go Testing",
+      "content": "Run all tests:\n```bash\ngo test ./... -v\n```\n\nRun with coverage:\n```bash\ngo test -coverprofile=/tmp/coverage.out ./...\ngo tool cover -html=/tmp/coverage.out -o /tmp/coverage.html\n```\n\nRun specific package:\n```bash\ngo test ./pkg/mypackage -v\n```\n\nRun with race detection:\n```bash\ngo test -race ./...\n```\n\nSkip integration tests:\n```bash\ngo test -short ./...\n```"
+    },
+    "build": {
+      "heading": "### Go Building",
+      "content": "Build all packages:\n```bash\ngo build ./...\n```\n\nBuild specific binary:\n```bash\ngo build -o bin/myapp ./cmd/myapp\n```\n\nBuild with optimizations:\n```bash\ngo build -ldflags=\"-s -w\" -o bin/myapp ./cmd/myapp\n```\n\nInstall to GOPATH/bin:\n```bash\ngo install ./cmd/myapp\n```"
+    },
+    "quality-gate": {
+      "heading": "### Go Quality Gates",
+      "content": "Run all quality checks:\n```bash\ngo vet ./... && go test ./... && go build ./...\n```\n\nFormat check:\n```bash\ngofmt -l . && test -z \"$(gofmt -l .)\"\n```\n\nRun with race and coverage:\n```bash\ngo test -race -coverprofile=/tmp/coverage.out ./...\n```\n\nStatic analysis:\n```bash\nstaticcheck ./...\n```"
+    }
+  }
+}
