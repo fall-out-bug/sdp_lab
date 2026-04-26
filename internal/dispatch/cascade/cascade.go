@@ -21,6 +21,7 @@ import (
 
 	"sdp_dev/internal/dispatch"
 	"sdp_dev/internal/dispatch/harness"
+	"sdp_dev/internal/inference/confidence"
 )
 
 // RouterInterface abstracts the dispatch.Router contract for testability.
@@ -56,6 +57,22 @@ func NewInvoker(router RouterInterface, checker Checker, opts ...interface{}) *C
 		},
 	}
 	return invoker
+}
+
+// NewWithConfidence creates a new CascadingInvoker with a F144 confidence.Checker
+// automatically adapted to the cascade.Checker interface. This is a convenience
+// constructor that handles the adapter wiring.
+//
+// Parameters:
+// - router: dispatch.Router (required for production; can be nil for testing)
+// - checker: F144 confidence.Checker[string] to wrap (can be nil for graceful degrade)
+// - threshold: confidence score cutoff (0.0-1.0); score >= threshold → accept
+// - opts: future extension hooks (currently unused)
+//
+// Returns a CascadingInvoker ready to run Invoke() with confidence-driven escalation.
+func NewWithConfidence(router RouterInterface, checker *confidence.Checker[string], threshold float64, opts ...interface{}) *CascadingInvoker {
+	adapter := NewConfidenceAdapter(checker, threshold)
+	return NewInvoker(router, adapter, opts...)
 }
 
 // defaultTierOrder returns the standard cascade order: cheap to strong.

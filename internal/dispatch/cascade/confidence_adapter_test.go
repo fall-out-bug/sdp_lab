@@ -1,0 +1,166 @@
+package cascade
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"sdp_dev/internal/dispatch/harness"
+	"sdp_dev/internal/inference/confidence"
+)
+
+// fakeF144Strategy is a mock Strategy for testing with a real Checker.
+type fakeF144Strategy struct {
+	name     string
+	subScore float64
+	reason   string
+	err      error
+}
+
+func (f *fakeF144Strategy) Name() string { return f.name }
+
+func (f *fakeF144Strategy) Run(ctx context.Context, in confidence.StrategyInput[string]) (confidence.StrategyOutput, error) {
+	if f.err != nil {
+		return confidence.StrategyOutput{}, f.err
+	}
+	return confidence.StrategyOutput{
+		SubScore: f.subScore,
+		Reason:   f.reason,
+	}, nil
+}
+
+// newTestChecker creates a real F144 Checker with a single fake strategy.
+// Uses "self_check" as the strategy name so it's recognized by DefaultPolicy weights.
+func newTestChecker(subScore float64, err error) *confidence.Checker[string] {
+	strategies := []confidence.Strategy[string]{
+		&fakeF144Strategy{name: "self_check", subScore: subScore, err: err},
+	}
+	policy := confidence.DefaultPolicy()
+	checker, _ := confidence.NewChecker[string](nil, strategies, policy)
+	return checker
+}
+
+// TestConfidenceAdapter_HighScorePasses verifies score above threshold → ok=true.
+func TestConfidenceAdapter_HighScorePasses(t *testing.T) {
+	// Arrange: F144 Checker with high subscore (will compose to high aggregate score)
+	// DefaultPolicy composes average of subscores, so 0.9 should yield StatusOK
+	checker := newTestChecker(0.9, nil)
+	adapter := NewConfidenceAdapter(checker, 0.7)
+
+	// Act
+	req := InvokeRequest{Harness: "test", Prompt: "test prompt"}
+	resp := &harness.Result{Output: "valid response"}
+	ok, reason := adapter.Check(context.Background(), req, resp)
+
+	// Assert
+	if !ok {
+		t.Errorf("expected ok=true for high subscore (0.9), got false; reason: %s", reason)
+	}
+	if reason != "" {
+		t.Errorf("expected empty reason for passing check, got %q", reason)
+	}
+}
+
+// TestConfidenceAdapter_LowScoreFails verifies score below threshold → ok=false.
+func TestConfidenceAdapter_LowScoreFails(t *testing.T) {
+	// Arrange: F144 Checker with low subscore (will compose to low aggregate score)
+	// A subscore of 0.3 should compose to StatusFail (below OK threshold in DefaultPolicy)
+	checker := newTestChecker(0.3, nil)
+	adapter := NewConfidenceAdapter(checker, 0.7)
+
+	// Act
+	req := InvokeRequest{Harness: "test", Prompt: "test prompt"}
+	resp := &harness.Result{Output: "weak response"}
+	ok, reason := adapter.Check(context.Background(), req, resp)
+
+	// Assert
+	if ok {
+		t.Errorf("expected ok=false for low subscore (0.3), got true")
+	}
+	if reason != "confidence_below_threshold" {
+		t.Errorf("expected reason 'confidence_below_threshold', got %q", reason)
+	}
+}
+
+// TestConfidenceAdapter_CheckerError verifies F144 Checker error → ok=false with error reason.
+func TestConfidenceAdapter_CheckerError(t *testing.T) {
+	// Arrange: F144 Checker with a strategy that errors
+	testErr := errors.New("test error")
+	checker := newTestChecker(0.5, testErr)
+	adapter := NewConfidenceAdapter(checker, 0.7)
+
+	// Act
+	req := InvokeRequest{Harness: "test", Prompt: "test prompt"}
+	resp := &harness.Result{Output: "some response"}
+	ok, reason := adapter.Check(context.Background(), req, resp)
+
+	// Assert
+	if ok {
+		t.Errorf("expected ok=false when checker returns error, got true")
+	}
+	if !contains(reason, "checker_error") {
+		t.Errorf("expected reason to contain 'checker_error', got %q", reason)
+	}
+	if !contains(reason, "test error") {
+		t.Errorf("expected reason to contain error text, got %q", reason)
+	}
+}
+
+// TestConfidenceAdapter_NilChecker verifies nil F144 Checker → ok=true (graceful degrade).
+func TestConfidenceAdapter_NilChecker(t *testing.T) {
+	// Arrange: nil F144 Checker
+	adapter := NewConfidenceAdapter(nil, 0.7)
+
+	// Act
+	req := InvokeRequest{Harness: "test", Prompt: "test prompt"}
+	resp := &harness.Result{Output: "any response"}
+	ok, reason := adapter.Check(context.Background(), req, resp)
+
+	// Assert
+	if !ok {
+		t.Errorf("expected ok=true for nil checker (graceful degrade), got false; reason: %s", reason)
+	}
+	if reason != "" {
+		t.Errorf("expected empty reason for nil checker, got %q", reason)
+	}
+}
+
+// TestConfidenceAdapter_ExactlyAtThreshold verifies boundary condition.
+func TestConfidenceAdapter_ExactlyAtThreshold(t *testing.T) {
+	// Arrange: F144 Checker with subscore that composes to exactly at adapter threshold
+	// Using subscore 0.8 which composes to 0.8 (single strategy, no weight averaging)
+	// Set adapter threshold to 0.8 so they're exactly equal
+	checker := newTestChecker(0.8, nil)
+	adapter := NewConfidenceAdapter(checker, 0.8)
+
+	// Act
+	req := InvokeRequest{Harness: "test", Prompt: "test prompt"}
+	resp := &harness.Result{Output: "borderline response"}
+	ok, reason := adapter.Check(context.Background(), req, resp)
+
+	// Assert: should pass because composed score >= threshold (>=, not just >)
+	if !ok {
+		t.Errorf("expected ok=true for score exactly at threshold (0.8), got false; reason: %s", reason)
+	}
+	if reason != "" {
+		t.Errorf("expected empty reason for passing threshold check, got %q", reason)
+	}
+}
+
+// TestConfidenceAdapter_LowThresholdAllowsUnsure verifies unsure status with good score passes.
+func TestConfidenceAdapter_LowThresholdAllowsUnsure(t *testing.T) {
+	// Arrange: F144 Checker with mid-range subscore (should compose to Unsure or OK)
+	// Using a low threshold allows Unsure results to pass
+	checker := newTestChecker(0.6, nil)
+	adapter := NewConfidenceAdapter(checker, 0.5) // threshold below expected composed score
+
+	// Act
+	req := InvokeRequest{Harness: "test", Prompt: "test prompt"}
+	resp := &harness.Result{Output: "response"}
+	ok, reason := adapter.Check(context.Background(), req, resp)
+
+	// Assert: Should pass with low threshold
+	if !ok {
+		t.Errorf("expected ok=true with low threshold (0.5) and subscore (0.6), got false; reason: %s", reason)
+	}
+}
