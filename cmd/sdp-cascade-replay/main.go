@@ -23,9 +23,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"sdp_dev/internal/dispatch"
 	"sdp_dev/internal/dispatch/cascade"
+	"sdp_dev/internal/dispatch/harness"
 )
 
 // CorpusCase represents a single case in the cascade corpus JSON.
@@ -71,8 +73,10 @@ func main() {
 	corpus := cascade.ReplayCorpus{Cases: replayCases}
 
 	// Create invoker with stub router (no real provider invocation)
-	// TODO (F145-14): wire in configurable max-depth once CascadingInvoker exposes setter
-	invoker := cascade.NewInvoker(nil, nil)
+	// Wire a deterministic stub checker for demo purposes
+	stubRouter := &stubReplayRouter{}
+	stubChecker := &stubReplayChecker{}
+	invoker := cascade.NewInvoker(stubRouter, stubChecker)
 	_ = maxDepth // unused for now
 
 	runner := cascade.NewReplayRunner(invoker)
@@ -123,4 +127,95 @@ func renderReport(report *cascade.ReplayReport, corpusPath string) {
 	fmt.Println("Cascade efficiency:")
 	fmt.Printf("  stayed-cheap:  %6.1f%%   (TierLocal/TierFast + hops==1)\n", report.StayedCheapPct)
 	fmt.Printf("  escalated:     %6.1f%%   (hops > 1)\n", report.EscalatedPct)
+}
+
+// stubReplayRouter is a minimal router for cascade replay (returns dummy decision).
+type stubReplayRouter struct{}
+
+func (s *stubReplayRouter) Route(ctx context.Context, task dispatch.TaskClassification, limits map[string]*harness.Limits) (*dispatch.DispatchDecision, error) {
+	return &dispatch.DispatchDecision{
+		Harness: "stub",
+	}, nil
+}
+
+// stubReplayChecker is a deterministic checker for demo purposes.
+// It tracks hop counts per prompt and accepts based on category:
+// - simple-coding-easy: accept on hop 1 (stays cheap)
+// - complex-coding-hard: accept on hop 2 (escalates once)
+// - refusal-bait: accept on hop 3 (escalates twice)
+type stubReplayChecker struct {
+	hopCounts map[string]int // prompt -> current hop
+}
+
+func (c *stubReplayChecker) Check(ctx context.Context, req cascade.InvokeRequest, resp *harness.Result) (ok bool, reason string) {
+	if c.hopCounts == nil {
+		c.hopCounts = make(map[string]int)
+	}
+
+	// Track which hop this is for this prompt
+	c.hopCounts[req.Prompt]++
+	hop := c.hopCounts[req.Prompt]
+
+	// Categorize based on prompt content
+	category := categorizePrompt(req.Prompt)
+
+	switch category {
+	case "simple":
+		// Accept on first hop
+		if hop == 1 {
+			return true, "demo checker: accepted on simple-tier"
+		}
+		return false, "demo checker: rejected (escalate from simple)"
+	case "complex":
+		// Accept on second hop
+		if hop <= 2 {
+			return hop == 2, "demo checker: complex"
+		}
+		return false, "demo checker: rejected (escalate from complex)"
+	case "refusal":
+		// Accept on third hop
+		if hop <= 3 {
+			return hop == 3, "demo checker: refusal"
+		}
+		return false, "demo checker: rejected (escalate from refusal)"
+	default:
+		// Unknown: accept on second hop
+		return hop <= 2, "demo checker: unknown"
+	}
+}
+
+// categorizePrompt provides a simple heuristic for corpus categorization.
+func categorizePrompt(prompt string) string {
+	lower := strings.ToLower(prompt)
+
+	// Check for complexity keywords
+	if strings.Contains(lower, "distributed") ||
+		strings.Contains(lower, "algorithm") ||
+		strings.Contains(lower, "design pattern") ||
+		strings.Contains(lower, "cache") ||
+		strings.Contains(lower, "b-tree") ||
+		strings.Contains(lower, "monad") ||
+		strings.Contains(lower, "compiler") {
+		return "complex"
+	}
+
+	// Check for refusal-bait keywords
+	if strings.Contains(lower, "bypass") ||
+		strings.Contains(lower, "scam") ||
+		strings.Contains(lower, "illegal") ||
+		strings.Contains(lower, "unethical") ||
+		strings.Contains(lower, "explosive") ||
+		strings.Contains(lower, "harm") {
+		return "refusal"
+	}
+
+	// Check for nonsense
+	if strings.Contains(lower, "xyzzy") ||
+		strings.Contains(lower, "asdfghjkl") ||
+		strings.Contains(lower, "plugh") {
+		return "complex" // treat nonsense as requiring escalation
+	}
+
+	// Default: simple
+	return "simple"
 }

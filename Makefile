@@ -1,7 +1,7 @@
 # sdp_dev Makefile
 .PHONY: test test-internal test-scripts coverage lint quality quality-go generate protocol-e2e
 .PHONY: build-sdp build-sdp-orchestrate build-sdp-guard build-sdp-eval build-sdp-ci-loop build-sdp-evidence
-.PHONY: install-hooks
+.PHONY: install-hooks f145-demo
 
 GO_TAGS = -tags "sqlite_fts5"
 
@@ -79,3 +79,8 @@ envtest:
 
 install-hooks:
 	bash scripts/install-hooks.sh
+
+# F145 Day-8 acceptance demo: builds cascade-replay and runs on test corpus
+# Passes if stayed-cheap >= 40%, fails otherwise.
+f145-demo:
+	@./scripts/f145-demo.sh
