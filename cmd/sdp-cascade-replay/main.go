@@ -77,7 +77,11 @@ func main() {
 	stubRouter := &stubReplayRouter{}
 	stubChecker := &stubReplayChecker{}
 	invoker := cascade.NewInvoker(stubRouter, stubChecker)
-	_ = maxDepth // unused for now
+
+	// Propagate -max-depth flag to invoker
+	if maxDepth != nil && *maxDepth > 0 {
+		invoker.SetMaxDepth(*maxDepth)
+	}
 
 	runner := cascade.NewReplayRunner(invoker)
 

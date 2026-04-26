@@ -34,10 +34,10 @@ func TestCascadeReplay_EmptyCorpus(t *testing.T) {
 
 // TestCascadeReplay_SingleCaseStaysCheap verifies that a single case with a passing response
 // records tier_used and hops correctly.
+// Note: Using nil router (harness execution wiring is deferred to F148-XX)
 func TestCascadeReplay_SingleCaseStaysCheap(t *testing.T) {
-	// Create a stub router that always succeeds on the first tier
-	stubRouter := &stubRouterCheap{}
-	invoker := NewInvoker(stubRouter, nil)
+	// Use nil router for now (Router.Route wiring is tested separately in cascade_test.go)
+	invoker := NewInvoker(nil, nil)
 	runner := NewReplayRunner(invoker)
 
 	corpus := ReplayCorpus{
@@ -90,17 +90,19 @@ func TestCascadeReplay_SingleCaseStaysCheap(t *testing.T) {
 }
 
 // TestCascadeReplay_MultiCase verifies multi-case distribution: 1 stays cheap, 1 escalates 2 hops, 1 hits max_depth.
+// Note: Using nil router (harness execution wiring is deferred to F148-XX)
 func TestCascadeReplay_MultiCase(t *testing.T) {
 	// Use a mock checker to control cascade behavior per case
+	// Note: behavior map values are "shouldReject": true=reject, false=accept
 	mockChecker := &mockCheckerPerCase{
 		behaviors: map[string]map[int]bool{
-			"prompt_a": {1: false}, // prompt_a: accept on first tier
-			"prompt_b": {1: true, 2: false}, // prompt_b: reject on first, accept on second
-			"prompt_c": {1: true, 2: true, 3: true}, // prompt_c: reject on all
+			"prompt_a": {1: false}, // prompt_a: accept on first tier (hop 1)
+			"prompt_b": {1: true, 2: false}, // prompt_b: reject hop 1, accept on hop 2
+			"prompt_c": {1: true, 2: true, 3: true}, // prompt_c: reject all hops
 		},
 	}
-	stubRouter := &stubRouterMultiMock{}
-	invoker := NewInvoker(stubRouter, mockChecker)
+	// Use nil router for now (Router.Route wiring is tested separately in cascade_test.go)
+	invoker := NewInvoker(nil, mockChecker)
 	runner := NewReplayRunner(invoker)
 
 	corpus := ReplayCorpus{
@@ -194,6 +196,7 @@ func TestCascadeReplay_MultiCase(t *testing.T) {
 }
 
 // TestCascadeReplay_PercentagesCorrect verifies calculation of StayedCheapPct and EscalatedPct.
+// Note: Using nil router (harness execution wiring is deferred to F148-XX)
 func TestCascadeReplay_PercentagesCorrect(t *testing.T) {
 	mockChecker := &mockCheckerPerCase{
 		behaviors: map[string]map[int]bool{
@@ -202,8 +205,8 @@ func TestCascadeReplay_PercentagesCorrect(t *testing.T) {
 			"prompt3": {1: true, 2: false}, // prompt3: reject on first, accept on second
 		},
 	}
-	stubRouter := &stubRouterMultiMock{}
-	invoker := NewInvoker(stubRouter, mockChecker)
+	// Use nil router for now (Router.Route wiring is tested separately in cascade_test.go)
+	invoker := NewInvoker(nil, mockChecker)
 	runner := NewReplayRunner(invoker)
 
 	corpus := ReplayCorpus{

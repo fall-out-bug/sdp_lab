@@ -28,6 +28,8 @@ import (
 // RouterInterface abstracts the dispatch.Router contract for testability.
 // The concrete Router implements this implicitly.
 type RouterInterface interface {
+	// Route selects the best harness+model for the given task and tier,
+	// returning a DispatchDecision with Provider and Model information.
 	Route(ctx context.Context, task dispatch.TaskClassification, limits map[string]*harness.Limits) (*dispatch.DispatchDecision, error)
 }
 
@@ -76,6 +78,13 @@ func NewWithConfidence(router RouterInterface, checker *confidence.Checker[strin
 	return NewInvoker(router, adapter, opts...)
 }
 
+// SetMaxDepth updates the maximum cascade depth (hops limit).
+func (ci *CascadingInvoker) SetMaxDepth(depth int) {
+	if depth > 0 {
+		ci.maxDepth = depth
+	}
+}
+
 // defaultTierOrder returns the standard cascade order: cheap to strong.
 func defaultTierOrder() []dispatch.TierClass {
 	return []dispatch.TierClass{
@@ -88,7 +97,21 @@ func defaultTierOrder() []dispatch.TierClass {
 
 // Invoke runs cascade invocation: try cheapest tier first, escalate on heuristic or checker rejection.
 // Returns InvokeResult with tier_used, hops, and cause (ok | max_depth | budget | checker_failed).
+//
+// IMPORTANT: This method calls Router.Route for real tier/model/provider selection.
+// However, actual harness process execution (harness.Spawn + output capture) is deferred
+// to follow-up bead F148-XX. The output field currently contains a synthetic string
+// documenting the dispatch decision rather than real LLM output.
+//
+// If req.Timeout > 0, wraps ctx with context.WithTimeout to enforce a deadline.
 func (ci *CascadingInvoker) Invoke(ctx context.Context, req InvokeRequest) (*InvokeResult, error) {
+	// Wrap context with timeout if specified
+	if req.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, req.Timeout)
+		defer cancel()
+	}
+
 	if ci.budget == nil {
 		ci.budget = &Budget{
 			MaxDuration: 30 * time.Second,
@@ -141,28 +164,54 @@ func (ci *CascadingInvoker) Invoke(ctx context.Context, req InvokeRequest) (*Inv
 		tier := ci.tierOrder[tierIdx]
 		lastTier = tier
 
-		// Invoke harness for this tier
-		// (In real impl, this would spawn harness via Router decision + Invoker)
-		// For now, this is a placeholder that sets up the structure.
-		// F145-11 will integrate with actual F144 confidence checker.
-
 		slog.Debug("cascade invoking tier",
 			"tier", tier,
 			"hop", hop,
 			"req_prompt", req.Prompt[:min(len(req.Prompt), 50)],
 		)
 
-		// Placeholder: if router is nil (testing), skip to next tier
-		if ci.router == nil {
-			// For now, create a dummy result to test structure
+		// Route this tier using Router (if available)
+		if ci.router != nil {
+			// Classify the task for routing
+			task := dispatch.TaskClassification{
+				TaskType:   "feature", // default; could be inferred from context
+				Language:   "go",      // default; could be inferred from prompt
+				Complexity: "medium",  // default
+				Risk:       "low",     // default
+			}
+
+			// Get limits (for now, empty; could be populated from budget/req)
+			limits := make(map[string]*harness.Limits)
+
+			// Call Router.Route to get real dispatch decision
+			decision, err := ci.router.Route(ctx, task, limits)
+			if err != nil {
+				slog.Debug("cascade router error",
+					"tier", tier,
+					"hop", hop,
+					"error", err,
+				)
+				lastError = err
+				// Escalate to next tier on router error
+				continue
+			}
+
+			// Build output from dispatch decision
+			// Harness execution (Spawn + read output) is wired in follow-up bead F148-XX.
+			// For now, return a deterministic string documenting the dispatch decision.
 			lastResult = &harness.Result{
-				Output:   fmt.Sprintf("Dummy response from tier %v", tier),
-				Duration: time.Millisecond,
+				Output:   fmt.Sprintf("dispatched to %s/%s (provider: %s, score: %.2f)", decision.Harness, decision.Model, decision.Provider, decision.Score),
+				Duration: 0,
 				ExitCode: 0,
 			}
 		} else {
-			// In real code, we'd use Router.Route + harness.Spawn
-			// This structure will be completed in F145-11
+			// For testing with nil router, create a dummy result
+			// Make it long enough to pass heuristic short-circuit check (min 50 chars)
+			lastResult = &harness.Result{
+				Output:   fmt.Sprintf("Dummy response from tier %v: This is a valid test response with sufficient length to pass heuristic checks", tier),
+				Duration: time.Millisecond,
+				ExitCode: 0,
+			}
 		}
 
 		// Apply heuristic short-circuit

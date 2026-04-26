@@ -147,20 +147,45 @@ func TestConfidenceAdapter_ExactlyAtThreshold(t *testing.T) {
 	}
 }
 
-// TestConfidenceAdapter_LowThresholdAllowsUnsure verifies unsure status with good score passes.
-func TestConfidenceAdapter_LowThresholdAllowsUnsure(t *testing.T) {
-	// Arrange: F144 Checker with mid-range subscore (should compose to Unsure or OK)
-	// Using a low threshold allows Unsure results to pass
-	checker := newTestChecker(0.6, nil)
-	adapter := NewConfidenceAdapter(checker, 0.5) // threshold below expected composed score
+// TestConfidenceAdapter_HighThresholdStaysOK verifies StatusOK with score at or above threshold passes.
+func TestConfidenceAdapter_HighThresholdStaysOK(t *testing.T) {
+	// Arrange: F144 Checker with high subscore that composes to StatusOK
+	// DefaultPolicy: OKThreshold=0.8, so subscore 0.85 should give StatusOK
+	checker := newTestChecker(0.85, nil)
+	adapter := NewConfidenceAdapter(checker, 0.7) // reasonable threshold
 
 	// Act
 	req := InvokeRequest{Harness: "test", Prompt: "test prompt"}
 	resp := &harness.Result{Output: "response"}
 	ok, reason := adapter.Check(context.Background(), req, resp)
 
-	// Assert: Should pass with low threshold
+	// Assert: Should pass because status is OK and score is above threshold
 	if !ok {
-		t.Errorf("expected ok=true with low threshold (0.5) and subscore (0.6), got false; reason: %s", reason)
+		t.Errorf("expected ok=true for StatusOK with score above threshold, got false; reason: %s", reason)
 	}
+}
+
+// TestConfidenceAdapter_UnsureEscalates verifies StatusUnsure always escalates (returns ok=false)
+// regardless of score, per F145 §4.7 escalation policy.
+func TestConfidenceAdapter_UnsureEscalates(t *testing.T) {
+	// Arrange: F144 Checker configured to produce StatusUnsure
+	// To get StatusUnsure, use a subscore that composes between FailThreshold and OKThreshold
+	// DefaultPolicy: FailThreshold=0.5, OKThreshold=0.8
+	// So a subscore of 0.65 should compose to StatusUnsure
+	checker := newTestChecker(0.65, nil)
+	adapter := NewConfidenceAdapter(checker, 0.5) // threshold below the composed score
+
+	// Act
+	req := InvokeRequest{Harness: "test", Prompt: "test prompt"}
+	resp := &harness.Result{Output: "borderline response"}
+	ok, reason := adapter.Check(context.Background(), req, resp)
+
+	// Assert: Must escalate (ok=false) even though score is above adapter threshold
+	if ok {
+		t.Errorf("expected ok=false for StatusUnsure, got true (must escalate per §4.7)")
+	}
+	if !contains(reason, "confidence_unsure") {
+		t.Errorf("expected reason to start with 'confidence_unsure', got %q", reason)
+	}
+	t.Logf("SUCCESS: StatusUnsure correctly escalates, reason=%q", reason)
 }

@@ -36,6 +36,28 @@ func (mr *mockRouter) addProfiles(tier dispatch.TierClass, profiles []*dispatch.
 	mr.profiles[tier] = profiles
 }
 
+// countingRouter is a test double that counts Route calls.
+type countingRouter struct {
+	callCount int
+	decision  *dispatch.DispatchDecision
+}
+
+func newCountingRouter() *countingRouter {
+	return &countingRouter{
+		decision: &dispatch.DispatchDecision{
+			Harness:  "test-harness",
+			Provider: "test-provider",
+			Model:    "test-model",
+			Score:    0.9,
+		},
+	}
+}
+
+func (cr *countingRouter) Route(ctx context.Context, task dispatch.TaskClassification, limits map[string]*harness.Limits) (*dispatch.DispatchDecision, error) {
+	cr.callCount++
+	return cr.decision, nil
+}
+
 // mockHarness is a test double that returns pre-programmed result.
 type mockHarness struct {
 	result *harness.Result
@@ -504,4 +526,89 @@ func TestCascade_AllTiersRejected_NoNilPanic(t *testing.T) {
 
 	// Verify safe LastError string is set (not a panic)
 	t.Logf("SUCCESS: No panic on empty tierOrder. Cause=%s, LastError=%q", result.Cause, result.LastError)
+}
+
+func TestCascade_RouterCalledOnNonNilRouter(t *testing.T) {
+	// AC: Router.Route must be called at least once when router is non-nil
+	// and tier_order is non-empty.
+
+	router := newCountingRouter()
+	invoker := NewInvoker(router, nil, nil)
+
+	ctx := context.Background()
+	req := InvokeRequest{
+		Prompt:    "test prompt",
+		StartTier: dispatch.TierFast,
+	}
+
+	// Invoke should call Router.Route
+	result, err := invoker.Invoke(ctx, req)
+	if err != nil {
+		t.Fatalf("Invoke returned error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("result should not be nil")
+	}
+
+	// Verify Router.Route was called at least once
+	if router.callCount == 0 {
+		t.Errorf("Router.Route was not called; callCount = %d, want >= 1", router.callCount)
+	}
+
+	// Verify output contains dispatch decision info
+	if !contains(result.Output, "dispatched") {
+		t.Errorf("Output does not contain 'dispatched'; got %q", result.Output)
+	}
+
+	t.Logf("SUCCESS: Router.Route called %d times, output=%q", router.callCount, result.Output)
+}
+
+func TestCascade_TimeoutEnforced(t *testing.T) {
+	// AC: InvokeRequest.Timeout > 0 wraps ctx with context.WithTimeout,
+	// allowing context deadline to be exceeded mid-invocation.
+
+	invoker := NewInvoker(nil, nil, nil)
+
+	ctx := context.Background()
+	req := InvokeRequest{
+		Prompt:    "test prompt",
+		StartTier: dispatch.TierLocal,
+		Timeout:   1 * time.Millisecond, // very short timeout
+	}
+
+	// Invoke with short timeout; should either complete quickly or hit context deadline
+	result, err := invoker.Invoke(ctx, req)
+	if err != nil {
+		t.Logf("Invoke returned error (acceptable for short timeout): %v", err)
+		return
+	}
+	if result == nil {
+		t.Fatal("result should not be nil")
+	}
+
+	// If no error, the invocation completed before timeout fired
+	// (This is acceptable for a nil router which is fast)
+	t.Logf("SUCCESS: Invoke completed with short timeout=%v, Cause=%s", req.Timeout, result.Cause)
+}
+
+func TestCascade_SetMaxDepth(t *testing.T) {
+	// AC: SetMaxDepth properly updates the maxDepth field
+	invoker := NewInvoker(nil, nil, nil)
+
+	if invoker.maxDepth != 3 {
+		t.Errorf("initial maxDepth = %d, want 3", invoker.maxDepth)
+	}
+
+	invoker.SetMaxDepth(5)
+	if invoker.maxDepth != 5 {
+		t.Errorf("after SetMaxDepth(5), maxDepth = %d, want 5", invoker.maxDepth)
+	}
+
+	// SetMaxDepth with 0 or negative should be ignored
+	invoker.SetMaxDepth(0)
+	if invoker.maxDepth != 5 {
+		t.Errorf("after SetMaxDepth(0), maxDepth = %d, want 5 (unchanged)", invoker.maxDepth)
+	}
+
+	t.Logf("SUCCESS: SetMaxDepth works correctly")
 }

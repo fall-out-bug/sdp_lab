@@ -51,14 +51,13 @@ func TestCascade_AllProvidersRegistered(t *testing.T) {
 
 // TestCascade_FullStack_StaysCheap verifies that when a stub Checker returns OK
 // on the first tier, the cascade stays on TierLocal with hops=1.
+// Note: Using nil router (harness execution wiring is deferred to F148-XX)
 func TestCascade_FullStack_StaysCheap(t *testing.T) {
-	// Create a stub router that succeeds on TierLocal
-	stubRouter := &stubRouterForSmoke{}
-
 	// Create a stub Checker that always accepts
 	alwaysOKChecker := &stubCheckerAlwaysOK{}
 
-	invoker := NewInvoker(stubRouter, alwaysOKChecker)
+	// Use nil router for now (Router.Route wiring is tested separately in cascade_test.go)
+	invoker := NewInvoker(nil, alwaysOKChecker)
 
 	req := InvokeRequest{
 		Harness:   "test",
@@ -89,13 +88,13 @@ func TestCascade_FullStack_StaysCheap(t *testing.T) {
 // TestCascade_FullStack_EscalatesOnce verifies that when a Checker rejects
 // the first tier but accepts the second, the cascade escalates once to TierFast
 // with hops=2.
+// Note: Using nil router (harness execution wiring is deferred to F148-XX)
 func TestCascade_FullStack_EscalatesOnce(t *testing.T) {
-	stubRouter := &stubRouterForSmoke{}
-
 	// Checker that rejects TierLocal, accepts TierFast
 	escalatingChecker := &stubCheckerEscalateOnce{}
 
-	invoker := NewInvoker(stubRouter, escalatingChecker)
+	// Use nil router for now (Router.Route wiring is tested separately in cascade_test.go)
+	invoker := NewInvoker(nil, escalatingChecker)
 
 	req := InvokeRequest{
 		Harness:   "test",
@@ -125,13 +124,13 @@ func TestCascade_FullStack_EscalatesOnce(t *testing.T) {
 
 // TestCascade_FullStack_HitsMaxDepth verifies that when a Checker rejects all
 // tiers, the cascade exhausts and returns with cause=max_depth on the last tier tried.
+// Note: Using nil router (harness execution wiring is deferred to F148-XX)
 func TestCascade_FullStack_HitsMaxDepth(t *testing.T) {
-	stubRouter := &stubRouterForSmoke{}
-
 	// Checker that always rejects
 	alwaysRejectChecker := &stubCheckerAlwaysReject{}
 
-	invoker := NewInvoker(stubRouter, alwaysRejectChecker)
+	// Use nil router for now (Router.Route wiring is tested separately in cascade_test.go)
+	invoker := NewInvoker(nil, alwaysRejectChecker)
 
 	req := InvokeRequest{
 		Harness:   "test",

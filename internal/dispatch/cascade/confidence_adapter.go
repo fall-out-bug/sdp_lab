@@ -38,7 +38,9 @@ func NewConfidenceAdapter(checker *confidence.Checker[string], threshold float64
 // Behavior:
 // - If checker is nil, returns (true, "") — graceful degrade (always accept).
 // - If checker returns an error, returns (false, "checker_error: <err>").
-// - If status == StatusOK or status == StatusUnsure:
+// - If status == StatusUnsure, returns (false, "confidence_unsure: <reason>") regardless of score.
+//   Per F145 design §4.7, UNSURE must always escalate.
+// - If status == StatusOK:
 //   - score >= threshold → (true, "")
 //   - score < threshold → (false, "confidence_below_threshold")
 // - If status == StatusFail, returns (false, "confidence_below_threshold").
@@ -63,11 +65,20 @@ func (ca *ConfidenceAdapter) Check(ctx context.Context, req InvokeRequest, resp 
 	}
 
 	// Map F144 Result to cascade decision
-	// Status=OK or Unsure with score >= threshold → pass
-	// Status=Fail or score < threshold → fail
-	if result.Status == confidence.StatusFail || result.Score < ca.threshold {
-		return false, "confidence_below_threshold"
+	// Per F145 §4.7: StatusUnsure must always escalate
+	if result.Status == confidence.StatusUnsure {
+		reasonStr := ""
+		if len(result.Reasons) > 0 {
+			reasonStr = result.Reasons[0]
+		}
+		return false, fmt.Sprintf("confidence_unsure: %s", reasonStr)
 	}
 
-	return true, ""
+	// StatusOK with score >= threshold → pass
+	if result.Status == confidence.StatusOK && result.Score >= ca.threshold {
+		return true, ""
+	}
+
+	// StatusFail or score < threshold → fail
+	return false, "confidence_below_threshold"
 }
