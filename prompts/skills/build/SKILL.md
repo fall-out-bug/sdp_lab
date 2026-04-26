@@ -27,6 +27,7 @@ Continuation is the orchestrator's job (@oneshot / sdp orchestrate).
 
 ## CRITICAL RULES
 
+0. **NO WORKSTREAM, NO BUILD** — `/build {WS-ID}` MUST refuse to start when `docs/workstreams/backlog/{WS-ID}.md` is missing OR declares `status: design-pending`. Run `scripts/hooks/build-precheck.sh {WS-ID}` as the very first step; exit non-zero blocks execution. This is rule F142-07; matches the picker (`scripts/deliver-pick.sh`) and `sdp doctor backlog` gates.
 1. **CHECK EXISTING CODE FIRST** — Run `@reality --quick` or grep before starting new features. Output `existing_work_summary` in ws-verdict — **required**. Short summary: files/functions/risks found before implementation.
 2. **ONE EXECUTABLE LEAF** — Execute this workstream only if it is a leaf. If the target is an aggregate/container workstream, STOP and hand control back to `@oneshot` or target a child leaf explicitly. After commit, STOP. Do not start the next WS.
 3. **USE SPAWN OR DO IT YOURSELF** — If spawn available, use it. If not, implement manually.

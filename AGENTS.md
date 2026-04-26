@@ -161,6 +161,8 @@ Break the `feature` into `workstream` files and linked `beads issue` entries.
 If the feature needs decomposition, use `aggregate workstream -> leaf workstream`.
 Only `leaf workstream` entries are directly executable.
 
+> **Hard rule (F142-07): no workstream → no execution.** A `beads issue` with no matching `docs/workstreams/backlog/<WS-ID>.md` cannot be `/build`'d, cannot be picked by `scripts/deliver-pick.sh`, and trips `sdp doctor backlog`. If you create a feature/issue without `/feature`, scaffold the ws file by hand or pay the price at every step downstream. Scaffolds with `status: design-pending` are also refused — see `scripts/hooks/build-precheck.sh` for the canonical check.
+
 Use the `beads issue` graph for:
 
 - dependencies
