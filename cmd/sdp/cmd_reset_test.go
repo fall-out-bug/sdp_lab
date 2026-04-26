@@ -162,7 +162,7 @@ func setupResetEnv(t *testing.T) (string, func()) {
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatal(err)
 	}
-	return tmpDir, func() { os.Chdir(oldWd) }
+	return tmpDir, func() { _ = os.Chdir(oldWd) }
 }
 
 // createCheckpoint creates a checkpoint file for the given feature ID.

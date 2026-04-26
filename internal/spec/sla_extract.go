@@ -18,7 +18,7 @@ func ExtractSLAParameters(root string) (SLAParameters, error) {
 	if err != nil {
 		return sla, fmt.Errorf("spec: resolve path: %w", err)
 	}
-	filepath.WalkDir(abs, func(path string, d os.DirEntry, err error) error {
+	_ = filepath.WalkDir(abs, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 			return nil
 		}

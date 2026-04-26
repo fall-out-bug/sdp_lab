@@ -17,7 +17,7 @@ func ExtractInvariants(root string) (Invariants, error) {
 	if err != nil {
 		return inv, fmt.Errorf("spec: resolve path: %w", err)
 	}
-	filepath.WalkDir(abs, func(path string, d os.DirEntry, err error) error {
+	_ = filepath.WalkDir(abs, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 			return nil
 		}

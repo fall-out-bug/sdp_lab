@@ -103,7 +103,7 @@ var specExts = map[string]bool{
 // skipping _test.go and files >10MB.
 func countScannedFiles(root string) int {
 	n := 0
-	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+	_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
 		}

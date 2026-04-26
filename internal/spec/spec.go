@@ -146,7 +146,7 @@ func extractAllRules(root string) (*BusinessRules, int, []string, error) {
 	var all []ValidationRule
 	var filesWithRules []string
 	scanned := 0
-	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+	_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 			return nil
 		}
@@ -166,7 +166,7 @@ func extractAllRules(root string) (*BusinessRules, int, []string, error) {
 
 func extractAllSQL(root string) ([]SQLConstraint, error) {
 	var all []SQLConstraint
-	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+	_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".sql") {
 			return nil
 		}

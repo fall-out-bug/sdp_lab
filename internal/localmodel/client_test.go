@@ -43,7 +43,7 @@ func TestClient_Prompt_Success(t *testing.T) {
 		if req["stream"] != false {
 			t.Errorf("stream must be false, got %v", req["stream"])
 		}
-		json.NewEncoder(w).Encode(map[string]string{"response": "hello world"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"response": "hello world"})
 	}))
 	defer srv.Close()
 
@@ -62,7 +62,7 @@ func TestClient_Prompt_Success(t *testing.T) {
 
 func TestClient_Prompt_OllamaError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]string{"error": "model not found"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "model not found"})
 	}))
 	defer srv.Close()
 

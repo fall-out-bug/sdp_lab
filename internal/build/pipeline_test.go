@@ -258,7 +258,9 @@ func writeGoMod(t *testing.T, dir string) {
 
 func writeGoFile(t *testing.T, dir string) {
 	t.Helper()
-	os.MkdirAll(filepath.Join(dir, "pkg"), 0o755)
+	if err := os.MkdirAll(filepath.Join(dir, "pkg"), 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
 	content := "package pkg\n"
 	if err := os.WriteFile(filepath.Join(dir, "pkg", "pkg.go"), []byte(content), 0o644); err != nil {
 		t.Fatalf("write pkg.go: %v", err)
@@ -334,7 +336,9 @@ func TestNoneSandbox_BuildAndTest(t *testing.T) {
 func TestNoneSandbox_BuildFailure(t *testing.T) {
 	dir := t.TempDir()
 	// Write an invalid Go file to cause build failure.
-	os.MkdirAll(filepath.Join(dir, "bad"), 0o755)
+	if err := os.MkdirAll(filepath.Join(dir, "bad"), 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
 	if err := os.WriteFile(filepath.Join(dir, "bad", "bad.go"), []byte("package bad\nfunc broken(\n"), 0o644); err != nil {
 		t.Fatalf("write bad.go: %v", err)
 	}

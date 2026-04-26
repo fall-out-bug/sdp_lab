@@ -387,7 +387,7 @@ func TestResolveWithEvidence(t *testing.T) {
 	}
 	validPlanData, _ := json.Marshal(validPlanEvidence)
 	validPlanPath := filepath.Join(tmpDir, "plan-evidence.json")
-	os.WriteFile(validPlanPath, validPlanData, 0o644)
+	_ = os.WriteFile(validPlanPath, validPlanData, 0o644)
 
 	// Invalid evidence (missing required keys)
 	invalidEvidence := map[string]interface{}{
@@ -395,7 +395,7 @@ func TestResolveWithEvidence(t *testing.T) {
 	}
 	invalidData, _ := json.Marshal(invalidEvidence)
 	invalidPath := filepath.Join(tmpDir, "invalid-evidence.json")
-	os.WriteFile(invalidPath, invalidData, 0o644)
+	_ = os.WriteFile(invalidPath, invalidData, 0o644)
 
 	tests := []struct {
 		name          string

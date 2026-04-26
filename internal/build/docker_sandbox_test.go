@@ -129,7 +129,7 @@ func TestDockerSandbox_BuildAndTest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDockerSandbox: %v", err)
 	}
-	defer sb.Cleanup()
+	defer func() { _ = sb.Cleanup() }()
 
 	ctx := context.Background()
 
@@ -161,7 +161,9 @@ func TestDockerSandbox_BuildFailure(t *testing.T) {
 
 	dir := t.TempDir()
 	// Write an invalid Go file to cause build failure.
-	os.MkdirAll(filepath.Join(dir, "bad"), 0o755)
+	if err := os.MkdirAll(filepath.Join(dir, "bad"), 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
 	if err := os.WriteFile(filepath.Join(dir, "bad", "bad.go"), []byte("package bad\nfunc broken(\n"), 0o644); err != nil {
 		t.Fatalf("write bad.go: %v", err)
 	}
@@ -176,7 +178,7 @@ func TestDockerSandbox_BuildFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDockerSandbox: %v", err)
 	}
-	defer sb.Cleanup()
+	defer func() { _ = sb.Cleanup() }()
 
 	ctx := context.Background()
 
@@ -388,7 +390,7 @@ func TestDockerSandbox_ContextCancellation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewDockerSandbox: %v", err)
 	}
-	defer sb.Cleanup()
+	defer func() { _ = sb.Cleanup() }()
 
 	// Cancel context immediately.
 	ctx, cancel := context.WithCancel(context.Background())

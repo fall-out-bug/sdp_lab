@@ -249,7 +249,7 @@ func TestWriteAllDiagrams_LargeModel(t *testing.T) {
 
 	// For large models, some diagrams should have export data
 	foundExport := false
-	filepath.Walk(targetDir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(targetDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}

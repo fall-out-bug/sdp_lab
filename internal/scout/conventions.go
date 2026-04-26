@@ -94,7 +94,7 @@ func detectTestLayout(root string) TestLayout {
 	var testDirPattern string
 	var visited int
 
-	filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+	_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d == nil {
 			return nil
 		}

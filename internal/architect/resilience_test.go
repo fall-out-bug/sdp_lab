@@ -525,7 +525,7 @@ func TestCircuitBreaker_ConcurrentAccess(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		go func() {
 			defer func() { done <- true }()
-			cb.Execute(ctx, func() error {
+			_ = cb.Execute(ctx, func() error {
 				return nil
 			})
 		}()
