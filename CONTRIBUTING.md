@@ -63,6 +63,15 @@ make coverage
 go test ./... -count=1  # integration tests use t.Skip() or -short
 ```
 
+## Releasing
+
+Before tagging a release, follow the [Release Surface Checklist](docs/reference/release-surface.md).
+
+```bash
+# Run all release surface checks
+scripts/check-release-surface.sh
+```
+
 ## Code Style
 
 - Follow standard Go conventions
