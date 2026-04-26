@@ -74,35 +74,53 @@ func renderJSON(w io.Writer, title string, sev bdseverity.BdSeverityResult, typ 
 	return err
 }
 
+// errWriter wraps io.Writer to capture the first write error so callers
+// can check a single error value instead of each individual fmt.Fprintf call.
+type errWriter struct {
+	w   io.Writer
+	err error
+}
+
+func (ew *errWriter) Write(p []byte) (int, error) {
+	if ew.err != nil {
+		return 0, ew.err
+	}
+	n, err := ew.w.Write(p)
+	ew.err = err
+	return n, err
+}
+
 // renderHuman writes a human-readable summary to w.
 func renderHuman(w io.Writer, title string, sev bdseverity.BdSeverityResult, typ bdtype.BdTypeResult, sevEscalated, typeEscalated bool) error {
-	fmt.Fprintf(w, "Title: %s\n\n", title)
+	ew := &errWriter{w: w}
+
+	fmt.Fprintf(ew, "Title: %s\n\n", title)
 
 	typeEscStr := ""
 	if typeEscalated {
 		typeEscStr = " (escalated)"
 	}
-	fmt.Fprintf(w, "Type:     %-8s [%s, confidence: %.2f%s]\n",
+	fmt.Fprintf(ew, "Type:     %-8s [%s, confidence: %.2f%s]\n",
 		typ.Type, string(typ.ConfStatus()), typ.Confidence(), typeEscStr)
 
 	sevEscStr := ""
 	if sevEscalated {
 		sevEscStr = " (escalated)"
 	}
-	fmt.Fprintf(w, "Priority: %-8s [%s, confidence: %.2f%s]\n\n",
+	fmt.Fprintf(ew, "Priority: %-8s [%s, confidence: %.2f%s]\n\n",
 		sev.Priority, string(sev.ConfStatus()), sev.Confidence(), sevEscStr)
 
 	// Show top neighbors for type classifier.
 	if len(typ.Neighbors) > 0 {
-		fmt.Fprintln(w, "Top neighbors (type):")
+		fmt.Fprintln(ew, "Top neighbors (type):")
 		limit := 3
 		if limit > len(typ.Neighbors) {
 			limit = len(typ.Neighbors)
 		}
 		for i, n := range typ.Neighbors[:limit] {
-			fmt.Fprintf(w, "  %d. %-12s %-8s %.2f  %q\n",
+			fmt.Fprintf(ew, "  %d. %-12s %-8s %.2f  %q\n",
 				i+1, n.Metadata, n.Label, n.Score, n.Metadata)
 		}
 	}
-	return nil
+	return ew.err
 }

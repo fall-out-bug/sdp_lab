@@ -176,14 +176,20 @@ func (r *Router) effectiveColdStartStrategy() ColdStartStrategy {
 // applyColdStart assigns scores to profiles when no bench data exists for the task.
 func (r *Router) applyColdStart(ctx context.Context, task TaskClassification, scored []scoredProfile) []scoredProfile {
 	// When MicroRouter is set, attempt an embedding-based capability hint first.
+	// Only short-circuit if at least one profile matched the hint; otherwise fall
+	// through to the configured cold-start strategy to avoid all-zero scores.
 	if r.MicroRouter != nil {
 		if hint, ok := r.MicroRouter.SuggestCapability(ctx, task.Title, task.Description); ok {
+			matched := false
 			for i := range scored {
 				if scored[i].profile.HasCapability(hint) {
 					scored[i].finalScore = 0.9
+					matched = true
 				}
 			}
-			return scored
+			if matched {
+				return scored
+			}
 		}
 	}
 

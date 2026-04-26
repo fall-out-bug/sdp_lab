@@ -664,10 +664,15 @@ func writeMarkdown(path string, results []BenchResult) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	return tmpl.Execute(f, reportData{
-		Timestamp:    time.Now().UTC().Format(time.RFC3339),
-		Results:      rows,
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
+	err = tmpl.Execute(f, reportData{
+		Timestamp:     time.Now().UTC().Format(time.RFC3339),
+		Results:       rows,
 		TotalLLMSaved: avg,
 	})
+	return err
 }

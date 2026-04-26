@@ -40,8 +40,18 @@ func (w *WsVerdictMicro) classify(in WsVerdictInput) WsVerdictMicroResult {
 		}
 	}
 
-	// R2: no failures, no errors, no out-of-scope files → confident PASS
-	if in.Report.Errored == 0 && len(in.Guard.OutOfScope) == 0 {
+	// Pre-compute thresholds used by R2 and R4/R5 to avoid duplication.
+	skipThreshold := w.cfg.SkipThreshold
+	if skipThreshold == 0 {
+		skipThreshold = 5
+	}
+	coverageOK := in.MinCoverage == 0 || in.Report.Coverage >= in.MinCoverage
+
+	// R2: no failures, no errors, no out-of-scope files, skipped within threshold,
+	// coverage meets minimum → confident PASS.
+	// Must check all secondary gates here to avoid bypassing R4/R5 for edge inputs.
+	if in.Report.Errored == 0 && len(in.Guard.OutOfScope) == 0 &&
+		in.Report.Skipped <= skipThreshold && coverageOK {
 		return WsVerdictMicroResult{
 			Verdict:    VerdictPass,
 			confidence: 0.90,
@@ -61,11 +71,7 @@ func (w *WsVerdictMicro) classify(in WsVerdictInput) WsVerdictMicroResult {
 	}
 
 	// R4: too many skipped tests
-	threshold := w.cfg.SkipThreshold
-	if threshold == 0 {
-		threshold = 5
-	}
-	if in.Report.Skipped > threshold {
+	if in.Report.Skipped > skipThreshold {
 		return WsVerdictMicroResult{
 			Verdict:    VerdictUnsure,
 			confidence: 0.50,
@@ -75,7 +81,7 @@ func (w *WsVerdictMicro) classify(in WsVerdictInput) WsVerdictMicroResult {
 	}
 
 	// R5: coverage below minimum
-	if in.MinCoverage > 0 && in.Report.Coverage < in.MinCoverage {
+	if !coverageOK {
 		return WsVerdictMicroResult{
 			Verdict:    VerdictUnsure,
 			confidence: 0.45,
