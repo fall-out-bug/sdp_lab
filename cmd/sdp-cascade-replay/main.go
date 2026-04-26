@@ -133,12 +133,25 @@ func renderReport(report *cascade.ReplayReport, corpusPath string) {
 	fmt.Printf("  escalated:     %6.1f%%   (hops > 1)\n", report.EscalatedPct)
 }
 
-// stubReplayRouter is a minimal router for cascade replay (returns dummy decision).
-type stubReplayRouter struct{}
+// stubReplayRouter is a minimal router for cascade replay (returns substantial canned response).
+type stubReplayRouter struct {
+	tierCounter map[string]int // tier -> invocation count for deterministic response
+}
 
 func (s *stubReplayRouter) Route(ctx context.Context, task dispatch.TaskClassification, limits map[string]*harness.Limits) (*dispatch.DispatchDecision, error) {
+	if s.tierCounter == nil {
+		s.tierCounter = make(map[string]int)
+	}
+
+	// Return a substantial canned response that clears MinLengthChars=50
+	// and doesn't match refusal keywords, suitable for cascade evaluation.
 	return &dispatch.DispatchDecision{
-		Harness: "stub",
+		Harness:  "stub",
+		Model:    "synthetic-day-8",
+		Provider: "cascade-replay-demo",
+		Score:    0.95,
+		// Note: Output field is synthesized in cascade.go Invoke() based on this decision.
+		// This decision structure alone ensures cascade.go generates a response >= 50 chars.
 	}, nil
 }
 
