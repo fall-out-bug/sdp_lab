@@ -2,6 +2,7 @@ package export
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -70,7 +71,7 @@ func TestSyslogSinkWrite(t *testing.T) {
 		Outcome:   "allowed",
 	}
 
-	err := sink.Write(rec)
+	err := sink.Write(context.Background(), rec)
 	if err != nil {
 		t.Fatalf("write failed: %v", err)
 	}
@@ -100,7 +101,7 @@ func TestSyslogSinkWriteMultiple(t *testing.T) {
 			Source:    "sdp-lab",
 			Severity:  "info",
 		}
-		if err := sink.Write(rec); err != nil {
+		if err := sink.Write(context.Background(), rec); err != nil {
 			t.Fatalf("write %d failed: %v", i, err)
 		}
 	}
@@ -154,7 +155,7 @@ func TestHTTPSinkPost(t *testing.T) {
 		Outcome:   "success",
 	}
 
-	err := sink.Write(rec)
+	err := sink.Write(context.Background(), rec)
 	if err != nil {
 		t.Fatalf("write failed: %v", err)
 	}
@@ -180,7 +181,7 @@ func TestHTTPSinkAuthHeader(t *testing.T) {
 	sink := NewHTTPSink(server.URL, "Bearer my-token")
 
 	rec := SIEMRecord{Timestamp: time.Now().UTC(), EventType: "test"}
-	_ = sink.Write(rec)
+	_ = sink.Write(context.Background(), rec)
 
 	if authHeader != "Bearer my-token" {
 		t.Errorf("expected 'Bearer my-token', got '%s'", authHeader)
@@ -202,7 +203,7 @@ func TestHTTPSinkRetryOnError(t *testing.T) {
 	sink := NewHTTPSink(server.URL, "", WithMaxRetries(3))
 
 	rec := SIEMRecord{Timestamp: time.Now().UTC(), EventType: "test.retry"}
-	err := sink.Write(rec)
+	err := sink.Write(context.Background(), rec)
 
 	if err != nil {
 		t.Fatalf("expected success after retries, got: %v", err)
@@ -221,7 +222,7 @@ func TestHTTPSinkRetryExhausted(t *testing.T) {
 	sink := NewHTTPSink(server.URL, "", WithMaxRetries(2), WithRetryDelay(0))
 
 	rec := SIEMRecord{Timestamp: time.Now().UTC(), EventType: "test.fail"}
-	err := sink.Write(rec)
+	err := sink.Write(context.Background(), rec)
 
 	if err == nil {
 		t.Error("expected error after retries exhausted")

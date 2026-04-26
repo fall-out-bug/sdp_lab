@@ -2,6 +2,7 @@ package export
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -50,9 +51,9 @@ func (r SIEMRecord) VerifyChecksum() bool {
 	return r.Checksum == r.ComputeChecksum()
 }
 
-// SINK is the interface for writing SIEM records.
-type SINK interface {
-	Write(record SIEMRecord) error
+// SinkWriter is the interface for writing SIEM records.
+type SinkWriter interface {
+	Write(ctx context.Context, record SIEMRecord) error
 }
 
 // --- Syslog Sink ---
@@ -68,7 +69,7 @@ func NewSyslogSink(w io.Writer) *SyslogSink {
 }
 
 // Write serializes the record as a JSON line.
-func (s *SyslogSink) Write(record SIEMRecord) error {
+func (s *SyslogSink) Write(_ context.Context, record SIEMRecord) error {
 	data, err := json.Marshal(record)
 	if err != nil {
 		return fmt.Errorf("marshal siem record: %w", err)
@@ -117,7 +118,7 @@ func NewHTTPSink(endpoint, authToken string, opts ...HTTPOption) *HTTPSink {
 }
 
 // Write posts a single record to the HTTP endpoint with retries.
-func (s *HTTPSink) Write(record SIEMRecord) error {
+func (s *HTTPSink) Write(ctx context.Context, record SIEMRecord) error {
 	data, err := json.Marshal(record)
 	if err != nil {
 		return fmt.Errorf("marshal siem record: %w", err)
@@ -129,7 +130,7 @@ func (s *HTTPSink) Write(record SIEMRecord) error {
 			time.Sleep(s.retryDelay)
 		}
 
-		req, err := http.NewRequest(http.MethodPost, s.endpoint, bytes.NewReader(data))
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.endpoint, bytes.NewReader(data))
 		if err != nil {
 			return fmt.Errorf("create request: %w", err)
 		}

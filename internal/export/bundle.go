@@ -2,6 +2,7 @@ package export
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -11,14 +12,14 @@ import (
 
 // BatchSink wraps another sink and sends records in batches for backfill mode.
 type BatchSink struct {
-	inner      SINK
+	inner      SinkWriter
 	batchSize  int
 	httpClient *http.Client
 	httpURL    string
 }
 
 // NewBatchSink creates a batch sink. For HTTP sinks, it sends batches as JSON arrays.
-func NewBatchSink(inner SINK, batchSize int) *BatchSink {
+func NewBatchSink(inner SinkWriter, batchSize int) *BatchSink {
 	s := &BatchSink{
 		inner:     inner,
 		batchSize: batchSize,
@@ -39,7 +40,7 @@ func (s *BatchSink) WriteBatch(records []SIEMRecord) error {
 		return s.writeHTTPBatches(records)
 	}
 	for _, rec := range records {
-		if err := s.inner.Write(rec); err != nil {
+		if err := s.inner.Write(context.Background(), rec); err != nil {
 			return err
 		}
 	}
