@@ -1,0 +1,12 @@
+{
+  "classifier": "wsverdict",
+  "total_requests": 35,
+  "micro_handled": 32,
+  "escalated": 3,
+  "fallback_rate": 0.08571428571428572,
+  "p50_ms": 0,
+  "p95_ms": 0,
+  "accuracy": 93.75,
+  "llm_calls_saved_pct": 91.42857142857143,
+  "est_token_savings_pct": 91.42857142857143
+}

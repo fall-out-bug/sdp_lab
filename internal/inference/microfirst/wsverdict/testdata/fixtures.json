@@ -1,0 +1,170 @@
+[
+  {
+    "name": "r1_single_failure",
+    "input": {
+      "report": {"failed": 1, "errored": 0, "skipped": 0, "total": 10, "coverage": 90.0},
+      "guard": {"out_of_scope": []},
+      "min_coverage": 0,
+      "skip_threshold": 5
+    },
+    "expected": {
+      "verdict": "fail",
+      "confidence": 0.95,
+      "status": "ok"
+    }
+  },
+  {
+    "name": "r1_many_failures",
+    "input": {
+      "report": {"failed": 5, "errored": 0, "skipped": 0, "total": 20, "coverage": 70.0},
+      "guard": {"out_of_scope": []},
+      "min_coverage": 0,
+      "skip_threshold": 5
+    },
+    "expected": {
+      "verdict": "fail",
+      "confidence": 0.95,
+      "status": "ok"
+    }
+  },
+  {
+    "name": "r1_failure_with_out_of_scope",
+    "input": {
+      "report": {"failed": 2, "errored": 1, "skipped": 0, "total": 15, "coverage": 60.0},
+      "guard": {"out_of_scope": ["vendor/lib.go"]},
+      "min_coverage": 0,
+      "skip_threshold": 5
+    },
+    "expected": {
+      "verdict": "fail",
+      "confidence": 0.95,
+      "status": "ok"
+    }
+  },
+  {
+    "name": "r2_clean_pass",
+    "input": {
+      "report": {"failed": 0, "errored": 0, "skipped": 0, "total": 50, "coverage": 95.0},
+      "guard": {"out_of_scope": []},
+      "min_coverage": 0,
+      "skip_threshold": 5
+    },
+    "expected": {
+      "verdict": "pass",
+      "confidence": 0.90,
+      "status": "ok"
+    }
+  },
+  {
+    "name": "r2_pass_with_skipped_below_threshold",
+    "input": {
+      "report": {"failed": 0, "errored": 0, "skipped": 3, "total": 30, "coverage": 88.0},
+      "guard": {"out_of_scope": []},
+      "min_coverage": 0,
+      "skip_threshold": 5
+    },
+    "expected": {
+      "verdict": "pass",
+      "confidence": 0.90,
+      "status": "ok"
+    }
+  },
+  {
+    "name": "r2_pass_with_coverage_above_min",
+    "input": {
+      "report": {"failed": 0, "errored": 0, "skipped": 0, "total": 20, "coverage": 85.0},
+      "guard": {"out_of_scope": []},
+      "min_coverage": 80.0,
+      "skip_threshold": 5
+    },
+    "expected": {
+      "verdict": "pass",
+      "confidence": 0.90,
+      "status": "ok"
+    }
+  },
+  {
+    "name": "r3_out_of_scope_single_file",
+    "input": {
+      "report": {"failed": 0, "errored": 1, "skipped": 0, "total": 10, "coverage": 80.0},
+      "guard": {"out_of_scope": ["docs/README.md"]},
+      "min_coverage": 0,
+      "skip_threshold": 5
+    },
+    "expected": {
+      "verdict": "unsure",
+      "confidence": 0.40,
+      "status": "unsure"
+    }
+  },
+  {
+    "name": "r3_out_of_scope_multiple_files",
+    "input": {
+      "report": {"failed": 0, "errored": 0, "skipped": 0, "total": 10, "coverage": 80.0},
+      "guard": {"out_of_scope": ["docs/a.md", "docs/b.md"]},
+      "min_coverage": 0,
+      "skip_threshold": 5
+    },
+    "expected": {
+      "verdict": "unsure",
+      "confidence": 0.40,
+      "status": "unsure"
+    }
+  },
+  {
+    "name": "r4_skipped_over_threshold",
+    "input": {
+      "report": {"failed": 0, "errored": 1, "skipped": 6, "total": 20, "coverage": 75.0},
+      "guard": {"out_of_scope": []},
+      "min_coverage": 0,
+      "skip_threshold": 5
+    },
+    "expected": {
+      "verdict": "unsure",
+      "confidence": 0.50,
+      "status": "unsure"
+    }
+  },
+  {
+    "name": "r5_coverage_below_minimum",
+    "input": {
+      "report": {"failed": 0, "errored": 1, "skipped": 2, "total": 10, "coverage": 70.0},
+      "guard": {"out_of_scope": []},
+      "min_coverage": 80.0,
+      "skip_threshold": 5
+    },
+    "expected": {
+      "verdict": "unsure",
+      "confidence": 0.45,
+      "status": "unsure"
+    }
+  },
+  {
+    "name": "r6_catchall_errored_no_other_triggers",
+    "input": {
+      "report": {"failed": 0, "errored": 1, "skipped": 0, "total": 10, "coverage": 90.0},
+      "guard": {"out_of_scope": []},
+      "min_coverage": 0,
+      "skip_threshold": 5
+    },
+    "expected": {
+      "verdict": "unsure",
+      "confidence": 0.30,
+      "status": "unsure"
+    }
+  },
+  {
+    "name": "r6_catchall_errored_skips_at_threshold",
+    "input": {
+      "report": {"failed": 0, "errored": 1, "skipped": 5, "total": 15, "coverage": 85.0},
+      "guard": {"out_of_scope": []},
+      "min_coverage": 0,
+      "skip_threshold": 5
+    },
+    "expected": {
+      "verdict": "unsure",
+      "confidence": 0.30,
+      "status": "unsure"
+    }
+  }
+]

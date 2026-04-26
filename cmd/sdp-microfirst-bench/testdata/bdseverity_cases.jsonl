@@ -1,0 +1,35 @@
+{"title": "Production database is down", "description": "Complete database outage affecting all users, no writes or reads possible", "expected_priority": "P0"}
+{"title": "API gateway returning 503 for all requests", "description": "Critical service unavailable, all API calls fail, production down", "expected_priority": "P0"}
+{"title": "Payment processing completely broken", "description": "All transactions failing, revenue loss, users cannot complete purchases", "expected_priority": "P0"}
+{"title": "Authentication service crash loop", "description": "Users cannot log in, auth service restarting repeatedly in production", "expected_priority": "P0"}
+{"title": "Data corruption in user records", "description": "Production database rows corrupted, user data integrity compromised", "expected_priority": "P0"}
+{"title": "Memory leak causing service to crash hourly", "description": "Critical memory leak in core service, causes frequent production outages", "expected_priority": "P0"}
+{"title": "Security vulnerability exposing user tokens", "description": "Auth tokens leaked in response headers, urgent security patch needed", "expected_priority": "P0"}
+{"title": "Search feature returning wrong results", "description": "Search returns irrelevant results affecting many users, significant UX degradation", "expected_priority": "P1"}
+{"title": "Dashboard loading very slowly", "description": "Main dashboard takes 30+ seconds to load for users with large datasets", "expected_priority": "P1"}
+{"title": "Email notifications not being delivered", "description": "Email queue backlogged, notifications delayed by hours affecting user engagement", "expected_priority": "P1"}
+{"title": "Export to CSV producing corrupt files", "description": "CSV exports have encoding issues, affecting paying customers importing data", "expected_priority": "P1"}
+{"title": "Mobile app crashes on report view", "description": "iOS app crashes reproducibly when opening detailed report view", "expected_priority": "P1"}
+{"title": "Pagination broken in admin panel", "description": "Admin cannot navigate past page 2, blocks moderation workflows", "expected_priority": "P1"}
+{"title": "Incorrect totals in billing summary", "description": "Billing amounts calculated incorrectly for some customers, overcharging possible", "expected_priority": "P1"}
+{"title": "Profile picture upload fails intermittently", "description": "Users occasionally cannot upload profile pictures, about 20% failure rate", "expected_priority": "P2"}
+{"title": "Dark mode has some contrast issues", "description": "Some text elements have low contrast in dark mode, accessibility concern", "expected_priority": "P2"}
+{"title": "Filter dropdown doesn't remember last selection", "description": "User filter preferences reset on page reload, minor UX inconvenience", "expected_priority": "P2"}
+{"title": "Tooltip shows briefly then disappears", "description": "Help tooltips flash and disappear too quickly on hover, usability issue", "expected_priority": "P2"}
+{"title": "Sort order resets after editing an item", "description": "Table sort order lost after inline edit, must re-sort each time", "expected_priority": "P2"}
+{"title": "Notifications badge count sometimes incorrect", "description": "Unread badge shows stale count until full page refresh", "expected_priority": "P2"}
+{"title": "Copy to clipboard doesn't work in Firefox", "description": "Clipboard API not supported in Firefox extension context, feature broken in that browser", "expected_priority": "P2"}
+{"title": "Breadcrumb navigation missing on settings page", "description": "Settings sub-pages lack breadcrumb, minor navigation gap", "expected_priority": "P2"}
+{"title": "Typo in welcome email subject line", "description": "Welcome email subject says 'Welcom' instead of 'Welcome'", "expected_priority": "P3"}
+{"title": "Wrong label on submit button in French locale", "description": "French translation for submit button shows 'Envoyé' instead of 'Envoyer'", "expected_priority": "P3"}
+{"title": "Footer copyright year is outdated", "description": "Footer shows 2022 copyright instead of current year, cosmetic issue", "expected_priority": "P3"}
+{"title": "Tooltip text has minor grammar mistake", "description": "Help text says 'a error' instead of 'an error', trivial copy fix", "expected_priority": "P3"}
+{"title": "Placeholder text missing in search field", "description": "Search input has no placeholder text, cosmetic gap", "expected_priority": "P3"}
+{"title": "Minor inconsistency in button padding", "description": "Some buttons have 8px padding others have 10px, cosmetic inconsistency", "expected_priority": "P3"}
+{"title": "Onboarding checklist item text is truncated", "description": "One checklist item text is cut off at the end with ellipsis even on desktop", "expected_priority": "P3"}
+{"title": "Icon alignment slightly off in sidebar", "description": "Nav icons appear 2px misaligned with their labels in the sidebar", "expected_priority": "P3"}
+{"title": "Incorrect timezone label in event details", "description": "Event shows UTC+0 label but should show UTC, technically wrong abbreviation", "expected_priority": "P3"}
+{"title": "Wrong version number in about dialog", "description": "About dialog still shows previous version number after update", "expected_priority": "P3"}
+{"title": "Refresh token expiry is 7 days not 30", "description": "Token refresh window is much shorter than documented, users logged out unexpectedly", "expected_priority": "P1"}
+{"title": "Bulk delete fails for more than 100 items", "description": "Selecting and deleting more than 100 items returns 400 error silently", "expected_priority": "P1"}
+{"title": "Import fails for large CSV files over 10MB", "description": "File import endpoint times out for large uploads, data cannot be imported", "expected_priority": "P2"}
