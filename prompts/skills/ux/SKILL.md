@@ -128,9 +128,12 @@ WRITE PLAN for @ux <feature>:
 Proceed? [y/n]
 ```
 
----
+**Modes:**
+- No flag: Show plan → Confirm → Execute
+- `--dry-run`: Show plan → STOP
+- `--yes`: Show plan → Execute immediately (no prompt)
 
-## Recovery
+---
 
 | Symptom | Fix |
 |---------|-----|
