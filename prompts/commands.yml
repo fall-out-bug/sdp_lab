@@ -21,8 +21,8 @@ commands:
     phase: execution
   review:
     file: ".agents/skills/review.md"
-    cli: sdp quality all
-    mode: hybrid
+    cli:
+    mode: llm_only
     llm_subagents:
       - qa
       - security
@@ -60,11 +60,25 @@ commands:
       - planner
     description: Deployment and operations
     phase: execution
+  ship:
+    file: ".agents/skills/ship.md"
+    cli: sdp deploy
+    mode: hybrid
+    llm_subagents:
+      - devops
+      - sre
+      - planner
+    description: Deployment orchestration - creates PR to main or merges for release
+    phase: execution
   deploy:
     file: ".agents/skills/deploy.md"
     cli: sdp deploy
     mode: cli_only
-    description: Deployment orchestration (legacy alias for @operate)
+    deprecated: true
+    deprecated_in_favor_of: ship
+    deprecation_version: "5.0.0"
+    removal_version: "8.0.0"
+    description: DEPRECATED: Deployment orchestration (legacy alias for @ship)
     phase: execution
   bugfix:
     file: ".agents/skills/bugfix.md"
@@ -109,7 +123,7 @@ commands:
     phase: strategic
   reality:
     file: ".agents/skills/reality-check.md"
-    cli: sdp drift detect
+    cli: sdp doctor adapters
     mode: hybrid
     llm_subagents:
       - analyst

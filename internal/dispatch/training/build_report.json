@@ -1,0 +1,47 @@
+{
+  "beads_loaded": 11,
+  "beads_skipped": {
+    "task_type_unresolved": 23
+  },
+  "duplicates_dropped": 0,
+  "eval_count": 40,
+  "label_distribution": {
+    "high/bugfix/high": 2,
+    "high/bugfix/low": 2,
+    "high/docs/high": 3,
+    "high/feature/high": 10,
+    "high/feature/low": 1,
+    "high/test/high": 1,
+    "high/test/low": 1,
+    "low/bugfix/high": 10,
+    "low/bugfix/low": 7,
+    "low/docs/high": 15,
+    "low/docs/low": 6,
+    "low/feature/high": 21,
+    "low/feature/low": 7,
+    "low/refactor/high": 7,
+    "low/refactor/low": 2,
+    "low/test/high": 6,
+    "low/test/low": 5,
+    "medium/bugfix/high": 10,
+    "medium/bugfix/low": 6,
+    "medium/docs/high": 11,
+    "medium/docs/low": 7,
+    "medium/feature/high": 25,
+    "medium/feature/low": 11,
+    "medium/refactor/high": 3,
+    "medium/test/high": 11,
+    "medium/test/low": 11
+  },
+  "real_share": {
+    "eval_real": 40,
+    "train_real": 161
+  },
+  "total_after_dedup": 201,
+  "train_count": 161,
+  "ws_loaded": 190,
+  "ws_skipped": {
+    "missing_size_or_priority": 3,
+    "task_type_unresolved": 187
+  }
+}

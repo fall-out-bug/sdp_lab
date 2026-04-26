@@ -1,20 +1,26 @@
 # SDP Protocol Contracts
 
-This document defines the versioned protocol contracts for orchestration and runtime decisions shared by OSS and enterprise surfaces.
+This document defines the versioned protocol contracts for orchestration, runtime decisions, status, instructions, and OpenSpec imports shared by OSS and enterprise surfaces.
 
 ## Overview
 
-SDP uses two primary contract types:
+SDP uses five primary contract types:
 
 1. **OrchestrationEvent** - Events that occur during workflow orchestration
 2. **RuntimeDecision** - Governance decisions made during execution
+3. **StatusView** - Machine-readable project state for guided next-step UX
+4. **InstructionPayload** - Next-step instruction payload used by SDP agents
+5. **OpenSpecImportPayload** - Normalized contract for importing OpenSpec artifacts
 
-Both contracts follow semantic versioning and are designed for backward compatibility.
+All contracts follow semantic versioning and are designed for backward compatibility.
 
 ## Schemas
 
 - [OrchestrationEvent](../../schema/contracts/orchestration-event.schema.json)
 - [RuntimeDecision](../../schema/contracts/runtime-decision.schema.json)
+- [StatusView](../../schema/contracts/status-view.schema.json)
+- [InstructionPayload](../../schema/contracts/instructions.schema.json)
+- [OpenSpecImportPayload](../../schema/contracts/openspec-import.schema.json)
 
 ## Versioning Strategy
 
@@ -288,7 +294,99 @@ When integrating these contracts:
 - [ ] Document adapter-specific payload schemas
 - [ ] Implement proper error handling for unknown versions
 
+## Status and Instructions Contracts
+
+### StatusView
+
+The `StatusView` contract provides a machine-readable representation of project state used by `sdp status --json` and consumed by guided next-step UX.
+
+Key fields:
+- `version` - Contract version
+- `environment` - Project environment status (git, SDP config, directories)
+- `workstreams` - Workstream counts and categorized lists (ready, in_progress, blocked, failed)
+- `next_action` - Human-readable description of next action
+- `next_step` - Machine-readable `InstructionPayload` for execution
+
+Example usage:
+```go
+status := &StatusView{
+    Version: "1.0",
+    HasGit: true,
+    HasSDP: true,
+    Workstreams: WorkstreamStatus{
+        Ready: []WorkstreamStatus{
+            {ID: "00-068-02", Status: "ready", Priority: 1},
+        },
+    },
+    NextAction: "Implement Adapter SDK",
+    NextStep: InstructionPayload{
+        Command: "sdp build 00-068-02",
+        Reason: "Ready to implement",
+        Confidence: 0.95,
+    },
+}
+```
+
+### InstructionPayload
+
+The `InstructionPayload` contract provides next-step instructions that can be executed by agents or displayed to users.
+
+Key fields:
+- `action_id` - Unique identifier for this instruction
+- `command` - Executable command string
+- `reason` - Human-readable explanation
+- `confidence` - Confidence score (0-1)
+- `category` - Instruction category (execution, recovery, planning, information, setup)
+- `alternatives` - Optional alternative commands
+- `required_context` - Required context for execution
+- `policy_expectations` - Relevant policy constraints
+- `evidence_expectations` - Required evidence artifacts
+
+## OpenSpec Import Contract
+
+### OpenSpecImportPayload
+
+The `OpenSpecImportPayload` contract provides a normalized format for importing OpenSpec proposal, spec, design, and task artifacts into SDP.
+
+Key features:
+- **Source metadata** - Tracks source location, hash, and version for change detection
+- **Mapping confidence** - Provides confidence scores for field mappings
+- **Ambiguity tracking** - Lists unresolved mapping ambiguities requiring human review
+- **Artifact normalization** - Normalizes proposal, spec, design, and task artifacts
+- **Validation results** - Includes validation outcomes and errors
+- **Deterministic identity** - Source hash enables repeatable import detection
+
+Example usage:
+```go
+import := &OpenSpecImportPayload{
+    SpecVersion: "v1.0",
+    ImportID: "import-001",
+    SourceMetadata: SourceMetadata{
+        SourceType: "openspec",
+        SourceLocation: "https://github.com/example/proposals",
+        SourceHash: "a3d5e9f4...",
+    },
+    MappingConfidence: MappingConfidence{
+        OverallScore: 0.92,
+        ConfidenceLevel: "high",
+    },
+    Artifacts: Artifacts{
+        Proposal: ProposalArtifact{...},
+        Spec: SpecArtifact{...},
+        Design: DesignArtifact{...},
+        Tasks: []TaskArtifact{...},
+    },
+}
+```
+
 ## Changelog
+
+### v1.1 (2026-04-26)
+- Added StatusView contract for machine-readable project state
+- Added InstructionPayload contract for next-step instructions
+- Added OpenSpecImportPayload contract for OpenSpec artifact imports
+- Added SDK examples for OMO, Beads, and Gas Town adapters
+- Enhanced documentation with new contract sections
 
 ### v1.0 (2026-03-01)
 - Initial release

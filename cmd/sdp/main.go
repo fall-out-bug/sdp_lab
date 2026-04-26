@@ -85,6 +85,8 @@ func main() {
 		os.Exit(runInit(os.Args[2:]))
 	case "skills":
 		runSkills(os.Args[2:])
+	case "telemetry":
+		runTelemetry(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -175,4 +177,10 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "Skills commands:")
 	fmt.Fprintln(os.Stderr, "  sdp skills augment --stack <config.json> [--skills-dir DIR] [--dry-run] [--validate] [-v]")
 	fmt.Fprintln(os.Stderr, "  sdp skills update [--project-root DIR] [--dry-run] [-v]")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Telemetry commands:")
+	fmt.Fprintln(os.Stderr, "  sdp telemetry init --feature <bead_id>")
+	fmt.Fprintln(os.Stderr, "  sdp telemetry span-start --kind <kind> --name <name>")
+	fmt.Fprintln(os.Stderr, "  sdp telemetry span-end --span-id <id>")
+	fmt.Fprintln(os.Stderr, "  sdp telemetry daemon")
 }

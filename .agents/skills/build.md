@@ -100,11 +100,49 @@ Every commit in SDP-managed repos SHOULD carry provenance trailer:
 - Run quality gates before committing
 - Claim beads issue before starting work
 - Add provenance trailer to commits when in SDP context
+- Follow TDD: test → implement → refactor (never skip for production code)
+- Create worktree for isolated development (bootstrap step 3)
+- Write checkpoint.json before starting implementation
+- Resume from checkpoint on compaction recovery (don't restart)
 
 ## MUST NOT DO
 - Skip quality gates
 - Commit without claiming beads issue
 - Push directly to main branch
+- Skip TDD for production code
+- Edit files in main tree (always use worktree)
+
+## Response Format
+
+After completing work, report:
+
+1. **Implementation summary**: What was built and why
+2. **File changes**: List of modified/created files (absolute paths)
+3. **Tests**: Test results including coverage
+4. **Quality gates**: Confirmation all gates passed
+5. **Next steps**: PR ready, additional work needed, or follow-up tasks
+
+Example:
+```
+## Implementation Summary
+
+Built [feature description] to address [requirement].
+
+## File Changes
+
+- /path/to/implementation.go
+- /path/to/implementation_test.go
+- /path/to/docs.md
+
+## Tests
+
+✓ All tests passed (N tests, 100% coverage)
+✓ Quality gates passed
+
+## Next Steps
+
+Ready for PR review.
+```
 
 ## Stack-Specific Workflows
 

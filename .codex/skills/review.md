@@ -1,7 +1,7 @@
 ---
 name: review
 description: Multi-agent quality review (QA + Security + DevOps + SRE + TechLead + Documentation + PromptOps)
-cli: sdp quality all
+cli: null
 version: 17.0.0
 changes:
   - "17.0.0: Post-max-retry escape hatches (--override, --partial, --escalate)"
@@ -17,7 +17,7 @@ changes:
 
 # review
 
-> **CLI:** `sdp quality all` | **LLM:** Spawn all 7 specialist subagents with risk-based depth allocation
+> **LLM only:** Spawn all 7 specialist subagents with risk-based depth allocation
 
 Comprehensive multi-agent quality review. All 7 reviewers always spawned; risk patterns determine depth, not presence.
 
@@ -62,9 +62,8 @@ Full config: `.sdp/config.yml` under `review` section.
 
 When user invokes `@review F{XX}`:
 
-1. **Run CLI:** `sdp quality all`
-2. **Determine depth:** Match risk patterns to identify which reviewers get deep focus (rest get rubber-stamp).
-3. **Spawn all 7 subagents IN PARALLEL** (use your platform's subagent spawn). **DO NOT skip.**
+1. **Determine depth:** Match risk patterns to identify which reviewers get deep focus (rest get rubber-stamp).
+2. **Spawn all 7 subagents IN PARALLEL** (use your platform's subagent spawn). **DO NOT skip.**
 
 **All 7 roles always spawned:** qa, security, devops, sre, techlead, docs, promptops
 
@@ -84,7 +83,7 @@ For each finding: `bd create --silent --labels "review-finding,F{XX},round-1,{ro
 
 **Role files:** `prompts/agents/qa.md`, `prompts/agents/security.md`, `prompts/agents/devops.md`, `prompts/agents/sre.md`, `prompts/agents/tech-lead.md`. Docs and PromptOps: inline.
 
-**Docs expert:** Check drift (`sdp drift detect`), AC coverage (jq `.ac_evidence|length` vs WS file). Labels: `review-finding,F{XX},round-1,docs`
+**Docs expert:** Check drift (`sdp doctor adapters`), AC coverage (jq `.ac_evidence|length` vs WS file). Labels: `review-finding,F{XX},round-1,docs`
 
 **PromptOps expert:** Review prompts/skills, prompts/agents, prompts/commands. Check: language-agnostic, no phantom CLI, no handoff lists, skill size ≤200 LOC. Labels: `review-finding,F{XX},round-1,promptops`. Output `checks` array per schema/review-verdict.schema.json.
 

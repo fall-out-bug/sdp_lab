@@ -1,0 +1,43 @@
+{
+  "action_id": "sdp-next-002",
+  "command": "bd update 00-068-03 --claim && sdp build 00-068-03",
+  "reason": "All dependencies for workstream 00-068-03 are complete. This workstream creates contract compatibility tests.",
+  "confidence": 0.9,
+  "category": "execution",
+  "version": "1.0",
+  "alternatives": [
+    {
+      "command": "sdp status --json | jq '.workstreams.ready'",
+      "reason": "Check if there are other ready workstreams"
+    },
+    {
+      "command": "bd list --status ready",
+      "reason": "List all ready workstreams"
+    }
+  ],
+  "required_context": {
+    "workstream_id": "00-068-03",
+    "feature_id": "F068",
+    "dependency_status": "all_complete"
+  },
+  "optional_context": {
+    "estimated_duration": "1 hour",
+    "test_coverage_target": "80%",
+    "adapter_matrix": ["omo", "beads", "gas-town"]
+  },
+  "policy_expectations": [
+    "Quality gate: test coverage >= 80%",
+    "Breaking changes must fail CI",
+    "All adapter variants must be tested"
+  ],
+  "evidence_expectations": [
+    "Golden fixtures for v1 contracts",
+    "Test results showing adapter compatibility",
+    "CI job configuration"
+  ],
+  "metadata": {
+    "suggested_order": 3,
+    "depends_on": ["00-068-01", "00-068-02", "00-068-04", "00-068-05"],
+    "feature_scope": "F068"
+  }
+}

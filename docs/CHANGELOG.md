@@ -55,6 +55,22 @@ issues resolved.
 ## 2026-04-26
 
 ### Commits
+- `e760bdd` merge: fix coverage baseline update after PR 130 (2026-04-26)
+
+### Changed Files
+- `.github/workflows/ci.yml`
+- `.sdp/metrics/coverage.txt`
+
+
+
+### Commits
+- `9e329da` merge: mark PR 130 squash merge (2026-04-26)
+
+### Changed Files
+
+
+
+### Commits
 - `1a5e1e9` feat(F133): Local model dispatch — route tasks to Ollama (#127) (2026-04-26)
 
 ### Changed Files

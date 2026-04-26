@@ -969,9 +969,19 @@ jobs:
           if git diff --cached --quiet; then
             echo "No baseline change to commit."
           else
-            git commit -m "chore(metrics): update coverage baseline to ${CUR_PCT}%"
-            git push
-            echo "Pushed updated coverage baseline."
+            git commit -m "merge: update coverage baseline to ${CUR_PCT}% [skip ci]"
+            BRANCH_NAME="${GITHUB_REF_NAME:-${GITHUB_REF#refs/heads/}}"
+            for attempt in 1 2 3; do
+              if git push origin "HEAD:${BRANCH_NAME}"; then
+                echo "Pushed updated coverage baseline."
+                exit 0
+              fi
+              echo "Push rejected; rebasing on origin/${BRANCH_NAME} before retry ${attempt}."
+              git fetch origin "${BRANCH_NAME}"
+              git rebase "origin/${BRANCH_NAME}"
+            done
+            echo "ERROR: failed to push updated coverage baseline after retries."
+            exit 1
           fi
 
   required-checks:

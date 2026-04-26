@@ -37,6 +37,9 @@
 | `sdp-ws-verdict-validate` | GA | platform | Workstream verdict validation |
 | `sdp-omc-guard` | Beta | platform | OMC scope guard |
 | `sdp-protocol-check` | GA | platform | Protocol validation |
+| `sdp-healthcheck` | GA | platform | Health check endpoint |
+| `sdp-mcp` | Beta | platform | MCP server |
+| `sdp-session-audit` | Beta | platform | Session audit trail |
 
 ### Internal Packages (internal/)
 
@@ -129,16 +132,17 @@
 
 | Maturity | Count | Percentage |
 |----------|-------|------------|
-| GA | 55 | 74% |
-| Beta | 13 | 17% |
-| Experimental | 7 | 9% |
-| **Total** | **75** | **100%** |
+| GA | 57 | 73% |
+| Beta | 15 | 19% |
+| Experimental | 7 | 8% |
+| **Total** | **79** | **100%** |
 
 ## Change Log
 
 | Date | Change |
 |------|--------|
 | 2026-04-26 | Initial matrix created from components.md audit |
+| 2026-04-26 | F079-01: Added missing CLI binaries (sdp-healthcheck, sdp-mcp, sdp-session-audit), updated counts |
 
 ---
 

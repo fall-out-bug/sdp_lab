@@ -18,7 +18,7 @@ func TestEnrichWithNilInput(t *testing.T) {
 	}
 
 	// Modules should be unchanged
-	mods, _ := store.ListModules()
+	mods, _ := store.LoadModules()
 	if len(mods) != 1 || mods[0].Name != "core" {
 		t.Error("modules should be unchanged after nil enrichment")
 	}
@@ -62,7 +62,7 @@ func TestEnrichWithArchitectReport(t *testing.T) {
 		t.Fatalf("Enrich: %v", err)
 	}
 
-	mods, _ := store.ListModules()
+	mods, _ := store.LoadModules()
 	if len(mods) != 2 {
 		t.Fatalf("expected 2 modules, got %d", len(mods))
 	}
@@ -117,7 +117,7 @@ func TestEnrichWithMetricsReport(t *testing.T) {
 		t.Fatalf("Enrich: %v", err)
 	}
 
-	mods, _ := store.ListModules()
+	mods, _ := store.LoadModules()
 
 	// Find core module and check bus factor + owner
 	var coreMod *ModuleMeta
@@ -206,7 +206,7 @@ func TestEnrichWithGitBlame(t *testing.T) {
 	// GitBlame-only enrichment doesn't trigger meta save or module upsert
 	// since no ArchitectReport, MetricsReport, or ScoutCard is set.
 	// But modules should be updated via UpsertModuleMeta after blame processing.
-	mods, _ := store.ListModules()
+	mods, _ := store.LoadModules()
 	if len(mods) > 0 && mods[0].Owner != "alice" {
 		t.Errorf("expected owner alice from git blame majority, got %q", mods[0].Owner)
 	}
@@ -237,7 +237,7 @@ func TestEnrichDoesNotOverrideExistingPurpose(t *testing.T) {
 		t.Fatalf("Enrich: %v", err)
 	}
 
-	mods, _ := store.ListModules()
+	mods, _ := store.LoadModules()
 	if mods[0].Purpose != "existing purpose" {
 		t.Errorf("enrichment should not override existing purpose, got %q", mods[0].Purpose)
 	}
@@ -273,7 +273,7 @@ func TestEnrichMetricsOverrideBusFactor(t *testing.T) {
 		t.Fatalf("Enrich: %v", err)
 	}
 
-	mods, _ := store.ListModules()
+	mods, _ := store.LoadModules()
 	// Module-level bus factor from ModuleRisks should override (value=2)
 	if mods[0].BusFactor != 2 {
 		t.Errorf("expected bus factor 2 from module risk, got %d", mods[0].BusFactor)
@@ -328,7 +328,7 @@ func TestEnrichUnknownModuleRiskIgnored(t *testing.T) {
 	}
 
 	// Should not fail, unknown module risk is simply skipped
-	mods, _ := store.ListModules()
+	mods, _ := store.LoadModules()
 	if len(mods) != 1 || mods[0].Name != "core" {
 		t.Error("core module should be unchanged")
 	}
@@ -372,7 +372,7 @@ func (f *failUpdateStore) UpdateModules(_ []ModuleMeta) error {
 	return errTestUpdateFailed
 }
 
-func (f *failUpdateStore) ListModules() ([]ModuleMeta, error) {
+func (f *failUpdateStore) LoadModules() ([]ModuleMeta, error) {
 	return f.memStore.modules, nil
 }
 
@@ -384,8 +384,28 @@ func (f *failUpdateStore) SetMeta(key, value string) error {
 	return nil
 }
 
+func (f *failUpdateStore) SaveMeta(key, value string) error {
+	return nil
+}
+
+func (f *failUpdateStore) LoadMeta(keys ...string) (map[string]string, error) {
+	return f.memStore.LoadMeta(keys...)
+}
+
+func (f *failUpdateStore) ListModules() ([]ModuleMeta, error) {
+	return f.memStore.modules, nil
+}
+
+func (f *failUpdateStore) LoadEntryPoints() ([]string, error) {
+	return nil, nil
+}
+
 func (f *failUpdateStore) ListEntryPoints() ([]string, error) {
 	return nil, nil
+}
+
+func (f *failUpdateStore) LoadStats() (*IndexStats, error) {
+	return f.memStore.stats, nil
 }
 
 // Verify failUpdateStore satisfies ManifestStore at compile time.

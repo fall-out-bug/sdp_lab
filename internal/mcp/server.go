@@ -536,9 +536,11 @@ func (s *Server) handleBeadsCreate(ctx context.Context, req mcp.CallToolRequest)
 	if typ := req.GetString("type", ""); typ != "" {
 		args = append(args, "--type", typ)
 	}
-	if priority, ok := req.Params.Arguments.(map[string]interface{}); ok {
-		if p, exists := priority["priority"]; exists {
-			args = append(args, "--priority", fmt.Sprintf("%v", p))
+	if req.Params.Arguments != nil {
+		if priority, ok := req.Params.Arguments.(map[string]interface{}); ok {
+			if p, exists := priority["priority"]; exists {
+				args = append(args, "--priority", fmt.Sprintf("%v", p))
+			}
 		}
 	}
 

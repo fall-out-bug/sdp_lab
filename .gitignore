@@ -1,5 +1,13 @@
-.sdp/*
-!.sdp/config.yml
+# Security: Never commit config files that may contain secrets
+.sdp/config.yml
+.sdp/config.yaml
+.sdp/*.local.yml
+.sdp/*.local.yaml
+.sdp/credentials*
+.sdp/*.secret*
+.sdp/secrets*
+
+# Preserve example configs and tracked artifacts
 !.sdp/pipeline-hooks.yaml.example
 !.sdp/policies/
 !.sdp/agent-constraints.yaml

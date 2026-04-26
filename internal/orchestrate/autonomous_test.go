@@ -22,7 +22,7 @@ func helperCheckpoint(phase string, n int) *orchestrate.Checkpoint {
 		ws[i] = orchestrate.WSStatus{ID: fmt.Sprintf("ws-%02d", i+1), Status: "pending"}
 	}
 	return &orchestrate.Checkpoint{
-		Schema:      "1.0",
+		Schema:      "orchestrate.v1",
 		FeatureID:   "F106",
 		Branch:      "feature-F106",
 		Phase:       phase,

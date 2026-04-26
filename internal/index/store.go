@@ -8,6 +8,10 @@ import (
 	"sort"
 	"strings"
 
+	// SQLite driver (mattn/go-sqlite3) requires CGO.
+	// Build requirements: CGO_ENABLED=1, GCC/Clang compiler, SQLite dev headers.
+	// Cross-compilation requires appropriate CC toolchain (see https://github.com/mattn/go-sqlite3#cross-compile).
+	// For pure Go builds without CGO, use modernc.org/sqlite instead.
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -185,6 +189,9 @@ func (s *SQLiteStore) SetMeta(key, value string) error {
 		"INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", key, value)
 	return err
 }
+
+// SaveMeta is an alias for SetMeta to satisfy ManifestStore.
+func (s *SQLiteStore) SaveMeta(key, value string) error { return s.SetMeta(key, value) }
 
 // GetMeta retrieves a value from the meta table. Returns empty string if not found.
 func (s *SQLiteStore) GetMeta(key string) (string, error) {
@@ -370,32 +377,113 @@ func IsBinaryFile(path string) bool {
 }
 
 // IsSecretFile returns true if the file path looks like a secrets file.
+// Uses exact extension matching and targeted patterns to avoid false positives
+// on legitimate source files (e.g., tokenizer.py, token_handler.go).
 func IsSecretFile(path string) bool {
-	secretPatterns := []string{
-		".env",
-		".pem",
-		".key",
-		".p12",
-		".pfx",
-		"credentials.",
-		"secret",
-		"password",
-		"token",
-	}
 	base := strings.ToLower(filepath.Base(path))
-	for _, pat := range secretPatterns {
-		if strings.Contains(base, pat) {
-			return true
-		}
+
+	// Exact extension match for certificate/key files
+	secretExts := map[string]bool{
+		".pem":        true,
+		".key":        true,
+		".p12":        true,
+		".pfx":        true,
+		".jks":        true,
+		".keystore":   true,
+		".netrc":      true,
+		".kubeconfig": true,
 	}
-	// Exact match for .env files
+
+	// Check exact extension match
+	ext := filepath.Ext(base)
+	if secretExts[ext] {
+		return true
+	}
+
+	// Special files without extensions (exact basename match)
+	secretFiles := map[string]bool{
+		"id_rsa":     true,
+		"id_rsa.pub": true,
+		"id_ed25519": true,
+		"id_ed25519.pub": true,
+		"id_dsa":     true,
+		"id_ecdsa":   true,
+		"id_ecdsa_sk": true,
+	}
+	if secretFiles[base] {
+		return true
+	}
+
+	// Exact match for .env files (including .env.local, .env.production, etc.)
 	if base == ".env" || strings.HasPrefix(base, ".env.") {
 		return true
 	}
+
+	// Targeted patterns: must match specific formats, not substrings
+	// These patterns are more specific to reduce false positives
+	secretPatterns := []struct {
+		prefix        string
+		suffix        string
+		requireExt    string // if set, require this specific extension
+	}{
+		{"credentials.", "", ""},  // credentials.json, credentials.yaml
+		{"", ".credentials", ""},  // service.credentials
+		{"secret.", "", ""},       // secret.env, secret.config (but NOT secret.go)
+		{"", ".secret", ""},       // config.secret, db.secret
+		{"password.", "", ""},     // password.txt, password.file (but NOT password.go)
+		{"", ".password", ""},     // config.password
+		{"private.", "", ""},      // private.key (already covered by .key but for completeness)
+		{"", ".private", ""},      // config.private
+	}
+
+	// Extensions that are commonly used for secrets/config files
+	// Source code extensions (.go, .py, .js, .rs, etc.) should NOT be treated as secrets
+	secretConfigExtensions := map[string]bool{
+		".env":        true,
+		".config":     true,
+		".conf":       true,
+		".txt":        true,
+		".json":       true,
+		".yaml":       true,
+		".yml":        true,
+		".xml":        true,
+		".ini":        true,
+		".cfg":        true,
+		".properties": true,
+		".file":       true, // password.file
+	}
+
+	for _, pat := range secretPatterns {
+		if (pat.prefix == "" || strings.HasPrefix(base, pat.prefix)) &&
+		   (pat.suffix == "" || strings.HasSuffix(base, pat.suffix)) {
+			// If both prefix and suffix specified, that's a strong signal
+			if pat.prefix != "" && pat.suffix != "" {
+				return true
+			}
+			// If only prefix specified, require a secret/config extension (not source code)
+			if pat.prefix != "" && len(base) > len(pat.prefix) {
+				ext := filepath.Ext(base)
+				if secretConfigExtensions[ext] {
+					return true
+				}
+			}
+			// If only suffix specified, that's a strong signal
+			if pat.suffix != "" && len(base) > len(pat.suffix) {
+				return true
+			}
+		}
+	}
+
 	return false
 }
 
 // --- ManifestStore interface methods ---
+
+// ListModules is an alias for LoadModules to satisfy ManifestStore.
+func (s *SQLiteStore) ListModules() ([]ModuleMeta, error) { return s.LoadModules() }
+
+// ListEntryPoints is an alias for LoadEntryPoints to satisfy ManifestStore.
+func (s *SQLiteStore) ListEntryPoints() ([]string, error) { return s.LoadEntryPoints() }
 
 // LoadModules returns all modules from the modules table.
 func (s *SQLiteStore) LoadModules() ([]ModuleMeta, error) {
@@ -451,11 +539,6 @@ func (s *SQLiteStore) LoadMetaPrefix(prefix string) (map[string]string, error) {
 	return result, nil
 }
 
-// SaveMeta stores a key-value pair (alias for SetMeta for interface compat).
-func (s *SQLiteStore) SaveMeta(key, value string) error {
-	return s.SetMeta(key, value)
-}
-
 // UpdateModules replaces all modules with the given slice.
 func (s *SQLiteStore) UpdateModules(modules []ModuleMeta) error {
 	if _, err := s.db.Exec("DELETE FROM modules"); err != nil {
@@ -501,16 +584,6 @@ func (s *SQLiteStore) LoadStats() (*IndexStats, error) {
 	repoName, _ := s.GetMeta("repo_name")
 	stats.RepoName = repoName
 	return stats, nil
-}
-
-// ListModules returns all modules (alias for LoadModules for interface compat).
-func (s *SQLiteStore) ListModules() ([]ModuleMeta, error) {
-	return s.LoadModules()
-}
-
-// ListEntryPoints returns entry point paths (alias for LoadEntryPoints for interface compat).
-func (s *SQLiteStore) ListEntryPoints() ([]string, error) {
-	return s.LoadEntryPoints()
 }
 
 // ListIndexedFilePaths returns all file paths currently tracked in the files table.
@@ -678,4 +751,242 @@ func BuildSymbolIDMap(store *SQLiteStore) (map[string]int64, error) {
 		m[key] = id
 	}
 	return m, nil
+}
+
+// buildSymbolIDMapTx queries all chunks within a transaction and returns a map from "file_path:symbol_name" to chunk ID.
+// This is the transactional version used during ColdBuild for consistency.
+func buildSymbolIDMapTx(tx *sql.Tx) (map[string]int64, error) {
+	rows, err := tx.Query("SELECT id, file_path, symbol_name FROM chunks WHERE symbol_name IS NOT NULL AND symbol_name != ''")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	m := make(map[string]int64)
+	for rows.Next() {
+		var id int64
+		var fp, sym string
+		if err := rows.Scan(&id, &fp, &sym); err != nil {
+			continue
+		}
+		key := fp + ":" + sym
+		m[key] = id
+	}
+	return m, nil
+}
+
+// ── PageRank Support Methods ─────────────────────────────────────────────
+
+// UpdatePageRank updates the PageRank score for a single chunk by ID.
+func (s *SQLiteStore) UpdatePageRank(chunkID int64, score float64) error {
+	_, err := s.db.Exec("UPDATE chunks SET pagerank = ? WHERE id = ?", score, chunkID)
+	return err
+}
+
+// GetAllEdges retrieves all edges from the database.
+// Returns an error count if any rows fail to scan, along with the edges and error.
+func (s *SQLiteStore) GetAllEdges() ([]Edge, int, error) {
+	rows, err := s.db.Query("SELECT id, source_id, target_id, relation, weight FROM edges")
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var edges []Edge
+	scanErrors := 0
+	for rows.Next() {
+		var e Edge
+		if err := rows.Scan(&e.ID, &e.SourceID, &e.TargetID, &e.Relation, &e.Weight); err != nil {
+			scanErrors++
+			continue
+		}
+		edges = append(edges, e)
+	}
+	return edges, scanErrors, nil
+}
+
+// GetEdgeCount returns the total number of edges in the database.
+func (s *SQLiteStore) GetEdgeCount() (int, error) {
+	var count int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM edges").Scan(&count)
+	return count, err
+}
+
+// QueryChunksByFilePrefix queries chunks whose file_path matches a prefix or exact path.
+// Used by dependency traversal to find all chunks in a module.
+func (s *SQLiteStore) QueryChunksByFilePrefix(prefix, exactPath string) ([]int64, error) {
+	rows, err := s.db.Query(`
+		SELECT id FROM chunks
+		WHERE file_path LIKE ?
+		   OR file_path = ?`,
+		prefix+"%", exactPath)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+// QueryEdgesBySourceOrTarget queries edges by source_id or target_id based on the direction.
+// If reverse is true, queries edges where target_id = ? (incoming edges).
+// If reverse is false, queries edges where source_id = ? (outgoing edges).
+// Returns edge IDs and file paths for dependency traversal.
+func (s *SQLiteStore) QueryEdgesBySourceOrTarget(chunkID int64, reverse bool) ([]struct {
+	ID       int64
+	FilePath string
+}, error) {
+	var rows *sql.Rows
+	var err error
+
+	if reverse {
+		rows, err = s.db.Query(`SELECT e.source_id, c.file_path FROM edges e
+			JOIN chunks c ON c.id = e.source_id
+			WHERE e.target_id = ?`, chunkID)
+	} else {
+		rows, err = s.db.Query(`SELECT e.target_id, c.file_path FROM edges e
+			JOIN chunks c ON c.id = e.target_id
+			WHERE e.source_id = ?`, chunkID)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []struct {
+		ID       int64
+		FilePath string
+	}
+	for rows.Next() {
+		var id int64
+		var filePath string
+		if err := rows.Scan(&id, &filePath); err != nil {
+			continue
+		}
+		results = append(results, struct {
+			ID       int64
+			FilePath string
+		}{ID: id, FilePath: filePath})
+	}
+	return results, nil
+}
+
+// QueryModuleByPath looks up a module by its path (fallback for dependency lookup).
+func (s *SQLiteStore) QueryModuleByPath(path string) (*ModuleMeta, error) {
+	mm := &ModuleMeta{}
+	err := s.db.QueryRow(`
+		SELECT name, path, purpose, owner, bus_factor, files_count, loc, is_hotspot
+		FROM modules WHERE path = ?`, path,
+	).Scan(&mm.Name, &mm.Path, &mm.Purpose, &mm.Owner,
+		&mm.BusFactor, &mm.FilesCount, &mm.Loc, &mm.IsHotspot)
+	if err != nil {
+		return nil, err
+	}
+	return mm, nil
+}
+
+// ── FTS Search Support Methods ────────────────────────────────────────────
+
+// FTS5Search performs a full-text search using BM25 scoring and returns ranked chunk IDs with scores.
+func (s *SQLiteStore) FTS5Search(query string, limit int) ([]struct {
+	ChunkID int64
+	Score   float64
+}, error) {
+	rows, err := s.db.Query(`
+		SELECT rowid, bm25(chunks_fts) AS score
+		FROM chunks_fts
+		WHERE chunks_fts MATCH ?
+		ORDER BY score
+		LIMIT ?`, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []struct {
+		ChunkID int64
+		Score   float64
+	}
+	for rows.Next() {
+		var id int64
+		var score float64
+		if err := rows.Scan(&id, &score); err != nil {
+			continue
+		}
+		results = append(results, struct {
+			ChunkID int64
+			Score   float64
+		}{ChunkID: id, Score: score})
+	}
+	return results, nil
+}
+
+// FTS5ExactSearchWithChunks performs an exact FTS5 keyword search and returns full SearchResult structs.
+// This avoids N+1 queries by joining chunks with chunks_fts.
+func (s *SQLiteStore) FTS5ExactSearchWithChunks(query string, limit int) ([]SearchResult, error) {
+	rows, err := s.db.Query(`
+		SELECT c.id, c.file_path, c.symbol_name, c.kind, c.scope, c.language,
+			c.line_start, c.line_end, c.content, c.description, c.pagerank, c.hash,
+			bm25(chunks_fts) AS score
+		FROM chunks_fts f
+		JOIN chunks c ON c.id = f.rowid
+		WHERE f.chunks_fts MATCH ?
+		ORDER BY score
+		LIMIT ?`, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return scanSearchResultsFromRows(rows, "fts")
+}
+
+// RegexSearchWithChunks performs a LIKE-based search for pattern matching and returns full SearchResult structs.
+func (s *SQLiteStore) RegexSearchWithChunks(pattern string, limit int) ([]SearchResult, error) {
+	rows, err := s.db.Query(`
+		SELECT id, file_path, symbol_name, kind, scope, language,
+			line_start, line_end, content, description, pagerank, hash,
+			1.0 AS score
+		FROM chunks
+		WHERE symbol_name LIKE ? OR content LIKE ?
+		LIMIT ?`, pattern, pattern, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return scanSearchResultsFromRows(rows, "fts")
+}
+
+// scanSearchResultsFromRows reads rows into SearchResult slice.
+// Helper function used by FTS and regex search methods.
+func scanSearchResultsFromRows(rows *sql.Rows, matchSrc string) ([]SearchResult, error) {
+	var results []SearchResult
+	for rows.Next() {
+		var c Chunk
+		var score float64
+		err := rows.Scan(
+			&c.ID, &c.FilePath, &c.SymbolName, &c.Kind, &c.Scope,
+			&c.Language, &c.LineStart, &c.LineEnd, &c.Content,
+			&c.Description, &c.PageRank, &c.Hash, &score,
+		)
+		if err != nil {
+			continue
+		}
+		results = append(results, SearchResult{
+			Chunk:    c,
+			Score:    score,
+			MatchSrc: matchSrc,
+		})
+	}
+	return results, nil
 }

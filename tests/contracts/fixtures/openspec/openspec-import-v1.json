@@ -1,0 +1,149 @@
+{
+  "spec_version": "v1.0",
+  "import_id": "990e8400-e29b-41d4-a716-446655440002",
+  "timestamp": "2026-04-26T10:00:00Z",
+  "source_metadata": {
+    "source_type": "openspec",
+    "source_location": "https://github.com/example/openspec-proposals/blob/main/proposals/f068-contracts.md",
+    "source_hash": "a3d5e9f4b2c1d8a6e7f4b3c2d1a9e8f7c6b5d4a3e2f1a9b8c7d6e5f4a3b2c1d",
+    "source_version": "v1.2.0",
+    "fetch_timestamp": "2026-04-26T09:55:00Z"
+  },
+  "mapping_confidence": {
+    "overall_score": 0.92,
+    "confidence_level": "high",
+    "field_scores": {
+      "proposal_title": 1.0,
+      "spec_requirements": 0.95,
+      "design_components": 0.88,
+      "task_dependencies": 0.85
+    },
+    "reasoning": "High confidence mapping due to clear OpenSpec v1 format and complete metadata"
+  },
+  "unresolved_ambiguities": [
+    {
+      "ambiguity_type": "field_mapping",
+      "description": "OpenSpec 'acceptance_criteria' field could map to SDP 'acceptance_criteria' or 'validation_rules'",
+      "affected_fields": ["proposal.acceptance_criteria"],
+      "resolution_hint": "Default to 'acceptance_criteria', create 'validation_rules' only if explicit validation rules are present",
+      "requires_human_review": false
+    }
+  ],
+  "artifacts": {
+    "proposal": {
+      "content": {
+        "title": "Unified Integration Contracts for SDP",
+        "description": "Define versioned protocol contracts for orchestration and runtime decisions",
+        "motivation": "Current integrations use ad-hoc contracts leading to compatibility issues",
+        "status": "accepted"
+      },
+      "format": "openspec-v1",
+      "source_path": "proposals/f068-contracts.md",
+      "metadata": {
+        "author": "SDP Team",
+        "created_at": "2026-04-01T00:00:00Z",
+        "open_spec_version": "1.0"
+      }
+    },
+    "spec": {
+      "content": {
+        "requirements": [
+          {
+            "id": "REQ-001",
+            "text": "OrchestrationEvent contract must support versioning",
+            "priority": "P1"
+          },
+          {
+            "id": "REQ-002",
+            "text": "RuntimeDecision contract must support allow/ask/deny semantics",
+            "priority": "P1"
+          }
+        ],
+        "version": "1.0"
+      },
+      "format": "openspec-spec-delta",
+      "source_path": "specs/f068-spec.yaml",
+      "metadata": {
+        "spec_type": "delta",
+        "base_version": "0.9"
+      }
+    },
+    "design": {
+      "content": {
+        "diagram": "```mermaid\ngraph TD\n    A[OMO Adapter] -->|OrchestrationEvent| B[SDP Event Bus]\n    C[Gas Town] -->|RuntimeDecision| B\n    B --> D[SDP Core]\n```",
+        "components": [
+          {
+            "name": "Event Bus",
+            "responsibility": "Route events between adapters and SDP core"
+          },
+          {
+            "name": "Contract Validator",
+            "responsibility": "Validate events against JSON schemas"
+          }
+        ]
+      },
+      "format": "mermaid",
+      "source_path": "design/f068-architecture.mmd",
+      "diagram_type": "architecture",
+      "metadata": {
+        "tool": "Mermaid Live Editor",
+        "version": "10.0"
+      }
+    },
+    "tasks": [
+      {
+        "task_id": "F068-01",
+        "content": {
+          "title": "Create OrchestrationEvent contract schema",
+          "description": "Define JSON Schema for OrchestrationEvent with versioning fields",
+          "status": "backlog"
+        },
+        "format": "openspec-task-v1",
+        "source_path": "tasks/f068-01.md",
+        "dependencies": [],
+        "metadata": {
+          "size": "M",
+          "priority": "P1"
+        }
+      },
+      {
+        "task_id": "F068-02",
+        "content": {
+          "title": "Create RuntimeDecision contract schema",
+          "description": "Define JSON Schema for RuntimeDecision with allow/ask/deny semantics",
+          "status": "backlog"
+        },
+        "format": "openspec-task-v1",
+        "source_path": "tasks/f068-02.md",
+        "dependencies": ["F068-01"],
+        "metadata": {
+          "size": "M",
+          "priority": "P1"
+        }
+      }
+    ]
+  },
+  "import_options": {
+    "create_workstreams": true,
+    "update_existing": true,
+    "validate_contracts": true,
+    "dry_run": false,
+    "target_feature": "F068"
+  },
+  "validation_results": {
+    "is_valid": true,
+    "validation_errors": [],
+    "validated_at": "2026-04-26T10:00:05Z"
+  },
+  "context": {
+    "workstream_id": "00-068-05",
+    "feature_id": "F068",
+    "session_id": "ses-import-123",
+    "import_chain_id": "chain-f068-imports",
+    "git_context": {
+      "branch": "feature/F068-openspec-import",
+      "commit_sha": "c3d4e5f6a7b8",
+      "repo_url": "https://github.com/fall-out-bug/sdp_lab"
+    }
+  }
+}

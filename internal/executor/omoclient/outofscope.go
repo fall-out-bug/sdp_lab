@@ -3,7 +3,8 @@ package omoclient
 import (
 	"context"
 	"fmt"
-	"path/filepath"
+
+	"sdp_dev/internal/glob"
 )
 
 // OutOfScopeReport contains scope check results
@@ -14,32 +15,19 @@ type OutOfScopeReport struct {
 
 // OutOfScopeChecker validates files against allowed/denied glob patterns
 type OutOfScopeChecker struct {
-	AllowedFiles []string
-	DeniedFiles  []string
+	allowedMatcher *glob.Matcher
+	deniedMatcher  *glob.Matcher
 }
 
-// NewOutOfScopeChecker creates a new scope checker
+// NewOutOfScopeChecker creates a new scope checker with pre-compiled matchers
 func NewOutOfScopeChecker(allowed, denied []string) *OutOfScopeChecker {
 	return &OutOfScopeChecker{
-		AllowedFiles: allowed,
-		DeniedFiles:  denied,
+		allowedMatcher: glob.NewMatcher(allowed),
+		deniedMatcher:  glob.NewMatcher(denied),
 	}
 }
 
-// globMatch tries pattern against both full path and basename.
-func globMatch(pattern, path string) bool {
-	normalized := filepath.ToSlash(path)
-	if m, err := filepath.Match(pattern, normalized); err == nil && m {
-		return true
-	}
-	base := filepath.Base(path)
-	if m, err := filepath.Match(pattern, base); err == nil && m {
-		return true
-	}
-	return false
-}
-
-// Check validates actual files against allowed/denied patterns
+// Check validates actual files against allowed/denied patterns using optimized matchers
 func (c *OutOfScopeChecker) Check(ctx context.Context, actualFiles []string) OutOfScopeReport {
 	report := OutOfScopeReport{
 		Violations: []string{},
@@ -51,37 +39,23 @@ func (c *OutOfScopeChecker) Check(ctx context.Context, actualFiles []string) Out
 	}
 
 	for _, file := range actualFiles {
-		denied := false
-		for _, pattern := range c.DeniedFiles {
-			if globMatch(pattern, file) {
-				report.Violations = append(report.Violations, fmt.Sprintf("%s matches denied pattern: %s", file, pattern))
-				denied = true
+		// Check denied patterns first
+		if c.deniedMatcher != nil {
+			if matched := c.deniedMatcher.MatchAnyPattern(file); matched != "" {
+				report.Violations = append(report.Violations, fmt.Sprintf("%s matches denied pattern: %s", file, matched))
 				report.Clean = false
-				break
+				continue
 			}
 		}
 
-		if denied {
-			continue
-		}
-
-		if len(c.AllowedFiles) == 0 {
+		// Check allowed patterns
+		if c.allowedMatcher == nil || len(c.allowedMatcher.Patterns()) == 0 {
 			// Empty allowed list = deny all
 			report.Violations = append(report.Violations, fmt.Sprintf("%s not in allowed patterns (empty allow list)", file))
 			report.Clean = false
-		} else {
-			allowed := false
-			for _, pattern := range c.AllowedFiles {
-				if globMatch(pattern, file) {
-					allowed = true
-					break
-				}
-			}
-
-			if !allowed {
-				report.Violations = append(report.Violations, fmt.Sprintf("%s not in allowed patterns", file))
-				report.Clean = false
-			}
+		} else if !c.allowedMatcher.MatchAny(file) {
+			report.Violations = append(report.Violations, fmt.Sprintf("%s not in allowed patterns", file))
+			report.Clean = false
 		}
 	}
 

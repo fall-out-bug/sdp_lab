@@ -12,6 +12,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"sdp_dev/internal/glob"
 	"sdp_dev/internal/strataudit/model"
 )
 
@@ -24,8 +25,14 @@ func Ingest(ctx context.Context, cfg *Config, store *SQLiteStore) (*IngestResult
 	}
 
 	result := &IngestResult{}
-	sortedLevels := buildSortedLevels(cfg.Levels)
 	registry := NewExtractorRegistry(cfg)
+
+	// Pre-compile exclusion patterns for performance
+	excludeMatcher := glob.NewMatcher(cfg.Project.Exclude)
+	excludeMatcherCI := glob.NewCaseInsensitiveMatcher(cfg.Project.Exclude)
+
+	// Build optimized level matchers (includes sorting)
+	levelMatchers := buildLevelMatchers(cfg.Levels)
 
 	for _, srcDir := range cfg.Project.SourceDirs {
 		absDir, err := filepath.Abs(srcDir)
@@ -43,7 +50,7 @@ func Ingest(ctx context.Context, cfg *Config, store *SQLiteStore) (*IngestResult
 			if d.IsDir() {
 				return nil
 			}
-			if isExcluded(path, cfg.Project.Exclude) {
+			if isExcludedOptimized(path, excludeMatcher, excludeMatcherCI) {
 				return nil
 			}
 			if !registry.CanHandle(filepath.Ext(path)) {
@@ -65,7 +72,7 @@ func Ingest(ctx context.Context, cfg *Config, store *SQLiteStore) (*IngestResult
 				return nil
 			}
 
-			doc, status, err := processFile(ctx, cfg, store, path, sortedLevels, registry)
+			doc, status, err := processFile(ctx, cfg, store, path, levelMatchers, registry)
 			if err != nil {
 				result.Errors = append(result.Errors, fmt.Errorf("%s: %w", path, err))
 				return nil
@@ -108,7 +115,7 @@ type IngestResult struct {
 	Errors    []error
 }
 
-func processFile(ctx context.Context, cfg *Config, store *SQLiteStore, path string, sortedLevels []LevelConfig, registry *ExtractorRegistry) (*model.Document, docStatus, error) {
+func processFile(ctx context.Context, cfg *Config, store *SQLiteStore, path string, levelMatchers []sortedLevel, registry *ExtractorRegistry) (*model.Document, docStatus, error) {
 	// Read file
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -141,7 +148,7 @@ func processFile(ctx context.Context, cfg *Config, store *SQLiteStore, path stri
 	}
 
 	// Classify level
-	levelID := classifyLevel(path, sortedLevels)
+	levelID := classifyLevelOptimized(path, levelMatchers)
 	if levelID == "" {
 		return nil, "", nil // no matching level
 	}
@@ -182,46 +189,6 @@ func processFile(ctx context.Context, cfg *Config, store *SQLiteStore, path stri
 	}
 
 	return &doc, status, nil
-}
-
-// classifyLevel matches file path against level glob patterns.
-// When multiple levels match, the one with the lowest rank wins (more strategic = higher priority).
-// Iteration is deterministic because levels are sorted by rank.
-func classifyLevel(path string, levels []LevelConfig) string {
-	base := filepath.Base(path)
-	matchedRank := -1
-	matchedName := ""
-
-	for _, level := range levels {
-		for _, pattern := range level.Patterns {
-			matched := false
-			if m, _ := filepath.Match(pattern, base); m {
-				matched = true
-			} else if m, _ := filepath.Match(pattern, path); m {
-				matched = true
-			} else if m, _ := filepath.Match(strings.ToLower(pattern), strings.ToLower(base)); m {
-				matched = true
-			}
-			if matched {
-				if matchedRank == -1 || level.Rank < matchedRank {
-					matchedRank = level.Rank
-					matchedName = level.Name
-				}
-				break // one match per level is enough
-			}
-		}
-	}
-	return matchedName
-}
-
-// buildSortedLevels returns levels sorted by rank (ascending) for deterministic classification.
-func buildSortedLevels(levels []LevelConfig) []LevelConfig {
-	sorted := make([]LevelConfig, len(levels))
-	copy(sorted, levels)
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].Rank < sorted[j].Rank
-	})
-	return sorted
 }
 
 // extractText dispatches to format-specific extractors.
@@ -351,40 +318,6 @@ func cfgToLevels(cfg *Config) []model.Level {
 	return levels
 }
 
-func isExcluded(path string, patterns []string) bool {
-	cleanPath := filepath.Clean(path)
-	segments := strings.Split(cleanPath, string(os.PathSeparator))
-
-	for _, p := range patterns {
-		if matched, _ := filepath.Match(p, filepath.Base(cleanPath)); matched {
-			return true
-		}
-		if matched, _ := filepath.Match(strings.ToLower(p), strings.ToLower(filepath.Base(cleanPath))); matched {
-			return true
-		}
-
-		for _, segment := range segments {
-			if matched, _ := filepath.Match(p, segment); matched {
-				return true
-			}
-			if matched, _ := filepath.Match(strings.ToLower(p), strings.ToLower(segment)); matched {
-				return true
-			}
-		}
-
-		// Handle glob with path separators against the full normalized path.
-		if strings.Contains(p, "/") || strings.Contains(p, string(os.PathSeparator)) {
-			if matched, _ := filepath.Match(p, cleanPath); matched {
-				return true
-			}
-			if matched, _ := filepath.Match(strings.ToLower(p), strings.ToLower(cleanPath)); matched {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func isSupportedExt(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
@@ -395,6 +328,107 @@ func isSupportedExt(path string) bool {
 }
 
 // PDF and DOCX extraction stubs — minimal implementations for v1
+
+// sortedLevel wraps a LevelConfig with pre-compiled matchers for performance.
+type sortedLevel struct {
+	Level            LevelConfig
+	PatternMatcher   *glob.Matcher
+	PatternMatcherCI *glob.CaseInsensitiveMatcher
+}
+
+// buildLevelMatchers creates sortedLevel structs with pre-compiled matchers.
+func buildLevelMatchers(levels []LevelConfig) []sortedLevel {
+	sorted := make([]sortedLevel, len(levels))
+	for i, level := range levels {
+		patterns := level.Patterns
+		sorted[i] = sortedLevel{
+			Level:            level,
+			PatternMatcher:   glob.NewMatcher(patterns),
+			PatternMatcherCI: glob.NewCaseInsensitiveMatcher(patterns),
+		}
+	}
+	// Sort by rank (ascending) for deterministic classification
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].Level.Rank < sorted[j].Level.Rank
+	})
+	return sorted
+}
+
+// isExcludedOptimized checks if a path matches any exclusion pattern using pre-compiled matchers.
+// It handles basename matching, full path matching, and individual segment matching (for directory exclusions).
+func isExcludedOptimized(path string, matcher *glob.Matcher, matcherCI *glob.CaseInsensitiveMatcher) bool {
+	cleanPath := filepath.Clean(path)
+
+	// Check basename
+	base := filepath.Base(cleanPath)
+	if matcher != nil && matcher.MatchAny(base) {
+		return true
+	}
+	if matcherCI != nil && matcherCI.Match(base) {
+		return true
+	}
+
+	// Check full path
+	if matcher != nil && matcher.MatchAny(cleanPath) {
+		return true
+	}
+	if matcherCI != nil && matcherCI.Match(cleanPath) {
+		return true
+	}
+
+	// Check individual segments (for directory exclusions like "Downloads")
+	segments := strings.Split(cleanPath, string(os.PathSeparator))
+	for _, segment := range segments {
+		if matcher != nil && matcher.MatchAny(segment) {
+			return true
+		}
+		if matcherCI != nil && matcherCI.Match(segment) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// classifyLevelOptimized matches file path against level glob patterns using pre-compiled matchers.
+// When multiple levels match, the one with the lowest rank wins (more strategic = higher priority).
+// Iteration is deterministic because levels are sorted by rank.
+func classifyLevelOptimized(path string, levels []sortedLevel) string {
+	base := filepath.Base(path)
+	matchedRank := -1
+	matchedName := ""
+
+	for _, level := range levels {
+		// Try case-sensitive match against basename
+		if level.PatternMatcher != nil && level.PatternMatcher.MatchAny(base) {
+			if matchedRank == -1 || level.Level.Rank < matchedRank {
+				matchedRank = level.Level.Rank
+				matchedName = level.Level.Name
+			}
+			continue // Next level
+		}
+
+		// Try case-sensitive match against full path
+		if level.PatternMatcher != nil && level.PatternMatcher.MatchAny(path) {
+			if matchedRank == -1 || level.Level.Rank < matchedRank {
+				matchedRank = level.Level.Rank
+				matchedName = level.Level.Name
+			}
+			continue // Next level
+		}
+
+		// Try case-insensitive match against basename
+		if level.PatternMatcherCI != nil && level.PatternMatcherCI.Match(base) {
+			if matchedRank == -1 || level.Level.Rank < matchedRank {
+				matchedRank = level.Level.Rank
+				matchedName = level.Level.Name
+			}
+			continue // Next level
+		}
+	}
+
+	return matchedName
+}
 
 func extractPDF(data []byte) (string, error) {
 	// v1: basic text extraction attempt using ledongthuc/pdf
