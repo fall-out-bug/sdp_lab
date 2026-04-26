@@ -25,6 +25,22 @@ type CapabilityProfile struct {
 	UpdatedAt    string                     `json:"updated_at,omitempty"`
 }
 
+// HasCapability reports whether any capability key contains hint as a prefix segment.
+// e.g. HasCapability("go-backend") matches keys like "go-backend:go".
+// It also matches if any key is exactly hint or starts with hint+":".
+func (p *CapabilityProfile) HasCapability(hint string) bool {
+	if p.Capabilities == nil || hint == "" {
+		return false
+	}
+	prefix := hint + ":"
+	for key := range p.Capabilities {
+		if key == hint || len(key) >= len(prefix) && key[:len(prefix)] == prefix {
+			return true
+		}
+	}
+	return false
+}
+
 // ScoreFor returns the TestPassRate for the given taskType and language combination.
 // Returns 0 if no data exists for that combination.
 func (p *CapabilityProfile) ScoreFor(taskType, language string) float64 {
