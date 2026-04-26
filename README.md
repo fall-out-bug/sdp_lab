@@ -181,10 +181,10 @@ Standalone binary for validating and inspecting evidence envelopes. No K8s depen
 
 ```bash
 # Linux amd64
-curl -sSL https://github.com/OWNER/REPO/releases/download/v0.1.0/sdp-evidence_0.1.0_linux_amd64.tar.gz | tar xz -C /usr/local/bin
+curl -sSL https://github.com/fall-out-bug/sdp_lab/releases/download/v0.1.0/sdp-evidence_0.1.0_linux_amd64.tar.gz | tar xz -C /usr/local/bin
 
 # macOS (darwin/arm64)
-curl -sSL https://github.com/OWNER/REPO/releases/download/v0.1.0/sdp-evidence_0.1.0_darwin_arm64.tar.gz | tar xz -C /usr/local/bin
+curl -sSL https://github.com/fall-out-bug/sdp_lab/releases/download/v0.1.0/sdp-evidence_0.1.0_darwin_arm64.tar.gz | tar xz -C /usr/local/bin
 ```
 
 **From source:**

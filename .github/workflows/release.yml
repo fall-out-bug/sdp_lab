@@ -30,6 +30,15 @@ jobs:
           chmod +x cosign-linux-amd64
           sudo mv cosign-linux-amd64 /usr/local/bin/cosign
 
+      - name: Validate release surface consistency
+        run: |
+          set -euo pipefail
+          echo "=== Pre-release surface validation ==="
+          scripts/check-version-drift.sh
+          scripts/check-public-metadata.sh
+          scripts/check-release-surface.sh
+          echo "All release surface checks passed."
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:

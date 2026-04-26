@@ -132,7 +132,7 @@ Some ideas in the lab. No promises, no timelines. Just interesting problems:
 - **Cross-project federation** — one evidence layer serving multiple repos. Hard. Interesting.
 - **Telemetry-driven backlog** — LLM analysis of run patterns that auto-generates improvement issues.
 
-These live in [`sdp_dev`](https://github.com/fall-out-bug/sdp_dev) — our research playground. It's private for now, but we're happy to invite people who want to play with these ideas together. Just open an issue in the main repo and say hi.
+These live in [`sdp_lab`](https://github.com/fall-out-bug/sdp_lab) — our research playground. It's private for now, but we're happy to invite people who want to play with these ideas together. Just open an issue in the main repo and say hi.
 
 ## The Honest Numbers
 
