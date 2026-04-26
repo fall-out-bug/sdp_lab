@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"sdp_dev/internal/dispatch/harness"
 )
@@ -25,8 +26,7 @@ func TestOllamaProvider_Models_FromFixture(t *testing.T) {
 
 	// Create a provider with injected command runner
 	cmdOutput := string(fixtureData)
-	p := NewOllamaProvider("")
-	p.SetCmdRunner(func(ctx context.Context, name string, args ...string) ([]byte, error) {
+	p := NewOllamaProviderWithRunner("", func(ctx context.Context, name string, args ...string) ([]byte, error) {
 		// Simulate successful ollama list command
 		if name == "ollama" && len(args) > 0 && args[0] == "list" {
 			return []byte(cmdOutput), nil
@@ -58,8 +58,7 @@ func TestOllamaProvider_Models_FromFixture(t *testing.T) {
 }
 
 func TestOllamaProvider_CheckLimits_Unlimited(t *testing.T) {
-	p := NewOllamaProvider("")
-	p.SetCmdRunner(func(ctx context.Context, name string, args ...string) ([]byte, error) {
+	p := NewOllamaProviderWithRunner("", func(ctx context.Context, name string, args ...string) ([]byte, error) {
 		return nil, nil
 	})
 
@@ -87,8 +86,7 @@ func TestOllamaProvider_CheckLimits_Unlimited(t *testing.T) {
 func TestOllamaProvider_Models_Cached(t *testing.T) {
 	// Track how many times the command is called
 	callCount := 0
-	p := NewOllamaProvider("")
-	p.SetCmdRunner(func(ctx context.Context, name string, args ...string) ([]byte, error) {
+	p := NewOllamaProviderWithRunner("", func(ctx context.Context, name string, args ...string) ([]byte, error) {
 		if name == "ollama" && len(args) > 0 && args[0] == "list" {
 			callCount++
 			return []byte("NAME                       ID              SIZE      MODIFIED\ntest-model:1b              abc123          1.0 GB    1 day ago"), nil
@@ -145,8 +143,7 @@ func TestOllamaProvider_ImplementsProvider(t *testing.T) {
 // Test cache TTL expiration (simplified — with injectable clock would be better)
 func TestOllamaProvider_Models_Stale(t *testing.T) {
 	callCount := 0
-	p := NewOllamaProvider("")
-	p.SetCmdRunner(func(ctx context.Context, name string, args ...string) ([]byte, error) {
+	p := NewOllamaProviderWithRunner("", func(ctx context.Context, name string, args ...string) ([]byte, error) {
 		if name == "ollama" && len(args) > 0 && args[0] == "list" {
 			callCount++
 			return []byte("NAME                       ID              SIZE      MODIFIED\nstale:1b                   def456          1.0 GB    now"), nil
@@ -163,7 +160,7 @@ func TestOllamaProvider_Models_Stale(t *testing.T) {
 	// Artificially expire cache by forcing a wait past TTL
 	// For now, just verify the mechanism doesn't crash
 	// A real test would use a clock mock
-	p.SetCmdRunner(func(ctx context.Context, name string, args ...string) ([]byte, error) {
+	p = NewOllamaProviderWithRunner("", func(ctx context.Context, name string, args ...string) ([]byte, error) {
 		if name == "ollama" && len(args) > 0 && args[0] == "list" {
 			callCount++
 			return []byte("NAME                       ID              SIZE      MODIFIED\nfresh:1b                   ghi789          1.0 GB    now"), nil
@@ -178,3 +175,36 @@ func TestOllamaProvider_Models_Stale(t *testing.T) {
 		t.Error("Models() returned empty after second call")
 	}
 }
+
+// Test context timeout: Models() should return empty list on timeout
+func TestOllamaProvider_Models_Timeout(t *testing.T) {
+	p := NewOllamaProviderWithRunner("", func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		// Simulate a hung process by selecting on context cancellation
+		// When the 5-second timeout fires, ctx.Done() closes and we return error
+		<-ctx.Done()
+		return nil, ctx.Err()
+	})
+
+	// Models() should return within ~6 seconds (5s timeout + margin)
+	done := make(chan []string)
+	go func() {
+		done <- p.Models()
+	}()
+
+	start := time.Now()
+	select {
+	case models := <-done:
+		elapsed := time.Since(start)
+		// Should return empty list on timeout
+		if len(models) != 0 {
+			t.Errorf("expected empty list on timeout, got %d models", len(models))
+		}
+		// Verify it returned quickly (within ~6 seconds due to 5s timeout)
+		if elapsed > 7*time.Second {
+			t.Errorf("expected quick return on timeout, took %v", elapsed)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("Models() did not return within 10 seconds (timeout not enforced)")
+	}
+}
+
