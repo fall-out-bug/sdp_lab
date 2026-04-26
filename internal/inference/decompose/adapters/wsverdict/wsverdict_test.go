@@ -47,6 +47,11 @@ var diffFail = wsverdict.Diff{WSID: "00-146-03", DiffText: "-func Core()", Conte
 // Decomposed pipeline tests (F146-04)
 // =====================================================
 
+// noMicro returns a DecomposedRunner with MicroFirst disabled, for testing the raw LLM pipeline.
+func noMicro(mock *mockLLM) *wsverdict.DecomposedRunner {
+	return wsverdict.NewDecomposedRunnerWithOpts(mock, wsverdict.DecomposedRunnerOptions{MicroFirst: false})
+}
+
 // Fixture 1: clean diff → passed verdict.
 func TestDecomposed_Clean_Passed(t *testing.T) {
 	mock := &mockLLM{responses: []string{
@@ -55,7 +60,7 @@ func TestDecomposed_Clean_Passed(t *testing.T) {
 		aggPassed,    // stage 3: aggregate
 	}}
 
-	runner := wsverdict.NewDecomposedRunner(mock)
+	runner := noMicro(mock)
 	res, err := runner.Run(context.Background(), diffClean)
 	require.NoError(t, err)
 	assert.Equal(t, decompose.StatusOK, res.Status)
@@ -75,7 +80,7 @@ func TestDecomposed_Mixed_Partial(t *testing.T) {
 		aggPartial,
 	}}
 
-	runner := wsverdict.NewDecomposedRunner(mock)
+	runner := noMicro(mock)
 	res, err := runner.Run(context.Background(), diffMixed)
 	require.NoError(t, err)
 	assert.Equal(t, "partial", res.Answer.Verdict)
@@ -90,7 +95,7 @@ func TestDecomposed_Fail_Failed(t *testing.T) {
 		aggFailed,
 	}}
 
-	runner := wsverdict.NewDecomposedRunner(mock)
+	runner := noMicro(mock)
 	res, err := runner.Run(context.Background(), diffFail)
 	require.NoError(t, err)
 	assert.Equal(t, "failed", res.Answer.Verdict)
@@ -106,7 +111,7 @@ func TestDecomposed_ExtractRetry(t *testing.T) {
 		aggPassed,
 	}}
 
-	runner := wsverdict.NewDecomposedRunner(mock)
+	runner := noMicro(mock)
 	res, err := runner.Run(context.Background(), diffClean)
 	require.NoError(t, err)
 	assert.Equal(t, "passed", res.Answer.Verdict)
@@ -120,7 +125,7 @@ func TestDecomposed_ClassifyAbort(t *testing.T) {
 		"uncertain", // invalid enum value
 	}}
 
-	runner := wsverdict.NewDecomposedRunner(mock)
+	runner := noMicro(mock)
 	_, err := runner.Run(context.Background(), diffClean)
 	require.Error(t, err)
 }
@@ -133,7 +138,7 @@ func TestDecomposed_AggregateFallback(t *testing.T) {
 		"not valid json", // aggregate fails
 	}}
 
-	runner := wsverdict.NewDecomposedRunner(mock)
+	runner := noMicro(mock)
 	res, err := runner.Run(context.Background(), diffClean)
 	require.NoError(t, err) // Fallback = no error
 	assert.Equal(t, decompose.StatusFail, res.Status)
@@ -222,7 +227,7 @@ func TestDecomposed_AggregateInvalidVerdict(t *testing.T) {
 		"passed",
 		`{"verdict":"unknown","score":0.5,"summary":"test","blocking_gates":[]}`,
 	}}
-	runner := wsverdict.NewDecomposedRunner(mock)
+	runner := noMicro(mock) // disable micro gate to exercise aggregate fallback path
 	_, err := runner.Run(context.Background(), diffClean)
 	// Fallback absorbs the error — runner returns no error but status FAIL.
 	require.NoError(t, err)
