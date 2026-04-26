@@ -160,14 +160,43 @@ PHASE 2: PR CREATION
   5. Record `pr_number` in checkpoint
 
 PHASE 3: CODEX REVIEW LOOP (max 4 cycles, max 2h wallclock, stable-N=2)
+
+  **HARD RULE — DO NOT IMPROVISE A SKIP.** Phase 3 is required by default.
+  The ONLY supported way to skip codex review is the operator override
+  `.sdp/delivery.yaml { phases: [{ name: codex, enabled: false }] }`. If
+  the override is not present, you MUST run the loop. You MUST NOT mark
+  the phase SKIPPED for any of these reasons:
+    - "codex model availability"
+    - "spark not supported" / "gpt-5.x too slow" / "no model works"
+    - "codex command failed" (that means retry, not skip)
+    - "running it would take too long" (the budget is 2h wallclock —
+      the loop self-terminates without inventing a reason)
+  If the codex command exits non-zero or returns invalid JSON: log the
+  exact stderr, sleep with the backoff in step 5, retry. After 4 cycles
+  or 2h, exit the loop honestly with phase_status=exhausted and emit
+  the last error. Do not pretend the phase succeeded; do not pretend
+  the phase was skippable.
+
+  Default invocation passes no `--model` flag; the rescue command picks
+  the best available model. Override with `--model spark` explicitly
+  only when the operator asks. Do not pre-select a model and then
+  declare it unavailable.
+
   repeat:
     1. scripts/sdp-dispatch.sh codex_review "Review PR #${PR}. Steps: (1) read all changed files, (2) run ./scripts/run_go_quality_gates.sh, (3) emit JSON {tests_passed: bool, findings: [{file, line, rule, symbol, severity, msg}]}. Do not skip tests."
-    2. Parse codex JSON output
+    2. Parse codex JSON output. If parse fails or stderr non-empty, log both verbatim and proceed to step 5 retry.
     3. Dedupe findings against prior cycle by hash(rule + symbol_path + normalized_snippet). NOT file:line:rule — line shifts invalidate naive hashes.
     4. Mark findings absent for ≥2 consecutive cycles as "non-reproducible candidate" — these are NEVER auto-closed at v1. They enter **manual Phase-4 triage**: the operator sees the list in Phase 4 and decides close vs re-raise. (Technician minority: rename this to "auto-close" only if/when an AST-unchanged check lands — see §7.3 of the design doc.)
     5. If zero NEW findings + tests pass → consecutive_clean_cycles++. Break when consecutive_clean_cycles == 2.
     6. Else: dispatch @fix per finding (haiku/sonnet; timeout 15m), run gates locally, `git push`.
+       Backoff between cycles: 30s / 2m / 5m / 10m.
   until: 2 consecutive clean cycles, OR cycle=4 hit, OR 2h wallclock hit
+
+  **On exit, write to checkpoint:**
+    phase_status: "done"      → loop converged (2 clean cycles)
+    phase_status: "exhausted" → cycle/wallclock budget hit
+    phase_status: "skipped"   → ONLY if .sdp/delivery.yaml override disables phase
+    phase_status: "error"     → something else; capture exact error, do not invent
 
 PHASE 4: CLOSEOUT
   1. Confirm merge: `gh pr view ${PR} --json state -q .state == "MERGED"`
