@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -163,14 +164,12 @@ func (c *Client) send(req *trace.DaemonRequest) (*trace.DaemonResponse, error) {
 
 // binaryRead reads a binary value
 func binaryRead(r io.Reader, v interface{}) error {
-	// For MVP, simplified
-	return nil
+	return binary.Read(r, binary.BigEndian, v)
 }
 
 // binaryWrite writes a binary value
 func binaryWrite(w io.Writer, v interface{}) error {
-	// For MVP, simplified
-	return nil
+	return binary.Write(w, binary.BigEndian, v)
 }
 
 // FindSocketPath finds the trace daemon socket path for the current session

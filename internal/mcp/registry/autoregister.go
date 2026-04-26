@@ -163,10 +163,37 @@ func convertRequestToArgs(req mcp.CallToolRequest, commandPath string) ([]string
 
 			// Add value if not boolean
 			if boolVal, ok := value.(bool); !ok || !boolVal {
-				args = append(args, fmt.Sprintf("%v", value))
+				valueStr := fmt.Sprintf("%v", value)
+
+				// Validate that argument values don't contain shell metacharacters
+				// to prevent command injection attacks
+				if containsShellMetacharacters(valueStr) {
+					return nil, fmt.Errorf("argument value for '%s' contains potentially dangerous characters: %s", key, valueStr)
+				}
+
+				args = append(args, valueStr)
 			}
 		}
 	}
 
 	return args, nil
+}
+
+// containsShellMetacharacters checks if a string contains shell metacharacters
+// that could be used for command injection attacks
+func containsShellMetacharacters(s string) bool {
+	// Check for common shell metacharacters
+	dangerousChars := []string{"|", ";", "&", "$", "`", "(", ")", "<", ">", "\n", "\r"}
+	for _, char := range dangerousChars {
+		if strings.Contains(s, char) {
+			return true
+		}
+	}
+
+	// Check for path traversal attempts
+	if strings.Contains(s, "..") {
+		return true
+	}
+
+	return false
 }

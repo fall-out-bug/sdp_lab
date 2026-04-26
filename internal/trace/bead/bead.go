@@ -1,10 +1,13 @@
 package bead
 
 import (
+	"crypto/rand"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
+	"time"
 )
 
 const (
@@ -206,7 +209,7 @@ func GetCurrentSessionID(projectRoot string) (string, error) {
 	// Generate new session ID
 	// For MVP, use simple format: sess_<timestamp>
 	// In production, would use crypto/rand or uuid
-	sessionID := fmt.Sprintf("sess_%d", os.Getpid())
+	sessionID := fmt.Sprintf("sess_%d_%d", os.Getpid(), time.Now().UnixNano())
 
 	// Ensure directory exists
 	if err := os.MkdirAll(filepath.Dir(sessionFile), 0755); err != nil {
@@ -245,11 +248,15 @@ func NewTraceIDGenerator() *TraceIDGenerator {
 // Generate generates a new trace ID
 // Format: 16-byte hexadecimal (32 hex characters)
 func (g *TraceIDGenerator) Generate() string {
-	// For MVP, use pid + timestamp as simple unique ID
-	// In production, would use crypto/rand
-	pid := g.pid
-	timestamp := os.Getpid() * 1000 // Placeholder
-	return fmt.Sprintf("%016x%016x", pid, timestamp)
+	// Use crypto/rand for unique IDs to avoid collisions
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback to time-based ID if crypto/rand fails
+		return fmt.Sprintf("%016x%016x", os.Getpid(), time.Now().UnixNano())
+	}
+	return fmt.Sprintf("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+		b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7],
+		b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15])
 }
 
 // SpanIDGenerator generates span IDs
@@ -267,7 +274,6 @@ func NewSpanIDGenerator() *SpanIDGenerator {
 // Generate generates a new span ID
 // Format: 8-byte hexadecimal (16 hex characters)
 func (g *SpanIDGenerator) Generate() string {
-	id := g.counter
-	g.counter++
+	id := atomic.AddUint64(&g.counter, 1)
 	return fmt.Sprintf("%016x", id)
 }

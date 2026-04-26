@@ -13,7 +13,7 @@
     },
     "feature_id": {
       "type": "string",
-      "pattern": "^F[0-9]{3}$",
+      "pattern": "^F[0-9]{3,4}$",
       "description": "Feature ID (e.g., F016)"
     },
     "branch": {

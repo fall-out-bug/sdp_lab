@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"bufio"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -295,15 +296,33 @@ func (d *Daemon) handleSpanEnd(req *trace.DaemonRequest) *trace.DaemonResponse {
 	var handle *trace.SpanHandle
 	var ok bool
 
+	// Try to lookup by tool_call_id first (preferred for concurrent tool calls)
 	if req.ToolCallID != "" {
-		// Lookup by tool_call_id (preferred for concurrent tool calls)
-		// Need trace_id too, but we can search all spans
-		// For MVP, use span_id from request
+		// Search all spans in registry to find matching tool_call_id
+		// Since registry key is "trace_id:tool_call_id", we need to search
+		d.registry.mu.RLock()
+		for _, h := range d.registry.spans {
+			// Key format is "trace_id:tool_call_id"
+			if h.ToolCallID == req.ToolCallID {
+				handle = h
+				ok = true
+				break
+			}
+		}
+		d.registry.mu.RUnlock()
 	}
 
-	if req.SpanID != "" {
-		// Direct span ID lookup
-		// For MVP, simplified - in production would have reverse index
+	// If not found by tool_call_id, try by span_id
+	if !ok && req.SpanID != "" {
+		d.registry.mu.RLock()
+		for _, h := range d.registry.spans {
+			if h.Span.SpanID == req.SpanID {
+				handle = h
+				ok = true
+				break
+			}
+		}
+		d.registry.mu.RUnlock()
 	}
 
 	if !ok || handle == nil {
@@ -467,14 +486,10 @@ func (d *Daemon) sendError(conn net.Conn, errMsg string) {
 
 // binaryRead reads a binary value in big-endian format
 func binaryRead(r io.Reader, v interface{}) error {
-	// For MVP, simplified implementation
-	// In production, would use binary.Read
-	return nil
+	return binary.Read(r, binary.BigEndian, v)
 }
 
 // binaryWrite writes a binary value in big-endian format
 func binaryWrite(w io.Writer, v interface{}) error {
-	// For MVP, simplified implementation
-	// In production, would use binary.Write
-	return nil
+	return binary.Write(w, binary.BigEndian, v)
 }

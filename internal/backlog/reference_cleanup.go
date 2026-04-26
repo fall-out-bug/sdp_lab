@@ -264,20 +264,28 @@ func applyFixesToFile(plan CleanupPlan, opts CleanupOptions) (bool, int, error) 
 	}
 
 	originalContent := string(content)
-	modifiedContent := originalContent
 	fixesApplied := 0
 
-	// Apply each fix
+	// Apply each fix using line-by-line replacement
+	lines := strings.Split(originalContent, "\n")
+	modifiedLines := make([]string, len(lines))
+	copy(modifiedLines, lines)
+
 	for _, fix := range plan.Fixes {
 		if !fix.AutoFix && !opts.AutoApply {
 			continue // Skip manual fixes unless auto-apply is enabled
 		}
 
-		if strings.Contains(modifiedContent, fix.OldContent) {
-			modifiedContent = strings.ReplaceAll(modifiedContent, fix.OldContent, fix.NewContent)
-			fixesApplied++
+		// Replace only on lines that match OldContent exactly
+		for i, line := range modifiedLines {
+			if strings.Contains(line, fix.OldContent) {
+				modifiedLines[i] = strings.ReplaceAll(line, fix.OldContent, fix.NewContent)
+				fixesApplied++
+			}
 		}
 	}
+
+	modifiedContent := strings.Join(modifiedLines, "\n")
 
 	if fixesApplied == 0 {
 		return false, 0, nil
@@ -363,7 +371,8 @@ func QuickFix(filePath string) error {
 	modified = absLinkRe.ReplaceAllString(modified, "[$1]($2")
 
 	// Fix 2: Fix double slashes in relative paths
-	modified = strings.ReplaceAll(modified, "../..", "..")
+	// REMOVED: This pattern is too dangerous as it corrupts valid paths like "../../other/file.md"
+	// A proper implementation would check if the path actually goes above repo root before fixing.
 
 	// Fix 3: Normalize feature ID references
 	// f042 -> F042

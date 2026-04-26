@@ -144,9 +144,11 @@ func (eb *EventBus) Subscribe(filter *Filter) chan Event {
 // Unsubscribe unsubscribes a channel
 func (eb *EventBus) Unsubscribe(ch chan Event) {
 	eb.mu.Lock()
-	defer eb.mu.Unlock()
-
+	// Remove from map while holding lock
 	delete(eb.subscribers, ch)
+	eb.mu.Unlock()
+
+	// Close channel AFTER releasing lock to avoid panic if Publish is sending
 	close(ch)
 }
 

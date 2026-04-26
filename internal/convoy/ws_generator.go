@@ -72,10 +72,16 @@ func (g *WorkstreamGenerator) Generate(convoy Convoy) (string, error) {
 
 // generateWSID creates a workstream ID from a convoy ID
 func (g *WorkstreamGenerator) generateWSID(convoyID string) string {
+	// Sanitize convoyID to prevent path traversal attacks
+	// Remove path separators and dangerous sequences
+	sanitized := strings.ReplaceAll(convoyID, "/", "")
+	sanitized = strings.ReplaceAll(sanitized, "\\", "")
+	sanitized = strings.ReplaceAll(sanitized, "..", "")
+
 	// Extract numeric part or generate hash-based ID
 	// For now, use a simple format: 00-060-XX
 	// In production, this would be more sophisticated
-	return strings.ToLower(strings.ReplaceAll(convoyID, "_", "-"))
+	return strings.ToLower(strings.ReplaceAll(sanitized, "_", "-"))
 }
 
 // renderWS renders the workstream file template

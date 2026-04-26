@@ -190,6 +190,9 @@ func (s *SQLiteStore) SetMeta(key, value string) error {
 	return err
 }
 
+// SaveMeta is an alias for SetMeta to satisfy ManifestStore.
+func (s *SQLiteStore) SaveMeta(key, value string) error { return s.SetMeta(key, value) }
+
 // GetMeta retrieves a value from the meta table. Returns empty string if not found.
 func (s *SQLiteStore) GetMeta(key string) (string, error) {
 	var val string
@@ -475,6 +478,12 @@ func IsSecretFile(path string) bool {
 }
 
 // --- ManifestStore interface methods ---
+
+// ListModules is an alias for LoadModules to satisfy ManifestStore.
+func (s *SQLiteStore) ListModules() ([]ModuleMeta, error) { return s.LoadModules() }
+
+// ListEntryPoints is an alias for LoadEntryPoints to satisfy ManifestStore.
+func (s *SQLiteStore) ListEntryPoints() ([]string, error) { return s.LoadEntryPoints() }
 
 // LoadModules returns all modules from the modules table.
 func (s *SQLiteStore) LoadModules() ([]ModuleMeta, error) {

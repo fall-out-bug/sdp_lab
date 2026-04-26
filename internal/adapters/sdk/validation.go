@@ -230,7 +230,27 @@ func loadOrchestrationEventSchema() (*jsonschema.Schema, error) {
 	schemaJSON := `{
 		"$schema": "https://json-schema.org/draft/2020-12/schema",
 		"$id": "https://sdp.dev/contracts/orchestration-event/v1",
-		"type": "object"
+		"type": "object",
+		"required": ["spec_version", "source", "event_type"],
+		"properties": {
+			"spec_version": {
+				"type": "string",
+				"pattern": "^v[0-9]+\\.[0-9]+$"
+			},
+			"source": {
+				"type": "object",
+				"required": ["system"],
+				"properties": {
+					"system": {"type": "string", "minLength": 1},
+					"component": {"type": "string"},
+					"version": {"type": "string"}
+				}
+			},
+			"event_type": {
+				"type": "string",
+				"minLength": 1
+			}
+		}
 	}`
 
 	if err := compiler.AddResource("https://sdp.dev/contracts/orchestration-event/v1", strings.NewReader(schemaJSON)); err != nil {
@@ -248,7 +268,22 @@ func loadDecisionSchema() (*jsonschema.Schema, error) {
 	schemaJSON := `{
 		"$schema": "https://json-schema.org/draft/2020-12/schema",
 		"$id": "https://sdp.dev/contracts/runtime-decision/v1",
-		"type": "object"
+		"type": "object",
+		"required": ["spec_version", "decision_type", "decision"],
+		"properties": {
+			"spec_version": {
+				"type": "string",
+				"pattern": "^v[0-9]+\\.[0-9]+$"
+			},
+			"decision_type": {
+				"type": "string",
+				"minLength": 1
+			},
+			"decision": {
+				"type": "string",
+				"enum": ["allow", "ask", "deny"]
+			}
+		}
 	}`
 
 	if err := compiler.AddResource("https://sdp.dev/contracts/runtime-decision/v1", strings.NewReader(schemaJSON)); err != nil {

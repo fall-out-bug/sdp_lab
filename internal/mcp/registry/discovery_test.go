@@ -198,7 +198,12 @@ func convertRequestToArgs(req mcp.CallToolRequest, commandPath string) ([]string
 	args := append([]string{}, parts...)
 
 	if req.Params.Arguments != nil {
-		for key, value := range req.Params.Arguments {
+		argsMap, ok := req.Params.Arguments.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("invalid arguments type")
+		}
+
+		for key, value := range argsMap {
 			flagName := "--" + strings.ReplaceAll(key, "_", "-")
 			args = append(args, flagName)
 

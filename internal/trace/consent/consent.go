@@ -1,6 +1,7 @@
 package consent
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -92,8 +93,7 @@ func ParseConsentFile(configPath string) (trace.ConsentLevel, error) {
 
 // parseJSON is a simple JSON parser for MVP
 func parseJSON(data []byte, v interface{}) error {
-	// For MVP, use encoding/json
-	return fmt.Errorf("use encoding/json in production")
+	return json.Unmarshal(data, v)
 }
 
 // ValidateAttribute checks if an attribute value is allowed at the current consent level

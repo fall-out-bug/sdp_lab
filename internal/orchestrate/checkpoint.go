@@ -109,9 +109,14 @@ func LoadCheckpoint(dir, featureID string) (*Checkpoint, error) {
 		return nil, fmt.Errorf("read checkpoint %s: %w", path, err)
 	}
 
-	// Validate JSON schema before parsing
-	if err := validateCheckpointSchema(data); err != nil {
-		return nil, fmt.Errorf("checkpoint schema validation failed: %w. Run --repair to recover", err)
+	// Validate JSON schema before parsing (skip for legacy checkpoints without schema field)
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err == nil {
+		if _, hasSchema := raw["schema"]; hasSchema {
+			if err := validateCheckpointSchema(data); err != nil {
+				return nil, fmt.Errorf("checkpoint schema validation failed: %w. Run --repair to recover", err)
+			}
+		}
 	}
 
 	var cp Checkpoint

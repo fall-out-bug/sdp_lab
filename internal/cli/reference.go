@@ -61,10 +61,10 @@ func GenerateReferenceDoc(version string) *ReferenceDoc {
 	// Get statistics
 	stats := registry.Stats()
 	doc.Stats = RegistryStats{
-		TotalCommands:      stats["total_commands"].(int),
-		DeprecatedCommands: stats["deprecated_commands"].(int),
-		HiddenCommands:     stats["hidden_commands"].(int),
-		Categories:         stats["categories"].(int),
+		TotalCommands:      safeInt(stats, "total_commands"),
+		DeprecatedCommands: safeInt(stats, "deprecated_commands"),
+		HiddenCommands:     safeInt(stats, "hidden_commands"),
+		Categories:         safeInt(stats, "categories"),
 	}
 
 	// Build categories
@@ -465,3 +465,13 @@ Version: {{.Version}}
 {{end}}
 {{end}}
 `))
+
+// safeInt safely extracts an int from a map[string]interface{} with a default value of 0
+func safeInt(m map[string]interface{}, key string) int {
+	if v, ok := m[key]; ok {
+		if i, ok := v.(int); ok {
+			return i
+		}
+	}
+	return 0
+}
