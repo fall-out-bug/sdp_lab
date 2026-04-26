@@ -12,7 +12,7 @@ import (
 
 func runDoctor(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: sdp doctor <control|adapters|all>")
+		fmt.Fprintln(os.Stderr, "usage: sdp doctor <control|adapters|backlog|all>")
 		os.Exit(2)
 	}
 	switch args[0] {
@@ -20,8 +20,11 @@ func runDoctor(args []string) {
 		runDoctorControl()
 	case "adapters":
 		os.Exit(runDoctorAdapters(args[1:]))
+	case "backlog":
+		runDoctorBacklog(args[1:])
 	case "all":
 		runDoctorControl()
+		runDoctorBacklog(nil)
 		os.Exit(runDoctorAdapters(args[1:]))
 	default:
 		fmt.Fprintf(os.Stderr, "error: unknown doctor subcommand: %s\n", args[0])
