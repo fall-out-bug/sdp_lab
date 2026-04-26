@@ -8,12 +8,12 @@ changes:
   - Clarified continuous execution requirement
   - Added explicit "When to Stop" section
 tools:
-  read: true
-  bash: true
-  glob: true
-  grep: true
-  edit: true
-  write: true
+  Read: true
+  Bash: true
+  Glob: true
+  Grep: true
+  Edit: true
+  Write: true
   - Emphasized checkpoint updates are transparent
   - Removed ambiguity about progress reports
 ---

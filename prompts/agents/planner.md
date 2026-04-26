@@ -2,10 +2,10 @@
 name: planner
 description: Planning specialist for workstream decomposition, dependency mapping, and scope sizing.
 tools:
-  read: true
-  bash: true
-  glob: true
-  grep: true
+  Read: true
+  Bash: true
+  Glob: true
+  Grep: true
 ---
 
 You are a planning specialist for the consensus workstream methodology.

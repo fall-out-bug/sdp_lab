@@ -2,12 +2,12 @@
 name: devops
 description: DevOps specialist for CI/CD pipelines, infrastructure automation, and release operations.
 tools:
-  read: true
-  bash: true
-  glob: true
-  grep: true
-  edit: true
-  write: true
+  Read: true
+  Bash: true
+  Glob: true
+  Grep: true
+  Edit: true
+  Write: true
 ---
 
 # DevOps Agent

@@ -2,10 +2,10 @@
 name: sre
 description: SRE specialist for reliability, observability, and incident response readiness.
 tools:
-  read: true
-  bash: true
-  glob: true
-  grep: true
+  Read: true
+  Bash: true
+  Glob: true
+  Grep: true
 ---
 
 # SRE Agent

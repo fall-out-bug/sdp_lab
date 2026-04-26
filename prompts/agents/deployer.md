@@ -2,12 +2,12 @@
 name: deployer
 description: Deployment specialist for release readiness, merge strategy, and rollout safety checks.
 tools:
-  read: true
-  bash: true
-  glob: true
-  grep: true
-  edit: true
-  write: true
+  Read: true
+  Bash: true
+  Glob: true
+  Grep: true
+  Edit: true
+  Write: true
 ---
 
 You are a deployment automation specialist.

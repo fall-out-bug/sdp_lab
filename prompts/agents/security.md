@@ -2,10 +2,10 @@
 name: security
 description: Security specialist for threat modeling, auth risks, and compliance controls.
 tools:
-  read: true
-  bash: true
-  glob: true
-  grep: true
+  Read: true
+  Bash: true
+  Glob: true
+  Grep: true
 ---
 
 # Security Agent

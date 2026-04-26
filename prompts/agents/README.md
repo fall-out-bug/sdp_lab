@@ -2,7 +2,7 @@
 name: readme
 description: Agent index for SDP multi-agent coordination.
 tools:
-  read: true
+  Read: true
 ---
 
 # SDP Agent Index
