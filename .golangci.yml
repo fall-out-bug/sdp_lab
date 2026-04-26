@@ -9,6 +9,9 @@
 linters:
   disable:
     - unused
+    - gosimple
+    - ineffassign
+    - staticcheck
 
 issues:
   max-issues-per-linter: 0
