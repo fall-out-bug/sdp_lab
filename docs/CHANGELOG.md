@@ -55,6 +55,18 @@ issues resolved.
 ## 2026-04-26
 
 ### Commits
+- `3f06f9d` fix(delivery-loop): forbid agent from improvising Phase 3 codex skip (#129) (2026-04-26)
+
+### Changed Files
+- `.codex/skills/delivery-loop.md`
+- `.opencode/skill/delivery-loop.md`
+- `.sdp/generated/.codex/skills/delivery-loop.md`
+- `.sdp/generated/.opencode/skill/delivery-loop.md`
+- `prompts/skills/delivery-loop/SKILL.md`
+
+
+
+### Commits
 - `f8970fc` fix(F143-02): unbreak CI on main — adapter drift + 45 errcheck + doc-sync (#128) (2026-04-26)
 
 ### Changed Files
