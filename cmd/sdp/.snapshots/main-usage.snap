@@ -77,3 +77,7 @@ Reset commands:
 
 Coverage commands:
   sdp coverage-scan [--path DIR] [--threshold PCT] [--format text|json] [--skip-test] [--package PATTERN] [--coverprofile FILE]
+
+Skills commands:
+  sdp skills augment --stack <config.json> [--skills-dir DIR] [--dry-run] [--validate] [-v]
+  sdp skills update [--project-root DIR] [--dry-run] [-v]

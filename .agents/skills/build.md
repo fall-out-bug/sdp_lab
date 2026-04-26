@@ -106,6 +106,245 @@ Every commit in SDP-managed repos SHOULD carry provenance trailer:
 - Commit without claiming beads issue
 - Push directly to main branch
 
+## Stack-Specific Workflows
+
+<!-- STACK_SPECIFIC:BEGIN section="test" stack="go" -->
+### Go Testing
+
+Run all tests:
+```bash
+go test ./... -v
+```
+
+Run with coverage:
+```bash
+go test -coverprofile=/tmp/coverage.out ./...
+go tool cover -html=/tmp/coverage.out -o /tmp/coverage.html
+```
+
+Run specific package:
+```bash
+go test ./pkg/mypackage -v
+```
+
+Run with race detection:
+```bash
+go test -race ./...
+```
+
+Skip integration tests:
+```bash
+go test -short ./...
+```
+<!-- STACK_SPECIFIC:END -->
+
+<!-- STACK_SPECIFIC:BEGIN section="build" stack="go" -->
+### Go Building
+
+Build all packages:
+```bash
+go build ./...
+```
+
+Build specific binary:
+```bash
+go build -o bin/myapp ./cmd/myapp
+```
+
+Build with optimizations:
+```bash
+go build -ldflags="-s -w" -o bin/myapp ./cmd/myapp
+```
+
+Install to GOPATH/bin:
+```bash
+go install ./cmd/myapp
+```
+<!-- STACK_SPECIFIC:END -->
+
+<!-- STACK_SPECIFIC:BEGIN section="test" stack="python" -->
+### Python Testing
+
+Run all tests:
+```bash
+pytest -v
+```
+
+Run with coverage:
+```bash
+pytest --cov=. --cov-report=html --cov-report=term
+```
+
+Run specific test file:
+```bash
+pytest tests/test_specific.py -v
+```
+
+Run with markers:
+```bash
+pytest -m "not slow" -v
+```
+
+Skip integration tests:
+```bash
+pytest -m "not integration" -v
+```
+<!-- STACK_SPECIFIC:END -->
+
+<!-- STACK_SPECIFIC:BEGIN section="build" stack="python" -->
+### Python Building
+
+Build package:
+```bash
+python -m build
+```
+
+Install in development mode:
+```bash
+pip install -e .
+```
+
+Install with dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+Check for dependency issues:
+```bash
+pip check
+```
+<!-- STACK_SPECIFIC:END -->
+
+<!-- STACK_SPECIFIC:BEGIN section="test" stack="typescript" -->
+### TypeScript Testing
+
+Run all tests:
+```bash
+npm test
+```
+
+Run with coverage:
+```bash
+npm run test:cov
+```
+
+Run specific test file:
+```bash
+npm test -- src/path/to/test.spec.ts
+```
+
+Run in watch mode:
+```bash
+npm test -- --watch
+```
+
+Run with debugger:
+```bash
+npm test -- --inspect-brk
+```
+<!-- STACK_SPECIFIC:END -->
+
+<!-- STACK_SPECIFIC:BEGIN section="build" stack="typescript" -->
+### TypeScript Building
+
+Build all:
+```bash
+npm run build
+```
+
+Build with watch mode:
+```bash
+npm run build:watch
+```
+
+Build specific target:
+```bash
+npx tsc --project tsconfig.app.json
+```
+
+Check types without emitting:
+```bash
+npx tsc --noEmit
+```
+
+Clean build artifacts:
+```bash
+npm run clean
+```
+<!-- STACK_SPECIFIC:END -->
+
+<!-- STACK_SPECIFIC:BEGIN section="quality-gate" stack="go" -->
+### Go Quality Gates
+
+Run all quality checks:
+```bash
+go vet ./... && go test ./... && go build ./...
+```
+
+Format check:
+```bash
+gofmt -l . && test -z "$(gofmt -l .)"
+```
+
+Run with race and coverage:
+```bash
+go test -race -coverprofile=/tmp/coverage.out ./...
+```
+
+Static analysis:
+```bash
+staticcheck ./...
+```
+<!-- STACK_SPECIFIC:END -->
+
+<!-- STACK_SPECIFIC:BEGIN section="quality-gate" stack="python" -->
+### Python Quality Gates
+
+Run all quality checks:
+```bash
+flake8 . && pytest -v && mypy .
+```
+
+Format check:
+```bash
+black --check .
+```
+
+Lint with pylint:
+```bash
+pylint **/*.py
+```
+
+Type checking:
+```bash
+mypy .
+```
+<!-- STACK_SPECIFIC:END -->
+
+<!-- STACK_SPECIFIC:BEGIN section="quality-gate" stack="typescript" -->
+### TypeScript Quality Gates
+
+Run all quality checks:
+```bash
+npm run lint && npm test && npm run build
+```
+
+Format check:
+```bash
+npm run format:check
+```
+
+Lint with ESLint:
+```bash
+npm run lint
+```
+
+Type checking:
+```bash
+npx tsc --noEmit
+```
+<!-- STACK_SPECIFIC:END -->
+
 ## Acceptance Boundaries
 
 NOT for: understanding code (@understand), fixing bugs (@fix), review (@review), deployment (@operate)

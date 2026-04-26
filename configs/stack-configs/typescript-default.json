@@ -1,0 +1,50 @@
+{
+  "stack": "typescript",
+  "version": "1.0",
+  "display_name": "TypeScript",
+  "commands": {
+    "test": "npm test",
+    "test_coverage": "npm run test:cov",
+    "test_specific": "npm test -- src/path/to/test.spec.ts",
+    "test_watch": "npm test -- --watch",
+    "test_debug": "npm test -- --inspect-brk",
+    "build": "npm run build",
+    "build_watch": "npm run build:watch",
+    "build_check": "npx tsc --noEmit",
+    "clean": "npm run clean",
+    "lint": "npm run lint",
+    "format": "npm run format",
+    "format_check": "npm run format:check",
+    "quality_gate": "npm run lint && npm test && npm run build",
+    "quality_gate_strict": "npm run format:check && npm run lint && npm test && npm run build && npx tsc --noEmit"
+  },
+  "quality_gates": [
+    "npm run lint",
+    "npm test",
+    "npm run build",
+    "npx tsc --noEmit",
+    "npm run format:check"
+  ],
+  "file_patterns": [
+    "*.ts",
+    "*.tsx",
+    "*.js",
+    "*.jsx",
+    "package.json",
+    "tsconfig.json"
+  ],
+  "sections": {
+    "test": {
+      "heading": "### TypeScript Testing",
+      "content": "Run all tests:\n```bash\nnpm test\n```\n\nRun with coverage:\n```bash\nnpm run test:cov\n```\n\nRun specific test file:\n```bash\nnpm test -- src/path/to/test.spec.ts\n```\n\nRun in watch mode:\n```bash\nnpm test -- --watch\n```\n\nRun with debugger:\n```bash\nnpm test -- --inspect-brk\n```"
+    },
+    "build": {
+      "heading": "### TypeScript Building",
+      "content": "Build all:\n```bash\nnpm run build\n```\n\nBuild with watch mode:\n```bash\nnpm run build:watch\n```\n\nBuild specific target:\n```bash\nnpx tsc --project tsconfig.app.json\n```\n\nCheck types without emitting:\n```bash\nnpx tsc --noEmit\n```\n\nClean build artifacts:\n```bash\nnpm run clean\n```"
+    },
+    "quality-gate": {
+      "heading": "### TypeScript Quality Gates",
+      "content": "Run all quality checks:\n```bash\nnpm run lint && npm test && npm run build\n```\n\nFormat check:\n```bash\nnpm run format:check\n```\n\nLint with ESLint:\n```bash\nnpm run lint\n```\n\nType checking:\n```bash\nnpx tsc --noEmit\n```"
+    }
+  }
+}

@@ -35,6 +35,9 @@ go build ./...
 | Contribute to the platform or private lab runtime | [`AGENTS.md`](AGENTS.md), [`docs/MULTI-REPO-WORKFLOW.md`](docs/MULTI-REPO-WORKFLOW.md) (publish workflow), [`docs/roadmap/ROADMAP.md`](docs/roadmap/ROADMAP.md) |
 | Adopt SDP in a greenfield or brownfield project | [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md), then [SDP README](https://github.com/fall-out-bug/sdp) |
 | Install SDP into your repo right now | See **[Install in 30 seconds](#install-in-30-seconds)** below |
+| Understand component maturity (GA/Beta/Experimental) | [`docs/reference/maturity-matrix.md`](docs/reference/maturity-matrix.md) |
+| Trust, security guarantees, and limitations | [`docs/reference/trust-guarantees.md`](docs/reference/trust-guarantees.md) |
+| CI gates and local reproduce commands | [`docs/reference/ci-gates-map.md`](docs/reference/ci-gates-map.md) |
 
 ## Install in 30 seconds
 

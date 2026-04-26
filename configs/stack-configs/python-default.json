@@ -1,0 +1,49 @@
+{
+  "stack": "python",
+  "version": "1.0",
+  "display_name": "Python",
+  "commands": {
+    "test": "pytest -v",
+    "test_coverage": "pytest --cov=. --cov-report=html --cov-report=term",
+    "test_specific": "pytest tests/test_specific.py -v",
+    "test_markers": "pytest -m \"not slow\" -v",
+    "test_skip_integration": "pytest -m \"not integration\" -v",
+    "build": "python -m build",
+    "install_dev": "pip install -e .",
+    "install_deps": "pip install -r requirements.txt",
+    "check_deps": "pip check",
+    "lint": "flake8 .",
+    "format": "black .",
+    "format_check": "black --check .",
+    "pylint": "pylint **/*.py",
+    "mypy": "mypy .",
+    "quality_gate": "flake8 . && pytest -v && mypy .",
+    "quality_gate_strict": "black --check . && flake8 . && pytest -v && mypy . && pylint **/*.py"
+  },
+  "quality_gates": [
+    "flake8 .",
+    "pytest -v",
+    "mypy .",
+    "black --check ."
+  ],
+  "file_patterns": [
+    "*.py",
+    "requirements.txt",
+    "setup.py",
+    "pyproject.toml"
+  ],
+  "sections": {
+    "test": {
+      "heading": "### Python Testing",
+      "content": "Run all tests:\n```bash\npytest -v\n```\n\nRun with coverage:\n```bash\npytest --cov=. --cov-report=html --cov-report=term\n```\n\nRun specific test file:\n```bash\npytest tests/test_specific.py -v\n```\n\nRun with markers:\n```bash\npytest -m \"not slow\" -v\n```\n\nSkip integration tests:\n```bash\npytest -m \"not integration\" -v\n```"
+    },
+    "build": {
+      "heading": "### Python Building",
+      "content": "Build package:\n```bash\npython -m build\n```\n\nInstall in development mode:\n```bash\npip install -e .\n```\n\nInstall with dependencies:\n```bash\npip install -r requirements.txt\n```\n\nCheck for dependency issues:\n```bash\npip check\n```"
+    },
+    "quality-gate": {
+      "heading": "### Python Quality Gates",
+      "content": "Run all quality checks:\n```bash\nflake8 . && pytest -v && mypy .\n```\n\nFormat check:\n```bash\nblack --check .\n```\n\nLint with pylint:\n```bash\npylint **/*.py\n```\n\nType checking:\n```bash\nmypy .\n```"
+    }
+  }
+}

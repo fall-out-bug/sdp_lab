@@ -109,5 +109,35 @@ else
 fi
 echo
 
+# Test 4 (F142-10): picker rejects in-progress candidates fed via stub bd output.
+# Replace `bd` with a stub for one invocation so we don't mutate real state.
+echo "Test 4: in_progress status is filtered out (defense-in-depth)"
+STUB_DIR="$(mktemp -d)"
+cat > "$STUB_DIR/bd" <<'STUB'
+#!/usr/bin/env bash
+if [[ "$1" == "ready" && "$2" == "--json" ]]; then
+  cat <<'JSON'
+[
+  {"id":"sdplab-INPROG","title":"F999: Already claimed","status":"in_progress","issue_type":"feature","priority":2,"created_at":"2026-04-01T00:00:00Z","labels":[],"dependency_count":0},
+  {"id":"sdplab-OPEN","title":"F074: Enterprise Governance Pack","status":"open","issue_type":"feature","priority":2,"created_at":"2026-04-02T00:00:00Z","labels":[],"dependency_count":0}
+]
+JSON
+  exit 0
+fi
+exec /usr/bin/false
+STUB
+chmod +x "$STUB_DIR/bd"
+
+stub_out="$(PATH="$STUB_DIR:$PATH" "$PICKER" 2>/dev/null)"
+if [[ "$stub_out" == *"sdplab-OPEN"* && "$stub_out" != *"sdplab-INPROG"* ]]; then
+  echo "  ✓ in_progress filtered, only open candidate returned"
+  PASS=$((PASS + 1))
+else
+  echo "  ✗ filter failed; got: $stub_out"
+  FAIL=$((FAIL + 1))
+fi
+rm -rf "$STUB_DIR"
+echo
+
 echo "Result: $PASS pass, $FAIL fail"
 [[ "$FAIL" -eq 0 ]]
