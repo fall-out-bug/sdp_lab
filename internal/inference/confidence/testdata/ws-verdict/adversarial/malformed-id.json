@@ -1,0 +1,7 @@
+{
+  "ws_id": "totally-bogus",
+  "feature_id": "X",
+  "verdict": "PASS",
+  "quality_gates": {"tests_pass": true, "lint_clean": true},
+  "existing_work_summary": "broken ws_id format"
+}

@@ -128,35 +128,36 @@ func TestVerifySchemaViolationHardFails(t *testing.T) {
 	}
 }
 
-func TestVerifyPassButTestsFailInvariantViolation(t *testing.T) {
-	// JSON-Schema accepts this (tests_pass:false is a valid bool). Our
-	// invariant 'pass-requires-tests' must catch it. Without selfcheck/
-	// nsample, constraint alone gives subscore = 1 - 1/5 = 0.8 → still OK
-	// per default thresholds (>=0.8). So we expect OK but a Reason that
-	// surfaces the invariant failure.
+func TestVerifyPassButTestsFailHardFails(t *testing.T) {
+	// PASS with tests_pass=false is a self-contradicting verdict. The
+	// adapter's semantic-consistency check hard-fails it at the schema
+	// layer, forcing Status=FAIL.
 	checker, _ := wsverdict.New(wsverdict.Options{SchemaJSON: loadSchema(t)})
 	res, err := wsverdict.Verify(context.Background(), checker, []byte(passButTestsFail))
 	if err != nil {
 		t.Fatalf("Verify: %v", err)
 	}
-	if res.SubScores["constraint"] >= 1.0 {
-		t.Errorf("constraint subscore = %v, want < 1 (invariant failed)", res.SubScores["constraint"])
+	if res.Status != confidence.StatusFail {
+		t.Errorf("Status = %q, want FAIL on PASS+tests_pass=false", res.Status)
 	}
 	joined := strings.Join(res.Reasons, "|")
-	if !strings.Contains(joined, "pass-requires-tests") {
-		t.Errorf("Reasons missing pass-requires-tests: %v", res.Reasons)
+	if !strings.Contains(joined, "tests_pass=false") {
+		t.Errorf("Reasons missing 'tests_pass=false' contradiction: %v", res.Reasons)
 	}
 }
 
-func TestVerifyPassWithUnmetACViolation(t *testing.T) {
+func TestVerifyPassWithUnmetACHardFails(t *testing.T) {
 	checker, _ := wsverdict.New(wsverdict.Options{SchemaJSON: loadSchema(t)})
 	res, err := wsverdict.Verify(context.Background(), checker, []byte(passWithUnmetAC))
 	if err != nil {
 		t.Fatalf("Verify: %v", err)
 	}
+	if res.Status != confidence.StatusFail {
+		t.Errorf("Status = %q, want FAIL on PASS+unmet AC", res.Status)
+	}
 	joined := strings.Join(res.Reasons, "|")
-	if !strings.Contains(joined, "ac-not-met-implies-not-pass") {
-		t.Errorf("Reasons missing ac-not-met invariant: %v", res.Reasons)
+	if !strings.Contains(joined, "AC") {
+		t.Errorf("Reasons missing AC contradiction: %v", res.Reasons)
 	}
 }
 

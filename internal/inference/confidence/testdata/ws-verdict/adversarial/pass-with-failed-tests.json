@@ -1,0 +1,7 @@
+{
+  "ws_id": "00-666-01",
+  "feature_id": "F666",
+  "verdict": "PASS",
+  "quality_gates": {"tests_pass": false, "lint_clean": true},
+  "existing_work_summary": "I claim it works on my machine despite the test failures"
+}

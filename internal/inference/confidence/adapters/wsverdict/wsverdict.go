@@ -79,8 +79,20 @@ func New(opts Options) (*confidence.Checker[Verdict], error) {
 		return nil, fmt.Errorf("wsverdict: %w", err)
 	}
 
+	// Wrap schema validator with semantic-consistency hard checks. These
+	// catch contradictions that JSON-Schema cannot express (e.g. PASS
+	// claimed alongside tests_pass=false). They are hard-fail because a
+	// self-contradicting verdict is not a "low-confidence answer" — it's
+	// invalid output.
+	hardSchema := func(raw string) error {
+		if err := schemaValidator(raw); err != nil {
+			return err
+		}
+		return checkSemanticConsistency(raw)
+	}
+
 	cs, err := constraint.New[Verdict](constraint.Options[Verdict]{
-		SchemaValidator: schemaValidator,
+		SchemaValidator: hardSchema,
 		Invariants:      defaultInvariants(),
 	})
 	if err != nil {
@@ -205,6 +217,32 @@ func verdictAgreement(samples []Verdict) float64 {
 		return 0
 	}
 	return float64(matches) / float64(pairs)
+}
+
+// checkSemanticConsistency hard-fails verdicts that contradict themselves.
+// JSON-Schema cannot encode "PASS implies tests_pass=true" — these checks
+// fill that gap. Returning a non-nil error here triggers constraint hard-fail
+// (Status=FAIL forced), which is correct for self-contradicting output.
+func checkSemanticConsistency(raw string) error {
+	v, err := parseVerdict(raw)
+	if err != nil {
+		// Already reported by schema validator's parse step; defensive.
+		return nil
+	}
+	if v.Verdict == "PASS" {
+		if !v.QualityGates.TestsPass {
+			return fmt.Errorf("verdict=PASS contradicts tests_pass=false")
+		}
+		if !v.QualityGates.LintClean {
+			return fmt.Errorf("verdict=PASS contradicts lint_clean=false")
+		}
+		for _, ac := range v.ACEvidence {
+			if !ac.Met {
+				return fmt.Errorf("verdict=PASS but AC %q is not met", ac.AC)
+			}
+		}
+	}
+	return nil
 }
 
 var wsIDPattern = regexp.MustCompile(`^\d{2}-\d{3}-\d{2}$`)
