@@ -36,11 +36,22 @@ var extToLang = map[string]string{
 
 // Classify infers a TaskClassification from a ContextPacketSummary.
 func Classify(pkt ContextPacketSummary) TaskClassification {
+	// Start with medium complexity, then check for low-complexity indicators.
+	complexity := "medium"
+	if IsLowComplexity(pkt.Workstream) {
+		complexity = "low"
+	}
+
+	// Safety override: high-risk tasks never get low complexity.
+	if pkt.Risk == "high" && complexity == "low" {
+		complexity = "medium"
+	}
+
 	return TaskClassification{
 		Phase:       pkt.Phase,
 		TaskType:    inferTaskType(pkt.Phase, pkt.Workstream),
 		Language:    inferLanguage(pkt.ScopeFiles),
-		Complexity:  "medium",
+		Complexity:  complexity,
 		Risk:        pkt.Risk,
 		RequiredCap: inferRequiredCap(pkt.Phase),
 	}

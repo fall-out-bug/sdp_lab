@@ -118,7 +118,7 @@ func TestClassify(t *testing.T) {
 			wantLang:    "rust",
 			wantCap:     "review",
 			wantRisk:    "low",
-			wantComplex: "medium",
+			wantComplex: "low", // test keyword triggers low complexity
 		},
 		{
 			name: "mixed extensions picks most common",
@@ -207,3 +207,125 @@ func TestClassify(t *testing.T) {
 		})
 	}
 }
+
+func TestClassify_LowComplexityKeywords(t *testing.T) {
+	tests := []struct {
+		name           string
+		workstream     string
+		wantComplexity string
+	}{
+		{
+			name:           "stub keyword",
+			workstream:     "add stub for ModelGateway",
+			wantComplexity: "low",
+		},
+		{
+			name:           "boilerplate keyword",
+			workstream:     "write boilerplate for FSM",
+			wantComplexity: "low",
+		},
+		{
+			name:           "test keyword",
+			workstream:     "write test for NewRunner",
+			wantComplexity: "low",
+		},
+		{
+			name:           "add_field keyword",
+			workstream:     "add_field Status to Session",
+			wantComplexity: "low",
+		},
+		{
+			name:           "add field with space",
+			workstream:     "add field UserID to Request",
+			wantComplexity: "low",
+		},
+		{
+			name:           "rename keyword",
+			workstream:     "rename field ID to SessionID",
+			wantComplexity: "low",
+		},
+		{
+			name:           "simple keyword",
+			workstream:     "SIMPLE refactor of handler",
+			wantComplexity: "low",
+		},
+		{
+			name:           "implement interface keyword",
+			workstream:     "implement interface io.Reader",
+			wantComplexity: "low",
+		},
+		{
+			name:           "docstring keyword",
+			workstream:     "add docstring to Parse",
+			wantComplexity: "low",
+		},
+		{
+			name:           "complex architecture task",
+			workstream:     "design new auth architecture",
+			wantComplexity: "medium",
+		},
+		{
+			name:           "complex debugging task",
+			workstream:     "trace goroutine leak in agentloop",
+			wantComplexity: "medium",
+		},
+		{
+			name:           "complex refactor across packages",
+			workstream:     "refactor dispatch routing across 5 packages",
+			wantComplexity: "medium",
+		},
+		{
+			name:           "empty workstream",
+			workstream:     "",
+			wantComplexity: "medium",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			pkt := ContextPacketSummary{
+				Phase:      "build",
+				Workstream: tc.workstream,
+				ScopeFiles: []string{"internal/dispatch/route.go"},
+				Risk:       "low",
+			}
+			got := Classify(pkt)
+			if got.Complexity != tc.wantComplexity {
+				t.Errorf("Classify(%q).Complexity = %q, want %q", tc.workstream, got.Complexity, tc.wantComplexity)
+			}
+			if got.RequiredCap != "coding" {
+				t.Errorf("Classify(%q).RequiredCap = %q, want coding", tc.workstream, got.RequiredCap)
+			}
+		})
+	}
+}
+
+func TestClassify_HighRiskOverridesLowComplexity(t *testing.T) {
+	pkt := ContextPacketSummary{
+		Phase:      "build",
+		Workstream: "add stub for ModelGateway",
+		ScopeFiles: []string{"internal/dispatch/route.go"},
+		Risk:       "high",
+	}
+	got := Classify(pkt)
+	if got.Complexity != "medium" {
+		t.Errorf("Classify with high risk should override to medium, got %q", got.Complexity)
+	}
+	if got.Risk != "high" {
+		t.Errorf("Classify should preserve original Risk field, got %q", got.Risk)
+	}
+}
+
+func TestClassify_MediumRiskDoesNotOverride(t *testing.T) {
+	pkt := ContextPacketSummary{
+		Phase:      "build",
+		Workstream: "add stub for ModelGateway",
+		ScopeFiles: []string{"internal/dispatch/route.go"},
+		Risk:       "medium",
+	}
+	got := Classify(pkt)
+	if got.Complexity != "low" {
+		t.Errorf("Classify with medium risk should not override low complexity, got %q", got.Complexity)
+	}
+}
+

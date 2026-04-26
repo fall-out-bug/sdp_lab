@@ -1,0 +1,45 @@
+# Dispatch Configuration Example
+# This file demonstrates configuration options for the SDP dispatch system,
+# including local model routing via Ollama.
+
+dispatch:
+  # Local model configuration enables routing of low-complexity coding tasks
+  # to a local Ollama instance. This can reduce costs and latency for simple
+  # tasks like generating stubs, boilerplate, or tests.
+  #
+  # Setup:
+  #   1. Install Ollama: https://ollama.com/download
+  #   2. Pull a model: ollama pull qwen2.5-coder:7b
+  #   3. Set enabled: true below
+  #
+  # The router will automatically use the local model when:
+  #   - Complexity is "low" (detected from workstream keywords like "stub", "test")
+  #   - Required capability is "coding"
+  #   - Ollama is reachable (health check passes)
+  #
+  # Fallback behavior:
+  #   - If Ollama is unreachable, the router logs a warning and falls back to cloud
+  #   - If task complexity is "medium" or "high", only cloud models are considered
+  #   - High-risk tasks (pkt.Risk == "high") never use local models
+  local:
+    # Enable local model routing. Set to false to disable (default behavior).
+    enabled: false
+
+    # Base URL for the Ollama API endpoint.
+    # Defaults to "http://localhost:11434" if empty.
+    # Can also be set via OLLAMA_HOST environment variable.
+    base_url: "http://localhost:11434"
+
+    # Model name to use for local inference.
+    # Must be available in your local Ollama instance (ollama list).
+    # Popular coding models: qwen2.5-coder:7b, codegemma:7b, deepseek-coder:6.7b
+    model: "qwen2.5-coder:7b"
+
+    # Fixed score assigned to the local profile when a task is low-complexity.
+    # Higher scores increase likelihood of local selection over cloud models.
+    # Default is 0.9 if omitted — high enough to win over typical cloud scores
+    # for tasks that match the low-complexity criteria.
+    score: 0.9
+
+# Cloud model profiles are configured separately in configs/profiles/.
+# See existing profile configs for examples of Anthropic, OpenAI, etc.
