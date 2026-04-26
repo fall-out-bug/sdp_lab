@@ -1,7 +1,7 @@
 ---
 name: review
 description: Multi-agent quality review (QA + Security + DevOps + SRE + TechLead + Documentation + PromptOps)
-cli: null
+cli:
 version: 17.0.0
 changes:
   - "17.0.0: Post-max-retry escape hatches (--override, --partial, --escalate)"
