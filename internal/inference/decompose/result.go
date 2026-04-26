@@ -26,11 +26,20 @@ type StageResult struct {
 
 // StageTrace captures telemetry for one stage invocation.
 type StageTrace struct {
-	LatencyMs int64
-	TokensIn  int
-	TokensOut int
-	CostUSD   float64
-	Attempts  int
+	LatencyMs     int64
+	TokensIn      int
+	TokensOut     int
+	CostUSD       float64
+	Attempts      int
+	ConfidenceLog *ConfidenceLog
+	CascadeLog    *CascadeTrace
+}
+
+// ConfidenceLog records the F144 confidence check result for a stage.
+type ConfidenceLog struct {
+	Score   float64
+	Status  Status
+	Reasons []string
 }
 
 // AggregateTrace is the sum of all stage traces.

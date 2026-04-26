@@ -45,7 +45,6 @@ func (p *Pipeline[Final]) Run(ctx context.Context, in any) (Result[Final], error
 			reasons = append(reasons, fmt.Sprintf("stage %s: %v", s.stageName(), sr.Err))
 		}
 		if err != nil {
-			// Abort or unrecoverable error: return what we have so far.
 			statuses := collectStatuses(stageResults)
 			return Result[Final]{
 				Status:       aggregateStatus(statuses),
@@ -58,7 +57,6 @@ func (p *Pipeline[Final]) Run(ctx context.Context, in any) (Result[Final], error
 		current = next
 	}
 
-	// All stages succeeded (or Fallback handled failures).
 	final, ok := current.(Final)
 	if !ok {
 		return Result[Final]{}, fmt.Errorf("decompose: last stage output type mismatch: %T", current)
@@ -75,8 +73,8 @@ func (p *Pipeline[Final]) Run(ctx context.Context, in any) (Result[Final], error
 	}, nil
 }
 
-// runStage runs a single stage with the given config, applying failure policy.
-// Returns the StageResult, the next input (stage output), and any terminal error.
+// runStage applies a per-stage timeout and failure policy around runCore.
+// runCore does the full integration stack: cascade → confidence → stitcher.
 func (p *Pipeline[Final]) runStage(ctx context.Context, s anyStage, cfg StageConfig, in any) (StageResult, any, error) {
 	stageCtx := ctx
 	var cancel context.CancelFunc
@@ -85,76 +83,61 @@ func (p *Pipeline[Final]) runStage(ctx context.Context, s anyStage, cfg StageCon
 		defer cancel()
 	}
 
-	start := time.Now()
-	out, trace, err := s.runAny(stageCtx, in)
-	trace.LatencyMs = time.Since(start).Milliseconds()
-	trace.Attempts = 1
-
+	out, trace, err := p.runAttempt(stageCtx, s, cfg, in)
 	if err == nil {
-		return StageResult{
-			Name:     s.stageName(),
-			Status:   StatusOK,
-			SubScore: 1.0,
-			Out:      out,
-			Trace:    trace,
-		}, out, nil
+		sr := stageResultFromCore(s.stageName(), out, trace, nil)
+		return sr, out, nil
 	}
 
-	// First attempt failed.
+	// First attempt failed — apply failure policy.
 	switch cfg.OnFailure {
 	case RetryOnce:
-		start2 := time.Now()
-		out2, trace2, err2 := s.runAny(stageCtx, in)
-		trace2.LatencyMs = time.Since(start2).Milliseconds()
-		trace2.Attempts = 1
-		// Sum both attempt traces.
-		combined := StageTrace{
-			LatencyMs: trace.LatencyMs + trace2.LatencyMs,
-			TokensIn:  trace.TokensIn + trace2.TokensIn,
-			TokensOut: trace.TokensOut + trace2.TokensOut,
-			CostUSD:   trace.CostUSD + trace2.CostUSD,
-			Attempts:  2,
-		}
+		out2, trace2, err2 := p.runAttempt(stageCtx, s, cfg, in)
+		combined := combineTraces(trace, trace2)
 		if err2 == nil {
-			return StageResult{
-				Name:     s.stageName(),
-				Status:   StatusOK,
-				SubScore: 1.0,
-				Out:      out2,
-				Trace:    combined,
-			}, out2, nil
+			sr := stageResultFromCore(s.stageName(), out2, combined, nil)
+			sr.Trace.Attempts = 2
+			return sr, out2, nil
 		}
-		// Second failure → Abort.
-		sr := StageResult{
-			Name:     s.stageName(),
-			Status:   StatusFail,
-			SubScore: 0.0,
-			Trace:    combined,
-			Err:      err2,
-		}
+		sr := stageResultFromCore(s.stageName(), nil, combined, err2)
+		sr.Trace.Attempts = 2
 		return sr, nil, err2
 
 	case Fallback:
-		sr := StageResult{
-			Name:     s.stageName(),
-			Status:   StatusFail,
-			SubScore: 0.0,
-			Out:      cfg.FallbackOut,
-			Trace:    trace,
-			Err:      err,
-		}
+		sr := stageResultFromCore(s.stageName(), cfg.FallbackOut, trace, err)
+		sr.Status = StatusFail
+		sr.SubScore = 0.0
+		sr.Out = cfg.FallbackOut
 		return sr, cfg.FallbackOut, nil
 
 	default: // Abort
-		sr := StageResult{
-			Name:     s.stageName(),
-			Status:   StatusFail,
-			SubScore: 0.0,
-			Trace:    trace,
-			Err:      err,
-		}
+		sr := stageResultFromCore(s.stageName(), nil, trace, err)
 		return sr, nil, err
 	}
+}
+
+// runAttempt executes one attempt through the integration stack and measures wall-clock latency.
+func (p *Pipeline[Final]) runAttempt(ctx context.Context, s anyStage, cfg StageConfig, in any) (any, StageTrace, error) {
+	start := time.Now()
+	out, trace, err := runCore(ctx, s, cfg, in)
+	trace.LatencyMs = time.Since(start).Milliseconds()
+	if trace.Attempts == 0 {
+		trace.Attempts = 1
+	}
+	return out, trace, err
+}
+
+func combineTraces(a, b StageTrace) StageTrace {
+	combined := StageTrace{
+		LatencyMs:     a.LatencyMs + b.LatencyMs,
+		TokensIn:      a.TokensIn + b.TokensIn,
+		TokensOut:     a.TokensOut + b.TokensOut,
+		CostUSD:       a.CostUSD + b.CostUSD,
+		Attempts:      a.Attempts + b.Attempts,
+		ConfidenceLog: b.ConfidenceLog,
+		CascadeLog:    b.CascadeLog,
+	}
+	return combined
 }
 
 func collectStatuses(results []StageResult) []Status {

@@ -25,4 +25,13 @@ type StageConfig struct {
 	FallbackOut any
 	// Timeout, if non-zero, wraps the stage context with context.WithTimeout.
 	Timeout time.Duration
+	// Confidence, if non-nil, wraps the stage output with a F144 confidence
+	// check. StageResult.SubScore and Status are derived from the check result.
+	// Call order: Cascade → Confidence → Stitcher.
+	Confidence ConfidenceRunner
+	// Cascade, if non-nil, wraps the stage's raw LLM call with F145
+	// provider-escalation. Swapped for real F145 after sdplab-5ii8 merges.
+	Cascade CascadeInvoker
+	// Stitcher, if non-nil, validates the stage output format after Confidence.
+	Stitcher Stitcher
 }

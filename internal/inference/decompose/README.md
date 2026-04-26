@@ -107,6 +107,54 @@ returns an error.
 
 ## Composition with F144/F145
 
-Confidence and cascade wrapping per stage is added in `00-146-03`
-(`internal/inference/decompose/integration.go`). The core pipeline has no
-direct dependency on those packages; it accepts any `Stage[In,Out]` impl.
+Per-stage call order: **cascade → confidence → stitcher**.
+
+```
+Cascade (F145, provider escalation)   ← optional, wraps Stage.Run thunk
+  → Stage.Run (raw LLM call)
+Confidence (F144, quality gate)       ← optional, wraps stage output
+  → SubScore / Status derived
+Stitcher (format gate)                ← optional, validates out shape
+```
+
+### Wiring confidence (F144)
+
+```go
+strat, _ := constraint.New[MyOut](constraint.Options[MyOut]{...})
+checker, _ := confidence.NewChecker[MyOut](llmCaller, []confidence.Strategy[MyOut]{strat}, policy)
+
+runner := decompose.NewConfidenceRunner(checker)   // type-erased wrapper
+decompose.Then(p, myStage, decompose.StageConfig{
+    Confidence: runner,
+})
+// StageResult.SubScore ← confidence.Result.Score
+// StageResult.Status  ← confidence.Result.Status (OK/UNSURE/FAIL)
+// StageTrace.ConfidenceLog populated
+```
+
+### Wiring cascade (F145 — forward-compatible narrow interface)
+
+```go
+// F145 not yet merged (sdplab-5ii8). Use decompose.CascadeInvoker interface.
+// After F145 merges, swap in the real cascade.Invoker — API is identical.
+type myCascade struct{}
+func (m *myCascade) Invoke(ctx context.Context, fn func() (any, decompose.StageTrace, error)) (any, decompose.StageTrace, decompose.CascadeTrace, error) {
+    // escalate provider, call fn, retry on failure
+}
+decompose.Then(p, myStage, decompose.StageConfig{
+    Cascade: &myCascade{},
+})
+// StageTrace.CascadeLog populated with Provider, Attempts
+```
+
+### Status propagation
+
+| Stage outcome             | StageResult.Status | StageResult.SubScore |
+|---------------------------|--------------------|----------------------|
+| OK (no confidence)        | OK                 | 1.0                  |
+| Confidence OK             | OK                 | confidence.Score     |
+| Confidence UNSURE         | UNSURE             | confidence.Score     |
+| Confidence FAIL / error   | FAIL               | 0.0                  |
+| Stage error (Fallback)    | FAIL               | 0.0                  |
+
+Pipeline `Result.Status` = aggregated: any FAIL → FAIL; any UNSURE (no FAIL) → UNSURE; all OK → OK.
