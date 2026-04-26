@@ -7,9 +7,9 @@ changes:
   - Added @deploy step after @review (automated deployment)
   - Clarified continuous execution requirement
   - Added explicit "When to Stop" section
-tools: Read, Bash, Glob, Grep, Edit, Write
   - Emphasized checkpoint updates are transparent
   - Removed ambiguity about progress reports
+tools: Read, Bash, Glob, Grep, Edit, Write
 ---
 
 # Orchestrator Subagent
