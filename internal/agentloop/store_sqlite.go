@@ -512,7 +512,7 @@ func (st *SQLiteStore) TransitionAndClearDecision(sessionID, decisionID string, 
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback() // no-op after commit
+	defer func() { _ = tx.Rollback() }() // no-op after commit
 
 	// 1. Validate the decision exists and matches.
 	var stored string

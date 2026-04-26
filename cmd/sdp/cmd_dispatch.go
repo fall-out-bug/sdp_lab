@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"sdp_dev/internal/executor"
@@ -47,7 +48,20 @@ func runDispatchCard(args []string) {
 func runDispatchNext(args []string) {
 	fs := flag.NewFlagSet("dispatch-next", flag.ExitOnError)
 	execute := fs.Bool("execute", false, "Dispatch, execute through the bridge, then auto-ingest the result")
+	preferLocal := fs.Bool("prefer-local", false, "Prefer local Ollama model for low-complexity tasks")
+	localModel := fs.String("local-model", "", "Ollama model to use (default: qwen2.5-coder:7b, or from OLLAMA_MODEL env var)")
 	_ = fs.Parse(args)
+
+	// Set environment variables for orchestrate layer to read
+	if *preferLocal {
+		os.Setenv("SDP_LOCAL_ENABLED", "true")
+		slog.Info("local model routing enabled via --prefer-local")
+
+		if *localModel != "" {
+			os.Setenv("SDP_LOCAL_MODEL", *localModel)
+			slog.Info("local model override set", "model", *localModel)
+		}
+	}
 
 	store := openStore()
 	result, err := store.DispatchNext()

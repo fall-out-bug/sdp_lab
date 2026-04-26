@@ -48,7 +48,7 @@ func TestBootstrapHelp_ShowsCIAutomationFlags(t *testing.T) {
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
-	cmd.Run() // exits with 2, that's expected
+	_ = cmd.Run() // exits with 2, that's expected
 	output := out.String()
 
 	if !strings.Contains(output, "--yes") {

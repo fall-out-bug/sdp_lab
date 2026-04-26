@@ -249,7 +249,7 @@ go test ./...
 
 			// Change to temp directory so absolute paths are within the "current" directory
 			originalDir, _ := os.Getwd()
-			defer os.Chdir(originalDir)
+			defer func() { _ = os.Chdir(originalDir) }()
 			if err := os.Chdir(tmpDir); err != nil {
 				t.Fatalf("failed to change to temp directory: %v", err)
 			}
@@ -329,7 +329,7 @@ func TestLoadStackConfig(t *testing.T) {
 
 			// Change to temp directory so absolute paths are within the "current" directory
 			originalDir, _ := os.Getwd()
-			defer os.Chdir(originalDir)
+			defer func() { _ = os.Chdir(originalDir) }()
 			if err := os.Chdir(tmpDir); err != nil {
 				t.Fatalf("failed to change to temp directory: %v", err)
 			}
@@ -386,7 +386,7 @@ More content.
 
 	// Change to temp directory so absolute paths are within the "current" directory
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatalf("failed to change to temp directory: %v", err)
 	}
@@ -464,7 +464,7 @@ go test ./...
 
 	// Change to temp directory so absolute paths are within the "current" directory
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }()
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatalf("failed to change to temp directory: %v", err)
 	}
@@ -550,7 +550,7 @@ go test ./...
 
 			// Change to temp directory so absolute paths are within the "current" directory
 			originalDir, _ := os.Getwd()
-			defer os.Chdir(originalDir)
+			defer func() { _ = os.Chdir(originalDir) }()
 			if err := os.Chdir(tmpDir); err != nil {
 				t.Fatalf("failed to change to temp directory: %v", err)
 			}
@@ -998,7 +998,7 @@ content2
 
 			// Change to temp directory so absolute paths are within the "current" directory
 			originalDir, _ := os.Getwd()
-			defer os.Chdir(originalDir)
+			defer func() { _ = os.Chdir(originalDir) }()
 			if err := os.Chdir(tmpDir); err != nil {
 				t.Fatalf("failed to change to temp directory: %v", err)
 			}
@@ -1125,7 +1125,7 @@ go test ./...
 
 		// Change to temp directory so the valid file is accessible
 		originalDir, _ := os.Getwd()
-		defer os.Chdir(originalDir)
+		defer func() { _ = os.Chdir(originalDir) }()
 		if err := os.Chdir(tmpDir); err != nil {
 			t.Fatalf("failed to change to temp directory: %v", err)
 		}
@@ -1158,7 +1158,7 @@ go test ./...
 
 		// Change to temp directory so the valid file is accessible
 		originalDir, _ := os.Getwd()
-		defer os.Chdir(originalDir)
+		defer func() { _ = os.Chdir(originalDir) }()
 		if err := os.Chdir(tmpDir); err != nil {
 			t.Fatalf("failed to change to temp directory: %v", err)
 		}
@@ -1195,7 +1195,7 @@ go test ./...
 
 		// Change to temp directory so the valid file is accessible
 		originalDir, _ := os.Getwd()
-		defer os.Chdir(originalDir)
+		defer func() { _ = os.Chdir(originalDir) }()
 		if err := os.Chdir(tmpDir); err != nil {
 			t.Fatalf("failed to change to temp directory: %v", err)
 		}

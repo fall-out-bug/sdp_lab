@@ -578,7 +578,7 @@ func TestPreCommitHook_BlocksDraftFiles(t *testing.T) {
 		// Unstage the DRAFT file so the next sub-test starts with a clean index.
 		gitRm := exec.Command("git", "rm", "--cached", "-f", "DRAFT-test.md")
 		gitRm.Dir = repoDir
-		gitRm.CombinedOutput() // best-effort; ignore errors
+		_, _ = gitRm.CombinedOutput() // best-effort; ignore errors
 		// Remove the physical file too.
 		os.Remove(filepath.Join(repoDir, "DRAFT-test.md"))
 	})

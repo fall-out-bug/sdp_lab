@@ -181,7 +181,7 @@ func TestPromoteFromRun_PartialFailure(t *testing.T) {
 		t.Fatalf("read eval evidence: %v", err)
 	}
 	var evalMap map[string]interface{}
-	json.Unmarshal(data, &evalMap)
+	_ = json.Unmarshal(data, &evalMap)
 	if goTest, _ := evalMap["go_test"].(string); goTest == "pass" {
 		t.Error("eval go_test should reflect sandbox failure")
 	}
@@ -285,7 +285,7 @@ func TestPromoteFromRun_RunIDMismatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	data, _ := json.MarshalIndent(ev, "", "  ")
-	os.WriteFile(filepath.Join(evDir, "evidence.json"), data, 0o644)
+	_ = os.WriteFile(filepath.Join(evDir, "evidence.json"), data, 0o644)
 
 	_, err := PromoteFromRun(PromoteOptions{
 		RunID:       "correct-run-id",

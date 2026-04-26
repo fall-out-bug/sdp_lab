@@ -296,7 +296,7 @@ func ContainerLanguage(profile *CodebaseProfile, containerName string) string {
 	// Additional fallback: walk the container directory and count file extensions locally
 	extCount := make(map[string]int)
 	containerDir = filepath.Clean(containerDir)
-	filepath.Walk(containerDir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(containerDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return nil
 		}

@@ -86,7 +86,7 @@ func TestBuildPromoteIntegration(t *testing.T) {
 			t.Fatalf("read gate %s: %v", g.Path, err)
 		}
 		var gateMap map[string]interface{}
-		json.Unmarshal(gateData, &gateMap)
+		_ = json.Unmarshal(gateData, &gateMap)
 
 		evPath, _ := gateMap["evidence_path"].(string)
 		if evPath == "" {
@@ -131,7 +131,7 @@ func TestBuildPromoteIntegration(t *testing.T) {
 		t.Fatalf("trace file missing: %v", err)
 	}
 	var trace map[string]interface{}
-	json.Unmarshal(traceData, &trace)
+	_ = json.Unmarshal(traceData, &trace)
 	if deltas, _ := trace["deltas"].(float64); int(deltas) != 3 {
 		t.Errorf("trace deltas = %v, want 3", deltas)
 	}

@@ -74,7 +74,9 @@ func TestMetricsAggregator_Add_MultipleSamples(t *testing.T) {
 	actual1 := &architect.ProfileFragment{
 		ImportGraph: &architect.ImportGraph{Nodes: 10, Edges: 20},
 	}
-	ma.Add("repo1", "go", expected1, actual1)
+	if err := ma.Add("repo1", "go", expected1, actual1); err != nil {
+		t.Fatalf("ma.Add: %v", err)
+	}
 
 	// Sample 2: partial match
 	expected2 := &architect.ProfileFragment{
@@ -83,7 +85,7 @@ func TestMetricsAggregator_Add_MultipleSamples(t *testing.T) {
 	actual2 := &architect.ProfileFragment{
 		ImportGraph: &architect.ImportGraph{Nodes: 8, Edges: 15},
 	}
-	ma.Add("repo2", "go", expected2, actual2)
+	_ = ma.Add("repo2", "go", expected2, actual2)
 
 	metrics := ma.Compute()
 	if len(metrics) != 1 {
@@ -113,7 +115,7 @@ func TestMetricsAggregator_Add_MultipleEcosystems(t *testing.T) {
 	goActual := &architect.ProfileFragment{
 		ImportGraph: &architect.ImportGraph{Nodes: 10, Edges: 20},
 	}
-	ma.Add("go-repo", "go", goExpected, goActual)
+	_ = ma.Add("go-repo", "go", goExpected, goActual)
 
 	// Python sample
 	pyExpected := &architect.ProfileFragment{
@@ -122,7 +124,7 @@ func TestMetricsAggregator_Add_MultipleEcosystems(t *testing.T) {
 	pyActual := &architect.ProfileFragment{
 		ImportGraph: &architect.ImportGraph{Nodes: 5, Edges: 10},
 	}
-	ma.Add("py-repo", "python", pyExpected, pyActual)
+	_ = ma.Add("py-repo", "python", pyExpected, pyActual)
 
 	metrics := ma.Compute()
 	if len(metrics) != 2 {

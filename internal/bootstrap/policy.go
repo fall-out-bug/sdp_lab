@@ -62,7 +62,7 @@ func DetectSensitivePaths(repoPath string) []string {
 	}
 
 	// Walk the repo looking for sensitive file names.
-	filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
+	_ = filepath.WalkDir(repoPath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}

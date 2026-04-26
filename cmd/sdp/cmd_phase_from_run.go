@@ -16,7 +16,7 @@ func runPhaseFromRun(args []string) {
 	format := fs.String("format", "text", "output format: json|text")
 
 	// Reorder flags before positional args so `sdp phase from-run <run_id> --feature-id ID` works.
-	fs.Parse(reorderFlagsFirst(args, fs))
+	_ = fs.Parse(reorderFlagsFirst(args, fs))
 
 	if fs.NArg() < 1 {
 		fmt.Fprintln(os.Stderr, "usage: sdp phase from-run <run_id> --feature-id ID [--evidence-dir DIR] [--phase-dir DIR]")

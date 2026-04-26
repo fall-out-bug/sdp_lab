@@ -187,7 +187,7 @@ func (h *Harness) RunPhase(ctx context.Context, userPrompt, token string) error 
 
 	// Drain events, building the TurnRecord.
 	for ev := range events {
-		h.store.PersistEvent(h.session.ID, ev)
+		_ = h.store.PersistEvent(h.session.ID, ev)
 		switch ev.Type {
 		case "text_delta":
 			turnRecord.AssistantText += ev.Delta
@@ -232,7 +232,7 @@ func (h *Harness) RunPhase(ctx context.Context, userPrompt, token string) error 
 
 	// Fix N7: warn on empty summary (non-blocking).
 	if summary == "" {
-		h.store.PersistEvent(h.session.ID, Event{Type: "warn",
+		_ = h.store.PersistEvent(h.session.ID, Event{Type: "warn",
 			Delta: "completion_signal: empty summary"})
 	}
 

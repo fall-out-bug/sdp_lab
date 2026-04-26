@@ -192,7 +192,7 @@ func assertHasChange(t *testing.T, ch []Change, cat, prefix string) {
 func copyReport(r *SpecReport) *SpecReport {
 	data, _ := json.Marshal(r)
 	var c SpecReport
-	json.Unmarshal(data, &c)
+	_ = json.Unmarshal(data, &c)
 	return &c
 }
 

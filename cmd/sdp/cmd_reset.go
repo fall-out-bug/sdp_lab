@@ -20,7 +20,7 @@ func runReset(args []string) {
 	feature := fs.String("feature", "", "Feature ID to reset (e.g. F042)")
 	dryRun := fs.Bool("dry-run", false, "Show what would be reset without doing it")
 	yes := fs.Bool("yes", false, "Skip confirmation prompt")
-	fs.Parse(args)
+	_ = fs.Parse(args)
 
 	if *feature == "" {
 		fmt.Fprintln(os.Stderr, "error: --feature is required")

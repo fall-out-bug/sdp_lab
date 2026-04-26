@@ -360,7 +360,7 @@ func mdToHTML(lines []string, mermaidBlocks []string, sectionTitle string) strin
 			flushList()
 			flushBQ()
 			idx := 0
-			fmt.Sscanf(m[1], "%d", &idx)
+			_, _ = fmt.Sscanf(m[1], "%d", &idx)
 			code := ""
 			if idx < len(mermaidBlocks) {
 				code = mermaidBlocks[idx]

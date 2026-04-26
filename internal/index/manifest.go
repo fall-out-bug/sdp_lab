@@ -80,7 +80,7 @@ func collectManifestData(s ManifestStore) (*ManifestData, error) {
 	}
 
 	if v := meta["active_branches"]; v != "" {
-		fmt.Sscanf(v, "%d", &data.ActiveWork.ActiveBranches)
+		_, _ = fmt.Sscanf(v, "%d", &data.ActiveWork.ActiveBranches)
 	}
 
 	return data, nil
