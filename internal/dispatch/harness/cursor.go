@@ -31,12 +31,24 @@ func (h *CursorHarness) Available() bool {
 	return err == nil
 }
 
+// buildArgs constructs the cursor-agent CLI args for the given opts.
+// When opts.Model is non-empty, --model is inserted before -p so the
+// router-selected model reaches the CLI. Extracted for testability.
+func (h *CursorHarness) buildArgs(opts SpawnOpts) []string {
+	args := []string{"agent"}
+	if opts.Model != "" {
+		args = append(args, "--model", opts.Model)
+	}
+	args = append(args, "-p", opts.Prompt)
+	args = append(args, opts.ExtraArgs...)
+	return args
+}
+
 // Spawn starts a cursor agent process for the given opts and returns a Process.
 //
-// Command: cursor agent -p "prompt"
+// Command: cursor agent [--model <model>] -p "prompt"
 func (h *CursorHarness) Spawn(ctx context.Context, opts SpawnOpts) (*Process, error) {
-	args := []string{"agent", "-p", opts.Prompt}
-	args = append(args, opts.ExtraArgs...)
+	args := h.buildArgs(opts)
 
 	var outBuf bytes.Buffer
 	cmd := exec.CommandContext(ctx, "cursor", args...)
