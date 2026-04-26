@@ -55,6 +55,53 @@ issues resolved.
 ## 2026-04-26
 
 ### Commits
+- `ed393e3` feat(F144): inference confidence and quality control (2026-04-26)
+
+### Changed Files
+- `.beads/interactions.jsonl`
+- `cmd/sdp-confidence-replay/main.go`
+- `docs/plans/2026-04-26-f144-inference-confidence-design.md`
+- `docs/research/2026-04-26-f144-confidence-replay-report.md`
+- `internal/inference/confidence/README.md`
+- `internal/inference/confidence/adapters/architect/architect.go`
+- `internal/inference/confidence/adapters/architect/architect_test.go`
+- `internal/inference/confidence/adapters/dispatch/dispatch.go`
+- `internal/inference/confidence/adapters/dispatch/dispatch_test.go`
+- `internal/inference/confidence/adapters/wsverdict/wsverdict.go`
+- `internal/inference/confidence/adapters/wsverdict/wsverdict_test.go`
+- `internal/inference/confidence/budget_test.go`
+- `internal/inference/confidence/checker.go`
+- `internal/inference/confidence/checker_test.go`
+- `internal/inference/confidence/constraint/README.md`
+- `internal/inference/confidence/constraint/strategy.go`
+- `internal/inference/confidence/constraint/strategy_test.go`
+- `internal/inference/confidence/nsample/README.md`
+- `internal/inference/confidence/nsample/strategy.go`
+- `internal/inference/confidence/nsample/strategy_test.go`
+- `internal/inference/confidence/policy.go`
+- `internal/inference/confidence/policy_test.go`
+- `internal/inference/confidence/replay/percentile_test.go`
+- `internal/inference/confidence/replay/replay.go`
+- `internal/inference/confidence/replay/replay_test.go`
+- `internal/inference/confidence/result.go`
+- `internal/inference/confidence/result_test.go`
+- `internal/inference/confidence/selfcheck/README.md`
+- `internal/inference/confidence/selfcheck/strategy.go`
+- `internal/inference/confidence/selfcheck/strategy_test.go`
+- `internal/inference/confidence/status.go`
+- `internal/inference/confidence/strategy.go`
+- `internal/inference/confidence/testdata/ws-verdict/adversarial/garbage.json`
+- `internal/inference/confidence/testdata/ws-verdict/adversarial/malformed-id.json`
+- `internal/inference/confidence/testdata/ws-verdict/adversarial/pass-with-failed-tests.json`
+- `internal/inference/confidence/testdata/ws-verdict/adversarial/unmet-ac-but-pass.json`
+- `internal/inference/confidence/testdata/ws-verdict/correct/clean-fail.json`
+- `internal/inference/confidence/testdata/ws-verdict/correct/clean-pass.json`
+- `internal/inference/confidence/testdata/ws-verdict/edge/empty-evidence.json`
+- `internal/inference/confidence/testdata/ws-verdict/edge/partial-coverage.json`
+
+
+
+### Commits
 - `e760bdd` merge: fix coverage baseline update after PR 130 (2026-04-26)
 
 ### Changed Files
