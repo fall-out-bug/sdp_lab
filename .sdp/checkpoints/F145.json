@@ -1,0 +1,27 @@
+{
+  "schema_version": 2,
+  "skill": "delivery-loop",
+  "feature_id": "F145",
+  "epic_bead_id": "sdplab-ldmq",
+  "worktree_path": ".worktrees/f145-multi-provider-cascade",
+  "branch": "feature/F145-multi-provider-cascade",
+  "pr_number": null,
+  "phase": 1,
+  "step": "build-cycle-1",
+  "phase_status": "running",
+  "cycle_number": 1,
+  "max_cycles": 5,
+  "consecutive_clean_cycles": 0,
+  "ws_done": [
+    "00-145-07",
+    "00-145-01",
+    "00-145-08"
+  ],
+  "ws_in_progress": [],
+  "findings": [],
+  "scope_delta_count": 0,
+  "started_at": "2026-04-26T18:28:20Z",
+  "deadline": "2026-04-29T18:28:20Z",
+  "last_heartbeat": "2026-04-26T19:25:35Z",
+  "subagent_pids": []
+}
