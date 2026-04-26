@@ -582,7 +582,7 @@ func TestHypothesizerAnalyze_PartialFailure(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(responseJSON)
+			_ = json.NewEncoder(w).Encode(responseJSON)
 			return
 		}
 
@@ -613,7 +613,7 @@ func TestHypothesizerAnalyze_PartialFailure(t *testing.T) {
 				},
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(responseJSON)
+			_ = json.NewEncoder(w).Encode(responseJSON)
 			return
 		}
 

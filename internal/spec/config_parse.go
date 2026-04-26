@@ -24,7 +24,7 @@ func ExtractConfigParameters(root string) ([]SLAParam, error) {
 	if err != nil {
 		return nil, fmt.Errorf("spec: resolve path: %w", err)
 	}
-	filepath.WalkDir(abs, func(path string, d os.DirEntry, err error) error {
+	_ = filepath.WalkDir(abs, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
 		}

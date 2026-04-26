@@ -105,7 +105,7 @@ func (p *DefaultPipeline) DryRun() (*BuildResult, error) {
 
 // Run executes the full vibecode build pipeline.
 func (p *DefaultPipeline) Run(ctx context.Context) (*BuildResult, error) {
-	defer p.sandbox.Cleanup()
+	defer func() { _ = p.sandbox.Cleanup() }()
 
 	if p.config.Strict {
 		slog.Info("build: strict mode requested — Phase FSM gates will be enforced at commit stage",

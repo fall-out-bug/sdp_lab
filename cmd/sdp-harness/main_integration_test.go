@@ -124,7 +124,7 @@ func TestCmdRun_terminatedSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("restore for stop: %v", err)
 	}
-	h.Stop(context.Background(), "")
+	_ = h.Stop(context.Background(), "")
 	_ = store.Close()
 
 	// Now attempt to run — RestoreHarness should return ErrHarnessTerminated

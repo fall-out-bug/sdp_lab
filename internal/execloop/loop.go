@@ -77,7 +77,7 @@ func NewDefaultLoop(cfg Config) (*DefaultLoop, error) {
 // Run executes the self-testing loop.
 func (l *DefaultLoop) Run(ctx context.Context) (*LoopResult, error) {
 	if l.cfg.Sandbox != nil {
-		defer l.cfg.Sandbox.Cleanup()
+		defer func() { _ = l.cfg.Sandbox.Cleanup() }()
 	}
 	start := time.Now()
 	result := &LoopResult{

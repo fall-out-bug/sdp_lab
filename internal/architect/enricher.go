@@ -256,6 +256,6 @@ func stripMarkdownFences(s string) string {
 // for per-request idempotency tracking.
 func generateRequestID() string {
 	b := make([]byte, 16)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
 }

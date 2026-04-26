@@ -242,7 +242,7 @@ func TestServeBridgeHarness_GatePending(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Simulate a pending decision so that after RestoreHarness, state = awaiting_human.
-	sessionStore.PersistDecision(card.ID, agentloop.PendingDecision{
+	_ = sessionStore.PersistDecision(card.ID, agentloop.PendingDecision{
 		DecisionID:     "test-decision-1",
 		RunID:          1,
 		Phase:          agentloop.RoleDiscover,
@@ -390,7 +390,7 @@ func TestServeBridgeHarness_TerminatedSessionRecovery(t *testing.T) {
 		t.Fatalf("open sqlite for stop simulation: %v", err)
 	}
 	// Write a terminal phase record (NextPhase="" signals Stop()).
-	sqliteStore.PersistPhaseRecord(card.ID, agentloop.PhaseRecord{
+	_ = sqliteStore.PersistPhaseRecord(card.ID, agentloop.PhaseRecord{
 		Phase:     agentloop.RoleDiscover,
 		NextPhase: "", // terminal — this is what Stop() writes
 	})
