@@ -78,7 +78,7 @@ func TestSaveCheckpoint(t *testing.T) {
 	dir := t.TempDir()
 	prNum := 42
 	cp := &ciloop.Checkpoint{
-		Schema:    "1.0",
+		Schema:    "orchestrate.v1",
 		FeatureID: "F014",
 		Branch:    "feature/F014-ci-loop-cli",
 		PRNumber:  &prNum,
@@ -106,7 +106,7 @@ func TestSaveCheckpointPreservesOrchestrateFields(t *testing.T) {
 	dir := t.TempDir()
 	// Write orchestrate-style checkpoint with workstreams, review, created_at
 	ocp := &orchestrate.Checkpoint{
-		Schema:     "1.0",
+		Schema:     "orchestrate.v1",
 		FeatureID:  "F053",
 		Branch:     "feature/F053-x",
 		Phase:      "build",
@@ -150,7 +150,7 @@ func TestSaveCheckpointNewFile(t *testing.T) {
 	dir := t.TempDir()
 	prNum := 7
 	cp := &ciloop.Checkpoint{
-		Schema:    "1.0",
+		Schema:    "orchestrate.v1",
 		FeatureID: "F099",
 		Branch:    "feature/F099",
 		PRNumber:  &prNum,

@@ -5,6 +5,7 @@ import (
 	"os"
 	"sort"
 
+	"sdp_dev/internal/architect/security"
 	"gopkg.in/yaml.v3"
 )
 
@@ -75,6 +76,17 @@ type OutputConfig struct {
 }
 
 func LoadConfig(path string) (*Config, error) {
+	// Security check: warn if config file is world-readable
+	if !security.IsWindows() {
+		warn, err := security.CheckConfigFilePermissions(path)
+		if err != nil {
+			return nil, fmt.Errorf("security check config: %w", err)
+		}
+		if warn != "" {
+			fmt.Fprintf(os.Stderr, "%s\n", warn)
+		}
+	}
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read config: %w", err)

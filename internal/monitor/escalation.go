@@ -3,12 +3,82 @@ package monitor
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
 )
+
+// WitnessEvent represents a Gas Town Witness stuck detection event
+type WitnessEvent struct {
+	AgentID       string            `json:"agent_id"`
+	TaskID        string            `json:"task_id"`
+	LastAction    string            `json:"last_action"`
+	StuckDuration time.Duration     `json:"stuck_duration"`
+	DetectedAt    time.Time         `json:"detected_at"`
+	Context       map[string]string `json:"context"`
+}
+
+// EscalationBridge handles Witness → Beads escalation
+type EscalationBridge struct {
+	bdBinary    string
+	beadsDir    string
+	wispTimeout time.Duration
+}
+
+// NewEscalationBridge creates a new escalation bridge
+func NewEscalationBridge() *EscalationBridge {
+	bdBinary := "bd"
+	if path := os.Getenv("BD_BINARY"); path != "" {
+		bdBinary = path
+	}
+
+	beadsDir := ".beads"
+	if path := os.Getenv("BEADS_DIR"); path != "" {
+		beadsDir = path
+	}
+
+	return &EscalationBridge{
+		bdBinary:    bdBinary,
+		beadsDir:    beadsDir,
+		wispTimeout: 24 * time.Hour,
+	}
+}
+
+// HandleStuckAgent creates a Beads wisp for a stuck agent
+func (b *EscalationBridge) HandleStuckAgent(event WitnessEvent) error {
+	// Use existing escalation handler
+	handler := newEscalationHandler(escalationConfig{
+		CreateWisp: true,
+	})
+
+	return handler.escalate(context.Background(), event.AgentID, event.DetectedAt)
+}
+
+// RunGTWitnessCommand runs the gt witness command to get stuck agents
+func (b *EscalationBridge) RunGTWitnessCommand() ([]WitnessEvent, error) {
+	cmd := exec.Command("gt", "witness", "stuck", "--json")
+	output, err := cmd.Output()
+	if err != nil {
+		// If gt command is not available, return empty list
+		// This is expected in development/testing environments
+		if strings.Contains(err.Error(), "executable file not found") {
+			return []WitnessEvent{}, nil
+		}
+		return nil, fmt.Errorf("failed to run gt witness stuck: %w", err)
+	}
+
+	var events []WitnessEvent
+	if err := json.Unmarshal(output, &events); err != nil {
+		return nil, fmt.Errorf("failed to parse witness events JSON: %w", err)
+	}
+
+	return events, nil
+}
+
+// isValidNotifyCommand validates that a notify command is safe to execute.
 
 // isValidNotifyCommand validates that a notify command is safe to execute.
 // It checks against a whitelist of allowed commands and prevents shell injection.

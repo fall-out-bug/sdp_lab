@@ -1,7 +1,7 @@
 # Canonical SDP Pipeline
 
-> **Status:** Active v1.0 (council-validated 2026-04-11)
-> **Date:** 2026-03-25
+> **Status:** Active v1.1 (F106 complete — agentloop integration)
+> **Date:** 2026-04-26
 > **Owner:** Андрей + Клавдий
 > **Scope:** Intent → Production Deploy, full lifecycle
 
@@ -12,6 +12,8 @@
 SDP is the governance layer. OmO is the execution layer. Beads is the operational truth. OpenClaw is the human interface.
 
 **The pipeline is law.** Every project managed through SDP follows this exact lifecycle. No shortcuts, no ad-hoc flows. If something doesn't fit, the pipeline is amended — not bypassed.
+
+**F106 Update (2026-04-26):** SDP now runs its internal agentloop for autonomous phases (discovery, planning, review, eval) with real-time gate enforcement based on actual tool evidence. The external harness (Claude Code, Cursor, opencode) is used only for implementation phases.
 
 ---
 

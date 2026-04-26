@@ -25,8 +25,8 @@ When user invokes `@discovery "feature description"` or when `@feature` invokes 
 2. If memory search returns > 10 results, reduce to 2 most specific terms.
 
 ```bash
-sdp memory stats   # warn if index > 24h old
-sdp memory search "<keyword1> <keyword2> <keyword3>"
+sdp index stats <repo-path>   # warn if index > 24h old
+sdp index query <repo-path> "<keyword1> <keyword2> <keyword3>"
 ```
 
 3. Analyze results for:

@@ -158,7 +158,7 @@ func TestCheckpoint_WithDispatch(t *testing.T) {
 		Phase:     orchestrate.PhaseBuild,
 		Workstreams: []orchestrate.WSStatus{
 			{
-				ID:     "ws-one",
+				ID:     "00-200-01",
 				Status: "in_progress",
 				Dispatch: &orchestrate.WSDispatchInfo{
 					Harness:   "opencode",
@@ -170,7 +170,7 @@ func TestCheckpoint_WithDispatch(t *testing.T) {
 				},
 			},
 			{
-				ID:     "ws-two",
+				ID:     "00-200-02",
 				Status: "pending",
 			},
 		},
@@ -191,7 +191,7 @@ func TestCheckpoint_WithDispatch(t *testing.T) {
 
 	ws0 := loaded.Workstreams[0]
 	if ws0.Dispatch == nil {
-		t.Fatal("ws-one dispatch info lost after save/load")
+		t.Fatal("00-200-01 dispatch info lost after save/load")
 	}
 	if ws0.Dispatch.Harness != "opencode" {
 		t.Errorf("Harness = %q, want %q", ws0.Dispatch.Harness, "opencode")

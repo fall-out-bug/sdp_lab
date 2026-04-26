@@ -20,7 +20,7 @@
     },
     "review": {
       "file": ".agents/skills/review.md",
-      "cli": "sdp quality all",
+      "cli": null,
       "mode": "hybrid",
       "llm_subagents": ["qa", "security", "devops", "sre", "tech-lead", "documentation"],
       "description": "Multi-agent quality review",
@@ -98,7 +98,7 @@
     },
     "reality": {
       "file": ".agents/skills/reality-check.md",
-      "cli": "sdp drift detect",
+      "cli": "sdp doctor adapters",
       "mode": "hybrid",
       "llm_subagents": ["analyst", "architect"],
       "description": "Codebase analysis - legacy alias for @review",

@@ -328,4 +328,3 @@ func TestClassify_MediumRiskDoesNotOverride(t *testing.T) {
 		t.Errorf("Classify with medium risk should not override low complexity, got %q", got.Complexity)
 	}
 }
-

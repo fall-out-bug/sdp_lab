@@ -11,6 +11,12 @@ cd "$ROOT"
 echo "==> Skill anchors contract test"
 "$ROOT/scripts/verify_skill_anchors.sh"
 
+echo "==> Model pricing freshness check"
+"$ROOT/scripts/verify_pricing_freshness.sh"
+
+echo "==> Trace attributes verification"
+"$ROOT/scripts/verify_trace_attrs.sh"
+
 run_host_quality_gates() {
   if [[ ! -x "$GO" ]]; then
     echo "missing executable: $GO" >&2

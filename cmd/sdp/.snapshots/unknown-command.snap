@@ -81,3 +81,9 @@ Coverage commands:
 Skills commands:
   sdp skills augment --stack <config.json> [--skills-dir DIR] [--dry-run] [--validate] [-v]
   sdp skills update [--project-root DIR] [--dry-run] [-v]
+
+Telemetry commands:
+  sdp telemetry init --feature <bead_id>
+  sdp telemetry span-start --kind <kind> --name <name>
+  sdp telemetry span-end --span-id <id>
+  sdp telemetry daemon

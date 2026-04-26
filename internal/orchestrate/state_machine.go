@@ -239,7 +239,7 @@ func CreateInitialCheckpoint(featureID, branch string, workstreams []string) *Ch
 		ws[i] = WSStatus{ID: id, Status: "pending"}
 	}
 	return &Checkpoint{
-		Schema:      "1.0",
+		Schema:      "orchestrate.v1",
 		FeatureID:   featureID,
 		Branch:      branch,
 		Phase:       PhaseInit,

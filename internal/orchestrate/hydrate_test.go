@@ -11,7 +11,7 @@ import (
 func TestHydrate(t *testing.T) {
 	root := findProjectRoot(t)
 	cp := &Checkpoint{
-		Schema:      "1.0",
+		Schema:      "orchestrate.v1",
 		FeatureID:   "F022",
 		Branch:      "feature/F022-context-pre-hydration",
 		Phase:       PhaseBuild,

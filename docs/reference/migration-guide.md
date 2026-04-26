@@ -105,16 +105,24 @@ All legacy skills have **exact equivalents** in the new intent model. No functio
 - `@reality-check architecture` → `@review --dimension reality architecture`
 - `@verify-workstream WS-123` → `@review --dimension readiness WS-123`
 
+### Ship Command
+
+| Legacy Skill | New Command | What Changes |
+|--------------|-------------|--------------|
+| `@deploy` | `@ship` | Renamed for clarity - same functionality |
+
+**Example migrations:**
+- `@deploy to production` → `@ship to production`
+- `@deploy --release` → `@ship --release`
+
 ### Operate Intent Migrations
 
 | Legacy Skill | New Intent | Mode | What Changes |
 |--------------|------------|------|--------------|
-| `@deploy` | `@operate` | deploy | Use `@operate --mode deploy` |
 | `@ci-triage` | `@operate` | triage | Use `@operate --mode triage` |
 | `@plan` | `@operate` | plan | Use `@operate --mode plan` |
 
 **Example migrations:**
-- `@deploy to production` → `@operate --mode deploy to production`
 - `@ci-triage failing tests` → `@operate --mode triage failing tests`
 - `@plan backlog` → `@operate --mode plan backlog`
 
@@ -161,7 +169,7 @@ Replace direct skill names with intents:
 @build add user auth
 @fix CI broken
 @review PR #42
-@operate --mode deploy to staging
+@ship to staging
 ```
 
 ### 2. Learn Mode Auto-Detection
@@ -189,7 +197,7 @@ grep -r "@scout\|@feature\|@hotfix\|@deploy" docs/
 # @scout → @understand
 # @feature → @build
 # @hotfix → @fix
-# @deploy → @operate --mode deploy
+# @deploy → @ship
 ```
 
 ### 4. Update Scripts and Automation

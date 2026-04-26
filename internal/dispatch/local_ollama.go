@@ -108,6 +108,66 @@ func (c *OllamaClient) Generate(ctx context.Context, model, prompt string) (stri
 	return result.Response, nil
 }
 
+// ChatMessage is one turn in a chat-style request.
+type ChatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+// Chat sends a chat-formatted request to /api/chat and returns the assistant
+// text. Use this instead of Generate when targeting chat-tuned models — it
+// applies the model's native chat template so JSON-formatted answers come
+// back cleaner.
+func (c *OllamaClient) Chat(ctx context.Context, model string, messages []ChatMessage) (string, error) {
+	if model == "" {
+		return "", fmt.Errorf("dispatch: ollama chat: model name required")
+	}
+	if len(messages) == 0 {
+		return "", fmt.Errorf("dispatch: ollama chat: messages required")
+	}
+
+	payload := map[string]interface{}{
+		"model":    model,
+		"messages": messages,
+		"stream":   false,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("dispatch: ollama chat marshal payload: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL+"/api/chat", bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("dispatch: create chat request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("dispatch: ollama chat request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("dispatch: ollama chat returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result struct {
+		Message struct {
+			Content string `json:"content"`
+		} `json:"message"`
+		Error string `json:"error"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("dispatch: decode ollama chat response: %w", err)
+	}
+	if result.Error != "" {
+		return "", fmt.Errorf("dispatch: ollama chat error: %s", result.Error)
+	}
+	return result.Message.Content, nil
+}
+
 // ListModels returns the names of locally available models.
 func (c *OllamaClient) ListModels(ctx context.Context) ([]string, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", c.BaseURL+"/api/tags", nil)

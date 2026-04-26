@@ -1,12 +1,25 @@
 ---
 name: deploy
-description: Deployment orchestration. Creates PR to main (after @oneshot) or merges for release.
-version: 4.0.0
+description: DEPRECATED: Use @ship instead. Deployment orchestration. Creates PR to main (after @oneshot) or merges for release.
+version: 5.0.0
+deprecated: true
+deprecated_in_favor_of: ship
+deprecation_version: "5.0.0"
+removal_version: "8.0.0"
 changes:
+  - "5.0.0: DEPRECATED - Renamed to @ship"
   - "4.0.0: Compress to ~150 lines (P2 remediation)"
 ---
 
-# @deploy - Deployment Orchestration
+# @deploy - DEPRECATED
+
+⚠️ **DEPRECATED** — Use `@ship` instead.
+
+This skill will be removed in version 8.0.0. Both `@deploy` and `@ship` will work for 3 minor versions.
+
+---
+
+## Deployment Orchestration (Legacy)
 
 Create PR to main (after @oneshot) or merge for release.
 

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"sdp_dev/internal/control"
+	"sdp_dev/internal/glob"
 	"sdp_dev/internal/kernel"
 )
 
@@ -199,31 +200,43 @@ func detectScopeAdherence(card *control.FeatureCard, changed []string) (bool, []
 }
 
 func matchesAnyScope(file string, scope []string) bool {
+	if len(scope) == 0 {
+		return false
+	}
+
+	// Use optimized matcher for better performance with large codebases
+	matcher := glob.NewMatcher(scope)
+
+	// Normalize path for matching
+	normalizedFile := filepath.ToSlash(strings.TrimSpace(file))
+
+	// Check if any pattern matches
+	if matcher.MatchAny(normalizedFile) {
+		return true
+	}
+
+	// Handle special patterns that glob doesn't support
 	for _, p := range scope {
 		p = filepath.ToSlash(strings.TrimSpace(p))
 		if p == "" {
 			continue
 		}
-		file = filepath.ToSlash(file)
-		if ok, _ := filepath.Match(p, file); ok {
-			return true
-		}
 		if strings.HasSuffix(p, "/**") {
 			prefix := strings.TrimSuffix(p, "/**")
-			if file == prefix || strings.HasPrefix(file, prefix+"/") {
+			if normalizedFile == prefix || strings.HasPrefix(normalizedFile, prefix+"/") {
 				return true
 			}
 		}
 		if strings.HasSuffix(p, "/") {
-			if strings.HasPrefix(file, p) {
+			if strings.HasPrefix(normalizedFile, p) {
 				return true
 			}
-			continue
 		}
-		if file == p || strings.HasPrefix(file, p+"/") {
+		if normalizedFile == p || strings.HasPrefix(normalizedFile, p+"/") {
 			return true
 		}
 	}
+
 	return false
 }
 
