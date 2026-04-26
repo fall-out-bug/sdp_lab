@@ -29,6 +29,8 @@ type AutoAttestOptions struct {
 	BranchName string
 }
 
+const goQualityTags = "sqlite_fts5"
+
 type autoAttestFacts struct {
 	changedFiles []string
 	branch       string
@@ -217,9 +219,9 @@ func extractWorkstreamsFromBranch(branch string) []string {
 	return nil
 }
 
-// collectTestResults runs go test with -count=1 -cover and parses JSON output.
+// collectTestResults runs the repository's CI test profile and parses JSON output.
 func collectTestResults(repoRoot string) ([]GateResult, float64) {
-	cmd := exec.CommandContext(context.Background(), "go", "test", "./...", "-count=1", "-cover", "-json")
+	cmd := exec.CommandContext(context.Background(), "go", "test", "-tags", goQualityTags, "./...", "-count=1", "-cover", "-json")
 	cmd.Dir = repoRoot
 	out, err := cmd.Output()
 	if err != nil {
@@ -299,7 +301,7 @@ func collectLintResults(repoRoot string) []GateResult {
 	var results []GateResult
 
 	// Always run go vet
-	cmd := exec.CommandContext(context.Background(), "go", "vet", "./...")
+	cmd := exec.CommandContext(context.Background(), "go", "vet", "-tags", goQualityTags, "./...")
 	cmd.Dir = repoRoot
 	vetOut, vetErr := cmd.CombinedOutput()
 	vetStatus := "pass"
