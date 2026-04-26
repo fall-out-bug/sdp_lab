@@ -23,6 +23,34 @@ func NewDispatchingInvoker(projectRoot string) *dispatch.DispatchingInvoker {
 		return nil
 	}
 
+	// Check for local model configuration from environment variables
+	var localCfg *dispatch.LocalConfig
+	if os.Getenv("SDP_LOCAL_ENABLED") == "true" {
+		baseURL := os.Getenv("OLLAMA_HOST")
+		if baseURL == "" {
+			baseURL = "http://localhost:11434"
+		}
+		model := os.Getenv("SDP_LOCAL_MODEL")
+		if model == "" {
+			model = "qwen2.5-coder:7b"
+		}
+		localCfg = &dispatch.LocalConfig{
+			BaseURL: baseURL,
+			Model:   model,
+			Score:   0.9,
+		}
+		slog.Info("dispatch: local model routing enabled",
+			"base_url", baseURL, "model", model)
+
+		// Perform health check
+		client := dispatch.NewOllamaClient(baseURL)
+		if err := client.HealthCheck(context.Background()); err != nil {
+			slog.Warn("dispatch: ollama health check failed, falling back to cloud only",
+				"error", err)
+			localCfg = nil
+		}
+	}
+
 	// Build harness registry
 	reg := harness.NewRegistry()
 	reg.Register(harness.NewClaudeHarness())
@@ -48,10 +76,14 @@ func NewDispatchingInvoker(projectRoot string) *dispatch.DispatchingInvoker {
 		}
 	}
 
+	router := &dispatch.Router{
+		Profiles:    profiles,
+		LocalConfig: localCfg,
+	}
 	verifyRouter := &dispatch.VerificationRouter{Profiles: profiles}
 
 	return &dispatch.DispatchingInvoker{
-		Router:   &dispatch.Router{Profiles: profiles},
+		Router:   router,
 		Fallback: GetDefaultInvoker(),
 		InvokerFor: func(name string) dispatch.LLMInvoker {
 			return invokerMap[name]
