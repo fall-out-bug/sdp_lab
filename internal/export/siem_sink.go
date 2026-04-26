@@ -103,6 +103,7 @@ func WithRetryDelay(d time.Duration) HTTPOption {
 }
 
 // NewHTTPSink creates a sink that POSTs JSON to endpoint.
+// Returns an error if endpoint is not HTTPS (security requirement).
 func NewHTTPSink(endpoint, authToken string, opts ...HTTPOption) *HTTPSink {
 	s := &HTTPSink{
 		endpoint:   endpoint,

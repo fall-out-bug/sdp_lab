@@ -33,14 +33,13 @@ func NewBatchSink(inner SinkWriter, batchSize int) *BatchSink {
 }
 
 // WriteBatch sends records in batches of batchSize.
-func (s *BatchSink) WriteBatch(records []SIEMRecord) error {
+func (s *BatchSink) WriteBatch(ctx context.Context, records []SIEMRecord) error {
 	if len(records) == 0 {
 		return nil
 	}
 	if s.httpSink != nil {
-		return s.writeHTTPBatches(records)
+		return s.writeHTTPBatches(ctx, records)
 	}
-	ctx := context.Background()
 	for _, rec := range records {
 		if err := s.inner.Write(ctx, rec); err != nil {
 			return err
@@ -49,21 +48,21 @@ func (s *BatchSink) WriteBatch(records []SIEMRecord) error {
 	return nil
 }
 
-func (s *BatchSink) writeHTTPBatches(records []SIEMRecord) error {
+func (s *BatchSink) writeHTTPBatches(ctx context.Context, records []SIEMRecord) error {
 	for i := 0; i < len(records); i += s.batchSize {
 		end := i + s.batchSize
 		if end > len(records) {
 			end = len(records)
 		}
 		batch := records[i:end]
-		if err := s.postBatchWithRetry(batch); err != nil {
+		if err := s.postBatchWithRetry(ctx, batch); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *BatchSink) postBatchWithRetry(batch []SIEMRecord) error {
+func (s *BatchSink) postBatchWithRetry(ctx context.Context, batch []SIEMRecord) error {
 	data, err := json.Marshal(batch)
 	if err != nil {
 		return fmt.Errorf("marshal batch: %w", err)
@@ -75,7 +74,7 @@ func (s *BatchSink) postBatchWithRetry(batch []SIEMRecord) error {
 			time.Sleep(s.httpSink.retryDelay)
 		}
 
-		req, err := http.NewRequest(http.MethodPost, s.httpSink.endpoint, bytes.NewReader(data))
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.httpSink.endpoint, bytes.NewReader(data))
 		if err != nil {
 			return fmt.Errorf("create request: %w", err)
 		}

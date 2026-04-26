@@ -336,7 +336,7 @@ func TestBatchSinkBackfill(t *testing.T) {
 		{Timestamp: time.Now().UTC(), EventType: "backfill.3", Source: "sdp-lab"},
 	}
 
-	err := sink.WriteBatch(records)
+	err := sink.WriteBatch(context.Background(), records)
 	if err != nil {
 		t.Fatalf("batch write failed: %v", err)
 	}
@@ -352,7 +352,7 @@ func TestBatchSinkEmpty(t *testing.T) {
 	var buf bytes.Buffer
 	sink := NewBatchSink(NewSyslogSink(&buf), 10)
 
-	err := sink.WriteBatch([]SIEMRecord{})
+	err := sink.WriteBatch(context.Background(), []SIEMRecord{})
 	if err != nil {
 		t.Fatalf("empty batch should succeed: %v", err)
 	}
@@ -379,7 +379,7 @@ func TestBatchSinkHTTPAuth(t *testing.T) {
 	sink := NewBatchSink(httpSink, 10)
 
 	records := []SIEMRecord{{Timestamp: time.Now().UTC(), EventType: "batch.auth"}}
-	err := sink.WriteBatch(records)
+	err := sink.WriteBatch(context.Background(), records)
 	if err != nil {
 		t.Fatalf("batch write failed: %v", err)
 	}
