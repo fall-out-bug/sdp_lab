@@ -1,11 +1,7 @@
 ---
 name: security
 description: Security specialist for threat modeling, auth risks, and compliance controls.
-tools:
-  Read: true
-  Bash: true
-  Glob: true
-  Grep: true
+tools: Read, Bash, Glob, Grep
 ---
 
 # Security Agent

@@ -1,13 +1,7 @@
 ---
 name: implementer
 description: Implementation agent for executing workstreams with TDD and self-reporting.
-tools:
-  Read: true
-  Bash: true
-  Glob: true
-  Grep: true
-  Edit: true
-  Write: true
+tools: Read, Bash, Glob, Grep, Edit, Write
 ---
 
 # Implementer Agent

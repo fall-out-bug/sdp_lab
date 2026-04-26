@@ -1,11 +1,7 @@
 ---
 name: spec-reviewer
 description: Spec reviewer for evidence-based implementation compliance against requirements.
-tools:
-  Read: true
-  Bash: true
-  Glob: true
-  Grep: true
+tools: Read, Bash, Glob, Grep
 ---
 
 # Spec Compliance Reviewer Agent
