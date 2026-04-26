@@ -9,16 +9,16 @@ default allow := false
 
 allow if {
 	input.attestation.signed == true
-	count_denied_severities == 0
+	not has_denied_severities
 	verification_passed == true
 }
 
 # Severity threshold checks (configurable via input.config.thresholds)
-count_denied_severities if {
+has_denied_severities if {
 	severities := {"critical", "high", "medium", "low"}
-	denied := {s | s := severities[_]; exceeds_threshold(s)}
-	count(denied) > 0
-} else := false
+	s := severities[_]
+	exceeds_threshold(s)
+}
 
 exceeds_threshold(severity) if {
 	threshold := get_threshold(severity)
@@ -53,6 +53,8 @@ deny_reasons contains msg if {
 }
 
 deny_reasons contains msg if {
+	severities := {"critical", "high", "medium", "low"}
+	severity := severities[_]
 	exceeds_threshold(severity)
 	msg := sprintf("%s discrepancies exceeded threshold: %d > %d", [severity, get_actual_count(severity), get_threshold(severity)])
 }

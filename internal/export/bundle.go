@@ -56,9 +56,23 @@ func (s *BatchSink) writeHTTPBatches(records []SIEMRecord) error {
 			end = len(records)
 		}
 		batch := records[i:end]
-		data, err := json.Marshal(batch)
-		if err != nil {
-			return fmt.Errorf("marshal batch: %w", err)
+		if err := s.postBatchWithRetry(batch); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *BatchSink) postBatchWithRetry(batch []SIEMRecord) error {
+	data, err := json.Marshal(batch)
+	if err != nil {
+		return fmt.Errorf("marshal batch: %w", err)
+	}
+
+	var lastErr error
+	for attempt := 0; attempt < s.httpSink.maxRetries; attempt++ {
+		if attempt > 0 {
+			time.Sleep(s.httpSink.retryDelay)
 		}
 
 		req, err := http.NewRequest(http.MethodPost, s.httpSink.endpoint, bytes.NewReader(data))
@@ -72,14 +86,17 @@ func (s *BatchSink) writeHTTPBatches(records []SIEMRecord) error {
 
 		resp, err := s.httpSink.client.Do(req)
 		if err != nil {
-			return fmt.Errorf("post batch: %w", err)
+			lastErr = fmt.Errorf("post batch: %w", err)
+			continue
 		}
 		resp.Body.Close()
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			return fmt.Errorf("batch post returned http %d", resp.StatusCode)
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return nil
 		}
+		lastErr = fmt.Errorf("batch post returned http %d", resp.StatusCode)
 	}
-	return nil
+	return fmt.Errorf("batch exhausted %d retries: %w", s.httpSink.maxRetries, lastErr)
 }
 
 // ExportBundle is a compliance-ready evidence bundle with integrity verification.
@@ -132,10 +149,11 @@ func (b *ExportBundle) Verify() bool {
 
 func (b *ExportBundle) computeBundleChecksum() string {
 	h := sha256.New()
+	// Include all structural fields for tamper detection
+	fmt.Fprintf(h, "%s\n%s\n%s\n%d\n", b.BundleID, b.TenantID, b.FeatureID, b.RecordCount)
 	for _, rec := range b.Records {
 		h.Write([]byte(rec.Checksum))
 		h.Write([]byte{0})
 	}
-	data := append(h.Sum(nil), []byte(b.BundleID)...)
-	return "sha256:" + sha256Hex(data)
+	return "sha256:" + sha256Hex(h.Sum(nil))
 }
