@@ -55,6 +55,21 @@ issues resolved.
 ## 2026-04-26
 
 ### Commits
+- `1a5e1e9` feat(F133): Local model dispatch — route tasks to Ollama (#127) (2026-04-26)
+
+### Changed Files
+- `.beads/interactions.jsonl`
+- `cmd/sdp/cmd_dispatch.go`
+- `configs/dispatch.example.yaml`
+- `internal/dispatch/classify.go`
+- `internal/dispatch/classify_test.go`
+- `internal/dispatch/local_ollama.go`
+- `internal/dispatch/local_ollama_test.go`
+- `internal/orchestrate/dispatch_integration.go`
+
+
+
+### Commits
 - `3f06f9d` fix(delivery-loop): forbid agent from improvising Phase 3 codex skip (#129) (2026-04-26)
 
 ### Changed Files
