@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/mcp/parity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"sdp_dev/internal/mcp/parity"
 )
 
 func TestNewResourceRegistry(t *testing.T) {
@@ -21,13 +21,13 @@ func TestResourceRegistryRegister(t *testing.T) {
 	registry := parity.NewResourceRegistry()
 
 	resource := &parity.ResourceDefinition{
-		URI:         "sdp://test",
-		Name:        "Test Resource",
-		Description: "Test resource",
-		MIMEType:    "application/json",
-		Path:        ".sdp/test.json",
-		SourceCLI:   "test",
-		HintTool:    "sdp_test",
+		URI:          "sdp://test",
+		Name:         "Test Resource",
+		Description:  "Test resource",
+		MIMEType:     "application/json",
+		Path:         ".sdp/test.json",
+		SourceCLI:    "test",
+		HintTool:     "sdp_test",
 		ParityStatus: parity.ParityFull,
 	}
 
@@ -49,11 +49,11 @@ func TestResourceRegistryRegisterValidation(t *testing.T) {
 		{
 			name: "empty URI",
 			resource: &parity.ResourceDefinition{
-				Name:        "test",
-				Description: "test",
-				MIMEType:    "application/json",
-				Path:        ".sdp/test.json",
-				SourceCLI:   "test",
+				Name:         "test",
+				Description:  "test",
+				MIMEType:     "application/json",
+				Path:         ".sdp/test.json",
+				SourceCLI:    "test",
 				ParityStatus: parity.ParityFull,
 			},
 			wantError: "resource URI cannot be empty",
@@ -61,11 +61,11 @@ func TestResourceRegistryRegisterValidation(t *testing.T) {
 		{
 			name: "empty name",
 			resource: &parity.ResourceDefinition{
-				URI:         "sdp://test",
-				Description: "test",
-				MIMEType:    "application/json",
-				Path:        ".sdp/test.json",
-				SourceCLI:   "test",
+				URI:          "sdp://test",
+				Description:  "test",
+				MIMEType:     "application/json",
+				Path:         ".sdp/test.json",
+				SourceCLI:    "test",
 				ParityStatus: parity.ParityFull,
 			},
 			wantError: "resource name cannot be empty",
@@ -73,11 +73,11 @@ func TestResourceRegistryRegisterValidation(t *testing.T) {
 		{
 			name: "empty description",
 			resource: &parity.ResourceDefinition{
-				URI:      "sdp://test",
-				Name:     "test",
-				MIMEType: "application/json",
-				Path:     ".sdp/test.json",
-				SourceCLI: "test",
+				URI:          "sdp://test",
+				Name:         "test",
+				MIMEType:     "application/json",
+				Path:         ".sdp/test.json",
+				SourceCLI:    "test",
 				ParityStatus: parity.ParityFull,
 			},
 			wantError: "description cannot be empty",
@@ -85,11 +85,11 @@ func TestResourceRegistryRegisterValidation(t *testing.T) {
 		{
 			name: "empty MIME type",
 			resource: &parity.ResourceDefinition{
-				URI:         "sdp://test",
-				Name:        "test",
-				Description: "test",
-				Path:        ".sdp/test.json",
-				SourceCLI:   "test",
+				URI:          "sdp://test",
+				Name:         "test",
+				Description:  "test",
+				Path:         ".sdp/test.json",
+				SourceCLI:    "test",
 				ParityStatus: parity.ParityFull,
 			},
 			wantError: "MIME type cannot be empty",
@@ -97,11 +97,11 @@ func TestResourceRegistryRegisterValidation(t *testing.T) {
 		{
 			name: "empty path",
 			resource: &parity.ResourceDefinition{
-				URI:         "sdp://test",
-				Name:        "test",
-				Description: "test",
-				MIMEType:    "application/json",
-				SourceCLI:   "test",
+				URI:          "sdp://test",
+				Name:         "test",
+				Description:  "test",
+				MIMEType:     "application/json",
+				SourceCLI:    "test",
 				ParityStatus: parity.ParityFull,
 			},
 			wantError: "path cannot be empty",
@@ -109,11 +109,11 @@ func TestResourceRegistryRegisterValidation(t *testing.T) {
 		{
 			name: "empty source CLI",
 			resource: &parity.ResourceDefinition{
-				URI:         "sdp://test",
-				Name:        "test",
-				Description: "test",
-				MIMEType:    "application/json",
-				Path:        ".sdp/test.json",
+				URI:          "sdp://test",
+				Name:         "test",
+				Description:  "test",
+				MIMEType:     "application/json",
+				Path:         ".sdp/test.json",
 				ParityStatus: parity.ParityFull,
 			},
 			wantError: "source CLI cannot be empty",
@@ -145,27 +145,27 @@ func TestResourceRegistryRegisterValidation(t *testing.T) {
 func TestResourceRegistryGetByParityStatus(t *testing.T) {
 	registry := parity.NewResourceRegistry()
 
-	registry.Register(&parity.ResourceDefinition{
-		URI:         "sdp://full",
-		Name:        "Full",
-		Description: "Full parity",
-		MIMEType:    "application/json",
-		Path:        ".sdp/full.json",
-		SourceCLI:   "full",
-		HintTool:    "sdp_full",
+	require.NoError(t, registry.Register(&parity.ResourceDefinition{
+		URI:          "sdp://full",
+		Name:         "Full",
+		Description:  "Full parity",
+		MIMEType:     "application/json",
+		Path:         ".sdp/full.json",
+		SourceCLI:    "full",
+		HintTool:     "sdp_full",
 		ParityStatus: parity.ParityFull,
-	})
+	}))
 
-	registry.Register(&parity.ResourceDefinition{
-		URI:         "sdp://forward",
-		Name:        "Forward",
-		Description: "Forward parity",
-		MIMEType:    "application/json",
-		Path:        ".sdp/forward.json",
-		SourceCLI:   "forward",
-		HintTool:    "sdp_forward",
+	require.NoError(t, registry.Register(&parity.ResourceDefinition{
+		URI:          "sdp://forward",
+		Name:         "Forward",
+		Description:  "Forward parity",
+		MIMEType:     "application/json",
+		Path:         ".sdp/forward.json",
+		SourceCLI:    "forward",
+		HintTool:     "sdp_forward",
 		ParityStatus: parity.ParityForward,
-	})
+	}))
 
 	fullResources := registry.GetByParityStatus(parity.ParityFull)
 	assert.Len(t, fullResources, 1)
@@ -195,16 +195,16 @@ func TestResourceRegistryValidateParity(t *testing.T) {
 		registry := parity.NewResourceRegistry()
 
 		// Register only some core resources
-		registry.Register(&parity.ResourceDefinition{
-			URI:         "sdp://scout",
-			Name:        "Scout",
-			Description: "Scout",
-			MIMEType:    "application/json",
-			Path:        ".sdp/scout.json",
-			SourceCLI:   "scout",
-			HintTool:    "sdp_scout",
+		require.NoError(t, registry.Register(&parity.ResourceDefinition{
+			URI:          "sdp://scout",
+			Name:         "Scout",
+			Description:  "Scout",
+			MIMEType:     "application/json",
+			Path:         ".sdp/scout.json",
+			SourceCLI:    "scout",
+			HintTool:     "sdp_scout",
 			ParityStatus: parity.ParityFull,
-		})
+		}))
 
 		err := registry.ValidateParity()
 		assert.Error(t, err)
@@ -217,16 +217,16 @@ func TestResourceRegistryValidateParity(t *testing.T) {
 		// Register core resources with partial parity
 		coreResources := []string{"sdp://scout", "sdp://architect", "sdp://metrics", "sdp://spec"}
 		for _, uri := range coreResources {
-			registry.Register(&parity.ResourceDefinition{
-				URI:         uri,
-				Name:        "Test",
-				Description: "Test",
-				MIMEType:    "application/json",
-				Path:        ".sdp/test.json",
-				SourceCLI:   "test",
-				HintTool:    "sdp_test",
+			require.NoError(t, registry.Register(&parity.ResourceDefinition{
+				URI:          uri,
+				Name:         "Test",
+				Description:  "Test",
+				MIMEType:     "application/json",
+				Path:         ".sdp/test.json",
+				SourceCLI:    "test",
+				HintTool:     "sdp_test",
 				ParityStatus: parity.ParityPartial,
-			})
+			}))
 		}
 
 		err := registry.ValidateParity()
@@ -244,26 +244,26 @@ func TestResourceRegistryCheckAvailability(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(sdpDir, "scout.json"), []byte("{}"), 0o644))
 
 	registry := parity.NewResourceRegistry()
-	registry.Register(&parity.ResourceDefinition{
-		URI:         "sdp://scout",
-		Name:        "Scout",
-		Description: "Scout",
-		MIMEType:    "application/json",
-		Path:        ".sdp/scout.json",
-		SourceCLI:   "scout",
-		HintTool:    "sdp_scout",
+	require.NoError(t, registry.Register(&parity.ResourceDefinition{
+		URI:          "sdp://scout",
+		Name:         "Scout",
+		Description:  "Scout",
+		MIMEType:     "application/json",
+		Path:         ".sdp/scout.json",
+		SourceCLI:    "scout",
+		HintTool:     "sdp_scout",
 		ParityStatus: parity.ParityFull,
-	})
-	registry.Register(&parity.ResourceDefinition{
-		URI:         "sdp://missing",
-		Name:        "Missing",
-		Description: "Missing",
-		MIMEType:    "application/json",
-		Path:        ".sdp/missing.json",
-		SourceCLI:   "missing",
-		HintTool:    "sdp_missing",
+	}))
+	require.NoError(t, registry.Register(&parity.ResourceDefinition{
+		URI:          "sdp://missing",
+		Name:         "Missing",
+		Description:  "Missing",
+		MIMEType:     "application/json",
+		Path:         ".sdp/missing.json",
+		SourceCLI:    "missing",
+		HintTool:     "sdp_missing",
 		ParityStatus: parity.ParityFull,
-	})
+	}))
 
 	availability := registry.CheckAvailability(tmpDir)
 
@@ -280,32 +280,32 @@ func TestResourceRegistryGetMissingResources(t *testing.T) {
 
 	// Register a resource that exists
 	scoutResource := &parity.ResourceDefinition{
-		URI:         "sdp://scout",
-		Name:        "Scout",
-		Description: "Scout",
-		MIMEType:    "application/json",
-		Path:        ".sdp/scout.json",
-		SourceCLI:   "scout",
-		HintTool:    "sdp_scout",
+		URI:          "sdp://scout",
+		Name:         "Scout",
+		Description:  "Scout",
+		MIMEType:     "application/json",
+		Path:         ".sdp/scout.json",
+		SourceCLI:    "scout",
+		HintTool:     "sdp_scout",
 		ParityStatus: parity.ParityFull,
 	}
-	registry.Register(scoutResource)
+	require.NoError(t, registry.Register(scoutResource))
 
 	// Create the scout file
 	require.NoError(t, os.WriteFile(filepath.Join(sdpDir, "scout.json"), []byte("{}"), 0o644))
 
 	// Register a resource that doesn't exist
 	missingResource := &parity.ResourceDefinition{
-		URI:         "sdp://missing",
-		Name:        "Missing",
-		Description: "Missing",
-		MIMEType:    "application/json",
-		Path:        ".sdp/missing.json",
-		SourceCLI:   "missing",
-		HintTool:    "sdp_missing",
+		URI:          "sdp://missing",
+		Name:         "Missing",
+		Description:  "Missing",
+		MIMEType:     "application/json",
+		Path:         ".sdp/missing.json",
+		SourceCLI:    "missing",
+		HintTool:     "sdp_missing",
 		ParityStatus: parity.ParityFull,
 	}
-	registry.Register(missingResource)
+	require.NoError(t, registry.Register(missingResource))
 
 	missing := registry.GetMissingResources(tmpDir)
 
@@ -349,9 +349,9 @@ func TestDefaultResources(t *testing.T) {
 
 func TestPathToURI(t *testing.T) {
 	tests := []struct {
-		name     string
-		path     string
-		wantURI  string
+		name    string
+		path    string
+		wantURI string
 	}{
 		{
 			name:    "scout report",

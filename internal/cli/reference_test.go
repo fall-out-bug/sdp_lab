@@ -12,7 +12,7 @@ func TestGenerateReferenceDoc(t *testing.T) {
 	globalRegistry = NewRegistry()
 
 	// Register some test commands
-	RegisterCommand(&CommandMetadata{
+	mustRegisterCommand(t, &CommandMetadata{
 		Name:        "test",
 		Category:    "Test commands",
 		Description: "A test command",
@@ -42,9 +42,9 @@ func TestGenerateReferenceDoc(t *testing.T) {
 
 func TestGetCategoryDescription(t *testing.T) {
 	tests := []struct {
-		name        string
-		category    string
-		wantDesc    bool
+		name     string
+		category string
+		wantDesc bool
 	}{
 		{
 			name:     "known category",
@@ -75,7 +75,7 @@ func TestWriteMarkdown(t *testing.T) {
 	globalRegistry = NewRegistry()
 
 	// Register test command
-	RegisterCommand(&CommandMetadata{
+	mustRegisterCommand(t, &CommandMetadata{
 		Name:        "test",
 		Category:    "Test commands",
 		Description: "Test description",
@@ -133,58 +133,58 @@ func TestCheckHarnessParity(t *testing.T) {
 	globalRegistry = NewRegistry()
 
 	// Register some commands
-	RegisterCommand(&CommandMetadata{
+	mustRegisterCommand(t, &CommandMetadata{
 		Name:     "card",
 		Category: "Card commands",
 	})
-	RegisterCommand(&CommandMetadata{
+	mustRegisterCommand(t, &CommandMetadata{
 		Name:     "board",
 		Category: "Board commands",
 	})
-	RegisterCommand(&CommandMetadata{
-		Name:        "deprecated",
-		Category:    "Deprecated",
-		Deprecated:  true,
-		Hidden:      true, // Hide from regular listing
+	mustRegisterCommand(t, &CommandMetadata{
+		Name:               "deprecated",
+		Category:           "Deprecated",
+		Deprecated:         true,
+		Hidden:             true, // Hide from regular listing
 		DeprecationMessage: "Use 'new' instead",
 	})
 
 	tests := []struct {
-		name            string
-		reference       []string
-		wantPassed      bool
-		wantMissing     int
-		wantExtra       int
-		wantDeprecated  int
+		name           string
+		reference      []string
+		wantPassed     bool
+		wantMissing    int
+		wantExtra      int
+		wantDeprecated int
 	}{
 		{
-			name:       "exact match",
-			reference:  []string{"card", "board"},
-			wantPassed: true,
+			name:        "exact match",
+			reference:   []string{"card", "board"},
+			wantPassed:  true,
 			wantMissing: 0,
 			wantExtra:   0,
 		},
 		{
-			name:       "missing commands",
-			reference:  []string{"card", "board", "dispatch"},
-			wantPassed: false,
+			name:        "missing commands",
+			reference:   []string{"card", "board", "dispatch"},
+			wantPassed:  false,
 			wantMissing: 1,
 			wantExtra:   0,
 		},
 		{
-			name:       "extra commands",
-			reference:  []string{"card"},
-			wantPassed: true,
+			name:        "extra commands",
+			reference:   []string{"card"},
+			wantPassed:  true,
 			wantMissing: 0,
 			wantExtra:   1, // board
 		},
 		{
-			name:       "deprecated in reference",
-			reference:  []string{"card", "board", "deprecated"},
-			wantPassed: true,  // Deprecated commands in reference don't fail parity
-			wantMissing: 0,    // Not counted as missing, just deprecated
-			wantExtra: 0,      // All current commands are in reference
-			wantDeprecated: 1, // Should be detected as deprecated
+			name:           "deprecated in reference",
+			reference:      []string{"card", "board", "deprecated"},
+			wantPassed:     true, // Deprecated commands in reference don't fail parity
+			wantMissing:    0,    // Not counted as missing, just deprecated
+			wantExtra:      0,    // All current commands are in reference
+			wantDeprecated: 1,    // Should be detected as deprecated
 		},
 	}
 
@@ -273,7 +273,7 @@ func TestGenerateManPage(t *testing.T) {
 	// Reset global registry for testing
 	globalRegistry = NewRegistry()
 
-	RegisterCommand(&CommandMetadata{
+	mustRegisterCommand(t, &CommandMetadata{
 		Name:        "test",
 		Category:    "Test",
 		Description: "Test command for man page",
@@ -322,11 +322,11 @@ func TestGenerateManPageDeprecated(t *testing.T) {
 	// Reset global registry for testing
 	globalRegistry = NewRegistry()
 
-	RegisterCommand(&CommandMetadata{
-		Name:              "old",
-		Category:          "Test",
-		Description:       "Old command",
-		Deprecated:        true,
+	mustRegisterCommand(t, &CommandMetadata{
+		Name:               "old",
+		Category:           "Test",
+		Description:        "Old command",
+		Deprecated:         true,
 		DeprecationMessage: "Use 'new' instead",
 	})
 

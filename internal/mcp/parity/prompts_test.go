@@ -3,9 +3,9 @@ package parity_test
 import (
 	"testing"
 
-	"sdp_dev/internal/mcp/parity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"sdp_dev/internal/mcp/parity"
 )
 
 func TestNewPromptRegistry(t *testing.T) {
@@ -17,9 +17,9 @@ func TestPromptRegistryRegister(t *testing.T) {
 	registry := parity.NewPromptRegistry()
 
 	prompt := &parity.PromptDefinition{
-		Name:        "test",
-		IntentModel: parity.IntentUnderstand,
-		Description: "Test prompt",
+		Name:         "test",
+		IntentModel:  parity.IntentUnderstand,
+		Description:  "Test prompt",
 		ParityStatus: parity.ParityFull,
 	}
 
@@ -77,19 +77,19 @@ func TestPromptRegistryRegisterValidation(t *testing.T) {
 func TestPromptRegistryGetByIntentModel(t *testing.T) {
 	registry := parity.NewPromptRegistry()
 
-	registry.Register(&parity.PromptDefinition{
-		Name:        "understand",
-		IntentModel: parity.IntentUnderstand,
-		Description: "Understand codebase",
+	require.NoError(t, registry.Register(&parity.PromptDefinition{
+		Name:         "understand",
+		IntentModel:  parity.IntentUnderstand,
+		Description:  "Understand codebase",
 		ParityStatus: parity.ParityFull,
-	})
+	}))
 
-	registry.Register(&parity.PromptDefinition{
-		Name:        "build",
-		IntentModel: parity.IntentBuild,
-		Description: "Build feature",
+	require.NoError(t, registry.Register(&parity.PromptDefinition{
+		Name:         "build",
+		IntentModel:  parity.IntentBuild,
+		Description:  "Build feature",
 		ParityStatus: parity.ParityFull,
-	})
+	}))
 
 	understandPrompts := registry.GetByIntentModel(parity.IntentUnderstand)
 	assert.Len(t, understandPrompts, 1)
@@ -115,12 +115,12 @@ func TestPromptRegistryValidateParity(t *testing.T) {
 	t.Run("missing intent", func(t *testing.T) {
 		registry := parity.NewPromptRegistry()
 
-		registry.Register(&parity.PromptDefinition{
-			Name:        "understand",
-			IntentModel: parity.IntentUnderstand,
-			Description: "test",
+		require.NoError(t, registry.Register(&parity.PromptDefinition{
+			Name:         "understand",
+			IntentModel:  parity.IntentUnderstand,
+			Description:  "test",
 			ParityStatus: parity.ParityFull,
-		})
+		}))
 
 		err := registry.ValidateParity()
 		assert.Error(t, err)

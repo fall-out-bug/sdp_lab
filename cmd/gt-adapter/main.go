@@ -72,7 +72,10 @@ func syncCmd(args []string) {
 func scopeCmd(args []string) {
 	flagSet := flag.NewFlagSet("scope", flag.ExitOnError)
 	worktreePath := flagSet.String("worktree", "", "Path to worktree (default: current directory)")
-	flagSet.Parse(args)
+	if err := flagSet.Parse(args); err != nil {
+		fmt.Fprintf(os.Stderr, "error: parse scope flags: %v\n", err)
+		os.Exit(2)
+	}
 
 	if flagSet.NArg() < 1 {
 		fmt.Fprintf(os.Stderr, "error: scope requires task JSON\n")

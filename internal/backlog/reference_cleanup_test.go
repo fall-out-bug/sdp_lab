@@ -57,7 +57,7 @@ func TestApplyFixesToFileDryRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.md")
 	content := "# Test\n\nSee [missing](../../workstreams/backlog/00-999-01.md)\n"
-	os.WriteFile(testFile, []byte(content), 0644)
+	mustWriteFile(t, testFile, []byte(content))
 
 	plan := CleanupPlan{
 		File: testFile,
@@ -99,7 +99,7 @@ func TestApplyFixesToFileWithBackup(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.md")
 	content := "# Test\n\nSee [missing](../../workstreams/backlog/00-999-01.md)\n"
-	os.WriteFile(testFile, []byte(content), 0644)
+	mustWriteFile(t, testFile, []byte(content))
 
 	plan := CleanupPlan{
 		File: testFile,
@@ -180,15 +180,15 @@ func TestQuickFix(t *testing.T) {
 			contains: "../file.md",
 		},
 		{
-			name:     "no issues",
-			input:    "# Test\n\nSee [text](../file.md)\n",
-			wantFix:  false,
+			name:    "no issues",
+			input:   "# Test\n\nSee [text](../file.md)\n",
+			wantFix: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.WriteFile(testFile, []byte(tt.input), 0644)
+			mustWriteFile(t, testFile, []byte(tt.input))
 
 			err := QuickFix(testFile)
 			if err != nil {
@@ -212,7 +212,7 @@ func TestRemoveDeadReferences(t *testing.T) {
 
 	// Create subdirectory structure
 	docsDir := filepath.Join(tmpDir, "docs", "workstreams", "backlog")
-	os.MkdirAll(docsDir, 0755)
+	mustMkdirAll(t, docsDir)
 	testFile := filepath.Join(docsDir, "test.md")
 
 	// Create a file with both valid and broken references
@@ -224,12 +224,12 @@ Broken reference to [MISSING](../../MISSING.md).
 
 More text.
 `
-	os.WriteFile(testFile, []byte(content), 0644)
+	mustWriteFile(t, testFile, []byte(content))
 
 	// Create a valid referenced file (../../README.md from docs/workstreams/backlog)
 	// This should be at docs/README.md
 	readmePath := filepath.Join(tmpDir, "docs", "README.md")
-	os.WriteFile(readmePath, []byte("# README"), 0644)
+	mustWriteFile(t, readmePath, []byte("# README"))
 
 	removed, err := RemoveDeadReferences(testFile, tmpDir)
 	if err != nil {
@@ -271,8 +271,8 @@ func TestFormatCleanupPlan(t *testing.T) {
 					Reference: Reference{LineNumber: 10},
 					Message:   "Feature not found",
 				},
-				Reason:  "Manual review required",
-				AutoFix: false,
+				Reason:     "Manual review required",
+				AutoFix:    false,
 				OldContent: "F999",
 				NewContent: "F999",
 			},
@@ -300,12 +300,12 @@ func TestFormatCleanupPlan(t *testing.T) {
 
 func TestFormatCleanupResult(t *testing.T) {
 	result := &CleanupResult{
-		FilesScanned:   10,
-		FilesModified:  2,
-		IssuesFound:    5,
-		IssuesFixed:    3,
-		IssuesSkipped:  2,
-		ModifiedFiles:  []string{"file1.md", "file2.md"},
+		FilesScanned:  10,
+		FilesModified: 2,
+		IssuesFound:   5,
+		IssuesFixed:   3,
+		IssuesSkipped: 2,
+		ModifiedFiles: []string{"file1.md", "file2.md"},
 	}
 
 	report := FormatCleanupResult(result)
@@ -369,7 +369,7 @@ func TestBatchApplyCleanup(t *testing.T) {
 
 	// Create workstream directory
 	wsDir := filepath.Join(tmpDir, "docs", "workstreams", "backlog")
-	os.MkdirAll(wsDir, 0755)
+	mustMkdirAll(t, wsDir)
 
 	// Create a file with a broken reference
 	brokenContent := `---
@@ -382,12 +382,12 @@ feature_id: F001
 Broken ref: [MISSING](../../MISSING.md)
 `
 	testFile := filepath.Join(wsDir, "00-001-01.md")
-	os.WriteFile(testFile, []byte(brokenContent), 0644)
+	mustWriteFile(t, testFile, []byte(brokenContent))
 
 	opts := CleanupOptions{
-		DryRun:   true,
+		DryRun:    true,
 		AutoApply: false,
-		Verbose:  false,
+		Verbose:   false,
 	}
 
 	result, err := BatchApplyCleanup(wsDir, opts)

@@ -67,20 +67,20 @@ func (r *SpanRegistry) Remove(traceID, toolCallID string) {
 
 // Daemon is the session-lifetime trace daemon
 type Daemon struct {
-	socketPath    string
-	tracesDir     string
-	sessionID     string
-	registry      *SpanRegistry
-	traceGen      *bead.TraceIDGenerator
-	spanGen       *bead.SpanIDGenerator
-	currentFile   *os.File
-	currentDate   string
-	schema        *trace.Schema
-	consentLevel  trace.ConsentLevel
-	attrFilter    *trace.AttributeFilter
-	mu            sync.Mutex
-	shutdownChan  chan struct{}
-	wg            sync.WaitGroup
+	socketPath   string
+	tracesDir    string
+	sessionID    string
+	registry     *SpanRegistry
+	traceGen     *bead.TraceIDGenerator
+	spanGen      *bead.SpanIDGenerator
+	currentFile  *os.File
+	currentDate  string
+	schema       *trace.Schema
+	consentLevel trace.ConsentLevel
+	attrFilter   *trace.AttributeFilter
+	mu           sync.Mutex
+	shutdownChan chan struct{}
+	wg           sync.WaitGroup
 }
 
 // Config holds daemon configuration
@@ -153,7 +153,9 @@ func (d *Daemon) Start() error {
 func (d *Daemon) run(listener net.Listener) {
 	defer d.wg.Done()
 	defer listener.Close()
-	defer d.closeTraceFile()
+	defer func() {
+		_ = d.closeTraceFile()
+	}()
 
 	for {
 		select {
@@ -161,7 +163,13 @@ func (d *Daemon) run(listener net.Listener) {
 			return
 		default:
 			// Set accept deadline to allow shutdown checking
-			listener.(*net.UnixListener).SetDeadline(time.Now().Add(1 * time.Second))
+			unixListener, ok := listener.(*net.UnixListener)
+			if !ok {
+				return
+			}
+			if err := unixListener.SetDeadline(time.Now().Add(1 * time.Second)); err != nil {
+				continue
+			}
 
 			conn, err := listener.Accept()
 			if err != nil {
@@ -183,7 +191,9 @@ func (d *Daemon) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	// Set read deadline
-	conn.SetDeadline(time.Now().Add(DefaultSocketTimeout))
+	if err := conn.SetDeadline(time.Now().Add(DefaultSocketTimeout)); err != nil {
+		return
+	}
 
 	// Read length-prefixed JSON message
 	reader := bufio.NewReader(conn)
@@ -452,8 +462,12 @@ func (d *Daemon) Shutdown() error {
 	d.wg.Wait()
 
 	// Close and remove socket
-	d.closeTraceFile()
-	os.Remove(d.socketPath)
+	if err := d.closeTraceFile(); err != nil {
+		return err
+	}
+	if err := os.Remove(d.socketPath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
 
 	return nil
 }
@@ -472,7 +486,7 @@ func (d *Daemon) sendResponse(conn net.Conn, resp *trace.DaemonResponse) {
 	}
 
 	// Write body
-	conn.Write(data)
+	_, _ = conn.Write(data)
 }
 
 // sendError sends an error response to the client

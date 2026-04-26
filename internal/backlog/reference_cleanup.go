@@ -525,7 +525,9 @@ func InteractivelyFixReferences(filePath string, repoRoot string) error {
 
 		fmt.Print("Fix? (y/n/s to skip/q to quit): ")
 		var response string
-		fmt.Scanln(&response)
+		if _, err := fmt.Scanln(&response); err != nil {
+			return fmt.Errorf("read response: %w", err)
+		}
 
 		switch strings.ToLower(response) {
 		case "y":

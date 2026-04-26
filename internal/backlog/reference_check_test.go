@@ -7,14 +7,28 @@ import (
 	"testing"
 )
 
+func mustMkdirAll(t *testing.T, path string) {
+	t.Helper()
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatalf("MkdirAll(%q): %v", path, err)
+	}
+}
+
+func mustWriteFile(t *testing.T, path string, data []byte) {
+	t.Helper()
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("WriteFile(%q): %v", path, err)
+	}
+}
+
 func TestExtractReferences(t *testing.T) {
 	tests := []struct {
-		name        string
-		line        string
-		source      string
-		lineNum     int
-		wantCount   int
-		wantTypes   []ReferenceType
+		name      string
+		line      string
+		source    string
+		lineNum   int
+		wantCount int
+		wantTypes []ReferenceType
 	}{
 		{
 			name:      "workstream reference",
@@ -90,30 +104,30 @@ func TestValidateWorkstreamReference(t *testing.T) {
 
 	// Create a workstream file
 	wsPath := filepath.Join(tmpDir, "docs", "workstreams", "backlog", "00-042-01.md")
-	os.MkdirAll(filepath.Dir(wsPath), 0755)
-	os.WriteFile(wsPath, []byte("# Test"), 0644)
+	mustMkdirAll(t, filepath.Dir(wsPath))
+	mustWriteFile(t, wsPath, []byte("# Test"))
 
 	opts := DefaultCheckOptions(tmpDir)
 
 	tests := []struct {
-		name       string
-		target     string
-		source     string
-		wantIssue  bool
-		wantSev    string
+		name      string
+		target    string
+		source    string
+		wantIssue bool
+		wantSev   string
 	}{
 		{
-			name:   "valid workstream",
-			target: "../../workstreams/backlog/00-042-01.md",
-			source: "docs/workstreams/backlog/00-001-01.md",
+			name:      "valid workstream",
+			target:    "../../workstreams/backlog/00-042-01.md",
+			source:    "docs/workstreams/backlog/00-001-01.md",
 			wantIssue: false,
 		},
 		{
-			name:   "invalid workstream",
-			target: "../../workstreams/backlog/00-999-01.md",
-			source: "docs/workstreams/backlog/00-001-01.md",
+			name:      "invalid workstream",
+			target:    "../../workstreams/backlog/00-999-01.md",
+			source:    "docs/workstreams/backlog/00-001-01.md",
 			wantIssue: true,
-			wantSev: "error",
+			wantSev:   "error",
 		},
 	}
 
@@ -144,17 +158,17 @@ func TestValidateFeatureReference(t *testing.T) {
 
 	// Create workstream files
 	wsDir := filepath.Join(tmpDir, "docs", "workstreams", "backlog")
-	os.MkdirAll(wsDir, 0755)
-	os.WriteFile(filepath.Join(wsDir, "00-042-01.md"), []byte("# Test"), 0644)
-	os.WriteFile(filepath.Join(wsDir, "00-101-02.md"), []byte("# Test"), 0644)
+	mustMkdirAll(t, wsDir)
+	mustWriteFile(t, filepath.Join(wsDir, "00-042-01.md"), []byte("# Test"))
+	mustWriteFile(t, filepath.Join(wsDir, "00-101-02.md"), []byte("# Test"))
 
 	opts := DefaultCheckOptions(tmpDir)
 
 	tests := []struct {
-		name       string
-		target     string
-		wantIssue  bool
-		wantSev    string
+		name      string
+		target    string
+		wantIssue bool
+		wantSev   string
 	}{
 		{
 			name:      "valid feature with sub",
@@ -209,18 +223,18 @@ func TestValidateFileReference(t *testing.T) {
 	// The source path is "docs/workstreams/backlog/00-001-01.md"
 	// So "../../README.md" would be at "docs/README.md"
 	docsDir := filepath.Join(tmpDir, "docs")
-	os.MkdirAll(docsDir, 0755)
+	mustMkdirAll(t, docsDir)
 	readmePath := filepath.Join(docsDir, "README.md")
-	os.WriteFile(readmePath, []byte("# Test"), 0644)
+	mustWriteFile(t, readmePath, []byte("# Test"))
 
 	opts := DefaultCheckOptions(tmpDir)
 
 	tests := []struct {
-		name       string
-		target     string
-		source     string
-		wantIssue  bool
-		wantSev    string
+		name      string
+		target    string
+		source    string
+		wantIssue bool
+		wantSev   string
 	}{
 		{
 			name:      "valid file",
@@ -264,7 +278,7 @@ func TestCheckReferenceIntegrity(t *testing.T) {
 
 	// Create workstream directory structure
 	wsDir := filepath.Join(tmpDir, "docs", "workstreams", "backlog")
-	os.MkdirAll(wsDir, 0755)
+	mustMkdirAll(t, wsDir)
 
 	// Create a workstream file with valid references
 	validWs := `---
@@ -278,7 +292,7 @@ This implements F001.
 
 See [F001](../../workstreams/backlog/00-001-01.md) for details.
 `
-	os.WriteFile(filepath.Join(wsDir, "00-001-01.md"), []byte(validWs), 0644)
+	mustWriteFile(t, filepath.Join(wsDir, "00-001-01.md"), []byte(validWs))
 
 	// Create a workstream file with broken references
 	brokenWs := `---
@@ -292,11 +306,11 @@ This implements F999.
 
 See [Missing](../../workstreams/backlog/00-999-01.md) for details.
 `
-	os.WriteFile(filepath.Join(wsDir, "00-002-01.md"), []byte(brokenWs), 0644)
+	mustWriteFile(t, filepath.Join(wsDir, "00-002-01.md"), []byte(brokenWs))
 
 	// Create a referenced file
 	readmePath := filepath.Join(tmpDir, "README.md")
-	os.WriteFile(readmePath, []byte("# Test"), 0644)
+	mustWriteFile(t, readmePath, []byte("# Test"))
 
 	opts := DefaultCheckOptions(tmpDir)
 
@@ -320,18 +334,18 @@ See [Missing](../../workstreams/backlog/00-999-01.md) for details.
 
 func TestFormatCheckReport(t *testing.T) {
 	result := &CheckResult{
-		CheckedFiles:     2,
-		SkippedFiles:     0,
-		TotalReferences:  10,
-		ValidReferences:  7,
+		CheckedFiles:    2,
+		SkippedFiles:    0,
+		TotalReferences: 10,
+		ValidReferences: 7,
 		Issues: []ReferenceIssue{
 			{
 				Reference: Reference{
 					Source:     "test.md",
 					LineNumber: 10,
 				},
-				Severity:  "error",
-				Message:   "File not found",
+				Severity:   "error",
+				Message:    "File not found",
 				Suggestion: "Create the file",
 			},
 			{
@@ -339,8 +353,8 @@ func TestFormatCheckReport(t *testing.T) {
 					Source:     "test.md",
 					LineNumber: 20,
 				},
-				Severity:  "warning",
-				Message:   "Feature may not exist",
+				Severity: "warning",
+				Message:  "Feature may not exist",
 			},
 		},
 	}

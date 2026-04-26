@@ -42,9 +42,9 @@ func generateTestEntry(entryType string) MemoryEntry {
 // TestValidateEntry tests the ValidateEntry function.
 func TestValidateEntry(t *testing.T) {
 	tests := []struct {
-		name      string
-		entry     MemoryEntry
-		wantErr   error
+		name    string
+		entry   MemoryEntry
+		wantErr error
 	}{
 		{
 			name:    "valid entry",
@@ -301,9 +301,15 @@ func TestQuery(t *testing.T) {
 	entry3.Actor = "agent-1"
 	entry3.SessionID = "session-1"
 
-	store.Append(entry1)
-	store.Append(entry2)
-	store.Append(entry3)
+	if err := store.Append(entry1); err != nil {
+		t.Fatalf("Append(entry1): %v", err)
+	}
+	if err := store.Append(entry2); err != nil {
+		t.Fatalf("Append(entry2): %v", err)
+	}
+	if err := store.Append(entry3); err != nil {
+		t.Fatalf("Append(entry3): %v", err)
+	}
 
 	// Test filter by actor
 	opts := FilterOpts{Actor: "agent-1"}
@@ -361,7 +367,9 @@ func TestRecent(t *testing.T) {
 	// Add test entries
 	for i := 0; i < 5; i++ {
 		entry := generateTestEntry("decision")
-		store.Append(entry)
+		if err := store.Append(entry); err != nil {
+			t.Fatalf("Append(entry %d): %v", i, err)
+		}
 	}
 
 	// Test recent

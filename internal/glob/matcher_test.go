@@ -13,7 +13,7 @@ func BenchmarkLiteralMatch(b *testing.B) {
 
 	b.Run("filepath.Match", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			filepath.Match(pattern, path)
+			_, _ = filepath.Match(pattern, path)
 		}
 	})
 
@@ -31,7 +31,7 @@ func BenchmarkWildcardMatch(b *testing.B) {
 
 	b.Run("filepath.Match", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			filepath.Match(pattern, path)
+			_, _ = filepath.Match(pattern, path)
 		}
 	})
 
@@ -49,7 +49,7 @@ func BenchmarkComplexPatternMatch(b *testing.B) {
 
 	b.Run("filepath.Match", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			filepath.Match(pattern, path)
+			_, _ = filepath.Match(pattern, path)
 		}
 	})
 
@@ -97,7 +97,7 @@ func BenchmarkMatcherManyPatterns(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for _, file := range files {
 				for _, pattern := range patterns {
-					filepath.Match(pattern, file)
+					_, _ = filepath.Match(pattern, file)
 				}
 			}
 		}
@@ -168,7 +168,7 @@ func BenchmarkLargeCodebase(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for _, file := range files {
 				for _, pattern := range patterns {
-					filepath.Match(pattern, file)
+					_, _ = filepath.Match(pattern, file)
 				}
 			}
 		}
@@ -192,10 +192,10 @@ func BenchmarkPrefixRejection(b *testing.B) {
 		"pkg/**/*.go",
 	}
 	files := []string{
-		"docs/readme.md",      // Should be quickly rejected
-		"test/file.go",         // Should be quickly rejected
-		"external/lib.go",      // Should be quickly rejected
-		"README.md",            // Should be quickly rejected
+		"docs/readme.md",        // Should be quickly rejected
+		"test/file.go",          // Should be quickly rejected
+		"external/lib.go",       // Should be quickly rejected
+		"README.md",             // Should be quickly rejected
 		"internal/core/file.go", // Should match
 	}
 
@@ -205,7 +205,7 @@ func BenchmarkPrefixRejection(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for _, file := range files {
 				for _, pattern := range patterns {
-					filepath.Match(pattern, file)
+					_, _ = filepath.Match(pattern, file)
 				}
 			}
 		}
@@ -243,7 +243,7 @@ func BenchmarkSuffixOptimization(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for _, file := range files {
 				for _, pattern := range patterns {
-					filepath.Match(pattern, file)
+					_, _ = filepath.Match(pattern, file)
 				}
 			}
 		}

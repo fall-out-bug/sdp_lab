@@ -51,7 +51,9 @@ func TestShimCommandExecuteDeprecated(t *testing.T) {
 
 	// Read captured stderr
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("copy stderr: %v", err)
+	}
 	output := buf.String()
 
 	if !called {
@@ -120,7 +122,9 @@ func TestPrintDeprecatedWarnings(t *testing.T) {
 
 	// Read captured stderr
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("copy stderr: %v", err)
+	}
 	output := buf.String()
 
 	if !strings.Contains(output, "Deprecation Warnings") {
@@ -228,18 +232,18 @@ func TestValidateCommandForDeprecated(t *testing.T) {
 	globalRegistry = NewRegistry()
 
 	// Register a deprecated command
-	RegisterDeprecatedCommand("deprecated-cmd", "new-cmd", "v2.0.0", "Test")
+	mustRegisterDeprecatedCommand(t, "deprecated-cmd", "new-cmd", "v2.0.0", "Test")
 	// Register a non-deprecated command
-	RegisterCommand(&CommandMetadata{
+	mustRegisterCommand(t, &CommandMetadata{
 		Name:     "active-cmd",
 		Category: "Test",
 	})
 
 	tests := []struct {
-		name            string
-		cmdName         string
-		wantDeprecated  bool
-		wantMetadata    bool
+		name           string
+		cmdName        string
+		wantDeprecated bool
+		wantMetadata   bool
 	}{
 		{
 			name:           "deprecated command",
@@ -288,7 +292,7 @@ func TestGetMigrationPath(t *testing.T) {
 	globalRegistry = NewRegistry()
 
 	// Register a deprecated command
-	RegisterDeprecatedCommand("old-cmd", "new-cmd", "v2.0.0", "Test")
+	mustRegisterDeprecatedCommand(t, "old-cmd", "new-cmd", "v2.0.0", "Test")
 
 	tests := []struct {
 		name          string

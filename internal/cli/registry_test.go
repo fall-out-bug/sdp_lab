@@ -4,6 +4,27 @@ import (
 	"testing"
 )
 
+func mustRegister(t *testing.T, r *Registry, cmd *CommandMetadata) {
+	t.Helper()
+	if err := r.Register(cmd); err != nil {
+		t.Fatalf("Register(%q): %v", cmd.Name, err)
+	}
+}
+
+func mustRegisterCommand(t *testing.T, cmd *CommandMetadata) {
+	t.Helper()
+	if err := RegisterCommand(cmd); err != nil {
+		t.Fatalf("RegisterCommand(%q): %v", cmd.Name, err)
+	}
+}
+
+func mustRegisterDeprecatedCommand(t *testing.T, name, replacement, removedIn, description string) {
+	t.Helper()
+	if err := RegisterDeprecatedCommand(name, replacement, removedIn, description); err != nil {
+		t.Fatalf("RegisterDeprecatedCommand(%q): %v", name, err)
+	}
+}
+
 func TestNewRegistry(t *testing.T) {
 	r := NewRegistry()
 	if r == nil {
@@ -92,7 +113,7 @@ func TestLookup(t *testing.T) {
 		Description: "Test lookup functionality",
 	}
 
-	r.Register(cmd)
+	mustRegister(t, r, cmd)
 
 	// Test existing command
 	retrieved, exists := r.Lookup("lookup_test")
@@ -114,9 +135,9 @@ func TestList(t *testing.T) {
 	r := NewRegistry()
 
 	// Register mix of hidden and visible commands
-	r.Register(&CommandMetadata{Name: "visible1", Category: "Test"})
-	r.Register(&CommandMetadata{Name: "visible2", Category: "Test"})
-	r.Register(&CommandMetadata{Name: "hidden", Category: "Test", Hidden: true})
+	mustRegister(t, r, &CommandMetadata{Name: "visible1", Category: "Test"})
+	mustRegister(t, r, &CommandMetadata{Name: "visible2", Category: "Test"})
+	mustRegister(t, r, &CommandMetadata{Name: "hidden", Category: "Test", Hidden: true})
 
 	list := r.List()
 
@@ -128,10 +149,10 @@ func TestList(t *testing.T) {
 func TestByCategory(t *testing.T) {
 	r := NewRegistry()
 
-	r.Register(&CommandMetadata{Name: "card", Category: "Card commands"})
-	r.Register(&CommandMetadata{Name: "board", Category: "Board commands"})
-	r.Register(&CommandMetadata{Name: "doctor", Category: "Doctor commands"})
-	r.Register(&CommandMetadata{Name: "dispatch", Category: "Dispatch commands"})
+	mustRegister(t, r, &CommandMetadata{Name: "card", Category: "Card commands"})
+	mustRegister(t, r, &CommandMetadata{Name: "board", Category: "Board commands"})
+	mustRegister(t, r, &CommandMetadata{Name: "doctor", Category: "Doctor commands"})
+	mustRegister(t, r, &CommandMetadata{Name: "dispatch", Category: "Dispatch commands"})
 
 	categories := r.ByCategory()
 
@@ -151,11 +172,11 @@ func TestByCategory(t *testing.T) {
 func TestDeprecatedCommands(t *testing.T) {
 	r := NewRegistry()
 
-	r.Register(&CommandMetadata{Name: "active", Category: "Test"})
-	r.Register(&CommandMetadata{
-		Name:              "deprecated",
-		Category:          "Test",
-		Deprecated:        true,
+	mustRegister(t, r, &CommandMetadata{Name: "active", Category: "Test"})
+	mustRegister(t, r, &CommandMetadata{
+		Name:               "deprecated",
+		Category:           "Test",
+		Deprecated:         true,
 		DeprecationMessage: "Use 'active' instead",
 	})
 
@@ -177,14 +198,14 @@ func TestDeprecatedCommands(t *testing.T) {
 func TestGenerateHelp(t *testing.T) {
 	r := NewRegistry()
 
-	r.Register(&CommandMetadata{
+	mustRegister(t, r, &CommandMetadata{
 		Name:        "card",
 		Category:    "Card commands",
 		Usage:       "sdp card <create|show|ready>",
 		Description: "Manage feature cards",
 	})
 
-	r.Register(&CommandMetadata{
+	mustRegister(t, r, &CommandMetadata{
 		Name:     "dispatch",
 		Category: "Dispatch commands",
 		Usage:    "sdp dispatch <card|next>",
@@ -206,17 +227,17 @@ func TestGenerateHelp(t *testing.T) {
 func TestGenerateCommandHelp(t *testing.T) {
 	r := NewRegistry()
 
-	r.Register(&CommandMetadata{
-		Name:              "old",
-		Category:          "Test",
-		Deprecated:        true,
+	mustRegister(t, r, &CommandMetadata{
+		Name:               "old",
+		Category:           "Test",
+		Deprecated:         true,
 		DeprecationMessage: "Use 'new' instead",
-		Description:       "Old command",
-		Usage:             "sdp old <args>",
-		Subcommands:       []string{"sub1", "sub2"},
-		Examples:          []string{"sdp old sub1", "sdp old sub2"},
-		IntroducedIn:      "v1.0.0",
-		Aliases:           []string{"o", "oldcmd"},
+		Description:        "Old command",
+		Usage:              "sdp old <args>",
+		Subcommands:        []string{"sub1", "sub2"},
+		Examples:           []string{"sdp old sub1", "sdp old sub2"},
+		IntroducedIn:       "v1.0.0",
+		Aliases:            []string{"o", "oldcmd"},
 	})
 
 	help, err := r.GenerateCommandHelp("old")
@@ -260,7 +281,7 @@ func TestValidate(t *testing.T) {
 	r := NewRegistry()
 
 	// Test valid registration
-	r.Register(&CommandMetadata{
+	mustRegister(t, r, &CommandMetadata{
 		Name:     "valid",
 		Category: "Test",
 	})
@@ -271,7 +292,7 @@ func TestValidate(t *testing.T) {
 	}
 
 	// Test missing category
-	r.Register(&CommandMetadata{
+	mustRegister(t, r, &CommandMetadata{
 		Name:     "no_category",
 		Category: "",
 	})
@@ -285,9 +306,9 @@ func TestValidate(t *testing.T) {
 func TestStats(t *testing.T) {
 	r := NewRegistry()
 
-	r.Register(&CommandMetadata{Name: "active", Category: "Test"})
-	r.Register(&CommandMetadata{Name: "deprecated", Category: "Test", Deprecated: true})
-	r.Register(&CommandMetadata{Name: "hidden", Category: "Test", Hidden: true})
+	mustRegister(t, r, &CommandMetadata{Name: "active", Category: "Test"})
+	mustRegister(t, r, &CommandMetadata{Name: "deprecated", Category: "Test", Deprecated: true})
+	mustRegister(t, r, &CommandMetadata{Name: "hidden", Category: "Test", Hidden: true})
 
 	stats := r.Stats()
 

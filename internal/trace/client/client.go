@@ -128,7 +128,9 @@ func (c *Client) send(req *trace.DaemonRequest) (*trace.DaemonResponse, error) {
 	defer conn.Close()
 
 	// Set deadline
-	conn.SetDeadline(time.Now().Add(c.timeout))
+	if err := conn.SetDeadline(time.Now().Add(c.timeout)); err != nil {
+		return nil, fmt.Errorf("failed to set socket deadline: %w", err)
+	}
 
 	// Write length prefix
 	length := uint32(len(data))

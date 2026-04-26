@@ -14,14 +14,14 @@ import (
 
 // OpenSpecChange represents a parsed OpenSpec change folder
 type OpenSpecChange struct {
-	SourcePath    string
-	SourceHash    string
-	Proposal      *OpenSpecProposal
-	SpecDelta     *OpenSpecSpecDelta
-	Design        *OpenSpecDesign
-	Tasks         []*OpenSpecTask
-	Unresolved    []*UnresolvedMapping
-	ParsedAt      time.Time
+	SourcePath string
+	SourceHash string
+	Proposal   *OpenSpecProposal
+	SpecDelta  *OpenSpecSpecDelta
+	Design     *OpenSpecDesign
+	Tasks      []*OpenSpecTask
+	Unresolved []*UnresolvedMapping
+	ParsedAt   time.Time
 }
 
 // OpenSpecProposal represents the proposal.md file
@@ -556,8 +556,9 @@ func (p *OpenSpecParser) convertTask(task *OpenSpecTask, change *OpenSpecChange)
 		// Simple heuristic for estimate parsing
 		if strings.Contains(task.Estimate, "h") {
 			var hours float64
-			fmt.Sscanf(task.Estimate, "%f", &hours)
-			sdpTask.EstimatedHours = hours
+			if n, err := fmt.Sscanf(task.Estimate, "%f", &hours); err == nil && n == 1 {
+				sdpTask.EstimatedHours = hours
+			}
 		}
 	}
 

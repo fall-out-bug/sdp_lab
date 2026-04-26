@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"sdp_dev/internal/trace"
 	"sdp_dev/internal/trace/bead"
 	"sdp_dev/internal/trace/client"
 	"sdp_dev/internal/trace/consent"
 	traceDaemon "sdp_dev/internal/trace/daemon"
-	"sdp_dev/internal/trace"
 )
 
 func runTelemetry(args []string) {
@@ -163,7 +163,10 @@ func runTelemetrySpanStart(args []string) {
 			}
 		case "--cycle":
 			if i+1 < len(args) {
-				fmt.Sscanf(args[i+1], "%d", &cycle)
+				if _, err := fmt.Sscanf(args[i+1], "%d", &cycle); err != nil {
+					fmt.Fprintf(os.Stderr, "error: invalid --cycle %q\n", args[i+1])
+					os.Exit(2)
+				}
 				i++
 			}
 		case "--verdict":
@@ -267,12 +270,18 @@ func runTelemetrySpanEnd(args []string) {
 			}
 		case "--exit-code":
 			if i+1 < len(args) {
-				fmt.Sscanf(args[i+1], "%d", &exitCode)
+				if _, err := fmt.Sscanf(args[i+1], "%d", &exitCode); err != nil {
+					fmt.Fprintf(os.Stderr, "error: invalid --exit-code %q\n", args[i+1])
+					os.Exit(2)
+				}
 				i++
 			}
 		case "--duration-ms":
 			if i+1 < len(args) {
-				fmt.Sscanf(args[i+1], "%d", &durationMs)
+				if _, err := fmt.Sscanf(args[i+1], "%d", &durationMs); err != nil {
+					fmt.Fprintf(os.Stderr, "error: invalid --duration-ms %q\n", args[i+1])
+					os.Exit(2)
+				}
 				i++
 			}
 		case "--error":
@@ -384,7 +393,10 @@ func runTelemetryDaemon(args []string) {
 	<-make(chan struct{})
 
 	// Shutdown
-	daemon.Shutdown()
+	if err := daemon.Shutdown(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: failed to stop daemon: %v\n", err)
+		os.Exit(2)
+	}
 	fmt.Printf("Trace daemon stopped\n")
 }
 
