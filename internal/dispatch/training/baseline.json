@@ -1,0 +1,229 @@
+{
+  "model": "qwen2.5-coder:7b",
+  "base_url": "http://localhost:11434",
+  "timestamp": "2026-04-26T13:04:54Z",
+  "n": 10,
+  "parse_ok_count": 10,
+  "complexity_accuracy": 0.6,
+  "task_type_accuracy": 0.6,
+  "risk_accuracy": 0.4,
+  "all_match_accuracy": 0.2,
+  "records": [
+    {
+      "index": 0,
+      "user_prompt": "Title: 00-106-06: Pipeline doc — заморозить Status и классифицировать gates\nGoal: Обновить `docs/CANONICAL_SDP_PIPELINE.md`: изменить Status с \"Proposed\" на \"Active v1.0\", добавить явную классификацию gates (mandatory/advisory) и уточнить что enforcement gates работают только после F106.",
+      "expected_label": {
+        "complexity": "low",
+        "task_type": "docs",
+        "risk": "high"
+      },
+      "raw_response": "{\"complexity\":\"low\",\"task_type\":\"docs\",\"risk\":\"low\"}",
+      "predicted_label": {
+        "complexity": "low",
+        "task_type": "docs",
+        "risk": "low"
+      },
+      "parse_ok": true,
+      "complexity_match": true,
+      "task_type_match": true,
+      "risk_match": false,
+      "all_match": false,
+      "latency_ms": 16230
+    },
+    {
+      "index": 1,
+      "user_prompt": "Title: F099-03: Adoption Guide Document",
+      "expected_label": {
+        "complexity": "low",
+        "task_type": "docs",
+        "risk": "high"
+      },
+      "raw_response": "{\"complexity\":\"medium\",\"task_type\":\"docs\",\"risk\":\"low\"}",
+      "predicted_label": {
+        "complexity": "medium",
+        "task_type": "docs",
+        "risk": "low"
+      },
+      "parse_ok": true,
+      "complexity_match": false,
+      "task_type_match": true,
+      "risk_match": false,
+      "all_match": false,
+      "latency_ms": 4853
+    },
+    {
+      "index": 2,
+      "user_prompt": "Title: 00-078-02: Metadata and links drift CI gate\nGoal: Prevent stale org/repo references and broken public metadata links from reaching main by adding a blocking drift gate.",
+      "expected_label": {
+        "complexity": "low",
+        "task_type": "bugfix",
+        "risk": "high"
+      },
+      "raw_response": "{\"complexity\":\"medium\",\"task_type\":\"feature\",\"risk\":\"low\"}",
+      "predicted_label": {
+        "complexity": "medium",
+        "task_type": "feature",
+        "risk": "low"
+      },
+      "parse_ok": true,
+      "complexity_match": false,
+      "task_type_match": false,
+      "risk_match": false,
+      "all_match": false,
+      "latency_ms": 6142
+    },
+    {
+      "index": 3,
+      "user_prompt": "Title: 00-075-03: Canary rollout for agent workflows\nGoal: Enable canary rollouts for orchestration and policy changes with automated safety checks.",
+      "expected_label": {
+        "complexity": "low",
+        "task_type": "feature",
+        "risk": "low"
+      },
+      "raw_response": "{\n  \"complexity\": \"medium\",\n  \"task_type\": \"feature\",\n  \"risk\": \"low\"\n}",
+      "predicted_label": {
+        "complexity": "medium",
+        "task_type": "feature",
+        "risk": "low"
+      },
+      "parse_ok": true,
+      "complexity_match": false,
+      "task_type_match": true,
+      "risk_match": true,
+      "all_match": false,
+      "latency_ms": 8832
+    },
+    {
+      "index": 4,
+      "user_prompt": "Title: 00-054-02: @design — pre-draft check, bead-fixed, default-in-scope\nGoal: Add to @design skill: (1) Before creating draft: `ls docs/drafts/idea-*` — do not duplicate. (2) Before creating WS from beads: for each bead, `bd show` + grep code — if already fixed, close bead and remove from scope. (3) Beads from review → in scope by default; OOS only with explicit justification.",
+      "expected_label": {
+        "complexity": "medium",
+        "task_type": "docs",
+        "risk": "low"
+      },
+      "raw_response": "{\"complexity\":\"low\",\"task_type\":\"feature\",\"risk\":\"low\"}",
+      "predicted_label": {
+        "complexity": "low",
+        "task_type": "feature",
+        "risk": "low"
+      },
+      "parse_ok": true,
+      "complexity_match": false,
+      "task_type_match": false,
+      "risk_match": true,
+      "all_match": false,
+      "latency_ms": 7480
+    },
+    {
+      "index": 5,
+      "user_prompt": "Title: 00-011-02: kubeopencode UP-003 Evidence Hooks Proposal\nGoal: Propose and implement evidence hooks in kubeopencode so any user can project evidence from Task completion events.",
+      "expected_label": {
+        "complexity": "medium",
+        "task_type": "feature",
+        "risk": "low"
+      },
+      "raw_response": "{\n\"complexity\": \"medium\",\n\"task_type\": \"feature\",\n\"risk\": \"low\"\n}",
+      "predicted_label": {
+        "complexity": "medium",
+        "task_type": "feature",
+        "risk": "low"
+      },
+      "parse_ok": true,
+      "complexity_match": true,
+      "task_type_match": true,
+      "risk_match": true,
+      "all_match": true,
+      "latency_ms": 7935
+    },
+    {
+      "index": 6,
+      "user_prompt": "Title: 00-121-10: Documentation Hygiene\nGoal: Fix 7 documentation/process findings from round-4 review: stale WS statuses, unchecked ACs, wrong paths, missing commit SHAs, and untracked deferred work.",
+      "expected_label": {
+        "complexity": "low",
+        "task_type": "bugfix",
+        "risk": "low"
+      },
+      "raw_response": "{\"complexity\": \"low\", \"task_type\": \"docs\", \"risk\": \"high\"}",
+      "predicted_label": {
+        "complexity": "low",
+        "task_type": "docs",
+        "risk": "high"
+      },
+      "parse_ok": true,
+      "complexity_match": true,
+      "task_type_match": false,
+      "risk_match": false,
+      "all_match": false,
+      "latency_ms": 7398
+    },
+    {
+      "index": 7,
+      "user_prompt": "Title: 00-095-02: Routing, tool, and memory regression suites\nGoal: Add behavior-level regression suites for routing, tool-policy, and memory-write behavior using real trace expectations.",
+      "expected_label": {
+        "complexity": "medium",
+        "task_type": "bugfix",
+        "risk": "high"
+      },
+      "raw_response": "{\"complexity\": \"medium\", \"task_type\": \"feature\", \"risk\": \"low\"}",
+      "predicted_label": {
+        "complexity": "medium",
+        "task_type": "feature",
+        "risk": "low"
+      },
+      "parse_ok": true,
+      "complexity_match": true,
+      "task_type_match": false,
+      "risk_match": false,
+      "all_match": false,
+      "latency_ms": 8495
+    },
+    {
+      "index": 8,
+      "user_prompt": "Title: 00-136-04: Session-close hook and agentloop auto-capture\nGoal: Add the automatic write path with strict noise control: phase transitions and session-close compaction only.",
+      "expected_label": {
+        "complexity": "medium",
+        "task_type": "feature",
+        "risk": "high"
+      },
+      "raw_response": "{\n\"complexity\": \"medium\",\n\"task_type\": \"feature\",\n\"risk\": \"low\"\n}",
+      "predicted_label": {
+        "complexity": "medium",
+        "task_type": "feature",
+        "risk": "low"
+      },
+      "parse_ok": true,
+      "complexity_match": true,
+      "task_type_match": true,
+      "risk_match": false,
+      "all_match": false,
+      "latency_ms": 9518
+    },
+    {
+      "index": 9,
+      "user_prompt": "Title: 00-121-12: Fix TagInfo.Date Collection\nGoal: Fix P0 blocker found by QA and SRE in round-5 review: `TagInfo.Date` is never populated because `collectTags` uses `git tag --sort=creatordate` which outputs tag names only. All release quality and stabilization metrics are silently incorrect — every fix commit gets attributed to every release tag.",
+      "expected_label": {
+        "complexity": "low",
+        "task_type": "bugfix",
+        "risk": "high"
+      },
+      "raw_response": "{\"complexity\":\"low\",\"task_type\":\"bugfix\",\"risk\":\"high\"}",
+      "predicted_label": {
+        "complexity": "low",
+        "task_type": "bugfix",
+        "risk": "high"
+      },
+      "parse_ok": true,
+      "complexity_match": true,
+      "task_type_match": true,
+      "risk_match": true,
+      "all_match": true,
+      "latency_ms": 8943
+    }
+  ],
+  "confusion_complexity": {
+    "low-\u003elow": 3,
+    "low-\u003emedium": 3,
+    "medium-\u003elow": 1,
+    "medium-\u003emedium": 3
+  }
+}
