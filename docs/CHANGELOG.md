@@ -55,6 +55,13 @@ issues resolved.
 ## 2026-04-26
 
 ### Commits
+- `b5b77ad` merge: mark PR 131 squash merge (2026-04-26)
+
+### Changed Files
+
+
+
+### Commits
 - `ed393e3` feat(F144): inference confidence and quality control (2026-04-26)
 
 ### Changed Files
