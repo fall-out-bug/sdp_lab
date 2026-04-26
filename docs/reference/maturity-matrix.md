@@ -114,21 +114,25 @@
 | build-test | GA | platform | go build + test + lint |
 | snapshot-test | GA | platform | Snapshot diff detection |
 | push-protection | GA | platform | Prevent direct push to main |
+| architect-tests | GA | platform | Architecture regression tests |
+| contract-compat | GA | platform | Contract compatibility tests |
 | evidence-gate | GA | platform | Evidence schema validation |
 | scope-gate | GA | platform | WS scope enforcement |
-| consistency-gate | GA | platform | Guard-rules conformance |
-| coverage-gate | Beta | platform | Pilot mode (fail-open) |
-| policy-gate | GA | platform | Aggregated gate result |
-| ci-pass | GA | platform | Final merge gate |
+| protocol-compliance | GA | platform | Contract + snapshot validation |
+| consistency-gate | GA | platform | Repo consistency + protocol check |
+| coverage-gate | GA | platform | Baseline delta enforcement (blocking) |
+| policy-gate | GA | platform | OPA policy evaluation (advisory by default) |
+| auto-attestation | GA | platform | Sigstore-signed attestation generation |
+| required-checks | GA | platform | Final merge gate (validates all 12) |
 
 ## Summary
 
 | Maturity | Count | Percentage |
 |----------|-------|------------|
-| GA | 50 | 71% |
-| Beta | 13 | 19% |
-| Experimental | 7 | 10% |
-| **Total** | **70** | **100%** |
+| GA | 55 | 74% |
+| Beta | 13 | 17% |
+| Experimental | 7 | 9% |
+| **Total** | **75** | **100%** |
 
 ## Change Log
 

@@ -11,11 +11,13 @@ SDP provides **evidence collection** and **process enforcement** that supports c
 
 | Compliance Control | SDP Artifact | Gate | Local Reproduce |
 |--------------------|--------------|------|-----------------|
-| Test execution evidence | `.sdp/evidence/*.json` (type: verification) | evidence-gate | `./scripts/run_go_quality_gates.sh` |
-| Scope containment evidence | `.sdp/evidence/*.json` (type: plan) | scope-gate | `sdp guard check` |
-| Policy conformance evidence | Policy summary JSON | policy-gate | `sdp gate status` |
-| Coverage metrics | Coverage report | coverage-gate | `go test -coverprofile=cover.out ./...` |
-| Consistency check results | Guard-rules report | consistency-gate | `sdp verify` |
+| Test execution evidence | `.sdp/evidence/*.json` | evidence-gate | `go run ./cmd/sdp-evidence validate --require-pr-url=false <file>` |
+| Scope containment evidence | `.sdp/checkpoints/*.json` | scope-gate | `go run ./cmd/sdp-guard --ws <ws-id>` |
+| Contract compliance evidence | `.sdp/contracts/F*.json` + snapshots | protocol-compliance | `go run ./cmd/sdp-guard --check-contract --contract <file> --snapshot <file>` |
+| Coverage metrics | `cov.out`, `.sdp/metrics/coverage.txt` | coverage-gate | `go test -tags sqlite_fts5 -coverprofile=cover.out ./... && go tool cover -func=cover.out` |
+| Repo consistency results | `.sdp/findings/*.json` | consistency-gate | `python3 scripts/check_repo_consistency.py --strict-ac --json` |
+| Signed attestation | `.sdp/attestations/ci-auto.json` + `.bundle` | auto-attestation | `go run ./internal/evidence/cmd/auto-attest --branch <branch>` |
+| Policy evaluation | OPA evaluation log | policy-gate | `opa eval --data .sdp/policies/ --input <input.json> 'data.sdp.policies.effective_deny'` |
 
 ## Phase Gate Evidence Requirements
 
@@ -31,4 +33,4 @@ See [trust-guarantees.md](../reference/trust-guarantees.md) "Required Customer C
 
 ---
 
-*Source: [trust-guarantees.md](../reference/trust-guarantees.md), [maturity-matrix.md](../reference/maturity-matrix.md)*
+*Source: [trust-guarantees.md](../reference/trust-guarantees.md), [maturity-matrix.md](../reference/maturity-matrix.md), [ci-gates-map.md](../reference/ci-gates-map.md)*
