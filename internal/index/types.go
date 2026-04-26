@@ -88,6 +88,7 @@ type BuildResult struct {
 	TotalChunks int           `json:"total_chunks"`
 	TotalFiles  int           `json:"total_files"`
 	TotalEdges  int           `json:"total_edges"`
+	FilesSkipped int          `json:"files_skipped"` // Files that failed to parse or produced no chunks
 	Duration    time.Duration `json:"duration"`
 	Languages   []string      `json:"languages"`
 	DBPath      string        `json:"db_path"`
@@ -265,17 +266,14 @@ type ManifestStore interface {
 	// Meta operations (used by both manifest and enricher)
 	GetMeta(key string) (string, error)
 	SetMeta(key, value string) error
-	SaveMeta(key, value string) error
 	LoadMeta(keys ...string) (map[string]string, error)
 
 	// Module operations
-	ListModules() ([]ModuleMeta, error)
 	LoadModules() ([]ModuleMeta, error)
 	UpsertModuleMeta(mm ModuleMeta) error
 	UpdateModules(modules []ModuleMeta) error
 
 	// Entry points
-	ListEntryPoints() ([]string, error)
 	LoadEntryPoints() ([]string, error)
 
 	// Stats

@@ -252,6 +252,7 @@ func extractTopLevelBlocks(content string) []topBlock {
 	blockStart := 0
 	blockLines := []string{}
 	inBlock := false
+	var state braceCountState
 
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
@@ -262,13 +263,14 @@ func extractTopLevelBlocks(content string) []topBlock {
 				blockStart = i
 				blockLines = []string{line}
 				// Check if line opens a brace
-				depth = countBraces(line)
+				depth, state = countBraces(line, state)
 				if depth > 0 {
 					inBlock = true
 				} else {
 					// Single-line declaration (e.g., "const X = 5")
 					// Continue to next line to see if there's a block
 					depth = 0
+					state = braceCountState{}
 					inBlock = false
 					blocks = append(blocks, topBlock{
 						content:   strings.Join(blockLines, "\n"),
@@ -284,7 +286,9 @@ func extractTopLevelBlocks(content string) []topBlock {
 
 		if inBlock {
 			blockLines = append(blockLines, line)
-			depth += countBraces(line)
+			lineDelta, newState := countBraces(line, state)
+			depth += lineDelta
+			state = newState
 
 			if depth <= 0 {
 				blocks = append(blocks, topBlock{
@@ -295,6 +299,7 @@ func extractTopLevelBlocks(content string) []topBlock {
 				blockLines = nil
 				inBlock = false
 				depth = 0
+				state = braceCountState{}
 			}
 		}
 	}
@@ -319,27 +324,82 @@ func isTopLevelDecl(line string) bool {
 		strings.HasPrefix(line, "import ")
 }
 
-func countBraces(line string) int {
+// braceCountState tracks the state for counting braces across lines.
+type braceCountState struct {
+	inString    bool   // Track if we're inside a double-quoted string
+	inRawString bool   // Track if we're inside a raw string (backtick)
+	inRune      bool   // Track if we're inside a rune literal
+	// Note: inComment is NOT tracked here because line comments (//)
+	// are line-local and should not persist across lines.
+}
+
+// countBraces counts the brace depth change in a line, handling multi-line strings,
+// raw strings, and escaped quotes. It returns the depth delta and updated state.
+// Note: Line comments (//) are handled but do NOT persist in the state since they
+// are line-local in Go.
+func countBraces(line string, state braceCountState) (int, braceCountState) {
 	count := 0
-	inString := false
-	inRune := false
+	// Work with a mutable copy of the state
+	s := state
+	// inComment is line-local, so we track it separately
 	inComment := false
 
-	for i, ch := range line {
+	for i := 0; i < len(line); i++ {
+		ch := rune(line[i])
+
+		// Skip everything if we're in a comment
 		if inComment {
 			continue
 		}
+
+		// Check for line comment start
 		if ch == '/' && i+1 < len(line) && line[i+1] == '/' {
 			inComment = true
 			continue
 		}
-		if ch == '"' && (i == 0 || line[i-1] != '\\') {
-			inString = !inString
+
+		// Handle raw string literals (backtick)
+		// Raw strings cannot contain escaped backticks
+		if ch == '`' {
+			s.inRawString = !s.inRawString
+			continue
 		}
-		if ch == '\'' && (i == 0 || line[i-1] != '\\') {
-			inRune = !inRune
+
+		// If we're in a raw string, skip all other processing
+		if s.inRawString {
+			continue
 		}
-		if !inString && !inRune {
+
+		// Handle double-quoted strings
+		if ch == '"' {
+			// Check if the quote is escaped
+			// We need to count consecutive backslashes to determine if the quote is escaped
+			backslashCount := 0
+			for j := i - 1; j >= 0 && line[j] == '\\'; j-- {
+				backslashCount++
+			}
+			// An odd number of backslashes means the quote is escaped
+			if backslashCount%2 == 0 {
+				s.inString = !s.inString
+			}
+			continue
+		}
+
+		// Handle rune literals (single quotes)
+		if ch == '\'' {
+			// Similar escape logic as double quotes
+			backslashCount := 0
+			for j := i - 1; j >= 0 && line[j] == '\\'; j-- {
+				backslashCount++
+			}
+			if backslashCount%2 == 0 {
+				s.inRune = !s.inRune
+			}
+			continue
+		}
+
+		// Count braces only when not in a string, rune, or comment
+		if !s.inString && !s.inRune {
 			if ch == '{' {
 				count++
 			} else if ch == '}' {
@@ -347,7 +407,8 @@ func countBraces(line string) int {
 			}
 		}
 	}
-	return count
+
+	return count, s
 }
 
 // --- Python Parser ---

@@ -443,3 +443,113 @@ func TestSearchResponse_JSON(t *testing.T) {
 		assert.Greater(t, r.Chunk.LineEnd, 0)
 	}
 }
+
+// openBenchmarkStore creates a test store for benchmarking
+func openBenchmarkStore(b *testing.B) *SQLiteStore {
+	b.Helper()
+	dir := b.TempDir()
+	dbPath := dir + "/test.db"
+	s, err := OpenStore(dbPath)
+	if err != nil {
+		b.Fatal(err)
+	}
+	return s
+}
+
+// BenchmarkRRFFuse_Small benchmarks RRF fusion with small result sets (10 items)
+func BenchmarkRRFFuse_Small(b *testing.B) {
+	store := openBenchmarkStore(b)
+	fts, vec := generateRankedItemsForBench(b, store, 10, 10)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = rrfFuse(store, fts, vec, 10)
+	}
+}
+
+// BenchmarkRRFFuse_Medium benchmarks RRF fusion with medium result sets (100 items)
+func BenchmarkRRFFuse_Medium(b *testing.B) {
+	store := openBenchmarkStore(b)
+	fts, vec := generateRankedItemsForBench(b, store, 100, 100)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = rrfFuse(store, fts, vec, 50)
+	}
+}
+
+// BenchmarkRRFFuse_Large benchmarks RRF fusion with large result sets (1000 items)
+func BenchmarkRRFFuse_Large(b *testing.B) {
+	store := openBenchmarkStore(b)
+	fts, vec := generateRankedItemsForBench(b, store, 1000, 1000)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = rrfFuse(store, fts, vec, 100)
+	}
+}
+
+// BenchmarkRRFFuse_Hybrid benchmarks RRF fusion with asymmetric result sets (500 FTS, 200 vec)
+func BenchmarkRRFFuse_Hybrid(b *testing.B) {
+	store := openBenchmarkStore(b)
+	fts, vec := generateRankedItemsForBench(b, store, 500, 200)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = rrfFuse(store, fts, vec, 100)
+	}
+}
+
+
+// generateRankedItemsForBench creates test ranked items for benchmarking
+func generateRankedItemsForBench(b *testing.B, s *SQLiteStore, ftsCount, vecCount int) ([]rankedItem, []rankedItem) {
+	b.Helper()
+
+	// Insert test chunks
+	chunkIDs := make([]int64, max(ftsCount, vecCount))
+	for i := 0; i < len(chunkIDs); i++ {
+		id, err := s.InsertChunk(Chunk{
+			FilePath:   "benchmark.go",
+			SymbolName: "BenchmarkItem",
+			Kind:       "function",
+			Language:   "go",
+			LineStart:  i,
+			LineEnd:    i + 10,
+			Content:    "benchmark test data",
+			Hash:       "hash",
+		})
+		if err != nil {
+			b.Fatal(err)
+		}
+		chunkIDs[i] = id
+	}
+
+	// Create FTS results with some overlap
+	fts := make([]rankedItem, ftsCount)
+	for i := 0; i < ftsCount; i++ {
+		fts[i] = rankedItem{
+			chunkID: chunkIDs[i%len(chunkIDs)],
+			score:   -float64(i) * 0.1,
+		}
+	}
+
+	// Create vec results with different overlap pattern
+	vec := make([]rankedItem, vecCount)
+	for i := 0; i < vecCount; i++ {
+		// Offset to create different overlap pattern
+		offset := (i + len(chunkIDs)/2) % len(chunkIDs)
+		vec[i] = rankedItem{
+			chunkID: chunkIDs[offset],
+			score:   float64(i) * 0.05,
+		}
+	}
+
+	return fts, vec
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}

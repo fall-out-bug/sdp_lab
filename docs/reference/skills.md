@@ -63,7 +63,7 @@ Old skills have been absorbed into the five intents. During the deprecation peri
 | @debug | @fix | investigate | Use `@fix --mode investigate` |
 | @reality-check | @review | reality | Use `@review --dimension reality` |
 | @verify-workstream | @review | readiness | Use `@review --dimension readiness` |
-| @deploy | @operate | deploy | Use `@operate --mode deploy` |
+| @deploy | @ship | N/A | Use `@ship` (renamed for clarity) |
 | @ci-triage | @operate | triage | Use `@operate --mode triage` |
 | @plan | @operate | plan | Use `@operate --mode plan` |
 
@@ -97,7 +97,8 @@ The public happy path through intents:
 - `@build` — feature creation (idea → feature → prototype modes)
 - `@fix` — bug resolution (quick → investigate → systematic modes)
 - `@review` — quality gates (code → architecture → security → readiness)
-- `@operate` — deployment and maintenance (deploy → triage → plan modes)
+- `@ship` — deployment and release (creates PR to main or tags release)
+- `@operate` — operations and maintenance (triage → plan modes)
 
 ## Stage Mapping (Intent-Based)
 

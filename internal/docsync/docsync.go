@@ -515,43 +515,77 @@ func FixCodeFenceTags(projectRoot string) ([]FixAction, []Issue, error) {
 		lines := strings.Split(content, "\n")
 		changed := false
 
+		// Track whether we're inside a code fence to avoid confusing
+		// opening and closing fences (sdplab-xrz).
+		inCodeBlock := false
+
 		for i := 0; i < len(lines); i++ {
 			line := lines[i]
-			// Match an opening fence with no language tag: exactly ``` with optional whitespace.
-			if !isUntaggedFence(line) {
+			trimmedLine := strings.TrimRight(line, " \t")
+
+			// Check if this is ANY fence line (tagged or untagged)
+			isFence := strings.HasPrefix(trimmedLine, "```") || strings.HasPrefix(trimmedLine, "~~~")
+			if !isFence {
 				continue
 			}
-			// Find closing fence.
-			closeIdx := -1
-			for j := i + 1; j < len(lines); j++ {
-				if strings.HasPrefix(strings.TrimRight(lines[j], " \t"), "```") {
-					closeIdx = j
-					break
+
+			// If we're not in a code block, this must be an opening fence
+			if !inCodeBlock {
+				// Only process untagged fences for fixing
+				if !isUntaggedFence(line) {
+					// Tagged fence - skip fixing but mark that we're in a code block
+					inCodeBlock = true
+					continue
 				}
-			}
-			if closeIdx == -1 {
-				continue
-			}
 
-			codeLines := lines[i+1 : closeIdx]
-			if len(codeLines) == 0 {
-				continue
-			}
-			lang := inferCodeLanguage(codeLines)
-			if lang == "" {
-				continue
-			}
+				// This is an untagged opening fence - find its closing fence
+				inCodeBlock = true
 
-			before := lines[i]
-			after := "```" + lang
-			fixes = append(fixes, FixAction{
-				File:   relPath,
-				Fix:    "fence-tag",
-				Before: before,
-				After:  after,
-			})
-			lines[i] = after
-			changed = true
+				// Find the matching closing fence (skip all lines until we find another fence)
+				closeIdx := -1
+				for j := i + 1; j < len(lines); j++ {
+					jline := strings.TrimRight(lines[j], " \t")
+					// A closing fence is just ``` or ~~~ with optional trailing whitespace
+					if jline == "```" || jline == "~~~" {
+						closeIdx = j
+						break
+					}
+				}
+				if closeIdx == -1 {
+					// No closing fence found - skip this block
+					inCodeBlock = false
+					continue
+				}
+
+				codeLines := lines[i+1 : closeIdx]
+				if len(codeLines) == 0 {
+					// Empty code block - skip it entirely
+					inCodeBlock = false
+					i = closeIdx // Jump to the closing fence
+					continue
+				}
+				lang := inferCodeLanguage(codeLines)
+				if lang == "" {
+					// Can't infer language - skip this block without tagging
+					inCodeBlock = false
+					i = closeIdx // Jump to the closing fence
+					continue
+				}
+
+				before := lines[i]
+				after := "```" + lang
+				fixes = append(fixes, FixAction{
+					File:   relPath,
+					Fix:    "fence-tag",
+					Before: before,
+					After:  after,
+				})
+				lines[i] = after
+				changed = true
+			} else {
+				// This is a closing fence
+				inCodeBlock = false
+			}
 		}
 
 		if changed {

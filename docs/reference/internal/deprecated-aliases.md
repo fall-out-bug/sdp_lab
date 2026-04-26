@@ -63,11 +63,16 @@ Each legacy skill maps to:
 
 **Note:** `@review` is **not deprecated** — it's the primary intent. Only dimension-specific aliases are deprecated.
 
+## Ship Command
+
+| Legacy Skill | Routes To | Warning Message |
+|--------------|-----------|-----------------|
+| `@deploy` | `@ship` | `@deploy` is deprecated. Use `@ship` instead (renamed for clarity). Both will work until v8.0.0 |
+
 ## Operate Aliases
 
 | Legacy Skill | Routes To | Intent Mode | Warning Message |
 |--------------|-----------|-------------|-----------------|
-| `@deploy` | `@operate` | deploy | `@deploy` is deprecated. Use `@operate --mode deploy` |
 | `@ci-triage` | `@operate` | triage | `@ci-triage` is deprecated. Use `@operate --mode triage` |
 | `@plan` | `@operate` | plan | `@plan` is deprecated. Use `@operate --mode plan` |
 

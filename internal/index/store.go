@@ -370,28 +370,103 @@ func IsBinaryFile(path string) bool {
 }
 
 // IsSecretFile returns true if the file path looks like a secrets file.
+// Uses exact extension matching and targeted patterns to avoid false positives
+// on legitimate source files (e.g., tokenizer.py, token_handler.go).
 func IsSecretFile(path string) bool {
-	secretPatterns := []string{
-		".env",
-		".pem",
-		".key",
-		".p12",
-		".pfx",
-		"credentials.",
-		"secret",
-		"password",
-		"token",
-	}
 	base := strings.ToLower(filepath.Base(path))
-	for _, pat := range secretPatterns {
-		if strings.Contains(base, pat) {
-			return true
-		}
+
+	// Exact extension match for certificate/key files
+	secretExts := map[string]bool{
+		".pem":        true,
+		".key":        true,
+		".p12":        true,
+		".pfx":        true,
+		".jks":        true,
+		".keystore":   true,
+		".netrc":      true,
+		".kubeconfig": true,
 	}
-	// Exact match for .env files
+
+	// Check exact extension match
+	ext := filepath.Ext(base)
+	if secretExts[ext] {
+		return true
+	}
+
+	// Special files without extensions (exact basename match)
+	secretFiles := map[string]bool{
+		"id_rsa":     true,
+		"id_rsa.pub": true,
+		"id_ed25519": true,
+		"id_ed25519.pub": true,
+		"id_dsa":     true,
+		"id_ecdsa":   true,
+		"id_ecdsa_sk": true,
+	}
+	if secretFiles[base] {
+		return true
+	}
+
+	// Exact match for .env files (including .env.local, .env.production, etc.)
 	if base == ".env" || strings.HasPrefix(base, ".env.") {
 		return true
 	}
+
+	// Targeted patterns: must match specific formats, not substrings
+	// These patterns are more specific to reduce false positives
+	secretPatterns := []struct {
+		prefix        string
+		suffix        string
+		requireExt    string // if set, require this specific extension
+	}{
+		{"credentials.", "", ""},  // credentials.json, credentials.yaml
+		{"", ".credentials", ""},  // service.credentials
+		{"secret.", "", ""},       // secret.env, secret.config (but NOT secret.go)
+		{"", ".secret", ""},       // config.secret, db.secret
+		{"password.", "", ""},     // password.txt, password.file (but NOT password.go)
+		{"", ".password", ""},     // config.password
+		{"private.", "", ""},      // private.key (already covered by .key but for completeness)
+		{"", ".private", ""},      // config.private
+	}
+
+	// Extensions that are commonly used for secrets/config files
+	// Source code extensions (.go, .py, .js, .rs, etc.) should NOT be treated as secrets
+	secretConfigExtensions := map[string]bool{
+		".env":        true,
+		".config":     true,
+		".conf":       true,
+		".txt":        true,
+		".json":       true,
+		".yaml":       true,
+		".yml":        true,
+		".xml":        true,
+		".ini":        true,
+		".cfg":        true,
+		".properties": true,
+		".file":       true, // password.file
+	}
+
+	for _, pat := range secretPatterns {
+		if (pat.prefix == "" || strings.HasPrefix(base, pat.prefix)) &&
+		   (pat.suffix == "" || strings.HasSuffix(base, pat.suffix)) {
+			// If both prefix and suffix specified, that's a strong signal
+			if pat.prefix != "" && pat.suffix != "" {
+				return true
+			}
+			// If only prefix specified, require a secret/config extension (not source code)
+			if pat.prefix != "" && len(base) > len(pat.prefix) {
+				ext := filepath.Ext(base)
+				if secretConfigExtensions[ext] {
+					return true
+				}
+			}
+			// If only suffix specified, that's a strong signal
+			if pat.suffix != "" && len(base) > len(pat.suffix) {
+				return true
+			}
+		}
+	}
+
 	return false
 }
 
@@ -451,11 +526,6 @@ func (s *SQLiteStore) LoadMetaPrefix(prefix string) (map[string]string, error) {
 	return result, nil
 }
 
-// SaveMeta stores a key-value pair (alias for SetMeta for interface compat).
-func (s *SQLiteStore) SaveMeta(key, value string) error {
-	return s.SetMeta(key, value)
-}
-
 // UpdateModules replaces all modules with the given slice.
 func (s *SQLiteStore) UpdateModules(modules []ModuleMeta) error {
 	if _, err := s.db.Exec("DELETE FROM modules"); err != nil {
@@ -501,16 +571,6 @@ func (s *SQLiteStore) LoadStats() (*IndexStats, error) {
 	repoName, _ := s.GetMeta("repo_name")
 	stats.RepoName = repoName
 	return stats, nil
-}
-
-// ListModules returns all modules (alias for LoadModules for interface compat).
-func (s *SQLiteStore) ListModules() ([]ModuleMeta, error) {
-	return s.LoadModules()
-}
-
-// ListEntryPoints returns entry point paths (alias for LoadEntryPoints for interface compat).
-func (s *SQLiteStore) ListEntryPoints() ([]string, error) {
-	return s.LoadEntryPoints()
 }
 
 // ListIndexedFilePaths returns all file paths currently tracked in the files table.
@@ -662,6 +722,28 @@ func DeleteFileMetaTx(tx *sql.Tx, path string) error {
 // This is used for resolving symbolic edges to ID-based edges after all chunks are inserted.
 func BuildSymbolIDMap(store *SQLiteStore) (map[string]int64, error) {
 	rows, err := store.db.Query("SELECT id, file_path, symbol_name FROM chunks WHERE symbol_name IS NOT NULL AND symbol_name != ''")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	m := make(map[string]int64)
+	for rows.Next() {
+		var id int64
+		var fp, sym string
+		if err := rows.Scan(&id, &fp, &sym); err != nil {
+			continue
+		}
+		key := fp + ":" + sym
+		m[key] = id
+	}
+	return m, nil
+}
+
+// buildSymbolIDMapTx queries all chunks within a transaction and returns a map from "file_path:symbol_name" to chunk ID.
+// This is the transactional version used during ColdBuild for consistency.
+func buildSymbolIDMapTx(tx *sql.Tx) (map[string]int64, error) {
+	rows, err := tx.Query("SELECT id, file_path, symbol_name FROM chunks WHERE symbol_name IS NOT NULL AND symbol_name != ''")
 	if err != nil {
 		return nil, err
 	}

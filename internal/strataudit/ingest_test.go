@@ -274,7 +274,8 @@ func TestClassifyLevel(t *testing.T) {
 		{"plans/random.md", ""},
 	}
 	for _, tt := range tests {
-		got := classifyLevel(tt.path, levels)
+		levelMatchers := buildLevelMatchers(levels)
+		got := classifyLevelOptimized(tt.path, levelMatchers)
 		if got != tt.want {
 			t.Errorf("classifyLevel(%q) = %q, want %q", tt.path, got, tt.want)
 		}
@@ -313,16 +314,18 @@ func TestClassifyLevel_Deterministic_LowestRankWins(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := classifyLevel(tt.path, levels)
+		levelMatchers := buildLevelMatchers(levels)
+		got := classifyLevelOptimized(tt.path, levelMatchers)
 		if got != tt.want {
 			t.Errorf("classifyLevel(%q) = %q, want %q", tt.path, got, tt.want)
 		}
 	}
 
 	// Determinism: run 10 times, must get same results
+	levelMatchers := buildLevelMatchers(levels)
 	for i := 0; i < 10; i++ {
 		for _, tt := range tests {
-			got := classifyLevel(tt.path, levels)
+			got := classifyLevelOptimized(tt.path, levelMatchers)
 			if got != tt.want {
 				t.Fatalf("determinism check failed on iteration %d: classifyLevel(%q) = %q, want %q", i, tt.path, got, tt.want)
 			}

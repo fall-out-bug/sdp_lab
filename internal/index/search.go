@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 )
@@ -251,9 +251,16 @@ func rrfFuse(store *SQLiteStore, fts, vec []rankedItem, limit int) []SearchResul
 		scoredItems = append(scoredItems, scored{id: id, score: score})
 	}
 
-	// Sort by score descending
-	sort.Slice(scoredItems, func(i, j int) bool {
-		return scoredItems[i].score > scoredItems[j].score
+	// Sort by score descending using O(N log N) sort
+	slices.SortFunc(scoredItems, func(a, b scored) int {
+		switch {
+		case a.score > b.score:
+			return -1
+		case a.score < b.score:
+			return 1
+		default:
+			return 0
+		}
 	})
 
 	if len(scoredItems) > limit {

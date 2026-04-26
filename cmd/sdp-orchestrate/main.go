@@ -40,7 +40,13 @@ func main() {
 	autonomousDryRun := flag.Bool("dry-run", false, "With --autonomous: print action sequence without execution")
 	autonomousForce := flag.Bool("force", false, "With --autonomous: override MVP safety and allow non-dry-run without executor backend")
 	maxIterations := flag.Int("max-iterations", orchestrate.DefaultMaxIterations, "Max iterations for --autonomous loop")
+	noCommit := flag.Bool("no-commit", false, "Skip git commit operations (for CI usage)")
+	outputDir := flag.String("output-dir", "", "Directory for CI output artifacts (defaults to .sdp/output)")
 	flag.Parse()
+
+	// Reserved for future CI integration
+	_ = noCommit
+	_ = outputDir
 
 	// --format takes precedence over --json
 	if *format != "" {
@@ -147,9 +153,14 @@ func main() {
 		return
 	}
 	if *runtime == "opencode" {
-		if err := orchestrate.RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath, cp, workstreams); err != nil {
+		loopConfig := orchestrate.LoopConfig{
+			NoCommit:  *noCommit,
+			OutputDir: *outputDir,
+		}
+		if err := orchestrate.RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath, cp, workstreams, loopConfig); err != nil {
+			exitCode := orchestrate.LoopExitCode(err)
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			os.Exit(1)
+			os.Exit(exitCode)
 		}
 		return
 	}

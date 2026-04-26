@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -14,7 +15,9 @@ import (
 // SQLiteStore implements SessionStore using SQLite with WAL journal mode.
 // All tables are created at NewSQLiteStore() via idempotent IF NOT EXISTS migrations.
 type SQLiteStore struct {
-	db *sql.DB
+	db    *sql.DB
+	close sync.Once
+	closedErr error
 }
 
 // NewSQLiteStore opens (or creates) a SQLite database at path and runs schema migrations.
@@ -33,8 +36,30 @@ func NewSQLiteStore(path string) (*SQLiteStore, error) {
 }
 
 // Close closes the underlying database connection.
+// It checkpoints the WAL (Write-Ahead Log) to ensure all changes are persisted
+// and stale WAL/SHM files are cleaned up. This method is idempotent-safe.
 func (st *SQLiteStore) Close() error {
-	return st.db.Close()
+	var closeErr error
+	st.close.Do(func() {
+		// Checkpoint the WAL to TRUNCATE mode, which ensures:
+		// 1. All WAL contents are written back to the main database file
+		// 2. The WAL and SHM files are cleaned up (not left stale)
+		// This prevents stale WAL/SHM files from persisting after CLI runs.
+		if _, err := st.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+			closeErr = fmt.Errorf("wal checkpoint: %w", err)
+			return
+		}
+
+		// Close the database connection and return any error
+		closeErr = st.db.Close()
+	})
+
+	// If there was an error during the close operation, return it.
+	// Otherwise, if this is a subsequent call, return nil (idempotent).
+	if closeErr != nil {
+		return closeErr
+	}
+	return st.closedErr
 }
 
 // migrate creates all required tables if they do not exist.

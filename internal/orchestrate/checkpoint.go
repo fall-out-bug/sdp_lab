@@ -2,6 +2,7 @@ package orchestrate
 
 import (
 	"crypto/sha256"
+	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -11,8 +12,22 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/santhosh-tekuri/jsonschema/v5"
 	"sdp_dev/internal/sdputil"
 )
+
+//go:embed schema/orchestrate-checkpoint.schema.json
+var checkpointSchemaJSON []byte
+
+var checkpointSchema *jsonschema.Schema
+
+func init() {
+	schema, err := jsonschema.CompileString("checkpoint.schema.json", string(checkpointSchemaJSON))
+	if err != nil {
+		panic(fmt.Sprintf("failed to compile checkpoint schema: %v", err))
+	}
+	checkpointSchema = schema
+}
 
 // Checkpoint is the .sdp/checkpoints/F{NNN}.json schema for the orchestrate state machine.
 // Compatible with ciloop.Checkpoint for pr_number, feature_id, branch (used by sdp-ci-loop and stop gate).
@@ -83,6 +98,7 @@ const (
 
 // LoadCheckpoint reads the orchestrate checkpoint for a feature.
 // Returns ErrCheckpointCorrupted if integrity hash is present but does not match.
+// Also validates JSON schema and returns error if schema validation fails.
 func LoadCheckpoint(dir, featureID string) (*Checkpoint, error) {
 	if err := sdputil.ValidateFeatureID(featureID); err != nil {
 		return nil, err
@@ -92,6 +108,12 @@ func LoadCheckpoint(dir, featureID string) (*Checkpoint, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read checkpoint %s: %w", path, err)
 	}
+
+	// Validate JSON schema before parsing
+	if err := validateCheckpointSchema(data); err != nil {
+		return nil, fmt.Errorf("checkpoint schema validation failed: %w. Run --repair to recover", err)
+	}
+
 	var cp Checkpoint
 	if err := sdputil.UnmarshalJSON(data, &cp); err != nil {
 		return nil, fmt.Errorf("parse checkpoint %s: %w", path, err)
@@ -179,4 +201,16 @@ func gitShowFile(dir, ref, relPath string) ([]byte, error) {
 		return nil, fmt.Errorf("git show %s:%s: %w", ref, relPath, err)
 	}
 	return out, nil
+}
+
+// validateCheckpointSchema validates the checkpoint JSON against the schema.
+func validateCheckpointSchema(data []byte) error {
+	var v interface{}
+	if err := json.Unmarshal(data, &v); err != nil {
+		return fmt.Errorf("unmarshal for schema validation: %w", err)
+	}
+	if err := checkpointSchema.Validate(v); err != nil {
+		return fmt.Errorf("schema validation: %w", err)
+	}
+	return nil
 }

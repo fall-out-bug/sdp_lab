@@ -380,11 +380,17 @@ The following legacy commands are deprecated but still work. They redirect to th
 | `@issue` | `@fix` | Bug analysis now part of fix intent |
 | `@debug` | `@fix` | Debugging now part of fix intent |
 
+### Ship Command
+
+| Command | Description |
+|---------|-------------|
+| `@ship` | Deployment orchestration - creates PR to main or tags release |
+
 ### Operate Intent Aliases
 
 | Legacy Command | Routes To | Notes |
 |----------------|-----------|-------|
-| `@deploy` | `@operate` | Deployment now part of operate intent |
+| `@deploy` | `@ship` | **DEPRECATED:** Use `@ship` instead (renamed for clarity) |
 | `@ci-triage` | `@operate` | CI/CD triage now part of operate intent |
 | `@plan` | `@operate` | Planning now part of operate intent |
 

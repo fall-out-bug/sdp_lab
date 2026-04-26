@@ -153,7 +153,7 @@ func topAuthor(counts map[string]int) string {
 // saveEnrichedMeta persists enriched metadata keys back to the store.
 func saveEnrichedMeta(s ManifestStore, meta map[string]string) error {
 	for k, v := range meta {
-		if err := s.SaveMeta(k, v); err != nil {
+		if err := s.SetMeta(k, v); err != nil {
 			return fmt.Errorf("save meta %s: %w", k, err)
 		}
 	}

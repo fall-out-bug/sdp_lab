@@ -113,6 +113,12 @@ func ColdBuild(opts BuildOptions) (*BuildResult, error) {
 			return nil // skip unparseable files
 		}
 
+		// Track files that produced no chunks
+		if len(chunks) == 0 {
+			result.FilesSkipped++
+			return nil
+		}
+
 		// Read file for hash
 		data, readErr := os.ReadFile(path)
 		if readErr != nil {
@@ -140,14 +146,25 @@ func ColdBuild(opts BuildOptions) (*BuildResult, error) {
 		}
 
 		// Insert chunks within the transaction
+		// Track successful inserts separately for accurate reporting
+		chunksInserted := 0
 		for _, chunk := range chunks {
 			_, insertErr := InsertChunkTx(tx, chunk)
 			if insertErr != nil {
 				result.Errors = append(result.Errors, fmt.Errorf("insert chunk %s/%s: %w", relPath, chunk.SymbolName, insertErr))
+				// Continue with other chunks - don't fail entire file for one bad chunk
 				continue
 			}
-			result.TotalChunks++
+			chunksInserted++
 		}
+
+		// Only count file as indexed if at least one chunk was inserted
+		if chunksInserted == 0 {
+			result.Errors = append(result.Errors, fmt.Errorf("no chunks inserted for %s", relPath))
+			result.FilesSkipped++
+			return nil
+		}
+		result.TotalChunks += chunksInserted
 
 		// Store file metadata within transaction
 		fm := FileMeta{
@@ -172,48 +189,48 @@ func ColdBuild(opts BuildOptions) (*BuildResult, error) {
 		return nil, fmt.Errorf("walk repo: %w", err)
 	}
 
-	// Commit the walk transaction
-	if commitErr := CommitTx(tx); commitErr != nil {
-		return nil, fmt.Errorf("commit walk transaction: %w", commitErr)
-	}
+	// Resolve symbolic edges to ID-based edges and insert them.
+	// This happens before commit so edge failures rollback the entire build.
+	resolvedCount := resolveAndInsertEdgesTx(tx, allSymEdges, fileImports)
+	result.TotalEdges = resolvedCount
 
 	// Build language list
 	for lang := range langSet {
 		result.Languages = append(result.Languages, lang)
 	}
 
-	// Resolve symbolic edges to ID-based edges and insert them.
-	// This must happen after commit so all chunks have assigned IDs.
-	resolvedCount := resolveAndInsertEdges(store, allSymEdges, fileImports)
-	result.TotalEdges = resolvedCount
-
-	// Store metadata (outside the main transaction, these are simple writes)
-	if mErr := store.SetMeta("schema_version", fmt.Sprintf("%d", SchemaVersion)); mErr != nil {
-		result.Errors = append(result.Errors, fmt.Errorf("set meta schema_version: %w", mErr))
+	// Store metadata within the transaction for atomicity.
+	if mErr := SetMetaTx(tx, "schema_version", fmt.Sprintf("%d", SchemaVersion)); mErr != nil {
+		return nil, fmt.Errorf("set meta schema_version: %w", mErr)
 	}
-	if mErr := store.SetMeta("indexed_at", time.Now().UTC().Format(time.RFC3339)); mErr != nil {
-		result.Errors = append(result.Errors, fmt.Errorf("set meta indexed_at: %w", mErr))
+	if mErr := SetMetaTx(tx, "indexed_at", time.Now().UTC().Format(time.RFC3339)); mErr != nil {
+		return nil, fmt.Errorf("set meta indexed_at: %w", mErr)
 	}
-	if mErr := store.SetMeta("total_chunks", fmt.Sprintf("%d", result.TotalChunks)); mErr != nil {
-		result.Errors = append(result.Errors, fmt.Errorf("set meta total_chunks: %w", mErr))
+	if mErr := SetMetaTx(tx, "total_chunks", fmt.Sprintf("%d", result.TotalChunks)); mErr != nil {
+		return nil, fmt.Errorf("set meta total_chunks: %w", mErr)
 	}
-	if mErr := store.SetMeta("total_files", fmt.Sprintf("%d", result.TotalFiles)); mErr != nil {
-		result.Errors = append(result.Errors, fmt.Errorf("set meta total_files: %w", mErr))
+	if mErr := SetMetaTx(tx, "total_files", fmt.Sprintf("%d", result.TotalFiles)); mErr != nil {
+		return nil, fmt.Errorf("set meta total_files: %w", mErr)
 	}
-	if mErr := store.SetMeta("total_edges", fmt.Sprintf("%d", result.TotalEdges)); mErr != nil {
-		result.Errors = append(result.Errors, fmt.Errorf("set meta total_edges: %w", mErr))
+	if mErr := SetMetaTx(tx, "total_edges", fmt.Sprintf("%d", result.TotalEdges)); mErr != nil {
+		return nil, fmt.Errorf("set meta total_edges: %w", mErr)
 	}
-	if mErr := store.SetMeta("languages", strings.Join(result.Languages, ",")); mErr != nil {
-		result.Errors = append(result.Errors, fmt.Errorf("set meta languages: %w", mErr))
+	if mErr := SetMetaTx(tx, "languages", strings.Join(result.Languages, ",")); mErr != nil {
+		return nil, fmt.Errorf("set meta languages: %w", mErr)
 	}
-	if mErr := store.SetMeta("embedding_model", "none"); mErr != nil {
-		result.Errors = append(result.Errors, fmt.Errorf("set meta embedding_model: %w", mErr))
+	if mErr := SetMetaTx(tx, "embedding_model", "none"); mErr != nil {
+		return nil, fmt.Errorf("set meta embedding_model: %w", mErr)
 	}
 
 	// Get repo name from directory
 	repoName := filepath.Base(opts.RepoPath)
-	if mErr := store.SetMeta("repo_name", repoName); mErr != nil {
-		result.Errors = append(result.Errors, fmt.Errorf("set meta repo_name: %w", mErr))
+	if mErr := SetMetaTx(tx, "repo_name", repoName); mErr != nil {
+		return nil, fmt.Errorf("set meta repo_name: %w", mErr)
+	}
+
+	// Commit the walk transaction
+	if commitErr := CommitTx(tx); commitErr != nil {
+		return nil, fmt.Errorf("commit walk transaction: %w", commitErr)
 	}
 
 	result.Duration = time.Since(start)
@@ -544,12 +561,7 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 		}
 	}
 
-	// Commit the walk transaction
-	if commitErr := CommitTx(tx); commitErr != nil {
-		return nil, fmt.Errorf("commit refresh transaction: %w", commitErr)
-	}
-
-	// Repair incoming edges from unchanged callers.
+	// Repair incoming edges from unchanged callers BEFORE commit.
 	// Caller files were discovered in pass 1 (before any mutations).
 	// CASCADE deleted edges from callers to changed files,
 	// so re-extract edges from callers so they point to the new chunks.
@@ -574,17 +586,25 @@ func Refresh(opts RefreshOptions) (*RefreshResult, error) {
 		}
 	}
 
-	// Resolve symbolic edges for all changed/added files and repaired callers.
-	resolveAndInsertEdges(store, allSymEdges, fileImports)
+	// Resolve symbolic edges for all changed/added files and repaired callers WITHIN the transaction.
+	// This ensures atomicity - if edge resolution fails, the entire refresh is rolled back.
+	_ = resolveAndInsertEdgesTx(tx, allSymEdges, fileImports)
 
-	// Get final counts
+	// Update metadata within the transaction
+	if mErr := SetMetaTx(tx, "indexed_at", time.Now().UTC().Format(time.RFC3339)); mErr != nil {
+		return nil, fmt.Errorf("set meta indexed_at: %w", mErr)
+	}
+
+	// Commit the walk transaction
+	if commitErr := CommitTx(tx); commitErr != nil {
+		return nil, fmt.Errorf("commit refresh transaction: %w", commitErr)
+	}
+
+	// Get final counts AFTER commit
 	result.TotalChunks, _ = store.CountChunks()
 	result.TotalFiles, _ = store.CountFiles()
 
-	// Update metadata
-	if mErr := store.SetMeta("indexed_at", time.Now().UTC().Format(time.RFC3339)); mErr != nil {
-		result.Errors = append(result.Errors, fmt.Errorf("set meta indexed_at: %w", mErr))
-	}
+	// Update count metadata AFTER commit (these are simple updates, not critical)
 	if mErr := store.SetMeta("total_chunks", fmt.Sprintf("%d", result.TotalChunks)); mErr != nil {
 		result.Errors = append(result.Errors, fmt.Errorf("set meta total_chunks: %w", mErr))
 	}
@@ -607,7 +627,10 @@ func buildIndexedFileMap(store *SQLiteStore) (map[string]string, error) {
 // For edges where TargetFile is set (same-file edges), it resolves directly.
 // For edges where TargetFile is empty (cross-file edges), it searches the
 // full symbol map for any file that defines the target symbol.
+//
+// DEPRECATED: Use resolveAndInsertEdgesTx for transactional safety.
 func resolveAndInsertEdges(store *SQLiteStore, symEdges []SymbolicEdge, fileImports map[string][]string) int {
+	// Fallback to non-tx version for Refresh compatibility
 	if len(symEdges) == 0 {
 		return 0
 	}
@@ -671,6 +694,88 @@ func resolveAndInsertEdges(store *SQLiteStore, symEdges []SymbolicEdge, fileImpo
 		}
 
 		_, err := store.InsertEdge(Edge{
+			SourceID: sourceID,
+			TargetID: targetID,
+			Relation: se.Relation,
+			Weight:   se.Weight,
+		})
+		if err == nil {
+			inserted++
+		}
+	}
+
+	return inserted
+}
+
+// resolveAndInsertEdgesTx resolves symbolic edges to chunk IDs and inserts them within a transaction.
+// Returns the number of edges successfully inserted.
+//
+// This is the transactional version that should be used during ColdBuild to ensure
+// atomicity - if edge insertion fails, the entire transaction can be rolled back.
+func resolveAndInsertEdgesTx(tx *sql.Tx, symEdges []SymbolicEdge, fileImports map[string][]string) int {
+	if len(symEdges) == 0 {
+		return 0
+	}
+
+	// Build the symbol -> ID map from the database using the transaction
+	symMap, err := buildSymbolIDMapTx(tx)
+	if err != nil {
+		return 0
+	}
+
+	// Build a reverse index: symbolName -> list of "file:symbol" keys
+	// This allows cross-file lookups by bare symbol name.
+	symNameIndex := make(map[string][]string)
+	for key := range symMap {
+		idx := strings.Index(key, ":")
+		if idx < 0 {
+			continue
+		}
+		symName := key[idx+1:]
+		symNameIndex[symName] = append(symNameIndex[symName], key)
+
+		// Also index the short name (after dot) for method targets
+		// e.g. "Handler.Serve" -> index both "Handler.Serve" and "Serve"
+		if dotIdx := strings.Index(symName, "."); dotIdx >= 0 {
+			short := symName[dotIdx+1:]
+			if short != symName {
+				symNameIndex[short] = append(symNameIndex[short], key)
+			}
+		}
+	}
+
+	inserted := 0
+	for _, se := range symEdges {
+		// Resolve source
+		sourceKey := se.SourceFile + ":" + se.SourceSymbol
+		sourceID, ok := symMap[sourceKey]
+		if !ok {
+			continue
+		}
+
+		var targetID int64
+
+		if se.TargetFile != "" {
+			// Same-file edge: resolve directly
+			targetKey := se.TargetFile + ":" + se.TargetSymbol
+			targetID, ok = symMap[targetKey]
+			if !ok {
+				continue
+			}
+		} else {
+			// Cross-file edge: TargetFile is empty, search across all files.
+			imports := fileImports[se.SourceFile]
+			targetID = resolveCrossFileTarget(se.TargetSymbol, se.SourceFile, imports, symMap, symNameIndex)
+			if targetID == 0 {
+				continue
+			}
+		}
+
+		if sourceID == targetID {
+			continue // skip self-edges
+		}
+
+		_, err := InsertEdgeTx(tx, Edge{
 			SourceID: sourceID,
 			TargetID: targetID,
 			Relation: se.Relation,

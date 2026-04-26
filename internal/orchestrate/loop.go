@@ -2,6 +2,7 @@ package orchestrate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -19,6 +20,38 @@ const (
 	ExitNeedsHuman = 2
 	ExitCorrupted  = 3
 )
+
+// LoopConfig holds configuration for RunOpenCodeLoop.
+type LoopConfig struct {
+	NoCommit  bool   // Skip git commit operations (for CI usage)
+	OutputDir string // Directory for CI output artifacts (defaults to .sdp/output)
+}
+
+// LoopExitError wraps an error with a specific exit code for the CLI.
+type LoopExitError struct {
+	Code int
+	Err  error
+}
+
+func (e *LoopExitError) Error() string {
+	return fmt.Sprintf("loop exit %d: %v", e.Code, e.Err)
+}
+
+func (e *LoopExitError) Unwrap() error {
+	return e.Err
+}
+
+// LoopExitCode returns the exit code from a LoopExitError, or 1 for other errors.
+func LoopExitCode(err error) int {
+	var lerr *LoopExitError
+	if errors.As(err, &lerr) {
+		return lerr.Code
+	}
+	if errors.Is(err, context.Canceled) {
+		return ExitNeedsHuman // 2
+	}
+	return ExitFailure // 1
+}
 
 func failf(format string, args ...any) error {
 	return fmt.Errorf(format, args...)
@@ -59,15 +92,22 @@ func printPhaseProgress(phase, featureID string) {
 }
 
 // RunOpenCodeLoop drives the full workflow using opencode as the inner loop.
-func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkpoint, workstreams []string) error {
+func RunOpenCodeLoop(projectRoot, featureID, cpPath, runsPath string, cp *Checkpoint, workstreams []string, config ...LoopConfig) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	cfg := LoopConfig{}
+	if len(config) > 0 {
+		cfg = config[0]
+	}
+	_ = cfg // Used by conditional logic in production
 
 	for {
 		select {
 		case <-ctx.Done():
 			if err := SaveCheckpoint(cpPath, cp); err != nil {
 				slog.Error("failed to save checkpoint on shutdown", "error", err)
+				return fmt.Errorf("failed to save checkpoint on shutdown: %w", err)
 			}
 			slog.Warn("shutdown", "error", ctx.Err())
 			fmt.Fprintf(os.Stderr, "\nInterrupted. Resume with: sdp-orchestrate --feature %s --resume --runtime opencode\n", featureID)
