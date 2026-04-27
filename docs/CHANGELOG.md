@@ -263,6 +263,31 @@ issues resolved.
 ## 2026-04-27
 
 ### Commits
+- `93bc759` docs(F152-F160): add missing workstream files for post-F150 epics (2026-04-27)
+
+### Changed Files
+- `.beads/issues.jsonl`
+- `docs/workstreams/backlog/00-152-01.md`
+- `docs/workstreams/backlog/00-152-02.md`
+- `docs/workstreams/backlog/00-152-03.md`
+- `docs/workstreams/backlog/00-153-01.md`
+- `docs/workstreams/backlog/00-153-02.md`
+- `docs/workstreams/backlog/00-153-03.md`
+- `docs/workstreams/backlog/00-154-01.md`
+- `docs/workstreams/backlog/00-154-02.md`
+- `docs/workstreams/backlog/00-154-03.md`
+- `docs/workstreams/backlog/00-154-04.md`
+- `docs/workstreams/backlog/00-154-05.md`
+- `docs/workstreams/backlog/00-155-01.md`
+- `docs/workstreams/backlog/00-156-01.md`
+- `docs/workstreams/backlog/00-157-01.md`
+- `docs/workstreams/backlog/00-158-01.md`
+- `docs/workstreams/backlog/00-159-01.md`
+- `docs/workstreams/backlog/00-160-01.md`
+
+
+
+### Commits
 - `3ca6606` chore(F151): close beads after PR #139 merge (2026-04-27)
 
 ### Changed Files
