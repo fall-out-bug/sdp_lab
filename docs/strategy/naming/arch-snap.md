@@ -30,3 +30,10 @@ checked: 2026-04-27
 - **Best TM landscape** among all checked names. Low risk.
 - **Domain**: hyphenated `arch-snap.com` is free. `archsnap.com` is parked (can be acquired from DropCatch if needed).
 - **Proceed with confidence** as working name. If IIP status is earned, register `arch-snap.com` and `.dev`.
+
+## Sources
+
+- USPTO TESS: https://tmsearch.uspto.gov/ (searched "arch-snap", "archsnap", "AIRSNAP")
+- AIRSNAP Reg. 5,693,420: https://tsdr.uspto.gov/ (Twelve South LLC, hardware accessories)
+- ICANN WHOIS: https://lookup.icann.org/ (domain status checks)
+- DropCatch: https://www.dropcatch.com/ (archsnap.com parking service)

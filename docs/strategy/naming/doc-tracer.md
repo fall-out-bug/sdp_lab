@@ -30,3 +30,10 @@ checked: 2026-04-27
 - **Moderate risk.** The product name collision with Apscore's DocTracer needs monitoring. If Apscore has common-law rights in relevant jurisdictions, a rename may be needed before commercial launch.
 - **Domain**: hyphenated `doc-tracer.com` is free. `doctracer.com` is taken since 2010.
 - **Proceed as working name** with contingency plan. Register `doc-tracer.com` preemptively if IIP status is pursued.
+
+## Sources
+
+- USPTO TESS: https://tmsearch.uspto.gov/ (searched "doc-tracer", "DocTracer", "DocTrace")
+- DocTrace platform: https://doctrace.com/
+- Apscore DocTracer: https://apscore.com.au/
+- ICANN WHOIS: https://lookup.icann.org/ (domain status checks)

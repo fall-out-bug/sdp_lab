@@ -30,3 +30,9 @@ checked: 2026-04-27
 - **Not a problem now** — this is a hypothesis/category name, not a customer-facing brand. The enterprise GTM team will pick the final name when an ICP signs.
 - **Reserve `sdp-edg-*`** as internal namespace. Do not invest in domain registration for the full phrase.
 - **Revisit naming** when the enterprise wedge becomes active (separate F-track).
+
+## Sources
+
+- USPTO TESS: https://tmsearch.uspto.gov/ (searched "Enterprise Delivery Governance", "EDG")
+- TopBraid EDG: https://www.topquadrant.com/topbraid-edg/ (Enterprise Data Governance, not Delivery)
+- ICANN WHOIS: https://lookup.icann.org/ (domain status checks)

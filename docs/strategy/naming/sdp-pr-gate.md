@@ -29,3 +29,8 @@ checked: 2026-04-27
 - **Cleanest result** — all 4 domains available, zero trademark conflicts.
 - **Internal namespace only.** This name is not customer-facing, so trademark risk is minimal regardless.
 - **No action needed.** Lock confirmed.
+
+## Sources
+
+- USPTO TESS: https://tmsearch.uspto.gov/ (searched "sdp-pr-gate", "sdpprgate", "pr-gate")
+- ICANN WHOIS: https://lookup.icann.org/ (domain status checks)

@@ -29,3 +29,10 @@ checked: 2026-04-27
 - **Internal use safe.** The `sdp-pr-gate` internal namespace has zero collision risk.
 - **Display name workable** but expect trademark friction if filing. Consider whether "Passport" is the right anchor word.
 - **Domain**: .com is held by a domain broker (for-sale). Negotiate purchase or proceed with .ai/.io/.dev.
+
+## Sources
+
+- USPTO TESS: https://tmsearch.uspto.gov/ (searched "ChangePassport", "Passport" Class 9)
+- USPTO TSDR: https://tsdr.uspto.gov/ (verified Reg. 6,263,592 status)
+- ICANN WHOIS: https://lookup.icann.org/ (domain status checks)
+- Domain broker: https://domainsestate.com/ (changepassport.com listing)

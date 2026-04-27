@@ -24,12 +24,12 @@ One-page map of the SDP product family: names, audiences, namespaces, and naming
 ├───────────────┼──────────────────┼──────────────┼───────────────────────┤
 │ Lab           │ sdp_lab          │ Researchers  │ No (feeds others)     │
 │ Toolbox       │ SDP Toolbox      │ Developers   │ No (freemium funnel)  │
-│  └ IIP flag   │ (bare name)      │ Non-SDP ICPs │ At extraction         │
+│  └ IIP flag   │ (bare name)      │ Non-SDP ICPs │ Independent at extract│
 │ Toolkit       │ sdp CLI          │ Developers   │ No                    │
-│ Operator Mode │ sdp operator     │ Eng managers │ Provisional (future)  │
+│ Operator Mode │ sdp operator     │ Eng managers │ No (price hypothesis) │
 │ ChangePassport│ ChangePassport   │ Reviewers    │ Yes (first paid wedge)│
 │  └ Internal   │ sdp-pr-gate      │ —            │ —                     │
-│ EDG           │ TBD              │ Enterprise   │ Yes (hypothesis)      │
+│ Ent. Delivery │ TBD              │ Enterprise   │ Yes (hypothesis)      │
 │ Substrates    │ sdp-*-core       │ Internal     │ No (semver contracts) │
 └───────────────┴──────────────────┴──────────────┴───────────────────────┘
 ```
@@ -39,9 +39,9 @@ One-page map of the SDP product family: names, audiences, namespaces, and naming
 | # | Surface | Kind | Working name | Internal namespace | Audience | Paid status |
 |---|---------|------|-------------|-------------------|----------|-------------|
 | 1 | SDP Lab | Research workspace | `sdp_lab` | `sdp_lab` | Researchers | No — feeds others |
-| 2 | SDP Toolbox (with IIP flag) | Subordinate freemium funnel | `SDP Toolbox` for SDP tools; bare names for IIPs | `sdp-toolbox-*` / bare | Developers (funnel); non-SDP ICPs (IIP) | Free (Toolbox); independent at extraction (IIP) |
+| 2 | SDP Toolbox (with IIP flag) | Subordinate freemium funnel | `SDP Toolbox` for SDP tools; bare names for IIPs | `sdp-toolbox-*` / bare | Developers (funnel); non-SDP ICPs (IIP) | Free (Toolbox); per-IIP pricing at extraction (some may stay OSS) |
 | 3 | SDP Toolkit | Meta-distribution | `sdp` CLI | `sdp` | Developers | Free |
-| 4 | Operator Mode | Default Toolkit Happy Path; stateful orchestration | `sdp` operator commands | `sdp-operator-*` | Engineering managers | Provisional (future re-evaluation) |
+| 4 | Operator Mode | Default Toolkit Happy Path; stateful orchestration | `sdp` operator commands | `sdp-operator-*` | Engineering managers | Free; provisional pricing hypothesis required before pilot |
 | 5 | ChangePassport (display) | Merge-readiness product | `ChangePassport` | `sdp-pr-gate` | Reviewers, boutique consulting | First paid wedge |
 | 6 | Enterprise Delivery Governance | Enterprise hypothesis | TBD | `sdp-edg-*` | Enterprise | Future paid |
 | 7 | Shared Substrates | Versioned packages | Individually named | `sdp-{evidence,policy,modelgw,context,eval}-core` | Internal | No (contracts) |
@@ -53,7 +53,7 @@ Marketing display names may evolve. Internal technical namespaces are locked whe
 | Surface | Display name (may change) | Internal namespace (locked) | Lock scope |
 |---------|--------------------------|----------------------------|------------|
 | ChangePassport | `ChangePassport` | `sdp-pr-gate` | Go packages, CLI slugs, env vars, semver tags, DB tables |
-| EDG | TBD | `sdp-edg-*` | Reserved |
+| Enterprise Delivery Governance | TBD | `sdp-edg-*` | Reserved |
 | Operator Mode | Operator Mode | `sdp-operator-*` | Go packages, CLI slugs |
 | Substrates | individual | `sdp-*-core` | Go packages, semver tags |
 
@@ -63,12 +63,14 @@ Tools inside SDP Toolbox with value outside SDP carry `standalone: true` and fol
 
 - No `sdp-` prefix from inception
 - Standalone `go.mod` (zero `replace` directives, zero `internal/sdp-*` imports)
-- Named IIP lead required
-- `commercial_hypothesis.md` required
+- Named IIP lead (individual, not team) required
+- `commercial_hypothesis.md` required (ICPs, competitors, willingness-to-pay, kill criteria)
+- At least 3 documented customer-discovery interviews before earning `standalone: true`
+- Founder/owner approval required for IIP promotion
 - Permissive license (Apache-2.0 / MIT)
 - `BRAND.md` with trademark transfer plan
 
-Current IIP hypotheses (no code yet): `arch-snap`, `doc-tracer`.
+Current IIP hypotheses (neither has earned `standalone: true`; no code yet): `arch-snap`, `doc-tracer`. Each requires named lead + hypothesis doc + discovery interviews before IIP status.
 
 ---
 
@@ -122,7 +124,7 @@ Until all four are met, the name stays "working" and may change without migratio
 1. Tool name must survive without `sdp-` prefix in case the tool is extracted to its own repo.
 2. CLI subcommand format: `sdp <tool-name>` (prefix handled by CLI routing, not tool name).
 3. Module `AGENTS.md` uses tool name without prefix.
-4. If tool is promoted to IIP (`standalone: true`), the `sdp-` prefix is dropped retroactively.
+4. If a Toolbox tool is promoted to IIP (`standalone: true`), it MUST already have been named without `sdp-` from inception (rule 1). Retroactive renaming is not an allowed path — tools that acquired an `sdp-` prefix cannot become IIPs without a full name change.
 
 ### IIP Naming Rules
 
@@ -150,3 +152,12 @@ Per competitive research and council consensus:
 - [REPO-BOUNDARY](../architecture/REPO-BOUNDARY.md)
 - Memo council synthesis: `council/2026-04-27/synthesis.md`
 - IIP council synthesis: `council/2026-04-27-iip/synthesis.md`
+
+## Trademark & Domain Evidence
+
+Per-name trademark and domain availability checks:
+- [ChangePassport](naming/changepassport.md) — TM medium-high, .com taken (broker)
+- [arch-snap](naming/arch-snap.md) — TM low, all hyphenated domains free
+- [doc-tracer](naming/doc-tracer.md) — TM low-medium, doctracer.com taken since 2010
+- [sdp-pr-gate](naming/sdp-pr-gate.md) — TM low, all 4 domains free
+- [Enterprise Delivery Governance](naming/enterprise-delivery-governance.md) — TM high (descriptive), all free
