@@ -208,13 +208,15 @@ func TestStitcher_Names(t *testing.T) {
 func TestTOONStitcher_BoolColumn(t *testing.T) {
 	s := decompose.NewTOONStitcher("flags", []decompose.TOONColumn{{Name: "ok", Type: "bool"}})
 	assert.NoError(t, s.Validate([]map[string]any{{"ok": true}}))
-	assert.Error(t, s.Validate([]map[string]any{{"ok": "true"}}))
+	assert.NoError(t, s.Validate([]map[string]any{{"ok": "true"}}))  // parseable bool string accepted (round-trip)
+	assert.Error(t, s.Validate([]map[string]any{{"ok": "yes"}}))     // unparseable bool string rejected
 }
 
 func TestTOONStitcher_FloatColumn(t *testing.T) {
 	s := decompose.NewTOONStitcher("scores", []decompose.TOONColumn{{Name: "v", Type: "float"}})
 	assert.NoError(t, s.Validate([]map[string]any{{"v": float64(0.5)}}))
-	assert.Error(t, s.Validate([]map[string]any{{"v": "bad"}}))
+	assert.NoError(t, s.Validate([]map[string]any{{"v": "0.5"}}))   // parseable float string accepted (round-trip)
+	assert.Error(t, s.Validate([]map[string]any{{"v": "bad"}}))     // unparseable float string rejected
 }
 
 func TestTOONStitcher_UnknownColumnType(t *testing.T) {
@@ -258,8 +260,27 @@ func TestCrossStitcher_RoundTrip_TOON(t *testing.T) {
 
 	parsed, err := decompose.ParseTOON(marshalled)
 	require.NoError(t, err)
-	// Validate parsed (values are strings after ParseTOON).
 	assert.NoError(t, s.Validate(parsed))
+}
+
+func TestCrossStitcher_RoundTrip_TOONNumeric(t *testing.T) {
+	// Marshal→ParseTOON→Validate must be idempotent for numeric columns.
+	// ParseTOON returns strings; checkTOONType accepts parseable strings for round-trip.
+	s := decompose.NewTOONStitcher("scores", []decompose.TOONColumn{
+		{Name: "name", Type: "string"},
+		{Name: "score", Type: "float"},
+		{Name: "count", Type: "int"},
+		{Name: "ok", Type: "bool"},
+	})
+	input := []map[string]any{
+		{"name": "a.go", "score": float64(0.9), "count": float64(3), "ok": true},
+	}
+	marshalled, err := s.Marshal(input)
+	require.NoError(t, err)
+
+	parsed, err := decompose.ParseTOON(marshalled)
+	require.NoError(t, err)
+	assert.NoError(t, s.Validate(parsed), "round-trip must be valid for numeric columns")
 }
 
 // ---- ParseTOON edge cases ----

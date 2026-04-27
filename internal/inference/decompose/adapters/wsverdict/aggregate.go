@@ -21,10 +21,11 @@ func newAggregateStage(client LLMCaller) decompose.Stage[string, FinalVerdict] {
 			MaxTokens: 256,
 		})
 		trace := decompose.StageTrace{
-			LatencyMs: time.Since(start).Milliseconds(),
-			TokensIn:  tokIn,
-			TokensOut: tokOut,
-			CostUSD:   cost,
+			LatencyMs:   time.Since(start).Milliseconds(),
+			TokensIn:    tokIn,
+			TokensOut:   tokOut,
+			CostUSD:     cost,
+			RawResponse: text,
 		}
 		if err != nil {
 			return FinalVerdict{}, trace, fmt.Errorf("aggregate LLM call: %w", err)
@@ -35,6 +36,9 @@ func newAggregateStage(client LLMCaller) decompose.Stage[string, FinalVerdict] {
 		}
 		if !isAllowed(out.Verdict, allowedVerdicts) {
 			return FinalVerdict{}, trace, fmt.Errorf("aggregate: invalid verdict %q", out.Verdict)
+		}
+		if out.Score < 0 || out.Score > 1 {
+			return FinalVerdict{}, trace, fmt.Errorf("aggregate: score %v out of range [0, 1]", out.Score)
 		}
 		return out, trace, nil
 	})

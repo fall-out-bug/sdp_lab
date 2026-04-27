@@ -31,6 +31,7 @@ type StageTrace struct {
 	TokensOut     int
 	CostUSD       float64
 	Attempts      int
+	RawResponse   string // unparsed LLM response text; populated by stages for confidence runners
 	ConfidenceLog *ConfidenceLog
 	CascadeLog    *CascadeTrace
 }

@@ -2,6 +2,7 @@ package decompose
 
 import (
 	"fmt"
+	"strconv"
 )
 
 // TOONColumn describes one column in a TOON table.
@@ -82,6 +83,10 @@ func asTOONRows(out any) ([]map[string]any, error) {
 	}
 }
 
+// checkTOONType validates that v matches colType.
+// String values are accepted for numeric/bool columns only if they are parseable
+// as the target type — this supports the Marshal→ParseTOON→Validate round-trip
+// since ParseTOON returns all cells as strings.
 func checkTOONType(colName, colType string, v any) error {
 	switch colType {
 	case "string":
@@ -96,17 +101,31 @@ func checkTOONType(colName, colType string, v any) error {
 			if fv != float64(int64(fv)) {
 				return fmt.Errorf("column %q: expected integral int, got fractional float64 %v", colName, fv)
 			}
+		case string:
+			if _, err := strconv.ParseInt(fv, 10, 64); err != nil {
+				return fmt.Errorf("column %q: string %q is not a valid int", colName, fv)
+			}
 		default:
 			return fmt.Errorf("column %q: expected int, got %T", colName, v)
 		}
 	case "float":
-		switch v.(type) {
+		switch fv := v.(type) {
 		case float32, float64:
+		case string:
+			if _, err := strconv.ParseFloat(fv, 64); err != nil {
+				return fmt.Errorf("column %q: string %q is not a valid float", colName, fv)
+			}
 		default:
 			return fmt.Errorf("column %q: expected float, got %T", colName, v)
 		}
 	case "bool":
-		if _, ok := v.(bool); !ok {
+		switch fv := v.(type) {
+		case bool:
+		case string:
+			if _, err := strconv.ParseBool(fv); err != nil {
+				return fmt.Errorf("column %q: string %q is not a valid bool", colName, fv)
+			}
+		default:
 			return fmt.Errorf("column %q: expected bool, got %T", colName, v)
 		}
 	default:

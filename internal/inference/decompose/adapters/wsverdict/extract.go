@@ -22,10 +22,11 @@ func newExtractStage(client LLMCaller) decompose.Stage[Diff, ExtractOut] {
 			MaxTokens: 512,
 		})
 		trace := decompose.StageTrace{
-			LatencyMs: time.Since(start).Milliseconds(),
-			TokensIn:  tokIn,
-			TokensOut: tokOut,
-			CostUSD:   cost,
+			LatencyMs:   time.Since(start).Milliseconds(),
+			TokensIn:    tokIn,
+			TokensOut:   tokOut,
+			CostUSD:     cost,
+			RawResponse: text,
 		}
 		if err != nil {
 			return ExtractOut{}, trace, fmt.Errorf("extract LLM call: %w", err)

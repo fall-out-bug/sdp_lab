@@ -51,9 +51,11 @@ func (d *dryRunClient) Call(_ context.Context, prompt string, opts wsverdict.Cal
 		return d.currentGolden, tokIn, 1, costFor(opts.Model, tokIn, 1), nil
 	}
 
-	// Aggregate stage: prompt includes the classify verdict in the text.
-	// Extract the verdict from the prompt to propagate it faithfully.
-	verdict := extractVerdictFromAggregatePrompt(prompt, d.currentGolden)
+	// Aggregate stage: the classified verdict is already bound in d.currentGolden
+	// (set via SetFixture before the pipeline run). Use it directly rather than
+	// re-extracting from the prompt, which is fragile — the prompt template
+	// contains literal "passed" in its instruction text regardless of the verdict.
+	verdict := d.currentGolden
 	fv := wsverdict.FinalVerdict{
 		Verdict: verdict,
 		Score:   scoreFor(verdict),
@@ -61,18 +63,6 @@ func (d *dryRunClient) Call(_ context.Context, prompt string, opts wsverdict.Cal
 	}
 	data, _ := json.Marshal(fv)
 	return string(data), tokIn, 50, costFor(opts.Model, tokIn, 50), nil
-}
-
-// extractVerdictFromAggregatePrompt reads the verdict embedded in the
-// aggregate or monolithic prompt ("Given ... classification \"<v>\"" or
-// "verdict report"). Falls back to defaultVerdict if not found.
-func extractVerdictFromAggregatePrompt(prompt, defaultVerdict string) string {
-	for _, v := range []string{"passed", "partial", "failed"} {
-		if strings.Contains(prompt, `"`+v+`"`) || strings.Contains(prompt, " "+v+"\n") {
-			return v
-		}
-	}
-	return defaultVerdict
 }
 
 func scoreFor(verdict string) float64 {
