@@ -263,6 +263,16 @@ issues resolved.
 ## 2026-04-27
 
 ### Commits
+- `3ca6606` chore(F151): close beads after PR #139 merge (2026-04-27)
+
+### Changed Files
+- `.beads/interactions.jsonl`
+- `.beads/issues.jsonl`
+- `.sdp/checkpoints/F151.json`
+
+
+
+### Commits
 - `cba6482` docs(F137): cmd-inventory + sdp-cli.md reference + workstream status sync (#138) (2026-04-27)
 
 ### Changed Files
