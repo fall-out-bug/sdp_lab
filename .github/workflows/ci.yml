@@ -907,7 +907,11 @@ jobs:
         id: coverage
         run: |
           set -euo pipefail
-          TOTAL_LINE=$(go tool cover -func=cov.out | grep total)
+          TOTAL_LINE=$(go tool cover -func=cov.out | awk '$1 == "total:" { line = $0 } END { print line }')
+          if [ -z "$TOTAL_LINE" ]; then
+            echo "ERROR: total coverage line not found in cov.out"
+            exit 1
+          fi
           CUR_PCT=$(echo "$TOTAL_LINE" | awk '{print $NF}' | tr -d '%')
           echo "pct=${CUR_PCT}" >> "$GITHUB_OUTPUT"
           echo "Current coverage: ${CUR_PCT}%"
