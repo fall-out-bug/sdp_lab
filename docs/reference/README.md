@@ -5,18 +5,20 @@ Use this directory for stable reference docs, not for historical planning archae
 Start here:
 
 1. [project-map.md](project-map.md) — what `sdp_lab` is, what the current direction is, and which docs are canonical
-2. [canonical-happy-path.md](canonical-happy-path.md) — one stable description of Local Mode, Operator Mode, and board-to-delivery flow
-3. [agent-catalog.md](agent-catalog.md) — default agent ownership across the canonical loop
-4. [skills.md](skills.md) — public and internal skill surface
-5. [commands.md](commands.md) — command reference
+2. [product-surface.md](product-surface.md) — what works today, what is tooling, and what is experimental
+3. [canonical-happy-path.md](canonical-happy-path.md) — one stable description of Toolkit Evaluation, Local Mode, Operator Mode, and board-to-delivery flow
+4. [agent-catalog.md](agent-catalog.md) — default agent ownership across the canonical loop
+5. [skills.md](skills.md) — public and internal skill surface
+6. [commands.md](commands.md) — command reference
 
 ## Quick Find
 
 | Need | Reference |
 |---|---|
 | Project identity and read order | [project-map.md](project-map.md) |
+| Product surface and maturity boundaries | [product-surface.md](product-surface.md), [maturity-matrix.md](maturity-matrix.md) |
 | Canonical happy path and mode split | [canonical-happy-path.md](canonical-happy-path.md) |
-| Adopt SDP in another repo | [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md) (published to sdp repo) |
+| Adopt SDP in another repo | [../QUICKSTART.md](../QUICKSTART.md) |
 | Canonical loop and default agents | [canonical-happy-path.md](canonical-happy-path.md), [agent-catalog.md](agent-catalog.md) |
 | Canonical skill surface | [skills.md](skills.md) |
 | Commands | [commands.md](commands.md) |

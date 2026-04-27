@@ -1,6 +1,6 @@
 # sdp_lab <-> sdp Publish Workflow
 
-If your real goal is "install SDP into my own repo and start using it", leave this doc and go to the [SDP public repo QUICKSTART](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md). This file is for contributors who need to publish protocol artifacts to the public `sdp` repo.
+If your real goal is "install SDP into my own repo and start using it", leave this doc and go to [docs/QUICKSTART.md](QUICKSTART.md). This file is for contributors who need to publish selected protocol artifacts from `sdp_lab` to the distilled `sdp` repo.
 
 ## How It Works
 
@@ -9,13 +9,13 @@ All files live natively in `sdp_lab`. There is no submodule, no separate git che
 | Path | Repo | Remote | Typical change |
 |------|------|--------|----------------|
 | Root, `internal/`, `cmd/`, `docs/`, `sdp/` | `sdp_lab` | `https://github.com/fall-out-bug/sdp_lab` | All work happens here |
-| `fall-out-bug/sdp` (separate repo) | `sdp` (public mirror) | `https://github.com/fall-out-bug/sdp` | Published artifacts only |
+| `fall-out-bug/sdp` (separate repo) | `sdp` (distilled distribution repo) | `https://github.com/fall-out-bug/sdp` | Published artifacts only |
 
 Historical note: many workstreams and beads IDs still use `sdp_dev-*` as a legacy label for the root repo. That is history, not a third repo.
 
 ## When to Publish
 
-Publish to the public `sdp` repo when protocol artifacts change and external consumers need the update:
+Publish to the distilled `sdp` repo when protocol artifacts change and external consumers need the update:
 
 - Schema changes (evidence, intent, ws-verdict)
 - New or updated prompts/skills
@@ -24,7 +24,7 @@ Publish to the public `sdp` repo when protocol artifacts change and external con
 - Fallback and operator-facing reference docs
 - Quickstart or CLI reference updates
 
-**Not published via this script:** `sdp-plugin` Go source code lives exclusively in the public `sdp` repo. It is not part of the publish surface.
+**Not published via this script:** arbitrary Go source is not part of the distillation surface unless the publish manifest explicitly includes it.
 
 ## Publish with sdp-publish.sh
 
@@ -73,9 +73,9 @@ The manifest is maintained in `sdp_lab`. Add or remove paths there when the publ
 
 ## Commit Workflow
 
-1. Make changes in `sdp_lab`. Protocol artifacts live at native tracked paths (`prompts/`, `schema/`, `templates/`, `.claude/hooks/`, harness entrypoints, fallback docs). The `sdp/` directory is an optional local checkout of the public repo used only by the publish script.
+1. Make changes in `sdp_lab`. Protocol artifacts live at native tracked paths (`prompts/`, `schema/`, `templates/`, `.claude/hooks/`, harness entrypoints, fallback docs). The `sdp/` directory is an optional local checkout of the distilled repo used only by the publish script.
 2. Commit and push in `sdp_lab` as usual.
-3. After merge to `main`, run `scripts/sdp-publish.sh` if protocol artifacts changed.
+3. After merge to `main`, run `scripts/sdp-publish.sh` if protocol artifacts changed and the distilled repo needs them.
 
 ## CI Integration
 

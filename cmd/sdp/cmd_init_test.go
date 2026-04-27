@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -147,5 +148,55 @@ func TestInit_UnknownHarness(t *testing.T) {
 	code := runInit([]string{"--harness", "unknown-harness", "--target", target})
 	if code == 0 {
 		t.Error("expected non-zero exit code for unknown harness")
+	}
+}
+
+// TestInit_ExistingManifestEmbedsBodies verifies downstream installs with a
+// real manifest write both live harness files and .sdp/generated files with
+// embedded prompt bodies.
+func TestInit_ExistingManifestEmbedsBodies(t *testing.T) {
+	target := t.TempDir()
+	const token = "INIT_BODY_TOKEN_42"
+
+	skillDir := filepath.Join(target, "prompts", "skills", "demo")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatalf("mkdir skill dir: %v", err)
+	}
+	skillPath := filepath.Join(skillDir, "SKILL.md")
+	if err := os.WriteFile(skillPath, []byte("# Demo Skill\n\n"+token+"\n"), 0o644); err != nil {
+		t.Fatalf("write skill: %v", err)
+	}
+
+	manifest := []byte(`version: "1.0.0"
+sdp_version: "1.0.0"
+harnesses:
+  - codex
+skills:
+  - { name: demo, path: prompts/skills/demo/SKILL.md }
+commands: []
+agents: []
+hooks: []
+mcp_servers: []
+`)
+	if err := os.WriteFile(filepath.Join(target, "sdp.manifest.yaml"), manifest, 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	code := runInit([]string{"--harness", "codex", "--target", target})
+	if code != 0 {
+		t.Fatalf("runInit returned %d, want 0", code)
+	}
+
+	for _, rel := range []string{
+		filepath.Join(".codex", "skills", "demo.md"),
+		filepath.Join(".sdp", "generated", ".codex", "skills", "demo.md"),
+	} {
+		data, err := os.ReadFile(filepath.Join(target, rel))
+		if err != nil {
+			t.Fatalf("read %s: %v", rel, err)
+		}
+		if got := string(data); !strings.Contains(got, token) {
+			t.Fatalf("%s does not contain embedded body token %q; got:\n%s", rel, token, got)
+		}
 	}
 }

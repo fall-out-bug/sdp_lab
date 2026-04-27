@@ -1,39 +1,51 @@
-# SDP Lab Control Workspace
+# SDP Lab
 
-Private build, planning, and orchestration workspace for SDP.
+Public build, planning, and orchestration workspace for SDP.
 GitHub repo name: `sdp_lab`. The Go module is still named `sdp_dev` (see `go.mod`) — the same root repo; treat as legacy naming.
 
-## What This Repo Actually Does
+## What SDP Is
 
-`sdp_lab` is the private repo where we build and steer the SDP platform itself.
+SDP is a governed AI software delivery harness.
+
+Short version:
+
+> From idea to accepted PR, with evidence.
+
+SDP does not try to replace Codex, Claude Code, Cursor, OpenCode, Copilot, or other coding agents. It adds the delivery contract around them: scope, workstreams, gates, evidence, findings loops, and QA/UAT.
+
+## What This Repo Does
+
+`sdp_lab` is the primary public workspace where SDP is built and exercised.
 
 - platform code lives here: Go binaries, orchestration, evals, adapters, K8s manifests
-- planning lives here: roadmap, workstreams, private design docs, execution runbooks
-- protocol artifacts live at native paths: `prompts/`, `schema/`, `templates/`, `.claude/hooks/`, harness entrypoints such as `.cursorrules`, `.codex/`, `.opencode/hooks/`, and fallback docs (published to the public `sdp` repo downstream via `scripts/sdp-publish.sh`)
+- planning lives here: roadmap, workstreams, design docs, execution runbooks
+- protocol artifacts live at native paths: `prompts/`, `schema/`, `templates/`, `.claude/hooks/`, harness entrypoints such as `.cursorrules`, `.codex/`, `.opencode/hooks/`, and fallback docs
+- the `sdp` repo is now a distilled distribution/mirror surface, not the upstream source of truth
 
-If your goal is to **use SDP inside your own project**, this repo is not the primary onboarding surface. Start with the [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md).
+If your goal is to **use SDP inside your own project**, start with [docs/QUICKSTART.md](docs/QUICKSTART.md).
 
 ## Clone
 
 ```bash
 git clone https://github.com/fall-out-bug/sdp_lab
 cd sdp_lab
-go build ./...
+go build -tags "sqlite_fts5" ./...
 ```
 
 ## Rules
 
 - This repo is the default place for strategic planning.
-- Do not publish private architecture, enterprise scope, or commercial details into OSS repos.
-- Export to OSS only through sanitized artifacts.
+- Do not commit customer-private architecture, secrets, enterprise scope, or commercial details.
+- Publish distilled artifacts to `fall-out-bug/sdp` only through `scripts/sdp-publish.sh` when that mirror needs an update.
 
 ## Choose Your Path
 
 | Goal | Start here |
 |---|---|
 | Understand what `sdp_lab` is and what lives here | [`docs/reference/project-map.md`](docs/reference/project-map.md) |
-| Contribute to the platform or private lab runtime | [`AGENTS.md`](AGENTS.md), [`docs/MULTI-REPO-WORKFLOW.md`](docs/MULTI-REPO-WORKFLOW.md) (publish workflow), [`docs/roadmap/ROADMAP.md`](docs/roadmap/ROADMAP.md) |
-| Adopt SDP in a greenfield or brownfield project | [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md), then [SDP README](https://github.com/fall-out-bug/sdp) |
+| Understand what SDP is good at today | [`docs/reference/product-surface.md`](docs/reference/product-surface.md) |
+| Contribute to the platform/runtime | [`AGENTS.md`](AGENTS.md), [`docs/MULTI-REPO-WORKFLOW.md`](docs/MULTI-REPO-WORKFLOW.md) (publish workflow), [`docs/roadmap/ROADMAP.md`](docs/roadmap/ROADMAP.md) |
+| Adopt SDP in a greenfield or brownfield project | [`docs/QUICKSTART.md`](docs/QUICKSTART.md), then [`docs/runbooks/onboarding-downstream-repo.md`](docs/runbooks/onboarding-downstream-repo.md) |
 | Install SDP into your repo right now | See **[Install in 30 seconds](#install-in-30-seconds)** below |
 | Understand component maturity (GA/Beta/Experimental) | [`docs/reference/maturity-matrix.md`](docs/reference/maturity-matrix.md) |
 | Trust, security guarantees, and limitations | [`docs/reference/trust-guarantees.md`](docs/reference/trust-guarantees.md) |
@@ -45,15 +57,17 @@ Run in the root of your downstream repo (requires `git` and `go`):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
+export PATH="$PWD/.sdp/bin:$PATH"
 ```
 
-Alternative — if you already have the `sdp` binary on PATH:
+Local-source install while working inside this repo:
 
 ```bash
-go install ./cmd/sdp && sdp init --harness=auto
+SDP_SOURCE_DIR="$PWD" SDP_TARGET=/path/to/myrepo bash scripts/install.sh
+export PATH="/path/to/myrepo/.sdp/bin:$PATH"
 ```
 
-The installer clones `sdp_lab`, builds the `sdp` binary, runs `sdp init --harness=auto`, and writes `sdp.lock`. No manual file copying.
+The installer clones `sdp_lab` to bring in the canonical manifest and prompts, uses a compatible `sdp` from `PATH` or builds a repo-local `./.sdp/bin/sdp`, runs `sdp init --harness=auto`, and writes `sdp.lock`. No manual file copying.
 
 ### What you get
 
@@ -96,7 +110,7 @@ sdp generate-adapters --write
 sdp doctor adapters
 ```
 
-`sdp.lock` pins the SDP version used at install time. `sdp doctor` fails if installed adapters diverge from the manifest — safe to run in CI or as a pre-commit hook.
+`sdp.lock` pins the SDP version used at install time. `sdp doctor adapters` fails if installed adapters diverge from the manifest — safe to run in CI or as a pre-commit hook.
 
 ### Customize without forking
 
@@ -113,24 +127,48 @@ Overlay system (per-repo customization without touching the manifest) is planned
 Full design: [`docs/plans/2026-04-25-f141-multi-harness-install-bootstrap-design.md`](docs/plans/2026-04-25-f141-multi-harness-install-bootstrap-design.md)  
 Onboarding runbook: [`docs/runbooks/onboarding-downstream-repo.md`](docs/runbooks/onboarding-downstream-repo.md)
 
-## IDE Support Today
+## What Works Today
 
-- public onboarding flow is first-class for `Claude Code`, `Cursor`, and `OpenCode` / `Windsurf`
-- `Codex` prompt compatibility exists in [.codex/](https://github.com/fall-out-bug/sdp/tree/main/.codex), but the public install flow is still manual rather than auto-detected
-- if the question is "can I give SDP my keys and start working?", the honest answer lives in `sdp/docs/`, not in the private-lab runbooks here
+Ready to evaluate:
+
+- multi-harness install from `sdp.manifest.yaml`
+- `sdp scout`, `sdp metrics`, `sdp index`, `sdp spec`, `sdp bootstrap`
+- Beads-backed operator workflow in this repo
+- evidence, protocol, adapter, and documentation checks
+- StratAudit reports
+
+Useful operator tooling:
+
+- `sdp-orchestrate`, `sdp-ci-loop`, `sdp-guard`, `sdp-doc-sync`, `sdp-ready`
+- `sdp manifest validate`, `sdp manifest parity`, `sdp generate-adapters`, `sdp doctor adapters`
+
+Experimental or research:
+
+- strict `agentloop` + `sdp-harness` primary delivery runtime
+- model gateway, provider cascade, MicroFirst inference, telemetry daemon
+- K8s/swarm/control tower paths
+- ChangePassport as a separate merge-readiness product direction
+
+Full map: [`docs/reference/product-surface.md`](docs/reference/product-surface.md)
+
+## Harness Support Today
+
+- generated adapter install supports `Claude Code`, `OpenCode`, `Codex`, and `Cursor`
+- MCP integration is documented separately in [`docs/reference/installation.md`](docs/reference/installation.md)
+- model keys and provider credentials stay in the harness/provider you choose; the installer does not collect them
 
 ## Main Components
 
 - `cmd/`, `internal/` — platform binaries, orchestration, evals, kernel, adapters
 - `deploy/` — deployable runtime and observability manifests
 - `docs/` — planning and execution surfaces (roadmap, workstreams, plans, runbooks, architecture)
-- `sdp/` — optional local checkout of the public `sdp` repo (used by `scripts/sdp-publish.sh` only); canonical protocol artifacts live at `prompts/`, `schema/`, `templates/`, `.claude/hooks/`, and harness entrypoints in this repo
+- `sdp/` — optional local checkout of the distilled `sdp` repo (used by `scripts/sdp-publish.sh` only); canonical protocol artifacts live at `prompts/`, `schema/`, `templates/`, `.claude/hooks/`, and harness entrypoints in this repo
 
 ## CLI Binaries (`cmd/`)
 
 Main CLI:
 
-- `cmd/sdp/` — top-level CLI. Subcommands: `card`, `board`, `doctor`, `dispatch`, `result`, `orchestrate`, `attention`, `why`, `next`, `missing`, `approve`, `trace`, `deploy`, `discover`, `intent`, `status`, `stuck`, `eval`, `clarify`, `plan`, `approve-plan`. Analytical / toolkit (not in `--help`): `tower`, `architect`, `scout`, `metrics`, `index` (F122). Source of truth: `cmd/sdp/main.go`.
+- `cmd/sdp/` — top-level CLI. Subcommands include `card`, `board`, `doctor`, `dispatch`, `result`, `orchestrate`, `attention`, `why`, `next`, `missing`, `approve`, `trace`, `deploy`, `discover`, `intent`, `status`, `stuck`, `eval`, `clarify`, `plan`, `approve-plan`, `scout`, `spec`, `metrics`, `index`, `bootstrap`, `build`, `manifest`, `generate-adapters`, `init`, and `telemetry`. Source of truth: `cmd/sdp/main.go`.
 
 Standalone binaries:
 

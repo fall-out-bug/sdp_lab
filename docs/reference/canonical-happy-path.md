@@ -24,7 +24,34 @@ SDP should support one coherent story:
 
 Everything else is a control surface or a disclosure layer for that same story.
 
-## Two Modes
+For external users, lead with the sharper promise:
+
+> From idea to accepted PR, with evidence.
+
+Do not make a first-time user read the full operator protocol before they have seen a useful local result.
+
+## User Paths
+
+### Toolkit Evaluation
+
+Use this when a user wants to understand an existing repo before adopting a full delivery loop.
+
+Default path:
+
+1. install SDP
+2. verify manifest and adapters
+3. run `sdp scout`
+4. run `sdp metrics`
+5. run `sdp index build`
+6. run `sdp spec`
+7. preview `sdp bootstrap --dry-run`
+
+Characteristics:
+
+- lowest-friction first run
+- mostly read-only
+- no Beads requirement
+- demonstrates useful output before process overhead
 
 ### Local Mode
 
@@ -34,15 +61,17 @@ Default path:
 
 1. install SDP
 2. `sdp init`
-3. `sdp doctor`
-4. shape work locally
-5. execute and verify locally
+3. `sdp manifest validate`
+4. `sdp doctor adapters`
+5. shape work locally
+6. execute and verify locally
 
 Characteristics:
 
 - `Beads` is optional
 - there may be no visible board UI
 - skills and CLI are local control surfaces
+- rigorous PR governance is optional
 
 ### Operator Mode
 
@@ -137,6 +166,7 @@ Rule:
 | Need | Doc |
 |---|---|
 | repo orientation | [project-map.md](project-map.md) |
+| user-facing product map | [product-surface.md](product-surface.md) |
 | happy path overview | [canonical-happy-path.md](canonical-happy-path.md) |
 | operator execution loop | [../SDP_OPERATOR_WORKFLOW.md](../SDP_OPERATOR_WORKFLOW.md) |
 | agent ownership | [agent-catalog.md](agent-catalog.md) |
@@ -145,7 +175,7 @@ Rule:
 
 ## What This Doc Does Not Do
 
-- it does not replace public onboarding in `sdp/docs/QUICKSTART.md`
+- it does not replace first-run onboarding in [../QUICKSTART.md](../QUICKSTART.md)
 - it does not define exact CLI syntax
 - it does not replace historical design rationale
 

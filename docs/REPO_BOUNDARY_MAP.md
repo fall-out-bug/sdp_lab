@@ -1,4 +1,6 @@
-# Repo Boundary Map (Private)
+# Repo Boundary Map (Historical)
+
+> Historical pre-F128 split. Current canonical boundary: [architecture/REPO-BOUNDARY.md](architecture/REPO-BOUNDARY.md). `sdp_lab` is now the primary public workspace; `sdp` is a distilled distribution repo.
 
 ## Epic-level split
 
@@ -30,8 +32,8 @@
   - governance controls and approvals
   - commercial and customer-specific logic
 
-## Anti-leak rules
+## Historical Anti-leak Rules
 
-- Security and self-evolution internals never leave private repo.
+- Security and self-evolution internals should not be committed if they are customer-private or commercially sensitive.
 - OSS exports are blocked unless `cmd/redaction-check` passes.
 - Export process always uses `docs/OSS_EXPORT_TEMPLATE.md`.

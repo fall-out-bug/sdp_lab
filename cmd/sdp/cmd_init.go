@@ -145,9 +145,10 @@ func runInit(args []string) int {
 		}
 	}
 
-	// Load the manifest (with empty repoRoot to skip path-existence checks,
-	// since the template has empty skills/commands/agents).
-	m, warnings, sdpVersion, manifestVersion, loadErr := loadManifestForInit(manifestPath)
+	// Load the manifest against the target repo. The installer copies the
+	// canonical prompt sources before invoking init, so generated adapters can
+	// embed real bodies instead of placeholder shells.
+	m, warnings, sdpVersion, manifestVersion, loadErr := loadManifestForInit(manifestPath, target)
 	if loadErr != nil {
 		// Non-fatal: generate with a minimal in-memory manifest so harness dirs
 		// are still created.
@@ -174,10 +175,25 @@ func runInit(args []string) int {
 	m.Harnesses = filteredHarnesses
 
 	// Generate adapter files.
-	generated, err := adapters.Generate(m, "")
+	generated, err := adapters.Generate(m, target)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: generate adapters: %v\n", err)
 		return 1
+	}
+
+	// Write generated files into .sdp/generated so `sdp doctor adapters` can
+	// compare the same canonical output later.
+	generatedRoot := filepath.Join(target, defaultGeneratedOutDir)
+	for rel, content := range generated {
+		dest := filepath.Join(generatedRoot, rel)
+		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+			fmt.Fprintf(os.Stderr, "error: mkdir %s: %v\n", filepath.Dir(dest), err)
+			return 1
+		}
+		if err := os.WriteFile(dest, content, 0o644); err != nil {
+			fmt.Fprintf(os.Stderr, "error: write %s: %v\n", dest, err)
+			return 1
+		}
 	}
 
 	// Write adapter files into target.
@@ -294,11 +310,11 @@ func filterManifestHarnesses(harnesses []string) []manifest.Harness {
 	return out
 }
 
-// loadManifestForInit loads the manifest from path, skipping the path-existence
-// pass (repoRoot="") since downstream repos won't have sdp_lab's skill files.
+// loadManifestForInit loads the manifest from path and validates referenced
+// paths against repoRoot when protocol sources are present.
 // Returns manifest, warnings, sdpVersion, manifestVersion, error.
-func loadManifestForInit(manifestPath string) (*manifest.Manifest, []string, string, string, error) {
-	res, err := manifest.Load(manifestPath, "")
+func loadManifestForInit(manifestPath, repoRoot string) (*manifest.Manifest, []string, string, string, error) {
+	res, err := manifest.Load(manifestPath, repoRoot)
 	if err != nil {
 		return nil, nil, "1.0.0", "1.0.0", err
 	}

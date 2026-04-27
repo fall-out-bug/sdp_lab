@@ -1,7 +1,7 @@
 # sdp_lab Roadmap — Agent Platform + Trust Lane
 
 > **Status: CANONICAL (active roadmap)** — this is the current source of truth. Other files in `docs/roadmap/` are supporting context; see [docs/roadmap/README.md](README.md).
-> **Updated:** 2026-04-20
+> **Updated:** 2026-04-27
 > **Repo naming:** GitHub repo is `sdp_lab`; historical workstreams and bead IDs may still use `sdp_dev` as a legacy label for the same codebase
 > **Direction:** Reusable agent platform (`kernel`, `adapters`, `augmentation`, `evals`) with standards-based trust and evidence as a secondary lane
 
@@ -26,6 +26,7 @@ Execution priority has changed.
 Current execution priority is the remaining UX/runtime lane:
 
 - `F100` — release discipline gates
+- `F149` — product documentation rebaseline for install/setup, feature map, and honest maturity boundaries
 - `F106` — real `agentloop` integration into the delivery path
 - `F108` — architecture normalization and missing production gaps
 - `F125` — finish the intent-routed UX migration and close the remaining cutover tail
@@ -83,6 +84,21 @@ A separate follow-on lane now exists on top of that shipped toolkit foundation:
 - `F139` — normalize MCP parity and discovery on top of the shipped `F126` server
 
 This is a delta lane, not a retroactive rewrite of `F125` or `F126`.
+
+An observability lane is queued:
+
+- `F140` — AI SDLC Telemetry v1: trace schema, local trace CLI/daemon, delivery-loop phase spans, reducer, and usage report
+
+The inference quality lane is active and intentionally marked as research/tooling, not first-run product UX:
+
+- `F144` — confidence and quality control for inference outputs
+- `F145` — multi-provider dispatch matrix and confidence-driven cascade
+- `F146` — decomposition framework for splitting one inference task into staged work
+- `F147` — MicroFirst tier for deterministic classifiers before LLM escalation
+
+The docs/onboarding lane now has a tracked cleanup feature:
+
+- `F149` — product documentation rebaseline: install/setup, feature map, multiple happy paths, and honest maturity boundaries
 
 Backlog triage 2026-04-18 (active backlog features are tracked in beads for consistency — search with `bd search FNNN`):
 

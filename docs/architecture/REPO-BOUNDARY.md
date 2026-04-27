@@ -6,10 +6,10 @@
 
 | Repo | Location | Visibility | Role |
 |------|----------|------------|------|
-| **sdp_lab** | This repo (root) | Private | Lab: orchestration, CI loop, evidence CLI, research, protocol artifacts (native) |
-| **sdp** | Public mirror (`fall-out-bug/sdp`) | Public | Downstream mirror of protocol artifacts published from sdp_lab |
+| **sdp_lab** | This repo (root) | Public | Primary workspace: Go code, orchestration, CI loop, evidence CLI, research, protocol artifacts (native) |
+| **sdp** | Distilled repo (`fall-out-bug/sdp`) | Public | Distribution/mirror of selected protocol artifacts published from sdp_lab |
 
-**Rule:** All development happens in sdp_lab. Publish to the public `sdp` repo via `scripts/sdp-publish.sh` when protocol artifacts change.
+**Rule:** all development happens in sdp_lab. Publish to the distilled `sdp` repo via `scripts/sdp-publish.sh` when selected protocol artifacts need distribution.
 **Historical labels:** old plans, workstreams, and bead IDs may still say `sdp_dev`. In current docs, that means this same root repo.
 
 ---
@@ -23,7 +23,7 @@
 | **sdp-evidence** | `bin/sdp-evidence` | No -- lab only (may release separately later) |
 | **sdp-guard** | `bin/sdp-guard` | No -- lab only |
 | **sdp-eval** | `bin/sdp-eval` | No -- lab only |
-| **sdp** (quality, apply, build, verify) | `sdp` CLI | No -- Go source code lives in public `sdp` repo only, not published by `sdp-publish.sh` |
+| **sdp** (main CLI) | `cmd/sdp` | Primary source lives in sdp_lab; selected distribution docs/artifacts may be mirrored to `sdp` |
 | **Schemas** | `schema/*.json` (native) | Yes -- via `sdp-publish.sh` |
 | **Agents** | `prompts/agents/*.md` (native) | Yes -- via `sdp-publish.sh` |
 | **Prompts/Skills** | `prompts/skills/*/SKILL.md` + `.agents/skills/*.md` (native, dual format pending F138-03) | Yes -- via `sdp-publish.sh` |
@@ -44,16 +44,14 @@ make build-sdp-ci-loop       # -> bin/sdp-ci-loop
 make build-sdp-evidence      # -> bin/sdp-evidence
 ```
 
-**sdp (protocol CLI):**
-
-> **Note:** The `sdp/` directory is gitignored in sdp_lab. To build the sdp CLI locally, first clone the public repo:
-> ```bash
-> git clone https://github.com/fall-out-bug/sdp.git sdp
-> ```
+**sdp CLI:**
 
 ```bash
-cd sdp/sdp-plugin && go build -o sdp ./cmd/sdp   # -> sdp CLI (quality, apply, build, verify)
+go build -tags "sqlite_fts5" -o "$(go env GOPATH)/bin/sdp" ./cmd/sdp
+sdp init --help
 ```
+
+The optional `sdp/` directory is a gitignored checkout of the distilled repo for publish checks, not the source of the CLI in this workspace.
 
 ---
 
@@ -66,4 +64,4 @@ cd sdp/sdp-plugin && go build -o sdp ./cmd/sdp   # -> sdp CLI (quality, apply, b
 - Fallback or command-mapping docs
 - Quickstart or CLI reference updates
 
-Run `scripts/sdp-publish.sh` after merge to `main`. See [docs/MULTI-REPO-WORKFLOW.md](../MULTI-REPO-WORKFLOW.md) for the full publish workflow.
+Run `scripts/sdp-publish.sh` after merge to `main` only when the distilled repo needs the update. See [docs/MULTI-REPO-WORKFLOW.md](../MULTI-REPO-WORKFLOW.md) for the full publish workflow.
