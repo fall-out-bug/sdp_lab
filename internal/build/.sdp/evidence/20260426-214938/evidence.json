@@ -1,0 +1,90 @@
+{
+  "run_id": "20260426-214938",
+  "timestamp": "",
+  "records": [
+    {
+      "ID": "adversarial/malformed-id",
+      "Category": "adversarial",
+      "MonolithicStatus": "passed",
+      "DecomposedStatus": "passed",
+      "LatencyMonoMs": 0,
+      "LatencyDecompMs": 0,
+      "TokensMono": 277,
+      "TokensDecomp": 458,
+      "CostMonoUSD": 0.001431,
+      "CostDecompUSD": 0.000518
+    },
+    {
+      "ID": "adversarial/pass-with-failed-tests",
+      "Category": "adversarial",
+      "MonolithicStatus": "passed",
+      "DecomposedStatus": "passed",
+      "LatencyMonoMs": 0,
+      "LatencyDecompMs": 0,
+      "TokensMono": 294,
+      "TokensDecomp": 476,
+      "CostMonoUSD": 0.001482,
+      "CostDecompUSD": 0.0005225
+    },
+    {
+      "ID": "adversarial/unmet-ac-but-pass",
+      "Category": "adversarial",
+      "MonolithicStatus": "passed",
+      "DecomposedStatus": "passed",
+      "LatencyMonoMs": 0,
+      "LatencyDecompMs": 0,
+      "TokensMono": 313,
+      "TokensDecomp": 495,
+      "CostMonoUSD": 0.001539,
+      "CostDecompUSD": 0.0005272499999999999
+    },
+    {
+      "ID": "correct/clean-fail",
+      "Category": "correct",
+      "MonolithicStatus": "passed",
+      "DecomposedStatus": "passed",
+      "LatencyMonoMs": 0,
+      "LatencyDecompMs": 0,
+      "TokensMono": 291,
+      "TokensDecomp": 473,
+      "CostMonoUSD": 0.0014730000000000001,
+      "CostDecompUSD": 0.00052175
+    },
+    {
+      "ID": "correct/clean-pass",
+      "Category": "correct",
+      "MonolithicStatus": "passed",
+      "DecomposedStatus": "passed",
+      "LatencyMonoMs": 0,
+      "LatencyDecompMs": 0,
+      "TokensMono": 387,
+      "TokensDecomp": 569,
+      "CostMonoUSD": 0.001761,
+      "CostDecompUSD": 0.00054575
+    },
+    {
+      "ID": "edge/empty-evidence",
+      "Category": "edge",
+      "MonolithicStatus": "passed",
+      "DecomposedStatus": "passed",
+      "LatencyMonoMs": 0,
+      "LatencyDecompMs": 0,
+      "TokensMono": 287,
+      "TokensDecomp": 469,
+      "CostMonoUSD": 0.001461,
+      "CostDecompUSD": 0.0005207499999999999
+    },
+    {
+      "ID": "edge/partial-coverage",
+      "Category": "edge",
+      "MonolithicStatus": "passed",
+      "DecomposedStatus": "passed",
+      "LatencyMonoMs": 0,
+      "LatencyDecompMs": 0,
+      "TokensMono": 338,
+      "TokensDecomp": 520,
+      "CostMonoUSD": 0.001614,
+      "CostDecompUSD": 0.0005335
+    }
+  ]
+}

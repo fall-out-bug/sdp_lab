@@ -59,9 +59,13 @@ func (j *JSONStitcher) Validate(out any) error {
 	return nil
 }
 
-// Marshal serializes out to indented JSON.
-// Round-trip: Marshal → json.Unmarshal → Validate is guaranteed to succeed.
+// Marshal validates out against the schema, then serializes to indented JSON.
+// Round-trip guarantee: if Validate(out) is nil, then Marshal(out) succeeds
+// and Validate(json.Unmarshal(Marshal(out))) is also nil.
 func (j *JSONStitcher) Marshal(out any) (string, error) {
+	if err := j.Validate(out); err != nil {
+		return "", fmt.Errorf("json stitcher %q: marshal: pre-validation failed: %w", j.name, err)
+	}
 	data, err := json.MarshalIndent(out, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("json stitcher %q: marshal: %w", j.name, err)

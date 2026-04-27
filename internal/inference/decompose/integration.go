@@ -92,7 +92,7 @@ func runCore(ctx context.Context, s anyStage, cfg StageConfig, in any) (any, Sta
 
 	// 2. Confidence check (F144) on the stage output.
 	if cfg.Confidence != nil {
-		co, cerr := cfg.Confidence.Run(ctx, "", "", out)
+		co, cerr := cfg.Confidence.Run(ctx, "", trace.RawResponse, out)
 		if cerr != nil {
 			return nil, trace, fmt.Errorf("confidence: %w", cerr)
 		}

@@ -27,10 +27,11 @@ func NewMonolithicRunner(client LLMCaller) *MonolithicRunner {
 			MaxTokens: 512,
 		})
 		trace := decompose.StageTrace{
-			LatencyMs: time.Since(start).Milliseconds(),
-			TokensIn:  tokIn,
-			TokensOut: tokOut,
-			CostUSD:   cost,
+			LatencyMs:   time.Since(start).Milliseconds(),
+			TokensIn:    tokIn,
+			TokensOut:   tokOut,
+			CostUSD:     cost,
+			RawResponse: text,
 		}
 		if err != nil {
 			return FinalVerdict{}, trace, fmt.Errorf("monolithic LLM call: %w", err)
@@ -41,6 +42,9 @@ func NewMonolithicRunner(client LLMCaller) *MonolithicRunner {
 		}
 		if !isAllowed(out.Verdict, allowedVerdicts) {
 			return FinalVerdict{}, trace, fmt.Errorf("monolithic: invalid verdict %q", out.Verdict)
+		}
+		if out.Score < 0 || out.Score > 1 {
+			return FinalVerdict{}, trace, fmt.Errorf("monolithic: score %v out of range [0, 1]", out.Score)
 		}
 		return out, trace, nil
 	})

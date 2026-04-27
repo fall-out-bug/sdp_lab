@@ -24,10 +24,11 @@ func newClassifyStage(client LLMCaller) decompose.Stage[ExtractOut, string] {
 			MaxTokens: 16,
 		})
 		trace := decompose.StageTrace{
-			LatencyMs: time.Since(start).Milliseconds(),
-			TokensIn:  tokIn,
-			TokensOut: tokOut,
-			CostUSD:   cost,
+			LatencyMs:   time.Since(start).Milliseconds(),
+			TokensIn:    tokIn,
+			TokensOut:   tokOut,
+			CostUSD:     cost,
+			RawResponse: text,
 		}
 		if err != nil {
 			return "", trace, fmt.Errorf("classify LLM call: %w", err)
