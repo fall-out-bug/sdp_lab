@@ -1,7 +1,7 @@
 # sdp_lab Roadmap — Agent Platform + Trust Lane
 
 > **Status: CANONICAL (active roadmap)** — this is the current source of truth. Other files in `docs/roadmap/` are supporting context; see [docs/roadmap/README.md](README.md).
-> **Updated:** 2026-04-27
+> **Updated:** 2026-04-27 (post-IIP-council; F151-F160 added)
 > **Repo naming:** GitHub repo is `sdp_lab`; historical workstreams and bead IDs may still use `sdp_dev` as a legacy label for the same codebase
 > **Direction:** Reusable agent platform (`kernel`, `adapters`, `augmentation`, `evals`) with standards-based trust and evidence as a secondary lane
 
@@ -100,7 +100,22 @@ The inference quality lane is active and intentionally marked as research/toolin
 The docs/onboarding lane now has a tracked cleanup feature:
 
 - `F149` — product documentation rebaseline: install/setup, feature map, multiple happy paths, and honest maturity boundaries
-- `F150` — product layering and release readiness: split SDP Lab, SDP Toolkit, Operator Mode, ChangePassport, and Enterprise Perimeter into explicit product surfaces before broad Go cleanup
+- `F150` — product layering and release readiness: split SDP Lab, SDP Toolkit, Operator Mode, ChangePassport, and Enterprise Delivery Governance into explicit product surfaces before broad Go cleanup. v3 acceptance bar (post-IIP-council) attaches IIP flag mechanism, manual import audit, internal namespace lock, and cascade AGENTS.md migration.
+
+Post-F150 v3 lane (post-IIP-council, 2026-04-27) — see [docs/roadmap/2026-04-27-roadmap-v3-post-iip.md](2026-04-27-roadmap-v3-post-iip.md) and [docs/strategy/2026-04-27-sdp-product-layering-4d.md](../strategy/2026-04-27-sdp-product-layering-4d.md):
+
+- `F151` — `sdp-pr-gate` Design v1 (Schema, Evidence Provider API, Decision Record, Override, GitHub App flow, pilot measurement plan; design only, no implementation)
+- `F152` — Pricing Hypothesis (Operator Mode + sdp-pr-gate; required before any external pilot)
+- `F153` — SDP Brand Architecture (family map, naming policy, trademark/domain check)
+- `F154` — Shared Substrates v1 (semver contracts + SDP-runtime assumption docs for `sdp-{evidence,policy,modelgw,context,eval}-core`)
+- `F155` — Evidence Persistence Architecture (storage backend decision, retention, backup, privacy)
+- `F156` — `arch-snap` IIP Hypothesis (gated on named lead + `commercial_hypothesis.md` + ≥3 discovery interviews; blocked by F158)
+- `F157` — `doc-tracer` IIP Hypothesis (same gate; blocked by F158)
+- `F158` — Go Import-Path Contamination Decision (highest unaddressed structural risk; blocks F156 / F157 active status)
+- `F159` — Competitive Positioning Artifact (vs Copilot Workspace, CodeRabbit, GitLab Duo, Tabnine, Factory)
+- `F160` — Procurement / Compliance Install Profile (SOC2 stance, SLA template, no-egress mode)
+
+Deferred (no work until ICP signal): Enterprise Delivery Governance product family; Russian sovereign model adapters (sub-track of EDG); `sdp-pr-gate` implementation track (gated on committed pilot per Wedge B gate).
 
 Backlog triage 2026-04-18 (active backlog features are tracked in beads for consistency — search with `bd search FNNN`):
 

@@ -617,4 +617,29 @@ Mapping the existing 10 workstreams to layers:
 - 2026-04-27 (afternoon): user pushback "what about tools that live great OUTSIDE SDP — Архитектор, Трассировка". Author proposed Option D (incubate-then-spin-out).
 - 2026-04-27 (evening): 5-model IIP council R1+R2 with user-selected models (xiaomi/mimo-v2.5-pro / minimax/minimax-m2.7 / kimi-k2.6 / deepseek-v4-pro / qwen3.6-plus, `max_tokens=100000`). Synthesis at `docs/strategy/council/2026-04-27-iip/synthesis.md`; memo v3 published incorporating 9 IIP consensus changes (IIP as flag inside Toolbox; standalone go.mod; manual audit interim; commercial-signal extraction; named lead; brand transfer plan; downgrade criteria; verifiable independence; reframe arch-snap/doc-tracer as hypotheses).
 - 2026-04-27: F150-01 (`sdplab-qgq1`) acceptance criterion satisfied by memo v3 + F150 patch.
+- 2026-04-27: roadmap v3 doc and 10 beads epics + 23 child workstreams created. See `docs/roadmap/2026-04-27-roadmap-v3-post-iip.md`. Cross-epic dependencies set: F158 blocks F156, F157; F151 blocks F152, F155; F154 blocks F155.
 - Next: F150 owner applies patch; F150-02..10 proceed under v3 taxonomy with IIP architectural rules attached. Each IIP candidate stays a hypothesis until named lead + commercial_hypothesis.md + ≥3 discovery interviews land.
+
+## Beads Reference (created 2026-04-27)
+
+| Epic | Bead ID | Children | Priority |
+|---|---|---|---|
+| F150 (existing) | `sdplab-nyr0` | 10 (F150-01..10) | P1 |
+| F151 — `sdp-pr-gate` Design v1 | `sdplab-hfk0` | 6 (F151-01..06) | P2 |
+| F152 — Pricing Hypothesis | `sdplab-qnyr` | 3 (F152-01..03) | P2 |
+| F153 — SDP Brand Architecture | `sdplab-mbhg` | 3 (F153-01..03) | P2 |
+| F154 — Shared Substrates v1 | `sdplab-kw3q` | 5 (F154-01..05) | P2 |
+| F155 — Evidence Persistence Architecture | `sdplab-xdg9` | 1 (F155-01) | P3 |
+| F156 — `arch-snap` IIP Hypothesis (gated) | `sdplab-jhef` | 1 (F156-01) | P3 |
+| F157 — `doc-tracer` IIP Hypothesis (gated) | `sdplab-hu5h` | 1 (F157-01) | P3 |
+| F158 — Go Import-Path Contamination Decision | `sdplab-guga` | 1 (F158-01) | P2 |
+| F159 — Competitive Positioning Artifact | `sdplab-qqnc` | 1 (F159-01) | P3 |
+| F160 — Procurement / Compliance Install Profile | `sdplab-mipu` | 1 (F160-01) | P3 |
+
+Cross-epic blocking dependencies:
+
+- F158 (`sdplab-guga`) blocks F156 (`sdplab-jhef`) — import-path decision before active arch-snap IIP.
+- F158 (`sdplab-guga`) blocks F157 (`sdplab-hu5h`) — import-path decision before active doc-tracer IIP.
+- F151 (`sdplab-hfk0`) blocks F152 (`sdplab-qnyr`) — pricing needs `sdp-pr-gate` scope.
+- F151 (`sdplab-hfk0`) blocks F155 (`sdplab-xdg9`) — Schema v1 informs persistence decision.
+- F154 (`sdplab-kw3q`) blocks F155 (`sdplab-xdg9`) — substrate contracts inform persistence shape.
