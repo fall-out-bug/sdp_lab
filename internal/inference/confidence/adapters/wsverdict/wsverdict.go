@@ -15,10 +15,10 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v5"
 
-	"sdp_dev/internal/inference/confidence"
-	"sdp_dev/internal/inference/confidence/constraint"
-	"sdp_dev/internal/inference/confidence/nsample"
-	"sdp_dev/internal/inference/confidence/selfcheck"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence/constraint"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence/nsample"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence/selfcheck"
 )
 
 // Verdict mirrors the JSON schema in schema/ws-verdict.schema.json. It is the

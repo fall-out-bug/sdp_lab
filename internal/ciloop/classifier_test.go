@@ -3,7 +3,7 @@ package ciloop_test
 import (
 	"testing"
 
-	"sdp_dev/internal/ciloop"
+	"github.com/fall-out-bug/sdp_lab/internal/ciloop"
 )
 
 func TestClassifyGoTest(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"sdp_dev/internal/dispatch"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch"
 )
 
 // ReplayCase is a single test case in the cascade corpus.

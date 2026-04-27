@@ -1,6 +1,6 @@
 package knn
 
-import "sdp_dev/internal/inference/decompose"
+import "github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
 
 // ClassifyResult holds the outcome of MajorityVote.
 type ClassifyResult[Label comparable] struct {

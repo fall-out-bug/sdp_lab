@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strings"
 
-	"sdp_dev/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
 )
 
 // ErrMissingRequiredField is returned when a required field is missing or empty

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sdp_dev/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
 )
 
 func TestLoadCheckpoint(t *testing.T) {

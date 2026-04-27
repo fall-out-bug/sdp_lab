@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"sdp_dev/internal/healthcheck"
+	"github.com/fall-out-bug/sdp_lab/internal/healthcheck"
 )
 
 func main() {

@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/workstream"
+	"github.com/fall-out-bug/sdp_lab/internal/workstream"
 )
 
 type Issue struct {

@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // GoldenTestSuite manages a collection of golden test cases.

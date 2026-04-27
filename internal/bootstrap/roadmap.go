@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"sdp_dev/internal/scout"
+	"github.com/fall-out-bug/sdp_lab/internal/scout"
 )
 
 // Roadmap holds the generated project roadmap derived from scout data.

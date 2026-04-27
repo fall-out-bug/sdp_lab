@@ -3,7 +3,7 @@ package control
 import (
 	"context"
 
-	"sdp_dev/internal/kernel"
+	"github.com/fall-out-bug/sdp_lab/internal/kernel"
 )
 
 // ArtifactType classifies artifact kinds.

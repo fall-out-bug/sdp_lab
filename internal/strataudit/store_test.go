@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"sdp_dev/internal/strataudit/model"
+	"github.com/fall-out-bug/sdp_lab/internal/strataudit/model"
 )
 
 func setupTestStore(t *testing.T) *SQLiteStore {

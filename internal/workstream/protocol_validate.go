@@ -9,7 +9,7 @@ import (
 	"slices"
 	"strings"
 
-	"sdp_dev/internal/sdputil"
+	"github.com/fall-out-bug/sdp_lab/internal/sdputil"
 )
 
 type ValidationIssue struct {

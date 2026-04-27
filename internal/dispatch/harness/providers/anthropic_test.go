@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"sdp_dev/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
 )
 
 func TestAnthropicProvider_Models(t *testing.T) {

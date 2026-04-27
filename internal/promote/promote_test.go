@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sdp_dev/internal/build"
+	"github.com/fall-out-bug/sdp_lab/internal/build"
 )
 
 func TestPromoteFromRun_Success(t *testing.T) {

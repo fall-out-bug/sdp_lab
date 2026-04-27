@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"sdp_dev/internal/dispatch"
-	"sdp_dev/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
 )
 
 func TestWSDispatchInfo_JSON(t *testing.T) {

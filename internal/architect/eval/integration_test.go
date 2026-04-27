@@ -3,7 +3,7 @@ package eval
 import (
 	"testing"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // TestGoldenTestSuite_FullRun runs the full golden test suite with mock extractor.

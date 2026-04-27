@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"testing"
 
-	"sdp_dev/internal/harnesscfg"
+	"github.com/fall-out-bug/sdp_lab/internal/harnesscfg"
 )
 
 func projectRoot(t *testing.T) string {

@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"sdp_dev/internal/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/harness"
 )
 
 func runContractCheck(contractPath, snapshotPath string) {

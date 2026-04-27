@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"sdp_dev/internal/trace"
-	"sdp_dev/internal/trace/bead"
-	"sdp_dev/internal/trace/client"
-	"sdp_dev/internal/trace/consent"
-	traceDaemon "sdp_dev/internal/trace/daemon"
+	"github.com/fall-out-bug/sdp_lab/internal/trace"
+	"github.com/fall-out-bug/sdp_lab/internal/trace/bead"
+	"github.com/fall-out-bug/sdp_lab/internal/trace/client"
+	"github.com/fall-out-bug/sdp_lab/internal/trace/consent"
+	traceDaemon "github.com/fall-out-bug/sdp_lab/internal/trace/daemon"
 )
 
 func runTelemetry(args []string) {

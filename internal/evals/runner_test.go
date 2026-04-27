@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"sdp_dev/internal/kernel"
+	"github.com/fall-out-bug/sdp_lab/internal/kernel"
 )
 
 func TestRunCaseTraceAssertionsPass(t *testing.T) {

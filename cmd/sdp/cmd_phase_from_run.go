@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"sdp_dev/internal/promote"
+	"github.com/fall-out-bug/sdp_lab/internal/promote"
 )
 
 func runPhaseFromRun(args []string) {

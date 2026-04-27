@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"sdp_dev/internal/delta"
-	"sdp_dev/internal/gate"
+	"github.com/fall-out-bug/sdp_lab/internal/delta"
+	"github.com/fall-out-bug/sdp_lab/internal/gate"
 )
 
 func runPhase(args []string) {

@@ -8,7 +8,7 @@ import (
 	"sort"
 	"time"
 
-	"sdp_dev/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
 )
 
 // VerificationRouter selects a harness for verification (review/qa) that is

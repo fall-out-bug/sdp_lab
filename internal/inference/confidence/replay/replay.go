@@ -23,7 +23,7 @@ import (
 	"sort"
 	"time"
 
-	"sdp_dev/internal/inference/confidence"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
 )
 
 // Category enumerates corpus partitions.

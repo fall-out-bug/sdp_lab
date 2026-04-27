@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"strings"
 
-	"sdp_dev/internal/inference/confidence"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
 )
 
 // Invariant is one named predicate over the parsed answer.

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sdp_dev/internal/architect"
-	"sdp_dev/internal/architect/extract/java"
-	"sdp_dev/internal/architect/extract/python"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect/extract/java"
+	"github.com/fall-out-bug/sdp_lab/internal/architect/extract/python"
 	"strings"
 )
 

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/strataudit/model"
+	"github.com/fall-out-bug/sdp_lab/internal/strataudit/model"
 )
 
 type findingTpl struct{ Title, Desc, Rec string }

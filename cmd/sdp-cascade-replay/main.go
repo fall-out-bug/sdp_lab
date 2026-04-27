@@ -25,9 +25,9 @@ import (
 	"os"
 	"strings"
 
-	"sdp_dev/internal/dispatch"
-	"sdp_dev/internal/dispatch/cascade"
-	"sdp_dev/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/cascade"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
 )
 
 // CorpusCase represents a single case in the cascade corpus JSON.

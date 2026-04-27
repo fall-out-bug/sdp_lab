@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/inference/confidence"
-	"sdp_dev/internal/inference/confidence/adapters/dispatch"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence/adapters/dispatch"
 )
 
 func TestNewRequiresHarnesses(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"sdp_dev/internal/healthcheck"
+	"github.com/fall-out-bug/sdp_lab/internal/healthcheck"
 )
 
 func TestNewRunner_EmptyRootReturnsError(t *testing.T) {

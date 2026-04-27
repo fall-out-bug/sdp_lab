@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"sdp_dev/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
 )
 
 func RenderProjectBoard(snap *control.ProjectBoardSnapshot) string {

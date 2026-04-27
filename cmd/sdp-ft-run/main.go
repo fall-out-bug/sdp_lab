@@ -21,7 +21,7 @@ import (
 	"os"
 	"time"
 
-	"sdp_dev/internal/finetune/runner"
+	"github.com/fall-out-bug/sdp_lab/internal/finetune/runner"
 )
 
 func main() {

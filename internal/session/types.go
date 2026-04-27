@@ -1,6 +1,6 @@
 package session
 
-import "sdp_dev/internal/kernel"
+import "github.com/fall-out-bug/sdp_lab/internal/kernel"
 
 type RunID = kernel.RunID
 

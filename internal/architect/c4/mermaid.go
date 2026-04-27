@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // MermaidOutput holds the rendered Mermaid diagram for a specific level.

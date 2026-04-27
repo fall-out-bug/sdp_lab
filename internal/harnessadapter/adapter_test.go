@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/harnesscfg"
-	"sdp_dev/internal/rules"
-	"sdp_dev/internal/scout"
+	"github.com/fall-out-bug/sdp_lab/internal/harnesscfg"
+	"github.com/fall-out-bug/sdp_lab/internal/rules"
+	"github.com/fall-out-bug/sdp_lab/internal/scout"
 )
 
 func enabledPtr(v bool) *bool { return &v }

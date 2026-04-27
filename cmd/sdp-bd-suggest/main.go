@@ -16,11 +16,11 @@ import (
 	"os"
 	"strings"
 
-	"sdp_dev/internal/inference/decompose"
-	"sdp_dev/internal/inference/microfirst/bdseverity"
-	"sdp_dev/internal/inference/microfirst/bdtype"
-	"sdp_dev/internal/inference/microfirst/embed"
-	"sdp_dev/internal/llmclient"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/bdseverity"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/bdtype"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/embed"
+	"github.com/fall-out-bug/sdp_lab/internal/llmclient"
 )
 
 // config holds all CLI parameters.

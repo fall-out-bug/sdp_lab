@@ -2,7 +2,7 @@
 
 > **Status: CANONICAL (active roadmap)** — this is the current source of truth. Other files in `docs/roadmap/` are supporting context; see [docs/roadmap/README.md](README.md).
 > **Updated:** 2026-04-27 (post-IIP-council; F151-F160 added)
-> **Repo naming:** GitHub repo is `sdp_lab`; historical workstreams and bead IDs may still use `sdp_dev` as a legacy label for the same codebase
+> **Repo naming:** GitHub repo is `sdp_lab`; Go module path is `github.com/fall-out-bug/sdp_lab`; historical workstreams and bead IDs may still use `sdp_dev` as a legacy label for the same codebase
 > **Direction:** Reusable agent platform (`kernel`, `adapters`, `augmentation`, `evals`) with standards-based trust and evidence as a secondary lane
 
 Supporting context (read on demand, not required for orientation):

@@ -3,7 +3,7 @@ package orchestrate_test
 import (
 	"testing"
 
-	"sdp_dev/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
 )
 
 func TestComputeNextAction(t *testing.T) {

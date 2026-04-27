@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"sdp_dev/internal/beads"
+	"github.com/fall-out-bug/sdp_lab/internal/beads"
 )
 
 func TestWSOutput_Format(t *testing.T) {

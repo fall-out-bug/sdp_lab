@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"sdp_dev/internal/inference/decompose"
-	"sdp_dev/internal/inference/decompose/adapters/wsverdict"
-	"sdp_dev/internal/inference/replayutil"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose/adapters/wsverdict"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/replayutil"
 )
 
 // benchResult holds the A/B comparison for one fixture.

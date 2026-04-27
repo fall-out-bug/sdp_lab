@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"sdp_dev/internal/mcp/parity"
+	"github.com/fall-out-bug/sdp_lab/internal/mcp/parity"
 )
 
 func TestNewPromptRegistry(t *testing.T) {

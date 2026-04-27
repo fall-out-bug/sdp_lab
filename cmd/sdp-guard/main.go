@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"sdp_dev/internal/evidence"
-	"sdp_dev/internal/guard"
-	"sdp_dev/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/evidence"
+	"github.com/fall-out-bug/sdp_lab/internal/guard"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
 )
 
 func main() {

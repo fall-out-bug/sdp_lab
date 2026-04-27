@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/inference/confidence"
-	"sdp_dev/internal/inference/confidence/selfcheck"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence/selfcheck"
 )
 
 // fakeCaller returns a canned response or error.

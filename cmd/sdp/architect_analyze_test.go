@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"sdp_dev/internal/architect"
-	"sdp_dev/internal/architect/c4"
-	"sdp_dev/internal/architect/extract"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect/c4"
+	"github.com/fall-out-bug/sdp_lab/internal/architect/extract"
 )
 
 // TestArchitectAnalyzeIntegration tests the full analyze pipeline end-to-end.

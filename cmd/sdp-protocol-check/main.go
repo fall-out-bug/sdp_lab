@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	"sdp_dev/internal/orchestrate"
-	"sdp_dev/internal/workstream"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/workstream"
 )
 
 func main() {

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/mcp/registry"
+	"github.com/fall-out-bug/sdp_lab/internal/mcp/registry"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -45,7 +45,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"sdp_dev/internal/llmclient"
+	"github.com/fall-out-bug/sdp_lab/internal/llmclient"
 )
 
 func TestChat_success(t *testing.T) {
@@ -634,7 +634,7 @@ package discovery
 import (
 	"context"
 
-	"sdp_dev/internal/llmclient"
+	"github.com/fall-out-bug/sdp_lab/internal/llmclient"
 )
 
 // Message is re-exported from llmclient for backward compatibility within this package.
@@ -696,7 +696,7 @@ import (
 	"os"
 	"time"
 
-	"sdp_dev/internal/llmclient"
+	"github.com/fall-out-bug/sdp_lab/internal/llmclient"
 )
 
 // LLMConfig configures the architect LLM client.
@@ -793,7 +793,7 @@ Pattern to follow:
 ```go
 // Keep: SHA256-based cache, rate limiter, cache hit/miss logic
 // Replace: direct http.Client usage → llmclient.Client.Chat()
-import "sdp_dev/internal/llmclient"
+import "github.com/fall-out-bug/sdp_lab/internal/llmclient"
 
 type StratauditLLMClient struct {
     inner     *llmclient.Client
@@ -858,8 +858,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"sdp_dev/internal/agentloop"
-	"sdp_dev/internal/agentloop/livegw"
+	"github.com/fall-out-bug/sdp_lab/internal/agentloop"
+	"github.com/fall-out-bug/sdp_lab/internal/agentloop/livegw"
 )
 
 func TestNew_rejectEmptyKey(t *testing.T) {
@@ -1048,8 +1048,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"sdp_dev/internal/agentloop"
-	"sdp_dev/internal/llmclient"
+	"github.com/fall-out-bug/sdp_lab/internal/agentloop"
+	"github.com/fall-out-bug/sdp_lab/internal/llmclient"
 )
 
 // LiveGateway implements agentloop.ModelGateway via SSE streaming through llmclient.
@@ -1339,7 +1339,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sdp_dev/internal/agentloop"
+	"github.com/fall-out-bug/sdp_lab/internal/agentloop"
 )
 
 // TestCmdNew_createSession verifies that `sdp-harness new` creates a session DB.
@@ -1462,7 +1462,7 @@ router := agentloop.NewPhaseRouter(agentloop.DefaultPhaseMap, registry, gw, nil)
 ```go
 import (
     // existing imports...
-    "sdp_dev/internal/agentloop/livegw"
+    "github.com/fall-out-bug/sdp_lab/internal/agentloop/livegw"
 )
 ```
 
@@ -1527,8 +1527,8 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/control"
-	"sdp_dev/internal/discovery"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/discovery"
 )
 
 func TestCreateFeatureCard_onGO(t *testing.T) {
@@ -1791,7 +1791,7 @@ if validation != nil && validation.FinalVerdict == discovery.VerdictGO {
 ```go
 import (
     // existing...
-    "sdp_dev/internal/control"
+    "github.com/fall-out-bug/sdp_lab/internal/control"
 )
 ```
 

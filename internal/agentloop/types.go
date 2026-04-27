@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"sdp_dev/internal/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/harness"
 )
 
 // ---- Role constants ----

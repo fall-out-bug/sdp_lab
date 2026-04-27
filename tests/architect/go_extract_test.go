@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sdp_dev/internal/architect/extract"
+	"github.com/fall-out-bug/sdp_lab/internal/architect/extract"
 
 	"github.com/stretchr/testify/require"
 )
@@ -23,7 +23,7 @@ func TestGoExtractor_SelfAnalysis(t *testing.T) {
 
 	require.Equal(t, "go/packages", graph.ExtractionMethod)
 	require.InDelta(t, 0.93, graph.AccuracyEstimate, 0.001)
-	require.Equal(t, "sdp_dev", graph.ModulePath)
+	require.Equal(t, "github.com/fall-out-bug/sdp_lab", graph.ModulePath)
 
 	// The repo itself has packages — we should find at least the
 	// internal/architect/extract package.
@@ -31,14 +31,14 @@ func TestGoExtractor_SelfAnalysis(t *testing.T) {
 
 	found := false
 	for _, n := range graph.Nodes {
-		if n.ImportPath == "sdp_dev/internal/architect/extract" {
+		if n.ImportPath == "github.com/fall-out-bug/sdp_lab/internal/architect/extract" {
 			found = true
 			require.Equal(t, "extract", n.Name)
 			require.Equal(t, "internal/architect", n.Cluster)
 			break
 		}
 	}
-	require.True(t, found, "expected to find sdp_dev/internal/architect/extract package")
+	require.True(t, found, "expected to find github.com/fall-out-bug/sdp_lab/internal/architect/extract package")
 
 	// There must be clusters (parent directories).
 	require.NotEmpty(t, graph.Clusters, "expected at least one cluster")
@@ -194,7 +194,7 @@ func TestGoExtractor_ModuleInfo(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NotNil(t, graph.ModuleInfo, "module info should be populated")
-	require.Equal(t, "sdp_dev", graph.ModuleInfo.ModulePath)
+	require.Equal(t, "github.com/fall-out-bug/sdp_lab", graph.ModuleInfo.ModulePath)
 	require.NotEmpty(t, graph.ModuleInfo.GoVersion, "go version should be set")
 	require.NotEmpty(t, graph.ModuleInfo.Requires, "should have require directives")
 

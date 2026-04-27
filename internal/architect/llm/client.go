@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"sdp_dev/internal/architect"
-	"sdp_dev/internal/llmclient"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/llmclient"
 )
 
 // Provider represents an LLM provider (local or cloud).

@@ -23,9 +23,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"sdp_dev/internal/guard"
-	"sdp_dev/internal/orchestrate"
-	"sdp_dev/internal/session"
+	"github.com/fall-out-bug/sdp_lab/internal/guard"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/session"
 )
 
 // PreToolUseInput is the input structure from OhMyOpenCode PreToolUse hook.

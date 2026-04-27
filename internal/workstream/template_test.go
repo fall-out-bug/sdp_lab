@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sdp_dev/internal/beads"
+	"github.com/fall-out-bug/sdp_lab/internal/beads"
 )
 
 func TestNewWorkstreamTemplate(t *testing.T) {

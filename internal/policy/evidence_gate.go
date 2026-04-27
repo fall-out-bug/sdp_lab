@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"sdp_dev/internal/evidence"
+	"github.com/fall-out-bug/sdp_lab/internal/evidence"
 )
 
 type verifyAttestationFunc func(payload []byte) error

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"sdp_dev/internal/executor"
+	"github.com/fall-out-bug/sdp_lab/internal/executor"
 )
 
 func runOrchestrate(args []string) {

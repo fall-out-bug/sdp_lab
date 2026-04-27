@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/kernel"
+	"github.com/fall-out-bug/sdp_lab/internal/kernel"
 )
 
 // ServeInvoker implements kernel.RuntimeAdapter using OmO serve.

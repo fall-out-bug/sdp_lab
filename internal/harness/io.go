@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"sdp_dev/internal/sdputil"
+	"github.com/fall-out-bug/sdp_lab/internal/sdputil"
 )
 
 func LoadTaskContract(path string) (*TaskContract, error) {

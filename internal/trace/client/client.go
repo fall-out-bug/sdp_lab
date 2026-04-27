@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"sdp_dev/internal/trace"
+	"github.com/fall-out-bug/sdp_lab/internal/trace"
 )
 
 // Client is a trace daemon client

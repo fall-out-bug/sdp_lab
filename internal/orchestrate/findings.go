@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/bridge"
-	"sdp_dev/internal/sdputil"
+	"github.com/fall-out-bug/sdp_lab/internal/bridge"
+	"github.com/fall-out-bug/sdp_lab/internal/sdputil"
 )
 
 func EmitReviewFailureFinding(ctx context.Context, projectRoot string, cp *Checkpoint, reviewOutput string, reviewErr error) (string, error) {

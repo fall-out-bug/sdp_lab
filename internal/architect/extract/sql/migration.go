@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // detectMigrations scans well-known directories for migration files.

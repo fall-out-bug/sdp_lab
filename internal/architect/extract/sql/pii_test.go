@@ -4,7 +4,7 @@ package sql
 import (
 	"testing"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // TestDetectPII tests the detectPII function with various table schemas.

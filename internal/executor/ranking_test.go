@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"sdp_dev/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
 )
 
 func TestRankAndPick_Empty(t *testing.T) {

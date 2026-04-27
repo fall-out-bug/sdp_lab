@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	"sdp_dev/internal/docsync"
-	"sdp_dev/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/docsync"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
 )
 
 func main() {

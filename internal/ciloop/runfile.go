@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"time"
 
-	"sdp_dev/internal/sdputil"
+	"github.com/fall-out-bug/sdp_lab/internal/sdputil"
 )
 
 // RunEvent is a single event appended to a run file.

@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"sdp_dev/internal/scout"
+	"github.com/fall-out-bug/sdp_lab/internal/scout"
 )
 
 // BrownfieldResult holds the delta analysis output comparing existing project

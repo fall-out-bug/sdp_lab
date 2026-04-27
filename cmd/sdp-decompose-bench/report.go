@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strings"
 
-	"sdp_dev/internal/inference/decompose"
-	"sdp_dev/internal/inference/decompose/adapters/wsverdict"
-	"sdp_dev/internal/inference/replayutil"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose/adapters/wsverdict"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/replayutil"
 )
 
 // reportData aggregates all bench results for markdown rendering.

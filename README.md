@@ -1,7 +1,7 @@
 # SDP Lab
 
 Public build, planning, and orchestration workspace for SDP.
-GitHub repo name: `sdp_lab`. The Go module is still named `sdp_dev` (see `go.mod`) — the same root repo; treat as legacy naming.
+GitHub repo name: `sdp_lab`. Go module path: `github.com/fall-out-bug/sdp_lab` (see `go.mod`).
 
 ## What SDP Is
 

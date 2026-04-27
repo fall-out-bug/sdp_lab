@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"sdp_dev/internal/strataudit/model"
+	"github.com/fall-out-bug/sdp_lab/internal/strataudit/model"
 )
 
 type llmDiagnosticsSummary struct {

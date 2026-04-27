@@ -12,7 +12,7 @@ import (
 	"strings"
 	"text/template"
 
-	"sdp_dev/internal/manifest"
+	"github.com/fall-out-bug/sdp_lab/internal/manifest"
 )
 
 var (

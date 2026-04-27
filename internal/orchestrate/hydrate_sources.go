@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"sdp_dev/internal/executil"
+	"github.com/fall-out-bug/sdp_lab/internal/executil"
 )
 
 // gitLSFiles returns tracked files for scope checks. Reserved for future use.

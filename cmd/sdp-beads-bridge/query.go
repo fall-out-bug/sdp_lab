@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"sdp_dev/internal/beads"
+	"github.com/fall-out-bug/sdp_lab/internal/beads"
 )
 
 // queryCmd handles the query subcommand.

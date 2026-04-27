@@ -16,7 +16,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"sdp_dev/internal/llmclient"
+	"github.com/fall-out-bug/sdp_lab/internal/llmclient"
 
 	"golang.org/x/time/rate"
 )

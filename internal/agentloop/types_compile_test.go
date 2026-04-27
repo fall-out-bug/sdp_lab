@@ -3,7 +3,7 @@ package agentloop_test
 import (
 	"testing"
 
-	_ "sdp_dev/internal/agentloop"
+	_ "github.com/fall-out-bug/sdp_lab/internal/agentloop"
 )
 
 // TestCompile_Types verifies the package compiles with all required types.

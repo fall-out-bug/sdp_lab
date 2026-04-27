@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

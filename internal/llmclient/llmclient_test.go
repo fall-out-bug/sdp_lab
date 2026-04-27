@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"sdp_dev/internal/llmclient"
+	"github.com/fall-out-bug/sdp_lab/internal/llmclient"
 )
 
 func TestChat_success(t *testing.T) {

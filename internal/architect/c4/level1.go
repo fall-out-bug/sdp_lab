@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // GenerateLevel1 creates a Level 1 (System Context) model from infrastructure signals.

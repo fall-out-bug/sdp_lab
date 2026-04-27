@@ -1,8 +1,8 @@
 package bdseverity
 
 import (
-	"sdp_dev/internal/inference/decompose"
-	"sdp_dev/internal/inference/microfirst/knn"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/knn"
 )
 
 // BdSeverityResult is the output of BdSeverityMicro.Run.

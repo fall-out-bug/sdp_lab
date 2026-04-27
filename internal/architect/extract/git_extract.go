@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // GitHistoryExtractor analyzes git history for co-change coupling,

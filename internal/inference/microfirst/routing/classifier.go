@@ -7,9 +7,9 @@ import (
 	"context"
 	"fmt"
 
-	"sdp_dev/internal/inference/decompose"
-	"sdp_dev/internal/inference/microfirst/embed"
-	"sdp_dev/internal/inference/microfirst/knn"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/embed"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/knn"
 )
 
 const defaultThreshold = 0.80

@@ -11,7 +11,7 @@ This is the shortest accurate way to orient inside `sdp_lab`.
 - it owns Go code, orchestration, adapter work, evals, roadmap, and planning
 - protocol artifacts (prompts, schemas, hooks, public CLI work) live at native tracked paths (`prompts/`, `schema/`, `templates/`, `.claude/hooks/`); distilled artifacts are published to the `sdp` repo via `scripts/sdp-publish.sh`. `sdp/` is an optional local checkout of that distribution repo, not a tracked component.
 - it uses `main` as the live default branch
-- historical docs and bead IDs may still say `sdp_dev`; treat that as a legacy label for this same repo
+- Go module path is `github.com/fall-out-bug/sdp_lab`; historical docs and bead IDs may still say `sdp_dev` — treat as legacy naming
 
 ## Who Should Start Here
 

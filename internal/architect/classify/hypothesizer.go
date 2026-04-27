@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"sdp_dev/internal/architect"
-	"sdp_dev/internal/discovery"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/discovery"
 )
 
 // AuditEntry records a single LLM call for compliance.

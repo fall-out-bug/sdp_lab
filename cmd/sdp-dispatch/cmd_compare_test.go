@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"sdp_dev/internal/dispatch"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch"
 )
 
 func TestRunCompare_WithProfiles(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sdp_dev/internal/healthcheck"
+	"github.com/fall-out-bug/sdp_lab/internal/healthcheck"
 )
 
 func initGitRepo(t *testing.T, dir string) {

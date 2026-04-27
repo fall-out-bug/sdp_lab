@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sort"
 
-	"sdp_dev/internal/harnesscfg"
-	"sdp_dev/internal/rules"
-	"sdp_dev/internal/scout"
+	"github.com/fall-out-bug/sdp_lab/internal/harnesscfg"
+	"github.com/fall-out-bug/sdp_lab/internal/rules"
+	"github.com/fall-out-bug/sdp_lab/internal/scout"
 )
 
 // Adapter renders rules + scout data into a harness-specific format.

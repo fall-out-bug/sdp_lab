@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"sdp_dev/internal/prompt"
-	"sdp_dev/internal/sdputil"
-	"sdp_dev/internal/session"
+	"github.com/fall-out-bug/sdp_lab/internal/prompt"
+	"github.com/fall-out-bug/sdp_lab/internal/sdputil"
+	"github.com/fall-out-bug/sdp_lab/internal/session"
 
 )
 

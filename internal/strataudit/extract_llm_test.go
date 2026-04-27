@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/strataudit/model"
+	"github.com/fall-out-bug/sdp_lab/internal/strataudit/model"
 )
 
 func TestParseExtractionResponse(t *testing.T) {

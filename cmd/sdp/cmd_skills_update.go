@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	skills "sdp_dev/internal/skills"
+	skills "github.com/fall-out-bug/sdp_lab/internal/skills"
 )
 
 func runSkillsUpdate(args []string) {

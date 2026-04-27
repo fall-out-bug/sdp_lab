@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"sdp_dev/internal/profile"
+	"github.com/fall-out-bug/sdp_lab/internal/profile"
 )
 
 var (

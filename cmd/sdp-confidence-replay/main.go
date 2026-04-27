@@ -21,9 +21,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"sdp_dev/internal/inference/confidence"
-	"sdp_dev/internal/inference/confidence/adapters/wsverdict"
-	"sdp_dev/internal/inference/confidence/replay"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence/adapters/wsverdict"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence/replay"
 )
 
 func main() {

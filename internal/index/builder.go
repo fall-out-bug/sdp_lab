@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/common"
+	"github.com/fall-out-bug/sdp_lab/internal/common"
 )
 
 // ColdBuild performs a full index build of the repository at repoPath.

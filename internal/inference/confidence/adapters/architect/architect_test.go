@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"sdp_dev/internal/inference/confidence"
-	"sdp_dev/internal/inference/confidence/adapters/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence/adapters/architect"
 )
 
 // fakeCaller cycles through a queue of responses. selfcheck call always

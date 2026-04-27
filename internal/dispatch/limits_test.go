@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
 )
 
 // TestAvailabilityFactor validates the availability factor bucketing logic.

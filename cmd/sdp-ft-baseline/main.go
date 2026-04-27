@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/dispatch"
-	"sdp_dev/internal/finetune"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch"
+	"github.com/fall-out-bug/sdp_lab/internal/finetune"
 )
 
 type baselineRecord struct {

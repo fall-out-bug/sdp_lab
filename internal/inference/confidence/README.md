@@ -54,7 +54,7 @@ func (c *Checker[T]) Check(ctx context.Context, req Request[T]) (Result[T], erro
 ```go
 import (
     "context"
-    "sdp_dev/internal/inference/confidence"
+    "github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
 )
 
 // 1. Build strategies appropriate for the call-site. F144-01 ships only

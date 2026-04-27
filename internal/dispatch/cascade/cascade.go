@@ -20,9 +20,9 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/dispatch"
-	"sdp_dev/internal/dispatch/harness"
-	"sdp_dev/internal/inference/confidence"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
 )
 
 // RouterInterface abstracts the dispatch.Router contract for testability.

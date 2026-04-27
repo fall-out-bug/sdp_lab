@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"sdp_dev/internal/trace"
+	"github.com/fall-out-bug/sdp_lab/internal/trace"
 )
 
 // Default consent level — local-only storage by default.

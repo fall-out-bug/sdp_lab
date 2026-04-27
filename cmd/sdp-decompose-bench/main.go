@@ -24,8 +24,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"sdp_dev/internal/inference/decompose/adapters/wsverdict"
-	"sdp_dev/internal/inference/replayutil"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose/adapters/wsverdict"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/replayutil"
 )
 
 func main() {

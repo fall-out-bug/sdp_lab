@@ -12,7 +12,7 @@ import (
 	"text/template"
 	"time"
 
-	"sdp_dev/internal/beads"
+	"github.com/fall-out-bug/sdp_lab/internal/beads"
 )
 
 // WorkstreamTemplate generates workstream files from formulas.

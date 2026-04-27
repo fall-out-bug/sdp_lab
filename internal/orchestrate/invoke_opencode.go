@@ -11,8 +11,8 @@ import (
 	"regexp"
 	"strings"
 
-	"sdp_dev/internal/kernel"
-	"sdp_dev/internal/sdputil"
+	"github.com/fall-out-bug/sdp_lab/internal/kernel"
+	"github.com/fall-out-bug/sdp_lab/internal/sdputil"
 )
 
 // buildPromptWithContext injects the pre-hydrated context packet into the prompt.

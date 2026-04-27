@@ -3,7 +3,7 @@ package confidence_test
 import (
 	"testing"
 
-	"sdp_dev/internal/inference/confidence"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
 )
 
 func TestStatusConstants(t *testing.T) {

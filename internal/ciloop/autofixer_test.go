@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sdp_dev/internal/ciloop"
+	"github.com/fall-out-bug/sdp_lab/internal/ciloop"
 )
 
 func TestMatchingFixersImportError(t *testing.T) {

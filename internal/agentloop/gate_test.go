@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"sdp_dev/internal/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/harness"
 )
 
 // ---- helpers ----

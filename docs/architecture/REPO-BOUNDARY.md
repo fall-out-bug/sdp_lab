@@ -10,7 +10,7 @@
 | **sdp** | Distilled repo (`fall-out-bug/sdp`) | Public | Distribution/mirror of selected protocol artifacts published from sdp_lab |
 
 **Rule:** all development happens in sdp_lab. Publish to the distilled `sdp` repo via `scripts/sdp-publish.sh` when selected protocol artifacts need distribution.
-**Historical labels:** old plans, workstreams, and bead IDs may still say `sdp_dev`. In current docs, that means this same root repo.
+**Historical labels:** old plans, workstreams, and bead IDs may still say `sdp_dev` (Go module path migrated to `github.com/fall-out-bug/sdp_lab` in F150-03). In current docs, that means this same root repo.
 
 ---
 

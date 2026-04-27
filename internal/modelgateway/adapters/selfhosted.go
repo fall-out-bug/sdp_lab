@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"sdp_dev/internal/modelgateway"
+	"github.com/fall-out-bug/sdp_lab/internal/modelgateway"
 )
 
 type SelfHostedProvider struct {

@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"sdp_dev/internal/harness"
-	"sdp_dev/internal/sdputil"
+	"github.com/fall-out-bug/sdp_lab/internal/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/sdputil"
 )
 
 var ErrContractGateBlocked = errors.New("contract gate blocked")

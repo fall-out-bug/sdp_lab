@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/executil"
+	"github.com/fall-out-bug/sdp_lab/internal/executil"
 )
 
 // --- Mock runner for CLI integration tests ---
@@ -79,7 +79,7 @@ func TestValidatePackagePattern(t *testing.T) {
 		{"./internal/foo/...", false},
 		{"../...", false},
 		{"github.com/user/repo/...", false},
-		{"sdp_dev/internal/foo", false},
+		{"github.com/fall-out-bug/sdp_lab/internal/foo", false},
 		{"-v", true},
 		{"--help", true},
 		{"-race -coverprofile=/tmp/evil", true},

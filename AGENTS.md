@@ -54,7 +54,7 @@ This project has **two repos** with different roles:
 | **Changes** | Daily — all features built here | Published on demand via `scripts/sdp-publish.sh` |
 
 **Rule:** All work happens in `sdp_lab`. The `sdp` repo is a downstream distillation surface, not an upstream dependency. Publish protocol artifacts via `scripts/sdp-publish.sh` when needed (see [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md)).
-**Legacy naming:** Historical workstreams, plans, and beads IDs may still use `sdp_dev` or `sdp_dev-*` as a label for this same root repo. Treat that as legacy naming, not as a third repository.
+**Legacy naming:** Historical workstreams, plans, and beads IDs may still use `sdp_dev` or `sdp_dev-*` as a label for this same root repo. The Go module path was migrated to `github.com/fall-out-bug/sdp_lab` in F150-03. Treat historical `sdp_dev` references as legacy naming, not as a third repository.
 
 **sdp vs sdp_lab (CI/secrets):** The public `sdp` repo has its own CI and secrets. When debugging CI for a published change in `sdp`, check sdp workflows and `workflow_call` / `secrets: inherit` — do not assume the user forgot to add secrets.
 

@@ -186,7 +186,7 @@ package main
 
 import (
     "fmt"
-    "sdp_dev/internal/planner/openspec"
+    "github.com/fall-out-bug/sdp_lab/internal/planner/openspec"
 )
 
 func main() {

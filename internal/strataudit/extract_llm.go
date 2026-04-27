@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
-	"sdp_dev/internal/strataudit/model"
+	"github.com/fall-out-bug/sdp_lab/internal/strataudit/model"
 	"strconv"
 	"strings"
 	"unicode"

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"sdp_dev/internal/dispatch"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch"
 )
 
 func runRoute() error {

@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"sdp_dev/internal/localmodel"
+	"github.com/fall-out-bug/sdp_lab/internal/localmodel"
 )
 
 func TestNewClient_Validation(t *testing.T) {

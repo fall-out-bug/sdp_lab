@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"sdp_dev/internal/mcp/contract"
-	"sdp_dev/internal/mcp/parity"
+	"github.com/fall-out-bug/sdp_lab/internal/mcp/contract"
+	"github.com/fall-out-bug/sdp_lab/internal/mcp/parity"
 	mcpserver "github.com/mark3labs/mcp-go/server"
 )
 

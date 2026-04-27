@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"sdp_dev/internal/trace"
+	"github.com/fall-out-bug/sdp_lab/internal/trace"
 )
 
 // Helper to clear all telemetry-related env vars before each test.

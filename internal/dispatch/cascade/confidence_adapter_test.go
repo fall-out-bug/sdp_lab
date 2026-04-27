@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"sdp_dev/internal/dispatch/harness"
-	"sdp_dev/internal/inference/confidence"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
 )
 
 // fakeF144Strategy is a mock Strategy for testing with a real Checker.

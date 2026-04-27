@@ -43,7 +43,7 @@ sdp_lab/
 | Element | Convention | Example |
 |---------|-----------|---------|
 | Package | `lowercase`, short, no underscores | `agentloop`, `ciloop`, `harness` |
-| Module path | `sdp_dev/internal/...` (import prefix is `sdp_dev`, NOT the GitHub path) | `import "sdp_dev/internal/healthcheck"` |
+| Module path | `sdp_dev/internal/...` (import prefix is `sdp_dev`, NOT the GitHub path) | `import "github.com/fall-out-bug/sdp_lab/internal/healthcheck"` |
 | Exported type | `PascalCase` | `Session`, `ModelGateway`, `LoopConfig` |
 | Interface | `PascalCase`, noun (not `-er` unless idiomatic) | `ModelGateway`, `SessionStore`, `ContextManager` |
 | Private struct | `camelCase` | `harnessState`, `atomicDoc` |
@@ -378,7 +378,7 @@ import (
     "fmt"
 
     // stdlib first, then third-party, then internal
-    "sdp_dev/internal/bar"
+    "github.com/fall-out-bug/sdp_lab/internal/bar"
 )
 
 // Foo [exported type description].

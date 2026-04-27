@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"sdp_dev/internal/inference/confidence"
-	"sdp_dev/internal/inference/confidence/nsample"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence/nsample"
 )
 
 type fakeCaller struct {

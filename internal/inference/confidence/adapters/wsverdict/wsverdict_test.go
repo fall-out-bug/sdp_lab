@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/inference/confidence"
-	"sdp_dev/internal/inference/confidence/adapters/wsverdict"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence/adapters/wsverdict"
 )
 
 // Locate the schema relative to repo root by walking up from this test file.

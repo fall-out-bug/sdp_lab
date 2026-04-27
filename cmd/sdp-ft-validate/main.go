@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"sdp_dev/internal/finetune"
+	"github.com/fall-out-bug/sdp_lab/internal/finetune"
 )
 
 func main() {

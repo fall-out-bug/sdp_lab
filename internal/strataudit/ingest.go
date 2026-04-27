@@ -12,8 +12,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"sdp_dev/internal/glob"
-	"sdp_dev/internal/strataudit/model"
+	"github.com/fall-out-bug/sdp_lab/internal/glob"
+	"github.com/fall-out-bug/sdp_lab/internal/strataudit/model"
 )
 
 // Ingest walks source directories, extracts text, classifies levels, and stores documents.

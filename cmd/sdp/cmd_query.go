@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"sdp_dev/internal/cli"
-	"sdp_dev/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/cli"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
 )
 
 func runAttention(args []string) {

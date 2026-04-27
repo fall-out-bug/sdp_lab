@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"sdp_dev/internal/augmentation"
-	"sdp_dev/internal/control"
-	"sdp_dev/internal/prompt"
+	"github.com/fall-out-bug/sdp_lab/internal/augmentation"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/prompt"
 )
 
 func BuildEvaluationPrompt(model string, card *control.FeatureCard, evidence *buildEvidence, changedFiles []string, diff string) string {

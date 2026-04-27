@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/bootstrap"
-	"sdp_dev/internal/harnessadapter"
-	"sdp_dev/internal/harnesscfg"
-	"sdp_dev/internal/rules"
-	"sdp_dev/internal/scout"
+	"github.com/fall-out-bug/sdp_lab/internal/bootstrap"
+	"github.com/fall-out-bug/sdp_lab/internal/harnessadapter"
+	"github.com/fall-out-bug/sdp_lab/internal/harnesscfg"
+	"github.com/fall-out-bug/sdp_lab/internal/rules"
+	"github.com/fall-out-bug/sdp_lab/internal/scout"
 )
 
 func runRules(args []string) {

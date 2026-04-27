@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"sdp_dev/internal/dispatch/harness"
-	"sdp_dev/internal/inference/confidence"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
 )
 
 // ConfidenceAdapter implements the cascade.Checker interface by wrapping

@@ -3,7 +3,7 @@ package architect_test
 import (
 	"testing"
 
-	"sdp_dev/internal/architect/extract"
+	"github.com/fall-out-bug/sdp_lab/internal/architect/extract"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

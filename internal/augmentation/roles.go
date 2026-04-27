@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"sdp_dev/internal/kernel"
+	"github.com/fall-out-bug/sdp_lab/internal/kernel"
 )
 
 type RoleRegistry struct {

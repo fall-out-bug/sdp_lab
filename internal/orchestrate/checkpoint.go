@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/santhosh-tekuri/jsonschema/v5"
-	"sdp_dev/internal/sdputil"
+	"github.com/fall-out-bug/sdp_lab/internal/sdputil"
 )
 
 //go:embed schema/orchestrate-checkpoint.schema.json

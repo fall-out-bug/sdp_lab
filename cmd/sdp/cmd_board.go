@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"sdp_dev/internal/cli"
+	"github.com/fall-out-bug/sdp_lab/internal/cli"
 )
 
 func runBoard(args []string) {

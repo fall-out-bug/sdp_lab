@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/docsync"
-	"sdp_dev/internal/workstream"
+	"github.com/fall-out-bug/sdp_lab/internal/docsync"
+	"github.com/fall-out-bug/sdp_lab/internal/workstream"
 )
 
 // CheckStatus is "pass" or "fail".

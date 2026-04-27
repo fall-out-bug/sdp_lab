@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 
-	"sdp_dev/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
 )
 
 // RunOrchestrateLoopV2 runs the Beads-first orchestration loop.

@@ -1,7 +1,7 @@
 package architect
 
 import (
-	"sdp_dev/internal/architect/security"
+	"github.com/fall-out-bug/sdp_lab/internal/architect/security"
 )
 
 // SanitizeField sanitizes markdown content by converting to HTML and applying

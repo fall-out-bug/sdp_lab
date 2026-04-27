@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/strataudit/model"
-	reportpkg "sdp_dev/internal/strataudit/report"
+	"github.com/fall-out-bug/sdp_lab/internal/strataudit/model"
+	reportpkg "github.com/fall-out-bug/sdp_lab/internal/strataudit/report"
 )
 
 var requiredAnalystTabs = []struct {

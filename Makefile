@@ -1,4 +1,4 @@
-# sdp_dev Makefile
+# github.com/fall-out-bug/sdp_lab Makefile
 .PHONY: test test-internal test-scripts coverage lint quality quality-go generate protocol-e2e
 .PHONY: build-sdp build-sdp-orchestrate build-sdp-guard build-sdp-eval build-sdp-ci-loop build-sdp-evidence
 .PHONY: install-hooks f145-demo

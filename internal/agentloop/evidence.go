@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 
-	"sdp_dev/internal/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/harness"
 )
 
 // EvidenceAccumulator collects structured evidence from tool results.

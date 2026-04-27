@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/index"
+	"github.com/fall-out-bug/sdp_lab/internal/index"
 )
 
 func runIndex(args []string) {

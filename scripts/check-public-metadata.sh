@@ -68,9 +68,9 @@ check_legacy_downloads() {
       local key="$f:$lineno"
       if [ -z "${seen_lines[$key]:-}" ]; then
         seen_lines[$key]=1
-        FINDINGS+=("legacy-url:$f:$lineno:download URL references sdp_dev repo (should be sdp)")
+        FINDINGS+=("legacy-url:$f:$lineno:download URL references sdp_lab repo (should be sdp)")
       fi
-    done < <(grep -n 'fall-out-bug/sdp_dev' "$f" 2>/dev/null || true)
+    done < <(grep -n 'fall-out-bug/sdp_lab' "$f" 2>/dev/null || true)
     unset seen_lines
   done
 }

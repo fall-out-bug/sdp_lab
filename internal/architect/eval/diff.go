@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // DiffAction classifies the type of difference found.

@@ -9,7 +9,7 @@ import (
 	"log"
 	"os"
 
-	sdpmcp "sdp_dev/internal/mcp"
+	sdpmcp "github.com/fall-out-bug/sdp_lab/internal/mcp"
 
 	mcpserver "github.com/mark3labs/mcp-go/server"
 )

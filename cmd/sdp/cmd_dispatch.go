@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"os"
 
-	"sdp_dev/internal/executor"
-	"sdp_dev/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/executor"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
 )
 
 func runDispatch(args []string) {

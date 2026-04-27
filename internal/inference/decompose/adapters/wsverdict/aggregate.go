@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"sdp_dev/internal/inference/decompose"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
 )
 
 // newAggregateStage returns Stage[string, FinalVerdict] that calls Haiku with a

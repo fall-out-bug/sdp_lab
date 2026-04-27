@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"sdp_dev/internal/metrics"
+	"github.com/fall-out-bug/sdp_lab/internal/metrics"
 )
 
 func captureOutput(fn func()) string {

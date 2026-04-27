@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"sdp_dev/internal/evidence"
-	"sdp_dev/internal/orchestrate"
-	"sdp_dev/internal/sdputil"
+	"github.com/fall-out-bug/sdp_lab/internal/evidence"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/sdputil"
 )
 
 func runReset(args []string) {

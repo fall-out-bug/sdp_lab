@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"sdp_dev/internal/scout"
+	"github.com/fall-out-bug/sdp_lab/internal/scout"
 )
 
 func runScout(args []string) {

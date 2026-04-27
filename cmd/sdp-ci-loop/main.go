@@ -13,9 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	"sdp_dev/internal/ciloop"
-	"sdp_dev/internal/evidence"
-	"sdp_dev/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/ciloop"
+	"github.com/fall-out-bug/sdp_lab/internal/evidence"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
 )
 
 // exitCodes matches WS AC.

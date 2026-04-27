@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sdp_dev/internal/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/harness"
 )
 
 func TestGenerateContractFromCard(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	sdk "sdp_dev/internal/adapters/sdk"
+	sdk "github.com/fall-out-bug/sdp_lab/internal/adapters/sdk"
 )
 
 // GasTownAdapter is a reference implementation for Gas Town enterprise integration.

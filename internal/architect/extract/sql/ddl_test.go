@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // TestDDLParser_SimpleTable tests parsing a simple CREATE TABLE statement.

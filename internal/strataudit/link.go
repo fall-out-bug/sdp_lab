@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"sdp_dev/internal/strataudit/model"
+	"github.com/fall-out-bug/sdp_lab/internal/strataudit/model"
 )
 
 // LinkResult holds trace linking statistics.

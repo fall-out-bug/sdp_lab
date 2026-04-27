@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/manifest"
+	"github.com/fall-out-bug/sdp_lab/internal/manifest"
 )
 
 func TestParse_MinimalValid(t *testing.T) {

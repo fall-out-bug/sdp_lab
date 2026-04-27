@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"sdp_dev/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
 )
 
 func createReadyCardForLoop(t *testing.T, store *control.Store) *control.FeatureCard {

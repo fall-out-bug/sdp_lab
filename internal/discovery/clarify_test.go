@@ -5,7 +5,7 @@ import (
 	"context"
 	"os"
 	"testing"
-	"sdp_dev/internal/discovery"
+	"github.com/fall-out-bug/sdp_lab/internal/discovery"
 )
 
 func TestGenerateClarifications_ProducesQuestions(t *testing.T) {

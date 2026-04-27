@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"io"
 
-	"sdp_dev/internal/inference/microfirst/bdseverity"
-	"sdp_dev/internal/inference/microfirst/bdtype"
-	"sdp_dev/internal/inference/microfirst/knn"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/bdseverity"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/bdtype"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/knn"
 )
 
 // neighborJSON is the JSON shape for a single nearest-neighbour entry.

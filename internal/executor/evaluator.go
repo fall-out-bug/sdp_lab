@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/control"
-	"sdp_dev/internal/glob"
-	"sdp_dev/internal/kernel"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/glob"
+	"github.com/fall-out-bug/sdp_lab/internal/kernel"
 )
 
 const (

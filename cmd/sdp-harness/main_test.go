@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/agentloop"
+	"github.com/fall-out-bug/sdp_lab/internal/agentloop"
 )
 
 // buildBinary compiles sdp-harness into a temp directory and returns the path.
@@ -18,7 +18,7 @@ func buildBinary(t *testing.T) string {
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "sdp-harness")
 
-	cmd := exec.Command("go", "build", "-o", bin, "sdp_dev/cmd/sdp-harness")
+	cmd := exec.Command("go", "build", "-o", bin, "github.com/fall-out-bug/sdp_lab/cmd/sdp-harness")
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=1")
 	out, err := cmd.CombinedOutput()
 	if err != nil {

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"sdp_dev/internal/modelgateway"
+	"github.com/fall-out-bug/sdp_lab/internal/modelgateway"
 )
 
 func TestNewOpenAIProvider(t *testing.T) {

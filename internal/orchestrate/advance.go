@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"sdp_dev/internal/executil"
-	"sdp_dev/internal/guard"
+	"github.com/fall-out-bug/sdp_lab/internal/executil"
+	"github.com/fall-out-bug/sdp_lab/internal/guard"
 )
 
 // RunGuardCheck runs sdp-guard for the given workstream. Returns error if scope check fails.

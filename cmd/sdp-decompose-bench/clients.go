@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"sdp_dev/internal/inference/decompose/adapters/wsverdict"
-	"sdp_dev/internal/inference/replayutil"
-	"sdp_dev/internal/llmclient"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose/adapters/wsverdict"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/replayutil"
+	"github.com/fall-out-bug/sdp_lab/internal/llmclient"
 )
 
 // dryRunClient returns deterministic LLM responses driven by the current

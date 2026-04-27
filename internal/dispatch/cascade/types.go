@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"sdp_dev/internal/dispatch"
-	"sdp_dev/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
 )
 
 // Checker is a confidence gate for cascade escalation decisions.

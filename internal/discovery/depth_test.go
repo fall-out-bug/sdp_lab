@@ -2,7 +2,7 @@ package discovery_test
 
 import (
 	"testing"
-	"sdp_dev/internal/discovery"
+	"github.com/fall-out-bug/sdp_lab/internal/discovery"
 )
 
 func TestDepthFlag_H3_NoVerdict_Without_PrimarySource(t *testing.T) {

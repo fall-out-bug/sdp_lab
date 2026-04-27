@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
 )
 
 func TestGeneratePlan_AlreadyApproved(t *testing.T) {

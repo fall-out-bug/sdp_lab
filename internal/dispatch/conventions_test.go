@@ -80,7 +80,7 @@ Run lint before push.
 func TestLoadConventions_FromGoMod(t *testing.T) {
 	dir := t.TempDir()
 
-	goModContent := `module sdp_dev
+	goModContent := `module github.com/fall-out-bug/sdp_lab
 
 go 1.26
 
@@ -251,17 +251,17 @@ func TestExtractGoVersion(t *testing.T) {
 	}{
 		{
 			name:    "standard go.mod",
-			content: "module sdp_dev\n\ngo 1.26\n",
+			content: "module github.com/fall-out-bug/sdp_lab\n\ngo 1.26\n",
 			want:    "1.26",
 		},
 		{
 			name:    "no go line",
-			content: "module sdp_dev\n",
+			content: "module github.com/fall-out-bug/sdp_lab\n",
 			want:    "",
 		},
 		{
 			name:    "go line with extra spaces",
-			content: "module sdp_dev\n\ngo    1.21\n",
+			content: "module github.com/fall-out-bug/sdp_lab\n\ngo    1.21\n",
 			want:    "1.21",
 		},
 		{

@@ -1,6 +1,6 @@
 package wsverdict
 
-import "sdp_dev/internal/inference/decompose"
+import "github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
 
 // Verdict is the outcome of the micro classifier.
 type Verdict string

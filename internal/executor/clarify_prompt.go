@@ -9,8 +9,8 @@ import (
 	"sort"
 	"strings"
 
-	"sdp_dev/internal/augmentation"
-	"sdp_dev/internal/prompt"
+	"github.com/fall-out-bug/sdp_lab/internal/augmentation"
+	"github.com/fall-out-bug/sdp_lab/internal/prompt"
 )
 
 const clarifySystemPrompt = `You are an SDP intent clarifier. Your job is to normalize a raw development intent into a structured FeatureCard.

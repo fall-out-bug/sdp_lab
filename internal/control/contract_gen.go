@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/harness"
 )
 
 func GenerateContractFromCard(card *FeatureCard) (*harness.TaskContract, error) {

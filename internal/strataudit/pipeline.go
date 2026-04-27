@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"sdp_dev/internal/strataudit/model"
-	"sdp_dev/internal/strataudit/report"
+	"github.com/fall-out-bug/sdp_lab/internal/strataudit/model"
+	"github.com/fall-out-bug/sdp_lab/internal/strataudit/report"
 )
 
 // PipelineResult holds complete pipeline execution results.
