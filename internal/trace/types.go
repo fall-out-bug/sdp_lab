@@ -19,6 +19,7 @@ const (
 type ConsentLevel string
 
 const (
+	ConsentLevelNone     ConsentLevel = "none"
 	ConsentLevelMetadata ConsentLevel = "metadata"
 	ConsentLevelFindings ConsentLevel = "findings"
 	ConsentLevelContent  ConsentLevel = "content"
@@ -26,6 +27,17 @@ const (
 
 // IsValid checks if the consent level is valid
 func (c ConsentLevel) IsValid() bool {
+	switch c {
+	case ConsentLevelNone, ConsentLevelMetadata, ConsentLevelFindings, ConsentLevelContent:
+		return true
+	default:
+		return false
+	}
+}
+
+// AllowsExport returns true if the consent level permits any outbound export.
+// Only metadata, findings, and content levels allow export; "none" blocks it.
+func (c ConsentLevel) AllowsExport() bool {
 	switch c {
 	case ConsentLevelMetadata, ConsentLevelFindings, ConsentLevelContent:
 		return true
@@ -144,6 +156,7 @@ func NewAttributeFilter(schema Schema, consentLevel ConsentLevel) *AttributeFilt
 // consentSufficient checks if current consent level is sufficient for required level
 func consentSufficient(current, required ConsentLevel) bool {
 	levels := map[ConsentLevel]int{
+		ConsentLevelNone:     0,
 		ConsentLevelMetadata: 1,
 		ConsentLevelFindings: 2,
 		ConsentLevelContent:  3,

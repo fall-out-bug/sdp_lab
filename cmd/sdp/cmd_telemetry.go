@@ -35,6 +35,10 @@ func runTelemetry(args []string) {
 		runTelemetryShutdown(args[1:])
 	case "consent":
 		runTelemetryConsent(args[1:])
+	case "inspect":
+		runTelemetryInspect(args[1:])
+	case "export":
+		runTelemetryExport(args[1:])
 	default:
 		runTelemetryHelp()
 		os.Exit(2)
@@ -51,7 +55,9 @@ func runTelemetryHelp() {
 	fmt.Fprintln(os.Stderr, "  event --span-id <id> --name <nm>  Add event to span")
 	fmt.Fprintln(os.Stderr, "  daemon                            Start trace daemon")
 	fmt.Fprintln(os.Stderr, "  shutdown                          Shutdown trace daemon")
-	fmt.Fprintln(os.Stderr, "  consent                           Show/set consent level")
+	fmt.Fprintln(os.Stderr, "  consent [level]                   Show or set consent level")
+	fmt.Fprintln(os.Stderr, "  inspect                           Show telemetry config and export status")
+	fmt.Fprintln(os.Stderr, "  export                            Export spans to OTEL collector")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Span kinds: tool, agent, phase, bead")
 }
@@ -420,9 +426,23 @@ func runTelemetryShutdown(args []string) {
 
 func runTelemetryConsent(args []string) {
 	if len(args) == 0 {
-		// Show current consent level
+		// Show current consent level and export status
 		level := consent.GetConsentLevelFromFileOrEnv("")
 		fmt.Printf("Current consent level: %s\n", level)
+
+		exportAllowed := consent.IsExportAllowed()
+		if exportAllowed {
+			cfg := consent.GetOTELConfig()
+			fmt.Printf("OTEL export: enabled (endpoint: %s, consent: %s)\n", cfg.Endpoint, cfg.ConsentLevel)
+		} else {
+			endpoint := os.Getenv("SDP_OTEL_ENDPOINT")
+			if endpoint == "" {
+				fmt.Printf("OTEL export: disabled (no endpoint configured)\n")
+			} else {
+				fmt.Printf("OTEL export: disabled (consent level blocks export)\n")
+			}
+		}
+
 		fmt.Println()
 		fmt.Println(consent.FormatConsentBanner())
 		return
@@ -431,16 +451,112 @@ func runTelemetryConsent(args []string) {
 	// Set consent level
 	newLevel := args[0]
 	switch newLevel {
-	case "metadata", "findings", "content":
+	case "none", "metadata", "findings", "content":
 		os.Setenv("SDP_TRACE_CONSENT", newLevel)
 		fmt.Printf("Consent level set to: %s\n", newLevel)
 		fmt.Printf("To make permanent, add to ~/.bashrc:\n")
 		fmt.Printf("  export SDP_TRACE_CONSENT=%s\n", newLevel)
 	default:
 		fmt.Fprintf(os.Stderr, "error: invalid consent level: %s\n", newLevel)
-		fmt.Fprintf(os.Stderr, "Valid levels: metadata, findings, content\n")
+		fmt.Fprintf(os.Stderr, "Valid levels: none, metadata, findings, content\n")
 		os.Exit(2)
 	}
+}
+
+func runTelemetryInspect(args []string) {
+	fmt.Println("SDP Telemetry Configuration")
+	fmt.Println("===========================")
+
+	// Consent level
+	level := consent.GetConsentLevelFromFileOrEnv("")
+	fmt.Printf("Consent level: %s\n", level)
+	if level == trace.ConsentLevelNone {
+		fmt.Println("  Telemetry is DISABLED (consent=none)")
+	}
+
+	// OTEL export status
+	fmt.Println()
+	fmt.Println("OTEL Export")
+	fmt.Println("-----------")
+	endpoint := os.Getenv("SDP_OTEL_ENDPOINT")
+	if endpoint == "" {
+		fmt.Println("  Status: not configured (no SDP_OTEL_ENDPOINT)")
+		fmt.Println("  No data is sent to any external collector.")
+	} else {
+		fmt.Printf("  Endpoint: %s\n", endpoint)
+		cfg := consent.GetOTELConfig()
+		if cfg == nil {
+			fmt.Println("  Status: BLOCKED by consent level")
+			fmt.Printf("  Current consent: %s (requires metadata, findings, or content)\n", level)
+		} else {
+			fmt.Printf("  Status: enabled (consent: %s)\n", cfg.ConsentLevel)
+			fmt.Printf("  Timeout: %ds\n", cfg.TimeoutSeconds)
+			fmt.Printf("  Service name: %s\n", cfg.ServiceName)
+			if cfg.Insecure {
+				fmt.Println("  Mode: insecure (no TLS)")
+			}
+			if len(cfg.Headers) > 0 {
+				fmt.Printf("  Headers: %d configured\n", len(cfg.Headers))
+			}
+		}
+	}
+
+	// Local trace storage
+	fmt.Println()
+	fmt.Println("Local Storage")
+	fmt.Println("-------------")
+	projectRoot := bead.FindProjectRoot(".")
+	tracesDir := filepath.Join(projectRoot, ".sdp", "traces")
+	fmt.Printf("  Traces dir: %s\n", tracesDir)
+	if _, err := os.Stat(tracesDir); err == nil {
+		fmt.Println("  Directory: exists")
+	} else {
+		fmt.Println("  Directory: not created yet")
+	}
+
+	// Disabled flag
+	if disabled := os.Getenv("SDP_TRACE_DISABLED"); disabled != "" {
+		fmt.Printf("  SDP_TRACE_DISABLED: %s\n", disabled)
+	}
+
+	// Summary
+	fmt.Println()
+	if level == trace.ConsentLevelNone {
+		fmt.Println("Summary: Telemetry completely disabled. No local storage, no export.")
+	} else if endpoint == "" {
+		fmt.Println("Summary: Local-only telemetry. No data leaves this machine.")
+	} else if consent.GetOTELConfig() != nil {
+		fmt.Printf("Summary: Export ENABLED to %s at consent level %s.\n", endpoint, level)
+	} else {
+		fmt.Println("Summary: Export configured but BLOCKED by consent level.")
+	}
+}
+
+func runTelemetryExport(args []string) {
+	cfg := consent.GetOTELConfig()
+	if cfg == nil {
+		fmt.Fprintln(os.Stderr, "error: OTEL export is not configured or blocked by consent level")
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "To enable export:")
+		fmt.Fprintln(os.Stderr, "  1. Set an OTEL collector endpoint:")
+		fmt.Fprintln(os.Stderr, "       export SDP_OTEL_ENDPOINT=http://localhost:4318/v1/traces")
+		fmt.Fprintln(os.Stderr, "  2. Ensure consent level is not 'none':")
+		fmt.Fprintln(os.Stderr, "       export SDP_TRACE_CONSENT=metadata  # or findings, content")
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "Run 'sdp telemetry inspect' for current configuration.")
+		os.Exit(2)
+	}
+
+	// For MVP, export is a no-op that validates configuration.
+	// Actual OTEL export will be implemented in a follow-up workstream.
+	fmt.Printf("OTEL export configuration valid.\n")
+	fmt.Printf("  Endpoint: %s\n", cfg.Endpoint)
+	fmt.Printf("  Consent level: %s\n", cfg.ConsentLevel)
+	fmt.Printf("  Timeout: %ds\n", cfg.TimeoutSeconds)
+	fmt.Printf("  Service name: %s\n", cfg.ServiceName)
+	fmt.Println()
+	fmt.Println("Note: OTEL export client will be implemented in a follow-up workstream.")
+	fmt.Println("Configuration is validated and ready for use.")
 }
 
 func getHarness() string {
