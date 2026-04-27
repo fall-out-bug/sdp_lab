@@ -1,14 +1,16 @@
 # F150 Product Layering And Release Readiness Design
 
-Status: active design (v2, post-council)
+Status: active design (v3, post-IIP-council)
 Owner: Andrei
 Beads epic: `sdplab-nyr0`
 Created: 2026-04-27
-Revised: 2026-04-27 (council R1 + R2)
+Revised: 2026-04-27 (memo council R1+R2; IIP council R1+R2)
 Companion memo: [docs/strategy/2026-04-27-sdp-product-layering-4d.md](../strategy/2026-04-27-sdp-product-layering-4d.md)
-Council synthesis: [docs/strategy/council/2026-04-27/synthesis.md](../strategy/council/2026-04-27/synthesis.md)
+Council syntheses:
+  - [docs/strategy/council/2026-04-27/synthesis.md](../strategy/council/2026-04-27/synthesis.md) — memo v2 layering council
+  - [docs/strategy/council/2026-04-27-iip/synthesis.md](../strategy/council/2026-04-27-iip/synthesis.md) — IIP (independent-value tools) council
 
-> **v2 note.** §"AI Fluency 4D Reframe" and §"Layers" below are superseded by the companion memo. This file keeps the executable program plan and the patch trail; the canonical product-layering decision lives in the memo.
+> **v3 note.** §"AI Fluency 4D Reframe" and §"Layers" below are superseded by the companion memo. This file keeps the executable program plan and the patch trail; the canonical product-layering decision lives in the memo. The v3 update introduces the IIP flag mechanism inside Toolbox (no new top-level row): tools with independent value (`arch-snap`, `doc-tracer` hypotheses) live as `standalone: true` Toolbox entries with strict isolation rules — see memo §"Incubated Independent Products".
 
 ## Cold Start Answers
 
@@ -157,9 +159,9 @@ No renumbering. Council added explicit acceptance hints to several lanes.
 | WS | Purpose | First useful output | Council acceptance hint (v2) |
 |---|---|---|---|
 | 00-150-01 | product layering and SKU boundary | this design + memo v2 + synthesis | satisfied by memo v2 + synthesis |
-| 00-150-02 | release surface inventory | keep/exclude matrix for CLI/packages | + SDP Toolbox registry: every standalone-utility module with `extractable` flag and 60-line AGENTS.md |
+| 00-150-02 | release surface inventory | keep/exclude matrix for CLI/packages | + SDP Toolbox registry: every standalone-utility module with `extractable` flag, **`standalone` flag (v3)**, and 60-line AGENTS.md |
 | 00-150-03 | module path migration | `sdp_dev` removed from active Go imports | + AGENTS.md cascade migration subtask: root reduced ≥20% (606 → ≤480), ≥5 modules ≤60 lines, incremental CI lint warn-only |
-| 00-150-04 | experimental isolation | release build excludes lab-only code | + package-level isolation lint between `internal/sdp-pr-gate/`, `internal/sdp-operator/`, `internal/sdp-toolkit-core/` |
+| 00-150-04 | experimental isolation | release build excludes lab-only code | + package-level isolation lint between `internal/sdp-pr-gate/`, `internal/sdp-operator/`, `internal/sdp-toolkit-core/`; **(v3)** Makefile target `audit-iip-imports` runs `go list -deps` against forbidden-package list, fails CI on forbidden imports |
 | 00-150-05 | dependency and duplicate audit | concrete removals or filed debt | unchanged |
 | 00-150-06 | coverage policy | maturity-aligned checks/docs | unchanged |
 | 00-150-07 | telemetry consent/OTEL | opt-in export contract | unchanged |
@@ -174,8 +176,9 @@ No renumbering. Council added explicit acceptance hints to several lanes.
 - Build a full `sdp-pr-gate` (ChangePassport) implementation before Schema/API v1 are locked.
 - Build any Enterprise Delivery Governance component (renamed from "Enterprise Perimeter") before the product boundary is stable.
 - Delete experimental code as a shortcut.
-- Ship `ChangePassport` to external pilots before Schema v1 + a committed pilot land *(council-added)*.
-- Make Standalone Tools / Toolbox a parallel paid product category before promotion criteria are met *(council-added)*.
+- Ship `ChangePassport` to external pilots before Schema v1 + a committed pilot land *(memo-council-added)*.
+- Make Standalone Tools / Toolbox a parallel paid product category before promotion criteria are met *(memo-council-added)*.
+- Promote any IIP candidate (`arch-snap`, `doc-tracer`) to active IIP status without named lead + `commercial_hypothesis.md` + ≥3 discovery interviews *(IIP-council-added, v3)*.
 
 ## Open Decisions (post-council)
 

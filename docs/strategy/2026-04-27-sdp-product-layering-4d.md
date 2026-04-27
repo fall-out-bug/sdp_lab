@@ -1,27 +1,29 @@
 ---
 title: SDP Product Layering — AI Fluency 4D Strategy Memo
-status: v2 (post-council)
+status: v3 (post-IIP-council)
 owner: Andrei
 beads: sdplab-qgq1 (F150-01)
 created: 2026-04-27
-revised: 2026-04-27 (council R1 + R2)
-council: docs/strategy/council/2026-04-27/synthesis.md
+revised: 2026-04-27 (memo council R1+R2; then IIP council R1+R2)
+councils:
+  - docs/strategy/council/2026-04-27/synthesis.md (memo v2 layering council)
+  - docs/strategy/council/2026-04-27-iip/synthesis.md (IIP — independent-value tools council)
 supersedes: §"Layers" of `docs/plans/2026-04-27-f150-product-layering-release-readiness-design.md`
-informs: F150 patch, SDP Toolbox manifest (TBD), `sdp-pr-gate` namespace lock (TBD)
+informs: F150 patch, SDP Toolbox manifest (TBD), `sdp-pr-gate` namespace lock (TBD), arch-snap / doc-tracer hypotheses (TBD)
 ---
 
-# SDP Product Layering — AI Fluency 4D Strategy Memo (v2)
+# SDP Product Layering — AI Fluency 4D Strategy Memo (v3)
 
 This memo is the deeper companion to [F150 design](../plans/2026-04-27-f150-product-layering-release-readiness-design.md). F150 stays as the executable program plan. This memo answers:
 
 > What are the actual product surfaces, what are their names, how do they relate, what ships first, and how do we keep cold-start cost low across all of them?
 
-It is grounded in the 2026-04-26 ChangePassport council outputs and Enterprise research, and in the current repo reality (`docs/reference/product-surface.md`, `docs/architecture/REPO-BOUNDARY.md`, the F120-F126 Toolkit lane). Memo v1 was challenged through a 5-model llm-council on 2026-04-27. Council outputs and the change ledger live in `docs/strategy/council/2026-04-27/`.
+It is grounded in the 2026-04-26 ChangePassport council outputs and Enterprise research, and in the current repo reality (`docs/reference/product-surface.md`, `docs/architecture/REPO-BOUNDARY.md`, the F120-F126 Toolkit lane). Memo v1 was challenged through a 5-model llm-council on 2026-04-27 (memo council). Memo v2 was challenged again the same day through a 5-model IIP council focused on tools with independent value (arch-snap, doc-tracer). Both councils' outputs and change ledgers live in `docs/strategy/council/2026-04-27/` and `docs/strategy/council/2026-04-27-iip/`.
 
 ## Revision History
 
 - **v1 (2026-04-27)** — initial draft. Reframed F150 layering through 4D, introduced Standalone Tools as a "first-class new category", positioned Operator Mode as "advanced Toolkit feature", named the enterprise slot "Enterprise Perimeter Control Plane", set hallucination rate as a governance metric, deferred all repo-split / namespace decisions.
-- **v2 (2026-04-27, post-council)** — applied the 9 consensus changes from the council synthesis. Major deltas:
+- **v2 (2026-04-27, post-memo-council)** — applied the 9 consensus changes from the first 5-model council (gemini-3.1-pro / grok-4.20 / kimi-k2.6 / deepseek-v4-pro / qwen3.6-plus). Major deltas:
   - Enterprise slot renamed `Enterprise Delivery Governance` (drops "Perimeter").
   - Internal technical namespace `sdp-pr-gate` locked immediately, decoupled from `ChangePassport` display name.
   - Discernment metric: `hallucination rate` → `evidence-mismatch rate`; pilot vs GA targets split.
@@ -31,6 +33,16 @@ It is grounded in the 2026-04-26 ChangePassport council outputs and Enterprise r
   - Wedge B (ChangePassport) gated on committed pilot before parallel resource allocation.
   - Package-level isolation enforced now even though physical repo split is deferred.
   - Workstream acceptance criteria for AGENTS.md migration and SDP Toolbox registry made explicit (no renumbering of 00-150-01..10).
+- **v3 (2026-04-27, post-IIP-council)** — applied 9 consensus changes from the second 5-model council (xiaomi/mimo-v2.5-pro / minimax/minimax-m2.7 / kimi-k2.6 / deepseek-v4-pro / qwen3.6-plus, `max_tokens=100000`). The council challenged the proposal to introduce a new "Incubated Independent Products" taxonomy row for tools with value outside SDP (arch-snap, doc-tracer). Major deltas:
+  - **IIP is a FLAG inside Toolbox lifecycle, not a new top-level taxonomy row.** Toolbox tools carry `standalone: true | false`; tools with `standalone: true` follow strict IIP rules.
+  - **arch-snap and doc-tracer reframed as hypotheses under evaluation, not flagship candidates.** Neither exists in code. Each requires named lead + commercial_hypothesis.md + ≥3 discovery interviews before IIP status.
+  - **Standalone go.mod from day one** (mandatory, zero `replace` directives, zero `internal/sdp-*` imports). Distribution shares unified SDP CI during incubation; separate Homebrew formula and isolated CI matrix deferred to extraction.
+  - **Manual dependency audit interim**: until WS 00-150-04 lint deploys, every PR runs mandatory manual `go list -deps` + grep audit; extraction is blocked until automated lint passes.
+  - **Extraction criteria revised**: technical isolation lint pass + commercial signal (signed LOI / paying customer / co-maintainer-sponsor) + ≥3 discovery interviews + finalized name & license. **Domain dropped** as extraction requirement (only needed for commercial launch later).
+  - **Named IIP lead** (individual, not team) required for every IIP epic. No lead = no IIP status.
+  - **Brand ownership transfer plan** from inception: permissive license (Apache-2.0/MIT) by default; written commitment in `BRAND.md` to transfer to neutral entity at extraction; co-sponsor option (≥$50K/year or dedicated FTE).
+  - **Downgrade criteria** for stalled IIPs: 60d zero external consumers OR 30d no maintainer OR 90d unpatched critical OR 12mo no commercial signal → downgrade to Lab or archive.
+  - **`independent_value` flag is verifiable, not self-declared**: derived from machine evidence (`go list -deps` clean) AND a `commercial_hypothesis.md` artifact, not hand-written annotation.
 
 ## Cold Start Answers
 
@@ -155,12 +167,12 @@ Ownership, audit, perimeter, residency, debt — per surface.
 
 Diligence principle: anything ship-facing must have an explicit owner, audit, and debt protocol. If any of three is missing, the surface is Lab.
 
-## Revised Layer Taxonomy (v2)
+## Revised Layer Taxonomy (v2 + v3 IIP flag)
 
 | # | Surface | Kind | Working name | Internal namespace | Status today | First commercial role |
 |---|---|---|---|---|---|---|
 | 1 | SDP Lab | research workspace | `sdp_lab` | `sdp_lab` | active | none — feeds others |
-| 2 | SDP Toolbox | subordinate tool collection / freemium acquisition lever (NOT a parallel product category) | `SDP Toolbox` | `sdp-toolbox-*` per tool | partial: F120-F124 done; not yet repackaged as Toolbox | free dev adoption, funnel into Toolkit/ChangePassport |
+| 2 | SDP Toolbox (with IIP flag) | subordinate freemium funnel for SDP family; tools with `standalone: true` follow IIP rules (see §"Incubated Independent Products") | `SDP Toolbox` for SDP-funnel tools; IIPs use **no** `sdp-` prefix (e.g. `arch-snap`) | `sdp-toolbox-*` for SDP-funnel; bare tool names for IIPs | partial: F120-F124 done as Toolbox; arch-snap / doc-tracer are IIP hypotheses (no code yet) | free dev adoption (Toolbox); independent products at extraction (IIP) |
 | 3 | SDP Toolkit | meta-distribution | `sdp` CLI | `sdp` | GA inside `sdp_lab`, F125 in progress | free dev adoption |
 | 4 | Operator Mode | default Toolkit Happy Path embodying governed delivery; stateful orchestration layer; not a paid SKU now (provisional pricing required pre-pilot, re-evaluation trigger defined below) | `sdp` operator commands (`orchestrate`, `ready`, `ci-loop`) | `sdp-operator` | GA inside `sdp_lab`; lab-only by REPO-BOUNDARY | team adoption (free with provisional pricing hypothesis attached) |
 | 5 | ChangePassport (display) | merge-readiness product | `ChangePassport` (working display) | **`sdp-pr-gate`** (locked from now) | direction; Schema v1 not yet locked | first paid wedge — gated on committed pilot |
@@ -174,6 +186,7 @@ Diligence principle: anything ship-facing must have an explicit owner, audit, an
 - **Enterprise Delivery Governance** replaces "Perimeter Control Plane" — naming aligned with delivery governance, not network appliance. Enterprise wedge is a delivery governance product hosted inside the customer perimeter, not a perimeter security tool.
 - **ChangePassport** is display name. Internal technical namespace is `sdp-pr-gate` from day one (see §"Internal Namespace Lock" below).
 - **Shared Substrates** are explicitly semver-versioned packages, not vague "technical assets". Promotion criteria below.
+- **(v3) IIP is a flag inside Toolbox, not a new taxonomy row.** Tools with `standalone: true` follow strict IIP rules: no `sdp-` prefix from inception, standalone go.mod, named lead, brand transfer plan. Adding a top-level row after every change signals strategic instability; the flag captures the intent without restructuring. See §"Incubated Independent Products" for full rules.
 
 ### Naming and identity strategy
 
@@ -219,63 +232,45 @@ The display name (`ChangePassport`) continues to live in:
 
 If the display name changes, the lock prevents code-side migration. If the technical namespace changes (rare, large reason required), it requires a versioned migration with semver bump and deprecation window.
 
-## SDP Toolbox — repositioned (was "Standalone Tools")
+## SDP Toolbox — narrowed (v2 reposition + v3 narrowing)
 
-The largest delta from v1 was calling these "first-class new product category". Council pushed back unanimously. Repositioned in v2.
+v2 repositioned "Standalone Tools" as `SDP Toolbox` (subordinate freemium funnel, not a parallel category). v3 narrows the row further: **only tools whose value is fundamentally tied to SDP onboarding/adoption stay in Toolbox**. Tools with independent value get the IIP flag (see next section) and follow stricter rules.
 
 ### Definition
 
-`SDP Toolbox` is a collection of single-purpose utilities under the SDP brand. Each tool:
+`SDP Toolbox` is a collection of single-purpose utilities under the SDP brand whose primary purpose is to acquire users into the SDP family (Toolkit → Operator Mode → ChangePassport). Each Toolbox tool:
 
-- has its own value proposition;
-- has self-contained dependencies (no SDP runtime, no Beads, no `sdp-pr-gate`);
 - has a 60-line module `AGENTS.md`;
 - has its own tests, CI, maturity label, and owner;
-- functions as **freemium acquisition** for Toolkit and ChangePassport, not as a standalone product category;
-- may be extracted to its own repo when adoption justifies independent release cadence.
+- functions as **freemium acquisition for SDP**, not as a standalone product;
+- may carry `extractable: yes` in module AGENTS.md if the tool could one day live in its own repo;
+- carries `standalone: false` (default) — see IIP flag below if `standalone: true`.
 
-### Examples (current and candidate)
+### Toolbox examples (SDP-funnel tools only after v3 narrowing)
 
-| Tool | Current location | Status | Extractable? |
-|---|---|---|---|
-| `sdp-scout` (repo card) | `cmd/sdp` subcommand | GA | yes (low priority) |
-| `sdp-metrics` (git process health) | `cmd/sdp` subcommand | GA | yes |
-| `sdp-index` (codebase memory) | `cmd/sdp` subcommand | GA | yes |
-| `sdp-spec` (spec recovery) | `cmd/sdp` subcommand | GA | yes |
-| `sdp-bootstrap` (brownfield setup) | `cmd/sdp` subcommand | GA | yes |
-| `sdp-toolbox-doc-tracer` (doc → code traceability) | research / lab only | hypothesis | candidate |
-| `sdp-toolbox-arch-snap` (architecture extraction from code) | research / lab only | hypothesis | candidate |
-| `sdp-toolbox-tok-economy` (token accounting + cascade routing primitives) | research / lab only | hypothesis | candidate |
-| `sdp-toolbox-local-model-router` (vLLM/NIM/Ollama dispatch) | research / lab only | hypothesis | candidate |
-| `sdp-toolbox-doc-analyzer` (doc drift / staleness) | partial: `sdp-doc-sync` | beta | yes |
+| Tool | Current location | Status | `standalone` | `extractable` |
+|---|---|---|---|---|
+| `sdp-scout` (repo card) | `cmd/sdp` subcommand | GA | false | yes (low priority) |
+| `sdp-metrics` (git process health) | `cmd/sdp` subcommand | GA | false | yes |
+| `sdp-index` (codebase memory) | `cmd/sdp` subcommand | GA | false | yes |
+| `sdp-spec` (spec recovery) | `cmd/sdp` subcommand | GA | false | yes |
+| `sdp-bootstrap` (brownfield setup) | `cmd/sdp` subcommand | GA | false | yes |
+| `sdp-doc-sync` (doc drift / staleness) | partial today | beta | false | yes |
 
-### Promotion criteria (council-tightened)
+Tools previously listed (`doc-tracer`, `arch-snap`, `tok-economy`, `local-model-router`) **moved to the IIP flag** in v3 — see next section. They are NOT Toolbox tools.
 
-A Toolbox tool may be promoted to a distinct product category (separate landing page, own ICP messaging, possible separate repo) only when ALL of:
+### Toolbox-tool promotion criteria (unchanged from v2)
+
+A Toolbox tool may be promoted to a separately distributed product (own landing page, own ICP messaging, possible separate repo) only when ALL of:
 
 1. ≥ 2 external consumers using it weekly;
 2. distinct buyer ICP (different from Toolkit / ChangePassport buyer);
 3. own metrics dashboard (install, retention, useful-output rate);
-4. own substrate stability review passed (no breaking imports of unstable internals).
+4. own substrate stability review passed.
 
 Until that bar is cleared, every Toolbox tool stays subordinate.
 
-### Lifecycle
-
-```
-sdp_lab/internal experiment
-  -> 60-line AGENTS.md exists
-  -> tests + CI green
-  -> maturity label set
-  -> extractable: yes flagged in module AGENTS.md
-  -> 2+ external consumers
-  -> distinct ICP and metrics
-  -> extraction PR (own repo, own release cadence)
-```
-
-Extraction is a downstream event. F150 ensures the option stays open via the cascade `AGENTS.md` rule and the dependency rules, plus a registry deliverable inside `00-150-02`.
-
-### Dependency rule for SDP Toolbox
+### Toolbox-tool dependency rule
 
 A Toolbox tool MUST NOT import:
 
@@ -289,6 +284,96 @@ A Toolbox tool MAY import:
 - a Shared Substrate package (`sdp-evidence-core`, etc.) at a pinned semver.
 
 Enforced via `go vet` allowlist or a custom linter (in `00-150-04` experimental isolation).
+
+## Incubated Independent Products (IIP) — Flag Inside Toolbox (v3, post-IIP-council)
+
+Some tools have value **outside SDP** and would lose adoption if subordinated to SDP funnel framing. Examples (all hypothetical today; no code yet):
+
+- `arch-snap` (architecture extraction from code) — ICPs: due-diligence/M&A buyers, security architects, new CTOs, tech writers.
+- `doc-tracer` (docs↔code traceability) — ICPs: docs-as-code shops, compliance teams (FDA/ISO 13485), regulated industries, audit functions.
+- `tok-economy` (token accounting + cascade routing primitives) — ICPs: AI platform teams independent of SDP.
+- `local-model-router` (vLLM/NIM/Ollama dispatch) — ICPs: any team running local inference.
+
+The IIP council (5 models, 2026-04-27) endorsed this direction with constraints. **IIP is a flag inside Toolbox, NOT a new top-level taxonomy row** — adding rows after every change signals strategic instability; the flag captures intent without restructuring.
+
+### IIP definition
+
+A Toolbox tool carries `standalone: true` when ALL of:
+
+- a `commercial_hypothesis.md` exists in the module documenting target non-SDP ICPs, top 3 competitors, willingness-to-pay range, kill criteria;
+- machine-verifiable independence: `go list -deps ./...` shows zero `internal/sdp-*` imports; `go.mod` has zero `replace` directives pointing to monorepo paths;
+- a named IIP lead (individual, not team) is assigned and accountable;
+- module name has **no** `sdp-` prefix from inception (`arch-snap`, NOT `sdp-arch-snap`);
+- module `AGENTS.md` (≤60 lines) is written as if SDP did not exist (no `sdp-` references in cold-start text);
+- license is permissive by default (Apache-2.0 or MIT) unless a specific commercial track requires otherwise;
+- `BRAND.md` documents the trademark transfer plan (transfer to neutral entity at extraction).
+
+### IIP hypotheses currently under evaluation (NOT flagship)
+
+The two flagship-sounding examples below are **hypotheses, not products today**. Neither exists in code. Each requires named lead + commercial_hypothesis.md + ≥3 discovery interviews before earning IIP status.
+
+| IIP hypothesis | Tool concept | Hypothesized non-SDP ICPs | Status |
+|---|---|---|---|
+| `arch-snap` | architecture extraction from code | due-diligence / M&A buyers; security architects; new CTOs onboarding to legacy codebases; tech writers | hypothesis only — needs lead, hypothesis doc, discovery |
+| `doc-tracer` | docs↔code traceability | docs-as-code shops; compliance (FDA, ISO 13485, GxP); regulated industries; audit functions | hypothesis only — needs lead, hypothesis doc, discovery |
+
+`tok-economy` and `local-model-router` are also IIP candidates but earlier in the funnel (no named hypothesis sponsor yet).
+
+### IIP architectural rules (mandatory from inception)
+
+1. **Standalone go.mod from day one.** Zero `replace` directives. Zero `internal/sdp-*` imports. Each IIP runs `go list -deps ./...` clean. This makes future extraction mechanical.
+2. **Independent semver tag prefix** from inception (`arch-snap/v0.1.0`, `doc-tracer/v0.1.0`).
+3. **No `sdp-` prefix** in module name, repo path inside monorepo, README banners, or AGENTS.md cold-start text.
+4. **Substrate imports only via pinned semver** (`sdp-evidence-core@v0.X.Y`). Substrate AGENTS.md must document any SDP-runtime assumptions; IIP imports require sign-off from substrate owner.
+5. **Distribution during incubation**: shares unified SDP CI pipeline (subcommand or build tag dispatch). Separate Homebrew formula, dedicated landing page, isolated CI matrix are **deferred to extraction**.
+6. **Manual dependency audit** until WS 00-150-04 lint deploys: every PR runs `make audit-iip-imports` (a Makefile target running `go list -deps` + grep against forbidden packages); CI fails on forbidden imports. After WS 00-150-04 deploys: lint becomes mandatory; manual audit deprecated.
+
+### IIP extraction criteria (council-revised)
+
+To extract an IIP from monorepo to its own repo, ALL of:
+
+- **Technical**: lint pass on isolation; `go mod tidy` clean with no `replace` directives.
+- **Demand**: at least ONE of (a) signed LOI / committed paying customer; (b) ≥10 weekly active external users with ≥50% non-SDP attribution by survey; (c) co-maintainer organization or corporate sponsor with ≥$50K/year or ≥1 dedicated FTE.
+- **Discovery**: ≥3 documented customer-discovery interviews validating ICP and willingness-to-pay.
+- **Identity**: finalized name + license + visual identity. **Domain NOT required** for extraction (only for later commercial launch).
+
+### IIP cap and downgrade
+
+- **Cap of 3 active IIPs simultaneously** (matches incubation throughput; protects engineering bandwidth).
+- **Promotion to IIP requires founder/owner approval** (not a default path from Lab).
+- **Downgrade** to Lab or archive if ANY of:
+  - 60 days with zero external consumers;
+  - 30 days without active maintainer;
+  - 90 days with unpatched critical security finding;
+  - 12 months without commercial signal AND lead cannot justify IIP cost.
+
+### IIP brand and ownership
+
+- **Initial maintainer**: SDP team. **Initial brand holder**: SDP organization (with explicit transfer commitment).
+- **Co-sponsor option**: any organization contributing ≥$50K/year OR ≥1 dedicated maintainer-FTE may be listed as co-sponsor with brand-decision input. Documented in `BRAND.md`.
+- **At extraction**: brand ownership transfers automatically to a neutral entity (separate legal vehicle, foundation, or new org). SDP receives no preferential marketing rights post-extraction.
+- **License**: permissive (Apache-2.0 or MIT) by default. Commercial track may require dual-licensing — decided per IIP at promotion.
+
+### IIP pricing
+
+Each IIP gets its own willingness-to-pay hypothesis when commercial extraction is considered. There is no requirement that IIP pricing align with SDP pricing. Some IIPs may stay free/open-source forever; others may become commercial standalone products with their own pricing model. Each IIP's `commercial_hypothesis.md` documents the pricing-model hypothesis.
+
+### IIP unaddressed risks (tracked outside immediate memo update)
+
+1. **Go import-path contamination**: `github.com/<sdp-lab-org>/sdp_lab/arch-snap` permanently associates the tool with SDP in every Go import statement. Mitigation options to study (separate decision):
+   - Use a neutral GitHub org for incubation from day one (separate `incubator-org/arch-snap` while still developed by SDP team).
+   - Accept the contamination as an incubation cost; the import path changes at extraction (mechanical via `git filter-repo`).
+   - Hybrid: monorepo sub-path during very early phase, neutral org from v0.1 onwards.
+2. **Substrate transitive coupling**: substrate packages may carry implicit SDP-runtime assumptions. Mitigation: substrate `AGENTS.md` must document SDP-runtime assumptions; IIP imports require sign-off from substrate owner.
+3. **Chicken-and-egg adoption suppression**: incubation environment broadcasts subordination. Mitigation: addressed via the brand-transfer plan and commercial-signal-based extraction; further mitigation possible if neutral-org incubation is taken.
+4. **Procurement/compliance friction**: target ICPs (FDA, ISO, M&A) require SOC2, SLAs, indemnification. Permissive OSS defaults are insufficient. Tracked outside memo for IIP-by-IIP commercial track.
+5. **Maintainer incentive misalignment**: SDP engineers maintain IIPs they don't own. Mitigation: each IIP epic must include a maintainer-incentive plan before promotion (revenue share, dedicated FTE, sponsor-funded role, etc.). Tracked outside immediate memo update.
+
+### Beads epics for IIPs
+
+Each IIP gets its OWN beads epic (`F-ARCH-SNAP`, `F-DOC-TRACER`) tracked outside F150. F150 only ensures the architectural rules are in place (cascade AGENTS.md, package-level isolation lint via WS 00-150-04, manual audit interim, `extractable` annotation, `standalone` flag mechanism via WS 00-150-02 registry).
+
+**No IIP epic is created until** the IIP has: (a) named lead, (b) `commercial_hypothesis.md`, (c) at least 3 discovery interviews. Until then the IIP candidate is a hypothesis line in this memo.
 
 ## Operator Mode — Reframed (council change)
 
@@ -470,12 +555,12 @@ The following changes are proposed for `docs/plans/2026-04-27-f150-product-layer
    - #3 (long-term Go module path) — KEPT, with criterion: stay on `github.com/fall-out-bug/sdp_lab` until repo split events occur.
 7. **§"AI Fluency 4D Reframe"**: replace with a one-line pointer to this memo (this memo is the authoritative 4D reframing, v2).
 8. **§"Execution Plan"**: do NOT renumber the 10 workstreams. Add explicit acceptance criteria per workstream:
-   - WS 00-150-02 (release surface inventory) — adds deliverable "SDP Toolbox registry: every standalone-utility module with `extractable` flag and 60-line AGENTS.md".
+   - WS 00-150-02 (release surface inventory) — adds deliverable "SDP Toolbox registry: every standalone-utility module with `extractable` flag, `standalone` flag, and 60-line AGENTS.md".
    - WS 00-150-03 (module path migration) — adds CI-gated subtask "AGENTS.md cascade migration: root reduced ≥20%, ≥5 modules ≤60 lines, incremental CI lint warn-only".
-   - WS 00-150-04 (experimental isolation) — explicitly enforces package-level isolation lint between `internal/sdp-pr-gate/`, `internal/sdp-operator/`, `internal/sdp-toolkit-core/`.
+   - WS 00-150-04 (experimental isolation) — explicitly enforces package-level isolation lint between `internal/sdp-pr-gate/`, `internal/sdp-operator/`, `internal/sdp-toolkit-core/`. **(v3)** Adds Makefile target `audit-iip-imports` running `go list -deps` against forbidden-package list; runs in CI; fails on forbidden imports.
    - WS 00-150-09 (product docs alignment) — consumes outputs from WS 02 and 03; surfaces Operator Mode as default Happy Path.
-9. **§"Non-goals"**: append "Implement `sdp-pr-gate` runtime in F150" and "Build any Enterprise Delivery Governance component in F150" and "Ship `ChangePassport` to external pilots before Schema v1 + committed pilot".
-10. **§"Success Criteria"**: append the F150 acceptance bar from this memo §"Discernment Metrics — F150 Acceptance Bar" — including the new internal namespace lock and package-level isolation rows.
+9. **§"Non-goals"**: append "Implement `sdp-pr-gate` runtime in F150" and "Build any Enterprise Delivery Governance component in F150" and "Ship `ChangePassport` to external pilots before Schema v1 + committed pilot". **(v3)** Append "Promote any IIP candidate (arch-snap, doc-tracer) to active IIP status without named lead + commercial_hypothesis.md + ≥3 discovery interviews".
+10. **§"Success Criteria"**: append the F150 acceptance bar from this memo §"Discernment Metrics — F150 Acceptance Bar" — including the new internal namespace lock and package-level isolation rows. **(v3)** Append "IIP audit Makefile target operational; `standalone` flag mechanism documented in `00-150-02` Toolbox registry".
 
 ## Workstream Hints (no re-numbering inside F150)
 
@@ -501,21 +586,35 @@ Mapping the existing 10 workstreams to layers:
 3. Toolbox extraction events: each tool tracked individually when promotion criteria are met.
 4. Naming finalization for ChangePassport display and Enterprise Delivery Governance: brand/legal/ICP work, not F150 scope.
 5. Operator Mode UX surfacing: how to expose advanced operator commands as Happy Path without confusing first-time Toolkit users; F125 lane.
-6. **Pricing model and willingness-to-pay hypothesis** for `sdp-pr-gate` and Operator Mode (council-added).
-7. **SDP brand architecture artifact** (council-added).
-8. **Evidence persistence architecture decision** (council-added).
-9. **Procurement/compliance install profile** for dev-led-to-manager-paid path (council-added).
-10. **Competitive positioning artifact** vs Copilot Workspace, CodeRabbit, GitLab Duo (council-added).
+6. **Pricing model and willingness-to-pay hypothesis** for `sdp-pr-gate` and Operator Mode (memo-council-added).
+7. **SDP brand architecture artifact** (memo-council-added).
+8. **Evidence persistence architecture decision** (memo-council-added).
+9. **Procurement/compliance install profile** for dev-led-to-manager-paid path (memo-council-added).
+10. **Competitive positioning artifact** vs Copilot Workspace, CodeRabbit, GitLab Duo (memo-council-added).
+11. **(v3, IIP)** `arch-snap` IIP hypothesis: needs named lead + `commercial_hypothesis.md` + ≥3 discovery interviews before earning `standalone: true` and a beads epic. Until then it remains a hypothesis line in this memo.
+12. **(v3, IIP)** `doc-tracer` IIP hypothesis: same gate as arch-snap. Likely candidate ICPs: docs-as-code shops, regulated industries (FDA, ISO 13485, GxP), audit/compliance.
+13. **(v3, IIP)** `tok-economy` and `local-model-router`: even earlier IIP candidates; need full hypothesis package before they're considered.
+14. **(v3, IIP)** Go import-path contamination decision: neutral GitHub org from inception vs incubator-org-at-v0.1 vs accept-during-incubation. Architect, Critic, Philosopher all flagged this as the highest unaddressed structural risk.
+15. **(v3, IIP)** Substrate transitive coupling audit: substrate `AGENTS.md` must document SDP-runtime assumptions; IIP imports require sign-off from substrate owner.
+16. **(v3, IIP)** Maintainer incentive plan template (revenue share, dedicated FTE, sponsor-funded role) before any IIP promotion.
 
-## Preserved Minority Reports (council)
+## Preserved Minority Reports
+
+### Memo council (v2)
 
 - **Critic (REJECT overall in R2)**: even with the 9 consensus changes, the document still carries unsubstantiated commercial assumptions (willingness-to-pay, competitive moat). Position recorded; not blocking unless a 10th change adds a hard prerequisite of "commercial proof point committed before any Wedge B implementation". Author judgment: the new pilot gate (Wedge B blocked until a committed pilot signs) substantially addresses Critic's core concern; the gap closes when the pilot lands.
 - **Architect on C12**: hard REJECT — Operator Mode classified as "Toolkit Happy Path" is "an architectural lie". Position recorded; partially addressed by reframing as "default Toolkit Happy Path embodying governed delivery; stateful orchestration layer". Architect would still prefer renaming the layer to make the orchestration nature explicit. Author decision: keep current naming, revisit if a buyer signal or operational event forces it.
 
+### IIP council (v3)
+
+- **Critic (partial REJECT in R2)**: 7 of 12 D-claims still rated WEAK. Critic accepts with changes overall, but signals that even with the consensus changes the proposal commits non-trivial engineering investment for non-existent products. Position recorded; the named-lead + commercial-signal-at-extraction + downgrade-criteria combination substantially closes the gap. If after 90 days neither arch-snap nor doc-tracer has a named lead with discovery interviews, Critic's position would crystallize to a hard reject. Author judgment: the gate works; we will know within 90 days whether the IIP framework was right.
+- **All 5 roles flagged Go import-path contamination** as the highest unaddressed structural risk (`github.com/<sdp-lab-org>/sdp_lab/arch-snap` permanently associates with SDP). This is recorded as Open Item 14 and requires a separate decision before either IIP earns active status.
+
 ## Decision Trail
 
 - 2026-04-27 (morning): memo v1 authored as 4D companion to F150 design.
-- 2026-04-27 (afternoon): 5-model llm-council R1 + R2 (Architect / Critic / Technician / Philosopher / Pragmatist; non-Anthropic, non-OpenAI).
-- 2026-04-27 (afternoon): synthesis at `docs/strategy/council/2026-04-27/synthesis.md`; memo v2 published incorporating 9 consensus changes.
-- 2026-04-27: F150-01 (`sdplab-qgq1`) acceptance criterion satisfied by memo v2 + F150 patch.
-- Next: F150 owner applies patch; F150-02..10 proceed under v2 taxonomy with attached acceptance criteria.
+- 2026-04-27 (afternoon): 5-model memo council R1+R2 (gemini-3.1-pro / grok-4.20 / kimi-k2.6 / deepseek-v4-pro / qwen3.6-plus). Synthesis at `docs/strategy/council/2026-04-27/synthesis.md`; memo v2 published incorporating 9 consensus changes.
+- 2026-04-27 (afternoon): user pushback "what about tools that live great OUTSIDE SDP — Архитектор, Трассировка". Author proposed Option D (incubate-then-spin-out).
+- 2026-04-27 (evening): 5-model IIP council R1+R2 with user-selected models (xiaomi/mimo-v2.5-pro / minimax/minimax-m2.7 / kimi-k2.6 / deepseek-v4-pro / qwen3.6-plus, `max_tokens=100000`). Synthesis at `docs/strategy/council/2026-04-27-iip/synthesis.md`; memo v3 published incorporating 9 IIP consensus changes (IIP as flag inside Toolbox; standalone go.mod; manual audit interim; commercial-signal extraction; named lead; brand transfer plan; downgrade criteria; verifiable independence; reframe arch-snap/doc-tracer as hypotheses).
+- 2026-04-27: F150-01 (`sdplab-qgq1`) acceptance criterion satisfied by memo v3 + F150 patch.
+- Next: F150 owner applies patch; F150-02..10 proceed under v3 taxonomy with IIP architectural rules attached. Each IIP candidate stays a hypothesis until named lead + commercial_hypothesis.md + ≥3 discovery interviews land.
