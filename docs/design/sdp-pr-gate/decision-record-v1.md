@@ -55,6 +55,7 @@ Override by a different actor requires `admin` role. Override by the same `decis
 |---|---|---|---|
 | `decision_id` | UUID | yes | Unique per decision entry |
 | `passport_id` | UUID | yes | Links to the passport this decision is for |
+| `schema_version` | string (const "v1") | yes | Schema version identifier |
 | `decision` | enum | yes | One of: merge, hold, rework, escalate, override |
 | `decided_by` | actor | yes | Who made the decision (human or system) |
 | `decided_at` | datetime | yes | When the decision was made |

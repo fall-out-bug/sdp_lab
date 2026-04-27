@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://sdp.dev/schema/sdp-pr-gate/evidence-event/v1",
   "title": "ChangePassport Evidence Event",
-  "description": "Event emitted by an evidence provider for ingestion into sdp-pr-gate. Ingestion is idempotent. Dedup key: source + external_ref + commit_sha. The 14 base required fields match the manifesto contract; error_state is an optional extension for error reporting.",
+  "description": "Event emitted by an evidence provider for ingestion into sdp-pr-gate. Ingestion is idempotent. Dedup key: source + external_ref + commit_sha. 12 required fields match the manifesto core contract; artifact_uri, artifact_hash, and error_state are optional extensions.",
   "type": "object",
   "required": [
     "schema_version",
