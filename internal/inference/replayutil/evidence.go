@@ -55,7 +55,6 @@ func WriteEvidence(dir, runID string, evidence AggregateEvidence) error {
 	if err != nil {
 		return fmt.Errorf("evidence create csv: %w", err)
 	}
-	defer f.Close()
 
 	w := csv.NewWriter(f)
 	if err := w.Write([]string{
@@ -65,6 +64,7 @@ func WriteEvidence(dir, runID string, evidence AggregateEvidence) error {
 		"tokens_mono", "tokens_decomp",
 		"cost_mono", "cost_decomp",
 	}); err != nil {
+		f.Close()
 		return fmt.Errorf("evidence write csv header: %w", err)
 	}
 
@@ -79,11 +79,19 @@ func WriteEvidence(dir, runID string, evidence AggregateEvidence) error {
 			strconv.FormatFloat(r.CostMonoUSD, 'f', 6, 64),
 			strconv.FormatFloat(r.CostDecompUSD, 'f', 6, 64),
 		}); err != nil {
+			f.Close()
 			return fmt.Errorf("evidence write csv row: %w", err)
 		}
 	}
 	w.Flush()
-	return w.Error()
+	if err := w.Error(); err != nil {
+		f.Close()
+		return fmt.Errorf("evidence flush csv: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("evidence close csv: %w", err)
+	}
+	return nil
 }
 
 // NewRunID generates a time-based run ID suitable for directory names.
