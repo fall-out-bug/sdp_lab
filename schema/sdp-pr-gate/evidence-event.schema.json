@@ -16,8 +16,7 @@
     "actor",
     "event_type",
     "status",
-    "summary",
-    "artifact_hash"
+    "summary"
   ],
   "additionalProperties": false,
   "properties": {
@@ -112,7 +111,10 @@
       "description": "Human-readable summary of the evidence event. Should be self-contained enough to display in a passport without additional context."
     },
     "artifact_uri": {
-      "type": "string",
+      "type": [
+        "string",
+        "null"
+      ],
       "format": "uri",
       "maxLength": 2048,
       "description": "URI to the artifact produced by this event. Omit or use null when no artifact exists."

@@ -37,7 +37,7 @@ Every provider must emit events conforming to the [evidence-event JSON Schema](.
 | 11 | `status` | string (enum) | Yes | Outcome: `success`, `failure`, `warning`, `skipped`, `degraded`, `pending`. |
 | 12 | `summary` | string | Yes | Human-readable summary, max 2048 chars. Self-contained for passport display. |
 | 13 | `artifact_uri` | string (uri) or null | No | URI to the primary artifact. Omit or null if no artifact exists. |
-| 14 | `artifact_hash` | object or null | No | Cryptographic hash. Sub-fields: `algorithm` (required), `value` (required). Omit if no artifact. |
+| 14 | `artifact_hash` | object or null | Yes (when artifact_uri present) | Cryptographic hash. Sub-fields: `algorithm` (required), `value` (required). Required when artifact_uri is provided; omit if no artifact. |
 | 15 | `error_state` | object or null | No | Error details: `code` (required), `message` (required), `retry_possible`. Omit if no error. |
 
 ### 2.1 Actor Object
