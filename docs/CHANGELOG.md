@@ -263,6 +263,61 @@ issues resolved.
 ## 2026-04-27
 
 ### Commits
+- `39bc220` F150: product layering and release readiness (#137) (2026-04-27)
+
+### Changed Files
+- `.beads-sdp-mapping.jsonl`
+- `.beads/issues.jsonl`
+- `docs/plans/2026-04-27-f150-product-layering-release-readiness-design.md`
+- `docs/roadmap/2026-04-27-roadmap-v3-post-iip.md`
+- `docs/roadmap/ROADMAP.md`
+- `docs/strategy/2026-04-27-sdp-product-layering-4d.md`
+- `docs/strategy/council/2026-04-27-iip/create_beads.py`
+- `docs/strategy/council/2026-04-27-iip/r1-architect.md`
+- `docs/strategy/council/2026-04-27-iip/r1-critic.md`
+- `docs/strategy/council/2026-04-27-iip/r1-philosopher.md`
+- `docs/strategy/council/2026-04-27-iip/r1-pragmatist.md`
+- `docs/strategy/council/2026-04-27-iip/r1-raw.json`
+- `docs/strategy/council/2026-04-27-iip/r1-technician.md`
+- `docs/strategy/council/2026-04-27-iip/r2-architect.md`
+- `docs/strategy/council/2026-04-27-iip/r2-critic.md`
+- `docs/strategy/council/2026-04-27-iip/r2-philosopher.md`
+- `docs/strategy/council/2026-04-27-iip/r2-pragmatist.md`
+- `docs/strategy/council/2026-04-27-iip/r2-raw.json`
+- `docs/strategy/council/2026-04-27-iip/r2-technician.md`
+- `docs/strategy/council/2026-04-27-iip/run.py`
+- `docs/strategy/council/2026-04-27-iip/synthesis.md`
+- `docs/strategy/council/2026-04-27/r1-architect.md`
+- `docs/strategy/council/2026-04-27/r1-critic.md`
+- `docs/strategy/council/2026-04-27/r1-philosopher.md`
+- `docs/strategy/council/2026-04-27/r1-pragmatist.md`
+- `docs/strategy/council/2026-04-27/r1-raw.json`
+- `docs/strategy/council/2026-04-27/r1-technician.md`
+- `docs/strategy/council/2026-04-27/r2-architect.md`
+- `docs/strategy/council/2026-04-27/r2-critic.md`
+- `docs/strategy/council/2026-04-27/r2-philosopher.md`
+- `docs/strategy/council/2026-04-27/r2-pragmatist.md`
+- `docs/strategy/council/2026-04-27/r2-raw.json`
+- `docs/strategy/council/2026-04-27/r2-technician.md`
+- `docs/strategy/council/2026-04-27/retry_technician.py`
+- `docs/strategy/council/2026-04-27/run.py`
+- `docs/strategy/council/2026-04-27/synthesis.md`
+- `docs/workstreams/INDEX.md`
+- `docs/workstreams/backlog/00-150-01.md`
+- `docs/workstreams/backlog/00-150-02.md`
+- `docs/workstreams/backlog/00-150-03.md`
+- `docs/workstreams/backlog/00-150-04.md`
+- `docs/workstreams/backlog/00-150-05.md`
+- `docs/workstreams/backlog/00-150-06.md`
+- `docs/workstreams/backlog/00-150-07.md`
+- `docs/workstreams/backlog/00-150-08.md`
+- `docs/workstreams/backlog/00-150-09.md`
+- `docs/workstreams/backlog/00-150-10.md`
+- `internal/dispatch/harness/limits_cache.go`
+
+
+
+### Commits
 - `45337ac` feat(F146): Inference Decomposition Framework — Pipeline[Final], Stage[In,Out], stitchers, ws-verdict adapter, A/B bench (2026-04-27)
 
 ### Changed Files
