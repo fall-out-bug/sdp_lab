@@ -263,6 +263,28 @@ issues resolved.
 ## 2026-04-27
 
 ### Commits
+- `d13280a` feat(F154): Shared Substrates v1 — semver contracts + SDP-runtime assumption docs (#141) (2026-04-27)
+
+### Changed Files
+- `internal/context/AGENTS.md`
+- `internal/context/contract.go`
+- `internal/context/contract_test.go`
+- `internal/eval/AGENTS.md`
+- `internal/eval/contract.go`
+- `internal/eval/contract_test.go`
+- `internal/evidence/AGENTS.md`
+- `internal/evidence/contract.go`
+- `internal/evidence/contract_test.go`
+- `internal/modelgateway/AGENTS.md`
+- `internal/modelgateway/contract.go`
+- `internal/modelgateway/contract_test.go`
+- `internal/policy/AGENTS.md`
+- `internal/policy/contract.go`
+- `internal/policy/contract_test.go`
+
+
+
+### Commits
 - `93bc759` docs(F152-F160): add missing workstream files for post-F150 epics (2026-04-27)
 
 ### Changed Files
