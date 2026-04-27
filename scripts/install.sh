@@ -51,7 +51,7 @@ echo "→ cloning $REPO@$BRANCH into $TMPDIR_SDP/sdp_lab"
 git clone --depth=1 --branch "$BRANCH" "https://github.com/$REPO.git" "$TMPDIR_SDP/sdp_lab" 2>&1
 
 echo "→ building sdp binary"
-(cd "$TMPDIR_SDP/sdp_lab" && go build -o "$TMPDIR_SDP/sdp" ./cmd/sdp 2>&1)
+(cd "$TMPDIR_SDP/sdp_lab" && go build -tags "sqlite_fts5" -o "$TMPDIR_SDP/sdp" ./cmd/sdp 2>&1)
 
 echo "→ running sdp init"
 "$TMPDIR_SDP/sdp" init --harness "$HARNESS" --target "$TARGET"

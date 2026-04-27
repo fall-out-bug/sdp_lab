@@ -214,7 +214,7 @@ A: No. SDP observes from CI. The agent writes code normally.
 A: `beads_ids` will be empty. All other fields are populated automatically.
 
 **Q: Can I enforce evidence before merge?**
-A: Yes, via branch protection + required check `evidence-gate`. Requires GitHub Pro for private repos.
+A: Yes, via branch protection + required check `evidence-gate`. Public repos can use branch protection without GitHub Pro; private repos may need the appropriate GitHub plan.
 
 **Q: Is evidence tamper-proof?**
 A: With Sigstore signing enabled, the attestation is uploaded to Rekor (public transparency log) and becomes tamper-evident.

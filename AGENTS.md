@@ -1,8 +1,8 @@
 # Agent Instructions
 
-> **Sync:** Sync only genuinely shared agent conventions (placement, "продолжай", command tree) to `sdp/CLAUDE.md`. Repo topology, branch policy, beads workflow, and private-lab process stay local to `sdp_lab`. See [docs/archive/plans/2026-02-25-agents-claude-sync-rules.md](docs/archive/plans/2026-02-25-agents-claude-sync-rules.md).
+> **Sync:** Sync only genuinely shared agent conventions (placement, "продолжай", command tree) to `sdp/CLAUDE.md`. Repo topology, branch policy, beads workflow, and repo-specific lab process stay local to `sdp_lab`. See [docs/archive/plans/2026-02-25-agents-claude-sync-rules.md](docs/archive/plans/2026-02-25-agents-claude-sync-rules.md).
 >
-> **Submodule retired (F128):** Protocol artifacts live at native paths: `prompts/`, `schema/`, `templates/`, `scripts/hooks/`, `.claude/hooks/`, `.claude/patterns/`. The `sdp/` directory is an **optional local checkout** of the public sdp repo (https://github.com/fall-out-bug/sdp). It is gitignored and NOT required for normal development. To get it locally: `git clone https://github.com/fall-out-bug/sdp.git sdp` (optional). Publishing to the public repo is via `scripts/sdp-publish.sh`. See [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md) for the publish workflow.
+> **Submodule retired (F128):** Protocol artifacts live at native paths: `prompts/`, `schema/`, `templates/`, `scripts/hooks/`, `.claude/hooks/`, `.claude/patterns/`. The `sdp/` directory is an **optional local checkout** of the distilled sdp repo (https://github.com/fall-out-bug/sdp). It is gitignored and NOT required for normal development. To get it locally: `git clone https://github.com/fall-out-bug/sdp.git sdp` (optional). Publishing to the distilled repo is via `scripts/sdp-publish.sh`. See [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md) for the publish workflow.
 
 ## Что такое SDP
 
@@ -14,7 +14,7 @@ SDP — AI-управляемая платформа полного цикла �
 - **Discovery**: `sdp discover` + `llm-council` skill → spec + scope decision
 - **Delivery**: `agentloop` FSM (Discover→Plan→Build→Review→Eval) → PR + evidence
 
-Аналитические инструменты верхнего уровня (ортогонально фазам): `sdp architect` (C4 / структурный анализ), `sdp scout` (быстрая карта незнакомого репо), `sdp metrics` (git-derived process health), `sdp tower` (control plane). Эти команды не выводятся в `sdp --help`; сверяйся с `cmd/sdp/main.go`.
+Аналитические инструменты верхнего уровня (ортогонально фазам): `sdp architect` (C4 / структурный анализ), `sdp scout` (быстрая карта незнакомого репо), `sdp metrics` (git-derived process health), `sdp tower` (control plane). Если help и docs расходятся, сверяйся с `cmd/sdp/main.go`.
 
 Полный vision: [VISION.md](VISION.md)  
 Архитектура: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)  
@@ -39,21 +39,21 @@ SDP — AI-управляемая платформа полного цикла �
 1. `git status --short --branch`
 2. прочитай [docs/reference/project-map.md](docs/reference/project-map.md)
 3. если это execution, запусти `scripts/beads_transport.sh fetch` и `bd ready --json`
-4. если запрос про greenfield / brownfield adoption — сразу в [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md)
+4. если запрос про greenfield / brownfield adoption — сразу в [SDP Quickstart](docs/QUICKSTART.md)
 5. **если пишешь Go-код** — прочитай [docs/reference/go-patterns.md](docs/reference/go-patterns.md) (stack, naming, 5 примеров, 5 антипаттернов, шаблон файла)
 
 ## Project Structure
 
 This project has **two repos** with different roles:
 
-| | `sdp_lab` (this repo) | `sdp` (public mirror) |
+| | `sdp_lab` (this repo) | `sdp` (distilled repo) |
 |---|---|---|
 | **Remote** | `origin → fall-out-bug/sdp_lab` | `origin → fall-out-bug/sdp` |
-| **Visibility** | Private | Public |
-| **Contains** | Go code, K8s manifests, roadmap, research, protocol artifacts | Mirror of protocol artifacts published from sdp_lab |
+| **Visibility** | Public | Public |
+| **Contains** | Go code, K8s manifests, roadmap, research, protocol artifacts | Distilled protocol artifacts published from sdp_lab |
 | **Changes** | Daily — all features built here | Published on demand via `scripts/sdp-publish.sh` |
 
-**Rule:** All work happens in `sdp_lab`. The public `sdp` repo is a downstream mirror, not an upstream dependency. Publish protocol artifacts via `scripts/sdp-publish.sh` when needed (see [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md)).
+**Rule:** All work happens in `sdp_lab`. The `sdp` repo is a downstream distillation surface, not an upstream dependency. Publish protocol artifacts via `scripts/sdp-publish.sh` when needed (see [docs/MULTI-REPO-WORKFLOW.md](docs/MULTI-REPO-WORKFLOW.md)).
 **Legacy naming:** Historical workstreams, plans, and beads IDs may still use `sdp_dev` or `sdp_dev-*` as a label for this same root repo. Treat that as legacy naming, not as a third repository.
 
 **sdp vs sdp_lab (CI/secrets):** The public `sdp` repo has its own CI and secrets. When debugging CI for a published change in `sdp`, check sdp workflows and `workflow_call` / `secrets: inherit` — do not assume the user forgot to add secrets.
@@ -73,7 +73,7 @@ All native files are in `sdp_lab`. The `sdp/` directory is an **optional local c
 
 ## Agent Interaction Rules
 
-**Scope:** sdp_lab only — do not sync repo-specific rules to `sdp/CLAUDE.md` (sdp public repo stays generic).
+**Scope:** sdp_lab only — do not sync repo-specific rules to `sdp/CLAUDE.md` (sdp distillation repo stays generic).
 
 **Source:** [docs/archive/plans/2026-02-25-agent-protocol-improvement-proposal.md](docs/archive/plans/2026-02-25-agent-protocol-improvement-proposal.md)
 
@@ -301,7 +301,7 @@ docs/topic                  # documentation-only changes
 
 **Boundary:** See [docs/architecture/REPO-BOUNDARY.md](docs/architecture/REPO-BOUNDARY.md) for component → publish mapping.
 
-**If unsure:** it goes in sdp_lab. Protocol artifacts at native paths (`prompts/`, `schema/`, `templates/`, `.claude/hooks/`) may need publishing to the public repo via `scripts/sdp-publish.sh`.
+**If unsure:** it goes in sdp_lab. Protocol artifacts at native paths (`prompts/`, `schema/`, `templates/`, `.claude/hooks/`) may need publishing to the distilled repo via `scripts/sdp-publish.sh`.
 
 ### Artifact Placement
 

@@ -1,12 +1,13 @@
-# Onboarding SDP into a Downstream Repo
+# Onboarding SDP Into A Repo
 
 > F141-07 · audience: any agent or developer dropping SDP into a new repo.
-> Time to working `/build`: under 5 minutes.
+> Time to first verified install: under 5 minutes.
 
 ## 1. Pre-flight
 
-- `git` and `go` 1.21+ on PATH
+- `git` and `go` 1.26+ on PATH
 - macOS, Linux, or WSL (Windows native not supported in v1)
+- optional: Claude Code, OpenCode, Codex, or Cursor if you want harness commands
 
 ## 2. Install
 
@@ -31,7 +32,25 @@ ls .claude/ .opencode/ .codex/ .cursor/   # dirs present
 
 Both commands must exit 0.
 
-## 4. First slash-command
+## 4. First useful commands
+
+Start with read-only repo analysis:
+
+```bash
+sdp scout --format text .
+sdp metrics --format markdown .
+sdp index build --format text .
+sdp spec --format text .
+```
+
+Preview delivery setup without changing code:
+
+```bash
+sdp build "Add a small feature with tests" --dry-run --format text
+sdp bootstrap --dry-run --mode brownfield .
+```
+
+## 5. First harness command
 
 | Harness | Command |
 |---|---|
@@ -42,7 +61,9 @@ Both commands must exit 0.
 
 All four invoke the same SDP `build` skill contract.
 
-## 5. Customize
+The installer does not configure model keys. Keep credentials in the harness/provider you use.
+
+## 6. Customize
 
 ```bash
 $EDITOR sdp.manifest.yaml          # edit inventory
@@ -54,7 +75,7 @@ git commit -m "chore: update SDP adapters"
 
 Do not edit harness adapter files directly — `sdp doctor` flags drift.
 
-## 6. Update SDP
+## 7. Update SDP
 
 Re-run the installer — it pulls latest `sdp_lab` and regenerates adapters:
 
@@ -66,16 +87,16 @@ Or if `sdp` is on PATH: `sdp init --update` (keeps existing manifest, regenerate
 
 Commit `sdp.lock` to pin the version for your team.
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 | Symptom | Fix |
 |---|---|
 | `sdp doctor`: adapter diverges from manifest | `sdp generate-adapters --write` then commit |
 | `sdp doctor`: orphan file not in manifest | Add entry to `sdp.manifest.yaml` or delete orphan |
 | No harness dirs after install | `sdp init --harness=claude-code` (explicit) |
-| `sdp` binary not on PATH after install | `go build -o /usr/local/bin/sdp ./cmd/sdp` in sdp_lab |
+| `sdp` binary not on PATH after install | `go build -tags "sqlite_fts5" -o /usr/local/bin/sdp ./cmd/sdp` in sdp_lab |
 | `warning: manifest load failed` | Install used empty template; add entries to `sdp.manifest.yaml` |
 
 ---
 
-Reference: [`harness-parity-matrix.md`](../reference/harness-parity-matrix.md) · [`F141 design`](../plans/2026-04-25-f141-multi-harness-install-bootstrap-design.md)
+Reference: [`product-surface.md`](../reference/product-surface.md) · [`harness-parity-matrix.md`](../reference/harness-parity-matrix.md) · [`F141 design`](../plans/2026-04-25-f141-multi-harness-install-bootstrap-design.md)

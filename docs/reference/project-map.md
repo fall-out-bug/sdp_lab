@@ -6,16 +6,16 @@ This is the shortest accurate way to orient inside `sdp_lab`.
 
 ## What This Repo Is
 
-`sdp_lab` is the private lab workspace for SDP.
+`sdp_lab` is the primary public workspace for SDP.
 
-- it owns Go code, orchestration, adapter work, evals, roadmap, and private planning
-- protocol artifacts (prompts, schemas, hooks, public CLI work) live at native tracked paths (`prompts/`, `schema/`, `templates/`, `.claude/hooks/`); published to the public `sdp` repo via `scripts/sdp-publish.sh`. `sdp/` is an optional local checkout of the public repo, not a tracked component.
+- it owns Go code, orchestration, adapter work, evals, roadmap, and planning
+- protocol artifacts (prompts, schemas, hooks, public CLI work) live at native tracked paths (`prompts/`, `schema/`, `templates/`, `.claude/hooks/`); distilled artifacts are published to the `sdp` repo via `scripts/sdp-publish.sh`. `sdp/` is an optional local checkout of that distribution repo, not a tracked component.
 - it uses `main` as the live default branch
 - historical docs and bead IDs may still say `sdp_dev`; treat that as a legacy label for this same repo
 
 ## Who Should Start Here
 
-Use this doc if you need to understand the private workspace itself:
+Use this doc if you need to understand the workspace itself:
 
 - you want to know what this repo does and which components live here
 - you are contributing to SDP platform code, evals, adapters, or planning
@@ -27,7 +27,7 @@ Do not use this doc as your main onboarding path if your real goal is:
 - give SDP your IDE and keys
 - start greenfield delivery or brownfield adoption
 
-For that path, go straight to the [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md). Today that quickstart covers `Claude Code`, `Cursor`, `OpenCode`, and `Codex`. Use [sdp/.codex/INSTALL.md](https://github.com/fall-out-bug/sdp/blob/main/.codex/INSTALL.md) for Codex-specific notes after install.
+For that path, go straight to [../QUICKSTART.md](../QUICKSTART.md). Today that quickstart covers `Claude Code`, `OpenCode`, `Codex`, and `Cursor`.
 
 ## Main Components
 
@@ -37,7 +37,7 @@ For that path, go straight to the [SDP Quickstart](https://github.com/fall-out-b
 | `deploy/` | K8s runtime and observability manifests |
 | `docs/roadmap/`, `docs/workstreams/`, `docs/plans/` | planning, execution queue, and design history |
 | `docs/reference/` | stable reference docs for the current canonical loop |
-| `sdp/` | optional local checkout of the public `sdp` repo (not tracked in `sdp_lab`); publish target for `scripts/sdp-publish.sh` |
+| `sdp/` | optional local checkout of the distilled `sdp` repo (not tracked in `sdp_lab`); publish target for `scripts/sdp-publish.sh` |
 
 Start with these files:
 
@@ -83,7 +83,7 @@ Use one source per question.
 |---|---|
 | What repo owns this file? | [docs/MULTI-REPO-WORKFLOW.md](../MULTI-REPO-WORKFLOW.md) |
 | What belongs in `sdp_lab` vs `sdp`? | [docs/architecture/REPO-BOUNDARY.md](../architecture/REPO-BOUNDARY.md) |
-| How do I adopt SDP in another repo? | [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md) (published to sdp repo) |
+| How do I adopt SDP in another repo? | [../QUICKSTART.md](../QUICKSTART.md) |
 | What is the canonical happy path from intake to delivery? | [canonical-happy-path.md](canonical-happy-path.md) |
 | What is the canonical operator loop? | [canonical-happy-path.md](canonical-happy-path.md), [docs/SDP_OPERATOR_WORKFLOW.md](../SDP_OPERATOR_WORKFLOW.md) |
 | What agents and skills are on the happy path? | [agent-catalog.md](agent-catalog.md), [skills.md](skills.md) |
@@ -91,6 +91,7 @@ Use one source per question.
 | What work exists in backlog form? | `docs/workstreams/backlog/` is canonical backlog; `.beads-sdp-mapping.jsonl` is helper data, not full historical coverage |
 | How does an operator execute a feature? | [docs/SDP_OPERATOR_WORKFLOW.md](../SDP_OPERATOR_WORKFLOW.md), [docs/REAL_FEATURE_TO_PR_RUNBOOK.md](../REAL_FEATURE_TO_PR_RUNBOOK.md) |
 | How do docs stay consistent? | `go run ./cmd/sdp-protocol-check --format json`, `go run ./cmd/sdp-doc-sync --mode check --strict` |
+| What is ready vs tooling vs experimental? | [product-surface.md](product-surface.md), [maturity-matrix.md](maturity-matrix.md) |
 
 ## Canonical Happy Path
 
@@ -142,7 +143,7 @@ If you are new to this repo, read in this order:
 
 If you are new to SDP but not to this repo, use this shorter decision:
 
-1. "I want to use SDP in my own repo" -> [SDP Quickstart](https://github.com/fall-out-bug/sdp/blob/main/docs/QUICKSTART.md) (also published to sdp repo)
+1. "I want to use SDP in my own repo" -> [../QUICKSTART.md](../QUICKSTART.md)
 2. "I want to work on SDP platform internals" -> keep reading this file
 3. "I am a dev agent entering cold" -> [../../AGENTS.md](../../AGENTS.md), then this file
 

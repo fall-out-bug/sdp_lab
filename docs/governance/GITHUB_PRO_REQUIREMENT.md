@@ -1,8 +1,8 @@
 # GitHub Branch Protection Requirement (F030-01)
 
-## Status: Partial Implementation
+## Status: Public Repo Path Available
 
-As of 2026-04-26, this repository is using **CODEOWNERS** as a partial substitute for GitHub branch protection, which requires GitHub Pro for private repositories.
+As of 2026-04-27, `sdp_lab` is public. GitHub branch protection is available without the private-repo GitHub Pro constraint. CODEOWNERS remains useful for review ownership, but it is not the substitute for server-side branch protection anymore.
 
 ## What We Have Now
 
@@ -25,35 +25,10 @@ These gates run on every pull request and must pass before merging.
 
 ## What We Need for Full Protection
 
-To enable server-side branch protection (bypass-proof enforcement), we need one of:
-
-### Option 1: GitHub Pro (Recommended for Private Repos)
-- **Cost**: $4/user/month
-- **Benefits**:
-  - Required status checks before merging
-  - "Require branches to be up to date before merging"
-  - "Do not allow bypassing the above settings"
-  - Restrict who can push to protected branches
-- **Action**: Upgrade at https://github.com/settings/billing
-
-### Option 2: Make Repository Public
-- **Cost**: Free
-- **Benefits**: Branch protection available for free
-- **Drawback**: Private code becomes public
-- **Action**: Only viable if all code can be public
-
-### Option 3: Use CODEOWNERS + Required Reviews (Current Approach)
-- **Cost**: Free
-- **Benefits**: Works with free plan
-- **Drawback**: Relies on developer discipline + CI gates (not bypass-proof)
-- **Current Status**: ✅ Implemented
-
-## Configuration for GitHub Pro
-
-If the repository upgrades to GitHub Pro, configure branch protection as follows:
+Enable server-side branch protection on `main`:
 
 1. Go to repository Settings → Branches
-2. Add rule for `master` branch:
+2. Add rule for `main` branch:
    - ✅ Require status checks to pass before merging
      - `build-test`
      - `evidence-gate`
@@ -64,25 +39,16 @@ If the repository upgrades to GitHub Pro, configure branch protection as follows
 
 ## Testing Branch Protection
 
-### Without GitHub Pro (Current Setup)
 ```bash
-# Test that CODEOWNERS is recognized
-git push origin <branch>
-# Should show "Code owner approval required" message in PR
-```
-
-### With GitHub Pro (Future)
-```bash
-# Attempt direct push to master without passing CI
-git push origin master
+# Attempt direct push to main without passing CI
+git push origin main
 # Should be REJECTED by GitHub
 ```
 
 ## Migration Checklist
 
-When upgrading to GitHub Pro:
-- [ ] Upgrade repository to GitHub Pro
-- [ ] Configure branch protection rule for `master`
+For the current public repo:
+- [ ] Configure branch protection rule for `main`
 - [ ] Add required status checks
 - [ ] Enable "Do not allow bypassing"
 - [ ] Test with direct push (should fail)

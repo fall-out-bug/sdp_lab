@@ -1,96 +1,162 @@
-# SDP Quick Start
+# SDP Quickstart
 
-Get SDP running in your project in 30 minutes or less.
+Get SDP installed in a repo and run the first useful checks.
 
-## Choose Your Path
+Audience: CTOs, architects, and developers evaluating SDP as a structured AI PDLC/SDLC harness layer.
 
-| Path | Time | What You Get | When to Use |
-|------|------|-------------|-------------|
-| **CI Gates Only** | 30 min | Evidence validation, protocol compliance, coverage enforcement at PR time | First pilot, low-risk evaluation |
-| **Contracted Runtime** | 60 min | CI gates + schema validation at ingest, runtime decisions, handoff events | Production adoption, multi-agent coordination |
-| **Full Orchestration** | 2-4 hours | Event-driven agent loop, findings, runtime decisions, staged rollout | Full SDP lifecycle management |
+## What You Are Installing
 
-## CI Gates Only (30 min)
+SDP installs a repo-local harness surface:
 
-The fastest adoption path. No changes to your agent stack or runtime.
+- `sdp.manifest.yaml` — source of truth for skills, commands, agents, and harness adapters
+- generated adapter files for Claude Code, OpenCode, Codex, and Cursor
+- `sdp.lock` — installed SDP version pin
+- optional `.sdp/` outputs from scout, metrics, index, specs, evidence, and later operator runs
 
-```bash
-# 1. Install
-go install ./cmd/sdp@latest
+It does not ask for model API keys during install. Model/provider setup belongs to the harness you use.
 
-# 2. Initialize
-cd /path/to/your/repo
-sdp init
+## Prerequisites
 
-# 3. Add CI gates to your workflow
-# See docs/reference/enterprise-pilot-ci-gate-only.md for full setup
+| Requirement | Minimum | Why |
+|---|---:|---|
+| Git | 2.30+ | Clone/install and repo analysis |
+| Go | 1.26+ | Build the `sdp` CLI from source |
+| macOS, Linux, or WSL | - | Native Windows is not supported in v1 |
+| One AI harness | optional | Claude Code, OpenCode, Codex, or Cursor if you want generated commands |
 
-# 4. Record evidence on your next PR
-sdp skill record --skill build --type plan \
-  --ws-id 00-001-01 \
-  --data '{"scope_files":["cmd/app/main.go"],"action":"add feature","feature_id":"F001"}'
+## Install
 
-# 5. Push and verify gates pass
-gh pr create --title "SDP pilot" --body "First PR with SDP gates"
-```
-
-**Full guide**: [enterprise-pilot-ci-gate-only.md](reference/enterprise-pilot-ci-gate-only.md)
-
-## Contracted Runtime (60 min)
-
-Extends CI gates with runtime schema validation and event-driven coordination.
+Run this from the root of the repo where you want SDP installed:
 
 ```bash
-# Prerequisite: CI gates only pilot complete
-
-# 1. Enable contracted runtime mode
-sdp config set runtime.mode contracted
-
-# 2. Validate schemas at ingest
-sdp contract validate --schemas schema/contracts/
-
-# 3. Run pilot with runtime events
-sdp run --mode pilot
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
 ```
 
-**Full guide**: [enterprise-pilot-contracted-runtime.md](reference/enterprise-pilot-contracted-runtime.md)
+The installer:
 
-## Rollback and Disable
+1. uses `sdp` from `PATH` if it already exists
+2. otherwise clones `fall-out-bug/sdp_lab`
+3. builds `cmd/sdp`
+4. runs `sdp init --harness auto`
+5. writes `sdp.manifest.yaml`, harness adapter dirs, and `sdp.lock`
 
-If something goes wrong, SDP provides safe rollback paths:
+Environment overrides:
 
 ```bash
-# Immediate disable (stops all gates)
-sdp config set gates.enabled false
-
-# Safe rollback (preserves audit trail)
-sdp deploy rollback <previous-tag>
-
-# Full removal
-rm -rf .sdp/
-# Remove SDP jobs from .github/workflows/ci.yml
+SDP_HARNESS=claude-code,opencode \
+SDP_TARGET=/path/to/repo \
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
 ```
 
-**Full guide**: [enterprise-pilot-rollback.md](reference/enterprise-pilot-rollback.md)
+If you are already inside this repo and want the local binary:
 
-## Key Commands
+```bash
+go build -tags "sqlite_fts5" -o "$(go env GOPATH)/bin/sdp" ./cmd/sdp
+sdp init --harness auto --target /path/to/your/repo
+```
 
-| Command | Purpose |
-|---------|---------|
-| `sdp init` | Initialize SDP in a repo |
-| `sdp version` | Check installed version |
-| `sdp verify` | Run protocol consistency checks |
-| `sdp skill record` | Record an evidence event |
-| `sdp scope check` | Validate workstream scope |
-| `sdp deploy staging` | Deploy to staging |
-| `sdp deploy prod` | Promote to production |
-| `sdp deploy rollback` | Rollback deployment |
-| `sdp coverage check` | Enforce coverage minimum |
-| `sdp policy check` | Run policy gate |
+## Verify
 
-## Getting Help
+From the target repo:
 
-- **Troubleshooting**: See the troubleshooting section in each pilot guide
-- **Evidence schema**: [schema/evidence.schema.json](../schema/evidence.schema.json)
-- **Contract workflow**: [reference/CONTRACT-WORKFLOW.md](reference/CONTRACT-WORKFLOW.md)
-- **Evidence coverage**: [reference/EVIDENCE-COVERAGE.md](reference/EVIDENCE-COVERAGE.md)
+```bash
+sdp manifest validate
+sdp doctor adapters
+```
+
+Expected result:
+
+- manifest validation exits 0
+- adapter doctor reports 0 drifts
+- `sdp.lock` exists
+- one or more harness dirs exist: `.claude/`, `.opencode/`, `.codex/`, `.cursor/`
+
+## First Useful Run
+
+Run read-only toolkit commands first. They show SDP's value without changing your repo:
+
+```bash
+sdp scout --format text .
+sdp metrics --format markdown .
+sdp index build --format text .
+sdp spec --format text .
+```
+
+Then preview the delivery-planning surface:
+
+```bash
+sdp build "Add a small feature with tests" --dry-run --format text
+```
+
+For brownfield agent setup, preview generated artifacts before writing:
+
+```bash
+sdp bootstrap --dry-run --mode brownfield .
+```
+
+## Choose A Path
+
+| Path | Use when | Start with |
+|---|---|---|
+| **Toolkit evaluation** | You want to inspect an existing repo and recover useful context. | `scout`, `metrics`, `index`, `spec`, `bootstrap --dry-run` |
+| **Local delivery** | You want a lightweight idea-to-change loop in one repo. | `sdp build --dry-run`, then harness-specific commands |
+| **Operator mode** | You need queue-backed delivery, explicit ownership, PR gates, and QA/UAT. | [reference/canonical-happy-path.md](reference/canonical-happy-path.md) |
+| **MCP integration** | You want an AI harness to call SDP tools directly. | [reference/installation.md](reference/installation.md) |
+
+## What Works Today
+
+Stable or ready to evaluate:
+
+- multi-harness manifest/adapters: 29 skills, 24 commands, 12 agents
+- toolkit commands: `scout`, `metrics`, `index`, `spec`, `bootstrap`
+- Beads-backed operator workflow in `sdp_lab`
+- evidence/schema/protocol checks
+- StratAudit reports
+
+Useful but operator-facing:
+
+- `sdp-orchestrate`, `sdp-ci-loop`, `sdp-guard`, `sdp-doc-sync`, `sdp-ready`
+- `sdp manifest parity`, `sdp generate-adapters`, `sdp doctor adapters`
+
+Experimental or research:
+
+- strict `agentloop` + `sdp-harness` primary delivery runtime
+- model gateway, cascades, MicroFirst inference, telemetry daemon
+- K8s/swarm/control tower paths
+- ChangePassport as a separate merge-readiness product direction
+
+Canonical map: [reference/product-surface.md](reference/product-surface.md)
+
+## Configure Harnesses
+
+The manifest supports four harness names:
+
+```bash
+sdp init --harness all
+sdp init --harness auto
+sdp init --harness claude-code,opencode
+sdp init --harness cursor,codex --target /path/to/repo
+```
+
+`auto` detects existing harness directories. If none exist, it installs all four.
+
+Generated adapters are owned by the manifest. Do not edit generated harness files directly. Change `sdp.manifest.yaml`, then regenerate:
+
+```bash
+sdp generate-adapters --write
+sdp doctor adapters
+```
+
+## Limits
+
+Be honest in pilots:
+
+- SDP is not a replacement for code review.
+- SDP does not guarantee compliance.
+- Policy enforcement is advisory by default unless configured otherwise.
+- Native Windows is not supported in v1.
+- Some older reference docs still describe historical commands; prefer this quickstart, `cmd/sdp/main.go`, and `sdp <command> --help` where implemented.
+- Index commands require the `sqlite_fts5` build tag. The installer and local build command above include it.
+
+Trust wording: [reference/trust-guarantees.md](reference/trust-guarantees.md)  
+Component status: [reference/maturity-matrix.md](reference/maturity-matrix.md)
