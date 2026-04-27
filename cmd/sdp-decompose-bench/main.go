@@ -59,9 +59,17 @@ func main() {
 	monoRunner := wsverdict.NewMonolithicRunner(client)
 	decompRunner := wsverdict.NewDecomposedRunner(client)
 
+	// fixtureSettable is satisfied by dryRunClient to bind golden verdict per fixture.
+	type fixtureSettable interface {
+		SetFixture(replayutil.Fixture)
+	}
+
 	var results []benchResult
 	var records []replayutil.RunRecord
 	for _, f := range fixtures {
+		if fs, ok := client.(fixtureSettable); ok {
+			fs.SetFixture(f)
+		}
 		fmt.Printf("  running fixture %s ...\n", f.ID)
 		r := runFixture(ctx, f, monoRunner, decompRunner)
 		results = append(results, r)

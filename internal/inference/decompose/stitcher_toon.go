@@ -89,9 +89,13 @@ func checkTOONType(colName, colType string, v any) error {
 			return fmt.Errorf("column %q: expected string, got %T", colName, v)
 		}
 	case "int":
-		switch v.(type) {
-		case int, int8, int16, int32, int64, float64:
-			// json.Unmarshal produces float64 for numbers; accept that too
+		switch fv := v.(type) {
+		case int, int8, int16, int32, int64:
+		case float64:
+			// json.Unmarshal produces float64; verify it is integral.
+			if fv != float64(int64(fv)) {
+				return fmt.Errorf("column %q: expected integral int, got fractional float64 %v", colName, fv)
+			}
 		default:
 			return fmt.Errorf("column %q: expected int, got %T", colName, v)
 		}

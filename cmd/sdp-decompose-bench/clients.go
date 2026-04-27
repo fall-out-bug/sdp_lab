@@ -11,33 +11,31 @@ import (
 	"sdp_dev/internal/llmclient"
 )
 
-// dryRunClient returns deterministic LLM responses based on fixture golden status.
-// Used when no API key is available or --dry-run is set.
+// dryRunClient returns deterministic LLM responses driven by the current
+// fixture's golden verdict. Call SetFixture before each fixture run to
+// ensure each fixture's calls reflect the correct expected output.
 type dryRunClient struct {
-	// Map fixture WSID → golden verdict for deterministic responses.
-	goldenByWS map[string]string
-	callN      int
+	currentGolden string
 }
 
-func newDryRunClient(fixtures []replayutil.Fixture) *dryRunClient {
-	m := map[string]string{}
-	for _, f := range fixtures {
-		wsID, _ := f.Data["ws_id"].(string)
-		if wsID != "" {
-			m[wsID] = f.GoldenStatus
-		}
+func newDryRunClient(_ []replayutil.Fixture) *dryRunClient {
+	return &dryRunClient{currentGolden: "passed"}
+}
+
+// SetFixture binds the client to a fixture's golden verdict for the duration
+// of that fixture's pipeline run. Call before monoRunner.Run and decompRunner.Run.
+func (d *dryRunClient) SetFixture(f replayutil.Fixture) {
+	d.currentGolden = f.GoldenStatus
+	if d.currentGolden == "" {
+		d.currentGolden = "passed"
 	}
-	return &dryRunClient{goldenByWS: m}
 }
 
 func (d *dryRunClient) Call(_ context.Context, prompt string, opts wsverdict.CallOptions) (string, int, int, float64, error) {
-	d.callN++
 	tokIn := len(prompt) / 4 // rough BPE estimate
-	tokOut := 50
 
-	// Detect which stage we're in based on prompt content.
+	// Extract stage: prompt asks for changed_files JSON.
 	if strings.Contains(prompt, "changed_files") && strings.Contains(prompt, "JSON") {
-		// Extract stage: return synthetic ExtractOut.
 		out := wsverdict.ExtractOut{
 			ChangedFiles: []string{"internal/foo/bar.go"},
 			Modules:      []string{"foo"},
@@ -45,44 +43,36 @@ func (d *dryRunClient) Call(_ context.Context, prompt string, opts wsverdict.Cal
 			Summary:      "dry-run extraction",
 		}
 		data, _ := json.Marshal(out)
-		return string(data), tokIn, tokOut, costFor(opts.Model, tokIn, tokOut), nil
+		return string(data), tokIn, 50, costFor(opts.Model, tokIn, 50), nil
 	}
-	if strings.Contains(prompt, "passed, partial, failed") || strings.Contains(prompt, "passed\n\nReturn ONLY") {
-		// Classify or monolithic stage: look up golden.
-		verdict := d.verdictForPrompt(prompt)
-		if strings.Contains(prompt, "verdict_report") || strings.Contains(prompt, "verdict report") || strings.Contains(prompt, "score") {
-			// Monolithic or aggregate: return FinalVerdict JSON.
-			fv := wsverdict.FinalVerdict{
-				Verdict: verdict,
-				Score:   scoreFor(verdict),
-				Summary: "dry-run verdict for " + verdict,
-			}
-			data, _ := json.Marshal(fv)
-			return string(data), tokIn, tokOut, costFor(opts.Model, tokIn, tokOut), nil
-		}
-		return verdict, tokIn, 1, costFor(opts.Model, tokIn, 1), nil
+
+	// Classify stage: prompt asks for single verdict word.
+	if strings.Contains(prompt, "passed, partial, failed") {
+		return d.currentGolden, tokIn, 1, costFor(opts.Model, tokIn, 1), nil
 	}
-	// Aggregate stage.
+
+	// Aggregate stage: prompt includes the classify verdict in the text.
+	// Extract the verdict from the prompt to propagate it faithfully.
+	verdict := extractVerdictFromAggregatePrompt(prompt, d.currentGolden)
 	fv := wsverdict.FinalVerdict{
-		Verdict: "passed",
-		Score:   0.85,
-		Summary: "dry-run aggregate",
+		Verdict: verdict,
+		Score:   scoreFor(verdict),
+		Summary: "dry-run verdict for " + verdict,
 	}
 	data, _ := json.Marshal(fv)
-	return string(data), tokIn, tokOut, costFor(opts.Model, tokIn, tokOut), nil
+	return string(data), tokIn, 50, costFor(opts.Model, tokIn, 50), nil
 }
 
-func (d *dryRunClient) verdictForPrompt(_ string) string {
-	// Simple heuristic: cycle through known golden verdicts.
-	keys := make([]string, 0, len(d.goldenByWS))
-	for k := range d.goldenByWS {
-		keys = append(keys, k)
+// extractVerdictFromAggregatePrompt reads the verdict embedded in the
+// aggregate or monolithic prompt ("Given ... classification \"<v>\"" or
+// "verdict report"). Falls back to defaultVerdict if not found.
+func extractVerdictFromAggregatePrompt(prompt, defaultVerdict string) string {
+	for _, v := range []string{"passed", "partial", "failed"} {
+		if strings.Contains(prompt, `"`+v+`"`) || strings.Contains(prompt, " "+v+"\n") {
+			return v
+		}
 	}
-	if len(keys) == 0 {
-		return "passed"
-	}
-	idx := d.callN % len(keys)
-	return d.goldenByWS[keys[idx]]
+	return defaultVerdict
 }
 
 func scoreFor(verdict string) float64 {
