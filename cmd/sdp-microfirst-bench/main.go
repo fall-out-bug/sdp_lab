@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 // Package main implements a benchmark harness for the sdp microfirst micro-classifiers.
 // It runs all four classifiers (wsverdict, bdseverity, bdtype, routing) against
 // synthetic corpora and produces JSON evidence + a markdown report.

@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 // Command sdp-bd-suggest classifies a beads issue title+description
 // using the MicroFirst kNN tier (bdseverity + bdtype).
 //

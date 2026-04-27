@@ -2,12 +2,16 @@
 # check-release-surface.sh — Validate release manifest consistency.
 #
 # F078-03: Release surface manifest alignment
+# F150-04: Experimental code isolation enforcement
 #
 # Checks:
 #   1. sdp.manifest.yaml version matches GoReleaser tag conventions
 #   2. All GoReleaser builds reference existing main paths
 #   3. Archive name templates include version
 #   4. Download URL pattern is consistent
+#   5. No experimental binaries in GoReleaser build targets
+#   6. Experimental cmd/ binaries have sdp_experimental build tag
+#   7. No untagged cmd/ binaries that should be experimental
 #
 # Usage:
 #   scripts/check-release-surface.sh              # human-readable output
@@ -133,12 +137,116 @@ check_metadata_drift() {
   fi
 }
 
+# --- Check 5: No experimental binaries in GoReleaser build targets (F150-04) ---
+# These binaries are classified experimental/lab-only and must NOT appear in .goreleaser.yml.
+EXPERIMENTAL_BINARIES=(
+  "sdp-control"
+  "sdp-dispatch"
+  "sdp-up"
+  "gt-adapter"
+  "sdp-harness"
+  "sdp-a2a"
+  "sdp-eval"
+  "sdp-strataudit"
+  "sdp-mcp"
+  "sdp-cascade-replay"
+  "sdp-confidence-replay"
+  "sdp-decompose-bench"
+  "sdp-microfirst-bench"
+  "sdp-bd-suggest"
+  "sdp-ft-baseline"
+  "sdp-ft-dataset"
+  "sdp-ft-run"
+  "sdp-ft-validate"
+)
+
+check_experimental_excluded_from_goreleaser() {
+  if [ ! -f ".goreleaser.yml" ]; then
+    return
+  fi
+
+  for binary in "${EXPERIMENTAL_BINARIES[@]}"; do
+    # Check if binary appears as a build ID or main path in goreleaser
+    if grep -qE "(^  - id: ${binary}|main: \./cmd/${binary})" .goreleaser.yml; then
+      FINDINGS+=("drift:.goreleaser.yml:experimental binary '${binary}' found in release build config — must be excluded")
+    else
+      OK_COUNT=$((OK_COUNT + 1))
+    fi
+  done
+}
+
+# --- Check 6: Experimental cmd/ binaries have sdp_experimental build tag (F150-04) ---
+check_experimental_build_tags() {
+  for binary in "${EXPERIMENTAL_BINARIES[@]}"; do
+    local cmd_dir="cmd/${binary}"
+    if [ ! -d "$cmd_dir" ]; then
+      continue
+    fi
+
+    # Check that main.go has the build tag
+    local main_file="${cmd_dir}/main.go"
+    if [ -f "$main_file" ]; then
+      if head -1 "$main_file" | grep -q 'sdp_experimental'; then
+        OK_COUNT=$((OK_COUNT + 1))
+      else
+        FINDINGS+=("missing:${main_file}:experimental binary missing //go:build sdp_experimental tag")
+      fi
+    fi
+
+    # Check all other .go files also have the tag (needed for multi-file packages)
+    for gofile in "${cmd_dir}"/*.go; do
+      [ "$(basename "$gofile")" = "main.go" ] && continue
+      if head -1 "$gofile" | grep -q 'sdp_experimental'; then
+        OK_COUNT=$((OK_COUNT + 1))
+      else
+        FINDINGS+=("missing:${gofile}:experimental package file missing //go:build sdp_experimental tag")
+      fi
+    done
+  done
+}
+
+# --- Check 7: Stable binaries do NOT have experimental build tag (F150-04) ---
+STABLE_BINARIES=(
+  "sdp"
+  "sdp-evidence"
+  "sdp-guard"
+  "sdp-orchestrate"
+  "sdp-orchestrate-daemon"
+  "sdp-ci-loop"
+  "sdp-doc-sync"
+  "sdp-beads-bridge"
+  "sdp-gh-findings-sync"
+  "sdp-ready"
+  "sdp-protocol-check"
+  "sdp-ws-verdict-validate"
+  "sdp-healthcheck"
+  "sdp-export"
+  "sdp-session-audit"
+  "sdp-omc-guard"
+)
+
+check_stable_no_experimental_tag() {
+  for binary in "${STABLE_BINARIES[@]}"; do
+    local main_file="cmd/${binary}/main.go"
+    if [ -f "$main_file" ]; then
+      if head -3 "$main_file" | grep -q 'sdp_experimental'; then
+        FINDINGS+=("error:${main_file}:stable binary has sdp_experimental build tag — should not be tagged")
+      else
+        OK_COUNT=$((OK_COUNT + 1))
+      fi
+    fi
+  done
+}
+
 # --- Run checks ---
 check_manifest_version
 check_goreleaser_builds
 check_archive_templates
 check_version_drift
 check_metadata_drift
+check_experimental_excluded_from_goreleaser
+check_experimental_build_tags
+check_stable_no_experimental_tag
 
 # --- Output ---
 TOTAL=${#FINDINGS[@]}

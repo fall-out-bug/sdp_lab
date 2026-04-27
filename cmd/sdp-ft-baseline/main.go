@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 // Command sdp-ft-baseline runs N samples from eval.jsonl through a vanilla
 // Ollama model (no fine-tune) and records prediction quality. The output is
 // the reference point against which fine-tuned models are compared.

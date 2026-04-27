@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 // Package main provides the sdp-harness CLI for running SDP phase turns
 // and managing session lifecycle through the agentloop Harness.
 //

@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 // Command sdp-ft-dataset assembles the train/eval JSONL pair for the F133
 // complexity-classifier fine-tune.
 //

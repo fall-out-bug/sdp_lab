@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 // Command sdp-ft-validate verifies a fine-tune JSONL file against the SDP
 // classifier schema. Exits non-zero on any failure.
 package main

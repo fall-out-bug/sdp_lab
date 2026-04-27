@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 package main
 
 import (

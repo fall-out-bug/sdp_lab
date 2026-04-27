@@ -280,12 +280,44 @@ Current GoReleaser config (`.goreleaser.yml`) builds these binaries:
 
 | Mechanism | Purpose | Status |
 |---|---|---|
-| GoReleaser allowlist | Only listed binaries ship in the formula | Active |
+| GoReleaser allowlist | Only listed binaries ship in the formula. `sdp` + 15 tooling binaries. Experimental binaries excluded. | Active |
 | `.goreleaser.yml` build IDs | Defines which cmd/ binaries are built and archived | Active |
-| Build tags (`sdp_experimental`) | Compile-time isolation for experimental code | Proposed (F150-04) |
+| Build tags (`sdp_experimental`) | Compile-time isolation for experimental/lab-only cmd/ binaries. Files have `//go:build sdp_experimental` at top. Default `go build ./...` excludes them. | Active (F150-04) |
 | Lab-only binary exclusion | Binaries not in GoReleaser are not built for release | Active (implicit) |
-| Package-level isolation lint | CI check forbids cross-imports between product surfaces | Proposed (F150-04) |
-| `scripts/check-release-surface.sh` | Validates release manifest consistency | Active |
+| `scripts/check-release-surface.sh` | Validates release manifest consistency + detects experimental drift (checks 5-7) | Active |
+| Internal package import graph | Stable packages (executor, architect, discovery) import some experimental packages (llmclient, glob, agentloop) — these internal packages cannot be build-tagged. Isolation is enforced at cmd/ level only. | Documented (F150-04) |
+
+### How Isolation Works (F150-04)
+
+Three layers prevent experimental code from entering release builds:
+
+1. **GoReleaser allowlist** (primary): `.goreleaser.yml` only includes `sdp` + 15 tooling binaries. All experimental, lab-only, research, and retired binaries are excluded.
+
+2. **Build tags** (`sdp_experimental`): All 18 experimental/lab-only cmd/ binaries have `//go:build sdp_experimental` on every .go file. Default `go build ./...` and `go test ./...` skip them entirely. Local dev builds opt in with:
+   ```bash
+   go build -tags sdp_experimental ./cmd/sdp-strataudit
+   go test -tags "sqlite_fts5 sdp_experimental" ./...
+   ```
+
+3. **Drift detection** (`scripts/check-release-surface.sh`): Checks 5-7 verify:
+   - No experimental binary appears in `.goreleaser.yml`
+   - All experimental cmd/ files have the build tag
+   - No stable binary accidentally gets the build tag
+
+### Packages Not Tagged (intentional)
+
+These experimental internal packages are imported by stable code and cannot be build-tagged:
+
+| Package | Imported by stable | Reason |
+|---|---|---|
+| `internal/llmclient` | architect, discovery | Shared LLM HTTP client |
+| `internal/glob` | executor | Used by evaluator |
+| `internal/agentloop` | executor (bridge_serve) | Harness bridge |
+| `internal/secretscan` | deploy | Deploy scanning |
+| `internal/stream` | cmd/sdp-watch (test) | Watch test |
+| `internal/mutation` | CI workflow | Mutation testing |
+
+These packages remain in the default build. Their isolation is the cmd/ binary exclusion -- no experimental cmd/ binary can enter the release formula.
 
 ## Summary
 
@@ -389,3 +421,4 @@ Both gates must pass for a PR to merge.
 | 2026-04-26 | F079-01: Added missing CLI binaries (sdp-healthcheck, sdp-mcp, sdp-session-audit), updated counts |
 | 2026-04-27 | F150-02 (sdplab-8rk7): Full inventory of all 37 cmd/ binaries, classification by release surface (stable/tooling/lab-only/experimental/retired/future). Added cmd/sdp subcommand classification. Added missing internal packages (40 new entries). Added GoReleaser build target audit. Added exclusion mechanisms section. Added formula default install surface definition. |
 | 2026-04-27 | F150-06 (sdplab-q2cb): Added coverage targets by maturity tier. Happy-path >= 80%, GA >= 60%, Beta >= 50% (advisory), Experimental exempt. Added happy-path surface table and package-to-tier mapping. |
+| 2026-04-27 | F150-04 (sdplab-5r4x): Experimental code isolation from release builds. Added `sdp_experimental` build tags to 18 experimental/lab-only cmd/ binaries. Updated `.goreleaser.yml` to include `sdp` + 15 tooling binaries (removed `sdp-eval`). Added drift detection checks 5-7 to `scripts/check-release-surface.sh`. Documented isolation layers and packages-not-tagged rationale. |

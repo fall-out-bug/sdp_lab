@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 package main
 
 import (
@@ -18,7 +20,7 @@ func buildBinary(t *testing.T) string {
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "sdp-harness")
 
-	cmd := exec.Command("go", "build", "-o", bin, "github.com/fall-out-bug/sdp_lab/cmd/sdp-harness")
+	cmd := exec.Command("go", "build", "-tags", "sdp_experimental", "-o", bin, "github.com/fall-out-bug/sdp_lab/cmd/sdp-harness")
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=1")
 	out, err := cmd.CombinedOutput()
 	if err != nil {

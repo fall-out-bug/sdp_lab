@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 // sdp-confidence-replay drives the F144 confidence Checker against the
 // fixture corpus under internal/inference/confidence/testdata/ and emits a
 // markdown report plus per-fixture JSON evidence.

@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 // sdp-decompose-bench runs an A/B benchmark comparing the monolithic ws-verdict
 // pipeline against the 3-stage decomposed pipeline (F146) over the F144 corpus.
 //

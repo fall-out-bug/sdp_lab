@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 // sdp-cascade-replay drives the F145 CascadingInvoker against a corpus of test
 // prompts and generates a report with tier_used and hops metrics.
 //
