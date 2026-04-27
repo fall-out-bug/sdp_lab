@@ -263,6 +263,38 @@ issues resolved.
 ## 2026-04-27
 
 ### Commits
+- `45337ac` feat(F146): Inference Decomposition Framework — Pipeline[Final], Stage[In,Out], stitchers, ws-verdict adapter, A/B bench (2026-04-27)
+
+### Changed Files
+- `.beads-sdp-mapping.jsonl`
+- `.sdp/log/events.jsonl`
+- `cmd/sdp-decompose-bench/clients.go`
+- `cmd/sdp-decompose-bench/main.go`
+- `cmd/sdp-decompose-bench/report.go`
+- `cmd/sdp-decompose-bench/runner.go`
+- `docs/research/2026-04-26-f146-decomposition-replay-report.md`
+- `docs/workstreams/INDEX.md`
+- `internal/build/.sdp/evidence/20260426-214905/evidence.json`
+- `internal/build/.sdp/evidence/20260426-214905/results.csv`
+- `internal/build/.sdp/evidence/20260426-214938/evidence.json`
+- `internal/build/.sdp/evidence/20260426-214938/results.csv`
+- `internal/inference/decompose/README.md`
+- `internal/inference/decompose/adapters/wsverdict/aggregate.go`
+- `internal/inference/decompose/adapters/wsverdict/classify.go`
+- `internal/inference/decompose/adapters/wsverdict/extract.go`
+- `internal/inference/decompose/adapters/wsverdict/monolithic.go`
+- `internal/inference/decompose/integration.go`
+- `internal/inference/decompose/result.go`
+- `internal/inference/decompose/stitcher_json.go`
+- `internal/inference/decompose/stitcher_test.go`
+- `internal/inference/decompose/stitcher_toon.go`
+- `internal/inference/replayutil/evidence.go`
+- `internal/inference/replayutil/loader.go`
+- `internal/inference/replayutil/loader_test.go`
+
+
+
+### Commits
 - `7adbae1` chore(beads): close F145 children + epic (14 WS + sdplab-ldmq) (2026-04-27)
 
 ### Changed Files
