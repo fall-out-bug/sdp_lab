@@ -323,6 +323,64 @@ The formula should NOT install by default:
 
 Opt-in mechanism: operator tooling binaries available via separate formula tap or build tag (deferred to F150-08).
 
+## Coverage Targets by Maturity (F150-06)
+
+Coverage expectations are tiered by product maturity rather than enforced as a single blanket percentage. This aligns enforcement with the actual risk profile of each component.
+
+### Target Table
+
+| Maturity | Coverage Target | CI Behavior | Denominator |
+|----------|----------------|-------------|-------------|
+| **Happy-path (GA subcommands on stable surface)** | >= 80% | **Blocking**: coverage gate enforces this target for packages classified as happy-path. | Per-package line coverage for packages that implement the canonical happy-path scenarios (see [canonical-happy-path.md](canonical-happy-path.md)). |
+| **GA** (non happy-path) | >= 60% | **Blocking**: coverage gate enforces this target for all GA-maturity packages and commands not on the happy-path. | Per-package line coverage (`go test -cover`). |
+| **Beta** | >= 50% | **Advisory**: coverage is reported but does not block merge. Used as graduation signal toward GA. | Per-package line coverage (`go test -cover`). |
+| **Experimental** | No target | **Exempt**: experimental packages and commands are excluded from coverage gate enforcement entirely. | N/A. |
+
+### Happy-Path Surface
+
+The happy-path coverage tier (>= 80%) applies to packages that implement the default Toolkit Happy Path. These are the packages a new user encounters on first successful use of `sdp`:
+
+| Package | Maturity | Surface | Happy-Path Role |
+|---------|----------|---------|-----------------|
+| `internal/scout` | GA | stable | `sdp scout` -- first-run repo map |
+| `internal/metrics` | GA | stable | `sdp metrics` -- process health |
+| `internal/index` | GA | stable | `sdp index` -- codebase memory |
+| `internal/bootstrap` | GA | stable | `sdp bootstrap` -- brownfield setup |
+| `internal/control` | GA | stable | FeatureCard store (used by card, board, discover) |
+| `internal/orchestrate` | GA | stable | `sdp orchestrate` -- feature orchestration |
+| `internal/cli` | GA | stable | CLI helpers used across subcommands |
+| `internal/manifest` | GA | stable | `sdp manifest` / `sdp init` |
+| `internal/evidence` | GA | stable | in-toto attestations |
+| `internal/guard` | GA | stable | Scope enforcement |
+| `internal/discovery` | GA | stable | `sdp discover` -- 4-phase LLM pipeline |
+| `internal/build` | GA | stable | `sdp build` -- build planner |
+
+### How Coverage Is Measured
+
+1. **Tool**: `go test -tags sqlite_fts5 -coverprofile=cov.out ./...` (standard Go coverprofile).
+2. **Aggregation**: Per-package line coverage extracted from coverprofile via `go tool cover -func=cov.out`.
+3. **Package classification**: Each `internal/*` and `cmd/*` package is classified by maturity using this matrix.
+4. **Enforcement**: The CI coverage gate checks per-package coverage against the target for the package's maturity tier. See [ci-gates-map.md](ci-gates-map.md) for enforcement details.
+
+### Package-to-Tier Mapping
+
+Packages are assigned a coverage tier based on their maturity label in this matrix:
+
+| Tier | Maturity Labels | Packages |
+|------|----------------|----------|
+| Happy-path (>= 80%) | GA + on happy-path surface | See Happy-Path Surface table above |
+| GA (>= 60%) | GA (not on happy-path) | All GA packages not listed in happy-path table |
+| Beta (>= 50%, advisory) | Beta | All Beta packages and commands |
+| Exempt | Experimental | All Experimental packages and commands |
+
+### Relationship to CI Baseline Delta Gate
+
+The maturity-tiered targets (this section) complement the existing baseline delta gate:
+- **Baseline delta gate** (2pp threshold): Catches regressions at the repo-total level.
+- **Maturity-tiered targets** (this section): Enforce minimum absolute coverage per maturity tier.
+
+Both gates must pass for a PR to merge.
+
 ## Change Log
 
 | Date | Change |
@@ -330,3 +388,4 @@ Opt-in mechanism: operator tooling binaries available via separate formula tap o
 | 2026-04-26 | Initial matrix created from components.md audit |
 | 2026-04-26 | F079-01: Added missing CLI binaries (sdp-healthcheck, sdp-mcp, sdp-session-audit), updated counts |
 | 2026-04-27 | F150-02 (sdplab-8rk7): Full inventory of all 37 cmd/ binaries, classification by release surface (stable/tooling/lab-only/experimental/retired/future). Added cmd/sdp subcommand classification. Added missing internal packages (40 new entries). Added GoReleaser build target audit. Added exclusion mechanisms section. Added formula default install surface definition. |
+| 2026-04-27 | F150-06 (sdplab-q2cb): Added coverage targets by maturity tier. Happy-path >= 80%, GA >= 60%, Beta >= 50% (advisory), Experimental exempt. Added happy-path surface table and package-to-tier mapping. |

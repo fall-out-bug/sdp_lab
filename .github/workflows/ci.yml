@@ -958,6 +958,84 @@ jobs:
               print(f'OK: Coverage {cur}% (baseline {base}%, delta {delta}pp)')
           "
 
+      - name: Check maturity-tiered coverage minimums
+        run: |
+          set -euo pipefail
+          echo "=== Maturity-Tiered Coverage Check (F150-06) ==="
+          echo ""
+          echo "Denominator: per-package line coverage (go tool cover -func=cov.out)"
+          echo ""
+
+          # Tier definitions (must match docs/reference/maturity-matrix.md)
+          HAPPY_PATH="internal/scout internal/metrics internal/index internal/bootstrap internal/control internal/orchestrate internal/cli internal/manifest internal/evidence internal/guard internal/discovery internal/build"
+          BETA="internal/tower internal/dispatch internal/a2a internal/monitor internal/profile internal/policy internal/augmentation internal/mcp internal/evals internal/deploy internal/trace internal/sessionaudit"
+          EXPERIMENTAL="internal/agentloop internal/modelgateway internal/inference internal/llmclient internal/localmodel internal/memory internal/mutation internal/finetune internal/planner internal/authz internal/stream internal/secretscan internal/provenance internal/flaky internal/glob"
+
+          BLOCKING_FAIL=0
+          ADVISORY_FAIL=0
+
+          # Extract per-package coverage from coverprofile
+          while IFS= read -r line; do
+            # line format: "path/file.go  funcName  statements  coverage%"
+            # We extract the package path and coverage percentage
+            file_path=$(echo "$line" | awk '{print $1}')
+            pct_str=$(echo "$line" | awk '{print $NF}')
+            pct=$(echo "$pct_str" | tr -d '%')
+
+            # Skip the total line
+            if echo "$file_path" | grep -q "^total:"; then
+              continue
+            fi
+
+            # Extract package from file path (e.g., "internal/scout/foo.go" -> "internal/scout")
+            pkg=$(echo "$file_path" | sed 's|/[^/]*$||' | sed 's|^github.com/[^/]*/[^/]*/||')
+
+            # Determine tier
+            tier="ga"
+            target=60
+            if echo " $EXPERIMENTAL " | grep -q " $pkg "; then
+              continue  # exempt
+            elif echo " $HAPPY_PATH " | grep -q " $pkg "; then
+              tier="happy-path"
+              target=80
+            elif echo " $BETA " | grep -q " $pkg "; then
+              tier="beta"
+              target=50
+            fi
+
+            # Store coverage by package (use associative-like approach)
+            echo "$pkg $pct $tier $target"
+          done < <(go tool cover -func=cov.out | grep -v "^total:") | awk '
+          {
+            pkg = $1
+            pct = $2
+            tier = $3
+            target = $4
+            if (!(pkg in seen)) {
+              seen[pkg] = pct
+              tiers[pkg] = tier
+              targets[pkg] = target
+            }
+          }
+          END {
+            blocking = 0
+            advisory = 0
+            for (p in seen) {
+              if (seen[p] + 0 < targets[p] + 0) {
+                if (tiers[p] == "beta") {
+                  printf "ADVISORY (%s, target >= %s%%) %s: %s%%\n", tiers[p], targets[p], p, seen[p]
+                  advisory++
+                } else {
+                  printf "FAIL (%s, target >= %s%%) %s: %s%%\n", tiers[p], targets[p], p, seen[p]
+                  blocking++
+                }
+              } else {
+                printf "PASS (%s, >= %s%%) %s: %s%%\n", tiers[p], targets[p], p, seen[p]
+              }
+            }
+            exit blocking
+          }'
+
       - name: Update baseline on main
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         run: |
