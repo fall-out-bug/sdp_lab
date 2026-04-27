@@ -63,8 +63,9 @@ Tools inside SDP Toolbox with value outside SDP carry `standalone: true` and fol
 
 - No `sdp-` prefix from inception
 - Standalone `go.mod` (zero `replace` directives, zero `internal/sdp-*` imports)
+- Module `AGENTS.md` ≤60 lines, written as if SDP did not exist (no `sdp-` references in cold-start text)
 - Named IIP lead (individual, not team) required
-- `commercial_hypothesis.md` required (ICPs, competitors, willingness-to-pay, kill criteria)
+- `commercial_hypothesis.md` required (target non-SDP ICPs, top 3 competitors, willingness-to-pay range, kill criteria)
 - At least 3 documented customer-discovery interviews before earning `standalone: true`
 - Founder/owner approval required for IIP promotion
 - Permissive license (Apache-2.0 / MIT)
