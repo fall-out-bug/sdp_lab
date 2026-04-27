@@ -263,6 +263,14 @@ issues resolved.
 ## 2026-04-27
 
 ### Commits
+- `8901a89` fix(F150-06): make maturity-tiered coverage gate advisory (non-blocking) (2026-04-27)
+
+### Changed Files
+- `.beads/issues.jsonl`
+
+
+
+### Commits
 - `d13280a` feat(F154): Shared Substrates v1 — semver contracts + SDP-runtime assumption docs (#141) (2026-04-27)
 
 ### Changed Files
