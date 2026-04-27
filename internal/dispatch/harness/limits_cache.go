@@ -124,9 +124,10 @@ func (c *LimitsCache) UpdateFromHeaders(name string, hdrs http.Header) {
 		CheckedAt: time.Now().UTC(),
 	}
 
-	c.cache.Store(name, limits)
-	// Mark when this header-derived data expires
+	// Mark expiry before publishing the header limits so a concurrent poller
+	// cannot overwrite them in the gap between cache and expiry updates.
 	c.expiry.Store(name, time.Now().UTC().Add(c.ttl))
+	c.cache.Store(name, limits)
 }
 
 // parseRateLimitHeaders extracts remaining and limit from standard rate-limit headers.
