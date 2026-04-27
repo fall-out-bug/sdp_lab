@@ -27,6 +27,7 @@ Current execution priority is the remaining UX/runtime lane:
 
 - `F100` — release discipline gates
 - `F149` — product documentation rebaseline for install/setup, feature map, and honest maturity boundaries
+- `F150` — product layering and release readiness: layer taxonomy, release surface, module path, experimental isolation, coverage policy, telemetry consent, and Homebrew formula rehearsal
 - `F106` — real `agentloop` integration into the delivery path
 - `F108` — architecture normalization and missing production gaps
 - `F125` — finish the intent-routed UX migration and close the remaining cutover tail
@@ -99,6 +100,7 @@ The inference quality lane is active and intentionally marked as research/toolin
 The docs/onboarding lane now has a tracked cleanup feature:
 
 - `F149` — product documentation rebaseline: install/setup, feature map, multiple happy paths, and honest maturity boundaries
+- `F150` — product layering and release readiness: split SDP Lab, SDP Toolkit, Operator Mode, ChangePassport, and Enterprise Perimeter into explicit product surfaces before broad Go cleanup
 
 Backlog triage 2026-04-18 (active backlog features are tracked in beads for consistency — search with `bd search FNNN`):
 
