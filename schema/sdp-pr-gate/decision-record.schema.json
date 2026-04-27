@@ -5,9 +5,16 @@
   "description": "Append-only decision record for a ChangePassport passport. Each entry is immutable once written.",
   "type": "object",
   "required": [
-    "decision_id", "passport_id", "schema_version",
-    "decision", "decided_by", "decided_at",
-    "evidence_snapshot_ref", "audit_ref"
+    "decision_id",
+    "passport_id",
+    "schema_version",
+    "decision",
+    "decided_by",
+    "decided_at",
+    "evidence_snapshot_ref",
+    "audit_ref",
+    "reason",
+    "signed_by"
   ],
   "additionalProperties": false,
   "properties": {
@@ -27,7 +34,13 @@
     },
     "decision": {
       "type": "string",
-      "enum": ["merge", "hold", "rework", "escalate", "override"],
+      "enum": [
+        "merge",
+        "hold",
+        "rework",
+        "escalate",
+        "override"
+      ],
       "description": "The readiness decision."
     },
     "decided_by": {
@@ -51,17 +64,29 @@
     },
     "override_detail": {
       "type": "object",
-      "description": "Present only when decision is 'override'.",
-      "required": ["trigger", "original_decision"],
+      "description": "REQUIRED when decision is \"override\". Contains override trigger, original decision, and linkage.",
+      "required": [
+        "trigger",
+        "original_decision",
+        "previous_decision_id"
+      ],
       "properties": {
         "trigger": {
           "type": "string",
-          "enum": ["comment", "api", "manual"],
+          "enum": [
+            "comment",
+            "api",
+            "manual"
+          ],
           "description": "How the override was triggered."
         },
         "original_decision": {
           "type": "string",
-          "enum": ["hold", "rework", "escalate"],
+          "enum": [
+            "hold",
+            "rework",
+            "escalate"
+          ],
           "description": "What the system recommendation was before override."
         },
         "previous_decision_id": {
@@ -74,11 +99,25 @@
     "signed_by": {
       "type": "object",
       "description": "Cryptographic signature for the decision.",
-      "required": ["signer", "algorithm", "signature"],
+      "required": [
+        "signer",
+        "algorithm",
+        "signature"
+      ],
       "properties": {
-        "signer": { "type": "string" },
-        "algorithm": { "type": "string", "enum": ["ed25519", "rsa-pss-256"] },
-        "signature": { "type": "string" }
+        "signer": {
+          "type": "string"
+        },
+        "algorithm": {
+          "type": "string",
+          "enum": [
+            "ed25519",
+            "rsa-pss-256"
+          ]
+        },
+        "signature": {
+          "type": "string"
+        }
       }
     },
     "metadata": {
@@ -89,12 +128,27 @@
   "$defs": {
     "actor": {
       "type": "object",
-      "required": ["id", "type"],
+      "required": [
+        "id",
+        "type"
+      ],
       "properties": {
-        "id": { "type": "string" },
-        "type": { "type": "string", "enum": ["human", "system"] },
-        "name": { "type": "string" },
-        "role": { "type": "string" }
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "human",
+            "system"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        }
       }
     }
   }

@@ -67,7 +67,7 @@ The evidence section is a **summary**, not the full event stream. It lists provi
 
 `collection_status` is the aggregate state: `complete`, `partial`, `degraded`, or `pending`. This is what drives the passport-level assessment.
 
-`evidence_snapshot_ref` is a content-addressable hash pointing to the full evidence bundle. This enables:
+`evidence_snapshot_ref` is a **required** content-addressable hash pointing to the full evidence bundle. Every passport must be bound to a specific evidence snapshot. This enables:
 - Reproducibility: the passport can be regenerated from the snapshot
 - Integrity: hash comparison detects drift
 - Audit: the snapshot is immutable once sealed
@@ -76,7 +76,7 @@ The evidence section is a **summary**, not the full event stream. It lists provi
 
 Each finding has a `status`: `open`, `resolved`, `accepted_risk`, `deferred`, or `false_positive`. The `resolution` object captures who resolved it, when, and why.
 
-Findings reference their source provider, enabling cross-reference with evidence events.
+Findings reference their source provider via `source` (provider identifier) and `external_ref` (provider-native reference ID, not necessarily a URI). This is compatible with evidence-event's `external_ref` field which uses provider-native IDs rather than URIs.
 
 ### Risk
 
@@ -88,7 +88,7 @@ Risk acceptance requires `accepted_by` and `accepted_at`. Unsigned risk is treat
 
 The decision enum is fixed: `merge`, `hold`, `rework`, `escalate`, `override`. No other values are possible.
 
-When `result` is `override`, the `override` object is required with `reason`, `evidence_snapshot_ref`, `audit_ref`, and `trigger` (how the override was initiated).
+When `result` is `override`, the `override` object is required with: `reason`, `evidence_snapshot_ref`, `audit_ref`, `trigger` (how the override was initiated), `original_decision` (what was overridden), and `previous_decision_id` (chain reference to the prior decision). This aligns with the decision-record schema's `override_detail` structure.
 
 `check_status` maps to the GitHub Check status: `ready` → pass, `hold` → action_required, `rework` → failure, `escalate` → neutral.
 

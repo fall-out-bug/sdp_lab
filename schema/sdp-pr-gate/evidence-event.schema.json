@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://sdp.dev/schema/sdp-pr-gate/evidence-event/v1",
   "title": "ChangePassport Evidence Event",
-  "description": "A single evidence event emitted by an external provider into the ChangePassport merge-readiness pipeline. Every provider must emit events conforming to this contract. Ingestion is idempotent: duplicate events (same source + external_ref + commit_sha) are silently accepted.",
+  "description": "Event emitted by an evidence provider for ingestion into sdp-pr-gate. Ingestion is idempotent. Dedup key: source + external_ref + commit_sha. The 14 base required fields match the manifesto contract; error_state is an optional extension for error reporting.",
   "type": "object",
   "required": [
     "schema_version",
@@ -117,7 +117,7 @@
       "type": "string",
       "format": "uri",
       "maxLength": 2048,
-      "description": "URI to the primary artifact produced by this evidence event (e.g., CI logs URL, scanner report URL). Use empty string if no artifact exists."
+      "description": "URI to the artifact produced by this event. Omit or use null when no artifact exists."
     },
     "artifact_hash": {
       "$ref": "#/$defs/artifact_hash",
@@ -131,7 +131,10 @@
   "$defs": {
     "repository": {
       "type": "object",
-      "required": ["id", "url"],
+      "required": [
+        "id",
+        "url"
+      ],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -157,19 +160,30 @@
           "type": "string",
           "maxLength": 64,
           "description": "Platform identifier for the repository host (e.g., 'github', 'gitlab', 'gerrit', 'bitbucket').",
-          "examples": ["github", "gitlab", "gerrit", "bitbucket"]
+          "examples": [
+            "github",
+            "gitlab",
+            "gerrit",
+            "bitbucket"
+          ]
         },
         "branch": {
           "type": "string",
           "maxLength": 256,
           "description": "Target branch for the pull request (base branch).",
-          "examples": ["main", "master", "release/1.0"]
+          "examples": [
+            "main",
+            "master",
+            "release/1.0"
+          ]
         }
       }
     },
     "pull_request": {
       "type": "object",
-      "required": ["id"],
+      "required": [
+        "id"
+      ],
       "additionalProperties": false,
       "properties": {
         "id": {
@@ -177,7 +191,11 @@
           "minLength": 1,
           "maxLength": 256,
           "description": "Pull request identifier. Numeric ID or platform-specific format.",
-          "examples": ["42", "!123", "MR-456"]
+          "examples": [
+            "42",
+            "!123",
+            "MR-456"
+          ]
         },
         "url": {
           "type": "string",
@@ -197,12 +215,20 @@
     },
     "actor": {
       "type": "object",
-      "required": ["type", "id"],
+      "required": [
+        "type",
+        "id"
+      ],
       "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["human", "agent", "system", "tool"],
+          "enum": [
+            "human",
+            "agent",
+            "system",
+            "tool"
+          ],
           "description": "Category of the actor."
         },
         "id": {
@@ -231,14 +257,26 @@
       }
     },
     "artifact_hash": {
-      "type": ["object", "null"],
+      "type": [
+        "object",
+        "null"
+      ],
       "description": "Cryptographic hash of the evidence artifact. Supports multiple algorithms; SHA-256 is required for v1.",
-      "required": ["algorithm", "value"],
+      "required": [
+        "algorithm",
+        "value"
+      ],
       "additionalProperties": false,
       "properties": {
         "algorithm": {
           "type": "string",
-          "enum": ["sha-256", "sha-384", "sha-512", "blake2b-256", "blake2b-512"],
+          "enum": [
+            "sha-256",
+            "sha-384",
+            "sha-512",
+            "blake2b-256",
+            "blake2b-512"
+          ],
           "description": "Hash algorithm used. SHA-256 is the default and required algorithm for v1."
         },
         "value": {
@@ -249,9 +287,15 @@
       }
     },
     "error_state": {
-      "type": ["object", "null"],
+      "type": [
+        "object",
+        "null"
+      ],
       "description": "Error details if evidence collection encountered problems. Null means no error.",
-      "required": ["code", "message"],
+      "required": [
+        "code",
+        "message"
+      ],
       "additionalProperties": false,
       "properties": {
         "code": {

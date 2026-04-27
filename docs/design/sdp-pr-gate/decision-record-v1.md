@@ -51,16 +51,18 @@ Override by a different actor requires `admin` role. Override by the same `decis
 
 ## Required Fields
 
-| Field | Type | Rationale |
-|---|---|---|
-| `decision_id` | UUID | Unique per decision entry |
-| `passport_id` | UUID | Links to the passport this decision is for |
-| `decision` | enum | One of: merge, hold, rework, escalate, override |
-| `decided_by` | actor | Who made the decision (human or system) |
-| `decided_at` | datetime | When the decision was made |
-| `reason` | string | Why this decision was made |
-| `evidence_snapshot_ref` | hash | Evidence state at decision time |
-| `audit_ref` | string | Append-only audit log reference |
+| Field | Type | Required | Rationale |
+|---|---|---|---|
+| `decision_id` | UUID | yes | Unique per decision entry |
+| `passport_id` | UUID | yes | Links to the passport this decision is for |
+| `decision` | enum | yes | One of: merge, hold, rework, escalate, override |
+| `decided_by` | actor | yes | Who made the decision (human or system) |
+| `decided_at` | datetime | yes | When the decision was made |
+| `reason` | string | yes | Why this decision was made. Always required — no decision without accountability. |
+| `evidence_snapshot_ref` | hash | yes | Evidence state at decision time |
+| `audit_ref` | string | yes | Append-only audit log reference |
+| `signed_by` | object | yes | Cryptographic signature. Every persisted decision must be tamper-proof. |
+| `override_detail` | object | conditional | Required when decision is "override". Must include: trigger, original_decision, previous_decision_id. |
 
 ## Override Mechanics
 
