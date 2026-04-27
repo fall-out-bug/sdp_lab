@@ -1,15 +1,20 @@
 # F150 Product Layering And Release Readiness Design
 
-Status: active design
+Status: active design (v2, post-council)
 Owner: Andrei
 Beads epic: `sdplab-nyr0`
 Created: 2026-04-27
+Revised: 2026-04-27 (council R1 + R2)
+Companion memo: [docs/strategy/2026-04-27-sdp-product-layering-4d.md](../strategy/2026-04-27-sdp-product-layering-4d.md)
+Council synthesis: [docs/strategy/council/2026-04-27/synthesis.md](../strategy/council/2026-04-27/synthesis.md)
+
+> **v2 note.** §"AI Fluency 4D Reframe" and §"Layers" below are superseded by the companion memo. This file keeps the executable program plan and the patch trail; the canonical product-layering decision lives in the memo.
 
 ## Cold Start Answers
 
 1. This is platform work, not "use SDP in my project" onboarding.
 2. The owner is `F150` / `sdplab-nyr0`.
-3. Canonical context: `docs/reference/project-map.md`, `docs/reference/product-surface.md`, `docs/reference/maturity-matrix.md`, `docs/MULTI-REPO-WORKFLOW.md`, and the 2026-04-26 ChangePassport / Enterprise Perimeter research documents.
+3. Canonical context: `docs/reference/project-map.md`, `docs/reference/product-surface.md`, `docs/reference/maturity-matrix.md`, `docs/MULTI-REPO-WORKFLOW.md`, the 2026-04-26 ChangePassport / Enterprise research documents, plus the **2026-04-27 layering memo v2** at `docs/strategy/2026-04-27-sdp-product-layering-4d.md` and the **council synthesis** at `docs/strategy/council/2026-04-27/synthesis.md`.
 4. This document is Discovery output. The linked workstreams are Delivery units.
 5. Protocol artifact publishing is not automatic. Publish to the public `sdp` repo only if a later workstream changes `prompts/`, `schema/`, `templates/`, hooks, or harness entrypoints that external users need.
 
@@ -29,159 +34,52 @@ Treating those as one refactor would create a large diff with weak acceptance cr
 
 ## AI Fluency 4D Reframe
 
-### Delegation
+> **Superseded by [companion memo §"AI Fluency 4D Reframing"](../strategy/2026-04-27-sdp-product-layering-4d.md#ai-fluency-4d-reframing).** The memo is the canonical 4D analysis; it covers Delegation, Description, Discernment, and Diligence per surface with council-approved metrics (incl. evidence-mismatch rate replacing hallucination rate).
 
-Delegate the work to narrow lanes:
+Original draft kept for the patch trail:
 
-- product taxonomy and SKU boundaries;
-- release surface inventory;
-- module path migration;
-- experimental build isolation;
-- dependency and duplicate-code audit;
-- coverage policy rebaseline;
-- telemetry consent and OTEL export;
-- Homebrew formula dry run;
-- product-facing documentation;
-- final debt ledger.
-
-### Description
-
-The executable description is not "make the repo cleaner." It is:
-
-> Prepare the selected SDP product surfaces for public installation and evaluation by defining product layers, release boundaries, build scope, coverage policy, telemetry consent, and tracked debt.
-
-### Discernment
-
-Quality is decided through evidence:
-
-- release surface inventory exists before code changes;
-- `go test`, `go vet`, and repo quality gates pass for the selected surface;
-- dependency removals are backed by tests or no-op diffs;
-- coverage thresholds are maturity-specific;
-- telemetry export requires explicit consent;
-- Homebrew formula install/test is exercised locally;
-- deferred work has Beads ownership.
-
-### Diligence
-
-The product cannot hide lab instability. Anything not release-ready must be marked as one of:
-
-- stable product surface;
-- operator tooling;
-- lab-only experiment;
-- future product candidate;
-- retired or archived.
+- **Delegation** lanes: taxonomy, release surface, module path migration, experimental isolation, dependency audit, coverage policy, telemetry consent, Homebrew dry run, product docs, debt ledger. → Memo expands per surface.
+- **Description**: prepare selected SDP surfaces for public installation/evaluation by defining layers, boundaries, build scope, coverage, telemetry, debt. → Memo locks internal namespaces (`sdp-pr-gate`, `sdp-edg-*`, `sdp-operator-*`, `sdp-{evidence,policy,modelgw,context,eval}-core`).
+- **Discernment**: evidence-driven gates for tests, dependencies, coverage, telemetry, Homebrew. → Memo adds package-level isolation lint, AGENTS.md ≤60 cascade lint, evidence-mismatch metric for governance surfaces.
+- **Diligence**: every non-release-ready surface labeled `experimental | beta | ga | retired`. → Memo adds `extractable: yes/no` annotation and per-surface owner / audit / debt protocol.
 
 ## Product Layering Decision
 
-The answer is not a pure matryoshka and not a set of unrelated products.
+> **Superseded by [companion memo §"Revised Layer Taxonomy (v2)"](../strategy/2026-04-27-sdp-product-layering-4d.md#revised-layer-taxonomy-v2).** The memo is the canonical taxonomy. Summary below for the patch trail.
 
-The correct model is:
+The model: **parallel product surfaces over shared technical substrates, with strict dependency rules**, plus an explicit subordinate Toolbox tier and a stateful Operator Mode that is the default Toolkit Happy Path.
 
-> parallel product surfaces over shared technical substrates, with strict dependency rules.
+## Layers (summary; canonical version in memo)
 
-Product buyers see separate offers. Engineers maintain shared core packages where reuse is real and versioned.
+The 7-row v2 taxonomy:
 
-## Layers
+1. **SDP Lab** — research and platform workspace; never a customer runtime dependency.
+2. **SDP Toolbox** *(NEW row, council-renamed from "Standalone Tools")* — subordinate freemium acquisition collection (`sdp-toolbox-*`); single-purpose utilities under SDP brand. Promotion to a separate product category requires ≥2 external consumers + distinct ICP. Memo §"SDP Toolbox" defines the lifecycle.
+3. **SDP Toolkit** — installable developer surface (`sdp` CLI, multi-harness install, adapter generation, `scout`, `metrics`, `index`, `spec`, `bootstrap`, manifest doctor). Useful without ChangePassport, Operator Mode, EDG, or local model routing.
+4. **Operator Mode** *(council-reframed)* — default Toolkit Happy Path embodying governed delivery; stateful orchestration layer (`sdp-operator-*`); not a separate paid SKU now, but **provisional pricing hypothesis required before any pilot**, plus an explicit re-evaluation trigger (3+ buyers in isolation, compliance-only buyer, etc.).
+5. **ChangePassport (display) / `sdp-pr-gate` (internal namespace, locked)** — merge-readiness product. Schema v1, Evidence Provider API v1, Decision Record v1, override protocol, GitHub PR Gate Loop v1. Paid object: governed readiness decision + override trail + reviewer-readable passport. **Implementation gated on committed pilot.**
+6. **Enterprise Delivery Governance** *(council-renamed; was "Enterprise Perimeter Control Plane")* — enterprise-grade governed delivery control plane (`sdp-edg-*` reserved); hypothesis; out of F150 scope. The new name avoids "Perimeter" mispositioning against AppSec.
+7. **Shared Substrates** — versioned semver packages: `sdp-evidence-core`, `sdp-policy-core`, `sdp-modelgw-core`, `sdp-context-core`, `sdp-eval-core`. Promotion requires docs, tests, owner, maturity label, release contract.
 
-### 1. SDP Lab
+Dependency-rule highlights (memo holds the full table):
 
-Role: research and platform workspace.
-
-Owns:
-
-- experimental Go binaries;
-- inference research;
-- agentloop experiments;
-- internal operator tooling;
-- protocol proposals;
-- workstreams, Beads, evals, and dogfood artifacts.
-
-Rule: `sdp_lab` is never a customer runtime dependency for ChangePassport or the Enterprise Perimeter product. It can feed them as an evidence provider or reference implementation.
-
-### 2. SDP Toolkit
-
-Role: installable developer/toolkit surface.
-
-Primary distribution target for the first Homebrew formula.
-
-Owns:
-
-- `sdp` CLI;
-- multi-harness install and adapter generation;
-- `scout`, `metrics`, `index`, `spec`, `bootstrap`;
-- manifest validation and adapter doctor commands;
-- low-risk read-only adoption path.
-
-Rule: this layer must be useful without ChangePassport, agentloop, enterprise deployment, or local model routing.
-
-### 3. SDP Operator Mode
-
-Role: queue-backed delivery workflow for teams that want Beads, workstreams, evidence, and QA/UAT.
-
-Owns:
-
-- `sdp-orchestrate`;
-- `sdp-ready`;
-- `sdp-ci-loop`;
-- workstream and evidence gates;
-- findings loop.
-
-Rule: operator mode may remain advanced tooling. It should not block Toolkit install or first-run UX.
-
-### 4. ChangePassport
-
-Role: merge-readiness product.
-
-Owns:
-
-- Passport Schema v1;
-- Evidence Provider API v1;
-- Decision Record v1;
-- override protocol;
-- Markdown and JSON passport renderers;
-- GitHub PR Gate Loop v1.
-
-Rule: ChangePassport may consume SDP evidence, but it must run without `sdp_lab`. Its paid object is the governed readiness decision, not a report.
-
-### 5. Enterprise Perimeter Delivery Control Plane
-
-Role: enterprise on-prem / private-cloud control layer for AI-assisted software delivery.
-
-Owns:
-
-- model gateway and provider allowlist;
-- local/sovereign model routing;
-- context compiler;
-- evidence provider mesh;
-- audit policy;
-- OTEL and local observability;
-- deployment blueprints.
-
-Rule: this is not "local Copilot." It packages governed delivery inside an enterprise perimeter. First wedge should be MR readiness plus ChangePassport for GitLab Self-Managed, not autonomous feature delivery.
-
-### 6. Shared Substrates
-
-These are technical assets, not products by themselves:
-
-- evidence and policy primitives;
-- telemetry schema and local trace storage;
-- model gateway and inference cascade primitives;
-- manifest and adapter registry;
-- common CLI helpers;
-- eval harness.
-
-Rule: shared substrates must not leak lab instability into product surfaces. A substrate becomes product-facing only after it has docs, tests, owner, maturity label, and release contract.
+- **Toolbox** must NOT import `internal/sdp-pr-gate/`, `internal/sdp-operator/`, or `internal/sdp-edg/`.
+- **`sdp-pr-gate`** must NOT import `sdp_lab` workstreams, Beads, lab-only binaries.
+- **EDG** must NOT depend on unversioned lab experiments.
+- **Package-level isolation lint** (council-added) enforces these now even though physical repo split is deferred.
 
 ## Dependency Rules
 
 | Product surface | May depend on | Must not depend on |
 |---|---|---|
-| SDP Toolkit | stable CLI helpers, manifest/adapters, read-only analysis packages | operator Beads workflow, ChangePassport, enterprise runtime |
-| SDP Operator Mode | Toolkit primitives, Beads, evidence, workstreams | ChangePassport product schema as a hard dependency |
-| ChangePassport | evidence provider contracts, Git provider adapters, renderer, decision store | `sdp_lab` workstreams, Beads, lab-only binaries |
-| Enterprise Perimeter Control Plane | ChangePassport, model gateway, telemetry, deployment blueprints | unversioned lab experiments |
+| SDP Toolbox | `internal/sdp-toolkit-core/*`, Shared Substrates at pinned semver | `internal/sdp-pr-gate/*`, `internal/sdp-operator/*`, `internal/sdp-edg/*` |
+| SDP Toolkit | stable CLI helpers, manifest/adapters, read-only analysis packages | operator Beads workflow, `sdp-pr-gate`, EDG runtime |
+| Operator Mode | Toolkit primitives, Beads, evidence, workstreams | `sdp-pr-gate` product schema as a hard dependency |
+| `sdp-pr-gate` (ChangePassport) | evidence provider contracts, Git provider adapters, renderer, decision store | `sdp_lab` workstreams, Beads, lab-only binaries |
+| Enterprise Delivery Governance | `sdp-pr-gate`, model gateway, telemetry, deployment blueprints | unversioned lab experiments |
 | SDP Lab | everything experimental | customer-facing stability claims |
+
+**Council-added: package-level isolation lint** — a CI check (in WS 00-150-04) forbids cross-imports between `internal/sdp-pr-gate/`, `internal/sdp-operator/`, and `internal/sdp-toolkit-core/` (one-way only: Toolkit-core may be imported by others, never the reverse). This makes the future repo split mechanical (`git filter-repo`-grade) without forcing it now.
 
 ## Release Surface Policy
 
@@ -254,39 +152,56 @@ Export requires:
 
 ## Execution Plan
 
-| WS | Purpose | First useful output |
-|---|---|---|
-| 00-150-01 | product layering and SKU boundary | this design + registered workstreams |
-| 00-150-02 | release surface inventory | keep/exclude matrix for CLI/packages |
-| 00-150-03 | module path migration | `sdp_dev` removed from active Go imports |
-| 00-150-04 | experimental isolation | release build excludes lab-only code |
-| 00-150-05 | dependency and duplicate audit | concrete removals or filed debt |
-| 00-150-06 | coverage policy | maturity-aligned checks/docs |
-| 00-150-07 | telemetry consent/OTEL | opt-in export contract |
-| 00-150-08 | Homebrew formula dry run | local formula install/test evidence |
-| 00-150-09 | product docs alignment | README/product-surface match layers |
-| 00-150-10 | readiness report | shipped/blocked/deferred ledger |
+No renumbering. Council added explicit acceptance hints to several lanes.
+
+| WS | Purpose | First useful output | Council acceptance hint (v2) |
+|---|---|---|---|
+| 00-150-01 | product layering and SKU boundary | this design + memo v2 + synthesis | satisfied by memo v2 + synthesis |
+| 00-150-02 | release surface inventory | keep/exclude matrix for CLI/packages | + SDP Toolbox registry: every standalone-utility module with `extractable` flag and 60-line AGENTS.md |
+| 00-150-03 | module path migration | `sdp_dev` removed from active Go imports | + AGENTS.md cascade migration subtask: root reduced ≥20% (606 → ≤480), ≥5 modules ≤60 lines, incremental CI lint warn-only |
+| 00-150-04 | experimental isolation | release build excludes lab-only code | + package-level isolation lint between `internal/sdp-pr-gate/`, `internal/sdp-operator/`, `internal/sdp-toolkit-core/` |
+| 00-150-05 | dependency and duplicate audit | concrete removals or filed debt | unchanged |
+| 00-150-06 | coverage policy | maturity-aligned checks/docs | unchanged |
+| 00-150-07 | telemetry consent/OTEL | opt-in export contract | unchanged |
+| 00-150-08 | Homebrew formula dry run | local formula install/test evidence | unchanged |
+| 00-150-09 | product docs alignment | README/product-surface match layers | + surface Operator Mode as default Happy Path; consume outputs of WS-02 / WS-03 |
+| 00-150-10 | readiness report | shipped/blocked/deferred ledger | + record internal-namespace lock status and isolation-lint status |
 
 ## Non-goals
 
 - Release a tagged version in this workstream.
 - Publish to the public `sdp` repo before relevant PRs merge.
-- Build a full ChangePassport implementation before Schema/API v1 are locked.
-- Build the Enterprise Perimeter Control Plane before the product boundary is stable.
+- Build a full `sdp-pr-gate` (ChangePassport) implementation before Schema/API v1 are locked.
+- Build any Enterprise Delivery Governance component (renamed from "Enterprise Perimeter") before the product boundary is stable.
 - Delete experimental code as a shortcut.
+- Ship `ChangePassport` to external pilots before Schema v1 + a committed pilot land *(council-added)*.
+- Make Standalone Tools / Toolbox a parallel paid product category before promotion criteria are met *(council-added)*.
 
-## Open Decisions
+## Open Decisions (post-council)
 
-1. Whether ChangePassport lives in this repo initially or starts as a separate repo when Schema/API v1 begins.
-2. Whether Homebrew installs only `sdp` or also selected helper binaries.
-3. Whether `sdp_lab` remains the long-term Go module path or only a transitional module path before a product repo split.
-4. Whether release builds should use build tags or GoReleaser allowlists as the primary isolation mechanism.
+1. **(KEPT)** Whether ChangePassport / `sdp-pr-gate` lives in this repo initially or starts as a separate repo when Schema/API v1 begins. **Criterion:** split when Schema v1 + Evidence Provider API v1 + Decision Record v1 freeze AND first committed pilot lands. Package-level isolation enforced from F150 makes the split mechanical.
+2. **(RESOLVED)** Homebrew scope: helpers via opt-in formula tap or build tag, **not default**. Defer details to F150-08.
+3. **(KEPT)** Long-term Go module path: stay on `github.com/fall-out-bug/sdp_lab` until repo-split events occur (per #1 and Toolbox extractions per memo §"SDP Toolbox").
+4. **(RESOLVED)** Release isolation: GoReleaser allowlists are primary; build tags only for compile isolation when import boundaries cannot enforce.
+
+Council-added open items (tracked outside F150, see memo §"Open Items"):
+
+5. Pricing model and willingness-to-pay hypothesis for `sdp-pr-gate` and Operator Mode.
+6. SDP brand architecture artifact across Toolkit / Toolbox / ChangePassport / EDG.
+7. Evidence persistence architecture decision (storage backend, retention, backup, privacy).
+8. Procurement/compliance install profile for dev-led-to-manager-paid path.
+9. Competitive positioning artifact vs Copilot Workspace, CodeRabbit, GitLab Duo.
 
 ## Success Criteria
 
-- Product layers are understandable without reading historical plans.
+- Product layers are understandable without reading historical plans (canonical taxonomy lives in companion memo v2).
 - A user can install the first formula without receiving lab-only commands as a product promise.
 - Active Go imports no longer use `sdp_dev`.
 - Experimental code is isolated from stable release builds.
 - Telemetry export is impossible without explicit consent.
 - Remaining debt is in Beads with owners and not hidden in prose.
+- **Internal namespaces locked** *(council-added)*: `sdp-pr-gate`, `sdp-operator-*`, `sdp-edg-*` reserved across packages, env vars, schemas; display name `ChangePassport` decoupled.
+- **Package-level isolation lint green** *(council-added)*: no cross-imports between `internal/sdp-pr-gate/`, `internal/sdp-operator/`, `internal/sdp-toolkit-core/` (except declared one-way Toolkit-core → others).
+- **Cascade AGENTS.md migration started** *(council-added)*: root reduced ≥20% (606 → ≤480 lines); at least one module under 60 lines per layer (Toolkit / Operator / Toolbox / substrate); incremental CI lint warn-only enabled.
+- **Public docs surface Operator Mode as default Happy Path** *(council-added)*: `product-surface.md` and README align with memo v2 reframing.
+- **Hallucination metric replaced** *(council-added)*: `evidence-mismatch rate` is the governance-decision accuracy metric for `sdp-pr-gate`. Pilot vs GA targets explicitly split in docs.
