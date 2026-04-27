@@ -56,18 +56,10 @@ type TraceValidator interface {
 
 // IngestContract documents the v1 ingestion contract.
 //
-// Idempotency: Evidence ingestion is idempotent by runID+subject digest.
-// Re-ingesting the same (runID, subject) combination replaces the previous
-// evidence file without side effects.
-//
-// At-most-once: Cryptographic signing operations are at-most-once per runID.
-// Attempting to sign the same runID twice should be rejected or detected as
-// a duplicate. This prevents split-brain scenarios where multiple actors claim
-// the same run.
-//
-// Collision handling: If two agents attempt to ingest for the same runID,
-// the last write wins based on filesystem timestamp. Implementations should
-// validate that runID is unique per workspace before signing.
+// Ingestion replaces the previous evidence file for the same runID.
+// Signing is at-most-once: re-signing the same runID is rejected to
+// prevent split-brain scenarios. Callers MUST ensure runID uniqueness
+// per workspace before signing; the substrate does not enforce this.
 type IngestContract struct {
 	// RunID uniquely identifies this execution across all evidence
 	RunID string
@@ -81,22 +73,10 @@ type IngestContract struct {
 
 // RenderContract documents the v1 rendering contract.
 //
-// Serialization format: All CodingWorkflowStatement payloads MUST be serialized
-// as canonical JSON (json.Marshal with indentation). Binary formats are not
-// supported in v1.
-//
-// Statement type header: Every attestation MUST include the in-toto StatementHeader
-// with Type = "https://in-toto.io/Statement/v1" and PredicateType set to the
-// CodingWorkflow predicate type. Legacy formats without these headers are accepted
-// for backward compatibility but will not be emitted.
-//
-// Digest algorithm: SHA-256 is the only supported hash algorithm for subject
-// digests, prompt_hash, context_source hashes, and payload digests. Other algorithms
-// are rejected during validation.
-//
-// Rendered output: The primary rendering format is JSON files on disk at
-// .sdp/evidence/{prefix}{runID}.json. Console output uses human-readable
-// text summaries. HTML and other formats are not supported in v1.
+// Serialization: json.Marshal (no custom canonicalization in v1).
+// The StatementHeader with Type and PredicateType is required on every attestation.
+// SHA-256 is the only supported digest algorithm. Output is JSON files at
+// .sdp/evidence/{prefix}{runID}.json.
 type RenderContract struct {
 	// Format is always "json" for v1
 	Format string

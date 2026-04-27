@@ -111,8 +111,8 @@ type CostEnvelope struct {
 	// until the daily window resets.
 	MaxTokensPerDay int
 
-	// CostPerToken is the cost multiplier in USD per 1K tokens.
-	// Used to calculate actual spend against MaxCostPerToken in RoutingConstraints.
+	// CostPerToken is the cost in USD per single token.
+	// Multiply by token count to compute actual spend.
 	CostPerToken float64
 }
 
