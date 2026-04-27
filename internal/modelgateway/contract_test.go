@@ -16,18 +16,18 @@ var _ CredentialManagerV1 = (*CredentialManager)(nil)
 // contractMockProvider implements ProviderV1 for contract tests.
 type contractMockProvider struct{}
 
-func (m *contractMockProvider) ID() ProviderID                                      { return "test" }
+func (m *contractMockProvider) ID() ProviderID { return "test" }
 func (m *contractMockProvider) Chat(_ context.Context, _ *ChatRequest) (*ChatResponse, error) {
 	return &ChatResponse{}, nil
 }
-func (m *contractMockProvider) Capabilities() ModelCapabilities { return ModelCapabilities{} }
-func (m *contractMockProvider) IsAvailable(_ context.Context) bool { return true }
+func (m *contractMockProvider) Capabilities() ModelCapabilities      { return ModelCapabilities{} }
+func (m *contractMockProvider) IsAvailable(_ context.Context) bool   { return true }
 func (m *contractMockProvider) ValidateRequest(_ *ChatRequest) error { return nil }
 
 // contractMockRouter implements RouterV1 for contract tests.
 type contractMockRouter struct{}
 
-func (m *contractMockRouter) Route(_ *ChatRequest) (Provider, error)               { return nil, nil }
+func (m *contractMockRouter) Route(_ *ChatRequest) (Provider, error) { return nil, nil }
 func (m *contractMockRouter) Chat(_ context.Context, _ *ChatRequest) (*ChatResponse, error) {
 	return &ChatResponse{}, nil
 }

@@ -86,11 +86,11 @@ type EvaluationContract struct {
 // DefaultEvaluationContract returns the standard v1 evaluation contract
 func DefaultEvaluationContract() EvaluationContract {
 	return EvaluationContract{
-		Version:              ContractVersion,
+		Version:               ContractVersion,
 		DeterministicOrdering: true,
-		ShortCircuitDeny:     true,
-		OverrideHooksEnabled: true,
-		AuditTrailEnabled:    true,
+		ShortCircuitDeny:      true,
+		OverrideHooksEnabled:  true,
+		AuditTrailEnabled:     true,
 	}
 }
 

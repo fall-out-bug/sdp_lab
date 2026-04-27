@@ -41,28 +41,28 @@ type BaselineComparison struct {
 
 // ComparisonDetail shows the status change for a single case.
 type ComparisonDetail struct {
-	Case        string // Case name
-	CurrentPass bool   // Current run pass status
-	BaselinePass bool  // Baseline run pass status
-	Delta       string // Description of change (e.g., "PASS → FAIL")
+	Case         string // Case name
+	CurrentPass  bool   // Current run pass status
+	BaselinePass bool   // Baseline run pass status
+	Delta        string // Description of change (e.g., "PASS → FAIL")
 }
 
 // ScoreboardEntry records a single evaluation run's metrics.
 type ScoreboardEntry struct {
-	RunID        string    // Unique identifier for this run
-	Timestamp    time.Time // When the run was recorded
-	TotalCases   int       // Total number of cases in the run
-	PassedCases  int       // Number of cases that passed
-	PassRate     float64   // Percentage of passed cases (0.0-100.0)
-	Regressions  int       // Number of regressions vs baseline (if available)
+	RunID       string    // Unique identifier for this run
+	Timestamp   time.Time // When the run was recorded
+	TotalCases  int       // Total number of cases in the run
+	PassedCases int       // Number of cases that passed
+	PassRate    float64   // Percentage of passed cases (0.0-100.0)
+	Regressions int       // Number of regressions vs baseline (if available)
 }
 
 // MismatchMetric quantifies evidence-mismatch rate in governance decisions.
 // This replaces the hallucination rate metric per IIP council decision.
 type MismatchMetric struct {
-	TotalDecisions       int     // Total governance decisions evaluated
-	EvidenceMismatchCount int    // Decisions with mismatched evidence
-	MismatchRate         float64 // Evidence-mismatch rate (0.0-1.0)
+	TotalDecisions        int     // Total governance decisions evaluated
+	EvidenceMismatchCount int     // Decisions with mismatched evidence
+	MismatchRate          float64 // Evidence-mismatch rate (0.0-1.0)
 }
 
 // EvaluationContract documents the core evaluation semantics.

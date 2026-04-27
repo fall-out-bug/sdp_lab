@@ -1,12 +1,12 @@
 # SDP Runtime Assumptions — sdp-context-core v1
 
-**Package**: `internal/context/` (package `sdpcontext`)  
-**Contract**: v1.0.0  
+**Package**: `internal/context/` (package `sdpcontext`)
+**Contract**: v1.0.0
 **Module**: `sdp_dev`
 
 ## Context Objects
 
-**Primary output**: `RepoMap` — complete repository structure for SDP runtime.  
+**Primary output**: `RepoMap` — complete repository structure for SDP runtime.
 **Secondary**: `DiffResult` — change-aware retrieval for incremental processing.
 
 ## Environment Requirements
@@ -23,7 +23,7 @@
 
 ## Dependencies
 
-**No internal SDP dependencies** — this is a leaf substrate package.  
+**No internal SDP dependencies** — this is a leaf substrate package.
 Imports only: Go stdlib (`context`, `time`).
 
 ## Version Control

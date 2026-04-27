@@ -72,20 +72,20 @@ type FileEntry struct {
 
 // DiffResult represents the complete diff between two refs.
 type DiffResult struct {
-	Base  string                 // Base commit/ref
-	Head  string                 // Head commit/ref
-	Files []string               // Changed file paths
-	Hunks map[string][]DiffHunk  // Hunks per file
-	Stats DiffStats              // Aggregated statistics
+	Base  string                // Base commit/ref
+	Head  string                // Head commit/ref
+	Files []string              // Changed file paths
+	Hunks map[string][]DiffHunk // Hunks per file
+	Stats DiffStats             // Aggregated statistics
 }
 
 // DiffHunk represents a contiguous change section within a file.
 type DiffHunk struct {
-	File     string // File path (redundant with parent map key)
-	StartLine int   // 1-based start line in original file
-	EndLine   int   // 1-based end line in original file
-	Added     int   // Lines added in this hunk
-	Removed   int   // Lines removed in this hunk
+	File      string // File path (redundant with parent map key)
+	StartLine int    // 1-based start line in original file
+	EndLine   int    // 1-based end line in original file
+	Added     int    // Lines added in this hunk
+	Removed   int    // Lines removed in this hunk
 	Content   string // Raw diff content for this hunk
 }
 
@@ -98,10 +98,10 @@ type DiffStats struct {
 
 // PromptBudget represents token allocation configuration.
 type PromptBudget struct {
-	TotalTokens    int     // Total budget for the model
-	ContextPct     float64 // Percentage reserved for injected context (0.0-1.0)
-	AllocatedTokens int    // Tokens currently allocated
-	Model          string  // Model identifier (e.g., "gpt-4", "claude-opus")
+	TotalTokens     int     // Total budget for the model
+	ContextPct      float64 // Percentage reserved for injected context (0.0-1.0)
+	AllocatedTokens int     // Tokens currently allocated
+	Model           string  // Model identifier (e.g., "gpt-4", "claude-opus")
 }
 
 // PromptLayer represents a single prompt section for budgeting.

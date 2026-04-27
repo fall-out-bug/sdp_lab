@@ -26,13 +26,20 @@ func TestV1InterfaceCompileTimeChecks(t *testing.T) {
 
 // Adapter types for compile-time interface compliance verification.
 type caseRunnerAdapter struct{}
+
 func (caseRunnerAdapter) RunCase(c *Case, projectRoot string) Result { return RunCase(c, projectRoot) }
 
 type suiteRunnerAdapter struct{}
-func (suiteRunnerAdapter) Run(projectRoot, casesDir, skill string) ([]Result, error) { return Run(projectRoot, casesDir, skill) }
+
+func (suiteRunnerAdapter) Run(projectRoot, casesDir, skill string) ([]Result, error) {
+	return Run(projectRoot, casesDir, skill)
+}
 
 type caseLoaderAdapter struct{}
-func (caseLoaderAdapter) LoadCases(casesDir, skill string) ([]Case, error) { return LoadCases(casesDir, skill) }
+
+func (caseLoaderAdapter) LoadCases(casesDir, skill string) ([]Case, error) {
+	return LoadCases(casesDir, skill)
+}
 
 // TestBaselineComparisonStructFields verifies BaselineComparison structure.
 func TestBaselineComparisonStructFields(t *testing.T) {
@@ -143,33 +150,33 @@ func TestMismatchMetricContractDocumentation(t *testing.T) {
 // TestComparisonDetailDeltaGeneration tests Delta field formatting.
 func TestComparisonDetailDeltaGeneration(t *testing.T) {
 	tests := []struct {
-		name         string
-		currentPass  bool
-		baselinePass bool
+		name          string
+		currentPass   bool
+		baselinePass  bool
 		expectedDelta string
 	}{
 		{
-			name:         "improvement",
-			currentPass:  true,
-			baselinePass: false,
+			name:          "improvement",
+			currentPass:   true,
+			baselinePass:  false,
 			expectedDelta: "FAIL → PASS",
 		},
 		{
-			name:         "regression",
-			currentPass:  false,
-			baselinePass: true,
+			name:          "regression",
+			currentPass:   false,
+			baselinePass:  true,
 			expectedDelta: "PASS → FAIL",
 		},
 		{
-			name:         "unchanged pass",
-			currentPass:  true,
-			baselinePass: true,
+			name:          "unchanged pass",
+			currentPass:   true,
+			baselinePass:  true,
 			expectedDelta: "PASS → PASS",
 		},
 		{
-			name:         "unchanged fail",
-			currentPass:  false,
-			baselinePass: false,
+			name:          "unchanged fail",
+			currentPass:   false,
+			baselinePass:  false,
 			expectedDelta: "FAIL → FAIL",
 		},
 	}

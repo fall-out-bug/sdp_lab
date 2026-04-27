@@ -47,7 +47,7 @@ func (m *mockDiffRetriever) Hunks(file string) []DiffHunk {
 
 // mockPromptBudgeter satisfies PromptBudgeter interface.
 type mockPromptBudgeter struct {
-	budget   int
+	budget    int
 	allocated int
 }
 
@@ -142,7 +142,7 @@ func TestDiffResultFields(t *testing.T) {
 		Hunks: map[string][]DiffHunk{
 			"main.go": {
 				{
-					File:     "main.go",
+					File:      "main.go",
 					StartLine: 10,
 					EndLine:   20,
 					Added:     5,
@@ -263,43 +263,43 @@ func TestCacheKeyValidate(t *testing.T) {
 // TestStructFieldReflection verifies struct fields via reflection.
 func TestStructFieldReflection(t *testing.T) {
 	tests := []struct {
-		name     string
-		typ      reflect.Type
-		fields   []string
+		name   string
+		typ    reflect.Type
+		fields []string
 	}{
 		{
-			name: "RepoMap",
-			typ:  reflect.TypeOf(RepoMap{}),
+			name:   "RepoMap",
+			typ:    reflect.TypeOf(RepoMap{}),
 			fields: []string{"Root", "Files", "TotalFiles", "TotalLines", "LanguageBreakdown", "Metadata"},
 		},
 		{
-			name: "FileEntry",
-			typ:  reflect.TypeOf(FileEntry{}),
+			name:   "FileEntry",
+			typ:    reflect.TypeOf(FileEntry{}),
 			fields: []string{"Path", "Language", "Lines", "Hash", "LastModified"},
 		},
 		{
-			name: "DiffResult",
-			typ:  reflect.TypeOf(DiffResult{}),
+			name:   "DiffResult",
+			typ:    reflect.TypeOf(DiffResult{}),
 			fields: []string{"Base", "Head", "Files", "Hunks", "Stats"},
 		},
 		{
-			name: "DiffHunk",
-			typ:  reflect.TypeOf(DiffHunk{}),
+			name:   "DiffHunk",
+			typ:    reflect.TypeOf(DiffHunk{}),
 			fields: []string{"File", "StartLine", "EndLine", "Added", "Removed", "Content"},
 		},
 		{
-			name: "DiffStats",
-			typ:  reflect.TypeOf(DiffStats{}),
+			name:   "DiffStats",
+			typ:    reflect.TypeOf(DiffStats{}),
 			fields: []string{"FilesChanged", "LinesAdded", "LinesRemoved"},
 		},
 		{
-			name: "PromptBudget",
-			typ:  reflect.TypeOf(PromptBudget{}),
+			name:   "PromptBudget",
+			typ:    reflect.TypeOf(PromptBudget{}),
 			fields: []string{"TotalTokens", "ContextPct", "AllocatedTokens", "Model"},
 		},
 		{
-			name: "PromptLayer",
-			typ:  reflect.TypeOf(PromptLayer{}),
+			name:   "PromptLayer",
+			typ:    reflect.TypeOf(PromptLayer{}),
 			fields: []string{"Name", "Content", "Tokens"},
 		},
 	}
@@ -326,9 +326,9 @@ func TestContractDocStructs(t *testing.T) {
 	}
 
 	_ = CacheContract{
-		HashAlgorithm:       "SHA-256",
-		InputSorting:        true,
+		HashAlgorithm:        "SHA-256",
+		InputSorting:         true,
 		InvalidationTriggers: []string{"file-change", "config-change"},
-		KeyEncoding:         "hex",
+		KeyEncoding:          "hex",
 	}
 }

@@ -249,8 +249,8 @@ func TestEvaluateEvidenceGate(t *testing.T) {
 	input := EvidenceInput{
 		Attestation: attestation,
 		DiscrepancyReport: evidence.DiscrepancyReport{
-			RunID:        "test-run",
-			OK:           true,
+			RunID:         "test-run",
+			OK:            true,
 			Discrepancies: []evidence.Discrepancy{},
 		},
 		GateConfig: GateConfig{
