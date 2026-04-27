@@ -55,6 +55,50 @@ issues resolved.
 ## 2026-04-26
 
 ### Commits
+- `193e33d` fix: Claude Code subagent tools format (lowercase object → comma-string) (#132) (2026-04-26)
+
+### Changed Files
+- `.claude/agents/architect.md`
+- `.claude/agents/deployer.md`
+- `.claude/agents/devops.md`
+- `.claude/agents/implementer.md`
+- `.claude/agents/orchestrator.md`
+- `.claude/agents/planner.md`
+- `.claude/agents/qa.md`
+- `.claude/agents/reviewer.md`
+- `.claude/agents/security.md`
+- `.claude/agents/spec-reviewer.md`
+- `.claude/agents/sre.md`
+- `.claude/agents/tech-lead.md`
+- `.sdp/generated/.claude/agents/architect.md`
+- `.sdp/generated/.claude/agents/deployer.md`
+- `.sdp/generated/.claude/agents/devops.md`
+- `.sdp/generated/.claude/agents/implementer.md`
+- `.sdp/generated/.claude/agents/orchestrator.md`
+- `.sdp/generated/.claude/agents/planner.md`
+- `.sdp/generated/.claude/agents/qa.md`
+- `.sdp/generated/.claude/agents/reviewer.md`
+- `.sdp/generated/.claude/agents/security.md`
+- `.sdp/generated/.claude/agents/spec-reviewer.md`
+- `.sdp/generated/.claude/agents/sre.md`
+- `.sdp/generated/.claude/agents/tech-lead.md`
+- `prompts/agents/README.md`
+- `prompts/agents/architect.md`
+- `prompts/agents/deployer.md`
+- `prompts/agents/devops.md`
+- `prompts/agents/implementer.md`
+- `prompts/agents/orchestrator.md`
+- `prompts/agents/planner.md`
+- `prompts/agents/qa.md`
+- `prompts/agents/reviewer.md`
+- `prompts/agents/security.md`
+- `prompts/agents/spec-reviewer.md`
+- `prompts/agents/sre.md`
+- `prompts/agents/tech-lead.md`
+
+
+
+### Commits
 - `b5b77ad` merge: mark PR 131 squash merge (2026-04-26)
 
 ### Changed Files
@@ -215,4 +259,12 @@ issues resolved.
 - `internal/spec/sla_extract.go`
 - `internal/spec/spec.go`
 - `tests/architect/classify_test.go`
+
+## 2026-04-27
+
+### Commits
+- `7adbae1` chore(beads): close F145 children + epic (14 WS + sdplab-ldmq) (2026-04-27)
+
+### Changed Files
+- `.beads/interactions.jsonl`
 

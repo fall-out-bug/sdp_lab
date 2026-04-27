@@ -2,6 +2,7 @@ package dispatch
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"sdp_dev/internal/dispatch/harness"
@@ -231,6 +232,114 @@ func TestRouter_ColdStart_DefaultStrategy(t *testing.T) {
 	}
 	if !contains(dec.Reason, "cold-start: capability-heuristic") {
 		t.Errorf("expected default strategy in reason, got %q", dec.Reason)
+	}
+}
+
+// stubMicroRouter is a test double for MicroRouter.
+type stubMicroRouter struct {
+	hint      string
+	confident bool
+	calls     int
+}
+
+func (s *stubMicroRouter) SuggestCapability(_ context.Context, _, _ string) (string, bool) {
+	s.calls++
+	return s.hint, s.confident
+}
+
+// TestRouter_ColdStart_MicroRouterNil verifies that when MicroRouter=nil, applyColdStart
+// behaves identically to the pre-F147 implementation (capability-heuristic by default).
+func TestRouter_ColdStart_MicroRouterNil(t *testing.T) {
+	diverseProfile := makeProfile("diverse-harness", "prov-a", "model-a", map[string]CapabilityScore{
+		"feature:go": {TestPassRate: 0.90},
+		"bugfix:go":  {TestPassRate: 0.80},
+	})
+	emptyProfile := makeProfile("empty-harness", "prov-b", "model-b", nil)
+
+	router := &Router{
+		Profiles:          []*CapabilityProfile{emptyProfile, diverseProfile},
+		ColdStartStrategy: ColdStartCapabilityHeuristic,
+		MicroRouter:       nil, // explicitly nil — backward-compat
+	}
+
+	task := TaskClassification{TaskType: "unknown-type", Language: "go"}
+	dec, err := router.Route(context.Background(), task, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if dec.Harness != "diverse-harness" {
+		t.Errorf("expected diverse-harness, got %q", dec.Harness)
+	}
+	if !dec.ColdStart {
+		t.Error("expected ColdStart=true")
+	}
+	// Score should reflect the capability heuristic (not a micro override of 0.9).
+	// diverse profile avgPassRate = (0.90+0.80)/2 = 0.85
+	const wantScore = 0.85
+	if math.Abs(dec.Score-wantScore) > 1e-9 {
+		t.Errorf("expected score ~0.85 (capability heuristic), got %v", dec.Score)
+	}
+}
+
+// TestRouter_ColdStart_MicroRouterConfident verifies that when MicroRouter returns
+// a confident hint and a profile HasCapability, that profile gets score 0.9.
+func TestRouter_ColdStart_MicroRouterConfident(t *testing.T) {
+	goProfile := makeProfile("go-harness", "prov-a", "model-a", map[string]CapabilityScore{
+		"go-backend:go": {TestPassRate: 0.0}, // score=0 → cold start
+	})
+	otherProfile := makeProfile("other-harness", "prov-b", "model-b", nil)
+
+	stub := &stubMicroRouter{hint: "go-backend", confident: true}
+	router := &Router{
+		Profiles:    []*CapabilityProfile{otherProfile, goProfile},
+		MicroRouter: stub,
+	}
+
+	task := TaskClassification{
+		TaskType:    "unknown",
+		Language:    "go",
+		Title:       "fix nil pointer in Go handler",
+		Description: "Go handler panics",
+	}
+	dec, err := router.Route(context.Background(), task, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if dec.Harness != "go-harness" {
+		t.Errorf("expected go-harness, got %q", dec.Harness)
+	}
+	if dec.Score != 0.9 {
+		t.Errorf("expected score 0.9 (micro boost), got %v", dec.Score)
+	}
+	if stub.calls != 1 {
+		t.Errorf("expected SuggestCapability called once, got %d", stub.calls)
+	}
+}
+
+// TestRouter_ColdStart_MicroRouterUnsure verifies that when MicroRouter returns
+// confident=false, the router falls through to the configured ColdStartStrategy.
+func TestRouter_ColdStart_MicroRouterUnsure(t *testing.T) {
+	p1 := makeProfile("primary", "prov-a", "model-a", nil)
+	p2 := makeProfile("secondary", "prov-b", "model-b", nil)
+
+	stub := &stubMicroRouter{hint: "", confident: false}
+	router := &Router{
+		Profiles:          []*CapabilityProfile{p1, p2},
+		ColdStartStrategy: ColdStartFallbackChain,
+		MicroRouter:       stub,
+	}
+
+	task := TaskClassification{TaskType: "unclear", Language: "go"}
+	dec, err := router.Route(context.Background(), task, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// fallback chain → first profile wins
+	if dec.Harness != "primary" {
+		t.Errorf("expected primary (fallback chain), got %q", dec.Harness)
+	}
+	if stub.calls != 1 {
+		t.Errorf("expected SuggestCapability called once, got %d", stub.calls)
 	}
 }
 

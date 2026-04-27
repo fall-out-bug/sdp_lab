@@ -36,8 +36,11 @@ type Router struct {
 	Profiles          []*CapabilityProfile
 	ColdStartStrategy ColdStartStrategy
 	StalenessConfig   *StalenessConfig
-	// LocalConfig, when set, enables a local Ollama tier for low-complexity coding tasks.
-	LocalConfig *LocalConfig
+
+	// MicroRouter, when set, attempts embedding-based capability hint on cold-start
+	// before falling back to the configured ColdStartStrategy.
+	// nil = disabled (backward-compat).
+	MicroRouter MicroRouter
 
 	// rrCounter tracks round-robin position across calls.
 	// Use atomic.Int32 for concurrent access.
@@ -81,16 +84,6 @@ func (r *Router) Route(ctx context.Context, task TaskClassification, limits map[
 		scored = append(scored, scoredProfile{profile: p, finalScore: final})
 	}
 
-	// Inject local model with fixed score when task is low-complexity coding.
-	if r.LocalConfig != nil && task.Complexity == "low" && task.RequiredCap == "coding" {
-		scored = append(scored, scoredProfile{
-			profile:    localProfile(r.LocalConfig),
-			finalScore: r.LocalConfig.score(),
-		})
-		slog.Debug("router: local model injected",
-			"model", r.LocalConfig.Model, "score", r.LocalConfig.score())
-	}
-
 	// Check if all capability scores are 0.0 (cold start condition).
 	allZero := true
 	for _, s := range scored {
@@ -103,7 +96,7 @@ func (r *Router) Route(ctx context.Context, task TaskClassification, limits map[
 	coldStart := false
 	if allZero {
 		coldStart = true
-		scored = r.applyColdStart(scored)
+		scored = r.applyColdStart(ctx, task, scored)
 	}
 
 	// Sort descending by finalScore; stable by harness name for determinism.
@@ -169,7 +162,25 @@ func (r *Router) effectiveColdStartStrategy() ColdStartStrategy {
 }
 
 // applyColdStart assigns scores to profiles when no bench data exists for the task.
-func (r *Router) applyColdStart(scored []scoredProfile) []scoredProfile {
+func (r *Router) applyColdStart(ctx context.Context, task TaskClassification, scored []scoredProfile) []scoredProfile {
+	// When MicroRouter is set, attempt an embedding-based capability hint first.
+	// Only short-circuit if at least one profile matched the hint; otherwise fall
+	// through to the configured cold-start strategy to avoid all-zero scores.
+	if r.MicroRouter != nil {
+		if hint, ok := r.MicroRouter.SuggestCapability(ctx, task.Title, task.Description); ok {
+			matched := false
+			for i := range scored {
+				if scored[i].profile.HasCapability(hint) {
+					scored[i].finalScore = 0.9
+					matched = true
+				}
+			}
+			if matched {
+				return scored
+			}
+		}
+	}
+
 	strategy := r.effectiveColdStartStrategy()
 
 	slog.Info("applying cold-start strategy", "strategy", strategy, "profiles", len(scored))

@@ -1,0 +1,35 @@
+{"title": "Fix nil pointer in Go HTTP handler", "description": "Handler panics when request body is nil, needs guard check in Go", "expected_capability": "go-backend"}
+{"title": "Add REST endpoint for user search", "description": "Implement GET /api/users?q= endpoint with fuzzy search in Go backend", "expected_capability": "go-backend"}
+{"title": "Fix database transaction rollback bug", "description": "Go repository layer doesn't rollback on partial write failure", "expected_capability": "go-backend"}
+{"title": "Implement JWT refresh token rotation in Go", "description": "Add refresh token rotation logic to the Go authentication service", "expected_capability": "go-backend"}
+{"title": "Add gRPC server for internal microservices", "description": "Implement gRPC handlers with protobuf definitions in Go service layer", "expected_capability": "go-backend"}
+{"title": "Optimize slow SQL query in Go repository", "description": "Query taking 5 seconds in production, needs index and rewrite in Go layer", "expected_capability": "go-backend"}
+{"title": "Add unit tests for Go business logic package", "description": "Missing table-driven tests for core service package in Go", "expected_capability": "go-backend"}
+{"title": "Write Go database migration scripts", "description": "Add Goose migrations for new schema changes in Go backend", "expected_capability": "go-backend"}
+{"title": "Implement background job processor in Go", "description": "Build async job queue using goroutines and channels in Go service", "expected_capability": "go-backend"}
+{"title": "Fix React component memory leak on unmount", "description": "Subscription not cleaned up in useEffect, causes memory leak in React component", "expected_capability": "frontend"}
+{"title": "Build user profile page in React", "description": "Create new ProfilePage component with TypeScript and styled-components", "expected_capability": "frontend"}
+{"title": "Fix CSS flexbox layout on mobile devices", "description": "Cards break out of container on viewport smaller than 375px, flexbox fix needed", "expected_capability": "frontend"}
+{"title": "Implement infinite scroll for feed", "description": "Add intersection observer based infinite scroll to the React news feed", "expected_capability": "frontend"}
+{"title": "Add form validation using React Hook Form", "description": "Client-side validation for registration form with error messages in TypeScript", "expected_capability": "frontend"}
+{"title": "Fix navigation dropdown closing on outside click", "description": "Dropdown stays open when clicking outside, React state management bug", "expected_capability": "frontend"}
+{"title": "Implement theme switcher with CSS variables", "description": "Dark/light mode toggle using CSS custom properties and React context", "expected_capability": "frontend"}
+{"title": "Optimize JavaScript bundle with code splitting", "description": "Reduce initial bundle size using React.lazy and dynamic imports", "expected_capability": "frontend"}
+{"title": "Add TypeScript API client for REST endpoints", "description": "Generate typed fetch wrappers from OpenAPI spec for frontend use", "expected_capability": "frontend"}
+{"title": "Update README with setup instructions", "description": "Improve getting-started documentation with clearer installation steps", "expected_capability": "docs"}
+{"title": "Fix typos in API reference documentation", "description": "Several spelling mistakes in public API docs need correction", "expected_capability": "docs"}
+{"title": "Write architecture decision record for database choice", "description": "Document reasons for choosing PostgreSQL in ADR format", "expected_capability": "docs"}
+{"title": "Add OpenAPI specification for new endpoints", "description": "Document new REST endpoints with request/response schemas in OpenAPI 3.0", "expected_capability": "docs"}
+{"title": "Update changelog for v2.0 release", "description": "Add all new features and bug fixes to CHANGELOG.md for the release", "expected_capability": "docs"}
+{"title": "Add godoc comments to exported Go package", "description": "Missing documentation comments on all exported types and functions", "expected_capability": "docs"}
+{"title": "Write runbook for on-call incident response", "description": "Document steps for common production incidents and escalation paths", "expected_capability": "docs"}
+{"title": "Fix broken GitHub Actions CI pipeline", "description": "Workflow fails on test step due to missing environment variable in CI", "expected_capability": "infra"}
+{"title": "Update Dockerfile for production optimization", "description": "Multi-stage build to reduce Docker image from 800MB to under 100MB", "expected_capability": "infra"}
+{"title": "Configure nginx load balancer with SSL", "description": "Set up nginx reverse proxy with Let's Encrypt SSL termination", "expected_capability": "infra"}
+{"title": "Add Kubernetes deployment manifest for new service", "description": "Create k8s Deployment, Service, and ConfigMap YAML for microservice", "expected_capability": "infra"}
+{"title": "Set up Terraform for AWS infrastructure", "description": "Provision RDS, S3, and ECS resources with Terraform modules", "expected_capability": "infra"}
+{"title": "Fix flaky integration tests in CI environment", "description": "Race condition in test setup causing intermittent failures in GitHub Actions", "expected_capability": "infra"}
+{"title": "Configure Prometheus and Grafana monitoring", "description": "Set up metrics collection and alerting dashboards for service health", "expected_capability": "infra"}
+{"title": "Update Helm chart for new service deployment", "description": "Add Helm chart templates and values for microservice in Kubernetes cluster", "expected_capability": "infra"}
+{"title": "Set up log aggregation with ELK stack", "description": "Configure Elasticsearch, Logstash, and Kibana for centralized logging", "expected_capability": "infra"}
+{"title": "Add database connection pool monitoring", "description": "Expose connection pool metrics to Prometheus for alerting on exhaustion", "expected_capability": "infra"}

@@ -1,0 +1,12 @@
+{
+  "classifier": "routing",
+  "total_requests": 30,
+  "micro_handled": 25,
+  "escalated": 5,
+  "fallback_rate": 0.16666666666666666,
+  "p50_ms": 0.011,
+  "p95_ms": 0.016,
+  "accuracy": 100,
+  "llm_calls_saved_pct": 83.33333333333334,
+  "est_token_savings_pct": 83.33333333333334
+}

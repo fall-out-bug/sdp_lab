@@ -32,13 +32,30 @@ func (h *OpenCodeHarness) Available() bool {
 	return err == nil
 }
 
+// buildArgs constructs the opencode CLI args for the given opts.
+// When opts.Model is non-empty, -m is appended in opencode's required
+// "provider/model" form. If the caller passes a bare model id without a
+// provider prefix, "ollama/" is auto-prepended (Ollama is the canonical
+// local-tier provider in F145). Extracted for testability.
+func (h *OpenCodeHarness) buildArgs(opts SpawnOpts) []string {
+	args := []string{"run", "--agent", opts.Agent}
+	if opts.Model != "" {
+		model := opts.Model
+		if !strings.Contains(model, "/") {
+			model = "ollama/" + model
+		}
+		args = append(args, "-m", model)
+	}
+	args = append(args, opts.ExtraArgs...)
+	return args
+}
+
 // Spawn starts an opencode process for the given opts and returns a Process.
 //
-// Command: opencode run --agent <agent>
+// Command: opencode run --agent <agent> [-m <provider/model>]
 // The prompt is passed via stdin.
 func (h *OpenCodeHarness) Spawn(ctx context.Context, opts SpawnOpts) (*Process, error) {
-	args := []string{"run", "--agent", opts.Agent}
-	args = append(args, opts.ExtraArgs...)
+	args := h.buildArgs(opts)
 
 	var outBuf bytes.Buffer
 	cmd := exec.CommandContext(ctx, "opencode", args...)

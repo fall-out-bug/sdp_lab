@@ -21,6 +21,10 @@ type TaskClassification struct {
 	Complexity  string // "low", "medium", "high"
 	Risk        string // "low", "medium", "high"
 	RequiredCap string // "reasoning", "coding", "review"
+	// Title and Description are optional free-text fields used by MicroRouter
+	// to suggest a capability hint during cold-start routing.
+	Title       string
+	Description string
 }
 
 // extToLang maps a file extension (without dot) to a language name.
@@ -111,4 +115,21 @@ func inferLanguage(files []string) string {
 		}
 	}
 	return best
+}
+
+// IsLowComplexity checks if a workstream ID or name indicates low complexity.
+// Low-complexity workstreams are typically function-level, self-contained tasks.
+func IsLowComplexity(workstream string) bool {
+	lower := strings.ToLower(workstream)
+	// Keywords that signal low-complexity, function-level tasks suitable for local model execution
+	indicators := []string{
+		"stub", "boilerplate", "test", "add_field", "add field",
+		"rename", "simple", "implement interface", "docstring",
+	}
+	for _, indicator := range indicators {
+		if strings.Contains(lower, indicator) {
+			return true
+		}
+	}
+	return false
 }

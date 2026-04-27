@@ -16,6 +16,28 @@ type CapabilityScore struct {
 	SampleCount  int     `json:"sample_count"`
 }
 
+// TierClass groups profiles by cost/capability tier for cascade routing.
+// Used by SelectTiers to filter Router-ranked profiles into ordered
+// tier-chains (fast → strong escalation).
+type TierClass string
+
+const (
+	TierFast     TierClass = "fast"     // cheap, low-latency: composer-2-fast, gpt-5.3-codex-low, qwen2.5-coder, glm-4.7
+	TierBalanced TierClass = "balanced" // medium: composer-2, gpt-5.3-codex, sonnet, gpt-5.2
+	TierStrong   TierClass = "strong"   // top-tier: gpt-5.3-codex-xhigh, opus-4
+	TierLocal    TierClass = "local"    // Ollama tier — no API cost
+)
+
+// IsValidTier reports whether s is a recognised TierClass value.
+// Empty string is also valid (untiered profile, back-compat).
+func IsValidTier(s string) bool {
+	switch TierClass(s) {
+	case TierFast, TierBalanced, TierStrong, TierLocal, "":
+		return true
+	}
+	return false
+}
+
 // CapabilityProfile stores scored capabilities for a specific harness/provider/model triple.
 type CapabilityProfile struct {
 	Harness      string                     `json:"harness"`
@@ -23,6 +45,23 @@ type CapabilityProfile struct {
 	Model        string                     `json:"model"`
 	Capabilities map[string]CapabilityScore `json:"capabilities"` // key: "taskType:language"
 	UpdatedAt    string                     `json:"updated_at,omitempty"`
+	TierClass    TierClass                  `json:"tier_class,omitempty"` // F145: cascade tier label
+}
+
+// HasCapability reports whether any capability key contains hint as a prefix segment.
+// e.g. HasCapability("go-backend") matches keys like "go-backend:go".
+// It also matches if any key is exactly hint or starts with hint+":".
+func (p *CapabilityProfile) HasCapability(hint string) bool {
+	if p.Capabilities == nil || hint == "" {
+		return false
+	}
+	prefix := hint + ":"
+	for key := range p.Capabilities {
+		if key == hint || len(key) >= len(prefix) && key[:len(prefix)] == prefix {
+			return true
+		}
+	}
+	return false
 }
 
 // ScoreFor returns the TestPassRate for the given taskType and language combination.

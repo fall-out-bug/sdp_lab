@@ -23,33 +23,9 @@ func NewDispatchingInvoker(projectRoot string) *dispatch.DispatchingInvoker {
 		return nil
 	}
 
-	// Check for local model configuration from environment variables
-	var localCfg *dispatch.LocalConfig
-	if os.Getenv("SDP_LOCAL_ENABLED") == "true" {
-		baseURL := os.Getenv("OLLAMA_HOST")
-		if baseURL == "" {
-			baseURL = "http://localhost:11434"
-		}
-		model := os.Getenv("SDP_LOCAL_MODEL")
-		if model == "" {
-			model = "qwen2.5-coder:7b"
-		}
-		localCfg = &dispatch.LocalConfig{
-			BaseURL: baseURL,
-			Model:   model,
-			Score:   0.9,
-		}
-		slog.Info("dispatch: local model routing enabled",
-			"base_url", baseURL, "model", model)
-
-		// Perform health check
-		client := dispatch.NewOllamaClient(baseURL)
-		if err := client.HealthCheck(context.Background()); err != nil {
-			slog.Warn("dispatch: ollama health check failed, falling back to cloud only",
-				"error", err)
-			localCfg = nil
-		}
-	}
+	// Local model routing is now handled through regular profiles with tier_class=local
+	// See profiles_default.json or profiles configuration for local Ollama models.
+	// No need for special LocalConfig — OllamaProvider is registered like other providers.
 
 	// Build harness registry
 	reg := harness.NewRegistry()
@@ -77,8 +53,7 @@ func NewDispatchingInvoker(projectRoot string) *dispatch.DispatchingInvoker {
 	}
 
 	router := &dispatch.Router{
-		Profiles:    profiles,
-		LocalConfig: localCfg,
+		Profiles: profiles,
 	}
 	verifyRouter := &dispatch.VerificationRouter{Profiles: profiles}
 
