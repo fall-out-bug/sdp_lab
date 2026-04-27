@@ -1,0 +1,33 @@
+{
+  "run_id": "3307cadf-014c-49d2-92ab-07b4974fc51e",
+  "idea": "test",
+  "timestamp": "2026-04-26T21:02:07Z",
+  "status": "partial",
+  "stages": [
+    {
+      "name": "dispatch",
+      "status": "success",
+      "duration": "9.875µs",
+      "output": "classified as feature/medium -\u003e claude-code (anthropic/claude-sonnet-4-20250514, score=0.80)"
+    },
+    {
+      "name": "sandbox",
+      "status": "failed",
+      "duration": "51.256792ms",
+      "output": "[none] build:FAIL (exit 1)"
+    }
+  ],
+  "dispatch": {
+    "harness": "claude-code",
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "score": 0.8,
+    "reason": "auto-classified as feature/medium"
+  },
+  "sandbox": {
+    "type": "none",
+    "build_ok": false,
+    "tests_ok": false,
+    "test_output": "build failed (exit 1): pattern ./...: directory prefix . does not contain main module or its selected dependencies\n"
+  }
+}

@@ -36,8 +36,6 @@ type Router struct {
 	Profiles          []*CapabilityProfile
 	ColdStartStrategy ColdStartStrategy
 	StalenessConfig   *StalenessConfig
-	// LocalConfig, when set, enables a local Ollama tier for low-complexity coding tasks.
-	LocalConfig *LocalConfig
 
 	// MicroRouter, when set, attempts embedding-based capability hint on cold-start
 	// before falling back to the configured ColdStartStrategy.
@@ -84,16 +82,6 @@ func (r *Router) Route(ctx context.Context, task TaskClassification, limits map[
 			"finalScore", final,
 		)
 		scored = append(scored, scoredProfile{profile: p, finalScore: final})
-	}
-
-	// Inject local model with fixed score when task is low-complexity coding.
-	if r.LocalConfig != nil && task.Complexity == "low" && task.RequiredCap == "coding" {
-		scored = append(scored, scoredProfile{
-			profile:    localProfile(r.LocalConfig),
-			finalScore: r.LocalConfig.score(),
-		})
-		slog.Debug("router: local model injected",
-			"model", r.LocalConfig.Model, "score", r.LocalConfig.score())
 	}
 
 	// Check if all capability scores are 0.0 (cold start condition).
