@@ -21,6 +21,10 @@ type TaskClassification struct {
 	Complexity  string // "low", "medium", "high"
 	Risk        string // "low", "medium", "high"
 	RequiredCap string // "reasoning", "coding", "review"
+	// Title and Description are optional free-text fields used by MicroRouter
+	// to suggest a capability hint during cold-start routing.
+	Title       string
+	Description string
 }
 
 // extToLang maps a file extension (without dot) to a language name.

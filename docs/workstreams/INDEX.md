@@ -111,6 +111,18 @@
 > **Hypothesis:** H1 — SDP's review loop lowers post-merge rework (M7) vs baseline within 8 weeks of dogfood
 > **Deferred to v2:** Collector service (TEL-03), universal hook shims (TEL-04), dashboard (TEL-08), trace integrity signing
 
+### Phase Inference Quality & Decomposition (F144→F146 lane)
+
+| Feature | Description | Workstreams | Status | Priority |
+|---------|-------------|-------------|--------|----------|
+| **F144** | Inference Confidence & Quality Control — generic `confidence.Checker` (self-check / N-sample / constraint), per-call-site profiles, replay metrics | (no ws files yet — see `sdplab-5i4q` regression) | Done (PR #131) | P1 |
+| **F145** | Multi-Provider Dispatch Matrix & Confidence-Driven Cascade — escalation policy, 5 providers, heuristic short-circuit, replay corpus | (no ws files yet — see `sdplab-5i4q` regression) | In Progress | P1 |
+| **F146** | Inference Decomposition Framework — pipeline pattern (Stage chain + 3 stitchers Enum/JSON/TOON), per-stage F144/F145 composition, ws-verdict adapter, A/B bench vs monolithic | 00-146-01 ... 00-146-06 | Backlog | P1 |
+
+> **Source:** [F144 design](../plans/2026-04-26-f144-inference-confidence-design.md) · [F146 design](../plans/2026-04-26-f146-inference-decomposition-design.md) · **Beads:** `sdplab-92uu` (F144 series, closed), `sdplab-ldmq` (F145 epic), `sdplab-vrnw` (F146 epic)
+> **F146 DAG:** `01 → 02 → 03 → {04 ‖ 05} → 06` (parallel 04+05 after 03)
+> **Composition:** F144 = quality-of-one-answer (gate per inference); F145 = provider-of-one-request (cascade between models); F146 = work-split-of-one-task (decomposed pipeline). Three orthogonal axes — F146 stages can opt-in F144 confidence and F145 cascade per-stage.
+
 ### Phase Multi-Harness Install & Coverage Gap (Recently Shipped + In Progress)
 
 | Feature | Description | Workstreams | Status | Priority |

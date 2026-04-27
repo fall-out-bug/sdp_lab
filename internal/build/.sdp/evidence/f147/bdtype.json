@@ -1,0 +1,12 @@
+{
+  "classifier": "bdtype",
+  "total_requests": 30,
+  "micro_handled": 20,
+  "escalated": 10,
+  "fallback_rate": 0.3333333333333333,
+  "p50_ms": 0.011,
+  "p95_ms": 0.012,
+  "accuracy": 100,
+  "llm_calls_saved_pct": 66.66666666666666,
+  "est_token_savings_pct": 66.66666666666666
+}
