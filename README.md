@@ -57,16 +57,17 @@ Run in the root of your downstream repo (requires `git` and `go`):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
+export PATH="$PWD/.sdp/bin:$PATH"
 ```
 
-Alternative — if you already have the `sdp` binary on PATH:
+Local-source install while working inside this repo:
 
 ```bash
-go build -tags "sqlite_fts5" -o "$(go env GOPATH)/bin/sdp" ./cmd/sdp
-sdp init --harness=auto
+SDP_SOURCE_DIR="$PWD" SDP_TARGET=/path/to/myrepo bash scripts/install.sh
+export PATH="/path/to/myrepo/.sdp/bin:$PATH"
 ```
 
-The installer clones `sdp_lab`, builds the `sdp` binary, runs `sdp init --harness=auto`, and writes `sdp.lock`. No manual file copying.
+The installer clones `sdp_lab` to bring in the canonical manifest and prompts, uses a compatible `sdp` from `PATH` or builds a repo-local `./.sdp/bin/sdp`, runs `sdp init --harness=auto`, and writes `sdp.lock`. No manual file copying.
 
 ### What you get
 

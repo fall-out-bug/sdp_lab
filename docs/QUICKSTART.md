@@ -30,15 +30,17 @@ Run this from the root of the repo where you want SDP installed:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
+export PATH="$PWD/.sdp/bin:$PATH"
 ```
 
 The installer:
 
-1. uses `sdp` from `PATH` if it already exists
-2. otherwise clones `fall-out-bug/sdp_lab`
-3. builds `cmd/sdp`
+1. clones `fall-out-bug/sdp_lab` to get the canonical manifest and prompts
+2. uses `sdp` from `PATH` only if it supports the current `init --harness` contract
+3. otherwise builds `cmd/sdp` with the `sqlite_fts5` tag
 4. runs `sdp init --harness auto`
-5. writes `sdp.manifest.yaml`, harness adapter dirs, and `sdp.lock`
+5. writes `sdp.manifest.yaml`, `prompts/`, generated harness adapter dirs, `.sdp/generated/`, and `sdp.lock`
+6. leaves a repo-local binary at `./.sdp/bin/sdp`
 
 Environment overrides:
 
@@ -46,13 +48,14 @@ Environment overrides:
 SDP_HARNESS=claude-code,opencode \
 SDP_TARGET=/path/to/repo \
 curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
+export PATH="/path/to/repo/.sdp/bin:$PATH"
 ```
 
 If you are already inside this repo and want the local binary:
 
 ```bash
-go build -tags "sqlite_fts5" -o "$(go env GOPATH)/bin/sdp" ./cmd/sdp
-sdp init --harness auto --target /path/to/your/repo
+SDP_SOURCE_DIR="$PWD" SDP_TARGET=/path/to/your/repo bash scripts/install.sh
+export PATH="/path/to/your/repo/.sdp/bin:$PATH"
 ```
 
 ## Verify
@@ -68,7 +71,9 @@ Expected result:
 
 - manifest validation exits 0
 - adapter doctor reports 0 drifts
+- manifest output reports the SDP inventory, currently 29 skills, 24 commands, and 12 agents
 - `sdp.lock` exists
+- `.sdp/bin/sdp` exists
 - one or more harness dirs exist: `.claude/`, `.opencode/`, `.codex/`, `.cursor/`
 
 ## First Useful Run

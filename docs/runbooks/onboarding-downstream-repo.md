@@ -15,18 +15,20 @@ From your target repo root:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
+export PATH="$PWD/.sdp/bin:$PATH"
 ```
 
-What happens: clones `sdp_lab` (shallow), builds `sdp` binary, runs `sdp init --harness=auto`,
-detects existing harness dirs (installs all four if none found), writes `sdp.lock`.
+What happens: clones `sdp_lab` (shallow) to get the canonical manifest and prompts, uses a compatible `sdp` from `PATH` or builds `./.sdp/bin/sdp`, runs `sdp init --harness=auto`,
+detects existing harness dirs (installs all four if none found), writes generated adapters plus `sdp.lock`, and prints the PATH export command.
 
-Override vars: `SDP_HARNESS=claude-code,opencode`, `SDP_TARGET=/path/to/repo`.
+Override vars: `SDP_HARNESS=claude-code,opencode`, `SDP_TARGET=/path/to/repo`, `SDP_SOURCE_DIR=/path/to/sdp_lab` for local-source testing.
 
 ## 3. Verify install
 
 ```bash
 sdp manifest validate     # manifest well-formed
 sdp doctor adapters       # no drift
+test -x .sdp/bin/sdp      # repo-local CLI exists
 ls .claude/ .opencode/ .codex/ .cursor/   # dirs present
 ```
 
@@ -94,7 +96,8 @@ Commit `sdp.lock` to pin the version for your team.
 | `sdp doctor`: adapter diverges from manifest | `sdp generate-adapters --write` then commit |
 | `sdp doctor`: orphan file not in manifest | Add entry to `sdp.manifest.yaml` or delete orphan |
 | No harness dirs after install | `sdp init --harness=claude-code` (explicit) |
-| `sdp` binary not on PATH after install | `go build -tags "sqlite_fts5" -o /usr/local/bin/sdp ./cmd/sdp` in sdp_lab |
+| `sdp` binary not on PATH after install | `export PATH="$PWD/.sdp/bin:$PATH"` from the target repo root |
+| Installer finds an old `sdp` binary | Re-run the installer; it validates `init --harness` and falls back to the branch build when the PATH binary is stale |
 | `warning: manifest load failed` | Install used empty template; add entries to `sdp.manifest.yaml` |
 
 ---
