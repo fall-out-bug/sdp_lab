@@ -263,6 +263,20 @@ issues resolved.
 ## 2026-04-27
 
 ### Commits
+- `cba6482` docs(F137): cmd-inventory + sdp-cli.md reference + workstream status sync (#138) (2026-04-27)
+
+### Changed Files
+- `docs/reference/cmd-inventory.md`
+- `docs/reference/sdp-cli.md`
+- `docs/workstreams/backlog/00-137-01.md`
+- `docs/workstreams/backlog/00-137-02.md`
+- `docs/workstreams/backlog/00-137-03.md`
+- `docs/workstreams/backlog/00-137-04.md`
+- `docs/workstreams/backlog/00-137-05.md`
+
+
+
+### Commits
 - `39bc220` F150: product layering and release readiness (#137) (2026-04-27)
 
 ### Changed Files
