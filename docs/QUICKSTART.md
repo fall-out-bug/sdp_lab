@@ -6,7 +6,9 @@ Audience: CTOs, architects, and developers evaluating SDP as a structured AI PDL
 
 ## What You Are Installing
 
-SDP installs a repo-local harness surface:
+You are installing **SDP Toolkit** — the installable developer surface. It is the `sdp` CLI, installed into your repo.
+
+SDP Toolkit installs a repo-local harness surface:
 
 - `sdp.manifest.yaml` — source of truth for skills, commands, agents, and harness adapters
 - generated adapter files for Claude Code, OpenCode, Codex, and Cursor
@@ -14,6 +16,8 @@ SDP installs a repo-local harness surface:
 - optional `.sdp/` outputs from scout, metrics, index, specs, evidence, and later operator runs
 
 It does not ask for model API keys during install. Model/provider setup belongs to the harness you use.
+
+The `sdp_lab` repo is the research workspace where SDP is built. You do not need to clone it unless you are contributing to the platform. ChangePassport (`sdp-pr-gate`) and Enterprise Delivery Governance are separate product surfaces — they are product directions, not part of this install.
 
 ## Prerequisites
 
@@ -110,25 +114,32 @@ sdp bootstrap --dry-run --mode brownfield .
 
 ## What Works Today
 
-Stable or ready to evaluate:
+**SDP Toolkit (stable, ships in formula):**
 
 - multi-harness manifest/adapters: 29 skills, 24 commands, 12 agents
 - toolkit commands: `scout`, `metrics`, `index`, `spec`, `bootstrap`
+
+**Operator Mode (default Toolkit happy path):**
+
 - Beads-backed operator workflow in `sdp_lab`
 - evidence/schema/protocol checks
 - StratAudit reports
 
-Useful but operator-facing:
+**Operator tooling (available in formula tap):**
 
 - `sdp-orchestrate`, `sdp-ci-loop`, `sdp-guard`, `sdp-doc-sync`, `sdp-ready`
 - `sdp manifest parity`, `sdp generate-adapters`, `sdp doctor adapters`
 
-Experimental or research:
+**Lab / research (not in formula):**
 
 - strict `agentloop` + `sdp-harness` primary delivery runtime
 - model gateway, cascades, MicroFirst inference, telemetry daemon
 - K8s/swarm/control tower paths
-- ChangePassport as a separate merge-readiness product direction
+
+**Product direction (not yet shipped):**
+
+- ChangePassport (`sdp-pr-gate`) — separate merge-readiness product surface
+- Enterprise Delivery Governance — enterprise governed delivery control plane
 
 Canonical map: [reference/product-surface.md](reference/product-surface.md)
 

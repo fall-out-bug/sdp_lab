@@ -13,6 +13,36 @@ Short version:
 
 SDP does not try to replace Codex, Claude Code, Cursor, OpenCode, Copilot, or other coding agents. It adds the delivery contract around them: scope, workstreams, gates, evidence, findings loops, and QA/UAT.
 
+## Product Layers
+
+SDP is organized into seven product layers. Only the first installable surface ships today.
+
+| # | Layer | What it is | Status |
+|---|---|---|---|
+| 1 | **SDP Lab** | Research workspace (this repo). Where SDP is built and exercised. | Active |
+| 2 | **SDP Toolbox** | Single-purpose repo-inspection utilities (`scout`, `metrics`, `index`, `spec`, `bootstrap`). Freemium funnel for the SDP family. | GA |
+| 3 | **SDP Toolkit** | Installable developer surface. The `sdp` CLI, installed via Homebrew or the install script. | GA |
+| 4 | **Operator Mode** | Default Toolkit happy path. Stateful orchestration: features, workstreams, evidence, QA/UAT. | GA inside sdp_lab |
+| 5 | **ChangePassport** (`sdp-pr-gate`) | Merge-readiness product. A separate product surface for PR governance. | Product direction, not yet shipped |
+| 6 | **Enterprise Delivery Governance** | Enterprise governed delivery control plane. | Hypothesis |
+| 7 | **Shared Substrates** | Versioned semver packages (`sdp-evidence-core`, `sdp-policy-core`, etc.) | Implicit today |
+
+Canonical reference: [`docs/strategy/2026-04-27-sdp-product-layering-4d.md`](docs/strategy/2026-04-27-sdp-product-layering-4d.md)
+
+### What ships in the formula
+
+The default Homebrew formula installs the `sdp` binary (SDP Toolkit). It includes stable subcommands: `scout`, `metrics`, `index`, `spec`, `bootstrap`, `init`, `manifest`, `generate-adapters`, `doctor`, and more.
+
+The formula does **not** include:
+- lab-only binaries (`sdp-control`, `sdp-dispatch`, `sdp-up`)
+- experimental binaries (`sdp-harness`, `sdp-a2a`, `sdp-strataudit`)
+- research/benchmark binaries (`sdp-cascade-replay`, `sdp-decompose-bench`, etc.)
+- ChangePassport (`sdp-pr-gate`) — separate product surface, not yet implemented
+
+Operator tooling (`sdp-orchestrate`, `sdp-guard`, `sdp-ci-loop`, `sdp-evidence`, etc.) is available via an opt-in formula tap.
+
+Full inventory: [`docs/reference/maturity-matrix.md`](docs/reference/maturity-matrix.md)
+
 ## What This Repo Does
 
 `sdp_lab` is the primary public workspace where SDP is built and exercised.
@@ -42,12 +72,12 @@ go build -tags "sqlite_fts5" ./...
 
 | Goal | Start here |
 |---|---|
-| Understand what `sdp_lab` is and what lives here | [`docs/reference/project-map.md`](docs/reference/project-map.md) |
+| **Install SDP Toolkit into your repo** | **[Install in 30 seconds](#install-in-30-seconds)** below, or [docs/QUICKSTART.md](docs/QUICKSTART.md) |
 | Understand what SDP is good at today | [`docs/reference/product-surface.md`](docs/reference/product-surface.md) |
+| Understand component maturity (GA/Beta/Experimental) | [`docs/reference/maturity-matrix.md`](docs/reference/maturity-matrix.md) |
+| Understand what `sdp_lab` is and what lives here | [`docs/reference/project-map.md`](docs/reference/project-map.md) |
 | Contribute to the platform/runtime | [`AGENTS.md`](AGENTS.md), [`docs/MULTI-REPO-WORKFLOW.md`](docs/MULTI-REPO-WORKFLOW.md) (publish workflow), [`docs/roadmap/ROADMAP.md`](docs/roadmap/ROADMAP.md) |
 | Adopt SDP in a greenfield or brownfield project | [`docs/QUICKSTART.md`](docs/QUICKSTART.md), then [`docs/runbooks/onboarding-downstream-repo.md`](docs/runbooks/onboarding-downstream-repo.md) |
-| Install SDP into your repo right now | See **[Install in 30 seconds](#install-in-30-seconds)** below |
-| Understand component maturity (GA/Beta/Experimental) | [`docs/reference/maturity-matrix.md`](docs/reference/maturity-matrix.md) |
 | Trust, security guarantees, and limitations | [`docs/reference/trust-guarantees.md`](docs/reference/trust-guarantees.md) |
 | CI gates and local reproduce commands | [`docs/reference/ci-gates-map.md`](docs/reference/ci-gates-map.md) |
 
@@ -129,25 +159,32 @@ Onboarding runbook: [`docs/runbooks/onboarding-downstream-repo.md`](docs/runbook
 
 ## What Works Today
 
-Ready to evaluate:
+**SDP Toolkit (installable product):**
 
 - multi-harness install from `sdp.manifest.yaml`
 - `sdp scout`, `sdp metrics`, `sdp index`, `sdp spec`, `sdp bootstrap`
+
+**Operator Mode (default Toolkit happy path):**
+
 - Beads-backed operator workflow in this repo
 - evidence, protocol, adapter, and documentation checks
 - StratAudit reports
 
-Useful operator tooling:
+**Operator tooling (available in formula tap):**
 
 - `sdp-orchestrate`, `sdp-ci-loop`, `sdp-guard`, `sdp-doc-sync`, `sdp-ready`
 - `sdp manifest validate`, `sdp manifest parity`, `sdp generate-adapters`, `sdp doctor adapters`
 
-Experimental or research:
+**Lab / research (not in formula):**
 
 - strict `agentloop` + `sdp-harness` primary delivery runtime
 - model gateway, provider cascade, MicroFirst inference, telemetry daemon
 - K8s/swarm/control tower paths
-- ChangePassport as a separate merge-readiness product direction
+
+**Product direction (not yet shipped):**
+
+- ChangePassport (`sdp-pr-gate`) — separate merge-readiness product surface
+- Enterprise Delivery Governance — enterprise governed delivery control plane
 
 Full map: [`docs/reference/product-surface.md`](docs/reference/product-surface.md)
 
