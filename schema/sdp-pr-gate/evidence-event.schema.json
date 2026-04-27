@@ -17,9 +17,7 @@
     "event_type",
     "status",
     "summary",
-    "artifact_uri",
-    "artifact_hash",
-    "error_state"
+    "artifact_hash"
   ],
   "additionalProperties": false,
   "properties": {

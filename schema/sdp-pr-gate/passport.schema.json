@@ -694,7 +694,26 @@
             "escalate"
           ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "result": {
+                "const": "override"
+              }
+            },
+            "required": [
+              "result"
+            ]
+          },
+          "then": {
+            "required": [
+              "override"
+            ]
+          }
+        }
+      ]
     },
     "integrity": {
       "type": "object",

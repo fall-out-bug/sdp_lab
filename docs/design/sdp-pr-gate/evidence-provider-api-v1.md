@@ -20,7 +20,7 @@ Every provider must emit events conforming to the [evidence-event JSON Schema](.
 
 ## 2. Field Reference
 
-All 14 top-level fields from the schema. Fields marked **required** must be present in every event.
+14 required top-level fields from the manifesto contract. Two optional fields (`artifact_uri`, `error_state`) extend the base contract when applicable.
 
 | # | Field | Type | Required | Description |
 |---|-------|------|----------|-------------|
@@ -36,9 +36,9 @@ All 14 top-level fields from the schema. Fields marked **required** must be pres
 | 10 | `event_type` | string (enum) | Yes | Category: `commit`, `ci_run`, `test_result`, `scan_finding`, `review_comment`, `approval`, `merge`, `deployment`, `custom`. |
 | 11 | `status` | string (enum) | Yes | Outcome: `success`, `failure`, `warning`, `skipped`, `degraded`, `pending`. |
 | 12 | `summary` | string | Yes | Human-readable summary, max 2048 chars. Self-contained for passport display. |
-| 13 | `artifact_uri` | string (uri) | Yes | URI to the primary artifact. Empty string if no artifact exists. |
-| 14 | `artifact_hash` | object or null | Yes | Cryptographic hash. Sub-fields: `algorithm` (required), `value` (required). Null if no artifact. |
-| 15 | `error_state` | object or null | Yes | Error details: `code` (required), `message` (required), `retry_possible`. Null if no error. |
+| 13 | `artifact_uri` | string (uri) or null | No | URI to the primary artifact. Omit or null if no artifact exists. |
+| 14 | `artifact_hash` | object or null | No | Cryptographic hash. Sub-fields: `algorithm` (required), `value` (required). Omit if no artifact. |
+| 15 | `error_state` | object or null | No | Error details: `code` (required), `message` (required), `retry_possible`. Omit if no error. |
 
 ### 2.1 Actor Object
 
