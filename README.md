@@ -1,7 +1,7 @@
 # SDP Lab
 
 Public build, planning, and orchestration workspace for SDP.
-GitHub repo name: `sdp_lab`. Go module path: `github.com/fall-out-bug/sdp_lab` (see `go.mod`).
+GitHub repo name: `sdp_lab`. Go module path: see `go.mod`.
 
 ## What SDP Is
 
@@ -57,7 +57,7 @@ If your goal is to **use SDP inside your own project**, start with [docs/QUICKST
 ## Clone
 
 ```bash
-git clone https://github.com/fall-out-bug/sdp_lab
+git clone https://github.com/fall-out-bug/sdp
 cd sdp_lab
 go build -tags "sqlite_fts5" ./...
 ```
@@ -86,7 +86,7 @@ go build -tags "sqlite_fts5" ./...
 Run in the root of your downstream repo (requires `git` and `go`):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
 export PATH="$PWD/.sdp/bin:$PATH"
 ```
 
@@ -256,10 +256,10 @@ Standalone binary for validating and inspecting evidence envelopes. No K8s depen
 
 ```bash
 # Linux amd64
-curl -sSL https://github.com/fall-out-bug/sdp_lab/releases/download/v0.1.0/sdp-evidence_0.1.0_linux_amd64.tar.gz | tar xz -C /usr/local/bin
+curl -sSL https://github.com/fall-out-bug/sdp/releases/download/v0.1.0/sdp-evidence_0.1.0_linux_amd64.tar.gz | tar xz -C /usr/local/bin
 
 # macOS (darwin/arm64)
-curl -sSL https://github.com/fall-out-bug/sdp_lab/releases/download/v0.1.0/sdp-evidence_0.1.0_darwin_arm64.tar.gz | tar xz -C /usr/local/bin
+curl -sSL https://github.com/fall-out-bug/sdp/releases/download/v0.1.0/sdp-evidence_0.1.0_darwin_arm64.tar.gz | tar xz -C /usr/local/bin
 ```
 
 **From source:**

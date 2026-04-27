@@ -11,7 +11,7 @@
 
 ### Setup
 ```bash
-git clone https://github.com/fall-out-bug/sdp_lab
+git clone https://github.com/fall-out-bug/sdp
 cd sdp_lab
 go build ./...
 go test ./internal/... -short -count=1

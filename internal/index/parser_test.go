@@ -233,62 +233,6 @@ var DBPassword = "super-secret"
 	assert.NotEmpty(t, chunks, "parser should parse credentials.go")
 }
 
-func TestParseRustFile(t *testing.T) {
-	dir := t.TempDir()
-	rsFile := filepath.Join(dir, "main.rs")
-	content := `use std::io;
-
-fn main() {
-    println!("hello");
-}
-
-struct Config {
-    name: String,
-}
-
-impl Config {
-    fn new() -> Self {
-        Config { name: "default".into() }
-    }
-}
-`
-	require.NoError(t, os.WriteFile(rsFile, []byte(content), 0o644))
-
-	chunks, _, err := ParseFile(rsFile, "rust")
-	require.NoError(t, err)
-	assert.GreaterOrEqual(t, len(chunks), 2, "should extract chunks from Rust file")
-}
-
-func TestParseJavaFile(t *testing.T) {
-	dir := t.TempDir()
-	javaFile := filepath.Join(dir, "Service.java")
-	content := `package com.example;
-
-public class Service {
-    private String name;
-
-    public Service(String name) {
-        this.name = name;
-    }
-
-    public String process(String input) {
-        return input.toUpperCase();
-    }
-}
-`
-	require.NoError(t, os.WriteFile(javaFile, []byte(content), 0o644))
-
-	chunks, _, err := ParseFile(javaFile, "java")
-	require.NoError(t, err)
-	assert.GreaterOrEqual(t, len(chunks), 1, "should extract at least the class from Java file")
-
-	// Verify we got the class
-	for _, c := range chunks {
-		assert.Equal(t, "java", c.Language)
-		assert.NotEmpty(t, c.Hash)
-	}
-}
-
 // TestIsSecretFile_Bug683_OverlyBroadSubstringMatching tests that legitimate
 // source files with "token" or "password" in their names are NOT classified as secrets.
 // This fixes Bug sdplab-683.
@@ -415,6 +359,62 @@ func TestIsSecretFile_EdgeCases(t *testing.T) {
 			result := IsSecretFile(tt.path)
 			assert.Equal(t, tt.isSecret, result, "IsSecretFile(%q) = %v, want %v", tt.path, result, tt.isSecret)
 		})
+	}
+}
+
+func TestParseRustFile(t *testing.T) {
+	dir := t.TempDir()
+	rsFile := filepath.Join(dir, "main.rs")
+	content := `use std::io;
+
+fn main() {
+    println!("hello");
+}
+
+struct Config {
+    name: String,
+}
+
+impl Config {
+    fn new() -> Self {
+        Config { name: "default".into() }
+    }
+}
+`
+	require.NoError(t, os.WriteFile(rsFile, []byte(content), 0o644))
+
+	chunks, _, err := ParseFile(rsFile, "rust")
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(chunks), 2, "should extract chunks from Rust file")
+}
+
+func TestParseJavaFile(t *testing.T) {
+	dir := t.TempDir()
+	javaFile := filepath.Join(dir, "Service.java")
+	content := `package com.example;
+
+public class Service {
+    private String name;
+
+    public Service(String name) {
+        this.name = name;
+    }
+
+    public String process(String input) {
+        return input.toUpperCase();
+    }
+}
+`
+	require.NoError(t, os.WriteFile(javaFile, []byte(content), 0o644))
+
+	chunks, _, err := ParseFile(javaFile, "java")
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(chunks), 1, "should extract at least the class from Java file")
+
+	// Verify we got the class
+	for _, c := range chunks {
+		assert.Equal(t, "java", c.Language)
+		assert.NotEmpty(t, c.Hash)
 	}
 }
 

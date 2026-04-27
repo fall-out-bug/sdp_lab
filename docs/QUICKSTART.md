@@ -33,13 +33,13 @@ The `sdp_lab` repo is the research workspace where SDP is built. You do not need
 Run this from the root of the repo where you want SDP installed:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
 export PATH="$PWD/.sdp/bin:$PATH"
 ```
 
 The installer:
 
-1. clones `fall-out-bug/sdp_lab` to get the canonical manifest and prompts
+1. clones `fall-out-bug/sdp` to get the canonical manifest and prompts
 2. uses `sdp` from `PATH` only if it supports the current `init --harness` contract
 3. otherwise builds `cmd/sdp` with the `sqlite_fts5` tag
 4. runs `sdp init --harness auto`
@@ -51,7 +51,7 @@ Environment overrides:
 ```bash
 SDP_HARNESS=claude-code,opencode \
 SDP_TARGET=/path/to/repo \
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
 export PATH="/path/to/repo/.sdp/bin:$PATH"
 ```
 
