@@ -79,19 +79,19 @@ Reviewers may distrust or challenge the evidence, but they must not invent test 
 MVP reviewers:
 
 - Kimi through the already configured local `pi` runtime
-- ZAI through the already configured local `pi` runtime
+- ZAI/GLM through the already configured local `pi` runtime
 
 Fallback:
 
 - OpenRouter model configured in `pi` environment
 
-SDP does not own provider keys. Keys, subscriptions, provider names, and model IDs live in the `pi` runtime environment. SDP passes a context packet and requested reviewer slots to the local `pi` binary. In the current target environment, `pi` already exists and has `kimi` and `zai` connected.
+SDP does not own provider keys. Keys, subscriptions, provider names, and model IDs live in the `pi` runtime environment. SDP passes a context packet and requested reviewer slots to the local `pi` binary. In the current target environment, `pi` already exists and has `kimi` and `zai` connected. For this gate, `glm` means the GLM model family exposed through `zai`; do not configure a separate `glm` provider slot.
 
 Recommended slots:
 
 | Slot | Purpose | Required |
 |---|---|---|
-| `zai` | broad correctness and maintainability review | yes |
+| `zai` | broad correctness and maintainability review using GLM-family models | yes |
 | `kimi` | adversarial code review and missed-edge search | yes |
 | `openrouter-fallback` | only if ZAI or Kimi fails or times out | no |
 | `synthesizer` | normalize findings into SDP verdict | yes |
