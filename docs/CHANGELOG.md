@@ -263,6 +263,85 @@ issues resolved.
 ## 2026-04-27
 
 ### Commits
+- `8901a89` fix(F150-06): make maturity-tiered coverage gate advisory (non-blocking) (2026-04-27)
+
+### Changed Files
+- `.beads/issues.jsonl`
+
+
+
+### Commits
+- `d13280a` feat(F154): Shared Substrates v1 — semver contracts + SDP-runtime assumption docs (#141) (2026-04-27)
+
+### Changed Files
+- `internal/context/AGENTS.md`
+- `internal/context/contract.go`
+- `internal/context/contract_test.go`
+- `internal/eval/AGENTS.md`
+- `internal/eval/contract.go`
+- `internal/eval/contract_test.go`
+- `internal/evidence/AGENTS.md`
+- `internal/evidence/contract.go`
+- `internal/evidence/contract_test.go`
+- `internal/modelgateway/AGENTS.md`
+- `internal/modelgateway/contract.go`
+- `internal/modelgateway/contract_test.go`
+- `internal/policy/AGENTS.md`
+- `internal/policy/contract.go`
+- `internal/policy/contract_test.go`
+
+
+
+### Commits
+- `93bc759` docs(F152-F160): add missing workstream files for post-F150 epics (2026-04-27)
+
+### Changed Files
+- `.beads/issues.jsonl`
+- `docs/workstreams/backlog/00-152-01.md`
+- `docs/workstreams/backlog/00-152-02.md`
+- `docs/workstreams/backlog/00-152-03.md`
+- `docs/workstreams/backlog/00-153-01.md`
+- `docs/workstreams/backlog/00-153-02.md`
+- `docs/workstreams/backlog/00-153-03.md`
+- `docs/workstreams/backlog/00-154-01.md`
+- `docs/workstreams/backlog/00-154-02.md`
+- `docs/workstreams/backlog/00-154-03.md`
+- `docs/workstreams/backlog/00-154-04.md`
+- `docs/workstreams/backlog/00-154-05.md`
+- `docs/workstreams/backlog/00-155-01.md`
+- `docs/workstreams/backlog/00-156-01.md`
+- `docs/workstreams/backlog/00-157-01.md`
+- `docs/workstreams/backlog/00-158-01.md`
+- `docs/workstreams/backlog/00-159-01.md`
+- `docs/workstreams/backlog/00-160-01.md`
+
+
+
+### Commits
+- `3ca6606` chore(F151): close beads after PR #139 merge (2026-04-27)
+
+### Changed Files
+- `.beads/interactions.jsonl`
+- `.beads/issues.jsonl`
+- `.sdp/checkpoints/F151.json`
+
+
+
+### Commits
+- `cba6482` docs(F137): cmd-inventory + sdp-cli.md reference + workstream status sync (#138) (2026-04-27)
+
+### Changed Files
+- `docs/reference/cmd-inventory.md`
+- `docs/reference/sdp-cli.md`
+- `docs/workstreams/backlog/00-137-01.md`
+- `docs/workstreams/backlog/00-137-02.md`
+- `docs/workstreams/backlog/00-137-03.md`
+- `docs/workstreams/backlog/00-137-04.md`
+- `docs/workstreams/backlog/00-137-05.md`
+
+
+
+### Commits
 - `39bc220` F150: product layering and release readiness (#137) (2026-04-27)
 
 ### Changed Files
@@ -354,4 +433,14 @@ issues resolved.
 
 ### Changed Files
 - `.beads/interactions.jsonl`
+
+## 2026-04-28
+
+### Commits
+- `8746f5a` docs: align pi-review mvp with existing pi providers (2026-04-28)
+
+### Changed Files
+- `.beads/issues.jsonl`
+- `docs/reference/pi-review-spec.md`
+- `docs/workstreams/backlog/00-161-03.md`
 

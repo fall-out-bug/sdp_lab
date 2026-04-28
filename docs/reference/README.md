@@ -23,6 +23,7 @@ Start here:
 | Canonical skill surface | [skills.md](skills.md) |
 | Commands | [commands.md](commands.md) |
 | Quality gates | [quality-gates.md](quality-gates.md) |
+| External model review gate | [pi-review-spec.md](pi-review-spec.md) |
 | Configuration | [configuration.md](configuration.md) |
 | Runbooks index | [runbooks.md](runbooks.md) |
 | Glossary | [GLOSSARY.md](GLOSSARY.md) |
