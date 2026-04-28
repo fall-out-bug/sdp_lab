@@ -78,22 +78,22 @@ Reviewers may distrust or challenge the evidence, but they must not invent test 
 
 MVP reviewers:
 
-- GLM through `pi` subscription-backed provider configuration
-- Kimi through `pi` subscription-backed provider configuration
+- Kimi through the already configured local `pi` runtime
+- ZAI through the already configured local `pi` runtime
 
 Fallback:
 
 - OpenRouter model configured in `pi` environment
 
-SDP does not own provider keys. Keys, subscriptions, provider names, and model IDs live in the `pi` runtime environment. SDP passes a context packet and requested reviewer slots to the local `pi` binary.
+SDP does not own provider keys. Keys, subscriptions, provider names, and model IDs live in the `pi` runtime environment. SDP passes a context packet and requested reviewer slots to the local `pi` binary. In the current target environment, `pi` already exists and has `kimi` and `zai` connected.
 
 Recommended slots:
 
 | Slot | Purpose | Required |
 |---|---|---|
-| `glm` | broad correctness and maintainability review | yes |
+| `zai` | broad correctness and maintainability review | yes |
 | `kimi` | adversarial code review and missed-edge search | yes |
-| `openrouter-fallback` | only if GLM or Kimi fails or times out | no |
+| `openrouter-fallback` | only if ZAI or Kimi fails or times out | no |
 | `synthesizer` | normalize findings into SDP verdict | yes |
 
 ## Finding Contract
