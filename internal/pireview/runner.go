@@ -278,8 +278,15 @@ func (r *Runner) runModelPanel(ctx context.Context, runID string, pkt *ContextPa
 				}
 			}
 		} else {
-			result.Status = "ok"
-			result.ArtifactPath = writeModelArtifact(r.cfg.ProjectRoot, runID, slot.Slot, output)
+			artifactPath := writeModelArtifact(r.cfg.ProjectRoot, runID, slot.Slot, output)
+			if artifactPath == "" {
+				result.Status = "failed"
+				result.Error = "artifact write failed"
+				result.ArtifactPath = fmt.Sprintf(".sdp/runs/pi-review/%s/models/%s.json", runID, slot.Slot)
+			} else {
+				result.Status = "ok"
+				result.ArtifactPath = artifactPath
+			}
 		}
 
 		results = append(results, result)
