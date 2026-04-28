@@ -167,6 +167,22 @@ func (r *Runner) Run(ctx context.Context) (*ReviewRun, *Verdict, error) {
 	// Run model panel
 	modelResults := r.runModelPanel(ctx, runID, pkt, evidence)
 
+	// Check quorum: at least one required reviewer must succeed
+	requiredOK := 0
+	requiredTotal := 0
+	for _, slot := range r.slots {
+		if slot.Required {
+			requiredTotal++
+		}
+	}
+	for _, mr := range modelResults {
+		for _, slot := range r.slots {
+			if slot.Required && slot.Slot == mr.Slot && mr.Status == "ok" {
+				requiredOK++
+			}
+		}
+	}
+
 	// Synthesize findings
 	findings := synthesizeFindings(modelResults)
 
@@ -195,8 +211,21 @@ func (r *Runner) Run(ctx context.Context) (*ReviewRun, *Verdict, error) {
 		Models:       modelResults,
 	}
 
+	// Persist context and evidence artifacts
+	runDir := filepath.Join(r.cfg.ProjectRoot, ".sdp", "runs", "pi-review", runID)
+	_ = os.MkdirAll(runDir, 0o755)
+	ctxJSON, _ := json.MarshalIndent(pkt, "", "  ")
+	_ = os.WriteFile(filepath.Join(runDir, "context.json"), ctxJSON, 0o644)
+	_ = os.WriteFile(filepath.Join(runDir, "context.diff"), []byte(pkt.UnifiedDiff), 0o644)
+	evJSON, _ := json.MarshalIndent(evidence, "", "  ")
+	_ = os.WriteFile(filepath.Join(runDir, "test-evidence.json"), evJSON, 0o644)
+
+	// Update context hash with actual artifact content
+	run.Context.SHA256 = hashString(string(ctxJSON))
+	run.Context.DiffSHA256 = hashString(pkt.UnifiedDiff)
+
 	// Build verdict
-	verdict := buildVerdict(r.cfg.Feature, 1, findings, modelResults, pkt)
+	verdict := buildVerdict(r.cfg.Feature, 1, findings, modelResults, pkt, requiredOK, requiredTotal)
 
 	run.VerdictRef = ArtifactRef{
 		Path:   fmt.Sprintf(".sdp/review_verdict.json"),
@@ -277,6 +306,30 @@ func buildReviewPrompt(slot ReviewerSlot, pkt *ContextPacket, evidence *TestEvid
 	b.WriteString("## Changed Files\n")
 	for _, f := range pkt.ReviewedFiles {
 		b.WriteString(fmt.Sprintf("- %s\n", f))
+	}
+
+	if len(pkt.FileContents) > 0 {
+		b.WriteString("\n## File Contents\n--- BEGIN FILES ---\n")
+		for f, content := range pkt.FileContents {
+			b.WriteString(fmt.Sprintf("\n### %s\n", f))
+			b.WriteString(content)
+			b.WriteString("\n")
+		}
+		b.WriteString("--- END FILES ---\n")
+	}
+
+	if len(pkt.ProjectRules) > 0 {
+		b.WriteString("\n## Project Rules\n--- BEGIN RULES ---\n")
+		for name, content := range pkt.ProjectRules {
+			b.WriteString(fmt.Sprintf("\n### %s\n%s\n", name, content))
+		}
+		b.WriteString("--- END RULES ---\n")
+	}
+
+	if pkt.BeadContext != "" {
+		b.WriteString("\n## Bead Context\n--- BEGIN BEADS ---\n")
+		b.WriteString(pkt.BeadContext)
+		b.WriteString("\n--- END BEADS ---\n")
 	}
 
 	b.WriteString("\n## Diff\n")
@@ -388,7 +441,7 @@ func dedupeFindings(findings []Finding) []Finding {
 }
 
 // buildVerdict creates the compact review verdict.
-func buildVerdict(feature string, round int, findings []Finding, models []ModelResult, pkt *ContextPacket) *Verdict {
+func buildVerdict(feature string, round int, findings []Finding, models []ModelResult, pkt *ContextPacket, requiredOK, requiredTotal int) *Verdict {
 	v := &Verdict{
 		Feature:         feature,
 		Round:           round,
@@ -413,6 +466,8 @@ func buildVerdict(feature string, round int, findings []Finding, models []ModelR
 
 	if p0 > 0 || p1 > 0 {
 		v.Verdict = "CHANGES_REQUESTED"
+	} else if requiredOK < requiredTotal {
+		v.Verdict = "ESCALATED"
 	} else {
 		v.Verdict = "APPROVED"
 	}
@@ -436,6 +491,13 @@ func buildVerdict(feature string, round int, findings []Finding, models []ModelR
 			Notes:    fmt.Sprintf("pi-review found %d P0 and %d P1 issues", p0, p1),
 		}
 		v.Summary = fmt.Sprintf("CHANGES_REQUESTED: %d P0, %d P1, %d total findings", p0, p1, len(findings))
+	} else if requiredOK < requiredTotal {
+		v.Reviewers["qa"] = RoleResult{
+			Verdict:  "BLOCKED",
+			Findings: []string{},
+			Notes:    fmt.Sprintf("quorum failure: %d/%d required reviewers succeeded", requiredOK, requiredTotal),
+		}
+		v.Summary = fmt.Sprintf("ESCALATED: quorum failure (%d/%d required reviewers)", requiredOK, requiredTotal)
 	} else {
 		v.Summary = fmt.Sprintf("APPROVED: %d advisory findings (P2/P3)", len(findings))
 	}

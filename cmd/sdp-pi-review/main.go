@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"sdp_dev/internal/executil"
 	"sdp_dev/internal/pireview"
@@ -127,13 +128,21 @@ func createBeadFindings(root, feature string, round int, findings []pireview.Fin
 		if f.Priority != "P0" && f.Priority != "P1" {
 			continue
 		}
+
+		// Check for existing finding with same dedupe key
+		cmd := executil.GetDefaultRunner()
+		searchOut, _ := cmd.Output(context.Background(), root,
+			"bd", "list", "--status=open", "--labels", "pi-review,round-"+fmt.Sprintf("%d", round))
+		if strings.Contains(string(searchOut), f.DedupeKey) {
+			continue // already filed
+		}
+
 		title := fmt.Sprintf("pi-review %s: %s", f.Priority, f.Title)
 		desc := fmt.Sprintf("File: %s:%d-%d\nRationale: %s\nSuggested fix: %s\nDedupe key: %s",
 			f.File, f.StartLine, f.EndLine, f.Rationale, f.SuggestedFix, f.DedupeKey)
 
 		labels := fmt.Sprintf("pi-review,review-finding,%s,round-%d", feature, round)
-		cmd := executil.GetDefaultRunner()
-		_, err := cmd.Output(context.Background(), root,
+		out, err := cmd.Output(context.Background(), root,
 			"bd", "create",
 			"--title", title,
 			"--description", desc,
@@ -145,7 +154,10 @@ func createBeadFindings(root, feature string, round int, findings []pireview.Fin
 			fmt.Fprintf(os.Stderr, "create bead: %v\n", err)
 			continue
 		}
-		created = append(created, title)
+		beadID := strings.TrimSpace(string(out))
+		if beadID != "" {
+			created = append(created, beadID)
+		}
 	}
 	return created
 }

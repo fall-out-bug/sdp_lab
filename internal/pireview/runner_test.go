@@ -94,7 +94,7 @@ func TestBuildVerdict_Approved(t *testing.T) {
 	findings := []Finding{
 		{Priority: "P2", Title: "polish", File: "a.go", DedupeKey: "P2:a.go:polish"},
 	}
-	verdict := buildVerdict("F161", 1, findings, nil, &ContextPacket{})
+	verdict := buildVerdict("F161", 1, findings, nil, &ContextPacket{}, 2, 2)
 	if verdict.Verdict != "APPROVED" {
 		t.Errorf("Verdict = %q, want APPROVED", verdict.Verdict)
 	}
@@ -108,7 +108,7 @@ func TestBuildVerdict_ChangesRequested(t *testing.T) {
 		{Priority: "P1", Title: "bug", File: "a.go", DedupeKey: "P1:a.go:bug"},
 		{Priority: "P2", Title: "polish", File: "b.go", DedupeKey: "P2:b.go:polish"},
 	}
-	verdict := buildVerdict("F161", 1, findings, nil, &ContextPacket{})
+	verdict := buildVerdict("F161", 1, findings, nil, &ContextPacket{}, 2, 2)
 	if verdict.Verdict != "CHANGES_REQUESTED" {
 		t.Errorf("Verdict = %q, want CHANGES_REQUESTED", verdict.Verdict)
 	}
@@ -121,7 +121,7 @@ func TestBuildVerdict_P0Blocks(t *testing.T) {
 	findings := []Finding{
 		{Priority: "P0", Title: "security", File: "a.go", DedupeKey: "P0:a.go:security"},
 	}
-	verdict := buildVerdict("F161", 1, findings, nil, &ContextPacket{})
+	verdict := buildVerdict("F161", 1, findings, nil, &ContextPacket{}, 2, 2)
 	if verdict.Verdict != "CHANGES_REQUESTED" {
 		t.Errorf("Verdict = %q, want CHANGES_REQUESTED", verdict.Verdict)
 	}
@@ -130,8 +130,22 @@ func TestBuildVerdict_P0Blocks(t *testing.T) {
 	}
 }
 
+func TestBuildVerdict_QuorumFailure_Escalated(t *testing.T) {
+	verdict := buildVerdict("F161", 1, nil, nil, &ContextPacket{}, 0, 2)
+	if verdict.Verdict != "ESCALATED" {
+		t.Errorf("Verdict = %q, want ESCALATED when 0/2 required reviewers succeed", verdict.Verdict)
+	}
+}
+
+func TestBuildVerdict_PartialQuorum_Escalated(t *testing.T) {
+	verdict := buildVerdict("F161", 1, nil, nil, &ContextPacket{}, 1, 2)
+	if verdict.Verdict != "ESCALATED" {
+		t.Errorf("Verdict = %q, want ESCALATED when 1/2 required reviewers succeed", verdict.Verdict)
+	}
+}
+
 func TestBuildVerdict_SevenRoles(t *testing.T) {
-	verdict := buildVerdict("F161", 1, nil, nil, &ContextPacket{})
+	verdict := buildVerdict("F161", 1, nil, nil, &ContextPacket{}, 2, 2)
 	roles := []string{"qa", "security", "devops", "sre", "techlead", "docs", "promptops"}
 	for _, role := range roles {
 		if _, ok := verdict.Reviewers[role]; !ok {
@@ -167,7 +181,7 @@ func TestRunner_Run_WithFakes(t *testing.T) {
 		responses: map[string][]byte{
 			"git rev-parse --abbrev-ref HEAD": []byte("feature/F161\n"),
 			"git rev-parse HEAD":              []byte("abc123\n"),
-			"git status --porcelain":          []byte(" M main.go\n"),
+			"git status --porcelain --untracked-files=all":          []byte(" M main.go\n"),
 			"git diff HEAD":                   []byte("+new code\n"),
 		},
 	}

@@ -249,7 +249,7 @@ func TestBuildContextPacket_BranchScope(t *testing.T) {
 		responses: map[string][]byte{
 			"git rev-parse --abbrev-ref HEAD": []byte("feature/F161-test\n"),
 			"git rev-parse HEAD":              []byte("abc123def456\n"),
-			"git status --porcelain":          []byte(""),
+			"git status --porcelain --untracked-files=all":          []byte(""),
 			"git diff --name-only main...HEAD": []byte("foo.go\nbar.go\n"),
 			"git diff main...HEAD":            []byte("diff content here"),
 		},
@@ -285,7 +285,7 @@ func TestBuildContextPacket_WorkingTreeScope(t *testing.T) {
 		responses: map[string][]byte{
 			"git rev-parse --abbrev-ref HEAD": []byte("main\n"),
 			"git rev-parse HEAD":              []byte("deadbeef\n"),
-			"git status --porcelain":          []byte(" M internal/pireview/context.go\nA  internal/pireview/evidence.go\n"),
+			"git status --porcelain --untracked-files=all":          []byte(" M internal/pireview/context.go\nA  internal/pireview/evidence.go\n"),
 			"git diff HEAD":                   []byte("diff --git a/context.go b/context.go\n+new line\n"),
 		},
 	}

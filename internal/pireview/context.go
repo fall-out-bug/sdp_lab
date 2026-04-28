@@ -97,7 +97,7 @@ func headSHA(ctx context.Context, cfg Config) (string, error) {
 }
 
 func gitStatus(ctx context.Context, cfg Config) (string, error) {
-	out, err := cfg.Runner.Output(ctx, cfg.ProjectRoot, "git", "status", "--porcelain")
+	out, err := cfg.Runner.Output(ctx, cfg.ProjectRoot, "git", "status", "--porcelain", "--untracked-files=all")
 	if err != nil {
 		return "", err
 	}
