@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 package main
 
 import (
@@ -8,8 +10,8 @@ import (
 	"os"
 	"time"
 
-	"sdp_dev/internal/dispatch"
-	"sdp_dev/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
 )
 
 // statusOutput is the JSON-serialisable representation of dispatch status.

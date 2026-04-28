@@ -1,10 +1,12 @@
+//go:build sdp_experimental
+
 package main
 
 import (
 	"fmt"
 	"time"
 
-	"sdp_dev/internal/dispatch"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch"
 )
 
 // profileToBenchResult converts a CapabilityProfile to a BenchResult for the given task and language.

@@ -3,7 +3,7 @@
 package eval
 
 import (
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // MockExtractor generates mock ProfileFragment outputs for testing.

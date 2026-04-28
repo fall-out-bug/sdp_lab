@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/secretscan"
+	"github.com/fall-out-bug/sdp_lab/internal/secretscan"
 )
 
 // Config holds deploy configuration.

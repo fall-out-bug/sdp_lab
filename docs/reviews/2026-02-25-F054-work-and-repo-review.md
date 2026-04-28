@@ -56,7 +56,7 @@
 
 | ID | Area | Finding |
 |----|------|---------|
-| — | Docs | Sync rules doc path in sdp/CLAUDE.md: "sdp_dev/docs/plans/..." — when viewing from sdp submodule, path is relative to parent. Consider clarifying. |
+| — | Docs | Sync rules doc path in sdp/CLAUDE.md: "github.com/fall-out-bug/sdp_lab/docs/plans/..." — when viewing from sdp submodule, path is relative to parent. Consider clarifying. |
 
 ---
 

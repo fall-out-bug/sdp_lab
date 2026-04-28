@@ -205,7 +205,7 @@ This file is generated during MCP server initialization and used for parity vali
 ### Go Package
 
 ```go
-import "sdp_dev/internal/mcp/contract"
+import "github.com/fall-out-bug/sdp_lab/internal/mcp/contract"
 
 // Build a new mapping contract
 mapping, err := contract.NewBuilder().

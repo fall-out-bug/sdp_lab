@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
 )
 
 // BuildLiveTools returns all concrete tools for DefaultPhaseMap.

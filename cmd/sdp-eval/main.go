@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 package main
 
 import (
@@ -6,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"sdp_dev/internal/evals"
-	"sdp_dev/internal/evidence"
+	"github.com/fall-out-bug/sdp_lab/internal/evals"
+	"github.com/fall-out-bug/sdp_lab/internal/evidence"
 )
 
 func main() {

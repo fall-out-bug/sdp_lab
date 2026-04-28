@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 package main
 
 import (
@@ -7,8 +9,8 @@ import (
 	"os"
 	"strings"
 
-	"sdp_dev/internal/control"
-	"sdp_dev/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
 )
 
 func main() {

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/beads"
-	"sdp_dev/internal/cli"
-	"sdp_dev/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/beads"
+	"github.com/fall-out-bug/sdp_lab/internal/cli"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
 )
 
 // WSOutput is the output format for sdp ready.

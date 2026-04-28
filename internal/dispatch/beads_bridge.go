@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"sdp_dev/internal/executil"
+	"github.com/fall-out-bug/sdp_lab/internal/executil"
 )
 
 // BeadContext holds task metadata extracted from the beads issue tracker.

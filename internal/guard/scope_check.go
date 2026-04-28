@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"strings"
 
-	"sdp_dev/internal/executil"
-	"sdp_dev/internal/sdputil"
+	"github.com/fall-out-bug/sdp_lab/internal/executil"
+	"github.com/fall-out-bug/sdp_lab/internal/sdputil"
 )
 
 // ScopeVerdict is the result of a scope check.

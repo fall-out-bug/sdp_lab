@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"sdp_dev/internal/orchestrate"
-	"sdp_dev/internal/sdputil"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/sdputil"
 )
 
 // Checkpoint mirrors the .sdp/checkpoints/F{NNN}.json schema.

@@ -10,8 +10,8 @@ import (
 
 	"github.com/google/uuid"
 
-	build "sdp_dev/internal/build"
-	"sdp_dev/internal/promote"
+	build "github.com/fall-out-bug/sdp_lab/internal/build"
+	"github.com/fall-out-bug/sdp_lab/internal/promote"
 )
 
 func runBuild(args []string) {

@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 package main
 
 import (
@@ -8,10 +10,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sdp_dev/internal/inference/decompose"
-	"sdp_dev/internal/inference/microfirst/bdtype"
-	"sdp_dev/internal/inference/microfirst/knn"
-	"sdp_dev/internal/inference/microfirst/wsverdict"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/bdtype"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/knn"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/wsverdict"
 )
 
 const testDataDir = "testdata"

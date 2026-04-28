@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/discovery"
+	"github.com/fall-out-bug/sdp_lab/internal/discovery"
 )
 
 // makeTestScanResult builds a ScanResult with one flagged + one settled item.

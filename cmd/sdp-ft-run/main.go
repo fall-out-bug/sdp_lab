@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 // Command sdp-ft-run drives a fine-tune backend: upload → create job → poll
 // status. The same flags target either OpenAI or local MLX.
 //
@@ -21,7 +23,7 @@ import (
 	"os"
 	"time"
 
-	"sdp_dev/internal/finetune/runner"
+	"github.com/fall-out-bug/sdp_lab/internal/finetune/runner"
 )
 
 func main() {

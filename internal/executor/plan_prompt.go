@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"sdp_dev/internal/augmentation"
-	"sdp_dev/internal/control"
-	"sdp_dev/internal/prompt"
+	"github.com/fall-out-bug/sdp_lab/internal/augmentation"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/prompt"
 )
 
 const planSystemPrompt = `You are an SDP implementation planner. Your job is to create a detailed implementation plan for a FeatureCard before execution.

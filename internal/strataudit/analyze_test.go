@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"sdp_dev/internal/strataudit/model"
+	"github.com/fall-out-bug/sdp_lab/internal/strataudit/model"
 )
 
 func TestFindingTemplates_AllClusterTypes(t *testing.T) {

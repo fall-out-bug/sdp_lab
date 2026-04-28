@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"sdp_dev/internal/agentloop"
-	"sdp_dev/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/agentloop"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
 )
 
 // TestServeBridgeHarness_HappyPath verifies that DispatchAndRun uses the harness

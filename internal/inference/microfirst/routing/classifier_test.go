@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/inference/decompose"
-	"sdp_dev/internal/inference/microfirst/embed"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/embed"
 )
 
 // deterministicEmbedder creates a fake HTTP server that returns deterministic

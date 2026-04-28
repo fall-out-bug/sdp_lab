@@ -115,3 +115,5 @@ sdp-doc-sync
 # MCP server binary (rebuilt from source)
 sdp-mcp
 *.test
+sdp-export
+sdp-strataudit

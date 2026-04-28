@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"sdp_dev/internal/kernel"
+	"github.com/fall-out-bug/sdp_lab/internal/kernel"
 )
 
 // LLMInvoker invokes an LLM/agent (e.g. opencode) with a prompt.

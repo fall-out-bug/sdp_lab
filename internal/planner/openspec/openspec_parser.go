@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/planner"
+	"github.com/fall-out-bug/sdp_lab/internal/planner"
 )
 
 // OpenSpecChange represents a parsed OpenSpec change folder

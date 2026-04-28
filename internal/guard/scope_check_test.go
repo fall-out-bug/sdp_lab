@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sdp_dev/internal/guard"
+	"github.com/fall-out-bug/sdp_lab/internal/guard"
 )
 
 func TestParseScopeFiles(t *testing.T) {

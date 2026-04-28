@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"sdp_dev/internal/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/harness"
 )
 
 // GateEngine wraps harness.EvaluateCompliance with a circuit breaker timeout.

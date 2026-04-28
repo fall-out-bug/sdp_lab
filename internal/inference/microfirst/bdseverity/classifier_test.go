@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/inference/decompose"
-	"sdp_dev/internal/inference/microfirst/embed"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/embed"
 )
 
 // writeFile is a test helper to write string content to a file.

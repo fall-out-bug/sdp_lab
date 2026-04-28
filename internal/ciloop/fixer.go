@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/sdputil"
+	"github.com/fall-out-bug/sdp_lab/internal/sdputil"
 )
 
 // LogFetcher retrieves the CI failure log for a PR.

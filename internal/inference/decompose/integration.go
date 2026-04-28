@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"sdp_dev/internal/inference/confidence"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
 )
 
 // ConfidenceCheckResult is the outcome of a ConfidenceRunner.Run call.

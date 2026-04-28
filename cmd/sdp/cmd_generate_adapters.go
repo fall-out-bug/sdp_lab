@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 
-	"sdp_dev/internal/adapters"
-	"sdp_dev/internal/manifest"
+	"github.com/fall-out-bug/sdp_lab/internal/adapters"
+	"github.com/fall-out-bug/sdp_lab/internal/manifest"
 )
 
 const (

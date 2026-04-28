@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 // sdp-cascade-replay drives the F145 CascadingInvoker against a corpus of test
 // prompts and generates a report with tier_used and hops metrics.
 //
@@ -25,9 +27,9 @@ import (
 	"os"
 	"strings"
 
-	"sdp_dev/internal/dispatch"
-	"sdp_dev/internal/dispatch/cascade"
-	"sdp_dev/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/cascade"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
 )
 
 // CorpusCase represents a single case in the cascade corpus JSON.

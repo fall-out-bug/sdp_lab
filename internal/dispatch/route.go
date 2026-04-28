@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"sdp_dev/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
 )
 
 // ColdStartStrategy determines how the router handles tasks with no bench data.

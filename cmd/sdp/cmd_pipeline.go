@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"sdp_dev/internal/executor"
+	"github.com/fall-out-bug/sdp_lab/internal/executor"
 )
 
 func runStuck(args []string) {

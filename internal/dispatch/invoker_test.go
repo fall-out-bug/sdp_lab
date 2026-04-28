@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"sdp_dev/internal/dispatch/harness"
-	"sdp_dev/internal/kernel"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/kernel"
 )
 
 // fakeInvoker is a test double for LLMInvoker.

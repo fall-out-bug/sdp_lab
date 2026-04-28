@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sdp_dev/internal/evidence"
-	"sdp_dev/internal/export"
+	"github.com/fall-out-bug/sdp_lab/internal/evidence"
+	"github.com/fall-out-bug/sdp_lab/internal/export"
 )
 
 func TestSanitizePII(t *testing.T) {

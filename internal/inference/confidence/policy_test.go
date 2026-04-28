@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/inference/confidence"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
 )
 
 func TestDefaultPolicyDefaults(t *testing.T) {

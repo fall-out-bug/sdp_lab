@@ -54,7 +54,7 @@ Context:
 ### Explaining a Decision
 
 ```go
-import "sdp_dev/internal/policy"
+import "github.com/fall-out-bug/sdp_lab/internal/policy"
 
 // Get explanation from evidence gate result
 result := evaluateEvidenceGate(config, attestation, report, verify)
@@ -70,8 +70,8 @@ json, err := policy.ExplainToJSON(explanation)
 ### Explaining an Attestation
 
 ```go
-import "sdp_dev/internal/policy"
-import "sdp_dev/internal/evidence"
+import "github.com/fall-out-bug/sdp_lab/internal/policy"
+import "github.com/fall-out-bug/sdp_lab/internal/evidence"
 
 stmt, err := evidence.ReadAttestation(path)
 if err != nil {
@@ -85,8 +85,8 @@ fmt.Println(policy.FormatExplanation(explanation))
 ### Explaining a Discrepancy Report
 
 ```go
-import "sdp_dev/internal/policy"
-import "sdp_dev/internal/evidence"
+import "github.com/fall-out-bug/sdp_lab/internal/policy"
+import "github.com/fall-out-bug/sdp_lab/internal/evidence"
 
 report, err := evidence.ReadDiscrepancyReport(path)
 if err != nil {

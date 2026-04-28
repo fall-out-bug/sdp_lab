@@ -10,7 +10,7 @@ package providers
 import (
 	"log/slog"
 
-	"sdp_dev/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
 )
 
 // ProviderRegistry manages a collection of named harness.Provider implementations.

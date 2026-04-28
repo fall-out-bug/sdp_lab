@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"sdp_dev/internal/delta"
-	"sdp_dev/internal/gate"
+	"github.com/fall-out-bug/sdp_lab/internal/delta"
+	"github.com/fall-out-bug/sdp_lab/internal/gate"
 )
 
 // TestPhaseFlagsParsing tests that phase flags are parsed correctly.

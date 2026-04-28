@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"sdp_dev/internal/inference/decompose"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
 )
 
 // MonolithicRunner wraps a single-shot pipeline that emits the same

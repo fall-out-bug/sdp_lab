@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // GoldenRepo represents a known repository with expected results.

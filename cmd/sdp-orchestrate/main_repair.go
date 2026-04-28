@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"sdp_dev/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
 )
 
 func runRepair(projectRoot, featureID, cpPath string) {

@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 // sdp-mcp is the MCP (Model Context Protocol) server for SDP toolkit commands.
 // It exposes scout, architect, metrics, spec, index, bootstrap, dispatch,
 // and beads operations as MCP tools over stdio transport.
@@ -9,7 +11,7 @@ import (
 	"log"
 	"os"
 
-	sdpmcp "sdp_dev/internal/mcp"
+	sdpmcp "github.com/fall-out-bug/sdp_lab/internal/mcp"
 
 	mcpserver "github.com/mark3labs/mcp-go/server"
 )

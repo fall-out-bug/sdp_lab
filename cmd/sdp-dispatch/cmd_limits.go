@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 package main
 
 import (
@@ -7,8 +9,8 @@ import (
 	"fmt"
 	"os"
 
-	"sdp_dev/internal/dispatch"
-	"sdp_dev/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
 )
 
 func runLimits() error {

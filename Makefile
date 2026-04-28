@@ -1,4 +1,4 @@
-# sdp_dev Makefile
+# github.com/fall-out-bug/sdp_lab Makefile
 .PHONY: test test-internal test-scripts coverage lint quality quality-go generate protocol-e2e
 .PHONY: build-sdp build-sdp-orchestrate build-sdp-guard build-sdp-eval build-sdp-ci-loop build-sdp-evidence
 .PHONY: install-hooks f145-demo
@@ -19,7 +19,8 @@ coverage:
 	go test ./internal/... -coverprofile=coverage.out -covermode=atomic $(GO_TAGS)
 	go tool cover -func=coverage.out | tail -5
 
-# Coverage for internal only (excludes cmd) - used for 80% gate
+# Coverage for internal only (excludes cmd) - maturity-tiered targets:
+#   happy-path >= 80%, GA >= 60%, Beta >= 50% (advisory), Experimental exempt
 coverage-internal:
 	@go test ./internal/... -coverprofile=coverage_internal.out -covermode=atomic $(GO_TAGS) 2>/dev/null
 	@go tool cover -func=coverage_internal.out | grep total

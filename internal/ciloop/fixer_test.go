@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/ciloop"
+	"github.com/fall-out-bug/sdp_lab/internal/ciloop"
 )
 
 // fakeCommitter records calls to commit+push.

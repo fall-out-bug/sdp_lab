@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 package main
 
 import (
@@ -11,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/agentloop"
-	"sdp_dev/internal/workstream"
+	"github.com/fall-out-bug/sdp_lab/internal/agentloop"
+	"github.com/fall-out-bug/sdp_lab/internal/workstream"
 )
 
 // TestCmdNew_createSession verifies that cmdNew creates a session DB file.

@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"sdp_dev/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
 )
 
 // AvailabilityFactor returns a multiplier in [0.0, 1.0] reflecting how much

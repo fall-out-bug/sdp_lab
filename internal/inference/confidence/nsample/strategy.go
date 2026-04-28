@@ -18,7 +18,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"sdp_dev/internal/inference/confidence"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
 )
 
 const (

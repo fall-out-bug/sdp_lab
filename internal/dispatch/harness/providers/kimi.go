@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"sdp_dev/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
 )
 
 // KimiProvider is a metadata-only Provider for Moonshot models.

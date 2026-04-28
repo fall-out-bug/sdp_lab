@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sdp_dev/internal/adapters"
+	"github.com/fall-out-bug/sdp_lab/internal/adapters"
 )
 
 // setupGeneratedDir writes a generated map into dir/outDir and returns the

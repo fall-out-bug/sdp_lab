@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"sdp_dev/internal/architect"
-	"sdp_dev/internal/architect/extract"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect/extract"
 )
 
 // mockExtractor is a test double that returns a predefined fragment.

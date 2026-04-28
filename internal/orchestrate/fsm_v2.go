@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"sdp_dev/archive/adapters-sdk"
-	"sdp_dev/internal/kernel"
+	"github.com/fall-out-bug/sdp_lab/archive/adapters-sdk"
+	"github.com/fall-out-bug/sdp_lab/internal/kernel"
 )
 
 type State string

@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"sdp_dev/internal/dispatch"
-	"sdp_dev/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
 )
 
 // TestCascadeReplay_EmptyCorpus verifies that an empty corpus produces an empty report without panic.

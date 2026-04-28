@@ -3,7 +3,7 @@ package typescript
 import (
 	"strings"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // convertTSImportGraph converts a TSImportGraph into a ProfileFragment.

@@ -24,12 +24,12 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/agentloop"
-	"sdp_dev/internal/agentloop/livegw"
-	"sdp_dev/internal/control"
-	"sdp_dev/internal/deploy"
-	"sdp_dev/internal/kernel"
-	"sdp_dev/internal/executor/omoclient"
+	"github.com/fall-out-bug/sdp_lab/internal/agentloop"
+	"github.com/fall-out-bug/sdp_lab/internal/agentloop/livegw"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/deploy"
+	"github.com/fall-out-bug/sdp_lab/internal/kernel"
+	"github.com/fall-out-bug/sdp_lab/internal/executor/omoclient"
 )
 
 // ServeBridge connects SDP dispatch to OmO via opencode serve (REST+SSE).

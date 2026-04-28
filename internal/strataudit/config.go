@@ -5,7 +5,7 @@ import (
 	"os"
 	"sort"
 
-	"sdp_dev/internal/architect/security"
+	"github.com/fall-out-bug/sdp_lab/internal/architect/security"
 	"gopkg.in/yaml.v3"
 )
 

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"sdp_dev/internal/common"
+	"github.com/fall-out-bug/sdp_lab/internal/common"
 )
 
 // programmingLanguages are eligible for "primary language" selection.

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/strataudit/model"
-	"sdp_dev/internal/strataudit/report"
+	"github.com/fall-out-bug/sdp_lab/internal/strataudit/model"
+	"github.com/fall-out-bug/sdp_lab/internal/strataudit/report"
 )
 
 type extractCheckpoint struct {

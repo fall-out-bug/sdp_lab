@@ -11,7 +11,7 @@ This is the shortest accurate way to orient inside `sdp_lab`.
 - it owns Go code, orchestration, adapter work, evals, roadmap, and planning
 - protocol artifacts (prompts, schemas, hooks, public CLI work) live at native tracked paths (`prompts/`, `schema/`, `templates/`, `.claude/hooks/`); distilled artifacts are published to the `sdp` repo via `scripts/sdp-publish.sh`. `sdp/` is an optional local checkout of that distribution repo, not a tracked component.
 - it uses `main` as the live default branch
-- historical docs and bead IDs may still say `sdp_dev`; treat that as a legacy label for this same repo
+- Go module path is `github.com/fall-out-bug/sdp_lab`; historical docs and bead IDs may still say `sdp_dev` — treat as legacy naming
 
 ## Who Should Start Here
 
@@ -47,28 +47,25 @@ Start with these files:
 
 ## Current Product Direction
 
-The active direction has two lanes:
+SDP is organized into seven product layers. See [`product-surface.md`](product-surface.md) for the full inventory and [`../../docs/strategy/2026-04-27-sdp-product-layering-4d.md`](../../docs/strategy/2026-04-27-sdp-product-layering-4d.md) for the canonical layer taxonomy.
 
-**Platform reset (core):**
+**What ships today (SDP Toolkit + Toolbox):**
 
-- `F091` backlog reset and canonical doc sync
-- `F092` kernel contract surface
-- `F093` adapter gateway layer
-- `F094` augmentation engine
-- `F095` behavioral eval system
-- `F096` legacy drift cleanup support lane
+- `sdp` CLI with stable subcommands: `scout`, `metrics`, `index`, `spec`, `bootstrap`, `init`, `manifest`, `generate-adapters`, `doctor`
+- multi-harness adapter install for Claude Code, OpenCode, Codex, and Cursor
+- Operator Mode as the default Toolkit happy path (stateful orchestration)
 
-**Toolkit lane (unknown repo → AI-native adoption):**
+**Product direction (not yet shipped):**
 
-- `F120` Toolkit Scout — instant repo card (Done)
-- `F121` Toolkit Metrics — git-derived process health (Done)
-- `F122` Toolkit Index — persistent codebase memory (Done)
-- `F123` Toolkit Spec Recovery — recover implicit contracts (Done)
-- `F124` Toolkit Bootstrap — brownfield-safe agent setup (Done)
-- `F125` Toolkit UX — intent-routed skills (In Progress)
-- `F126` Toolkit MCP — universal agent interface (Done)
+- ChangePassport (`sdp-pr-gate`) — separate merge-readiness product surface
+- Enterprise Delivery Governance — enterprise governed delivery control plane
 
-Trust, evidence, and governance still matter, but they are the secondary lane, not the whole story.
+**Research / lab-only (not in formula):**
+
+- agentloop FSM runtime, model gateway, MicroFirst, telemetry daemon
+- K8s/swarm/control tower, eval framework, benchmark tooling
+
+Historical platform reset (F091-F096) and Toolkit lane (F120-F126) details remain in the archive plans below. The current active track is F150 (product layering and release readiness).
 
 Canonical roadmap:
 

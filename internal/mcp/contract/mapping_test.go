@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"sdp_dev/internal/mcp/contract"
+	"github.com/fall-out-bug/sdp_lab/internal/mcp/contract"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

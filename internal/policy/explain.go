@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"sdp_dev/internal/evidence"
+	"github.com/fall-out-bug/sdp_lab/internal/evidence"
 )
 
 // ExplainResult provides a human-readable explanation of a decision

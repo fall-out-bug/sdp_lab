@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // TSExtractor builds a TSImportGraph from a TypeScript/JavaScript project root.

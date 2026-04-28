@@ -16,8 +16,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"sdp_dev/internal/agentloop"
-	"sdp_dev/internal/llmclient"
+	"github.com/fall-out-bug/sdp_lab/internal/agentloop"
+	"github.com/fall-out-bug/sdp_lab/internal/llmclient"
 )
 
 // LiveGateway implements agentloop.ModelGateway via SSE streaming through llmclient.

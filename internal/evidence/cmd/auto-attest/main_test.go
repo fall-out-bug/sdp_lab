@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"sdp_dev/internal/evidence"
+	"github.com/fall-out-bug/sdp_lab/internal/evidence"
 )
 
 func TestShouldFailClosed_FalseWhenTestsPass(t *testing.T) {

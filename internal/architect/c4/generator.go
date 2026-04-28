@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // GenerateOptions controls C4 model generation.

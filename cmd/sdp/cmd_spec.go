@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"sdp_dev/internal/spec"
+	"github.com/fall-out-bug/sdp_lab/internal/spec"
 )
 
 func runSpec(args []string) {

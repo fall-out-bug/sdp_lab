@@ -6,7 +6,9 @@ Audience: CTOs, architects, and developers evaluating SDP as a structured AI PDL
 
 ## What You Are Installing
 
-SDP installs a repo-local harness surface:
+You are installing **SDP Toolkit** — the installable developer surface. It is the `sdp` CLI, installed into your repo.
+
+SDP Toolkit installs a repo-local harness surface:
 
 - `sdp.manifest.yaml` — source of truth for skills, commands, agents, and harness adapters
 - generated adapter files for Claude Code, OpenCode, Codex, and Cursor
@@ -14,6 +16,8 @@ SDP installs a repo-local harness surface:
 - optional `.sdp/` outputs from scout, metrics, index, specs, evidence, and later operator runs
 
 It does not ask for model API keys during install. Model/provider setup belongs to the harness you use.
+
+The `sdp_lab` repo is the research workspace where SDP is built. You do not need to clone it unless you are contributing to the platform. ChangePassport (`sdp-pr-gate`) and Enterprise Delivery Governance are separate product surfaces — they are product directions, not part of this install.
 
 ## Prerequisites
 
@@ -29,13 +33,13 @@ It does not ask for model API keys during install. Model/provider setup belongs 
 Run this from the root of the repo where you want SDP installed:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
 export PATH="$PWD/.sdp/bin:$PATH"
 ```
 
 The installer:
 
-1. clones `fall-out-bug/sdp_lab` to get the canonical manifest and prompts
+1. clones `fall-out-bug/sdp` to get the canonical manifest and prompts
 2. uses `sdp` from `PATH` only if it supports the current `init --harness` contract
 3. otherwise builds `cmd/sdp` with the `sqlite_fts5` tag
 4. runs `sdp init --harness auto`
@@ -47,7 +51,7 @@ Environment overrides:
 ```bash
 SDP_HARNESS=claude-code,opencode \
 SDP_TARGET=/path/to/repo \
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
 export PATH="/path/to/repo/.sdp/bin:$PATH"
 ```
 
@@ -110,25 +114,32 @@ sdp bootstrap --dry-run --mode brownfield .
 
 ## What Works Today
 
-Stable or ready to evaluate:
+**SDP Toolkit (stable, ships in formula):**
 
 - multi-harness manifest/adapters: 29 skills, 24 commands, 12 agents
 - toolkit commands: `scout`, `metrics`, `index`, `spec`, `bootstrap`
+
+**Operator Mode (default Toolkit happy path):**
+
 - Beads-backed operator workflow in `sdp_lab`
 - evidence/schema/protocol checks
 - StratAudit reports
 
-Useful but operator-facing:
+**Operator tooling (available in formula tap):**
 
 - `sdp-orchestrate`, `sdp-ci-loop`, `sdp-guard`, `sdp-doc-sync`, `sdp-ready`
 - `sdp manifest parity`, `sdp generate-adapters`, `sdp doctor adapters`
 
-Experimental or research:
+**Lab / research (not in formula):**
 
 - strict `agentloop` + `sdp-harness` primary delivery runtime
 - model gateway, cascades, MicroFirst inference, telemetry daemon
 - K8s/swarm/control tower paths
-- ChangePassport as a separate merge-readiness product direction
+
+**Product direction (not yet shipped):**
+
+- ChangePassport (`sdp-pr-gate`) — separate merge-readiness product surface
+- Enterprise Delivery Governance — enterprise governed delivery control plane
 
 Canonical map: [reference/product-surface.md](reference/product-surface.md)
 

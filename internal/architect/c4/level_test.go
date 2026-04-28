@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 func TestGenerateLevel1_Actors(t *testing.T) {

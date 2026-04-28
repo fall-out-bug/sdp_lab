@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"sdp_dev/internal/kernel"
+	"github.com/fall-out-bug/sdp_lab/internal/kernel"
 )
 
 func ResolvePromptContext(ctx context.Context, loader Loader, packRefs []string) ([]kernel.ContextSegment, error) {

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sdp_dev/internal/backlog"
+	"github.com/fall-out-bug/sdp_lab/internal/backlog"
 )
 
 // writeWSFile creates a ws file at wsDir/name with optional frontmatter status.

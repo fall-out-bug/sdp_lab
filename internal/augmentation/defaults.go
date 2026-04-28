@@ -1,6 +1,6 @@
 package augmentation
 
-import "sdp_dev/internal/kernel"
+import "github.com/fall-out-bug/sdp_lab/internal/kernel"
 
 func DefaultPacks() []kernel.WorkflowPack {
 	return []kernel.WorkflowPack{

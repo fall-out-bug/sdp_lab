@@ -9,8 +9,8 @@ import (
 	"os"
 	"strings"
 
-	"sdp_dev/internal/executil"
-	"sdp_dev/internal/testwriter"
+	"github.com/fall-out-bug/sdp_lab/internal/executil"
+	"github.com/fall-out-bug/sdp_lab/internal/testwriter"
 )
 
 // coverageGap represents a function below the coverage threshold.
@@ -42,7 +42,7 @@ func validatePackagePattern(pkg string) error {
 	}
 	// Valid patterns:
 	//   - relative: ./..., ../...
-	//   - absolute/module path: contains / or . (e.g. github.com/..., sdp_dev/...)
+	//   - absolute/module path: contains / or . (e.g. github.com/..., github.com/fall-out-bug/sdp_lab/...)
 	// Reject bare words like "single" which are likely mistakes.
 	if !(strings.HasPrefix(pkg, "./") ||
 		strings.HasPrefix(pkg, "../") ||

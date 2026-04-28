@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"sdp_dev/internal/stream"
+	"github.com/fall-out-bug/sdp_lab/internal/stream"
 )
 
 func TestEventBus_BasicOperations(t *testing.T) {

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/architect"
-	"sdp_dev/internal/architect/classify"
-	"sdp_dev/internal/discovery"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect/classify"
+	"github.com/fall-out-bug/sdp_lab/internal/discovery"
 )
 
 // TestHypothesizerNew verifies the constructor.

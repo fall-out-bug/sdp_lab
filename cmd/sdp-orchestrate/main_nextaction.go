@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"sdp_dev/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
 )
 
 func runNextAction(cp *orchestrate.Checkpoint, workstreams []string, projectRoot string, jsonOutput bool) {

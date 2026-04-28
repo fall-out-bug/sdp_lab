@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"sdp_dev/internal/rules"
-	"sdp_dev/internal/scout"
+	"github.com/fall-out-bug/sdp_lab/internal/rules"
+	"github.com/fall-out-bug/sdp_lab/internal/scout"
 )
 
 const claudeAdapterName = "claude-code"

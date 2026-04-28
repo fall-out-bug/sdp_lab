@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"sdp_dev/internal/agentloop"
-	"sdp_dev/internal/agentloop/livegw"
+	"github.com/fall-out-bug/sdp_lab/internal/agentloop"
+	"github.com/fall-out-bug/sdp_lab/internal/agentloop/livegw"
 )
 
 func TestNew_rejectEmptyKey(t *testing.T) {

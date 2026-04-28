@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"sdp_dev/internal/ciloop"
+	"github.com/fall-out-bug/sdp_lab/internal/ciloop"
 )
 
 // loopRunner simulates sequences of gh responses across calls.

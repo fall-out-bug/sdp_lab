@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/adapters"
-	"sdp_dev/internal/manifest"
+	"github.com/fall-out-bug/sdp_lab/internal/adapters"
+	"github.com/fall-out-bug/sdp_lab/internal/manifest"
 )
 
 // minimalManifest returns a small but complete manifest useful for most tests.

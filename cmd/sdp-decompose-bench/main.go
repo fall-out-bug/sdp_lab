@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 // sdp-decompose-bench runs an A/B benchmark comparing the monolithic ws-verdict
 // pipeline against the 3-stage decomposed pipeline (F146) over the F144 corpus.
 //
@@ -24,8 +26,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"sdp_dev/internal/inference/decompose/adapters/wsverdict"
-	"sdp_dev/internal/inference/replayutil"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose/adapters/wsverdict"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/replayutil"
 )
 
 func main() {

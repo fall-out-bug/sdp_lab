@@ -3,7 +3,7 @@ package c4
 import (
 	"path/filepath"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // GenerateLevel2 creates Level 2 (Container) nodes from deploy unit signals.

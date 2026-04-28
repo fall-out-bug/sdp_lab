@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sdp_dev/internal/architect"
-	"sdp_dev/internal/architect/classify"
-	"sdp_dev/internal/architect/extract"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect/classify"
+	"github.com/fall-out-bug/sdp_lab/internal/architect/extract"
 )
 
 // TestBuildReferenceModel verifies that a ReferenceModel is correctly derived from a CodebaseProfile

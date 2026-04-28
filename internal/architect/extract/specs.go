@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // specGlob defines a glob pattern and the kind label assigned to matches.

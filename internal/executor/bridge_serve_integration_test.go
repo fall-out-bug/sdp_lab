@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"sdp_dev/internal/agentloop"
-	"sdp_dev/internal/agentloop/livegw"
-	"sdp_dev/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/agentloop"
+	"github.com/fall-out-bug/sdp_lab/internal/agentloop/livegw"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
 )
 
 // testPhaseMap is a custom phase map for integration tests. It uses "glm-5"

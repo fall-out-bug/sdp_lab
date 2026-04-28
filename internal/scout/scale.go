@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"sdp_dev/internal/common"
+	"github.com/fall-out-bug/sdp_lab/internal/common"
 )
 
 // detectScale runs Phase 2: file counts, LOC, entry points, directory stats.

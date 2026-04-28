@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/build"
+	"github.com/fall-out-bug/sdp_lab/internal/build"
 )
 
 // Config holds the self-testing loop configuration.

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // PythonExtractor implements architect.Extractor for Python projects.

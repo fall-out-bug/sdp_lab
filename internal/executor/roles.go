@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"sdp_dev/internal/augmentation"
+	"github.com/fall-out-bug/sdp_lab/internal/augmentation"
 )
 
 const defaultOmOAgent = "sisyphus"

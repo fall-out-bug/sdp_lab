@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run protocol E2E in Docker (from sdp_dev root).
+# Run protocol E2E in Docker (from sdp_lab root).
 # Usage: ./scripts/run-protocol-e2e-docker.sh
 # Set GLM_API_KEY for Phase 5 (opencode LLM code generation).
 

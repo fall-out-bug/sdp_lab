@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"regexp"
 
-	"sdp_dev/internal/inference/confidence"
-	"sdp_dev/internal/inference/confidence/constraint"
-	"sdp_dev/internal/inference/confidence/selfcheck"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence/constraint"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence/selfcheck"
 )
 
 // Decision is one routing decision: which harness/agent should handle a task.

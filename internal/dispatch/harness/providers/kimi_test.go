@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"sdp_dev/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
 )
 
 func TestKimiProvider_Name(t *testing.T) {

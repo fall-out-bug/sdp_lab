@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 // Package main provides the sdp-harness CLI for running SDP phase turns
 // and managing session lifecycle through the agentloop Harness.
 //
@@ -25,9 +27,9 @@ import (
 	"strconv"
 	"strings"
 
-	"sdp_dev/internal/agentloop"
-	"sdp_dev/internal/agentloop/livegw"
-	"sdp_dev/internal/workstream"
+	"github.com/fall-out-bug/sdp_lab/internal/agentloop"
+	"github.com/fall-out-bug/sdp_lab/internal/agentloop/livegw"
+	"github.com/fall-out-bug/sdp_lab/internal/workstream"
 )
 
 func main() {

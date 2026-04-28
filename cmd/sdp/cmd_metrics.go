@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sdp_dev/internal/metrics"
+	"github.com/fall-out-bug/sdp_lab/internal/metrics"
 	"time"
 )
 

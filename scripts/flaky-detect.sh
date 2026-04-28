@@ -76,7 +76,7 @@ import (
 	"os"
 	"strconv"
 
-	"sdp_dev/internal/mutation"
+	"github.com/fall-out-bug/sdp_lab/internal/mutation"
 )
 
 func main() {

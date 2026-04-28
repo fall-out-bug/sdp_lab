@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
 )
 
 func captureStdout(fn func()) []byte {

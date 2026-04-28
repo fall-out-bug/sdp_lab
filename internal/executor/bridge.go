@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/control"
-	"sdp_dev/internal/kernel"
-	"sdp_dev/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/kernel"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
 )
 
 // ExecutorBridge connects dispatched execution packets to the configured LLM invoker.

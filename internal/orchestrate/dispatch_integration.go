@@ -8,9 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"sdp_dev/internal/dispatch"
-	"sdp_dev/internal/dispatch/harness"
-	"sdp_dev/internal/kernel"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/kernel"
 )
 
 // NewDispatchingInvoker creates a DispatchingInvoker if profiles exist.

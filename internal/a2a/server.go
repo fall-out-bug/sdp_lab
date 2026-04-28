@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"strings"
 
-	"sdp_dev/internal/control"
-	"sdp_dev/internal/executor"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/executor"
 )
 
 // Server exposes a minimal A2A-compatible JSON-RPC interface over the SDP control tower.

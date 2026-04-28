@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 package main
 
 import (
@@ -6,9 +8,9 @@ import (
 	"net/http"
 	"time"
 
-	"sdp_dev/internal/a2a"
-	"sdp_dev/internal/control"
-	"sdp_dev/internal/executor"
+	"github.com/fall-out-bug/sdp_lab/internal/a2a"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/executor"
 )
 
 func main() {

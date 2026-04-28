@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"sdp_dev/internal/modelgateway"
+	"github.com/fall-out-bug/sdp_lab/internal/modelgateway"
 )
 
 type OpenAIProvider struct {

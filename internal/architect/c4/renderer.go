@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // Level controls the C4 diagram depth.

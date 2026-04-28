@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"sdp_dev/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
 )
 
 func runHydrate(projectRoot, featureID, wsFlag string, cp *orchestrate.Checkpoint, workstreams []string) {

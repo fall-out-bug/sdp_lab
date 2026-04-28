@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"sdp_dev/internal/executil"
+	"github.com/fall-out-bug/sdp_lab/internal/executil"
 )
 
 const fallbackDefaultBranch = "main"

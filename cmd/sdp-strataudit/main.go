@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 package main
 
 import (
@@ -10,7 +12,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"sdp_dev/internal/strataudit"
+	"github.com/fall-out-bug/sdp_lab/internal/strataudit"
 )
 
 func main() {

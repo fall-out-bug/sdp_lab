@@ -4,7 +4,7 @@ set -euo pipefail
 HOST=""
 PORT="22"
 IMAGE=""
-REMOTE_DIR="/tmp/sdp_dev_image_build"
+REMOTE_DIR="/tmp/sdp_lab_image_build"
 RETRIES="5"
 BD_VERSION="v0.49.6"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

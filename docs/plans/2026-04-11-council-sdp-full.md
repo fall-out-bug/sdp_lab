@@ -37,7 +37,7 @@ SDP заявляет "the pipeline is law", но реальный execution path
 
 Consensus. `internal/agentloop` содержит корректные абстракции: FSM, GateEngine с circuit breaker, EvidenceAccumulator из tool outputs, SQLite WAL. 128 тестов, -race clean.
 
-Но: `grep "sdp_dev/internal/agentloop" cmd/ internal/executor/` → 0 результатов. `ExecutorBridge` продолжает вызывать opencode subprocess.
+Но: `grep "github.com/fall-out-bug/sdp_lab/internal/agentloop" cmd/ internal/executor/` → 0 результатов. `ExecutorBridge` продолжает вызывать opencode subprocess.
 
 Архитектор: *"The governance kernel is built but not wired, while the production path still delegates to an uncontrolled subprocess."*  
 Прагматик: *"The team built the solution but forgot to use it."*

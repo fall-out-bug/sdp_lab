@@ -1,5 +1,10 @@
 # Goreleaser config for SDP CLIs
 # Triggers on tag push (e.g. v0.1.0)
+#
+# Release surface (F150-04): only stable + tooling binaries are included.
+# Experimental/lab-only binaries are excluded — they are available via
+# `go build -tags sdp_experimental ./cmd/<name>` for local development.
+# See docs/reference/maturity-matrix.md for full classification.
 version: 2
 project_name: sdp-cli
 
@@ -7,6 +12,24 @@ env:
   - CGO_ENABLED=0
 
 builds:
+  # ── Stable Product Surface ────────────────────────────────────────────
+  - id: sdp
+    main: ./cmd/sdp
+    binary: sdp
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+  # ── Operator Tooling ──────────────────────────────────────────────────
   - id: sdp-evidence
     main: ./cmd/sdp-evidence
     binary: sdp-evidence
@@ -47,6 +70,18 @@ builds:
       - amd64
       - arm64
 
+  - id: sdp-orchestrate-daemon
+    main: ./cmd/sdp-orchestrate-daemon
+    binary: sdp-orchestrate-daemon
+    ldflags:
+      - -s -w
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
   - id: sdp-ci-loop
     main: ./cmd/sdp-ci-loop
     binary: sdp-ci-loop
@@ -59,9 +94,9 @@ builds:
       - amd64
       - arm64
 
-  - id: sdp-eval
-    main: ./cmd/sdp-eval
-    binary: sdp-eval
+  - id: sdp-doc-sync
+    main: ./cmd/sdp-doc-sync
+    binary: sdp-doc-sync
     ldflags:
       - -s -w
     goos:
@@ -71,7 +106,136 @@ builds:
       - amd64
       - arm64
 
+  - id: sdp-beads-bridge
+    main: ./cmd/sdp-beads-bridge
+    binary: sdp-beads-bridge
+    ldflags:
+      - -s -w
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+  - id: sdp-gh-findings-sync
+    main: ./cmd/sdp-gh-findings-sync
+    binary: sdp-gh-findings-sync
+    ldflags:
+      - -s -w
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+  - id: sdp-ready
+    main: ./cmd/sdp-ready
+    binary: sdp-ready
+    ldflags:
+      - -s -w
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+  - id: sdp-protocol-check
+    main: ./cmd/sdp-protocol-check
+    binary: sdp-protocol-check
+    ldflags:
+      - -s -w
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+  - id: sdp-ws-verdict-validate
+    main: ./cmd/sdp-ws-verdict-validate
+    binary: sdp-ws-verdict-validate
+    ldflags:
+      - -s -w
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+  - id: sdp-healthcheck
+    main: ./cmd/sdp-healthcheck
+    binary: sdp-healthcheck
+    ldflags:
+      - -s -w
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+  - id: sdp-export
+    main: ./cmd/sdp-export
+    binary: sdp-export
+    ldflags:
+      - -s -w
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+  - id: sdp-session-audit
+    main: ./cmd/sdp-session-audit
+    binary: sdp-session-audit
+    ldflags:
+      - -s -w
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+  - id: sdp-omc-guard
+    main: ./cmd/sdp-omc-guard
+    binary: sdp-omc-guard
+    ldflags:
+      - -s -w
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+  # NOTE: sdp-eval is classified experimental and intentionally excluded
+  # from the release build. Use `go build ./cmd/sdp-eval` for local dev.
+  #
+  # Excluded binaries (lab-only / experimental / research / retired):
+  #   sdp-control (retired), sdp-dispatch (lab-only), sdp-up (lab-only),
+  #   gt-adapter (lab-only), sdp-harness (experimental), sdp-a2a (experimental),
+  #   sdp-eval (experimental), sdp-strataudit (experimental), sdp-mcp (experimental),
+  #   sdp-cascade-replay (research), sdp-confidence-replay (research),
+  #   sdp-decompose-bench (research), sdp-microfirst-bench (research),
+  #   sdp-bd-suggest (research), sdp-ft-baseline (research),
+  #   sdp-ft-dataset (research), sdp-ft-run (research), sdp-ft-validate (research)
+
 archives:
+  - id: sdp
+    format: tar.gz
+    name_template: "sdp_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - sdp
+    format_overrides:
+      - goos: windows
+        format: zip
+
   - id: sdp-evidence
     format: tar.gz
     name_template: "sdp-evidence_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
@@ -93,17 +257,77 @@ archives:
     builds:
       - sdp-orchestrate
 
+  - id: sdp-orchestrate-daemon
+    format: tar.gz
+    name_template: "sdp-orchestrate-daemon_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - sdp-orchestrate-daemon
+
   - id: sdp-ci-loop
     format: tar.gz
     name_template: "sdp-ci-loop_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     builds:
       - sdp-ci-loop
 
-  - id: sdp-eval
+  - id: sdp-doc-sync
     format: tar.gz
-    name_template: "sdp-eval_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: "sdp-doc-sync_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     builds:
-      - sdp-eval
+      - sdp-doc-sync
+
+  - id: sdp-beads-bridge
+    format: tar.gz
+    name_template: "sdp-beads-bridge_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - sdp-beads-bridge
+
+  - id: sdp-gh-findings-sync
+    format: tar.gz
+    name_template: "sdp-gh-findings-sync_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - sdp-gh-findings-sync
+
+  - id: sdp-ready
+    format: tar.gz
+    name_template: "sdp-ready_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - sdp-ready
+
+  - id: sdp-protocol-check
+    format: tar.gz
+    name_template: "sdp-protocol-check_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - sdp-protocol-check
+
+  - id: sdp-ws-verdict-validate
+    format: tar.gz
+    name_template: "sdp-ws-verdict-validate_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - sdp-ws-verdict-validate
+
+  - id: sdp-healthcheck
+    format: tar.gz
+    name_template: "sdp-healthcheck_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - sdp-healthcheck
+
+  - id: sdp-export
+    format: tar.gz
+    name_template: "sdp-export_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - sdp-export
+
+  - id: sdp-session-audit
+    format: tar.gz
+    name_template: "sdp-session-audit_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - sdp-session-audit
+
+  - id: sdp-omc-guard
+    format: tar.gz
+    name_template: "sdp-omc-guard_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - sdp-omc-guard
 
 checksum:
   name_template: "checksums.txt"
@@ -124,6 +348,7 @@ release:
   header: |
     ## SDP — Structured Development Protocol Trust Layer
 
+    `sdp` is the main CLI for the SDP platform.
     `sdp-evidence` validates in-toto attestations generated by AI coding agents.
     It answers: "Did the agent plan, stay in scope, pass tests, and get reviewed?"
 
@@ -132,6 +357,7 @@ release:
     ```bash
     # Add CI gates to your repo
     # See docs/getting-started.md for full setup
+    sdp scout
     sdp-evidence validate .sdp/evidence/F028.json
     sdp-evidence inspect .sdp/evidence/F028.json
     ```

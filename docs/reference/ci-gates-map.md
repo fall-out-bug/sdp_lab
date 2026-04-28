@@ -19,7 +19,7 @@ scope-gate ──────────────┤      │
 protocol-compliance ─────┤      │  (needs: build-test)
 consistency-gate ────────┤      │
                          │      │
-coverage-gate ───────────┤      │  (needs: build-test)
+coverage-gate ───────────┤      │  (needs: build-test; baseline delta + maturity-tiered minimums)
                          │      │
 policy-gate ◄────────────┘      │
    (needs: evidence,            │
@@ -44,7 +44,7 @@ required-checks ◄───────────────┴──┘
 | Scope Gate | `scope-gate` | Yes | Fail-closed | `go run ./cmd/sdp-guard --ws <ws-id>` |
 | Protocol Compliance | `protocol-compliance` | Yes | Fail-closed | `go run ./cmd/sdp-guard --check-contract --contract <file> --snapshot <file>` |
 | Consistency Gate | `consistency-gate` | Yes | Fail-closed | `python3 scripts/check_repo_consistency.py --strict-ac --json` |
-| Coverage Gate | `coverage-gate` | Yes | Blocking (baseline delta) | `go test -tags sqlite_fts5 -coverprofile=cover.out ./... && go tool cover -func=cover.out` |
+| Coverage Gate | `coverage-gate` | Yes | Blocking (baseline delta + maturity-tiered minimums) | `go test -tags sqlite_fts5 -coverprofile=cover.out ./... && go tool cover -func=cover.out` |
 | Policy Gate | `policy-gate` | Yes | Advisory (configurable) | See details (OPA eval) |
 | Auto-Attestation | `auto-attestation` | Yes | Required | `go run ./internal/evidence/cmd/auto-attest --branch <branch>` |
 | Required Checks | `required-checks` | Yes | Required | Verify all gate jobs pass |
@@ -137,12 +137,35 @@ required-checks ◄───────────────┴──┘
 ### coverage-gate
 - **Owner**: platform
 - **Triggers**: push, PR
-- **Steps**: `go test -tags sqlite_fts5 -coverprofile=cov.out ./...` + compare against baseline in `.sdp/metrics/coverage.txt` with -2pp threshold
+- **Steps**: `go test -tags sqlite_fts5 -coverprofile=cov.out ./...` + two-phase check:
+  1. **Baseline delta**: Compare repo-total coverage against `.sdp/metrics/coverage.txt` with -2pp threshold (existing behavior).
+  2. **Maturity-tiered minimums**: Check per-package coverage against maturity-appropriate targets (see [Coverage Tier Policy](#coverage-tier-policy)).
 - **Dependencies**: `build-test`
-- **Failure semantics**: Blocking. Fails if coverage drops more than 2pp below baseline. Requires baseline file to exist.
+- **Failure semantics**: Blocking. Fails if either (a) total coverage drops more than 2pp below baseline, or (b) any happy-path or GA package falls below its maturity-tier minimum. Beta packages are advisory only (reported but non-blocking). Experimental packages are exempt.
 - **Local reproduce**: `go test -tags sqlite_fts5 -coverprofile=cover.out ./... && go tool cover -func=cover.out | grep total`
-- **Output**: Coverage percentage in stdout; `cov.out` locally.
+- **Output**: Coverage percentage in stdout; per-package tier results; `cov.out` locally.
 - **Baseline**: `.sdp/metrics/coverage.txt` (auto-updated on push to main)
+
+#### Coverage Tier Policy
+
+Coverage expectations are tiered by component maturity. See [maturity-matrix.md](./maturity-matrix.md) for the canonical maturity classification.
+
+| Tier | Maturity | Target | Enforced | Denominator |
+|------|----------|--------|----------|-------------|
+| Happy-path | GA + on happy-path surface | >= 80% | **Blocking** | Per-package line coverage for packages implementing the canonical happy-path |
+| GA | GA (not on happy-path) | >= 60% | **Blocking** | Per-package line coverage |
+| Beta | Beta | >= 50% | **Advisory** (non-blocking) | Per-package line coverage |
+| Experimental | Experimental | None | **Exempt** | N/A |
+
+**Happy-path packages** (>= 80% target): `internal/scout`, `internal/metrics`, `internal/index`, `internal/bootstrap`, `internal/control`, `internal/orchestrate`, `internal/cli`, `internal/manifest`, `internal/evidence`, `internal/guard`, `internal/discovery`, `internal/build`.
+
+**GA (non happy-path) packages** (>= 60% target): All other GA-maturity packages in `internal/` and `cmd/`.
+
+**Beta packages** (>= 50% advisory): `internal/tower`, `internal/dispatch`, `internal/a2a`, `internal/monitor`, `internal/profile`, `internal/policy`, `internal/augmentation`, `internal/mcp`, `internal/evals`, `internal/deploy`, `internal/trace`, `internal/sessionaudit`, and Beta-maturity binaries.
+
+**Experimental packages** (exempt): `internal/agentloop`, `internal/modelgateway`, `internal/inference`, `internal/llmclient`, `internal/localmodel`, `internal/memory`, `internal/mutation`, `internal/finetune`, `internal/planner`, `internal/authz`, `internal/stream`, `internal/secretscan`, `internal/provenance`, `internal/flaky`, `internal/glob`.
+
+**Measurement**: `go test -tags sqlite_fts5 -coverprofile=cov.out ./...` + `go tool cover -func=cov.out` (per-package line coverage).
 
 ### policy-gate
 - **Owner**: platform

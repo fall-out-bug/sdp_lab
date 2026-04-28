@@ -3,7 +3,7 @@ package discovery
 import (
 	"context"
 
-	"sdp_dev/internal/llmclient"
+	"github.com/fall-out-bug/sdp_lab/internal/llmclient"
 )
 
 // Message is re-exported from llmclient for backward compatibility within this package.

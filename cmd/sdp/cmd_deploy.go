@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"sdp_dev/internal/deploy"
+	"github.com/fall-out-bug/sdp_lab/internal/deploy"
 )
 
 func runDeploy(args []string) {

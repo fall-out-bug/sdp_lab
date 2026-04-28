@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"sdp_dev/internal/ciloop"
+	"github.com/fall-out-bug/sdp_lab/internal/ciloop"
 )
 
 func writeRunFile(t *testing.T, dir, name string) {

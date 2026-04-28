@@ -9,8 +9,8 @@ import (
 	"sort"
 	"strings"
 
-	legacyeval "sdp_dev/internal/eval"
-	"sdp_dev/internal/kernel"
+	legacyeval "github.com/fall-out-bug/sdp_lab/internal/eval"
+	"github.com/fall-out-bug/sdp_lab/internal/kernel"
 
 	"gopkg.in/yaml.v3"
 )

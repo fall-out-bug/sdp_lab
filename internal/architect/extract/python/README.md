@@ -82,7 +82,7 @@ Framework patterns detected with confidence scores:
 ```go
 import (
     "context"
-    "sdp_dev/internal/architect/extract/python"
+    "github.com/fall-out-bug/sdp_lab/internal/architect/extract/python"
 )
 
 func main() {

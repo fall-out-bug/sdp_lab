@@ -3,7 +3,7 @@ package policy
 import (
 	"context"
 
-	"sdp_dev/internal/evidence"
+	"github.com/fall-out-bug/sdp_lab/internal/evidence"
 )
 
 // ContractVersion is the semantic version of the sdp-policy-core API contract

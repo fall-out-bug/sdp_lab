@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // nodeThreshold controls when the system emits a graph data fallback file

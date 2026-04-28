@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"sort"
 
-	"sdp_dev/internal/kernel"
+	"github.com/fall-out-bug/sdp_lab/internal/kernel"
 )
 
 var semverPattern = regexp.MustCompile(`^\d+\.\d+\.\d+$`)

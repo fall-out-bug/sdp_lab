@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"sdp_dev/internal/inference/decompose"
-	wsverdict_micro "sdp_dev/internal/inference/microfirst/wsverdict"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
+	wsverdict_micro "github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/wsverdict"
 )
 
 const microConfidenceThreshold = 0.85

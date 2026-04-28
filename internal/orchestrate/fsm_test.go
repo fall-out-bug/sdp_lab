@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"sdp_dev/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
 )
 
 func TestValidateTransition_Valid(t *testing.T) {

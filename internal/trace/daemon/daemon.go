@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"sdp_dev/internal/trace"
-	"sdp_dev/internal/trace/bead"
+	"github.com/fall-out-bug/sdp_lab/internal/trace"
+	"github.com/fall-out-bug/sdp_lab/internal/trace/bead"
 )
 
 const (

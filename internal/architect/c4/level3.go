@@ -3,7 +3,7 @@ package c4
 import (
 	"strings"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // GenerateLevel3 creates Level 3 (Component) nodes within each container from

@@ -27,7 +27,7 @@ import (
     "context"
     "os"
     "testing"
-    "sdp_dev/internal/discovery"
+    "github.com/fall-out-bug/sdp_lab/internal/discovery"
 )
 
 func TestLLMClientChat_ReturnsJSON(t *testing.T) {
@@ -208,7 +208,7 @@ import (
     "context"
     "os"
     "testing"
-    "sdp_dev/internal/discovery"
+    "github.com/fall-out-bug/sdp_lab/internal/discovery"
 )
 
 func TestFrame_ProducesValidOutput(t *testing.T) {
@@ -326,7 +326,7 @@ package discovery_test
 
 import (
     "testing"
-    "sdp_dev/internal/discovery"
+    "github.com/fall-out-bug/sdp_lab/internal/discovery"
 )
 
 func TestDepthFlag_H3_NoVerdict_Without_PrimarySource(t *testing.T) {
@@ -573,7 +573,7 @@ import (
     "context"
     "os"
     "testing"
-    "sdp_dev/internal/discovery"
+    "github.com/fall-out-bug/sdp_lab/internal/discovery"
 )
 
 func TestScan_ProducesItemsWithCoverage(t *testing.T) {
@@ -749,7 +749,7 @@ package discovery_test
 import (
     "strings"
     "testing"
-    "sdp_dev/internal/discovery"
+    "github.com/fall-out-bug/sdp_lab/internal/discovery"
 )
 
 func TestCheckpointRender_TwoSections(t *testing.T) {
@@ -899,7 +899,7 @@ import (
     "path/filepath"
     "strings"
     "testing"
-    "sdp_dev/internal/discovery"
+    "github.com/fall-out-bug/sdp_lab/internal/discovery"
 )
 
 func TestArtifacts_WritesFiles(t *testing.T) {
@@ -1077,7 +1077,7 @@ import (
     "os"
     "path/filepath"
 
-    "sdp_dev/internal/discovery"
+    "github.com/fall-out-bug/sdp_lab/internal/discovery"
 )
 
 func runDiscover(args []string) {

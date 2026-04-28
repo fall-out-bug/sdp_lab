@@ -15,10 +15,10 @@ import (
 	intoto "github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/common"
 
-	"sdp_dev/internal/evidence"
-	"sdp_dev/internal/executil"
-	"sdp_dev/internal/gitutil"
-	"sdp_dev/internal/sdputil"
+	"github.com/fall-out-bug/sdp_lab/internal/evidence"
+	"github.com/fall-out-bug/sdp_lab/internal/executil"
+	"github.com/fall-out-bug/sdp_lab/internal/gitutil"
+	"github.com/fall-out-bug/sdp_lab/internal/sdputil"
 )
 
 // GenerateOrchestratorAttestation creates an in-toto attestation from a checkpoint.

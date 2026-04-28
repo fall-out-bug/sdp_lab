@@ -21,8 +21,8 @@
         "required": {"type": "boolean", "default": false},
         "consent_level": {
           "type": "string",
-          "enum": ["metadata", "findings", "content"],
-          "description": "Minimum consent level required to emit this attribute"
+          "enum": ["none", "metadata", "findings", "content"],
+          "description": "Minimum consent level required to emit this attribute. 'none' disables all telemetry."
         }
       }
     }
@@ -301,8 +301,19 @@
     },
     "consent_levels": {
       "type": "object",
-      "description": "Consent level definitions",
+      "description": "Consent level definitions. 'none' disables all telemetry including local storage.",
       "properties": {
+        "none": {
+          "type": "object",
+          "description": "Telemetry completely disabled - no local storage, no export",
+          "properties": {
+            "description": {"type": "string"},
+            "example_attributes": {
+              "type": "array",
+              "items": {"type": "string"}
+            }
+          }
+        },
         "metadata": {
           "type": "object",
           "description": "Default level - only structural metadata, no content",

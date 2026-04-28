@@ -3,7 +3,7 @@ package architect_test
 import (
 	"testing"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 func TestDetectCrossLangDeps_EmptyProfile(t *testing.T) {

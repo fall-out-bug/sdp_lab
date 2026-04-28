@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/architect"
-	"sdp_dev/internal/architect/c4"
-	"sdp_dev/internal/architect/eval"
-	"sdp_dev/internal/architect/extract"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect/c4"
+	"github.com/fall-out-bug/sdp_lab/internal/architect/eval"
+	"github.com/fall-out-bug/sdp_lab/internal/architect/extract"
 )
 
 func runArchitect(args []string) {

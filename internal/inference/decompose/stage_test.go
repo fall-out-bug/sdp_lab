@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"sdp_dev/internal/inference/decompose"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

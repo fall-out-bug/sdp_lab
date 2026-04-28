@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"sdp_dev/internal/glob"
+	"github.com/fall-out-bug/sdp_lab/internal/glob"
 )
 
 // OutOfScopeReport contains scope check results

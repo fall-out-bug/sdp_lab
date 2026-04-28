@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"sdp_dev/internal/beads"
-	"sdp_dev/internal/workstream"
+	"github.com/fall-out-bug/sdp_lab/internal/beads"
+	"github.com/fall-out-bug/sdp_lab/internal/workstream"
 )
 
 func main() {

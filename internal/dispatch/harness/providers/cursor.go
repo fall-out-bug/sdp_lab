@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"sdp_dev/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
 )
 
 // cursorModelList represents a cached list of Cursor models with its creation timestamp.

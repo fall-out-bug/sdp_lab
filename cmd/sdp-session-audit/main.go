@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/sessionaudit"
+	"github.com/fall-out-bug/sdp_lab/internal/sessionaudit"
 )
 
 func main() {

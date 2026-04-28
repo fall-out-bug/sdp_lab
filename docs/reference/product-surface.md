@@ -1,13 +1,15 @@
 # SDP Product Surface
 
-Status: canonical user-facing product map  
+Status: canonical user-facing product map
 Updated: 2026-04-27
+Workstream: 00-150-02 (F150-02, sdplab-8rk7)
 
 Use this doc when the question is:
 
 - what is SDP today?
 - what should a CTO, architect, or developer try first?
 - what is stable, what is useful tooling, and what is still experimental?
+- what ships in the Homebrew formula?
 
 ## Positioning
 
@@ -23,6 +25,20 @@ More precise version:
 
 SDP is not trying to be a better IDE or a black-box AI software engineer. Codex, Claude Code, Cursor, Copilot, OpenCode, and other harnesses can own execution UX. SDP owns the delivery contract around that execution.
 
+## Product Layers (F150 memo v3)
+
+| # | Layer | Kind | Status | First commercial role |
+|---|---|---|---|---|
+| 1 | SDP Lab | Research workspace | Active | None -- feeds others |
+| 2 | SDP Toolbox | Subordinate freemium funnel (with IIP flag) | Partial: F120-F124 done | Free dev adoption |
+| 3 | SDP Toolkit | Installable developer surface (`sdp` CLI) | GA inside sdp_lab | Free dev adoption |
+| 4 | Operator Mode | Default Toolkit Happy Path; stateful orchestration | GA inside sdp_lab | Team adoption |
+| 5 | ChangePassport / `sdp-pr-gate` | Merge-readiness product | Product direction (no code) | First paid wedge |
+| 6 | Enterprise Delivery Governance | Enterprise governed delivery control plane | Hypothesis | Enterprise paid wedge |
+| 7 | Shared Substrates | Versioned semver packages | Implicit today | Internal contracts |
+
+Canonical reference: [docs/strategy/2026-04-27-sdp-product-layering-4d.md](../strategy/2026-04-27-sdp-product-layering-4d.md)
+
 ## Audience
 
 SDP is for:
@@ -37,6 +53,108 @@ SDP is not a good first choice for:
 - solo toy projects where raw agent speed matters more than traceability
 - teams that only want autocomplete or chat inside an IDE
 - buyers looking for a compliance certification product
+
+## CLI Inventory -- Release Surface Classification
+
+### Formula Default Install (stable product surface)
+
+| Binary | Maturity | What it is |
+|--------|----------|------------|
+| `sdp` | GA | Main CLI. All product subcommands live here. |
+
+**Stable `sdp` subcommands** (visible in formula help, product promise):
+
+- `scout` -- Fast map of an unfamiliar repository
+- `metrics` -- Git-derived process health: churn, hotspots, bus-factor risk
+- `index` -- Persistent codebase memory and symbol/query support
+- `spec` -- Recovering implicit APIs, rules, invariants, and SLAs from code
+- `bootstrap` -- Brownfield-safe generation of agent setup artifacts
+- `init` -- Initialize SDP in a repo
+- `manifest` -- Manifest validate/parity
+- `generate-adapters` -- Adapter generation
+- `doctor` -- Diagnostic checks
+- `coverage-scan` -- Coverage scanning
+- `rules` -- Rules update from evidence
+- `skills` -- Skills augment/update
+
+**Operator Mode subcommands** (default Toolkit Happy Path):
+
+- `orchestrate` -- Feature-level orchestration
+- `card` -- FeatureCard CRUD
+- `board` -- Board build/show
+- `phase` -- Phase plan/review/eval
+- `build` -- Build planner
+- `deploy` -- Deploy staging/prod/rollback
+- `discover` -- Discovery pipeline (Stage 0)
+- `architect` -- C4 architecture analysis
+- `why`, `next`, `missing`, `approve`, `trace` -- Query/insight commands
+- `status`, `stuck`, `attention` -- Pipeline status
+- `dispatch`, `result`, `intent`, `eval`, `clarify`, `plan`, `approve-plan` -- Pipeline internals
+- `tower` -- Tower orchestration (Beta)
+- `reset` -- Checkpoint reset
+
+**Experimental subcommands**:
+
+- `telemetry` -- Telemetry init/span/daemon (Beta, opt-in by design)
+
+### Operator Tooling (available in formula or opt-in tap)
+
+| Binary | Maturity | What it is good for |
+|--------|----------|---------------------|
+| `sdp-orchestrate` | GA | Standalone feature-level orchestration binary |
+| `sdp-orchestrate-daemon` | Beta | Daemon variant of orchestrate |
+| `sdp-guard` | GA | Scope enforcement binary |
+| `sdp-ci-loop` | GA | CI feedback loop binary |
+| `sdp-doc-sync` | GA | Doc link checker + sync |
+| `sdp-beads-bridge` | GA | Beads <-> SDP bridge |
+| `sdp-gh-findings-sync` | GA | GitHub findings -> Beads sync |
+| `sdp-ready` | GA | Pre-flight readiness check |
+| `sdp-protocol-check` | GA | Protocol validation |
+| `sdp-ws-verdict-validate` | GA | Workstream verdict validation |
+| `sdp-evidence` | GA | in-toto evidence attestations |
+| `sdp-export` | GA | Evidence bundle export |
+| `sdp-omc-guard` | Beta | OhMyOpenCode pre-tool-call guard |
+| `sdp-session-audit` | Beta | Session audit trail |
+| `sdp-healthcheck` | GA | Health check endpoint |
+
+### Lab-Only (not in formula)
+
+| Binary | Maturity | What it is |
+|--------|----------|------------|
+| `sdp-control` | GA (deprecated) | DEPRECATED. Use `sdp` instead. |
+| `sdp-dispatch` | Beta | Dispatch layer (development) |
+| `sdp-up` | GA | Profile provisioning (lab setup) |
+| `gt-adapter` | GA | Guard/convoy test adapter |
+
+### Experimental / Research (not in formula)
+
+| Binary | Maturity | What it is |
+|--------|----------|------------|
+| `sdp-harness` | Experimental | AgentLoop session harness. Requires LiveGateway (F106). |
+| `sdp-a2a` | Beta | Agent-to-agent protocol server |
+| `sdp-eval` | Beta | Eval runner |
+| `sdp-strataudit` | GA | Strategic LLM audit (standalone research) |
+| `sdp-mcp` | Beta | MCP server |
+
+### Research / Benchmark (not in formula, build-tag isolated)
+
+| Binary | Maturity | What it is |
+|--------|----------|------------|
+| `sdp-cascade-replay` | Experimental | F145 CascadingInvoker replay bench |
+| `sdp-confidence-replay` | Experimental | F144 confidence checker replay |
+| `sdp-decompose-bench` | Experimental | F146 decomposition A/B benchmark |
+| `sdp-microfirst-bench` | Experimental | MicroFirst micro-classifier bench |
+| `sdp-bd-suggest` | Experimental | Beads issue kNN classifier |
+| `sdp-ft-baseline` | Experimental | F133 fine-tune baseline runner |
+| `sdp-ft-dataset` | Experimental | F133 fine-tune dataset assembler |
+| `sdp-ft-run` | Experimental | F133 fine-tune backend driver |
+| `sdp-ft-validate` | Experimental | F133 fine-tune JSONL validator |
+
+### Future Product Candidates (not in formula, not in code)
+
+| Binary | What it is |
+|--------|------------|
+| `sdp-pr-gate` (ChangePassport) | Merge-readiness product. Internal namespace locked. No implementation yet. |
 
 ## What Works Well Today
 
@@ -105,7 +223,7 @@ sdp bootstrap --dry-run --mode brownfield .
 
 This path is low-risk because it reads the repo and writes only when you explicitly run bootstrap without `--dry-run`.
 
-### 3. Run Operator Mode
+### 3. Run Operator Mode (Default Toolkit Happy Path)
 
 Use this when a team wants queue-backed delivery with explicit ownership and PR discipline.
 
@@ -119,6 +237,8 @@ Default loop:
 6. execute work
 7. route review/CI/drift/QA findings back into Beads
 8. merge only after QA/UAT passes
+
+Operator Mode is the default Happy Path embodying governed delivery. It is a stateful orchestration layer. It is not a separate paid SKU now, but a provisional pricing hypothesis is required before any pilot.
 
 Canonical doc: [canonical-happy-path.md](canonical-happy-path.md)
 
@@ -135,6 +255,18 @@ Current SDP building blocks:
 - traceability docs
 
 Current limitation: the stable "ChangePassport" packet is a product direction, not yet the default public CLI.
+
+## Formula Install Surface
+
+The default Homebrew formula installs the `sdp` binary. It does NOT install:
+
+- lab-only binaries (`sdp-control`, `sdp-dispatch`, `sdp-up`, `gt-adapter`)
+- experimental binaries (`sdp-harness`, `sdp-a2a`, `sdp-strataudit`, `sdp-mcp`)
+- research/benchmark binaries (`sdp-cascade-replay`, `sdp-confidence-replay`, `sdp-decompose-bench`, `sdp-microfirst-bench`, `sdp-bd-suggest`, `sdp-ft-*`)
+
+Operator tooling binaries (`sdp-orchestrate`, `sdp-guard`, `sdp-ci-loop`, `sdp-evidence`, etc.) are available via an opt-in formula tap (F150-08).
+
+Exclusion mechanism: GoReleaser allowlist (`.goreleaser.yml`). Build tags (`sdp_experimental`) for compile isolation. See [maturity-matrix.md](maturity-matrix.md) for the full inventory.
 
 ## What To Avoid Claiming
 

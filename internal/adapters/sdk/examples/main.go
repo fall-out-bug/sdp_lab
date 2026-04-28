@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	sdk "sdp_dev/internal/adapters/sdk"
+	sdk "github.com/fall-out-bug/sdp_lab/internal/adapters/sdk"
 )
 
 // ExampleOMOAdapterUsage demonstrates using the OMO adapter.

@@ -1,7 +1,7 @@
 # SDP Telemetry Schema Reference
 
-**Version:** 1.0.0
-**Last Updated:** 2026-04-22
+**Version:** 1.1.0
+**Last Updated:** 2026-04-27
 **Status:** Stable (v1 MVP)
 
 ## Overview
@@ -10,10 +10,11 @@ SDP telemetry uses an allowlist-based schema to ensure privacy and data integrit
 
 ## Consent Levels
 
-SDP telemetry implements a three-tier consent model via the `SDP_TRACE_CONSENT` environment variable:
+SDP telemetry implements a four-tier consent model via the `SDP_TRACE_CONSENT` environment variable:
 
 | Level | Description | Example Data |
 |-------|-------------|--------------|
+| **none** | Telemetry completely disabled | No data collected, no local storage, no export |
 | **metadata** (default) | Structural metadata only, no content | Tool names, durations, exit codes, SHA-1 hashes (first 8 chars) |
 | **findings** | Includes finding messages without code content | Review verdicts, finding messages, rule names |
 | **content** | Full content including code and prompts | Code snippets, patch diffs, prompt bodies (opt-in only) |
@@ -21,10 +22,110 @@ SDP telemetry implements a three-tier consent model via the `SDP_TRACE_CONSENT` 
 ### Setting Consent Level
 
 ```bash
+export SDP_TRACE_CONSENT=none      # Disable all telemetry
 export SDP_TRACE_CONSENT=metadata  # Default
 export SDP_TRACE_CONSENT=findings  # Include finding messages
 export SDP_TRACE_CONSENT=content   # Full content (opt-in, debug only)
 ```
+
+## Enable, Inspect, and Disable
+
+### Enable Telemetry (local-only, default)
+
+By default, SDP collects telemetry locally with metadata-level consent. No outbound data transfer occurs unless explicitly configured.
+
+```bash
+# Default behavior: local-only metadata telemetry
+# No configuration needed - this is the default state.
+
+# Optionally raise consent level for richer local data:
+export SDP_TRACE_CONSENT=findings
+```
+
+### Enable OTEL Export
+
+Exporting telemetry to an external OTEL collector requires **both** explicit consent and an explicit endpoint. This is a two-gate design: neither condition alone is sufficient.
+
+```bash
+# Step 1: Set OTEL collector endpoint
+export SDP_OTEL_ENDPOINT=http://localhost:4318/v1/traces
+
+# Step 2: Ensure consent level allows export (not "none")
+export SDP_TRACE_CONSENT=metadata  # or findings, content
+
+# Optional: authentication headers
+export SDP_OTEL_HEADERS="api-key=secret123,tenant=acme"
+
+# Optional: export timeout (default: 5 seconds)
+export SDP_OTEL_TIMEOUT=10
+
+# Optional: service name (default: sdp-telemetry)
+export SDP_OTEL_SERVICE_NAME=my-project
+
+# Optional: disable TLS for local development
+export SDP_OTEL_INSECURE=true
+```
+
+**Important:** If `SDP_OTEL_ENDPOINT` is not set, no outbound data is sent regardless of consent level. If consent is `none`, no outbound data is sent regardless of endpoint configuration.
+
+### Inspect Current Configuration
+
+Use the `sdp telemetry inspect` command to see the current state:
+
+```bash
+sdp telemetry inspect
+```
+
+Output shows:
+- Current consent level
+- OTEL export status (enabled/blocked/not configured)
+- Local storage directory
+- Export endpoint details (if configured)
+
+Use `sdp telemetry consent` (no arguments) for a quick summary:
+
+```bash
+sdp telemetry consent
+```
+
+### Disable Telemetry
+
+There are three ways to disable telemetry:
+
+```bash
+# Option 1: Set consent to "none" (disables all telemetry including local)
+export SDP_TRACE_CONSENT=none
+
+# Option 2: Set the disable flag
+export SDP_TRACE_DISABLED=true
+
+# Option 3: Remove OTEL endpoint to disable export only (local storage continues)
+unset SDP_OTEL_ENDPOINT
+```
+
+To verify telemetry is disabled:
+
+```bash
+sdp telemetry inspect
+# Should show: "Telemetry completely disabled" or "OTEL export: not configured"
+```
+
+## Consent and Export Contract
+
+The export contract enforces these invariants:
+
+1. **No default-on outbound.** Export requires `SDP_OTEL_ENDPOINT` to be explicitly set.
+2. **Consent gates content.** The `SDP_TRACE_CONSENT` level determines what data is included in exported spans.
+3. **"none" blocks everything.** Setting consent to `none` disables all telemetry, including local storage.
+4. **Both conditions required.** Export only happens when both an endpoint is configured AND consent is not `none`.
+
+| SDP_OTEL_ENDPOINT | SDP_TRACE_CONSENT | Local Storage | OTEL Export |
+|-------------------|-------------------|---------------|-------------|
+| unset             | any               | yes (unless none) | no |
+| set               | none              | no            | no |
+| set               | metadata          | yes           | yes (metadata attrs) |
+| set               | findings          | yes           | yes (metadata + findings attrs) |
+| set               | content           | yes           | yes (all attrs) |
 
 ## Span Kinds
 

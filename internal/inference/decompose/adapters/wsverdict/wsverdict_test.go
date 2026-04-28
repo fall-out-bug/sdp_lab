@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"sdp_dev/internal/inference/decompose"
-	"sdp_dev/internal/inference/decompose/adapters/wsverdict"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose/adapters/wsverdict"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

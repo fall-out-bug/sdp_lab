@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
 )
 
 func TestSaveCheckpoint_WritesIntegrity(t *testing.T) {

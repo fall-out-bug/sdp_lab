@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 package main
 
 import (
@@ -7,9 +9,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"sdp_dev/internal/convoy"
-	"sdp_dev/internal/guard"
-	"sdp_dev/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/convoy"
+	"github.com/fall-out-bug/sdp_lab/internal/guard"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
 )
 
 func main() {

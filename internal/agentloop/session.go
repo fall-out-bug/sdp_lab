@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"sdp_dev/internal/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/harness"
 )
 
 // TurnRecord is the canonical record of one agent turn (Fix N3).

@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 // Package main implements a benchmark harness for the sdp microfirst micro-classifiers.
 // It runs all four classifiers (wsverdict, bdseverity, bdtype, routing) against
 // synthetic corpora and produces JSON evidence + a markdown report.
@@ -19,11 +21,11 @@ import (
 	"text/template"
 	"time"
 
-	"sdp_dev/internal/inference/decompose"
-	"sdp_dev/internal/inference/microfirst/bdtype"
-	"sdp_dev/internal/inference/microfirst/knn"
-	"sdp_dev/internal/inference/microfirst/routing"
-	"sdp_dev/internal/inference/microfirst/wsverdict"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/bdtype"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/knn"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/routing"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/wsverdict"
 )
 
 // mockEmbedder returns deterministic category-based embeddings via keyword matching.

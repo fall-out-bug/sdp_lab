@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/executil"
+	"github.com/fall-out-bug/sdp_lab/internal/executil"
 )
 
 type RuntimeIssueState struct {

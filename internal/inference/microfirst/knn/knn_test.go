@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"sdp_dev/internal/inference/decompose"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
 )
 
 // --- cosine tests ---

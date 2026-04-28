@@ -1,4 +1,4 @@
-# Release sdp_dev lab binaries (sdp-evidence, sdp-guard, sdp-orchestrate, etc.)
+# Release sdp_lab binaries (sdp-evidence, sdp-guard, sdp-orchestrate, etc.)
 # Protocol E2E and sdp CLI release run from sdp repo (see sdp/.github/workflows/release.yml)
 name: Release
 

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/inference/decompose"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
 )
 
 const modelSonnet = "anthropic/claude-sonnet-4-6"

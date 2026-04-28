@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"sdp_dev/internal/bridge"
+	"github.com/fall-out-bug/sdp_lab/internal/bridge"
 
 	"github.com/google/uuid"
 )

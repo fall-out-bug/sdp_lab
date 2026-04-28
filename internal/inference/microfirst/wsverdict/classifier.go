@@ -3,7 +3,7 @@ package wsverdict
 import (
 	"context"
 
-	"sdp_dev/internal/inference/decompose"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
 )
 
 // WsVerdictMicro implements decompose.Stage[WsVerdictInput, WsVerdictMicroResult].

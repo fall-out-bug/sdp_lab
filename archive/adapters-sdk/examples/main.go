@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"sdp_dev/archive/adapters-sdk"
+	"github.com/fall-out-bug/sdp_lab/archive/adapters-sdk"
 )
 
 func main() {

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"sdp_dev/internal/inference/decompose"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose"
 )
 
 var benchRows = func() []map[string]any {

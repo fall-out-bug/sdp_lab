@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	skills "sdp_dev/internal/skills"
+	skills "github.com/fall-out-bug/sdp_lab/internal/skills"
 )
 
 func runSkillsAugment(args []string) {

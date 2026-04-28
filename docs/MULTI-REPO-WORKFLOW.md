@@ -8,10 +8,10 @@ All files live natively in `sdp_lab`. There is no submodule, no separate git che
 
 | Path | Repo | Remote | Typical change |
 |------|------|--------|----------------|
-| Root, `internal/`, `cmd/`, `docs/`, `sdp/` | `sdp_lab` | `https://github.com/fall-out-bug/sdp_lab` | All work happens here |
+| Root, `internal/`, `cmd/`, `docs/`, `sdp/` | `sdp_lab` | `https://github.com/fall-out-bug/sdp` | All work happens here |
 | `fall-out-bug/sdp` (separate repo) | `sdp` (distilled distribution repo) | `https://github.com/fall-out-bug/sdp` | Published artifacts only |
 
-Historical note: many workstreams and beads IDs still use `sdp_dev-*` as a legacy label for the root repo. That is history, not a third repo.
+Historical note: many workstreams and beads IDs still use `sdp_dev-*` as a legacy label for the root repo. The Go module path was migrated from `sdp_dev` to `sdp_lab` in F150-03. That is history, not a third repo.
 
 ## When to Publish
 

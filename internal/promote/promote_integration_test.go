@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"sdp_dev/internal/build"
+	"github.com/fall-out-bug/sdp_lab/internal/build"
 )
 
 // TestBuildPromoteIntegration tests the full flow:

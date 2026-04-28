@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"sdp_dev/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
 )
 
 func runAdvance(projectRoot, featureID, cpPath, runsPath, result string, skipGuard bool, cp *orchestrate.Checkpoint, workstreams []string) {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 // RiskAssessor identifies architectural risks and technical debt.

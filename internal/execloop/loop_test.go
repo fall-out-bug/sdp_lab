@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"sdp_dev/internal/build"
+	"github.com/fall-out-bug/sdp_lab/internal/build"
 )
 
 // --- Test sandboxes ---

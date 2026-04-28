@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"sdp_dev/internal/dispatch"
-	"sdp_dev/internal/dispatch/harness"
-	"sdp_dev/internal/dispatch/harness/providers"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness/providers"
 )
 
 // TestCascade_AllProvidersRegistered verifies that all 5 providers can be

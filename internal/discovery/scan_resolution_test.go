@@ -3,7 +3,7 @@ package discovery_test
 import (
 	"testing"
 
-	"sdp_dev/internal/discovery"
+	"github.com/fall-out-bug/sdp_lab/internal/discovery"
 )
 
 func TestApplyResolutions_DowngradeChangesDisposition(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"sdp_dev/internal/snapshot"
+	"github.com/fall-out-bug/sdp_lab/internal/snapshot"
 )
 
 var (

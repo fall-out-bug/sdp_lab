@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"sdp_dev/internal/dispatch/harness"
+	"github.com/fall-out-bug/sdp_lab/internal/dispatch/harness"
 )
 
 // OllamaProvider implements the Provider interface for a local Ollama instance.

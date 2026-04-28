@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"sdp_dev/internal/inference/decompose/adapters/wsverdict"
-	wsverdict_micro "sdp_dev/internal/inference/microfirst/wsverdict"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/decompose/adapters/wsverdict"
+	wsverdict_micro "github.com/fall-out-bug/sdp_lab/internal/inference/microfirst/wsverdict"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -1,4 +1,4 @@
-module sdp_dev
+module github.com/fall-out-bug/sdp_lab
 
 go 1.26
 

@@ -7,14 +7,16 @@ import (
 	"strconv"
 	"strings"
 
-	"sdp_dev/internal/trace"
+	"github.com/fall-out-bug/sdp_lab/internal/trace"
 )
 
-// Default consent level
+// Default consent level — local-only storage by default.
+// Outbound OTEL export requires explicit consent AND explicit endpoint.
 const DefaultConsentLevel = trace.ConsentLevelMetadata
 
-// GetConsentLevel retrieves the consent level from environment
-// Returns metadata level if not set or invalid
+// GetConsentLevel retrieves the consent level from environment.
+// Returns metadata level if not set or invalid.
+// "none" explicitly disables all telemetry including local storage.
 func GetConsentLevel() trace.ConsentLevel {
 	envVal := os.Getenv("SDP_TRACE_CONSENT")
 	if envVal == "" {
@@ -160,12 +162,85 @@ func IsDisabled(configPath string) bool {
 		return true
 	}
 
-	// Check if consent file explicitly disables
-	if level, err := ParseConsentFile(configPath); err == nil {
-		return level == trace.ConsentLevelMetadata && os.Getenv("SDP_TRACE_CONSENT") == "none"
+	// Check if consent level is "none"
+	if level := GetConsentLevelFromFileOrEnv(configPath); level == trace.ConsentLevelNone {
+		return true
 	}
 
 	return false
+}
+
+// GetOTELConfig returns OTEL export configuration from environment.
+// Returns nil if export is not configured — the default safe state.
+// Export is only enabled when BOTH conditions are met:
+//   - SDP_OTEL_ENDPOINT is set to a valid URL
+//   - SDP_TRACE_CONSENT is not "none" (i.e., user has not opted out)
+func GetOTELConfig() *OTELConfig {
+	endpoint := os.Getenv("SDP_OTEL_ENDPOINT")
+	if endpoint == "" {
+		return nil // No endpoint configured — no export, safe default
+	}
+
+	consentLevel := GetConsentLevel()
+	if !consentLevel.AllowsExport() {
+		return nil // Consent level "none" blocks all export
+	}
+
+	cfg := &OTELConfig{
+		Endpoint:     endpoint,
+		ConsentLevel: consentLevel,
+		Headers:      make(map[string]string),
+	}
+
+	// Optional headers for authentication
+	if headers := os.Getenv("SDP_OTEL_HEADERS"); headers != "" {
+		for _, pair := range strings.Split(headers, ",") {
+			parts := strings.SplitN(pair, "=", 2)
+			if len(parts) == 2 {
+				cfg.Headers[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+			}
+		}
+	}
+
+	// Optional export timeout (default 5s)
+	cfg.TimeoutSeconds = 5
+	if timeout := os.Getenv("SDP_OTEL_TIMEOUT"); timeout != "" {
+		if secs, err := strconv.Atoi(timeout); err == nil && secs > 0 {
+			cfg.TimeoutSeconds = secs
+		}
+	}
+
+	// Optional service name for OTEL resource
+	cfg.ServiceName = "sdp-telemetry"
+	if name := os.Getenv("SDP_OTEL_SERVICE_NAME"); name != "" {
+		cfg.ServiceName = name
+	}
+
+	// Insecure flag for development/testing
+	cfg.Insecure = false
+	if insecure, _ := strconv.ParseBool(os.Getenv("SDP_OTEL_INSECURE")); insecure {
+		cfg.Insecure = true
+	}
+
+	return cfg
+}
+
+// OTELConfig holds configuration for OTEL collector export.
+// Export only happens when this is non-nil, which requires explicit
+// user consent and an explicit endpoint.
+type OTELConfig struct {
+	Endpoint      string
+	ConsentLevel  trace.ConsentLevel
+	Headers       map[string]string
+	TimeoutSeconds int
+	ServiceName   string
+	Insecure      bool
+}
+
+// IsExportAllowed returns true if outbound telemetry export is permitted.
+// This requires both explicit consent (not "none") and a configured endpoint.
+func IsExportAllowed() bool {
+	return GetOTELConfig() != nil
 }
 
 // FormatConsentBanner returns a formatted banner for telemetry consent

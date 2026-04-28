@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"sdp_dev/internal/tower"
+	"github.com/fall-out-bug/sdp_lab/internal/tower"
 )
 
 func runTower(args []string) {

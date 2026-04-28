@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/control"
-	"sdp_dev/internal/orchestrate"
-	"sdp_dev/internal/sdputil"
+	"github.com/fall-out-bug/sdp_lab/internal/control"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/sdputil"
 )
 
 // DispatchProvenance records the provenance for a dispatch bridge execution.

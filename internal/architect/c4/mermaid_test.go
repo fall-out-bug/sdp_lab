@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/architect"
+	"github.com/fall-out-bug/sdp_lab/internal/architect"
 )
 
 func sampleModelForMermaid() *architect.ReferenceModel {

@@ -1,3 +1,5 @@
+//go:build sdp_experimental
+
 // sdp-confidence-replay drives the F144 confidence Checker against the
 // fixture corpus under internal/inference/confidence/testdata/ and emits a
 // markdown report plus per-fixture JSON evidence.
@@ -21,9 +23,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"sdp_dev/internal/inference/confidence"
-	"sdp_dev/internal/inference/confidence/adapters/wsverdict"
-	"sdp_dev/internal/inference/confidence/replay"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence/adapters/wsverdict"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence/replay"
 )
 
 func main() {

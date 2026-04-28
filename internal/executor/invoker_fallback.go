@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"sdp_dev/internal/executor/omoclient"
-	"sdp_dev/internal/kernel"
-	"sdp_dev/internal/orchestrate"
+	"github.com/fall-out-bug/sdp_lab/internal/executor/omoclient"
+	"github.com/fall-out-bug/sdp_lab/internal/kernel"
+	"github.com/fall-out-bug/sdp_lab/internal/orchestrate"
 )
 
 // InvokeWithFallback tries ServeInvoker first, falls back to exec if serve API unavailable.

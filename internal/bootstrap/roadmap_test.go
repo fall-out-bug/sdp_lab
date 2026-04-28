@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"sdp_dev/internal/scout"
+	"github.com/fall-out-bug/sdp_lab/internal/scout"
 )
 
 // healthyCard returns a ProjectCard with all maturity signals present.

@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"sdp_dev/internal/backlog"
+	"github.com/fall-out-bug/sdp_lab/internal/backlog"
 )
 
 // fidExtractRe matches the first F-identifier in a title string.

@@ -3,7 +3,7 @@ package prompt
 import (
 	"strings"
 
-	"sdp_dev/internal/kernel"
+	"github.com/fall-out-bug/sdp_lab/internal/kernel"
 )
 
 func ContextSegmentsSection(title string, segments []kernel.ContextSegment) string {

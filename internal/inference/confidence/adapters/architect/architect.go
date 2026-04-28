@@ -9,10 +9,10 @@ import (
 	"context"
 	"fmt"
 
-	"sdp_dev/internal/inference/confidence"
-	"sdp_dev/internal/inference/confidence/constraint"
-	"sdp_dev/internal/inference/confidence/nsample"
-	"sdp_dev/internal/inference/confidence/selfcheck"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence/constraint"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence/nsample"
+	"github.com/fall-out-bug/sdp_lab/internal/inference/confidence/selfcheck"
 )
 
 // Classification is one architectural verdict — a style hypothesis (layered,
