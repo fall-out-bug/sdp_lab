@@ -213,19 +213,33 @@ func (r *Runner) Run(ctx context.Context) (*ReviewRun, *Verdict, error) {
 
 	// Persist context and evidence artifacts
 	runDir := filepath.Join(r.cfg.ProjectRoot, ".sdp", "runs", "pi-review", runID)
-	_ = os.MkdirAll(runDir, 0o755)
-	ctxJSON, _ := json.MarshalIndent(pkt, "", "  ")
-	_ = os.WriteFile(filepath.Join(runDir, "context.json"), ctxJSON, 0o644)
-	_ = os.WriteFile(filepath.Join(runDir, "context.diff"), []byte(pkt.UnifiedDiff), 0o644)
-	evJSON, _ := json.MarshalIndent(evidence, "", "  ")
-	_ = os.WriteFile(filepath.Join(runDir, "test-evidence.json"), evJSON, 0o644)
+	if err := os.MkdirAll(runDir, 0o755); err != nil {
+		return nil, nil, fmt.Errorf("run %s: mkdir: %w", runID, err)
+	}
+	ctxJSON, err := json.MarshalIndent(pkt, "", "  ")
+	if err != nil {
+		return nil, nil, fmt.Errorf("run %s: marshal context: %w", runID, err)
+	}
+	if err := os.WriteFile(filepath.Join(runDir, "context.json"), ctxJSON, 0o644); err != nil {
+		return nil, nil, fmt.Errorf("run %s: write context: %w", runID, err)
+	}
+	if err := os.WriteFile(filepath.Join(runDir, "context.diff"), []byte(pkt.UnifiedDiff), 0o644); err != nil {
+		return nil, nil, fmt.Errorf("run %s: write diff: %w", runID, err)
+	}
+	evJSON, err := json.MarshalIndent(evidence, "", "  ")
+	if err != nil {
+		return nil, nil, fmt.Errorf("run %s: marshal evidence: %w", runID, err)
+	}
+	if err := os.WriteFile(filepath.Join(runDir, "test-evidence.json"), evJSON, 0o644); err != nil {
+		return nil, nil, fmt.Errorf("run %s: write evidence: %w", runID, err)
+	}
 
 	// Update context hash with actual artifact content
 	run.Context.SHA256 = hashString(string(ctxJSON))
 	run.Context.DiffSHA256 = hashString(pkt.UnifiedDiff)
 
 	// Build verdict
-	verdict := buildVerdict(r.cfg.Feature, 1, findings, modelResults, pkt, requiredOK, requiredTotal)
+	verdict := buildVerdict(r.cfg.Feature, run.Round, findings, modelResults, pkt, requiredOK, requiredTotal)
 
 	run.VerdictRef = ArtifactRef{
 		Path:   fmt.Sprintf(".sdp/review_verdict.json"),

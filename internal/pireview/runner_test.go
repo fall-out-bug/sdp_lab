@@ -175,14 +175,14 @@ func TestWriteModelArtifact(t *testing.T) {
 func TestRunner_Run_WithFakes(t *testing.T) {
 	dir := t.TempDir()
 
-	// Fake runner returns empty output for most commands,
-	// and a valid JSON finding array for pi commands.
+	modelOutput := `[{"priority":"P2","title":"minor style","file":"main.go","start_line":10,"rationale":"naming"}]`
+
 	fr := &fakeRunner{
 		responses: map[string][]byte{
-			"git rev-parse --abbrev-ref HEAD": []byte("feature/F161\n"),
-			"git rev-parse HEAD":              []byte("abc123\n"),
-			"git status --porcelain --untracked-files=all":          []byte(" M main.go\n"),
-			"git diff HEAD":                   []byte("+new code\n"),
+			"git rev-parse --abbrev-ref HEAD":                []byte("feature/F161\n"),
+			"git rev-parse HEAD":                              []byte("abc123\n"),
+			"git status --porcelain --untracked-files=all": []byte(" M main.go\n"),
+			"git diff HEAD":                                   []byte("+new code\n"),
 		},
 	}
 
@@ -202,8 +202,8 @@ func TestRunner_Run_WithFakes(t *testing.T) {
 		t.Fatalf("NewRunner() error: %v", err)
 	}
 
-	// The fake runner has no pi response mapped, so pi invocation fails.
-	// The fallback also fails. The run should complete but with status=failed.
+	// fakeRunner returns nil,nil for unmapped pi keys,
+	// so pi "succeeds" with empty output, quorum passes.
 	run, verdict, err := r.Run(context.Background())
 	if err != nil {
 		t.Fatalf("Run() error: %v", err)
@@ -214,10 +214,19 @@ func TestRunner_Run_WithFakes(t *testing.T) {
 	if verdict == nil {
 		t.Fatal("verdict should not be nil")
 	}
-	// With failed models, verdict should be APPROVED (no findings produced)
+	// With empty model output, no findings, quorum passes → APPROVED
 	if verdict.Verdict != "APPROVED" {
-		t.Errorf("Verdict = %q, want APPROVED for empty findings", verdict.Verdict)
+		t.Errorf("Verdict = %q, want APPROVED", verdict.Verdict)
 	}
+
+	// Verify artifacts were written
+	if _, err := os.Stat(filepath.Join(dir, ".sdp", "runs", "pi-review", run.RunID, "context.json")); err != nil {
+		t.Errorf("context.json not written: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".sdp", "runs", "pi-review", run.RunID, "test-evidence.json")); err != nil {
+		t.Errorf("test-evidence.json not written: %v", err)
+	}
+	_ = modelOutput
 }
 
 func TestHashString(t *testing.T) {
