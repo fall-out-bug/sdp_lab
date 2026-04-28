@@ -434,3 +434,13 @@ issues resolved.
 ### Changed Files
 - `.beads/interactions.jsonl`
 
+## 2026-04-28
+
+### Commits
+- `8746f5a` docs: align pi-review mvp with existing pi providers (2026-04-28)
+
+### Changed Files
+- `.beads/issues.jsonl`
+- `docs/reference/pi-review-spec.md`
+- `docs/workstreams/backlog/00-161-03.md`
+
