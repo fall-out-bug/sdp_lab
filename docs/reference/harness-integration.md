@@ -13,6 +13,7 @@ entrypoint file format. In practice that means:
 
 - `CLAUDE.md` is a thin Claude-specific wrapper over `AGENTS.md`
 - `.cursorrules` is a self-contained Cursor entrypoint
+- `.kilo/` and `kilo.jsonc` are Kilo Code entrypoints once F162 lands
 - `.codex/AGENTS.md` is a Codex-facing entrypoint
 - OpenCode uses `AGENTS.md` plus `.opencode/hooks/` for scope enforcement
 
@@ -35,12 +36,17 @@ CLAUDE.md    AGENTS.md  .cursorrules  .codex/AGENTS.md
 
 | Harness | Binary | Config file | Skill directories | Status |
 |---------|--------|-------------|-------------------|--------|
-| Claude Code | `/opt/homebrew/bin/claude` | `CLAUDE.md` (imports `AGENTS.md`) | `.claude/skills/` (symlink to `.agents/skills/`) | Primary, high reliability |
+| Claude Code | `/opt/homebrew/bin/claude` | `CLAUDE.md` (imports `AGENTS.md`) | `.claude/skills/` (symlink to `prompts/skills/`) | Primary, high reliability |
 | OpenCode | `/opt/homebrew/bin/opencode` | `AGENTS.md` (native) | `.agents/skills/` (native), `.claude/skills/` (fallback) | Experimental, see [OpenCode section](#opencode-integration) |
 | Cursor | `~/.local/bin/agent` (CLI) or IDE | `.cursorrules` (self-contained) | `.agents/skills/` (native), `.cursor/rules/*.mdc` | Experimental, untested in dispatch |
 | Codex CLI | `/opt/homebrew/bin/codex` | `.codex/AGENTS.md` + `AGENTS.md` | Via explicit prompt paths and `.codex/` docs | Secondary, high reliability for edits |
+| Pi | `/opt/homebrew/bin/pi` (`pi --version`, verified 0.70.6) | `AGENTS.md`/`CLAUDE.md`, `.pi/prompts/*.md` | `.agents/skills/<name>/SKILL.md` or generated `.pi/skills/<name>/SKILL.md` | Experimental; skills/commands smoke green, autonomous dispatch gated by F162 |
+| Kilo Code | `kilo` (CLI) or VS Code extension | `AGENTS.md`, `CLAUDE.md`, `kilo.jsonc`, `.kilocodemodes` | `.kilo/agents/*.md`, `.kilo/rules-*` | Planned F162 target |
 
-**Excluded:** Pi (Inflection) is not a coding assistant as of 2026.
+F162 expands SDP prompt-bundle packaging to Claude Code, Codex, OpenCode,
+Cursor, Pi, and Kilo. Pi has a green local resource smoke for skills and command
+prompt templates, but dispatch remains experimental until bundle resolution and
+runtime launch evidence land.
 
 ## OpenCode Integration
 
@@ -138,7 +144,7 @@ CLAUDE.md          <-- thin override (Claude-specific rules only)
   @AGENTS.md       <-- universal rules (imported)
   @RTK.md          <-- token optimization rules (imported)
 
-.claude/skills/    <-- symlink -> .agents/skills/
+.claude/skills/    <-- symlink -> prompts/skills/
 .claude/hooks/     <-- native hook directory
 .claude/agents/    <-- (reserved, not currently used)
 ```
@@ -162,7 +168,7 @@ policy in `AGENTS.md` governs when to delegate vs. work inline.
 
 | Problem | Check | Fix |
 |---------|-------|-----|
-| Skills not found | `.claude/skills/` symlink broken | Verify `.claude/skills` points to `.agents/skills/`; check native path exists |
+| Skills not found | `.claude/skills/` symlink broken | Verify `.claude/skills` points to `prompts/skills/`; check native path exists |
 | AGENTS.md not loaded | `CLAUDE.md` missing `@AGENTS.md` | Ensure `@AGENTS.md` line exists in `CLAUDE.md` |
 | Hooks not firing | `.claude/hooks/` symlink broken | Verify `.claude/hooks/` path exists; check symlink target |
 
@@ -191,6 +197,47 @@ Cursor Agent is **untested** in the SDP dispatch pipeline. Known facts:
 
 **Recommendation:** Use Cursor as a secondary validator for independent edit
 verification, not as a primary dispatch worker.
+
+## Pi Integration
+
+Pi here means `@mariozechner/pi-coding-agent`, not Inflection Pi.
+
+Verified local profile:
+
+- Runtime: `/opt/homebrew/bin/pi`, version `0.70.6`.
+- Project instructions: Pi loads `AGENTS.md` or `CLAUDE.md` from ancestor dirs.
+- Skills: Pi loads Agent Skills from `.agents/skills/<name>/SKILL.md` and generated `.pi/skills/<name>/SKILL.md`. Flat `.agents/skills/*.md` files are not enough for Pi auto-discovery.
+- Commands: Pi slash commands are prompt templates in `.pi/prompts/*.md`. Templates must include `$ARGUMENTS`; otherwise `/build 00-123-01` loses `00-123-01` during expansion.
+- Tools: default Pi tools are `read`, `bash`, `edit`, and `write`; optional read-only `grep`, `find`, and `ls` can be enabled.
+- Write permissions: Pi has no built-in permission popups. Use containering or extension-level policy if a stricter write gate is required.
+
+Smoke test:
+
+```bash
+pi --version
+scripts/smoke/pi_resources.mjs
+```
+
+Dispatch status: resource packaging is green. Autonomous SDP dispatch to Pi stays
+experimental until F162 records bundle id/hash evidence and a non-interactive
+launch contract.
+
+## Kilo Code Integration
+
+Kilo Code is a planned F162 prompt-bundle target. Its instruction surface is
+compatible with SDP's package model because it supports project instruction
+files and project-specific agents/modes.
+
+Expected F162 entrypoints:
+
+- `AGENTS.md` and `CLAUDE.md` for project-level instructions
+- `kilo.jsonc` for project configuration and instruction sources
+- `.kilocodemodes` for project-specific modes
+- `.kilo/agents/*.md` for project-specific agents
+- `.kilo/rules-{mode}/` for mode-specific instruction files
+
+F162 should generate Kilo adapters from `sdp.manifest.yaml` rather than copying
+prompt source files by hand.
 
 ## Codex CLI Integration
 
@@ -281,10 +328,11 @@ Full design: [OpenCode harness gates telemetry spec](../OPENCODE_HARNESS_GATES_T
 |---------|-------------|-----|
 | `opencode run` returns 0 but no edits | Sisyphus deadlock | Add `--agent implementer` |
 | Codex returns "git: command not found" | Sandbox restriction | Do not ask Codex to commit; commit externally |
-| Claude Code does not see a skill | Symlink broken | Verify `.claude/skills/` points to `.agents/skills/`; check files exist |
+| Claude Code does not see a skill | Symlink broken | Verify `.claude/skills/` points to `prompts/skills/`; check files exist |
 | Cursor Agent hangs | Untested surface (April 2026) | Fallback to Claude Code |
-| Skills not found by any harness | `.agents/skills/` missing | Check that `.agents/skills/` exists and has real files, not dangling symlinks |
-| Dispatch routes target Pi | Legacy config | Remove Pi from profile; Pi is not a coding agent |
+| Skills not found by any harness | `.agents/skills/` missing | Check that `.agents/skills/` exists with Pi-compatible `<name>/SKILL.md` directories or harness-native equivalents |
+| Pi command drops its argument | Prompt template lacks `$ARGUMENTS` | Regenerate `.pi/prompts/*.md`; run `scripts/smoke/pi_resources.mjs` |
+| Dispatch routes target Pi before F162 launch evidence | Runtime dispatch profile incomplete | Disable autonomous Pi routing until bundle id/hash evidence and launch contract are recorded |
 
 ## References
 

@@ -17,7 +17,7 @@ import (
 var embeddedManifestTemplate []byte
 
 // knownHarnesses is the canonical ordered list of supported harnesses.
-var knownHarnesses = []string{"claude-code", "opencode", "codex", "cursor"}
+var knownHarnesses = []string{"claude-code", "opencode", "codex", "cursor", "pi"}
 
 // harnessDirs maps each harness name to the directory it installs into.
 var harnessDirs = map[string]string{
@@ -25,6 +25,7 @@ var harnessDirs = map[string]string{
 	"opencode":    ".opencode",
 	"codex":       ".codex",
 	"cursor":      ".cursor",
+	"pi":          ".pi",
 }
 
 // sdpLock is the structure written to sdp.lock.
@@ -161,6 +162,7 @@ func runInit(args []string) int {
 				manifest.HarnessOpenCode,
 				manifest.HarnessCodex,
 				manifest.HarnessCursor,
+				manifest.HarnessPi,
 			},
 		}
 		sdpVersion = "1.0.0"
@@ -170,11 +172,11 @@ func runInit(args []string) int {
 		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
 	}
 
-	// Filter manifest harnesses to only those requested.
-	filteredHarnesses := filterManifestHarnesses(harnesses)
-	m.Harnesses = filteredHarnesses
-
-	// Generate adapter files.
+	// Generate adapter files for the manifest as written. The --harness flag
+	// controls which live harness directories get installed below; it must not
+	// rewrite a user's sdp.manifest.yaml or narrow future generation scope.
+	// `.sdp/generated` remains a full manifest-derived cache so doctor checks are
+	// stable without dropping comments or hand-edited formatting.
 	generated, err := adapters.Generate(m, target)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: generate adapters: %v\n", err)
@@ -301,15 +303,6 @@ func isKnownHarness(h string) bool {
 	return false
 }
 
-// filterManifestHarnesses converts []string harness names to []manifest.Harness.
-func filterManifestHarnesses(harnesses []string) []manifest.Harness {
-	out := make([]manifest.Harness, 0, len(harnesses))
-	for _, h := range harnesses {
-		out = append(out, manifest.Harness(h))
-	}
-	return out
-}
-
 // loadManifestForInit loads the manifest from path and validates referenced
 // paths against repoRoot when protocol sources are present.
 // Returns manifest, warnings, sdpVersion, manifestVersion, error.
@@ -336,7 +329,7 @@ func printInitHelp() {
 	fmt.Println("Writes harness adapter files and sdp.lock to the target directory.")
 	fmt.Println()
 	fmt.Println("Flags:")
-	fmt.Println("  --harness <list>  Harnesses to install: comma-separated (claude-code,opencode,codex,cursor),")
+	fmt.Println("  --harness <list>  Harnesses to install: comma-separated (claude-code,opencode,codex,cursor,pi),")
 	fmt.Println("                    'all' (default), or 'auto' (detect by existing dirs)")
 	fmt.Println("  --target <dir>    Target directory (default: current working directory)")
 	fmt.Println("  --manifest <path> Path to manifest template (default: embedded minimal template)")

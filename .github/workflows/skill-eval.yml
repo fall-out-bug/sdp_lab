@@ -22,7 +22,7 @@ jobs:
       - name: Run skill evals
         id: eval
         run: |
-          go build -o sdp-eval ./cmd/sdp-eval
+          go build -tags sdp_experimental -o sdp-eval ./cmd/sdp-eval
           ./sdp-eval --all 2>&1 | tee eval-output.txt
 
       - name: Comment on failure

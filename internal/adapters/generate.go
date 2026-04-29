@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"text/template"
@@ -22,6 +23,10 @@ var (
 	tmplOpenCodeSkill = mustParse("opencode-skill", "templates/opencode/skill.tmpl")
 	tmplCodexSkill    = mustParse("codex-skill", "templates/codex/skill.tmpl")
 	tmplCursorCommand = mustParse("cursor-command", "templates/cursor/command.tmpl")
+	tmplPiSkill       = mustParse("pi-skill", "templates/pi/skill.tmpl")
+	tmplPiPrompt      = mustParse("pi-prompt", "templates/pi/prompt.tmpl")
+
+	legacyClaudeSkillRef = regexp.MustCompile(`@?\.claude/skills/([A-Za-z0-9_-]+)/SKILL\.md`)
 )
 
 // renderItem is the template data type passed to all templates.
@@ -30,10 +35,10 @@ var (
 type renderItem struct {
 	Name    string
 	Summary string
-	Role    string   // agents only
-	Type    string   // commands only
-	Path    string   // source path (relative to repo root)
-	Body    string   // contents of the file at Path, "" if unavailable
+	Role    string // agents only
+	Type    string // commands only
+	Path    string // source path (relative to repo root)
+	Body    string // contents of the file at Path, "" if unavailable
 }
 
 // readBody reads the file at filepath.Join(repoRoot, path) and returns its
@@ -95,6 +100,13 @@ func stripFrontmatter(body string) string {
 	return rest[closeIdx+len("\n---\n"):]
 }
 
+// rewriteLegacyClaudeSkillRefsForPi converts Claude Code skill-path hints in
+// shared command bodies to Pi-native skill names. The shared prompt sources stay
+// harness-neutral-ish, while Pi prompt templates avoid leaking .claude paths.
+func rewriteLegacyClaudeSkillRefsForPi(body string) string {
+	return legacyClaudeSkillRef.ReplaceAllString(body, `$1`)
+}
+
 // Generate renders adapter files for all harnesses declared in the manifest.
 // repoRoot is used to resolve relative paths declared in the manifest so that
 // file bodies can be embedded in the generated output.  Pass "" to skip body
@@ -111,6 +123,7 @@ func Generate(m *manifest.Manifest, repoRoot string) (map[string][]byte, error) 
 			manifest.HarnessOpenCode,
 			manifest.HarnessCodex,
 			manifest.HarnessCursor,
+			manifest.HarnessPi,
 		}
 	}
 	harnessEnabled := make(map[manifest.Harness]bool, len(allHarnesses))
@@ -128,6 +141,9 @@ func Generate(m *manifest.Manifest, repoRoot string) (map[string][]byte, error) 
 		return nil, err
 	}
 	if err := generateCursor(m, harnessEnabled, repoRoot, out); err != nil {
+		return nil, err
+	}
+	if err := generatePi(m, harnessEnabled, repoRoot, out); err != nil {
 		return nil, err
 	}
 
@@ -325,5 +341,61 @@ func generateCursor(m *manifest.Manifest, enabled map[manifest.Harness]bool, rep
 		}
 		out[".cursor/rules/"+c.Name+".mdc"] = data
 	}
+	return nil
+}
+
+// generatePi emits Agent Skills and prompt templates in Pi's native project
+// layout. Pi auto-loads .pi/skills/<name>/SKILL.md as skills and
+// .pi/prompts/<name>.md as slash prompt templates.
+func generatePi(m *manifest.Manifest, enabled map[manifest.Harness]bool, repoRoot string, out map[string][]byte) error {
+	if !enabled[manifest.HarnessPi] {
+		return nil
+	}
+
+	skills := make([]manifest.Skill, len(m.Skills))
+	copy(skills, m.Skills)
+	sort.Slice(skills, func(i, j int) bool { return skills[i].Name < skills[j].Name })
+
+	for _, s := range skills {
+		ih := itemHarnesses(s.Harnesses, enabled)
+		if !ih[manifest.HarnessPi] {
+			continue
+		}
+		item := renderItem{
+			Name:    s.Name,
+			Summary: s.Summary,
+			Path:    s.Path,
+			Body:    wrapBodyWithMarker(readBody(repoRoot, s.Path), s.Path),
+		}
+		data, err := render(tmplPiSkill, item)
+		if err != nil {
+			return err
+		}
+		out[".pi/skills/"+s.Name+"/SKILL.md"] = data
+	}
+
+	cmds := make([]manifest.Command, len(m.Commands))
+	copy(cmds, m.Commands)
+	sort.Slice(cmds, func(i, j int) bool { return cmds[i].Name < cmds[j].Name })
+
+	for _, c := range cmds {
+		ih := itemHarnesses(c.Harnesses, enabled)
+		if !ih[manifest.HarnessPi] {
+			continue
+		}
+		item := renderItem{
+			Name:    c.Name,
+			Summary: c.Summary,
+			Type:    c.Type,
+			Path:    c.Path,
+			Body:    rewriteLegacyClaudeSkillRefsForPi(stripFrontmatter(readBody(repoRoot, c.Path))),
+		}
+		data, err := render(tmplPiPrompt, item)
+		if err != nil {
+			return err
+		}
+		out[".pi/prompts/"+c.Name+".md"] = data
+	}
+
 	return nil
 }

@@ -3,87 +3,89 @@
 
 # Harness Parity Matrix
 
-Generated: 2026-04-25 · manifest version `1.0.0` · sdp_version `1.0.0`
+Generated: 2026-04-29 · manifest version `1.0.0` · sdp_version `1.0.0`
 
 Legend: ✓ supported · — not declared · ⚠ intentional gap (see notes)
 
 ## Commands
 
-| Name | claude-code | opencode | codex | cursor |
-|---|---|---|---|---|
-| `beads` | ✓ | ✓ | ✓ | ✓ |
-| `bugfix` | ✓ | ✓ | ✓ | ✓ |
-| `build` | ✓ | ✓ | ✓ | ✓ |
-| `ci-triage` | ✓ | ✓ | ✓ | ✓ |
-| `codereview` | ✓ | ✓ | ✓ | ✓ |
-| `debug` | ✓ | ✓ | ✓ | ✓ |
-| `deliver` | ✓ | ✓ | ✓ | ✓ |
-| `deploy` | ✓ | ✓ | ✓ | ✓ |
-| `design` | ✓ | ✓ | ✓ | ✓ |
-| `feature` | ✓ | ✓ | ✓ | ✓ |
-| `hotfix` | ✓ | ✓ | ✓ | ✓ |
-| `idea` | ✓ | ✓ | ✓ | ✓ |
-| `issue` | ✓ | ✓ | ✓ | ✓ |
-| `oneshot` | ✓ | ✓ | ✓ | ✓ |
-| `prd` | ✓ | ✓ | ✓ | ✓ |
-| `protocol-consistency` | ✓ | ✓ | ✓ | ✓ |
-| `prototype` | ✓ | ✓ | ✓ | ✓ |
-| `reality` | ✓ | ✓ | ✓ | ✓ |
-| `reality-check` | ✓ | ✓ | ✓ | ✓ |
-| `review` | ✓ | ✓ | ✓ | ✓ |
-| `submit-to-swarm` | ✓ | ✓ | ✓ | ✓ |
-| `test` | ✓ | ✓ | ✓ | ✓ |
-| `verify-workstream` | ✓ | ✓ | ✓ | ✓ |
-| `vision` | ✓ | ✓ | ✓ | ✓ |
+| Name | claude-code | opencode | codex | cursor | pi |
+|---|---|---|---|---|---|
+| `beads` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `bugfix` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `build` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `ci-triage` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `codereview` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `debug` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `deliver` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `deploy` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `design` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `feature` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `hotfix` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `idea` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `issue` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `oneshot` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `prd` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `protocol-consistency` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `prototype` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `reality` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `reality-check` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `review` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `ship` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `submit-to-swarm` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `test` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `verify-workstream` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `vision` | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 ## Skills
 
-| Name | claude-code | opencode | codex | cursor |
-|---|---|---|---|---|
-| `beads` | ✓ | ✓ | ✓ | ✓ |
-| `bugfix` | ✓ | ✓ | ✓ | ✓ |
-| `build` | ✓ | ✓ | ✓ | ✓ |
-| `ci-triage` | ✓ | ✓ | ✓ | ✓ |
-| `debug` | ✓ | ✓ | ✓ | ✓ |
-| `delivery-loop` | ✓ | ✓ | ✓ | ✓ |
-| `deploy` | ✓ | ✓ | ✓ | ✓ |
-| `design` | ✓ | ✓ | ✓ | ✓ |
-| `discovery` | ✓ | ✓ | ✓ | ✓ |
-| `feature` | ✓ | ✓ | ✓ | ✓ |
-| `go-modern` | ✓ | ✓ | ✓ | ✓ |
-| `guard` | ✓ | ✓ | ✓ | ✓ |
-| `hotfix` | ✓ | ✓ | ✓ | ✓ |
-| `idea` | ✓ | ✓ | ✓ | ✓ |
-| `init` | ✓ | ✓ | ✓ | ✓ |
-| `issue` | ✓ | ✓ | ✓ | ✓ |
-| `oneshot` | ✓ | ✓ | ✓ | ✓ |
-| `protocol-consistency` | ✓ | ✓ | ✓ | ✓ |
-| `prototype` | ✓ | ✓ | ✓ | ✓ |
-| `reality` | ✓ | ✓ | ✓ | ✓ |
-| `reality-check` | ✓ | ✓ | ✓ | ✓ |
-| `review` | ✓ | ✓ | ✓ | ✓ |
-| `spec-interrogate` | ✓ | ✓ | ✓ | ✓ |
-| `strataudit` | ✓ | ✓ | ✓ | ✓ |
-| `tdd` | ✓ | ✓ | ✓ | ✓ |
-| `think` | ✓ | ✓ | ✓ | ✓ |
-| `ux` | ✓ | ✓ | ✓ | ✓ |
-| `verify-workstream` | ✓ | ✓ | ✓ | ✓ |
-| `vision` | ✓ | ✓ | ✓ | ✓ |
+| Name | claude-code | opencode | codex | cursor | pi |
+|---|---|---|---|---|---|
+| `beads` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `bugfix` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `build` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `ci-triage` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `debug` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `delivery-loop` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `deploy` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `design` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `discovery` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `feature` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `go-modern` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `guard` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `hotfix` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `idea` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `init` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `issue` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `oneshot` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `protocol-consistency` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `prototype` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `reality` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `reality-check` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `review` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `ship` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `spec-interrogate` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `strataudit` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `tdd` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `think` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `ux` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `verify-workstream` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `vision` | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 ## Agents
 
-| Name | claude-code | opencode | codex | cursor |
-|---|---|---|---|---|
-| `architect` | ✓ | ✓ | ✓ | ✓ |
-| `deployer` | ✓ | ✓ | ✓ | ✓ |
-| `devops` | ✓ | ✓ | ✓ | ✓ |
-| `implementer` | ✓ | ✓ | ✓ | ✓ |
-| `orchestrator` | ✓ | ✓ | ✓ | ✓ |
-| `planner` | ✓ | ✓ | ✓ | ✓ |
-| `qa` | ✓ | ✓ | ✓ | ✓ |
-| `reviewer` | ✓ | ✓ | ✓ | ✓ |
-| `security` | ✓ | ✓ | ✓ | ✓ |
-| `spec-reviewer` | ✓ | ✓ | ✓ | ✓ |
-| `sre` | ✓ | ✓ | ✓ | ✓ |
-| `tech-lead` | ✓ | ✓ | ✓ | ✓ |
+| Name | claude-code | opencode | codex | cursor | pi |
+|---|---|---|---|---|---|
+| `architect` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `deployer` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `devops` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `implementer` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `orchestrator` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `planner` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `qa` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `reviewer` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `security` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `spec-reviewer` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `sre` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `tech-lead` | ✓ | ✓ | ✓ | ✓ | ✓ |
 

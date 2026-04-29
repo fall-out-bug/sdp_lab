@@ -8,7 +8,7 @@ import (
 )
 
 // allHarnesses is the canonical column order for the parity matrix.
-var allHarnesses = []Harness{HarnessClaudeCode, HarnessOpenCode, HarnessCodex, HarnessCursor}
+var allHarnesses = []Harness{HarnessClaudeCode, HarnessOpenCode, HarnessCodex, HarnessCursor, HarnessPi}
 
 // ParityMatrix returns a markdown document showing per-harness coverage of
 // every command, skill, agent, and MCP server. Generated for F141-05; consumed

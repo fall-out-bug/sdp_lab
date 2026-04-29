@@ -22,10 +22,10 @@
       "type": "array",
       "items": {
         "type": "string",
-        "enum": ["claude-code", "opencode", "codex", "cursor"]
+        "enum": ["claude-code", "opencode", "codex", "cursor", "pi"]
       },
       "uniqueItems": true,
-      "default": ["claude-code", "opencode", "codex", "cursor"]
+      "default": ["claude-code", "opencode", "codex", "cursor", "pi"]
     },
     "skills": {
       "type": "array",
@@ -51,7 +51,7 @@
   "$defs": {
     "harness": {
       "type": "string",
-      "enum": ["claude-code", "opencode", "codex", "cursor"]
+      "enum": ["claude-code", "opencode", "codex", "cursor", "pi"]
     },
     "harness_list": {
       "type": "array",
@@ -115,7 +115,8 @@
             "claude-code": { "type": "string" },
             "opencode": { "type": "string" },
             "codex": { "type": "string" },
-            "cursor": { "type": "string" }
+            "cursor": { "type": "string" },
+            "pi": { "type": "string" }
           }
         },
         "parity_notes": {

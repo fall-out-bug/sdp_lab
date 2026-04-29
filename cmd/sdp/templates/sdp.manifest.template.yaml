@@ -13,6 +13,7 @@ harnesses:
   - opencode
   - codex
   - cursor
+  - pi
 
 # Skills are executable prompt files (.md) that harnesses can invoke.
 # Add your project skills here.

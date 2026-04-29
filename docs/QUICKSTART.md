@@ -75,10 +75,10 @@ Expected result:
 
 - manifest validation exits 0
 - adapter doctor reports 0 drifts
-- manifest output reports the SDP inventory, currently 29 skills, 24 commands, and 12 agents
+- manifest output reports the SDP inventory, currently 30 skills, 25 commands, and 12 agents
 - `sdp.lock` exists
 - `.sdp/bin/sdp` exists
-- one or more harness dirs exist: `.claude/`, `.opencode/`, `.codex/`, `.cursor/`
+- one or more harness dirs exist: `.claude/`, `.opencode/`, `.codex/`, `.cursor/`, `.pi/`
 
 ## First Useful Run
 
@@ -116,7 +116,7 @@ sdp bootstrap --dry-run --mode brownfield .
 
 **SDP Toolkit (stable, ships in formula):**
 
-- multi-harness manifest/adapters: 29 skills, 24 commands, 12 agents
+- multi-harness manifest/adapters: 30 skills, 25 commands, 12 agents
 - toolkit commands: `scout`, `metrics`, `index`, `spec`, `bootstrap`
 
 **Operator Mode (default Toolkit happy path):**

@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: DEPRECATED: Use @ship instead. Deployment orchestration. Creates PR to main (after @oneshot) or merges for release.
+description: "DEPRECATED: Use @ship instead. Deployment orchestration. Creates PR to main (after @oneshot) or merges for release."
 version: 5.0.0
 deprecated: true
 deprecated_in_favor_of: ship

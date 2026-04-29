@@ -101,18 +101,18 @@ The installer clones `sdp_lab` to bring in the canonical manifest and prompts, u
 
 ### What you get
 
-29 skills · 24 commands · 12 agents — installed into the harness dirs detected in your repo (`.claude/`, `.opencode/`, `.codex/`, `.cursor/`).
+30 skills · 25 commands · 12 agents — installed into the harness dirs detected in your repo (`.claude/`, `.opencode/`, `.codex/`, `.cursor/`, `.pi/`).
 
 Parity snapshot (full table: [`docs/reference/harness-parity-matrix.md`](docs/reference/harness-parity-matrix.md)):
 
-| Command | claude-code | opencode | codex | cursor |
-|---|---|---|---|---|
-| `build` | ✓ | ✓ | ✓ | ✓ |
-| `feature` | ✓ | ✓ | ✓ | ✓ |
-| `deploy` | ✓ | ✓ | ✓ | ✓ |
-| `review` | ✓ | ✓ | ✓ | ✓ |
+| Command | claude-code | opencode | codex | cursor | pi |
+|---|---|---|---|---|---|
+| `build` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `feature` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `deploy` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `review` | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-All 24 commands and 29 skills are declared in `sdp.manifest.yaml` as the single source of truth.
+All 25 commands and 30 skills are declared in `sdp.manifest.yaml` as the single source of truth.
 
 ### Selective install
 
@@ -121,7 +121,7 @@ Install only the harnesses you use:
 ```bash
 sdp init --harness=claude-code,opencode
 sdp init --harness=auto           # detect by existing dirs
-sdp init --harness=all            # all four harnesses
+sdp init --harness=all            # all five harnesses
 sdp init --harness=auto --target=/path/to/myrepo
 ```
 
