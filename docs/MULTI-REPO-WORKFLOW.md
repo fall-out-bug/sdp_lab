@@ -61,6 +61,7 @@ The script copies the relevant files from `sdp_lab` into a checkout of `fall-out
 | `.opencode/README.md` | `.opencode/README.md` |
 | `docs/reference/FALLBACK_MODE.md` | `docs/reference/FALLBACK_MODE.md` |
 | `prompts/commands.yml` | `prompts/commands.yml` |
+| `scripts/install.sh` | `scripts/install.sh` |
 
 The manifest is maintained in `sdp_lab`. Add or remove paths there when the publish surface changes.
 

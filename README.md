@@ -57,7 +57,7 @@ If your goal is to **use SDP inside your own project**, start with [docs/QUICKST
 ## Clone
 
 ```bash
-git clone https://github.com/fall-out-bug/sdp
+git clone https://github.com/fall-out-bug/sdp_lab sdp_lab
 cd sdp_lab
 go build -tags "sqlite_fts5" ./...
 ```

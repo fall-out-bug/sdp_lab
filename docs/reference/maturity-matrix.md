@@ -263,18 +263,24 @@ Current GoReleaser config (`.goreleaser.yml`) builds these binaries:
 
 | Build ID | Binary | Surface Classification | In Formula? |
 |---|---|---|---|
+| `sdp` | `sdp` | stable | Yes |
 | `sdp-evidence` | `sdp-evidence` | tooling | Yes |
 | `sdp-guard` | `sdp-guard` | tooling | Yes |
 | `sdp-orchestrate` | `sdp-orchestrate` | tooling | Yes |
+| `sdp-orchestrate-daemon` | `sdp-orchestrate-daemon` | tooling | Yes |
 | `sdp-ci-loop` | `sdp-ci-loop` | tooling | Yes |
-| `sdp-eval` | `sdp-eval` | experimental | Yes (should be reviewed) |
+| `sdp-doc-sync` | `sdp-doc-sync` | tooling | Yes |
+| `sdp-beads-bridge` | `sdp-beads-bridge` | tooling | Yes |
+| `sdp-gh-findings-sync` | `sdp-gh-findings-sync` | tooling | Yes |
+| `sdp-ready` | `sdp-ready` | tooling | Yes |
+| `sdp-protocol-check` | `sdp-protocol-check` | tooling | Yes |
+| `sdp-ws-verdict-validate` | `sdp-ws-verdict-validate` | tooling | Yes |
+| `sdp-healthcheck` | `sdp-healthcheck` | tooling | Yes |
+| `sdp-export` | `sdp-export` | tooling | Yes |
+| `sdp-session-audit` | `sdp-session-audit` | tooling | Yes |
+| `sdp-omc-guard` | `sdp-omc-guard` | tooling | Yes |
 
-**Not in GoReleaser but should be considered for formula:**
-- `sdp` (main binary) -- NOT in GoReleaser; must be added for formula
-- `sdp-doc-sync`, `sdp-beads-bridge`, `sdp-gh-findings-sync`, `sdp-ready`, `sdp-protocol-check`, `sdp-ws-verdict-validate`, `sdp-healthcheck`, `sdp-export` -- tooling; candidates for formula or opt-in tap
-
-**In GoReleaser but should be reviewed:**
-- `sdp-eval` -- classified experimental; consider removing from default formula build
+Experimental and lab-only binaries are intentionally absent from GoReleaser.
 
 ## Exclusion Mechanisms
 
