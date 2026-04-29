@@ -254,6 +254,59 @@ func (blockingRunner) CombinedOutput(ctx context.Context, _ string, _ string, _ 
 	return nil, ctx.Err()
 }
 
+type timeoutThenFallbackRunner struct {
+	calls int
+}
+
+func (r *timeoutThenFallbackRunner) Output(context.Context, string, string, ...string) ([]byte, error) {
+	return nil, nil
+}
+
+func (r *timeoutThenFallbackRunner) Run(context.Context, string, string, ...string) error {
+	return nil
+}
+
+func (r *timeoutThenFallbackRunner) CombinedOutput(_ context.Context, _ string, _ string, args ...string) ([]byte, error) {
+	r.calls++
+	if r.calls == 1 {
+		return nil, context.DeadlineExceeded
+	}
+	if len(args) < 4 || args[1] != "openrouter" {
+		return nil, errors.New("fallback did not use openrouter")
+	}
+	return []byte(`[{"priority":"P3","title":"fallback note","file":"main.go","start_line":1,"rationale":"ok"}]`), nil
+}
+
+func TestRunModelPanelAttemptsFallbackAfterTimeout(t *testing.T) {
+	fr := &timeoutThenFallbackRunner{}
+	r := &Runner{
+		cfg: Config{
+			ProjectRoot:  t.TempDir(),
+			Scope:        ScopeWorkingTree,
+			ModelTimeout: time.Second,
+			Runner:       fr,
+		},
+		runner: fr,
+		slots: []ReviewerSlot{
+			{Slot: "kimi", Provider: "kimi-coding", Model: "k2p6", Role: "reviewer", Required: true},
+		},
+	}
+
+	results := r.runModelPanel(context.Background(), "test-run", &ContextPacket{}, &TestEvidence{})
+	if len(results) != 1 {
+		t.Fatalf("got %d result(s), want 1", len(results))
+	}
+	if results[0].Status != "ok" {
+		t.Fatalf("status = %q, error = %q, want ok", results[0].Status, results[0].Error)
+	}
+	if results[0].Provider != "openrouter" {
+		t.Fatalf("provider = %q, want openrouter", results[0].Provider)
+	}
+	if fr.calls != 2 {
+		t.Fatalf("calls = %d, want primary + fallback", fr.calls)
+	}
+}
+
 func TestInvokePiHonorsModelTimeout(t *testing.T) {
 	r := &Runner{
 		cfg: Config{

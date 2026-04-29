@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -270,7 +269,7 @@ func (r *Runner) runModelPanel(ctx context.Context, runID string, pkt *ContextPa
 			result.Status = "failed"
 			result.Error = err.Error()
 			result.ArtifactPath = modelArtifactPath(r.cfg.ProjectRoot, runID, slot.Slot)
-			if slot.Required && !errors.Is(err, context.DeadlineExceeded) {
+			if slot.Required && ctx.Err() == nil {
 				// Try OpenRouter fallback for required slots
 				fbOutput, fbErr := r.invokeFallback(ctx, slot, pkt, evidence)
 				if fbErr == nil {
