@@ -166,6 +166,15 @@ func itemHarnesses(declared []manifest.Harness, manifestEnabled map[manifest.Har
 	return out
 }
 
+func commandOutputPath(c manifest.Command, h manifest.Harness, fallback string) string {
+	if c.Dispatch != nil {
+		if path := strings.TrimSpace(c.Dispatch[h]); path != "" {
+			return path
+		}
+	}
+	return fallback
+}
+
 func render(t *template.Template, data any) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := t.Execute(&buf, data); err != nil {
@@ -201,7 +210,7 @@ func generateClaudeCode(m *manifest.Manifest, enabled map[manifest.Harness]bool,
 		if err != nil {
 			return err
 		}
-		out[".claude/commands/"+c.Name+".md"] = data
+		out[commandOutputPath(c, manifest.HarnessClaudeCode, ".claude/commands/"+c.Name+".md")] = data
 	}
 
 	// Sort agents for determinism
@@ -339,7 +348,7 @@ func generateCursor(m *manifest.Manifest, enabled map[manifest.Harness]bool, rep
 		if err != nil {
 			return err
 		}
-		out[".cursor/rules/"+c.Name+".mdc"] = data
+		out[commandOutputPath(c, manifest.HarnessCursor, ".cursor/rules/"+c.Name+".mdc")] = data
 	}
 	return nil
 }
@@ -394,7 +403,7 @@ func generatePi(m *manifest.Manifest, enabled map[manifest.Harness]bool, repoRoo
 		if err != nil {
 			return err
 		}
-		out[".pi/prompts/"+c.Name+".md"] = data
+		out[commandOutputPath(c, manifest.HarnessPi, ".pi/prompts/"+c.Name+".md")] = data
 	}
 
 	return nil

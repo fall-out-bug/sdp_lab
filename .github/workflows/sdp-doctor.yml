@@ -37,6 +37,3 @@ jobs:
       - name: Doctor — backlog drift gate (F142-05)
         run: ./sdp doctor backlog
         # Exit 1 when open features have no ws scaffold and no children (picker bait).
-        # continue-on-error: true in first iteration — backfill all findings before
-        # enabling as hard gate.
-        continue-on-error: true

@@ -12,8 +12,8 @@ import (
 
 func runDoctor(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: sdp doctor <control|adapters|backlog|all>")
-		os.Exit(2)
+		runDoctorControl()
+		return
 	}
 	switch args[0] {
 	case "control":

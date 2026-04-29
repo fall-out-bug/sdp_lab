@@ -8,7 +8,8 @@ All files live natively in `sdp_lab`. There is no submodule, no separate git che
 
 | Path | Repo | Remote | Typical change |
 |------|------|--------|----------------|
-| Root, `internal/`, `cmd/`, `docs/`, `sdp/` | `sdp_lab` | `https://github.com/fall-out-bug/sdp` | All work happens here |
+| Root, `internal/`, `cmd/`, `docs/`, protocol artifact dirs | `sdp_lab` | `https://github.com/fall-out-bug/sdp_lab` | All development happens here |
+| `sdp/` optional local checkout | `sdp` (distilled distribution repo) | `https://github.com/fall-out-bug/sdp` | Local publish target only; gitignored in `sdp_lab` |
 | `fall-out-bug/sdp` (separate repo) | `sdp` (distilled distribution repo) | `https://github.com/fall-out-bug/sdp` | Published artifacts only |
 
 Historical note: many workstreams and beads IDs still use `sdp_dev-*` as a legacy label for the root repo. The Go module path was migrated from `sdp_dev` to `sdp_lab` in F150-03. That is history, not a third repo.
@@ -39,7 +40,7 @@ scripts/sdp-publish.sh --dry-run
 scripts/sdp-publish.sh --check
 ```
 
-The script copies the relevant files from `sdp_lab` into a checkout of `fall-out-bug/sdp`, commits, and pushes. It uses a manifest to determine which paths to publish.
+The script copies the relevant files from `sdp_lab` into a checkout of `fall-out-bug/sdp`, commits, and pushes. The publish surface is the `ARTIFACT_FILE_MAP` array in `scripts/sdp-publish.sh`.
 
 ## Artifacts Published
 
@@ -63,7 +64,7 @@ The script copies the relevant files from `sdp_lab` into a checkout of `fall-out
 | `prompts/commands.yml` | `prompts/commands.yml` |
 | `scripts/install.sh` | `scripts/install.sh` |
 
-The manifest is maintained in `sdp_lab`. Add or remove paths there when the publish surface changes.
+The artifact map is maintained in `scripts/sdp-publish.sh`. Add or remove paths there when the publish surface changes, and keep this table in sync.
 
 ## Branch Defaults
 

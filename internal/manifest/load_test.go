@@ -162,6 +162,29 @@ skills:
 	}
 }
 
+func TestParse_RejectsPathsOutsideRepo(t *testing.T) {
+	tmp := t.TempDir()
+	outside := t.TempDir()
+	mustWrite(t, filepath.Join(outside, "secret.md"), "secret")
+	src := []byte(`
+version: "1.0.0"
+sdp_version: "0.1.0"
+skills:
+  - name: "leak"
+    path: "../outside/secret.md"
+commands:
+  - name: "abs"
+    path: "` + filepath.ToSlash(filepath.Join(outside, "secret.md")) + `"
+`)
+	_, err := manifest.Parse(src, tmp)
+	if err == nil {
+		t.Fatal("expected outside-repo path error")
+	}
+	if !strings.Contains(err.Error(), "invalid paths") {
+		t.Errorf("error should mention invalid paths: %v", err)
+	}
+}
+
 func TestParse_AcceptsExistingPaths(t *testing.T) {
 	tmp := t.TempDir()
 	mustWrite(t, filepath.Join(tmp, "skills", "build.md"), "# build")

@@ -17,53 +17,59 @@ trap 'rm -f "$REPORT_FILE"' EXIT
 
 START_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-# Run smoke tests, capturing full output
-if go test -tags=smoke ./test/smoke/... -v -json 2>&1 \
-   | tee /tmp/sdp-smoke-raw.json \
-   | go run golang.org/x/tools/cmd/godoc@latest 2>/dev/null \
-   || true; then : ; fi
-
-# Parse go test -json output into a structured report
-go test -tags=smoke ./test/smoke/... -v 2>&1 | tee /tmp/sdp-smoke-stdout.txt
+# Run smoke tests once and parse the JSON event stream.
+set +e
+go test -tags=smoke ./test/smoke/... -v -json 2>&1 | tee /tmp/sdp-smoke-raw.json
 SMOKE_EXIT=${PIPESTATUS[0]:-$?}
+set -e
 
 END_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-# Extract pass/fail counts
-PASS_COUNT=$(grep -c "^--- PASS:" /tmp/sdp-smoke-stdout.txt 2>/dev/null || echo 0)
-FAIL_COUNT=$(grep -c "^--- FAIL:" /tmp/sdp-smoke-stdout.txt 2>/dev/null || echo 0)
-SKIP_COUNT=$(grep -c "^--- SKIP:" /tmp/sdp-smoke-stdout.txt 2>/dev/null || echo 0)
+START_TS="$START_TS" END_TS="$END_TS" python3 - <<'PY' > "$REPORT_FILE"
+import json
+import os
 
-# Build per-test entries
-TESTS_JSON=""
-while IFS= read -r line; do
-  if [[ "$line" =~ ^---\ (PASS|FAIL|SKIP):\ (.+)\ \((.+)\)$ ]]; then
-    status="${BASH_REMATCH[1]}"
-    name="${BASH_REMATCH[2]}"
-    duration="${BASH_REMATCH[3]}"
-    entry="{\"name\":\"$name\",\"status\":\"$status\",\"duration\":\"$duration\"}"
-    TESTS_JSON="${TESTS_JSON:+$TESTS_JSON,}$entry"
-  fi
-done < /tmp/sdp-smoke-stdout.txt
+tests = []
+counts = {"pass": 0, "fail": 0, "skip": 0}
+with open("/tmp/sdp-smoke-raw.json", "r", encoding="utf-8") as f:
+    for line in f:
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        action = event.get("Action")
+        name = event.get("Test")
+        if action not in {"pass", "fail", "skip"} or not name:
+            continue
+        counts[action] += 1
+        tests.append({
+            "name": name,
+            "status": action.upper(),
+            "duration": event.get("Elapsed", 0),
+            "package": event.get("Package", ""),
+        })
 
-STATUS="pass"
-if [[ "$FAIL_COUNT" -gt 0 ]]; then STATUS="fail"; fi
+status = "fail" if counts["fail"] else "pass"
+json.dump({
+    "runner": "sdp-smoke",
+    "started_at": os.environ["START_TS"],
+    "finished_at": os.environ["END_TS"],
+    "status": status,
+    "summary": {
+        "total": sum(counts.values()),
+        "pass": counts["pass"],
+        "fail": counts["fail"],
+        "skip": counts["skip"],
+    },
+    "tests": tests,
+}, fp=os.sys.stdout, indent=2)
+print()
+PY
 
-cat > "$REPORT_FILE" <<EOF
-{
-  "runner": "sdp-smoke",
-  "started_at": "$START_TS",
-  "finished_at": "$END_TS",
-  "status": "$STATUS",
-  "summary": {
-    "total": $((PASS_COUNT + FAIL_COUNT + SKIP_COUNT)),
-    "pass":  $PASS_COUNT,
-    "fail":  $FAIL_COUNT,
-    "skip":  $SKIP_COUNT
-  },
-  "tests": [$TESTS_JSON]
-}
-EOF
+PASS_COUNT=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["summary"]["pass"])' "$REPORT_FILE")
+FAIL_COUNT=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["summary"]["fail"])' "$REPORT_FILE")
+SKIP_COUNT=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["summary"]["skip"])' "$REPORT_FILE")
+STATUS=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["status"])' "$REPORT_FILE")
 
 if [[ "$JSON_OUTPUT" == "1" ]]; then
   cat "$REPORT_FILE"
@@ -76,7 +82,7 @@ else
   echo ""
   if [[ "$FAIL_COUNT" -gt 0 ]]; then
     echo "FAILURES:"
-    grep "^--- FAIL:" /tmp/sdp-smoke-stdout.txt || true
+    python3 -c 'import json,sys; [print(t["name"]) for t in json.load(open(sys.argv[1]))["tests"] if t["status"] == "FAIL"]' "$REPORT_FILE"
   fi
 fi
 

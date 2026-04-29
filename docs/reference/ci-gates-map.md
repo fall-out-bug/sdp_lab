@@ -43,7 +43,7 @@ required-checks ◄───────────────┴──┘
 | Evidence Gate | `evidence-gate` | Yes | Fail-closed | `go run ./cmd/sdp-evidence validate --require-pr-url=false <file>` |
 | Scope Gate | `scope-gate` | Yes | Fail-closed | `go run ./cmd/sdp-guard --ws <ws-id>` |
 | Protocol Compliance | `protocol-compliance` | Yes | Fail-closed | `go run ./cmd/sdp-guard --check-contract --contract <file> --snapshot <file>` |
-| Consistency Gate | `consistency-gate` | Yes | Fail-closed | `python3 scripts/check_repo_consistency.py --strict-ac --json` |
+| Consistency Gate | `consistency-gate` | Yes | Blocking for version/public metadata drift; advisory for repo/protocol/doc/skill drift during cleanup | `scripts/check-version-drift.sh --json && scripts/check-public-metadata.sh --json` |
 | Coverage Gate | `coverage-gate` | Yes | Blocking baseline delta; maturity-tiered minimums advisory | `go test -tags sqlite_fts5 -coverprofile=cover.out ./... && go tool cover -func=cover.out` |
 | Policy Gate | `policy-gate` | Yes | Advisory (configurable) | See details (OPA eval) |
 | Auto-Attestation | `auto-attestation` | Yes | Required | `go run ./internal/evidence/cmd/auto-attest --branch <branch>` |
@@ -127,10 +127,10 @@ required-checks ◄───────────────┴──┘
 ### consistency-gate
 - **Owner**: platform
 - **Triggers**: Every PR
-- **Steps**: `python3 scripts/check_repo_consistency.py --strict-ac --json` + `go run ./cmd/sdp-protocol-check --format json` + `go run ./cmd/sdp-doc-sync --mode check --format json` + `go run ./cmd/sdp-protocol-check --lint-skills --format json`
+- **Steps**: Advisory findings from `python3 scripts/check_repo_consistency.py --strict-ac --json`, `go run ./cmd/sdp-protocol-check --format json`, `go run ./cmd/sdp-doc-sync --mode check --format json`, and `go run ./cmd/sdp-protocol-check --lint-skills --format json`; blocking drift checks from `scripts/check-version-drift.sh --json` and `scripts/check-public-metadata.sh --json`.
 - **Never skipped**
-- **Failure semantics**: Blocks merge on repo consistency failure. Protocol check and doc-sync are non-blocking advisory. Skill-lint is non-blocking in advisory rollout.
-- **Local reproduce**: `python3 scripts/check_repo_consistency.py --strict-ac --json`
+- **Failure semantics**: Blocks merge on version drift or public metadata drift. Repository consistency, protocol-check, doc-sync, and skill-lint findings are written as advisory artifacts while historical backlog/doc drift is reconciled.
+- **Local reproduce**: `scripts/check-version-drift.sh --json && scripts/check-public-metadata.sh --json`; advisory: `python3 scripts/check_repo_consistency.py --strict-ac --json`
 - **Output schema**: JSON findings file
 - **Artifact path**: `.sdp/findings/*.json` (uploaded as CI artifact)
 

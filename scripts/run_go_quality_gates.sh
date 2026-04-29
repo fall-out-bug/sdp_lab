@@ -5,6 +5,7 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 GO="${ROOT}/scripts/go_with_project_toolchain.sh"
 MODE="${SDP_GO_QUALITY_MODE:-container}"
 DOCKER_IMAGE="${SDP_GO_QUALITY_DOCKER_IMAGE:-golang:1.26-bookworm}"
+GOLANGCI_LINT_VERSION="${SDP_GOLANGCI_LINT_VERSION:-v1.62.0}"
 
 cd "$ROOT"
 
@@ -36,6 +37,10 @@ run_host_quality_gates() {
 
   echo "==> go vet -tags \"sqlite_fts5\" ./..."
   "$GO" vet -tags "sqlite_fts5" ./...
+
+  echo "==> golangci-lint run ./..."
+  "$GO" install "github.com/golangci/golangci-lint/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}"
+  "$("$GO" env GOPATH)/bin/golangci-lint" run ./...
 }
 
 run_container_quality_gates() {
@@ -59,7 +64,7 @@ run_container_quality_gates() {
     -v "$ROOT:/workspace" \
     -w /workspace \
     "$DOCKER_IMAGE" \
-    sh -c 'set -eu; go version; go build -tags "sqlite_fts5" ./...; go test -tags "sqlite_fts5" ./... -count=1; go vet -tags "sqlite_fts5" ./...'
+    sh -c "set -eu; go version; go build -tags \"sqlite_fts5\" ./...; go test -tags \"sqlite_fts5\" ./... -count=1; go vet -tags \"sqlite_fts5\" ./...; go install github.com/golangci/golangci-lint/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}; /workspace/.cache/go/bin/golangci-lint run ./..."
 }
 
 case "$MODE" in

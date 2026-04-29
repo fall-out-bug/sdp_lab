@@ -90,6 +90,31 @@ func TestBootstrapDefault_UseDraftTrue(t *testing.T) {
 	}
 }
 
+func TestBootstrapDryRunBrownfieldDoesNotWriteDraftDelta(t *testing.T) {
+	binPath := buildTestBinary(t)
+	repoDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repoDir, "go.mod"), []byte("module example.com/app\n\ngo 1.26\n"), 0o644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+
+	cmd := exec.Command(binPath, "bootstrap", "--dry-run", "--mode", "brownfield", repoDir)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("bootstrap dry-run brownfield failed: %v\n%s", err, out.String())
+	}
+
+	if !strings.Contains(out.String(), "[plan]") {
+		t.Fatalf("expected dry-run plan output, got:\n%s", out.String())
+	}
+	if _, err := os.Stat(filepath.Join(repoDir, "DRAFT-bootstrap-delta.json")); err == nil {
+		t.Fatal("dry-run brownfield wrote DRAFT-bootstrap-delta.json")
+	} else if !os.IsNotExist(err) {
+		t.Fatalf("stat DRAFT-bootstrap-delta.json: %v", err)
+	}
+}
+
 // TestBootstrapYesFlag_BypassesDraft verifies that --yes flag produces
 // clean files without DRAFT prefix.
 func TestBootstrapYesFlag_BypassesDraft(t *testing.T) {

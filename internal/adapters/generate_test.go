@@ -135,6 +135,52 @@ func TestGenerate_HarnessFilter(t *testing.T) {
 	}
 }
 
+func TestGenerate_CommandDispatchOverride(t *testing.T) {
+	m := &manifest.Manifest{
+		Version:    "1.0.0",
+		SDPVersion: "1.0.0",
+		Harnesses: []manifest.Harness{
+			manifest.HarnessClaudeCode,
+			manifest.HarnessCursor,
+			manifest.HarnessPi,
+		},
+		Commands: []manifest.Command{
+			{
+				Name: "custom",
+				Path: "prompts/commands/custom.md",
+				Dispatch: map[manifest.Harness]string{
+					manifest.HarnessClaudeCode: ".claude/commands/custom-alias.md",
+					manifest.HarnessCursor:     ".cursor/rules/custom-alias.mdc",
+					manifest.HarnessPi:         ".pi/prompts/custom-alias.md",
+				},
+			},
+		},
+	}
+
+	out, err := adapters.Generate(m, "")
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	for _, path := range []string{
+		".claude/commands/custom-alias.md",
+		".cursor/rules/custom-alias.mdc",
+		".pi/prompts/custom-alias.md",
+	} {
+		if _, ok := out[path]; !ok {
+			t.Fatalf("expected dispatch override output %q, got keys: %v", path, mapKeys(out))
+		}
+	}
+	for _, path := range []string{
+		".claude/commands/custom.md",
+		".cursor/rules/custom.mdc",
+		".pi/prompts/custom.md",
+	} {
+		if _, ok := out[path]; ok {
+			t.Fatalf("unexpected default output %q when dispatch override is set", path)
+		}
+	}
+}
+
 // TestGenerate_PerHarnessHasFiles verifies that a full minimal manifest has at
 // least one file per harness prefix.
 func TestGenerate_PerHarnessHasFiles(t *testing.T) {

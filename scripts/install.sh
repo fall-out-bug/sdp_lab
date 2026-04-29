@@ -9,6 +9,7 @@
 #   SDP_HARNESS Harness selection: auto|all|claude-code,opencode,... (default: auto)
 #   SDP_TARGET  Target directory (default: .)
 #   SDP_BIN_DIR Directory for the repo-local sdp binary (default: $SDP_TARGET/.sdp/bin)
+#   SDP_TRUST_PATH_SDP Reuse an existing PATH sdp binary only when set to 1 (default: 0)
 set -euo pipefail
 
 REPO="${SDP_REPO:-fall-out-bug/sdp_lab}"
@@ -23,6 +24,7 @@ if [[ -z "$TARGET_ABS" ]]; then
 fi
 BIN_DIR="${SDP_BIN_DIR:-$TARGET_ABS/.sdp/bin}"
 LOCAL_SDP="$BIN_DIR/sdp"
+TRUST_PATH_SDP="${SDP_TRUST_PATH_SDP:-0}"
 
 echo "→ SDP installer: harness=$HARNESS target=$TARGET_ABS"
 
@@ -38,6 +40,28 @@ echo "→ platform: $OS/$ARCH"
 
 supports_current_init() {
   "$1" init --help 2>&1 | grep -q -- "--harness"
+}
+
+go_version_at_least() {
+  local required_major="$1"
+  local required_minor="$2"
+  local version raw major minor
+
+  raw="$(go env GOVERSION 2>/dev/null || go version 2>/dev/null || true)"
+  version="$(printf '%s\n' "$raw" | sed -E 's/^.*go([0-9]+)\.([0-9]+).*$/\1.\2/')"
+  if [[ ! "$version" =~ ^[0-9]+[.][0-9]+$ ]]; then
+    return 1
+  fi
+
+  major="${version%%.*}"
+  minor="${version#*.}"
+  if (( major > required_major )); then
+    return 0
+  fi
+  if (( major == required_major && minor >= required_minor )); then
+    return 0
+  fi
+  return 1
 }
 
 SDP_BIN=""
@@ -62,8 +86,8 @@ else
   git clone --depth=1 --branch "$BRANCH" "https://github.com/$REPO.git" "$SOURCE_ROOT" 2>&1
 fi
 
-# Strategy 1: if a compatible `sdp` binary is already on PATH, use it directly.
-if command -v sdp >/dev/null 2>&1; then
+# Strategy 1: optionally reuse a compatible `sdp` binary already on PATH.
+if [[ "$TRUST_PATH_SDP" == "1" ]] && command -v sdp >/dev/null 2>&1; then
   FOUND_SDP="$(command -v sdp)"
   if supports_current_init "$FOUND_SDP"; then
     echo "→ found compatible sdp binary on PATH: $FOUND_SDP"
@@ -72,14 +96,22 @@ if command -v sdp >/dev/null 2>&1; then
     echo "warning: found incompatible sdp binary on PATH: $FOUND_SDP" >&2
     echo "warning: it does not support 'sdp init --harness'; building $SOURCE_LABEL instead" >&2
   fi
+elif command -v sdp >/dev/null 2>&1; then
+  echo "→ ignoring sdp binary on PATH; set SDP_TRUST_PATH_SDP=1 to reuse it"
 fi
 
 # Strategy 2: clone-and-build (offline-friendly, no GitHub Releases needed in v1).
-# Requires: go (1.21+)
+# Requires: Go 1.26+ (matches go.mod and CI).
 if [[ -z "$SDP_BIN" ]]; then
   if ! command -v go >/dev/null 2>&1; then
     echo "error: required tool 'go' not found on PATH" >&2
     echo "       Please install go and re-run this script." >&2
+    exit 1
+  fi
+  if ! go_version_at_least 1 26; then
+    echo "error: Go 1.26+ is required to build SDP from source" >&2
+    echo "       Found: $(go version 2>/dev/null || go env GOVERSION 2>/dev/null || echo unknown)" >&2
+    echo "       Install Go 1.26+ or put a compatible 'sdp' binary on PATH." >&2
     exit 1
   fi
 

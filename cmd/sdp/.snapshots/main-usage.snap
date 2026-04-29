@@ -8,6 +8,8 @@ Board commands:
 
 Doctor commands:
   sdp doctor control
+  sdp doctor adapters [--manifest <path>] [--out <dir>] [--strict]
+  sdp doctor backlog
 
 Dispatch commands:
   sdp dispatch card
@@ -74,6 +76,12 @@ Build commands:
 
 Reset commands:
   sdp reset --feature F042 [--dry-run] [--yes]  Reset checkpoint for a feature
+
+Install and adapter commands:
+  sdp init [--harness <list>] [--target <dir>] [--manifest <path>] [--update]
+  sdp manifest validate [--manifest <path>] [--schema <path>]
+  sdp manifest parity [--write]
+  sdp generate-adapters [--manifest <path>] [--out <dir>] [--check]
 
 Coverage commands:
   sdp coverage-scan [--path DIR] [--threshold PCT] [--format text|json] [--skip-test] [--package PATTERN] [--coverprofile FILE]

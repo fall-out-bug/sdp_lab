@@ -2,6 +2,8 @@ package control
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -51,6 +53,18 @@ func TestDualWriteRepository_Compare_NilShadow(t *testing.T) {
 	}
 	if report.MissingShadow[0] != "F-TEST-001" {
 		t.Errorf("missing ID: got %s, want F-TEST-001", report.MissingShadow[0])
+	}
+}
+
+func TestFileCardRepositoryRejectsPathTraversalIDs(t *testing.T) {
+	tmp := t.TempDir()
+	repo := NewFileCardRepository(tmp, filepath.Join(tmp, ".sdp", "control"), ProjectRegistry{})
+	card := &FeatureCard{ID: "card-1", ProjectID: "../../outside"}
+	if err := repo.CreateCard(card.ProjectID, card); err == nil {
+		t.Fatal("expected traversal project id to fail")
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "..", "..", "outside")); err == nil {
+		t.Fatal("repository wrote outside control root")
 	}
 }
 
