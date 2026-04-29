@@ -18,7 +18,7 @@ import (
 
 // Decision is one routing decision: which harness/agent should handle a task.
 type Decision struct {
-	Harness    string  `json:"harness"`    // "claude-code" | "opencode" | "codex" | "cursor"
+	Harness    string  `json:"harness"`    // "claude-code" | "opencode" | "codex" | "cursor" | "pi"
 	Agent      string  `json:"agent"`      // role name; arbitrary
 	Confidence float64 `json:"confidence"` // self-reported [0, 1]
 	Rationale  string  `json:"rationale,omitempty"`
