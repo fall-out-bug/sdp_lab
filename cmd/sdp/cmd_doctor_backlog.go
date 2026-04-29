@@ -22,6 +22,12 @@ type beadEntry struct {
 	Status          string `json:"status"`
 	IssueType       string `json:"issue_type"`
 	DependencyCount int    `json:"dependency_count"`
+	DependentCount  int    `json:"dependent_count"`
+	Parent          string `json:"parent"`
+	Dependencies    []struct {
+		DependsOnID string `json:"depends_on_id"`
+		Type        string `json:"type"`
+	} `json:"dependencies"`
 }
 
 // runDoctorBacklog implements `sdp doctor backlog`.
@@ -128,6 +134,7 @@ func fileExists(path string) bool {
 // []backlog.Feature.
 func fetchBeadsFeatures(bdPath, status string) ([]backlog.Feature, error) {
 	var all []backlog.Feature
+	featureIndex := make(map[string]int)
 	for _, issueType := range []string{"feature", "epic"} {
 		entries, err := bdList(bdPath, issueType)
 		if err != nil {
@@ -135,17 +142,73 @@ func fetchBeadsFeatures(bdPath, status string) ([]backlog.Feature, error) {
 		}
 		for _, e := range entries {
 			fid := fidExtractRe.FindString(e.Title)
+			childCount := e.DependencyCount
+			if e.DependentCount > childCount {
+				childCount = e.DependentCount
+			}
+			featureIndex[e.ID] = len(all)
 			all = append(all, backlog.Feature{
 				BeadID:    e.ID,
 				FID:       fid,
 				Title:     e.Title,
 				Status:    e.Status,
 				IssueType: e.IssueType,
-				DepCount:  e.DependencyCount,
+				DepCount:  childCount,
 			})
 		}
 	}
+	childEntries, err := fetchPotentialChildEntries(bdPath)
+	if err != nil {
+		return nil, err
+	}
+	all = addParentChildCounts(all, featureIndex, childEntries)
 	return all, nil
+}
+
+func fetchPotentialChildEntries(bdPath string) ([]beadEntry, error) {
+	var all []beadEntry
+	for _, issueType := range []string{"bug", "task", "chore", "feature", "epic"} {
+		entries, err := bdList(bdPath, issueType)
+		if err != nil {
+			return nil, fmt.Errorf("bd list --type=%s: %w", issueType, err)
+		}
+		all = append(all, entries...)
+	}
+	return all, nil
+}
+
+func addParentChildCounts(features []backlog.Feature, featureIndex map[string]int, entries []beadEntry) []backlog.Feature {
+	counted := make(map[string]map[string]bool)
+	for _, e := range entries {
+		for _, parentID := range parentIDs(e) {
+			idx, ok := featureIndex[parentID]
+			if !ok || e.ID == parentID {
+				continue
+			}
+			if counted[parentID] == nil {
+				counted[parentID] = make(map[string]bool)
+			}
+			if counted[parentID][e.ID] {
+				continue
+			}
+			counted[parentID][e.ID] = true
+			features[idx].DepCount++
+		}
+	}
+	return features
+}
+
+func parentIDs(e beadEntry) []string {
+	var ids []string
+	if e.Parent != "" {
+		ids = append(ids, e.Parent)
+	}
+	for _, dep := range e.Dependencies {
+		if dep.Type == "parent-child" && dep.DependsOnID != "" {
+			ids = append(ids, dep.DependsOnID)
+		}
+	}
+	return ids
 }
 
 // bdList runs `bd list --type=<issueType> --json --flat --all` and decodes the result.

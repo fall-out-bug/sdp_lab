@@ -26,6 +26,15 @@ jobs:
       - name: Build sdp binary
         run: go build -o sdp ./cmd/sdp
 
+      - name: Set up Beads
+        run: |
+          go install github.com/steveyegge/beads/cmd/bd@v1.0.3
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          git config beads.role maintainer
+          chmod 700 .beads
+          bd bootstrap --yes
+
       - name: Validate manifest
         run: ./sdp manifest validate
 
