@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -157,6 +158,10 @@ func (r *Runner) Run(ctx context.Context) (*ReviewRun, *Verdict, error) {
 	}
 
 	runID := fmt.Sprintf("pireview-%s-%d", hashString(pkt.Branch + pkt.UnifiedDiff)[:12], time.Now().UnixMilli())
+	runDir := filepath.Join(r.cfg.ProjectRoot, ".sdp", "runs", "pi-review", runID)
+	if err := os.MkdirAll(runDir, 0o755); err != nil {
+		return nil, nil, fmt.Errorf("run %s: mkdir: %w", runID, err)
+	}
 
 	// Collect test evidence
 	evidence, err := CollectTestEvidence(ctx, r.cfg)
@@ -212,10 +217,6 @@ func (r *Runner) Run(ctx context.Context) (*ReviewRun, *Verdict, error) {
 	}
 
 	// Persist context and evidence artifacts
-	runDir := filepath.Join(r.cfg.ProjectRoot, ".sdp", "runs", "pi-review", runID)
-	if err := os.MkdirAll(runDir, 0o755); err != nil {
-		return nil, nil, fmt.Errorf("run %s: mkdir: %w", runID, err)
-	}
 	ctxJSON, err := json.MarshalIndent(pkt, "", "  ")
 	if err != nil {
 		return nil, nil, fmt.Errorf("run %s: marshal context: %w", runID, err)
@@ -268,13 +269,17 @@ func (r *Runner) runModelPanel(ctx context.Context, runID string, pkt *ContextPa
 		if err != nil {
 			result.Status = "failed"
 			result.Error = err.Error()
-			result.ArtifactPath = fmt.Sprintf(".sdp/runs/pi-review/%s/models/%s.json", runID, slot.Slot)
-			if slot.Required {
+			result.ArtifactPath = modelArtifactPath(r.cfg.ProjectRoot, runID, slot.Slot)
+			if slot.Required && !errors.Is(err, context.DeadlineExceeded) {
 				// Try OpenRouter fallback for required slots
 				fbOutput, fbErr := r.invokeFallback(ctx, slot, pkt, evidence)
 				if fbErr == nil {
 					result.Status = "ok"
 					result.ArtifactPath = writeModelArtifact(r.cfg.ProjectRoot, runID, slot.Slot, fbOutput)
+					result.Provider = "openrouter"
+					result.Model = fallbackModel(slot)
+				} else {
+					result.Error = fmt.Sprintf("%s; fallback failed: %v", result.Error, fbErr)
 				}
 			}
 		} else {
@@ -282,7 +287,7 @@ func (r *Runner) runModelPanel(ctx context.Context, runID string, pkt *ContextPa
 			if artifactPath == "" {
 				result.Status = "failed"
 				result.Error = "artifact write failed"
-				result.ArtifactPath = fmt.Sprintf(".sdp/runs/pi-review/%s/models/%s.json", runID, slot.Slot)
+				result.ArtifactPath = modelArtifactPath(r.cfg.ProjectRoot, runID, slot.Slot)
 			} else {
 				result.Status = "ok"
 				result.ArtifactPath = artifactPath
@@ -503,10 +508,14 @@ func buildVerdict(feature string, round int, findings []Finding, models []ModelR
 	}
 	v.P0Count = p0
 	v.P1Count = p1
+	requiredQuorum := requiredTotal
+	if requiredTotal > 2 {
+		requiredQuorum = (requiredTotal / 2) + 1
+	}
 
 	if p0 > 0 || p1 > 0 {
 		v.Verdict = "CHANGES_REQUESTED"
-	} else if requiredOK < requiredTotal {
+	} else if requiredOK < requiredQuorum {
 		v.Verdict = "ESCALATED"
 	} else {
 		v.Verdict = "APPROVED"
@@ -531,15 +540,15 @@ func buildVerdict(feature string, round int, findings []Finding, models []ModelR
 			Notes:    fmt.Sprintf("pi-review found %d P0 and %d P1 issues", p0, p1),
 		}
 		v.Summary = fmt.Sprintf("CHANGES_REQUESTED: %d P0, %d P1, %d total findings", p0, p1, len(findings))
-	} else if requiredOK < requiredTotal {
+	} else if requiredOK < requiredQuorum {
 		v.Reviewers["qa"] = RoleResult{
 			Verdict:  "BLOCKED",
 			Findings: []string{},
-			Notes:    fmt.Sprintf("quorum failure: %d/%d required reviewers succeeded", requiredOK, requiredTotal),
+			Notes:    fmt.Sprintf("quorum failure: %d/%d required reviewers succeeded; quorum=%d", requiredOK, requiredTotal, requiredQuorum),
 		}
-		v.Summary = fmt.Sprintf("ESCALATED: quorum failure (%d/%d required reviewers)", requiredOK, requiredTotal)
+		v.Summary = fmt.Sprintf("ESCALATED: quorum failure (%d/%d required reviewers; quorum=%d)", requiredOK, requiredTotal, requiredQuorum)
 	} else {
-		v.Summary = fmt.Sprintf("APPROVED: %d advisory findings (P2/P3)", len(findings))
+		v.Summary = fmt.Sprintf("APPROVED: %d advisory findings (P2/P3), reviewer quorum %d/%d", len(findings), requiredOK, requiredTotal)
 	}
 
 	return v
@@ -547,15 +556,19 @@ func buildVerdict(feature string, round int, findings []Finding, models []ModelR
 
 // writeModelArtifact persists raw model output to disk.
 func writeModelArtifact(projectRoot, runID, slot string, output string) string {
-	dir := filepath.Join(projectRoot, ".sdp", "runs", "pi-review", runID, "models")
+	path := modelArtifactPath(projectRoot, runID, slot)
+	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return ""
 	}
-	path := filepath.Join(dir, slot+".json")
 	if err := os.WriteFile(path, []byte(output), 0o644); err != nil {
 		return ""
 	}
 	return path
+}
+
+func modelArtifactPath(projectRoot, runID, slot string) string {
+	return filepath.Join(projectRoot, ".sdp", "runs", "pi-review", runID, "models", slot+".json")
 }
 
 // hashString returns SHA-256 hex of a string.

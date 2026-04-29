@@ -97,6 +97,8 @@ Recommended slots:
 | `minimax` | independent implementation-risk review using `minimax/MiniMax-M2.7` | yes |
 | `openrouter-fallback` | only if ZAI, Kimi, or MiniMax fails or times out | no |
 
+Clean verdict requires no `P0`/`P1` findings and a majority of required reviewer slots to complete. A timed-out provider is recorded in telemetry but does not block the branch when the remaining reviewer quorum is clean.
+
 ## Finding Contract
 
 Findings use SDP review priorities:

@@ -23,7 +23,9 @@ set +e
 go test -tags=smoke ./test/smoke/... -v -json > "$RAW_FILE" 2>&1
 SMOKE_EXIT=$?
 set -e
-cat "$RAW_FILE"
+if [[ "$JSON_OUTPUT" != "1" ]]; then
+  cat "$RAW_FILE"
+fi
 
 END_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 

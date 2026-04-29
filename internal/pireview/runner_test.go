@@ -147,6 +147,13 @@ func TestBuildVerdict_PartialQuorum_Escalated(t *testing.T) {
 	}
 }
 
+func TestBuildVerdict_MajorityQuorumApproved(t *testing.T) {
+	verdict := buildVerdict("F161", 1, nil, nil, &ContextPacket{}, 2, 3)
+	if verdict.Verdict != "APPROVED" {
+		t.Errorf("Verdict = %q, want APPROVED when 2/3 required reviewers succeed and no P0/P1 findings", verdict.Verdict)
+	}
+}
+
 func TestBuildVerdict_SevenRoles(t *testing.T) {
 	verdict := buildVerdict("F161", 1, nil, nil, &ContextPacket{}, 2, 2)
 	roles := []string{"qa", "security", "devops", "sre", "techlead", "docs", "promptops"}
