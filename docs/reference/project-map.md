@@ -29,6 +29,8 @@ Do not use this doc as your main onboarding path if your real goal is:
 
 For that path, go straight to [../QUICKSTART.md](../QUICKSTART.md). Today that quickstart covers `Claude Code`, `OpenCode`, `Codex`, and `Cursor`.
 
+If your team already has an AI coding harness and wants governance without a migration, start with [existing-harness-quality-gate.md](existing-harness-quality-gate.md). That path treats SDP as an evidence and readiness gate around existing prompts, skills, agents, and PR workflow.
+
 ## Main Components
 
 | Area | What it owns |
@@ -81,6 +83,7 @@ Use one source per question.
 | What repo owns this file? | [docs/MULTI-REPO-WORKFLOW.md](../MULTI-REPO-WORKFLOW.md) |
 | What belongs in `sdp_lab` vs `sdp`? | [docs/architecture/REPO-BOUNDARY.md](../architecture/REPO-BOUNDARY.md) |
 | How do I adopt SDP in another repo? | [../QUICKSTART.md](../QUICKSTART.md) |
+| How do I use SDP without replacing my current harness? | [existing-harness-quality-gate.md](existing-harness-quality-gate.md) |
 | What is the canonical happy path from intake to delivery? | [canonical-happy-path.md](canonical-happy-path.md) |
 | What is the canonical operator loop? | [canonical-happy-path.md](canonical-happy-path.md), [docs/SDP_OPERATOR_WORKFLOW.md](../SDP_OPERATOR_WORKFLOW.md) |
 | What agents and skills are on the happy path? | [agent-catalog.md](agent-catalog.md), [skills.md](skills.md) |
@@ -141,8 +144,9 @@ If you are new to this repo, read in this order:
 If you are new to SDP but not to this repo, use this shorter decision:
 
 1. "I want to use SDP in my own repo" -> [../QUICKSTART.md](../QUICKSTART.md)
-2. "I want to work on SDP platform internals" -> keep reading this file
-3. "I am a dev agent entering cold" -> [../../AGENTS.md](../../AGENTS.md), then this file
+2. "I already have a harness and want quality gates" -> [existing-harness-quality-gate.md](existing-harness-quality-gate.md)
+3. "I want to work on SDP platform internals" -> keep reading this file
+4. "I am a dev agent entering cold" -> [../../AGENTS.md](../../AGENTS.md), then this file
 
 If you are touching protocol artifacts in `sdp/`, read these before changing anything:
 
