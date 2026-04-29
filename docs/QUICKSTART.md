@@ -2,7 +2,7 @@
 
 Get SDP installed in a repo and run the first useful checks.
 
-Audience: CTOs, architects, and developers evaluating SDP as a structured AI PDLC/SDLC harness layer.
+Audience: CTOs, architects, and developers evaluating SDP as a structured AI PDLC/SDLC governance layer.
 
 ## What You Are Installing
 
@@ -18,6 +18,8 @@ SDP Toolkit installs a repo-local harness surface:
 It does not ask for model API keys during install. Model/provider setup belongs to the harness you use.
 
 The `sdp_lab` repo is the research workspace where SDP is built. You do not need to clone it unless you are contributing to the platform. ChangePassport (`sdp-pr-gate`) and Enterprise Delivery Governance are separate product surfaces — they are product directions, not part of this install.
+
+If your team already has Claude Code, OpenCode, Cursor, Codex, Superpowers, custom prompts, or internal agents, do not start by replacing that workflow. Start with the existing-harness quality gate path: [reference/existing-harness-quality-gate.md](reference/existing-harness-quality-gate.md).
 
 ## Prerequisites
 
@@ -108,6 +110,7 @@ sdp bootstrap --dry-run --mode brownfield .
 | Path | Use when | Start with |
 |---|---|---|
 | **Toolkit evaluation** | You want to inspect an existing repo and recover useful context. | `scout`, `metrics`, `index`, `spec`, `bootstrap --dry-run` |
+| **Existing harness gate** | You already have an AI coding process and want to know whether it is safe, consistent, and reviewable. | [reference/existing-harness-quality-gate.md](reference/existing-harness-quality-gate.md) |
 | **Local delivery** | You want a lightweight idea-to-change loop in one repo. | `sdp build --dry-run`, then harness-specific commands |
 | **Operator mode** | You need queue-backed delivery, explicit ownership, PR gates, and QA/UAT. | [reference/canonical-happy-path.md](reference/canonical-happy-path.md) |
 | **MCP integration** | You want an AI harness to call SDP tools directly. | [reference/installation.md](reference/installation.md) |
@@ -168,6 +171,7 @@ sdp doctor adapters
 Be honest in pilots:
 
 - SDP is not a replacement for code review.
+- SDP does not require replacing an existing AI coding harness before producing useful evidence.
 - SDP does not guarantee compliance.
 - Policy enforcement is advisory by default unless configured otherwise.
 - Native Windows is not supported in v1.

@@ -25,6 +25,8 @@ More precise version:
 
 SDP is not trying to be a better IDE or a black-box AI software engineer. Codex, Claude Code, Cursor, Copilot, OpenCode, and other harnesses can own execution UX. SDP owns the delivery contract around that execution.
 
+For teams that already have an agent workflow, the first SDP pitch should be a quality gate, not a harness replacement. Keep the existing harness, then use SDP to make scope, evidence, findings, and readiness decisions reviewable. See [existing-harness-quality-gate.md](existing-harness-quality-gate.md).
+
 ## Product Layers (F150 memo v3)
 
 | # | Layer | Kind | Status | First commercial role |
@@ -256,6 +258,22 @@ Current SDP building blocks:
 
 Current limitation: the stable "ChangePassport" packet is a product direction, not yet the default public CLI.
 
+### 5. Gate An Existing Harness
+
+Use this when the business problem is controlled adoption of AI coding across a team that already has prompts, skills, `AGENTS.md`, or a harness-specific workflow.
+
+Default sequence:
+
+1. inventory the installed harness surface
+2. run read-only Toolkit inspection
+3. define a scoped gate boundary: PR, service, module, or repo
+4. emit evidence-backed findings with `pass`, `warn`, `fail`, or `not_assessed`
+5. decide whether any SDP workflow migration is justified
+
+This path is the lowest-friction bridge from Toolkit evaluation to `sdp-pr-gate` / ChangePassport. It should not require Operator Mode or Beads on day one.
+
+Canonical doc: [existing-harness-quality-gate.md](existing-harness-quality-gate.md)
+
 ## Formula Install Surface
 
 The default Homebrew formula installs the `sdp` binary. It does NOT install:
@@ -273,6 +291,7 @@ Exclusion mechanism: GoReleaser allowlist (`.goreleaser.yml`). Build tags (`sdp_
 Do not claim that SDP:
 
 - replaces code review
+- requires teams to replace their existing AI harness before seeing value
 - guarantees compliance
 - is a complete autonomous software engineer
 - has market-grade IDE UX
