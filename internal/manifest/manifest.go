@@ -7,6 +7,7 @@ const (
 	HarnessOpenCode   Harness = "opencode"
 	HarnessCodex      Harness = "codex"
 	HarnessCursor     Harness = "cursor"
+	HarnessPi         Harness = "pi"
 )
 
 type Manifest struct {
@@ -30,13 +31,13 @@ type Skill struct {
 }
 
 type Command struct {
-	Name        string                `yaml:"name"`
-	Path        string                `yaml:"path"`
-	Type        string                `yaml:"type,omitempty"`
-	Harnesses   []Harness             `yaml:"harnesses,omitempty"`
-	Dispatch    map[Harness]string    `yaml:"dispatch,omitempty"`
-	ParityNotes string                `yaml:"parity_notes,omitempty"`
-	Summary     string                `yaml:"summary,omitempty"`
+	Name        string             `yaml:"name"`
+	Path        string             `yaml:"path"`
+	Type        string             `yaml:"type,omitempty"`
+	Harnesses   []Harness          `yaml:"harnesses,omitempty"`
+	Dispatch    map[Harness]string `yaml:"dispatch,omitempty"`
+	ParityNotes string             `yaml:"parity_notes,omitempty"`
+	Summary     string             `yaml:"summary,omitempty"`
 }
 
 type Agent struct {

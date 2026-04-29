@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"sdp_dev/internal/executil"
+	"github.com/fall-out-bug/sdp_lab/internal/executil"
 )
 
 // ScopeMode controls which files the review covers.
@@ -48,19 +48,19 @@ func (c Config) Validate() error {
 
 // ContextPacket holds the deterministic context sent to model reviewers.
 type ContextPacket struct {
-	GitStatus      string            `json:"git_status"`
-	Branch         string            `json:"branch"`
-	BaseRef        string            `json:"base_ref,omitempty"`
-	HeadSHA        string            `json:"head_sha,omitempty"`
-	ReviewedFiles  []string          `json:"reviewed_files"`
-	OmittedFiles   []string          `json:"omitted_files,omitempty"`
-	UnifiedDiff    string            `json:"unified_diff"`
-	FileHashes     map[string]string `json:"file_hashes"`
-	FileContents   map[string]string `json:"file_contents,omitempty"`
-	ProjectRules   map[string]string `json:"project_rules,omitempty"`
-	BeadContext    string            `json:"bead_context,omitempty"`
-	SizeBudget     int               `json:"size_budget"`
-	BytesUsed      int               `json:"bytes_used"`
+	GitStatus     string            `json:"git_status"`
+	Branch        string            `json:"branch"`
+	BaseRef       string            `json:"base_ref,omitempty"`
+	HeadSHA       string            `json:"head_sha,omitempty"`
+	ReviewedFiles []string          `json:"reviewed_files"`
+	OmittedFiles  []string          `json:"omitted_files,omitempty"`
+	UnifiedDiff   string            `json:"unified_diff"`
+	FileHashes    map[string]string `json:"file_hashes"`
+	FileContents  map[string]string `json:"file_contents,omitempty"`
+	ProjectRules  map[string]string `json:"project_rules,omitempty"`
+	BeadContext   string            `json:"bead_context,omitempty"`
+	SizeBudget    int               `json:"size_budget"`
+	BytesUsed     int               `json:"bytes_used"`
 }
 
 // TestEvidence holds the result of running the project's test suite.

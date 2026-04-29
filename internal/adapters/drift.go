@@ -53,6 +53,8 @@ var liveHarnessDirs = []string{
 	".opencode/skill",
 	".codex/skills",
 	".cursor/rules",
+	".pi/prompts",
+	".pi/skills",
 }
 
 // CheckDrift compares the generated adapter map against on-disk files in
@@ -86,24 +88,28 @@ func CheckDrift(generated map[string][]byte, outDir, repoRoot string) (*DriftRes
 
 	for _, dir := range liveHarnessDirs {
 		absDir := filepath.Join(repoRoot, dir)
-		entries, err := os.ReadDir(absDir)
-		if err != nil {
+		if _, err := os.Stat(absDir); err != nil {
 			// Directory may not exist yet — skip.
 			continue
 		}
-		for _, e := range entries {
-			if e.IsDir() {
-				continue
+		if err := filepath.WalkDir(absDir, func(path string, entry os.DirEntry, err error) error {
+			if err != nil || entry.IsDir() {
+				return nil
 			}
-			rel := dir + "/" + e.Name()
-			// Normalize path separators (Windows safety).
+			rel, relErr := filepath.Rel(repoRoot, path)
+			if relErr != nil {
+				return nil
+			}
 			rel = filepath.ToSlash(rel)
 			if knownNonManifestFiles[rel] {
-				continue
+				return nil
 			}
 			if !genSet[rel] {
 				result.Orphans = append(result.Orphans, rel)
 			}
+			return nil
+		}); err != nil {
+			return nil, err
 		}
 	}
 	sort.Strings(result.Orphans)

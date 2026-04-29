@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"sdp_dev/internal/executil"
-	"sdp_dev/internal/pireview"
+	"github.com/fall-out-bug/sdp_lab/internal/executil"
+	"github.com/fall-out-bug/sdp_lab/internal/pireview"
 )
 
 func main() {

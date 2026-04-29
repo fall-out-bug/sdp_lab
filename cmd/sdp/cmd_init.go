@@ -11,13 +11,14 @@ import (
 
 	"github.com/fall-out-bug/sdp_lab/internal/adapters"
 	"github.com/fall-out-bug/sdp_lab/internal/manifest"
+	"gopkg.in/yaml.v3"
 )
 
 //go:embed templates/sdp.manifest.template.yaml
 var embeddedManifestTemplate []byte
 
 // knownHarnesses is the canonical ordered list of supported harnesses.
-var knownHarnesses = []string{"claude-code", "opencode", "codex", "cursor"}
+var knownHarnesses = []string{"claude-code", "opencode", "codex", "cursor", "pi"}
 
 // harnessDirs maps each harness name to the directory it installs into.
 var harnessDirs = map[string]string{
@@ -25,6 +26,7 @@ var harnessDirs = map[string]string{
 	"opencode":    ".opencode",
 	"codex":       ".codex",
 	"cursor":      ".cursor",
+	"pi":          ".pi",
 }
 
 // sdpLock is the structure written to sdp.lock.
@@ -161,6 +163,7 @@ func runInit(args []string) int {
 				manifest.HarnessOpenCode,
 				manifest.HarnessCodex,
 				manifest.HarnessCursor,
+				manifest.HarnessPi,
 			},
 		}
 		sdpVersion = "1.0.0"
@@ -173,6 +176,10 @@ func runInit(args []string) int {
 	// Filter manifest harnesses to only those requested.
 	filteredHarnesses := filterManifestHarnesses(harnesses)
 	m.Harnesses = filteredHarnesses
+	if err := persistTargetManifestScope(manifestPath, target, m); err != nil {
+		fmt.Fprintf(os.Stderr, "error: update manifest harness scope: %v\n", err)
+		return 1
+	}
 
 	// Generate adapter files.
 	generated, err := adapters.Generate(m, target)
@@ -310,6 +317,18 @@ func filterManifestHarnesses(harnesses []string) []manifest.Harness {
 	return out
 }
 
+func persistTargetManifestScope(manifestPath, target string, m *manifest.Manifest) error {
+	targetManifest := filepath.Join(target, "sdp.manifest.yaml")
+	if filepath.Clean(manifestPath) != filepath.Clean(targetManifest) {
+		return nil
+	}
+	data, err := yaml.Marshal(m)
+	if err != nil {
+		return fmt.Errorf("marshal manifest: %w", err)
+	}
+	return os.WriteFile(manifestPath, data, 0o644)
+}
+
 // loadManifestForInit loads the manifest from path and validates referenced
 // paths against repoRoot when protocol sources are present.
 // Returns manifest, warnings, sdpVersion, manifestVersion, error.
@@ -336,7 +355,7 @@ func printInitHelp() {
 	fmt.Println("Writes harness adapter files and sdp.lock to the target directory.")
 	fmt.Println()
 	fmt.Println("Flags:")
-	fmt.Println("  --harness <list>  Harnesses to install: comma-separated (claude-code,opencode,codex,cursor),")
+	fmt.Println("  --harness <list>  Harnesses to install: comma-separated (claude-code,opencode,codex,cursor,pi),")
 	fmt.Println("                    'all' (default), or 'auto' (detect by existing dirs)")
 	fmt.Println("  --target <dir>    Target directory (default: current working directory)")
 	fmt.Println("  --manifest <path> Path to manifest template (default: embedded minimal template)")

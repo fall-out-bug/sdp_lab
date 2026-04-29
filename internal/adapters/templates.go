@@ -5,7 +5,7 @@ import (
 	"text/template"
 )
 
-//go:embed templates/claude-code/*.tmpl templates/opencode/*.tmpl templates/codex/*.tmpl templates/cursor/*.tmpl
+//go:embed templates/claude-code/*.tmpl templates/opencode/*.tmpl templates/codex/*.tmpl templates/cursor/*.tmpl templates/pi/*.tmpl
 var templateFS embed.FS
 
 // mustParse reads a template from the embedded FS and parses it.

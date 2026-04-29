@@ -11,21 +11,21 @@ import (
 	"strings"
 	"time"
 
-	"sdp_dev/internal/executil"
+	"github.com/fall-out-bug/sdp_lab/internal/executil"
 )
 
 // ReviewRun tracks a single pi-review execution.
 type ReviewRun struct {
-	RunID       string        `json:"run_id"`
-	Feature     string        `json:"feature,omitempty"`
-	Workstreams []string      `json:"workstreams,omitempty"`
-	Round       int           `json:"round"`
-	Timestamp   string        `json:"timestamp"`
-	Scope       RunScope      `json:"scope"`
-	Context     RunContext    `json:"context_packet"`
+	RunID        string        `json:"run_id"`
+	Feature      string        `json:"feature,omitempty"`
+	Workstreams  []string      `json:"workstreams,omitempty"`
+	Round        int           `json:"round"`
+	Timestamp    string        `json:"timestamp"`
+	Scope        RunScope      `json:"scope"`
+	Context      RunContext    `json:"context_packet"`
 	TestEvidence TestEvidence  `json:"test_evidence"`
-	Models      []ModelResult `json:"models"`
-	VerdictRef  ArtifactRef   `json:"verdict_ref"`
+	Models       []ModelResult `json:"models"`
+	VerdictRef   ArtifactRef   `json:"verdict_ref"`
 }
 
 // RunScope mirrors schema/pi-review-run.schema.json scope.
@@ -41,25 +41,25 @@ type RunScope struct {
 
 // RunContext tracks context packet artifact metadata.
 type RunContext struct {
-	Path              string            `json:"path"`
-	SHA256            string            `json:"sha256"`
-	DiffSHA256        string            `json:"diff_sha256"`
-	RulesSHA256       string            `json:"rules_sha256"`
-	TestEvidenceSHA256 string           `json:"test_evidence_sha256,omitempty"`
-	FileHashes        map[string]string `json:"file_hashes"`
+	Path               string            `json:"path"`
+	SHA256             string            `json:"sha256"`
+	DiffSHA256         string            `json:"diff_sha256"`
+	RulesSHA256        string            `json:"rules_sha256"`
+	TestEvidenceSHA256 string            `json:"test_evidence_sha256,omitempty"`
+	FileHashes         map[string]string `json:"file_hashes"`
 }
 
 // ModelResult mirrors schema pi-review-run modelRun.
 type ModelResult struct {
-	Slot         string       `json:"slot"`
-	Provider     string       `json:"provider"`
-	Model        string       `json:"model"`
-	Role         string       `json:"role"`
-	Status       string       `json:"status"`
-	ArtifactPath string       `json:"artifact_path"`
-	LatencyMs    int64        `json:"latency_ms,omitempty"`
-	Usage        *ModelUsage  `json:"usage,omitempty"`
-	Error        string       `json:"error,omitempty"`
+	Slot         string      `json:"slot"`
+	Provider     string      `json:"provider"`
+	Model        string      `json:"model"`
+	Role         string      `json:"role"`
+	Status       string      `json:"status"`
+	ArtifactPath string      `json:"artifact_path"`
+	LatencyMs    int64       `json:"latency_ms,omitempty"`
+	Usage        *ModelUsage `json:"usage,omitempty"`
+	Error        string      `json:"error,omitempty"`
 }
 
 // ModelUsage tracks token and cost data.
@@ -77,39 +77,39 @@ type ArtifactRef struct {
 
 // Finding represents a structured review finding.
 type Finding struct {
-	Priority      string `json:"priority"`
-	Title         string `json:"title"`
-	File          string `json:"file,omitempty"`
-	StartLine     int    `json:"start_line,omitempty"`
-	EndLine       int    `json:"end_line,omitempty"`
-	Reviewer      string `json:"reviewer,omitempty"`
-	Rationale     string `json:"rationale,omitempty"`
-	SuggestedFix  string `json:"suggested_fix,omitempty"`
-	DedupeKey     string `json:"dedupe_key,omitempty"`
+	Priority     string `json:"priority"`
+	Title        string `json:"title"`
+	File         string `json:"file,omitempty"`
+	StartLine    int    `json:"start_line,omitempty"`
+	EndLine      int    `json:"end_line,omitempty"`
+	Reviewer     string `json:"reviewer,omitempty"`
+	Rationale    string `json:"rationale,omitempty"`
+	SuggestedFix string `json:"suggested_fix,omitempty"`
+	DedupeKey    string `json:"dedupe_key,omitempty"`
 }
 
 // Verdict represents the compact review verdict.
 type Verdict struct {
-	Feature       string              `json:"feature"`
-	Verdict       string              `json:"verdict"`
-	Round         int                 `json:"round"`
-	Timestamp     string              `json:"timestamp"`
-	Reviewers     map[string]RoleResult `json:"reviewers"`
-	P0Count       int                 `json:"p0_count"`
-	P1Count       int                 `json:"p1_count"`
-	FindingIDs    []string            `json:"finding_ids,omitempty"`
-	BlockingIDs   []string            `json:"blocking_ids,omitempty"`
-	Summary       string              `json:"summary,omitempty"`
-	ReviewerRuntime string            `json:"reviewer_runtime,omitempty"`
-	ModelPanel    []ModelResult       `json:"model_panel,omitempty"`
-	FindingsDetail []Finding          `json:"findings_detail,omitempty"`
+	Feature         string                `json:"feature"`
+	Verdict         string                `json:"verdict"`
+	Round           int                   `json:"round"`
+	Timestamp       string                `json:"timestamp"`
+	Reviewers       map[string]RoleResult `json:"reviewers"`
+	P0Count         int                   `json:"p0_count"`
+	P1Count         int                   `json:"p1_count"`
+	FindingIDs      []string              `json:"finding_ids,omitempty"`
+	BlockingIDs     []string              `json:"blocking_ids,omitempty"`
+	Summary         string                `json:"summary,omitempty"`
+	ReviewerRuntime string                `json:"reviewer_runtime,omitempty"`
+	ModelPanel      []ModelResult         `json:"model_panel,omitempty"`
+	FindingsDetail  []Finding             `json:"findings_detail,omitempty"`
 }
 
 // RoleResult represents a single reviewer role's verdict.
 type RoleResult struct {
-	Verdict string   `json:"verdict"`
+	Verdict  string   `json:"verdict"`
 	Findings []string `json:"findings"`
-	Notes   string   `json:"notes,omitempty"`
+	Notes    string   `json:"notes,omitempty"`
 }
 
 // ReviewerSlot defines a model reviewer configuration.
@@ -156,7 +156,7 @@ func (r *Runner) Run(ctx context.Context) (*ReviewRun, *Verdict, error) {
 		return nil, nil, fmt.Errorf("context: %w", err)
 	}
 
-	runID := fmt.Sprintf("pireview-%s-%d", hashString(pkt.Branch+pkt.UnifiedDiff)[:12], time.Now().UnixMilli())
+	runID := fmt.Sprintf("pireview-%s-%d", hashString(pkt.Branch + pkt.UnifiedDiff)[:12], time.Now().UnixMilli())
 
 	// Collect test evidence
 	evidence, err := CollectTestEvidence(ctx, r.cfg)

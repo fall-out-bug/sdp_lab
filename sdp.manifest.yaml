@@ -15,6 +15,7 @@ harnesses:
   - opencode
   - codex
   - cursor
+  - pi
 
 skills:
   - { name: beads,                path: prompts/skills/beads/SKILL.md }
@@ -39,6 +40,7 @@ skills:
   - { name: reality,              path: prompts/skills/reality/SKILL.md }
   - { name: reality-check,        path: prompts/skills/reality-check/SKILL.md }
   - { name: review,               path: prompts/skills/review/SKILL.md }
+  - { name: ship,                 path: prompts/skills/ship/SKILL.md }
   - { name: spec-interrogate,     path: prompts/skills/spec-interrogate/SKILL.md }
   - { name: strataudit,           path: prompts/skills/strataudit/SKILL.md }
   - { name: tdd,                  path: prompts/skills/tdd/SKILL.md }
@@ -68,6 +70,7 @@ commands:
   - { name: reality,              path: prompts/commands/reality.md }
   - { name: reality-check,        path: prompts/commands/reality-check.md }
   - { name: review,               path: prompts/commands/review.md }
+  - { name: ship,                 path: prompts/commands/ship.md }
   - { name: submit-to-swarm,      path: prompts/commands/submit-to-swarm.md }
   - { name: test,                 path: prompts/commands/test.md }
   - { name: verify-workstream,    path: prompts/commands/verify-workstream.md }
