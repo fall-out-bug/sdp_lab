@@ -315,6 +315,9 @@ func TestInvokePiUsesPiPrintContract(t *testing.T) {
 			t.Fatalf("pi args missing %q: %v", want, call.args)
 		}
 	}
+	if gotPromptArg := call.args[len(call.args)-1]; !strings.HasPrefix(gotPromptArg, "@/") {
+		t.Fatalf("pi prompt should be passed as @file, got %q", gotPromptArg)
+	}
 	if len(call.args) > 0 && call.args[0] == "run" {
 		t.Fatalf("pi invocation must not use removed run subcommand: %v", call.args)
 	}

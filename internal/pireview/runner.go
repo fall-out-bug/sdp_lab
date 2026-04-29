@@ -303,11 +303,16 @@ func (r *Runner) runModelPanel(ctx context.Context, runID string, pkt *ContextPa
 // invokePi calls the local pi binary with the review context.
 func (r *Runner) invokePi(ctx context.Context, slot ReviewerSlot, pkt *ContextPacket, evidence *TestEvidence) (string, error) {
 	reviewPrompt := buildReviewPrompt(slot, pkt, evidence)
+	promptArg, cleanup, err := writeTempPrompt(reviewPrompt)
+	if err != nil {
+		return "", err
+	}
+	defer cleanup()
 	modelCtx, cancel := context.WithTimeout(ctx, r.cfg.effectiveModelTimeout())
 	defer cancel()
 	out, err := r.runner.CombinedOutput(modelCtx, r.cfg.ProjectRoot,
 		"pi", "--provider", slot.Provider, "--model", slot.Model,
-		"--no-tools", "--no-context-files", "--no-session", "-p", reviewPrompt)
+		"--no-tools", "--no-context-files", "--no-session", "-p", promptArg)
 	if err != nil {
 		return "", fmt.Errorf("pi run %s/%s: %w", slot.Provider, slot.Model, err)
 	}
@@ -317,15 +322,39 @@ func (r *Runner) invokePi(ctx context.Context, slot ReviewerSlot, pkt *ContextPa
 // invokeFallback attempts OpenRouter when a primary provider fails.
 func (r *Runner) invokeFallback(ctx context.Context, slot ReviewerSlot, pkt *ContextPacket, evidence *TestEvidence) (string, error) {
 	reviewPrompt := buildReviewPrompt(slot, pkt, evidence)
+	promptArg, cleanup, err := writeTempPrompt(reviewPrompt)
+	if err != nil {
+		return "", err
+	}
+	defer cleanup()
 	modelCtx, cancel := context.WithTimeout(ctx, r.cfg.effectiveModelTimeout())
 	defer cancel()
 	out, err := r.runner.CombinedOutput(modelCtx, r.cfg.ProjectRoot,
 		"pi", "--provider", "openrouter", "--model", fallbackModel(slot),
-		"--no-tools", "--no-context-files", "--no-session", "-p", reviewPrompt)
+		"--no-tools", "--no-context-files", "--no-session", "-p", promptArg)
 	if err != nil {
 		return "", fmt.Errorf("openrouter fallback: %w", err)
 	}
 	return string(out), nil
+}
+
+func writeTempPrompt(prompt string) (string, func(), error) {
+	f, err := os.CreateTemp("", "sdp-pi-review-*.md")
+	if err != nil {
+		return "", func() {}, fmt.Errorf("write pi prompt temp file: %w", err)
+	}
+	path := f.Name()
+	cleanup := func() { _ = os.Remove(path) }
+	if _, err := f.WriteString(prompt); err != nil {
+		_ = f.Close()
+		cleanup()
+		return "", func() {}, fmt.Errorf("write pi prompt temp file: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		cleanup()
+		return "", func() {}, fmt.Errorf("close pi prompt temp file: %w", err)
+	}
+	return "@" + path, cleanup, nil
 }
 
 func fallbackModel(slot ReviewerSlot) string {
