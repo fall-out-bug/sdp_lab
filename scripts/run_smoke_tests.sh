@@ -13,25 +13,27 @@ if [[ "${1:-}" == "--json" ]]; then JSON_OUTPUT=1; fi
 cd "$PROJECT_ROOT"
 
 REPORT_FILE="$(mktemp /tmp/sdp-smoke-XXXXXX.json)"
-trap 'rm -f "$REPORT_FILE"' EXIT
+RAW_FILE="$(mktemp /tmp/sdp-smoke-raw-XXXXXX.json)"
+trap 'rm -f "$REPORT_FILE" "$RAW_FILE"' EXIT
 
 START_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 # Run smoke tests once and parse the JSON event stream.
 set +e
-go test -tags=smoke ./test/smoke/... -v -json 2>&1 | tee /tmp/sdp-smoke-raw.json
-SMOKE_EXIT=${PIPESTATUS[0]:-$?}
+go test -tags=smoke ./test/smoke/... -v -json > "$RAW_FILE" 2>&1
+SMOKE_EXIT=$?
 set -e
+cat "$RAW_FILE"
 
 END_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-START_TS="$START_TS" END_TS="$END_TS" python3 - <<'PY' > "$REPORT_FILE"
+START_TS="$START_TS" END_TS="$END_TS" RAW_FILE="$RAW_FILE" python3 - <<'PY' > "$REPORT_FILE"
 import json
 import os
 
 tests = []
 counts = {"pass": 0, "fail": 0, "skip": 0}
-with open("/tmp/sdp-smoke-raw.json", "r", encoding="utf-8") as f:
+with open(os.environ["RAW_FILE"], "r", encoding="utf-8") as f:
     for line in f:
         try:
             event = json.loads(line)
