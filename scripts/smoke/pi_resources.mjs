@@ -62,6 +62,13 @@ try {
   const actualCommands = promptResult.prompts.map((prompt) => prompt.name).sort();
   const missingSkills = missing(expectedSkills, actualSkills);
   const missingCommands = missing(expectedCommands, actualCommands);
+  const legacyPromptRefs = [];
+  const promptsMissingArguments = [];
+  for (const command of expectedCommands) {
+    const body = readFileSync(join(repoRoot, '.pi', 'prompts', `${command}.md`), 'utf8');
+    if (body.includes('.claude/skills/')) legacyPromptRefs.push(command);
+    if (!body.includes('$ARGUMENTS')) promptsMissingArguments.push(command);
+  }
 
   console.log(`pi skills: expected=${expectedSkills.length} actual=${actualSkills.length}`);
   console.log(`pi commands: expected=${expectedCommands.length} actual=${actualCommands.length}`);
@@ -84,6 +91,14 @@ try {
   if (missingCommands.length > 0) {
     failed = true;
     console.error(`missing commands: ${missingCommands.join(', ')}`);
+  }
+  if (legacyPromptRefs.length > 0) {
+    failed = true;
+    console.error(`pi prompts contain legacy .claude skill refs: ${legacyPromptRefs.join(', ')}`);
+  }
+  if (promptsMissingArguments.length > 0) {
+    failed = true;
+    console.error(`pi prompts missing $ARGUMENTS: ${promptsMissingArguments.join(', ')}`);
   }
 
   if (failed) process.exit(1);

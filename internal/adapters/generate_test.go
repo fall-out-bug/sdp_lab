@@ -247,6 +247,43 @@ func TestGenerate_PiPromptTemplatePreservesArguments(t *testing.T) {
 	}
 }
 
+func TestGenerate_PiPromptRewritesLegacyClaudeSkillRefs(t *testing.T) {
+	dir := t.TempDir()
+	commandDir := filepath.Join(dir, "prompts", "commands")
+	if err := os.MkdirAll(commandDir, 0o755); err != nil {
+		t.Fatalf("mkdir command dir: %v", err)
+	}
+	body := "---\ndescription: Demo\n---\n# Demo\n\n1. Load skill: `@.claude/skills/build/SKILL.md`\n2. Load skill: `.claude/skills/ship/SKILL.md`\n"
+	if err := os.WriteFile(filepath.Join(commandDir, "demo.md"), []byte(body), 0o644); err != nil {
+		t.Fatalf("write command: %v", err)
+	}
+
+	m := &manifest.Manifest{
+		Version:    "1.0.0",
+		SDPVersion: "1.0.0",
+		Harnesses:  []manifest.Harness{manifest.HarnessPi},
+		Commands: []manifest.Command{
+			{Name: "demo", Path: "prompts/commands/demo.md", Summary: "Demo command"},
+		},
+	}
+	out, err := adapters.Generate(m, dir)
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	content := string(out[".pi/prompts/demo.md"])
+	if strings.Contains(content, ".claude/skills/") {
+		t.Fatalf("Pi prompt leaked legacy Claude skill path; got:\n%s", content)
+	}
+	for _, want := range []string{
+		"1. Load skill: `build`",
+		"2. Load skill: `ship`",
+	} {
+		if !strings.Contains(content, want) {
+			t.Errorf("Pi prompt missing rewritten skill ref %q; got:\n%s", want, content)
+		}
+	}
+}
+
 // TestGenerate_BodyEmbed verifies that when a manifest item points to a real
 // file, the body of that file is embedded verbatim in the generated output.
 func TestGenerate_BodyEmbed(t *testing.T) {

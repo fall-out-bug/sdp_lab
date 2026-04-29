@@ -9,14 +9,14 @@ argument-hint: "[args]"
 
 User arguments: $ARGUMENTS
 
-Load the matching SDP skill when this command maps to one. If the legacy command body names `.claude/skills/<name>/SKILL.md`, interpret that as Pi skill `<name>`. Then execute the command contract below using the user arguments above.
+Load the matching SDP skill when this command maps to one. Then execute the command contract below using the user arguments above.
 
 
 # /review — Review Feature
 
 When calling `/review {feature}`:
 
-1. Load full prompt: `@.claude/skills/review/SKILL.md`
+1. Load full prompt: `review`
 2. Find all feature WS in INDEX.md
 3. Check each WS against checklist (Check 0-11)
 4. Perform cross-WS checks

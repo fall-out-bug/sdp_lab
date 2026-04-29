@@ -9,14 +9,14 @@ argument-hint: "[args]"
 
 User arguments: $ARGUMENTS
 
-Load the matching SDP skill when this command maps to one. If the legacy command body names `.claude/skills/<name>/SKILL.md`, interpret that as Pi skill `<name>`. Then execute the command contract below using the user arguments above.
+Load the matching SDP skill when this command maps to one. Then execute the command contract below using the user arguments above.
 
 
 # /build — Execute Workstream
 
 When calling `/build {WS-ID}`:
 
-1. Load skill: `@.claude/skills/build/SKILL.md`
+1. Load skill: `build`
 2. Run pre-build hook: `hooks/pre-build.sh {WS-ID}`
 3. Read WS plan
 4. Execute steps using TDD

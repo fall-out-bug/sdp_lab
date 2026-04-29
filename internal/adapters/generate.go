@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"text/template"
@@ -24,6 +25,8 @@ var (
 	tmplCursorCommand = mustParse("cursor-command", "templates/cursor/command.tmpl")
 	tmplPiSkill       = mustParse("pi-skill", "templates/pi/skill.tmpl")
 	tmplPiPrompt      = mustParse("pi-prompt", "templates/pi/prompt.tmpl")
+
+	legacyClaudeSkillRef = regexp.MustCompile(`@?\.claude/skills/([A-Za-z0-9_-]+)/SKILL\.md`)
 )
 
 // renderItem is the template data type passed to all templates.
@@ -95,6 +98,13 @@ func stripFrontmatter(body string) string {
 		return body
 	}
 	return rest[closeIdx+len("\n---\n"):]
+}
+
+// rewriteLegacyClaudeSkillRefsForPi converts Claude Code skill-path hints in
+// shared command bodies to Pi-native skill names. The shared prompt sources stay
+// harness-neutral-ish, while Pi prompt templates avoid leaking .claude paths.
+func rewriteLegacyClaudeSkillRefsForPi(body string) string {
+	return legacyClaudeSkillRef.ReplaceAllString(body, `$1`)
 }
 
 // Generate renders adapter files for all harnesses declared in the manifest.
@@ -378,7 +388,7 @@ func generatePi(m *manifest.Manifest, enabled map[manifest.Harness]bool, repoRoo
 			Summary: c.Summary,
 			Type:    c.Type,
 			Path:    c.Path,
-			Body:    stripFrontmatter(readBody(repoRoot, c.Path)),
+			Body:    rewriteLegacyClaudeSkillRefsForPi(stripFrontmatter(readBody(repoRoot, c.Path))),
 		}
 		data, err := render(tmplPiPrompt, item)
 		if err != nil {

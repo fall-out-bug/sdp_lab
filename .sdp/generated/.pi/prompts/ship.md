@@ -9,14 +9,14 @@ argument-hint: "[args]"
 
 User arguments: $ARGUMENTS
 
-Load the matching SDP skill when this command maps to one. If the legacy command body names `.claude/skills/<name>/SKILL.md`, interpret that as Pi skill `<name>`. Then execute the command contract below using the user arguments above.
+Load the matching SDP skill when this command maps to one. Then execute the command contract below using the user arguments above.
 
 
 # /ship — Ship Feature
 
 When calling `/ship {feature} [version_bump]`:
 
-1. Load skill: `.claude/skills/ship/SKILL.md`
+1. Load skill: `ship`
 2. Pre-flight: run quality gates (see AGENTS.md), verify APPROVED
 3. Version: bump semver (patch/minor/major)
 4. Generate: CHANGELOG, release notes

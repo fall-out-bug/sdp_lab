@@ -9,14 +9,14 @@ argument-hint: "[args]"
 
 User arguments: $ARGUMENTS
 
-Load the matching SDP skill when this command maps to one. If the legacy command body names `.claude/skills/<name>/SKILL.md`, interpret that as Pi skill `<name>`. Then execute the command contract below using the user arguments above.
+Load the matching SDP skill when this command maps to one. Then execute the command contract below using the user arguments above.
 
 
 # /oneshot — Autonomous Feature Execution
 
 When calling `/oneshot F{XX}` in Cursor:
 
-1. Load skill: `@.claude/skills/oneshot/SKILL.md`
+1. Load skill: `oneshot`
 2. Run `sdp-orchestrate --feature F{XX} --next-action` as the outer loop
 3. Execute each phase inline:
    - **build**: @build {ws_id} → commit → `sdp-orchestrate --feature F{XX} --advance --result <commit>`

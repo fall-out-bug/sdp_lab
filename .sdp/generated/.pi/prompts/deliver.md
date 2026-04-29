@@ -9,7 +9,7 @@ argument-hint: "[args]"
 
 User arguments: $ARGUMENTS
 
-Load the matching SDP skill when this command maps to one. If the legacy command body names `.claude/skills/<name>/SKILL.md`, interpret that as Pi skill `<name>`. Then execute the command contract below using the user arguments above.
+Load the matching SDP skill when this command maps to one. Then execute the command contract below using the user arguments above.
 
 # /deliver — Autonomous Feature Delivery
 

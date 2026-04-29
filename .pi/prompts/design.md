@@ -9,14 +9,14 @@ argument-hint: "[args]"
 
 User arguments: $ARGUMENTS
 
-Load the matching SDP skill when this command maps to one. If the legacy command body names `.claude/skills/<name>/SKILL.md`, interpret that as Pi skill `<name>`. Then execute the command contract below using the user arguments above.
+Load the matching SDP skill when this command maps to one. Then execute the command contract below using the user arguments above.
 
 
 # /design — Analyze + Plan
 
 When calling `/design {slug}`:
 
-1. Load full prompt: `@.claude/skills/design/SKILL.md`
+1. Load full prompt: `design`
 2. Read PROJECT_MAP.md and INDEX.md
 3. Read draft: `docs/drafts/idea-{slug}.md`
 4. Create all WS files in `workstreams/backlog/`

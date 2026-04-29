@@ -9,14 +9,14 @@ argument-hint: "[args]"
 
 User arguments: $ARGUMENTS
 
-Load the matching SDP skill when this command maps to one. If the legacy command body names `.claude/skills/<name>/SKILL.md`, interpret that as Pi skill `<name>`. Then execute the command contract below using the user arguments above.
+Load the matching SDP skill when this command maps to one. Then execute the command contract below using the user arguments above.
 
 
 # /issue — Analyze & Route Issues
 
 When calling `/issue "description"`:
 
-1. Load full prompt: `@.claude/skills/issue/SKILL.md`
+1. Load full prompt: `issue`
 2. Systematic debugging (5 phases):
    - Symptom analysis
    - Hypothesis formation
