@@ -11,7 +11,6 @@ import (
 
 	"github.com/fall-out-bug/sdp_lab/internal/adapters"
 	"github.com/fall-out-bug/sdp_lab/internal/manifest"
-	"gopkg.in/yaml.v3"
 )
 
 //go:embed templates/sdp.manifest.template.yaml
@@ -173,15 +172,11 @@ func runInit(args []string) int {
 		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
 	}
 
-	// Filter manifest harnesses to only those requested.
-	filteredHarnesses := filterManifestHarnesses(harnesses)
-	m.Harnesses = filteredHarnesses
-	if err := persistTargetManifestScope(manifestPath, target, m); err != nil {
-		fmt.Fprintf(os.Stderr, "error: update manifest harness scope: %v\n", err)
-		return 1
-	}
-
-	// Generate adapter files.
+	// Generate adapter files for the manifest as written. The --harness flag
+	// controls which live harness directories get installed below; it must not
+	// rewrite a user's sdp.manifest.yaml or narrow future generation scope.
+	// `.sdp/generated` remains a full manifest-derived cache so doctor checks are
+	// stable without dropping comments or hand-edited formatting.
 	generated, err := adapters.Generate(m, target)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: generate adapters: %v\n", err)
@@ -306,27 +301,6 @@ func isKnownHarness(h string) bool {
 		}
 	}
 	return false
-}
-
-// filterManifestHarnesses converts []string harness names to []manifest.Harness.
-func filterManifestHarnesses(harnesses []string) []manifest.Harness {
-	out := make([]manifest.Harness, 0, len(harnesses))
-	for _, h := range harnesses {
-		out = append(out, manifest.Harness(h))
-	}
-	return out
-}
-
-func persistTargetManifestScope(manifestPath, target string, m *manifest.Manifest) error {
-	targetManifest := filepath.Join(target, "sdp.manifest.yaml")
-	if filepath.Clean(manifestPath) != filepath.Clean(targetManifest) {
-		return nil
-	}
-	data, err := yaml.Marshal(m)
-	if err != nil {
-		return fmt.Errorf("marshal manifest: %w", err)
-	}
-	return os.WriteFile(manifestPath, data, 0o644)
 }
 
 // loadManifestForInit loads the manifest from path and validates referenced

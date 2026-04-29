@@ -217,6 +217,55 @@ func TestInit_UnknownHarness(t *testing.T) {
 // TestInit_ExistingManifestEmbedsBodies verifies downstream installs with a
 // real manifest write both live harness files and .sdp/generated files with
 // embedded prompt bodies.
+func TestInit_ExistingManifestPreservesUserManifestBytes(t *testing.T) {
+	target := t.TempDir()
+	const token = "INIT_PRESERVE_TOKEN_42"
+
+	skillDir := filepath.Join(target, "prompts", "skills", "demo")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatalf("mkdir skill dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# Demo Skill\n\n"+token+"\n"), 0o644); err != nil {
+		t.Fatalf("write skill: %v", err)
+	}
+
+	manifest := []byte(`# Keep this comment and inline style.
+version: "1.0.0"
+sdp_version: "1.0.0"
+harnesses: [claude-code, opencode, codex, cursor, pi]
+skills:
+  - { name: demo, path: prompts/skills/demo/SKILL.md }
+commands: []
+agents: []
+hooks: []
+mcp_servers: []
+`)
+	manifestPath := filepath.Join(target, "sdp.manifest.yaml")
+	if err := os.WriteFile(manifestPath, manifest, 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	code := runInit([]string{"--harness", "codex", "--target", target})
+	if code != 0 {
+		t.Fatalf("runInit returned %d, want 0", code)
+	}
+
+	after, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+	if string(after) != string(manifest) {
+		t.Fatalf("manifest was rewritten; diff-friendly before:\n%s\nafter:\n%s", manifest, after)
+	}
+
+	if code := runDoctorAdapters([]string{
+		"--manifest", manifestPath,
+		"--out", filepath.Join(target, ".sdp", "generated"),
+	}); code != 0 {
+		t.Fatalf("runDoctorAdapters returned %d, want 0 after codex-only init", code)
+	}
+}
+
 func TestInit_ExistingManifestEmbedsBodies(t *testing.T) {
 	target := t.TempDir()
 	const token = "INIT_BODY_TOKEN_42"
