@@ -146,8 +146,36 @@ func Generate(m *manifest.Manifest, repoRoot string) (map[string][]byte, error) 
 	if err := generatePi(m, harnessEnabled, repoRoot, out); err != nil {
 		return nil, err
 	}
+	if err := validateOutputPaths(out); err != nil {
+		return nil, err
+	}
 
 	return out, nil
+}
+
+func validateOutputPaths(out map[string][]byte) error {
+	for rel := range out {
+		if err := validateOutputPath(rel); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateOutputPath(rel string) error {
+	if rel == "" {
+		return fmt.Errorf("adapter output path is empty")
+	}
+	if filepath.IsAbs(rel) {
+		return fmt.Errorf("adapter output path %q must be relative", rel)
+	}
+	slashPath := strings.ReplaceAll(rel, "\\", "/")
+	for _, part := range strings.Split(slashPath, "/") {
+		if part == ".." {
+			return fmt.Errorf("adapter output path %q must not contain parent traversal", rel)
+		}
+	}
+	return nil
 }
 
 // itemHarnesses returns the effective harness set for an item: if the item's

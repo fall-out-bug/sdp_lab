@@ -181,6 +181,29 @@ func TestGenerate_CommandDispatchOverride(t *testing.T) {
 	}
 }
 
+func TestGenerate_CommandDispatchOverrideRejectsTraversal(t *testing.T) {
+	m := &manifest.Manifest{
+		Version:    "1.0.0",
+		SDPVersion: "1.0.0",
+		Harnesses: []manifest.Harness{
+			manifest.HarnessClaudeCode,
+		},
+		Commands: []manifest.Command{
+			{
+				Name: "escape",
+				Path: "prompts/commands/escape.md",
+				Dispatch: map[manifest.Harness]string{
+					manifest.HarnessClaudeCode: "../../outside.md",
+				},
+			},
+		},
+	}
+
+	if _, err := adapters.Generate(m, ""); err == nil {
+		t.Fatal("Generate returned nil error for traversal dispatch override")
+	}
+}
+
 // TestGenerate_PerHarnessHasFiles verifies that a full minimal manifest has at
 // least one file per harness prefix.
 func TestGenerate_PerHarnessHasFiles(t *testing.T) {
