@@ -2,9 +2,12 @@ package pireview
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestDefaultSlots(t *testing.T) {
@@ -18,8 +21,8 @@ func TestDefaultSlots(t *testing.T) {
 	if slots[1].Slot != "kimi" {
 		t.Errorf("slot[1] = %q, want %q", slots[1].Slot, "kimi")
 	}
-	if slots[2].Slot != "synthesizer" {
-		t.Errorf("slot[2] = %q, want %q", slots[2].Slot, "synthesizer")
+	if slots[2].Slot != "minimax" {
+		t.Errorf("slot[2] = %q, want %q", slots[2].Slot, "minimax")
 	}
 }
 
@@ -179,10 +182,10 @@ func TestRunner_Run_WithFakes(t *testing.T) {
 
 	fr := &fakeRunner{
 		responses: map[string][]byte{
-			"git rev-parse --abbrev-ref HEAD":                []byte("feature/F161\n"),
-			"git rev-parse HEAD":                              []byte("abc123\n"),
+			"git rev-parse --abbrev-ref HEAD":              []byte("feature/F161\n"),
+			"git rev-parse HEAD":                           []byte("abc123\n"),
 			"git status --porcelain --untracked-files=all": []byte(" M main.go\n"),
-			"git diff HEAD":                                   []byte("+new code\n"),
+			"git diff HEAD":                                []byte("+new code\n"),
 		},
 	}
 
@@ -227,6 +230,87 @@ func TestRunner_Run_WithFakes(t *testing.T) {
 		t.Errorf("test-evidence.json not written: %v", err)
 	}
 	_ = modelOutput
+}
+
+type blockingRunner struct{}
+
+func (blockingRunner) Output(context.Context, string, string, ...string) ([]byte, error) {
+	return nil, nil
+}
+
+func (blockingRunner) Run(context.Context, string, string, ...string) error {
+	return nil
+}
+
+func (blockingRunner) CombinedOutput(ctx context.Context, _ string, _ string, _ ...string) ([]byte, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func TestInvokePiHonorsModelTimeout(t *testing.T) {
+	r := &Runner{
+		cfg: Config{
+			ProjectRoot:  t.TempDir(),
+			Scope:        ScopeWorkingTree,
+			ModelTimeout: 10 * time.Millisecond,
+			Runner:       blockingRunner{},
+		},
+		runner: blockingRunner{},
+	}
+
+	start := time.Now()
+	_, err := r.invokePi(context.Background(), ReviewerSlot{
+		Slot:     "zai",
+		Provider: "zai",
+		Model:    "glm",
+		Role:     "reviewer",
+	}, &ContextPacket{}, &TestEvidence{})
+
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("model timeout was not bounded; elapsed=%s", elapsed)
+	}
+}
+
+func TestInvokePiUsesPiPrintContract(t *testing.T) {
+	fr := &fakeRunner{}
+	r := &Runner{
+		cfg: Config{
+			ProjectRoot:  t.TempDir(),
+			Scope:        ScopeWorkingTree,
+			ModelTimeout: time.Second,
+			Runner:       fr,
+		},
+		runner: fr,
+	}
+
+	_, err := r.invokePi(context.Background(), ReviewerSlot{
+		Slot:     "kimi",
+		Provider: "kimi-coding",
+		Model:    "k2p6",
+		Role:     "reviewer",
+	}, &ContextPacket{}, &TestEvidence{})
+	if err != nil {
+		t.Fatalf("invokePi: %v", err)
+	}
+	if len(fr.calls) != 1 {
+		t.Fatalf("expected 1 call, got %d", len(fr.calls))
+	}
+	call := fr.calls[0]
+	if call.name != "pi" {
+		t.Fatalf("command = %q, want pi", call.name)
+	}
+	got := strings.Join(call.args, " ")
+	for _, want := range []string{"--provider kimi-coding", "--model k2p6", "--no-tools", "--no-context-files", "--no-session", "-p"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("pi args missing %q: %v", want, call.args)
+		}
+	}
+	if len(call.args) > 0 && call.args[0] == "run" {
+		t.Fatalf("pi invocation must not use removed run subcommand: %v", call.args)
+	}
 }
 
 func TestHashString(t *testing.T) {

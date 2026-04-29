@@ -124,9 +124,9 @@ type ReviewerSlot struct {
 // DefaultSlots returns the MVP reviewer panel.
 func DefaultSlots() []ReviewerSlot {
 	return []ReviewerSlot{
-		{Slot: "zai", Provider: "zai", Model: "glm", Role: "reviewer", Required: true},
-		{Slot: "kimi", Provider: "kimi", Model: "kimi-k2", Role: "reviewer", Required: true},
-		{Slot: "synthesizer", Provider: "zai", Model: "glm", Role: "synthesizer", Required: true},
+		{Slot: "zai", Provider: "zai", Model: "glm-5.1", Role: "reviewer", Required: true},
+		{Slot: "kimi", Provider: "kimi-coding", Model: "k2p6", Role: "reviewer", Required: true},
+		{Slot: "minimax", Provider: "minimax", Model: "MiniMax-M2.7", Role: "reviewer", Required: true},
 	}
 }
 
@@ -298,8 +298,11 @@ func (r *Runner) runModelPanel(ctx context.Context, runID string, pkt *ContextPa
 // invokePi calls the local pi binary with the review context.
 func (r *Runner) invokePi(ctx context.Context, slot ReviewerSlot, pkt *ContextPacket, evidence *TestEvidence) (string, error) {
 	reviewPrompt := buildReviewPrompt(slot, pkt, evidence)
-	out, err := r.runner.CombinedOutput(ctx, r.cfg.ProjectRoot,
-		"pi", "run", "--provider", slot.Provider, "--model", slot.Model, reviewPrompt)
+	modelCtx, cancel := context.WithTimeout(ctx, r.cfg.effectiveModelTimeout())
+	defer cancel()
+	out, err := r.runner.CombinedOutput(modelCtx, r.cfg.ProjectRoot,
+		"pi", "--provider", slot.Provider, "--model", slot.Model,
+		"--no-tools", "--no-context-files", "--no-session", "-p", reviewPrompt)
 	if err != nil {
 		return "", fmt.Errorf("pi run %s/%s: %w", slot.Provider, slot.Model, err)
 	}
@@ -309,12 +312,28 @@ func (r *Runner) invokePi(ctx context.Context, slot ReviewerSlot, pkt *ContextPa
 // invokeFallback attempts OpenRouter when a primary provider fails.
 func (r *Runner) invokeFallback(ctx context.Context, slot ReviewerSlot, pkt *ContextPacket, evidence *TestEvidence) (string, error) {
 	reviewPrompt := buildReviewPrompt(slot, pkt, evidence)
-	out, err := r.runner.CombinedOutput(ctx, r.cfg.ProjectRoot,
-		"pi", "run", "--provider", "openrouter", "--model", "fallback", reviewPrompt)
+	modelCtx, cancel := context.WithTimeout(ctx, r.cfg.effectiveModelTimeout())
+	defer cancel()
+	out, err := r.runner.CombinedOutput(modelCtx, r.cfg.ProjectRoot,
+		"pi", "--provider", "openrouter", "--model", fallbackModel(slot),
+		"--no-tools", "--no-context-files", "--no-session", "-p", reviewPrompt)
 	if err != nil {
 		return "", fmt.Errorf("openrouter fallback: %w", err)
 	}
 	return string(out), nil
+}
+
+func fallbackModel(slot ReviewerSlot) string {
+	switch slot.Slot {
+	case "zai":
+		return "z-ai/glm-5.1"
+	case "kimi":
+		return "moonshotai/kimi-k2.6"
+	case "minimax":
+		return "minimax/minimax-m2.7"
+	default:
+		return "z-ai/glm-5.1"
+	}
 }
 
 // buildReviewPrompt constructs the prompt for the model reviewer.
