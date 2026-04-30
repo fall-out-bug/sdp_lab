@@ -1135,3 +1135,55 @@ issues resolved.
 - `scripts/smoke/pi_resources.mjs`
 - `sdp.manifest.yaml`
 
+## 2026-04-30
+
+### Commits
+- `07f259ed` fix: align review promises with implementation (#144) (2026-04-30)
+
+### Changed Files
+- `.beads/interactions.jsonl`
+- `.beads/issues.jsonl`
+- `.github/workflows/sdp-doctor.yml`
+- `README.md`
+- `cmd/sdp-pi-review/main.go`
+- `cmd/sdp/.snapshots/doctor-usage.snap`
+- `cmd/sdp/.snapshots/main-usage.snap`
+- `cmd/sdp/.snapshots/unknown-command.snap`
+- `cmd/sdp/cmd_bootstrap.go`
+- `cmd/sdp/cmd_bootstrap_test.go`
+- `cmd/sdp/cmd_doctor.go`
+- `cmd/sdp/cmd_doctor_backlog.go`
+- `cmd/sdp/cmd_doctor_backlog_test.go`
+- `cmd/sdp/cmd_init.go`
+- `cmd/sdp/cmd_init_test.go`
+- `cmd/sdp/main.go`
+- `cmd/sdp/main_test.go`
+- `cmd/sdp/snapshot_test.go`
+- `docs/MULTI-REPO-WORKFLOW.md`
+- `docs/QUICKSTART.md`
+- `docs/architecture/REPO-BOUNDARY.md`
+- `docs/reference/ci-gates-map.md`
+- `docs/reference/maturity-matrix.md`
+- `docs/reference/pi-review-spec.md`
+- `docs/reference/trust-guarantees.md`
+- `internal/adapters/generate.go`
+- `internal/adapters/generate_test.go`
+- `internal/control/repo_dual_test.go`
+- `internal/control/repo_file.go`
+- `internal/executil/runner.go`
+- `internal/executil/runner_test.go`
+- `internal/manifest/load.go`
+- `internal/manifest/load_test.go`
+- `internal/manifest/schema.json`
+- `internal/pireview/pireview.go`
+- `internal/pireview/runner.go`
+- `internal/pireview/runner_test.go`
+- `scripts/check-public-metadata.sh`
+- `scripts/hooks/pre-push.sh`
+- `scripts/install.sh`
+- `scripts/install_kubeopencode_remote.sh`
+- `scripts/run_go_quality_gates.sh`
+- `scripts/run_smoke_tests.sh`
+- `scripts/sdp-publish.sh`
+- `sdp.manifest.yaml`
+
