@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://sdp.dev/schemas/sdp-manifest.schema.json",
   "title": "SDP Manifest",
-  "description": "Single source of truth for skills, commands, agents, hooks, and MCP servers across all SDP-supported harnesses. Drives the adapter generator (F141-02) and doctor drift gate (F141-04).",
+  "description": "Single source of truth for skills, commands, agents, and inventory metadata across all SDP-supported harnesses. The adapter generator renders skills, commands, agents, and supported harness resource surfaces. Hooks and MCP servers are validated inventory only until renderer support lands.",
   "type": "object",
   "required": ["version", "sdp_version"],
   "additionalProperties": false,
@@ -40,10 +40,12 @@
       "items": { "$ref": "#/$defs/agent" }
     },
     "hooks": {
+      "description": "Validated inventory only. Hooks are not installed by generate-adapters until a hook renderer is added.",
       "type": "array",
       "items": { "$ref": "#/$defs/hook" }
     },
     "mcp_servers": {
+      "description": "Validated inventory only. MCP server entries are not installed by generate-adapters until an MCP renderer is added.",
       "type": "array",
       "items": { "$ref": "#/$defs/mcp_server" }
     }
@@ -110,7 +112,7 @@
         "dispatch": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Per-harness dispatch override. If absent, generator uses default mapping (e.g. .claude/commands/<name>.md).",
+          "description": "Per-harness command output path override. If absent, generator uses default mapping (e.g. .claude/commands/<name>.md).",
           "properties": {
             "claude-code": { "type": "string" },
             "opencode": { "type": "string" },

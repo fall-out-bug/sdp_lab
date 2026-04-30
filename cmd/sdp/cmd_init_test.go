@@ -266,6 +266,23 @@ mcp_servers: []
 	}
 }
 
+func TestInit_InvalidExistingManifestFailsFast(t *testing.T) {
+	target := t.TempDir()
+	if err := os.WriteFile(filepath.Join(target, "sdp.manifest.yaml"), []byte("version: [\n"), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	code := runInit([]string{"--harness", "codex", "--target", target})
+	if code == 0 {
+		t.Fatal("runInit returned 0 for invalid existing manifest")
+	}
+	if _, err := os.Stat(filepath.Join(target, ".codex")); err == nil {
+		t.Fatal("invalid manifest should not produce harness adapters")
+	} else if !os.IsNotExist(err) {
+		t.Fatalf("stat .codex: %v", err)
+	}
+}
+
 func TestInit_ExistingManifestEmbedsBodies(t *testing.T) {
 	target := t.TempDir()
 	const token = "INIT_BODY_TOKEN_42"

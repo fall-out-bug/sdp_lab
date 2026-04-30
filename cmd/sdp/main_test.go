@@ -37,6 +37,28 @@ func TestMainUsage(t *testing.T) {
 	}
 }
 
+func TestMainHelpExitsZeroAndListsInstallCommands(t *testing.T) {
+	binPath := buildTestBinary(t)
+	cmd := exec.Command(binPath, "--help")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("expected --help to exit 0, got %v\n%s", err, out.String())
+	}
+	output := out.String()
+	for _, want := range []string{
+		"sdp init",
+		"sdp manifest validate",
+		"sdp generate-adapters",
+		"sdp doctor adapters",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected help to contain %q, got:\n%s", want, output)
+		}
+	}
+}
+
 func TestCardUsage(t *testing.T) {
 	binPath := buildTestBinary(t)
 	cmd := exec.Command(binPath, "card")
@@ -78,13 +100,13 @@ func TestDoctorControlUsage(t *testing.T) {
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
-	err := cmd.Run()
-	if err == nil {
-		t.Fatalf("expected error exit, got nil")
-	}
+	_ = cmd.Run()
 	output := out.String()
-	if !strings.Contains(output, "usage: sdp doctor") {
-		t.Fatalf("expected doctor usage in output, got: %s", output)
+	if strings.Contains(output, "usage: sdp doctor") {
+		t.Fatalf("plain doctor should run doctor control, got usage:\n%s", output)
+	}
+	if !strings.Contains(output, "DOCTOR CONTROL") {
+		t.Fatalf("expected doctor control output, got:\n%s", output)
 	}
 }
 

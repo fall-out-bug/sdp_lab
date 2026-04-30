@@ -5,22 +5,22 @@
 
 ## What SDP Guarantees
 
-These guarantees hold for all GA-maturity components (see [maturity-matrix.md](./maturity-matrix.md)).
+These guarantees hold for all GA-maturity components when the required inputs are present and the customer controls below are enabled (see [maturity-matrix.md](./maturity-matrix.md)).
 
 ### Evidence Integrity
 
 | Guarantee | Mechanism | Verification |
 |-----------|-----------|--------------|
 | Evidence artifacts are tamper-evident | in-toto attestation format with SHA-256 content hashes | `go run ./cmd/sdp-evidence validate <file>` |
-| Evidence schema is validated before gate passage | JSON Schema validation in `evidence-gate` CI job | Schema at `schema/evidence.schema.json` |
+| Changed evidence artifacts are validated before gate passage | JSON Schema validation in `evidence-gate` CI job when `.sdp/evidence/*.json` changes | Schema at `schema/evidence.schema.json` |
 | Auto-attestations are signed | Sigstore keyless signing of attestation bundles in `auto-attestation` CI job | `.sdp/attestations/ci-auto.bundle` |
 
 ### Scope Enforcement
 
 | Guarantee | Mechanism | Verification |
 |-----------|-----------|--------------|
-| Changes outside declared WS scope are detected | `scope-gate` CI job runs `sdp-guard --ws <ws>` per workstream | CI job output |
-| Contract compliance is verified | `protocol-compliance` CI job validates contracts against snapshots | `go run ./cmd/sdp-guard --check-contract` |
+| Changes outside declared WS scope are detected when checkpoint/workstream evidence is present | `scope-gate` CI job runs `sdp-guard --ws <ws>` for workstreams listed in changed checkpoints | CI job output |
+| Contract compliance is verified when feature contracts are changed | `protocol-compliance` CI job validates changed contracts against snapshots | `go run ./cmd/sdp-guard --check-contract` |
 
 ### CI Gate Consistency
 
@@ -34,9 +34,9 @@ These guarantees hold for all GA-maturity components (see [maturity-matrix.md](.
 
 | Guarantee | Mechanism | Verification |
 |-----------|-----------|--------------|
-| Every merge has a PR with gate evidence | Push protection + `required-checks` gate validates all 12 CI jobs | GitHub branch protection |
+| Every protected-branch merge passes the required CI gate set | Push protection + `required-checks` validates required jobs; evidence/scope jobs may pass as not applicable when their inputs are absent | GitHub branch protection |
 | Attestations are persisted as CI artifacts | `auto-attestation` uploads signed bundles (90-day retention) | `.sdp/attestations/ci-auto.json` |
-| Coverage baselines are tracked | `coverage-gate` compares against `.sdp/metrics/coverage.txt`, auto-updates on main push | `git log .sdp/metrics/coverage.txt` |
+| Coverage baselines are tracked | `coverage-gate` compares total coverage against `.sdp/metrics/coverage.txt`, auto-updates on main push; maturity-tier package minimums are currently advisory | `git log .sdp/metrics/coverage.txt` |
 
 ## What SDP Does NOT Guarantee
 

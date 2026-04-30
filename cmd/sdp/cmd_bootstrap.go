@@ -84,9 +84,9 @@ func runBootstrap(args []string) {
 		}
 		switch *mode {
 		case "greenfield":
-			appendGreenfieldArtifacts(report, repoPath, useDraft, *preset)
+			appendGreenfieldArtifacts(report, repoPath, useDraft, *preset, *dryRun)
 		case "brownfield":
-			appendBrownfieldArtifacts(report, repoPath, useDraft)
+			appendBrownfieldArtifacts(report, repoPath, useDraft, *dryRun)
 		}
 		renderBootstrapReport(report, *format)
 		return
@@ -226,7 +226,7 @@ func appendConventionsArtifacts(report *bootstrap.BootstrapReport, repoPath stri
 // appendGreenfieldArtifacts runs the greenfield bootstrap flow:
 // preset/interactive → principles + agents rules → split → roadmap.
 // All outputs are DRAFT-prefixed and appended to the bootstrap report.
-func appendGreenfieldArtifacts(report *bootstrap.BootstrapReport, repoPath string, useDraft bool, presetName string) {
+func appendGreenfieldArtifacts(report *bootstrap.BootstrapReport, repoPath string, useDraft bool, presetName string, dryRun bool) {
 	var result *bootstrap.BootstrapResult
 	var err error
 
@@ -257,11 +257,11 @@ func appendGreenfieldArtifacts(report *bootstrap.BootstrapReport, repoPath strin
 
 	// Write DRAFT-PRINCIPLES.md.
 	principlesContent := bootstrap.RenderPrinciplesFile(split.Principles)
-	writeDraftArtifact(report, repoPath, "PRINCIPLES.md", principlesContent, useDraft, "greenfield-principles")
+	writeDraftArtifact(report, repoPath, "PRINCIPLES.md", principlesContent, useDraft, dryRun, "greenfield-principles")
 
 	// Write DRAFT-AGENTS.md rules section.
 	agentsContent := bootstrap.RenderRulesSection(split.Rules)
-	writeDraftArtifact(report, repoPath, "AGENTS-RULES.md", agentsContent, useDraft, "greenfield-rules")
+	writeDraftArtifact(report, repoPath, "AGENTS-RULES.md", agentsContent, useDraft, dryRun, "greenfield-rules")
 
 	// Write DRAFT-ROADMAP.md from scout data.
 	card, scoutErr := scout.Run(repoPath)
@@ -271,9 +271,19 @@ func appendGreenfieldArtifacts(report *bootstrap.BootstrapReport, repoPath strin
 	}
 	roadmap := bootstrap.GenerateRoadmap(card)
 	roadmapContent := bootstrap.RenderRoadmapMarkdown(roadmap)
-	writeDraftArtifact(report, repoPath, "ROADMAP.md", roadmapContent, useDraft, "greenfield-roadmap")
+	writeDraftArtifact(report, repoPath, "ROADMAP.md", roadmapContent, useDraft, dryRun, "greenfield-roadmap")
 
 	// Save bootstrap answers for reproducibility.
+	if dryRun {
+		report.Artifacts = append(report.Artifacts, bootstrap.ArtifactResult{
+			Type:    "greenfield-answers",
+			Path:    ".sdp/bootstrap-answers.json",
+			Action:  "plan",
+			Status:  "dry_run",
+			Message: "would save preset answers",
+		})
+		return
+	}
 	// Resolve the actual preset name used (may differ from CLI arg when default is applied).
 	resolvedPreset := presetName
 	if resolvedPreset == "" {
@@ -295,7 +305,7 @@ func appendGreenfieldArtifacts(report *bootstrap.BootstrapReport, repoPath strin
 }
 
 // appendBrownfieldArtifacts runs delta analysis: scout → compare with existing → report deltas.
-func appendBrownfieldArtifacts(report *bootstrap.BootstrapReport, repoPath string, useDraft bool) {
+func appendBrownfieldArtifacts(report *bootstrap.BootstrapReport, repoPath string, useDraft bool, dryRun bool) {
 	card, err := scout.Run(repoPath)
 	if err != nil {
 		report.Artifacts = append(report.Artifacts, bootstrap.ArtifactResult{
@@ -328,7 +338,7 @@ func appendBrownfieldArtifacts(report *bootstrap.BootstrapReport, repoPath strin
 	if useDraft {
 		deltaPath = bootstrap.DraftPath(deltaPath)
 	}
-	writeDraftArtifact(report, repoPath, deltaPath, string(deltaJSON), false, "brownfield-delta")
+	writeDraftArtifact(report, repoPath, deltaPath, string(deltaJSON), false, dryRun, "brownfield-delta")
 
 	for _, d := range result.Deltas {
 		report.Notes = append(report.Notes,
@@ -389,7 +399,7 @@ func isHarnessEnabled(h harnesscfg.Harness) bool {
 }
 
 // writeDraftArtifact writes a single DRAFT artifact and appends to the report.
-func writeDraftArtifact(report *bootstrap.BootstrapReport, repoPath, basename, content string, useDraft bool, artifactType string) {
+func writeDraftArtifact(report *bootstrap.BootstrapReport, repoPath, basename, content string, useDraft bool, dryRun bool, artifactType string) {
 	var filename string
 	if useDraft {
 		filename = bootstrap.DraftPath(basename)
@@ -397,6 +407,15 @@ func writeDraftArtifact(report *bootstrap.BootstrapReport, repoPath, basename, c
 		filename = basename
 	}
 	fullPath := filepath.Join(repoPath, filename)
+
+	if dryRun {
+		report.Artifacts = append(report.Artifacts, bootstrap.ArtifactResult{
+			Type: artifactType, Path: filename,
+			Action: "plan", Status: "dry_run",
+			Message: fmt.Sprintf("would write %d bytes", len(content)),
+		})
+		return
+	}
 
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
 		report.Artifacts = append(report.Artifacts, bootstrap.ArtifactResult{
@@ -419,6 +438,7 @@ func writeDraftArtifact(report *bootstrap.BootstrapReport, repoPath, basename, c
 		Message: fmt.Sprintf("%d bytes", len(content)),
 	})
 }
+
 // bootstrapRulesArtifactName derives a rules-specific filename from the manifest
 // harness ConfigFile. Handles dotfiles like .cursorrules correctly.
 // When useDraft is true, files get a DRAFT- prefix on the filename only.

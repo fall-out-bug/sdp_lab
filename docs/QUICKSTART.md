@@ -39,7 +39,7 @@ export PATH="$PWD/.sdp/bin:$PATH"
 
 The installer:
 
-1. clones `fall-out-bug/sdp` to get the canonical manifest and prompts
+1. clones the `sdp_lab` source repo to get the canonical manifest and prompts
 2. uses `sdp` from `PATH` only if it supports the current `init --harness` contract
 3. otherwise builds `cmd/sdp` with the `sqlite_fts5` tag
 4. runs `sdp init --harness auto`

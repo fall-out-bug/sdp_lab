@@ -56,7 +56,7 @@ check_templates() {
   done
 }
 
-# --- Check 2: Legacy download URLs referencing sdp_dev repo ---
+# --- Check 2: Legacy distribution URLs referencing sdp_lab repo ---
 check_legacy_downloads() {
   for f in "${USER_FACING_FILES[@]}"; do
     [ -f "$f" ] || continue
@@ -70,7 +70,7 @@ check_legacy_downloads() {
         seen_lines[$key]=1
         FINDINGS+=("legacy-url:$f:$lineno:download URL references sdp_lab repo (should be sdp)")
       fi
-    done < <(grep -n 'fall-out-bug/sdp_lab' "$f" 2>/dev/null || true)
+    done < <(grep -nE '(releases/download|raw\.githubusercontent\.com)/[^[:space:]]*fall-out-bug/sdp_lab|fall-out-bug/sdp_lab[^[:space:]]*/releases/download' "$f" 2>/dev/null || true)
     unset seen_lines
   done
 }

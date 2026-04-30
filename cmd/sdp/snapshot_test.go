@@ -94,7 +94,7 @@ func TestSnapshot_CLIUsage(t *testing.T) {
 		{"card-usage", []string{"card"}, false},
 		{"board-usage", []string{"board"}, false},
 		{"dispatch-usage", []string{"dispatch"}, false},
-		{"doctor-usage", []string{"doctor"}, false},
+		{"doctor-usage", []string{"doctor"}, true},
 		{"result-usage", []string{"result"}, false},
 		{"orchestrate-usage", []string{"orchestrate"}, false},
 		{"unknown-command", []string{"foobar"}, false},

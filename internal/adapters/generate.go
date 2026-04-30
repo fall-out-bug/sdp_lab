@@ -146,8 +146,36 @@ func Generate(m *manifest.Manifest, repoRoot string) (map[string][]byte, error) 
 	if err := generatePi(m, harnessEnabled, repoRoot, out); err != nil {
 		return nil, err
 	}
+	if err := validateOutputPaths(out); err != nil {
+		return nil, err
+	}
 
 	return out, nil
+}
+
+func validateOutputPaths(out map[string][]byte) error {
+	for rel := range out {
+		if err := validateOutputPath(rel); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateOutputPath(rel string) error {
+	if rel == "" {
+		return fmt.Errorf("adapter output path is empty")
+	}
+	if filepath.IsAbs(rel) {
+		return fmt.Errorf("adapter output path %q must be relative", rel)
+	}
+	slashPath := strings.ReplaceAll(rel, "\\", "/")
+	for _, part := range strings.Split(slashPath, "/") {
+		if part == ".." {
+			return fmt.Errorf("adapter output path %q must not contain parent traversal", rel)
+		}
+	}
+	return nil
 }
 
 // itemHarnesses returns the effective harness set for an item: if the item's
@@ -164,6 +192,15 @@ func itemHarnesses(declared []manifest.Harness, manifestEnabled map[manifest.Har
 		}
 	}
 	return out
+}
+
+func commandOutputPath(c manifest.Command, h manifest.Harness, fallback string) string {
+	if c.Dispatch != nil {
+		if path := strings.TrimSpace(c.Dispatch[h]); path != "" {
+			return path
+		}
+	}
+	return fallback
 }
 
 func render(t *template.Template, data any) ([]byte, error) {
@@ -201,7 +238,7 @@ func generateClaudeCode(m *manifest.Manifest, enabled map[manifest.Harness]bool,
 		if err != nil {
 			return err
 		}
-		out[".claude/commands/"+c.Name+".md"] = data
+		out[commandOutputPath(c, manifest.HarnessClaudeCode, ".claude/commands/"+c.Name+".md")] = data
 	}
 
 	// Sort agents for determinism
@@ -339,7 +376,7 @@ func generateCursor(m *manifest.Manifest, enabled map[manifest.Harness]bool, rep
 		if err != nil {
 			return err
 		}
-		out[".cursor/rules/"+c.Name+".mdc"] = data
+		out[commandOutputPath(c, manifest.HarnessCursor, ".cursor/rules/"+c.Name+".mdc")] = data
 	}
 	return nil
 }
@@ -394,7 +431,7 @@ func generatePi(m *manifest.Manifest, enabled map[manifest.Harness]bool, repoRoo
 		if err != nil {
 			return err
 		}
-		out[".pi/prompts/"+c.Name+".md"] = data
+		out[commandOutputPath(c, manifest.HarnessPi, ".pi/prompts/"+c.Name+".md")] = data
 	}
 
 	return nil

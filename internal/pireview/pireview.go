@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/fall-out-bug/sdp_lab/internal/executil"
 )
@@ -21,13 +22,16 @@ const (
 
 // Config holds all configuration for a pi-review run.
 type Config struct {
-	ProjectRoot string
-	Scope       ScopeMode
-	BaseRef     string
-	Feature     string
-	TestCommand string
-	Runner      executil.CommandRunner
+	ProjectRoot  string
+	Scope        ScopeMode
+	BaseRef      string
+	Feature      string
+	TestCommand  string
+	ModelTimeout time.Duration
+	Runner       executil.CommandRunner
 }
+
+const DefaultModelTimeout = 5 * time.Minute
 
 // Validate checks required fields and returns an error if invalid.
 func (c Config) Validate() error {
@@ -40,10 +44,20 @@ func (c Config) Validate() error {
 	if c.Scope == ScopeBranch && c.BaseRef == "" {
 		return fmt.Errorf("pireview: BaseRef is required with Scope=branch")
 	}
+	if c.ModelTimeout < 0 {
+		return fmt.Errorf("pireview: ModelTimeout must be non-negative")
+	}
 	if c.Runner == nil {
 		return fmt.Errorf("pireview: Runner is required")
 	}
 	return nil
+}
+
+func (c Config) effectiveModelTimeout() time.Duration {
+	if c.ModelTimeout > 0 {
+		return c.ModelTimeout
+	}
+	return DefaultModelTimeout
 }
 
 // ContextPacket holds the deterministic context sent to model reviewers.

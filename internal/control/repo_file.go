@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -29,6 +30,12 @@ func (r *FileCardRepository) CreateCard(projectID string, card *FeatureCard) err
 	if card == nil {
 		return fmt.Errorf("nil card")
 	}
+	if err := validatePathSegment("project id", projectID); err != nil {
+		return err
+	}
+	if err := validatePathSegment("card id", card.ID); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(r.cardsDir(projectID), 0o755); err != nil {
 		return fmt.Errorf("create cards dir for %s: %w", projectID, err)
 	}
@@ -43,6 +50,12 @@ func (r *FileCardRepository) SaveCard(card *FeatureCard) error {
 	if card == nil {
 		return fmt.Errorf("nil card")
 	}
+	if err := validatePathSegment("project id", card.ProjectID); err != nil {
+		return err
+	}
+	if err := validatePathSegment("card id", card.ID); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(r.cardsDir(card.ProjectID), 0o755); err != nil {
 		return fmt.Errorf("create cards dir for %s: %w", card.ProjectID, err)
 	}
@@ -55,6 +68,12 @@ func (r *FileCardRepository) SaveCard(card *FeatureCard) error {
 }
 
 func (r *FileCardRepository) LoadCard(projectID, cardID string) (*FeatureCard, error) {
+	if err := validatePathSegment("project id", projectID); err != nil {
+		return nil, err
+	}
+	if err := validatePathSegment("card id", cardID); err != nil {
+		return nil, err
+	}
 	cards, err := r.LoadCards(projectID)
 	if err != nil {
 		return nil, fmt.Errorf("load cards for %s: %w", projectID, err)
@@ -69,6 +88,9 @@ func (r *FileCardRepository) LoadCard(projectID, cardID string) (*FeatureCard, e
 }
 
 func (r *FileCardRepository) LoadCards(projectID string) ([]FeatureCard, error) {
+	if err := validatePathSegment("project id", projectID); err != nil {
+		return nil, err
+	}
 	pattern := filepath.Join(r.cardsDir(projectID), "*.yaml")
 	files, err := filepath.Glob(pattern)
 	if err != nil {
@@ -116,4 +138,14 @@ func (r *FileCardRepository) cardsDir(projectID string) string {
 
 func (r *FileCardRepository) cardPath(projectID, cardID string) string {
 	return filepath.Join(r.cardsDir(projectID), cardID+".yaml")
+}
+
+func validatePathSegment(label, value string) error {
+	if strings.TrimSpace(value) == "" {
+		return fmt.Errorf("invalid %s: empty", label)
+	}
+	if filepath.IsAbs(value) || value != filepath.Base(value) || value == "." || value == ".." {
+		return fmt.Errorf("invalid %s %q: must be a single path segment", label, value)
+	}
+	return nil
 }

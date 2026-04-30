@@ -140,11 +140,16 @@ func formatSchemaError(err error) error {
 
 func checkPaths(m *Manifest, repoRoot string, result *LoadResult) error {
 	var missing []string
+	var invalid []string
 	check := func(field, p string) {
 		if p == "" {
 			return
 		}
-		full := filepath.Join(repoRoot, p)
+		full, err := resolveManifestPath(repoRoot, p)
+		if err != nil {
+			invalid = append(invalid, fmt.Sprintf("%s: %s (%v)", field, p, err))
+			return
+		}
 		if _, err := os.Stat(full); err != nil {
 			missing = append(missing, fmt.Sprintf("%s: %s", field, p))
 		}
@@ -161,11 +166,40 @@ func checkPaths(m *Manifest, repoRoot string, result *LoadResult) error {
 	for _, h := range m.Hooks {
 		check(fmt.Sprintf("hooks[%s].script", h.Event), h.Script)
 	}
+	if len(invalid) > 0 {
+		return fmt.Errorf("manifest references invalid paths:\n  - %s", strings.Join(invalid, "\n  - "))
+	}
 	if len(missing) > 0 {
 		return fmt.Errorf("manifest references missing paths:\n  - %s", strings.Join(missing, "\n  - "))
 	}
 	_ = result
 	return nil
+}
+
+func resolveManifestPath(repoRoot, p string) (string, error) {
+	if filepath.IsAbs(p) {
+		return "", fmt.Errorf("absolute paths are not allowed")
+	}
+	clean := filepath.Clean(p)
+	if clean == "." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) || clean == ".." {
+		return "", fmt.Errorf("path must stay inside repo")
+	}
+	rootAbs, err := filepath.Abs(repoRoot)
+	if err != nil {
+		return "", err
+	}
+	fullAbs, err := filepath.Abs(filepath.Join(rootAbs, clean))
+	if err != nil {
+		return "", err
+	}
+	rel, err := filepath.Rel(rootAbs, fullAbs)
+	if err != nil {
+		return "", err
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path must stay inside repo")
+	}
+	return fullAbs, nil
 }
 
 func checkUniqueness(m *Manifest) error {

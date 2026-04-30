@@ -19,6 +19,7 @@ func main() {
 	base := fs.String("base", "", "Base ref for branch scope")
 	feature := fs.String("feature", "", "Feature ID (e.g. F161)")
 	testCmd := fs.String("test-command", "", "Explicit test command")
+	modelTimeout := fs.Duration("model-timeout", pireview.DefaultModelTimeout, "Timeout per model reviewer call")
 	writeVerdict := fs.Bool("write-verdict", false, "Write .sdp/review_verdict.json")
 	createBeads := fs.Bool("create-beads", false, "Create beads for actionable findings")
 	round := fs.Int("round", 1, "Review round number")
@@ -31,12 +32,13 @@ func main() {
 	}
 
 	cfg := pireview.Config{
-		ProjectRoot: projectRoot,
-		Scope:       pireview.ScopeMode(*scope),
-		BaseRef:     *base,
-		Feature:     *feature,
-		TestCommand: *testCmd,
-		Runner:      executil.GetDefaultRunner(),
+		ProjectRoot:  projectRoot,
+		Scope:        pireview.ScopeMode(*scope),
+		BaseRef:      *base,
+		Feature:      *feature,
+		TestCommand:  *testCmd,
+		ModelTimeout: *modelTimeout,
+		Runner:       executil.GetDefaultRunner(),
 	}
 
 	if err := cfg.Validate(); err != nil {

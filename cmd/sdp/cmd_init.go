@@ -151,22 +151,8 @@ func runInit(args []string) int {
 	// embed real bodies instead of placeholder shells.
 	m, warnings, sdpVersion, manifestVersion, loadErr := loadManifestForInit(manifestPath, target)
 	if loadErr != nil {
-		// Non-fatal: generate with a minimal in-memory manifest so harness dirs
-		// are still created.
-		fmt.Fprintf(os.Stderr, "warning: manifest load failed (%v) — generating empty adapters\n", loadErr)
-		m = &manifest.Manifest{
-			Version:    "1.0.0",
-			SDPVersion: "1.0.0",
-			Harnesses: []manifest.Harness{
-				manifest.HarnessClaudeCode,
-				manifest.HarnessOpenCode,
-				manifest.HarnessCodex,
-				manifest.HarnessCursor,
-				manifest.HarnessPi,
-			},
-		}
-		sdpVersion = "1.0.0"
-		manifestVersion = "1.0.0"
+		fmt.Fprintf(os.Stderr, "error: manifest load failed: %v\n", loadErr)
+		return 1
 	}
 	for _, w := range warnings {
 		fmt.Fprintf(os.Stderr, "warning: %s\n", w)

@@ -10,6 +10,10 @@ func main() {
 		usage()
 		os.Exit(2)
 	}
+	if os.Args[1] == "-h" || os.Args[1] == "--help" || os.Args[1] == "help" {
+		usage()
+		return
+	}
 	switch os.Args[1] {
 	case "card":
 		runCard(os.Args[2:])
@@ -104,6 +108,8 @@ func usage() {
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Doctor commands:")
 	fmt.Fprintln(os.Stderr, "  sdp doctor control")
+	fmt.Fprintln(os.Stderr, "  sdp doctor adapters [--manifest <path>] [--out <dir>] [--strict]")
+	fmt.Fprintln(os.Stderr, "  sdp doctor backlog")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Dispatch commands:")
 	fmt.Fprintln(os.Stderr, "  sdp dispatch card")
@@ -170,6 +176,12 @@ func usage() {
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Reset commands:")
 	fmt.Fprintln(os.Stderr, "  sdp reset --feature F042 [--dry-run] [--yes]  Reset checkpoint for a feature")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Install and adapter commands:")
+	fmt.Fprintln(os.Stderr, "  sdp init [--harness <list>] [--target <dir>] [--manifest <path>] [--update]")
+	fmt.Fprintln(os.Stderr, "  sdp manifest validate [--manifest <path>] [--schema <path>]")
+	fmt.Fprintln(os.Stderr, "  sdp manifest parity [--write]")
+	fmt.Fprintln(os.Stderr, "  sdp generate-adapters [--manifest <path>] [--out <dir>] [--check]")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Coverage commands:")
 	fmt.Fprintln(os.Stderr, "  sdp coverage-scan [--path DIR] [--threshold PCT] [--format text|json] [--skip-test] [--package PATTERN] [--coverprofile FILE]")

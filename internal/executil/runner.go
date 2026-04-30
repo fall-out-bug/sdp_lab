@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"time"
 )
 
 // CommandRunner abstracts exec.Command for testability.
@@ -30,12 +31,15 @@ func init() {
 
 type realRunner struct{}
 
+var commandWaitDelay = 5 * time.Second
+
 func (r *realRunner) Output(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
+	cmd.WaitDelay = commandWaitDelay
 	out, err := cmd.Output()
 	if err != nil {
 		return out, fmt.Errorf("%s %s: %w", name, strings.Join(args, " "), err)
@@ -49,6 +53,7 @@ func (r *realRunner) CombinedOutput(ctx context.Context, dir, name string, args 
 	}
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
+	cmd.WaitDelay = commandWaitDelay
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return out, fmt.Errorf("%s %s: %w", name, strings.Join(args, " "), err)
@@ -62,6 +67,7 @@ func (r *realRunner) Run(ctx context.Context, dir, name string, args ...string) 
 	}
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
+	cmd.WaitDelay = commandWaitDelay
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	if err := cmd.Run(); err != nil {
