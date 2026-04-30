@@ -1,7 +1,7 @@
 # sdp_lab Roadmap — Agent Platform + Trust Lane
 
 > **Status: CANONICAL (active roadmap)** — this is the current source of truth. Other files in `docs/roadmap/` are supporting context; see [docs/roadmap/README.md](README.md).
-> **Updated:** 2026-04-27 (post-IIP-council; F151-F160 added)
+> **Updated:** 2026-04-29 (F162 prompt bundle packaging added)
 > **Repo naming:** GitHub repo is `sdp_lab`; Go module path is `github.com/fall-out-bug/sdp_lab`; historical workstreams and bead IDs may still use `sdp_dev` as a legacy label for the same codebase
 > **Direction:** Reusable agent platform (`kernel`, `adapters`, `augmentation`, `evals`) with standards-based trust and evidence as a secondary lane
 
@@ -101,6 +101,10 @@ The docs/onboarding lane now has a tracked cleanup feature:
 
 - `F149` — product documentation rebaseline: install/setup, feature map, multiple happy paths, and honest maturity boundaries
 - `F150` — product layering and release readiness: split SDP Lab, SDP Toolkit, Operator Mode, ChangePassport, and Enterprise Delivery Governance into explicit product surfaces before broad Go cleanup. v3 acceptance bar (post-IIP-council) attaches IIP flag mechanism, manual import audit, internal namespace lock, and cascade AGENTS.md migration.
+
+The multi-harness packaging lane now has a prompt-routing follow-up:
+
+- `F162` — System-level prompt bundle packaging: extend F141 from adapter parity to deterministic prompt bundle resolution before Claude Code, Codex, OpenCode, Cursor, Pi, and Kilo startup. Scope: bundle manifest, resolver, harness capability profiles, generated native entrypoints, doctor gates, dispatch integration, and downstream migration docs.
 
 Post-F150 v3 lane (post-IIP-council, 2026-04-27) — see [docs/roadmap/2026-04-27-roadmap-v3-post-iip.md](2026-04-27-roadmap-v3-post-iip.md) and [docs/strategy/2026-04-27-sdp-product-layering-4d.md](../strategy/2026-04-27-sdp-product-layering-4d.md):
 
