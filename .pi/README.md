@@ -10,9 +10,19 @@ This directory configures [Pi](https://pi.dev) as a first-class harness for the 
   extensions/
     sdp.ts           # SDP integration: tools, commands, status, footer
   prompts/           # Generated command templates from sdp.manifest.yaml
-  skills/            # Skills + agents for Pi (Agent Skills standard)
-    prompts-skills/  # Symlink → ../../prompts/skills (structured skills)
-    *.md             # Flat agent skills (architect, reviewer, security, ...)
+  skills/            # Pi-specific agent skills (Agent Skills standard, <name>/SKILL.md)
+    architect/       # Design & build
+    deployer/        # Operations
+    devops/          # CI/CD & infrastructure
+    implementer/     # Execution & TDD
+    orchestrator/    # Coordination
+    planner/         # Scope & decomposition
+    qa/              # Quality & test strategy
+    reviewer/        # Code review
+    security/        # Threat modeling
+    spec-reviewer/   # Spec compliance
+    sre/             # Reliability & observability
+    tech-lead/       # Technical direction
 ```
 
 ## What It Does
@@ -20,7 +30,7 @@ This directory configures [Pi](https://pi.dev) as a first-class harness for the 
 ### 1. Skills Discovery
 Skills are loaded from `.pi/skills/` (canonical Agent Skills standard):
 
-**Workflow skills** (structured, via `prompts-skills` symlink):
+**Workflow skills** (from `.agents/skills/<name>/SKILL.md`, auto-discovered by Pi):
 - `beads` — Task tracker integration
 - `feature`, `build`, `ship`, `review` — Delivery loop
 - `discovery`, `design` — Discovery phase
@@ -28,7 +38,7 @@ Skills are loaded from `.pi/skills/` (canonical Agent Skills standard):
 - `protocol-consistency`, `go-modern` — Quality gates
 - …and 20+ more
 
-**Agent skills** (flat `.md` files):
+**Agent skills** (Pi-specific, `.pi/skills/<name>/SKILL.md`):
 - `architect`, `planner`, `implementer` — Design & build
 - `reviewer`, `qa`, `security` — Quality & review
 - `devops`, `sre`, `deployer` — Operations
