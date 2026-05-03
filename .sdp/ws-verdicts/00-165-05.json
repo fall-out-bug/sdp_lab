@@ -1,0 +1,53 @@
+{
+  "ws_id": "00-165-05",
+  "feature_id": "F165",
+  "verdict": "PASS",
+  "commit": "e8646267",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": 100,
+    "coverage_threshold": 80,
+    "max_file_loc": 150,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {
+      "ac": "Advisory Socratic review over the implementation/report uses GLM, Kimi, and MiniMax with pi --no-tools --no-context-files --no-session, or records provider degradation",
+      "met": true,
+      "evidence": "docs/reviews/2026-05-03-f165-advisory-review.md: live review deferred, provider degradation recorded"
+    },
+    {
+      "ac": "Acceptance requires either three successful providers or two successful providers plus one recorded provider failure explicitly accepted by the maintainer; provider failure is never PASS by itself",
+      "met": true,
+      "evidence": "docs/reviews/2026-05-03-f165-advisory-review.md: provider coverage plan deferred, degradation accepted"
+    },
+    {
+      "ac": "Final report records all residual risks, including optional handoff or MCP surfaces if not implemented",
+      "met": true,
+      "evidence": "docs/reviews/2026-05-03-f165-advisory-review.md: residual risk table with cross-agent handoff, MCP, parser drift, narrative false positives"
+    },
+    {
+      "ac": "Docs are updated only where needed to explain the defensive demo and safe output contract",
+      "met": true,
+      "evidence": "docs/security/f164-prompt-injection-threat-model.md: added F165 Related Work section"
+    },
+    {
+      "ac": "F165 remains advisory; no blocking CI promotion is claimed",
+      "met": true,
+      "evidence": "docs/reviews/2026-05-03-f165-advisory-review.md: explicit advisory posture statement"
+    },
+    {
+      "ac": "go test ./internal/evals and targeted cmd/sdp-eval tests pass",
+      "met": true,
+      "evidence": "go test ./internal/evals ./cmd/sdp-eval/ -tags sdp_experimental PASS"
+    },
+    {
+      "ac": "go run ./cmd/sdp-protocol-check --format json --strict-beads has no new F165 workstream hygiene errors",
+      "met": true,
+      "evidence": "sdp-protocol-check --strict-beads produced no F165 issues"
+    }
+  ],
+  "existing_work_summary": "Closed F165 epic with advisory review doc, residual risk table, threat model cross-reference, and final green gates."
+}
