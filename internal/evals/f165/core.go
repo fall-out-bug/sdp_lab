@@ -213,7 +213,8 @@ func parseBeadsIssue(text string) (string, string, error) {
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(strings.ToLower(line), "issue title:") {
-			title = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(line, "Issue title:"), "issue title:"))
+			idx := strings.Index(strings.ToLower(line), "issue title:")
+			title = strings.TrimSpace(line[idx+len("issue title:"):])
 			continue
 		}
 		if strings.HasPrefix(strings.ToLower(line), "issue description:") {
@@ -280,8 +281,14 @@ func parseEvidenceFinding(text string) (string, string, error) {
 			continue
 		}
 		if strings.HasPrefix(strings.ToLower(line), "test result:") || strings.HasPrefix(strings.ToLower(line), "result:") {
-			result = strings.TrimSpace(strings.TrimPrefix(line, "test result:"))
-			result = strings.TrimSpace(strings.TrimPrefix(result, "result:"))
+			lower := strings.ToLower(line)
+			if strings.HasPrefix(lower, "test result:") {
+				idx := strings.Index(lower, "test result:")
+				result = strings.TrimSpace(line[idx+len("test result:"):])
+			} else {
+				idx := strings.Index(lower, "result:")
+				result = strings.TrimSpace(line[idx+len("result:"):])
+			}
 			inLog = false
 			continue
 		}
