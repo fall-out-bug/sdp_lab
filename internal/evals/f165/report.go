@@ -1,4 +1,4 @@
-package evals
+package f165
 
 import (
 	"encoding/json"
@@ -11,33 +11,23 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// IndirectPIReport is the automation-safe report for F165 demos.
-// Typed fields are consumable by downstream automation.
-// Free-form narrative is explicitly non-authoritative.
-type IndirectPIReport struct {
-	// Meta contains report metadata.
-	Meta ReportMeta `json:"meta"`
-
-	// Cases contains one entry per fixture case.
-	Cases []ReportCase `json:"cases"`
-
-	// Summary is a concise operator-facing narrative. It is non-authoritative.
-	Summary string `json:"summary"`
+type Report struct {
+	Meta    ReportMeta `json:"meta"`
+	Cases   []ReportCase `json:"cases"`
+	Summary string     `json:"summary"`
 }
 
-// ReportMeta carries report-level metadata.
 type ReportMeta struct {
-	FeatureID       string `json:"feature_id"`
-	ReportVersion   string `json:"report_version"`
-	GeneratedAt     string `json:"generated_at"`
-	Disclaimer      string `json:"disclaimer"`
-	TotalCases      int    `json:"total_cases"`
-	BlockedCount    int    `json:"blocked_count"`
-	CleanCount      int    `json:"clean_count"`
-	ResidualCount   int    `json:"residual_count"`
+	FeatureID     string `json:"feature_id"`
+	ReportVersion string `json:"report_version"`
+	GeneratedAt   string `json:"generated_at"`
+	Disclaimer    string `json:"disclaimer"`
+	TotalCases    int    `json:"total_cases"`
+	BlockedCount  int    `json:"blocked_count"`
+	CleanCount    int    `json:"clean_count"`
+	ResidualCount int    `json:"residual_count"`
 }
 
-// ReportCase is one row in the F165 report.
 type ReportCase struct {
 	CaseID               string `json:"case_id"`
 	Vector               string `json:"vector"`
@@ -49,44 +39,33 @@ type ReportCase struct {
 	DefenseTrigger       string `json:"defense_trigger,omitempty"`
 }
 
-// GenerateIndirectPIReport loads all fixtures in testdataDir and produces
-// a deterministic report comparing naive and defended outcomes.
-func GenerateIndirectPIReport(testdataDir string) (IndirectPIReport, error) {
+func GenerateReport(testdataDir string) (Report, error) {
 	matches, err := filepath.Glob(filepath.Join(testdataDir, "*.yaml"))
 	if err != nil {
-		return IndirectPIReport{}, fmt.Errorf("glob fixtures: %w", err)
+		return Report{}, fmt.Errorf("glob fixtures: %w", err)
 	}
-
 	var cases []ReportCase
 	var blocked, clean, residual int
-
 	for _, p := range matches {
 		data, err := os.ReadFile(p)
 		if err != nil {
-			return IndirectPIReport{}, fmt.Errorf("read %s: %w", p, err)
+			return Report{}, fmt.Errorf("read %s: %w", p, err)
 		}
-		var fixture IndirectPICase
-		if err := yamlUnmarshal(data, &fixture); err != nil {
-			return IndirectPIReport{}, fmt.Errorf("unmarshal %s: %w", p, err)
+		var fixture Case
+		if err := yaml.Unmarshal(data, &fixture); err != nil {
+			return Report{}, fmt.Errorf("unmarshal %s: %w", p, err)
 		}
-
-		// Naive path
 		naive := NewUnsafeDemoRunner().RunCase(fixture)
-
-		// Defended path
 		norm := Normalize(fixture.UntrustedArtifact)
 		parsed := Parse(norm, fixture.Vector)
 		wrapped := Wrap(parsed, norm)
 		defended := Validate(wrapped, fixture.TrustedStateSnapshot, fixture.ExpectedUnsafeResult.UnsafeAction, fixture.ExpectedUnsafeResult.UnsafeClaim)
-
-		// Validate closed sets before emitting.
 		if defended.BlockedReason != "" && !IsValidBlockedReason(defended.BlockedReason) {
-			return IndirectPIReport{}, fmt.Errorf("invalid blocked_reason %q in case %s", defended.BlockedReason, fixture.CaseID)
+			return Report{}, fmt.Errorf("invalid blocked_reason %q in case %s", defended.BlockedReason, fixture.CaseID)
 		}
 		if fixture.ResidualRiskCategory != "" && !IsValidResidualRiskCategory(fixture.ResidualRiskCategory) {
-			return IndirectPIReport{}, fmt.Errorf("invalid residual_risk_category %q in case %s", fixture.ResidualRiskCategory, fixture.CaseID)
+			return Report{}, fmt.Errorf("invalid residual_risk_category %q in case %s", fixture.ResidualRiskCategory, fixture.CaseID)
 		}
-
 		rc := ReportCase{
 			CaseID:               fixture.CaseID,
 			Vector:               fixture.Vector,
@@ -98,7 +77,6 @@ func GenerateIndirectPIReport(testdataDir string) (IndirectPIReport, error) {
 			DefenseTrigger:       describeDefenseTrigger(defended, fixture),
 		}
 		cases = append(cases, rc)
-
 		switch defended.Verdict {
 		case "blocked":
 			blocked++
@@ -108,14 +86,12 @@ func GenerateIndirectPIReport(testdataDir string) (IndirectPIReport, error) {
 			residual++
 		}
 	}
-
 	summary := fmt.Sprintf(
 		"F165 evaluated %d task-data vectors. Defenses blocked %d, confirmed %d clean, and classified %d as residual risk. "+
-		"This is an advisory demo report, not a delivery gate verdict.",
+			"This is an advisory demo report, not a delivery gate verdict.",
 		len(cases), blocked, clean, residual,
 	)
-
-	report := IndirectPIReport{
+	return Report{
 		Meta: ReportMeta{
 			FeatureID:     "F165",
 			ReportVersion: "v1",
@@ -128,17 +104,14 @@ func GenerateIndirectPIReport(testdataDir string) (IndirectPIReport, error) {
 		},
 		Cases:   cases,
 		Summary: summary,
-	}
-	return report, nil
+	}, nil
 }
 
-// RenderReportJSON emits the report as indented JSON.
-func RenderReportJSON(report IndirectPIReport) ([]byte, error) {
+func RenderReportJSON(report Report) ([]byte, error) {
 	return json.MarshalIndent(report, "", "  ")
 }
 
-// RenderReportText emits a concise operator-facing text summary.
-func RenderReportText(report IndirectPIReport) string {
+func RenderReportText(report Report) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "F165 Indirect Prompt Injection Report\n")
 	fmt.Fprintf(&b, "=====================================\n")
@@ -165,7 +138,7 @@ func RenderReportText(report IndirectPIReport) string {
 	return b.String()
 }
 
-func describeDefenseTrigger(defended IndirectPIValidateResult, fixture IndirectPICase) string {
+func describeDefenseTrigger(defended ValidateResult, fixture Case) string {
 	if defended.Verdict == "blocked" {
 		return defended.BlockedReason
 	}
@@ -173,8 +146,4 @@ func describeDefenseTrigger(defended IndirectPIValidateResult, fixture IndirectP
 		return "unsupported_surface"
 	}
 	return "clean"
-}
-
-func yamlUnmarshal(data []byte, v any) error {
-	return yaml.Unmarshal(data, v)
 }

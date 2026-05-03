@@ -103,6 +103,9 @@ func TestMainIndirectPIReportText(t *testing.T) {
 	if !strings.Contains(s, "advisory demo report") {
 		t.Fatalf("report missing advisory disclaimer: %s", s)
 	}
+	if !strings.Contains(s, "blocked") {
+		t.Fatalf("report missing blocked cases: %s", s)
+	}
 }
 
 func TestMainIndirectPIReportJSON(t *testing.T) {
