@@ -22,7 +22,11 @@
 
 set -euo pipefail
 
-SCOPE="${1:-prompts/ .agents/skills/ .pi/APPEND_SYSTEM.md docs/reference/skills.md}"
+if [ "$#" -gt 0 ]; then
+  SCOPE=("$@")
+else
+  SCOPE=(prompts/ .agents/skills/ .pi/APPEND_SYSTEM.md docs/reference/skills.md)
+fi
 FOUND=0
 
 # Patterns that claim prompt-only isolation is a security boundary.
@@ -33,26 +37,28 @@ FOUND=0
 #     (this is the correct pattern — flagging it would be a false positive)
 PATTERNS=(
   # Claim that prompt formatting/structure is a security control
-  "prompt.isolation.is.a.security.control"
-  "prompt.boundary.*security.control"
-  "security.control.*prompt.isolation"
-  "instruction.isolation.is.the.security.control"
-  "isolated.prompt.as.a.security.boundary"
+  "prompt[- ]isolation is a security control"
+  "prompt boundary.*security control"
+  "security control.*prompt[- ]isolation"
+  "instruction[- ]isolation is the security control"
+  "isolated prompt as a security boundary"
 
   # Claim that prompt-only protection suffices
-  "prompt.only.protection.is.sufficient"
-  "sufficient.as.a.security.boundary"
-  "no.additional.controls.needed"
+  "prompt-only protection is sufficient"
+  "prompt only protection is sufficient"
+  "sufficient as a security boundary"
+  "no additional controls needed"
 )
 
 echo "=== F164 PI-013: Prompt-only protection is NOT a security boundary ==="
-echo "Checking: $SCOPE"
+printf 'Checking:'
+printf ' %q' "${SCOPE[@]}"
+printf '\n'
 echo ""
 
 for pattern in "${PATTERNS[@]}"; do
   # Grep returns 0 (match) or 1 (no match). We only care about matches.
-  # shellcheck disable=SC2086
-  matches=$(grep -rE "$pattern" $SCOPE 2>/dev/null || true)
+  matches=$(grep -rEi "$pattern" "${SCOPE[@]}" 2>/dev/null || true)
   if [ -n "$matches" ]; then
     echo "FAIL: Found claim that prompt-only isolation is a security boundary:"
     echo "$matches"
@@ -65,7 +71,7 @@ done
 # Double-check we are not falsely flagging legitimate F164 guidance:
 echo "Checking counter-example (should pass — F164 advisory):"
 # This pattern in F164 docs is the RIGHT way to say it.
-counter_check=$(grep -rE "must NOT rely on prompt.only isolation as a security boundary" "$SCOPE" 2>/dev/null || true)
+counter_check=$(grep -rEi "must NOT rely on prompt-only isolation as a security boundary" "${SCOPE[@]}" 2>/dev/null || true)
 if [ -n "$counter_check" ]; then
   echo "  OK: Found correct advisory pattern (not a PI-013 failure):"
   echo "$counter_check"
