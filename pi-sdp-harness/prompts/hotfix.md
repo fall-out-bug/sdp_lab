@@ -38,7 +38,7 @@ git push origin main --tags
 
 ## Quick Reference
 
-**Input:** P0 CRITICAL issue  
+**Input:** P0 CRITICAL issue
 **Output:** Production fix + pushed to origin
 
 **Key Rules:**

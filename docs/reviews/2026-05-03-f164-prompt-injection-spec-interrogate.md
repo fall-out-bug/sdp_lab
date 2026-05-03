@@ -69,3 +69,11 @@ The judges accepted that the final revision addressed:
 ## Next Action
 
 Convert F164 into one Beads epic plus executable leaf workstreams. Then run the workstreams through Socratic review before execution.
+
+## CI Integration Decision
+
+F164-07 implements advisory-first CI:
+
+- Static corpus, prompt-surface PI-013, and mock trace regressions can block PRs.
+- Live-provider evals are skipped or reported as advisory-degraded when credentials are absent.
+- Moving live-provider findings or prompt hardening warnings to blocking requires a separate decision record and baseline trend evidence.

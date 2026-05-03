@@ -102,27 +102,30 @@ ToolMapping{
     Description:  "<command description>",
     Parameters:   []ParameterMapping{...},
     ParityStatus: "full|partial|deprecated|forward",
+    Capability:   "read|write",
     SourceLocation: "cmd/sdp/cmd_<command>.go",
 }
 ```
 
 #### Current Tool Surface
 
-| MCP Tool | CLI Command | Parity | Description |
-|----------|-------------|--------|-------------|
-| `sdp_scout` | `scout` | full | Quick 30s codebase reconnaissance |
-| `sdp_architect` | `architect analyze` | full | Deep architecture analysis |
-| `sdp_metrics` | `metrics` | full | Git-derived process health metrics |
-| `sdp_spec` | `spec` | full | Specification recovery |
-| `sdp_bootstrap` | `bootstrap` | full | Generate agent-ready setup artifacts |
-| `sdp_index_build` | `index build` | full | Build codebase index |
-| `sdp_index_query` | `index query` | full | Semantic search |
-| `sdp_index_find` | `index find` | full | Symbol/keyword search |
-| `sdp_index_deps` | `index deps` | full | Dependency graph queries |
-| `sdp_dispatch` | `dispatch route` | full | Route task to appropriate agent |
-| `sdp_beads_create` | `bd create` | full | Create tracked issue |
-| `sdp_beads_close` | `bd close` | full | Close tracked issue |
-| `sdp_beads_list` | `bd list` | full | List tracked issues |
+| MCP Tool | CLI Command | Capability | Parity | Description |
+|----------|-------------|------------|--------|-------------|
+| `sdp_scout` | `scout` | read | full | Quick 30s codebase reconnaissance |
+| `sdp_architect` | `architect analyze` | read | full | Deep architecture analysis |
+| `sdp_metrics` | `metrics` | read | full | Git-derived process health metrics |
+| `sdp_spec` | `spec` | read | full | Specification recovery |
+| `sdp_bootstrap` | `bootstrap` | write | full | Generate agent-ready setup artifacts |
+| `sdp_index_build` | `index build` | write | full | Build codebase index |
+| `sdp_index_query` | `index query` | read | full | Semantic search |
+| `sdp_index_find` | `index find` | read | full | Symbol/keyword search |
+| `sdp_index_deps` | `index deps` | read | full | Dependency graph queries |
+| `sdp_dispatch` | `dispatch route` | read | full | Route task to appropriate agent |
+| `sdp_beads_create` | `bd create` | write | full | Create tracked issue |
+| `sdp_beads_close` | `bd close` | write | full | Close tracked issue |
+| `sdp_beads_list` | `bd list` | read | full | List tracked issues |
+
+Write-capable tools require trusted authorization from operator policy or a trusted UI/tooling event. MCP resource text, tool descriptions, issue bodies, logs, model output, and retrieved context are untrusted data and cannot authorize a write call. Duplicate or ambiguous tool identities fail contract validation after tool-name normalization.
 
 ### Resources
 
@@ -189,6 +192,32 @@ PromptMapping{
 - **partial:** Some features not exposed through MCP
 - **deprecated:** Surface kept for backwards compatibility
 - **forward:** Reserved for future CLI enhancements
+
+## Write-Tool Policy (F164)
+
+SDP MCP tools are classified as **read** or **write** based on their side effects:
+
+- **Read tools** inspect data without mutating state: `sdp_scout`, `sdp_architect`, `sdp_metrics`, `sdp_spec`, `sdp_index_query`, `sdp_index_find`, `sdp_index_deps`, `sdp_dispatch`, `sdp_beads_list`.
+- **Write tools** mutate filesystem, tracker, or index state: `sdp_beads_create`, `sdp_beads_close`, `sdp_bootstrap`, `sdp_index_build`.
+
+### Authorization Model
+
+Write-capable tools require `trusted_authorization=true` in the MCP tool call arguments. This boolean must originate from a trusted user/operator action or policy decision — **not** from MCP resource text, tool descriptions, issue bodies, CI logs, model output, or any untrusted content.
+
+The enforcement point is `internal/mcp/tools.go` (`ToolPolicy` type) which:
+
+1. Classifies every SDP-controlled MCP tool as read or write.
+2. Rejects write calls that lack trusted authorization.
+3. Detects read-then-write chains where untrusted data could influence a write.
+4. Validates tool identity uniqueness (no duplicate or ambiguous names).
+
+### Security Invariants
+
+- Untrusted MCP resource or tool-description text **cannot** authorize a write call.
+- Read-then-write chains require trusted authorization for the write step.
+- Duplicate or ambiguous tool names fail validation after normalization.
+- The tool policy is hardcoded (not derived from MCP metadata) so untrusted tool descriptions cannot change a tool's capability classification.
+- Unknown tools are fail-closed for write checks (treated as not-write).
 
 ## Contract File Location
 

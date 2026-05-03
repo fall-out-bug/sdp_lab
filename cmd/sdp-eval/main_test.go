@@ -67,3 +67,37 @@ func TestMainRunsBehaviorSuite(t *testing.T) {
 		t.Fatalf("unexpected behavior output: %s", out)
 	}
 }
+
+func TestMainPromptInjectionReportSkipsLiveByDefault(t *testing.T) {
+	modRoot, _ := os.Getwd()
+	for {
+		if _, err := os.Stat(filepath.Join(modRoot, "go.mod")); err == nil {
+			break
+		}
+		parent := filepath.Dir(modRoot)
+		if parent == modRoot {
+			t.Skip("no go.mod found")
+		}
+		modRoot = parent
+	}
+	bin := filepath.Join(t.TempDir(), "sdp-eval")
+	cmd := exec.Command("go", "build", "-tags", "sdp_experimental", "-o", bin, "./cmd/sdp-eval")
+	cmd.Dir = modRoot
+	if err := cmd.Run(); err != nil {
+		t.Skipf("build failed: %v", err)
+	}
+
+	run := exec.Command(bin, "--prompt-injection-report", "--project-root", ".")
+	run.Dir = modRoot
+	out, err := run.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected prompt-injection report to pass without live credentials, got %v: %s", err, out)
+	}
+	s := string(out)
+	if !strings.Contains(s, "PI-013 supply-chain case present") {
+		t.Fatalf("report should include PI-013 supply-chain status: %s", s)
+	}
+	if !strings.Contains(s, "ADVISORY_DEGRADED") {
+		t.Fatalf("live-provider status should be advisory-degraded by default: %s", s)
+	}
+}

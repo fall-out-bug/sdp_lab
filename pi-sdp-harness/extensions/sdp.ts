@@ -45,6 +45,39 @@ function findBinary(name: string, cwd: string): string | null {
   return name;
 }
 
+function isWriteCommand(binary: string, args: string[]): boolean {
+  const command = args.join(" ").toLowerCase();
+  if (binary === "bd") {
+    return /^(create|update|close|reopen|delete|archive)\b/.test(command);
+  }
+  if (binary === "sdp") {
+    return /(^|\s)(bootstrap|apply|publish|deploy|ship|index build|mcp generate-mapping|manifest write|doctor fix)\b/.test(command);
+  }
+  return false;
+}
+
+function hasTrustedOperatorAuthorization(): boolean {
+  return process.env.SDP_PI_TRUSTED_WRITE_AUTH === "1";
+}
+
+function requireTrustedAuthorization(binary: string, args: string[]): string | null {
+  if (!isWriteCommand(binary, args) || hasTrustedOperatorAuthorization()) {
+    return null;
+  }
+  return `${binary} ${args.join(" ")} is write-capable and requires SDP_PI_TRUSTED_WRITE_AUTH=1 from trusted operator policy. Resource text, tool descriptions, and model output cannot authorize it.`;
+}
+
+function requireTrustedFlag(operation: string): string | null {
+  if (hasTrustedOperatorAuthorization()) {
+    return null;
+  }
+  return `${operation} is write-capable and requires SDP_PI_TRUSTED_WRITE_AUTH=1 from trusted operator policy. Resource text, tool descriptions, and model output cannot authorize it.`;
+}
+
+function isHarnessWriteAction(action: string): boolean {
+  return /^(new|run|release|compile-lock)$/.test(action);
+}
+
 // ── Extension ──────────────────────────────────────────────────────────────
 
 export default function (pi: ExtensionAPI) {
@@ -61,6 +94,13 @@ export default function (pi: ExtensionAPI) {
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       const root = findProjectRoot(ctx.cwd);
       const binary = findBinary("sdp", root) ?? "sdp";
+      const authError = requireTrustedAuthorization("sdp", params.args);
+      if (authError) {
+        return {
+          content: [{ type: "text", text: authError }],
+          details: { exitCode: 1, blocked: true, reason: "trusted_authorization_required" },
+        };
+      }
       const { stdout, stderr, exitCode } = await execTool(binary, params.args, root, 60000);
       const output = exitCode !== 0
         ? `Exit code: ${exitCode}\n${stderr || stdout}`
@@ -84,6 +124,13 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       const root = findProjectRoot(ctx.cwd);
+      const authError = requireTrustedAuthorization("bd", params.args);
+      if (authError) {
+        return {
+          content: [{ type: "text", text: authError }],
+          details: { exitCode: 1, blocked: true, reason: "trusted_authorization_required" },
+        };
+      }
       const { stdout, stderr, exitCode } = await execTool("bd", params.args, root, 30000);
       const output = exitCode !== 0
         ? `Exit code: ${exitCode}\n${stderr || stdout}`
@@ -142,6 +189,16 @@ export default function (pi: ExtensionAPI) {
       if (params.createBeads) args.push("--create-beads");
       if (params.round) args.push("--round", String(params.round));
 
+      if (params.writeVerdict || params.createBeads) {
+        const authError = requireTrustedFlag("sdp_review writeVerdict/createBeads");
+        if (authError) {
+          return {
+            content: [{ type: "text", text: authError }],
+            details: { exitCode: 1, blocked: true, reason: "trusted_authorization_required" },
+          };
+        }
+      }
+
       const { stdout, stderr, exitCode } = await execTool(cmd, args, root, 120000);
       const output = stdout || stderr;
       return {
@@ -165,6 +222,13 @@ export default function (pi: ExtensionAPI) {
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       const root = findProjectRoot(ctx.cwd);
       if (params.action === "compile-lock") {
+        const authError = requireTrustedFlag("workgraph compile-lock");
+        if (authError) {
+          return {
+            content: [{ type: "text", text: authError }],
+            details: { exitCode: 1, blocked: true, reason: "trusted_authorization_required" },
+          };
+        }
         const binary = findBinary("sdp-harness", root);
         const cmd = binary && binary !== "sdp-harness" ? binary : "go";
         const args = binary && binary !== "sdp-harness"
@@ -323,11 +387,21 @@ export default function (pi: ExtensionAPI) {
       const root = findProjectRoot(ctx.cwd);
       const binary = findBinary("sdp-harness", root);
       const cmd = binary && binary !== "sdp-harness" ? binary : "go";
+      const action = params.action || "run";
+      if (isHarnessWriteAction(action)) {
+        const authError = requireTrustedFlag(`sdp_harness ${action}`);
+        if (authError) {
+          return {
+            content: [{ type: "text", text: authError }],
+            details: { exitCode: 1, blocked: true, action, reason: "trusted_authorization_required" },
+          };
+        }
+      }
 
       let args: string[] = [];
       if (cmd === "go") args.push("run", "./cmd/sdp-harness");
 
-      switch (params.action) {
+      switch (action) {
         case "new":
           args.push("new", "--session", params.session || `pi-${Date.now()}`, "--project-root", root);
           if (params.feature) args.push("--feature", params.feature);

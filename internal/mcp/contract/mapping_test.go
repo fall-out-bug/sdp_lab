@@ -76,6 +76,21 @@ func TestBuilderAddTool(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, mapping.Tools, 1)
 	assert.Equal(t, "sdp_scout", mapping.Tools[0].MCPToolName)
+	assert.Equal(t, contract.ToolCapabilityRead, mapping.Tools[0].Capability)
+}
+
+func TestBuilderAddToolInfersWriteCapability(t *testing.T) {
+	mapping, err := contract.NewBuilder().
+		AddTool(contract.ToolMapping{
+			MCPToolName:  "sdp_beads_close",
+			CLICommand:   "bd close",
+			Description:  "Close tracked issue",
+			ParityStatus: contract.ParityFull,
+		}).
+		Build()
+
+	require.NoError(t, err)
+	assert.Equal(t, contract.ToolCapabilityWrite, mapping.Tools[0].Capability)
 }
 
 func TestBuilderAddResource(t *testing.T) {
@@ -126,7 +141,7 @@ func TestBuilderBuildRequiresValidFields(t *testing.T) {
 		wantError string
 	}{
 		{
-			name:  "empty tool name",
+			name: "empty tool name",
 			setup: func(b *contract.Builder) {
 				b.AddTool(contract.ToolMapping{
 					MCPToolName:  "",
@@ -138,7 +153,7 @@ func TestBuilderBuildRequiresValidFields(t *testing.T) {
 			wantError: "tool mcp_tool_name is required",
 		},
 		{
-			name:  "empty cli command",
+			name: "empty cli command",
 			setup: func(b *contract.Builder) {
 				b.AddTool(contract.ToolMapping{
 					MCPToolName:  "sdp_test",
@@ -150,7 +165,7 @@ func TestBuilderBuildRequiresValidFields(t *testing.T) {
 			wantError: "cli_command is required",
 		},
 		{
-			name:  "empty parity status",
+			name: "empty parity status",
 			setup: func(b *contract.Builder) {
 				b.AddTool(contract.ToolMapping{
 					MCPToolName: "sdp_test",
@@ -161,7 +176,7 @@ func TestBuilderBuildRequiresValidFields(t *testing.T) {
 			wantError: "parity_status is required",
 		},
 		{
-			name:  "duplicate tool name",
+			name: "duplicate tool name",
 			setup: func(b *contract.Builder) {
 				tool := contract.ToolMapping{
 					MCPToolName:  "sdp_test",
@@ -174,7 +189,37 @@ func TestBuilderBuildRequiresValidFields(t *testing.T) {
 			wantError: "duplicate tool name",
 		},
 		{
-			name:  "resource without URI",
+			name: "ambiguous tool name",
+			setup: func(b *contract.Builder) {
+				b.AddTool(contract.ToolMapping{
+					MCPToolName:  "sdp_beads_close",
+					CLICommand:   "bd close",
+					Description:  "test",
+					ParityStatus: contract.ParityFull,
+				}).AddTool(contract.ToolMapping{
+					MCPToolName:  "sdp-beads-close",
+					CLICommand:   "bd close",
+					Description:  "test",
+					ParityStatus: contract.ParityFull,
+				})
+			},
+			wantError: "ambiguous tool name",
+		},
+		{
+			name: "invalid tool capability",
+			setup: func(b *contract.Builder) {
+				b.AddTool(contract.ToolMapping{
+					MCPToolName:  "sdp_test",
+					CLICommand:   "test",
+					Description:  "test",
+					ParityStatus: contract.ParityFull,
+					Capability:   "safe-ish",
+				})
+			},
+			wantError: "capability must be",
+		},
+		{
+			name: "resource without URI",
 			setup: func(b *contract.Builder) {
 				b.AddResource(contract.ResourceMapping{
 					MCPResourceURI: "",
@@ -188,7 +233,7 @@ func TestBuilderBuildRequiresValidFields(t *testing.T) {
 			wantError: "resource mcp_resource_uri is required",
 		},
 		{
-			name:  "prompt without name",
+			name: "prompt without name",
 			setup: func(b *contract.Builder) {
 				b.AddPrompt(contract.PromptMapping{
 					MCPPromptName: "",
@@ -252,6 +297,32 @@ func TestMappingSaveAndLoad(t *testing.T) {
 	assert.Equal(t, len(original.Tools), len(loaded.Tools))
 	assert.Equal(t, len(original.Resources), len(loaded.Resources))
 	assert.Equal(t, len(original.Prompts), len(loaded.Prompts))
+}
+
+func TestLoadFromFileBackfillsToolCapability(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "legacy-mapping.json")
+	require.NoError(t, os.WriteFile(path, []byte(`{
+  "spec_version": "1.0.0",
+  "cli_registry_hash": "abc123",
+  "skill_catalog_hash": "def456",
+  "generated_at": "2026-05-03T13:45:00Z",
+  "tools": [
+    {
+      "mcp_tool_name": "sdp_beads_close",
+      "cli_command": "bd close",
+      "description": "Close tracked issue",
+      "parity_status": "full"
+    }
+  ],
+  "resources": [],
+  "prompts": []
+}`), 0o644))
+
+	mapping, err := contract.LoadFromFile(path)
+	require.NoError(t, err)
+	require.Len(t, mapping.Tools, 1)
+	assert.Equal(t, contract.ToolCapabilityWrite, mapping.Tools[0].Capability)
 }
 
 func TestMappingGetToolByMCPName(t *testing.T) {
@@ -465,4 +536,186 @@ func TestMappingGeneratedAtIsSet(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, mapping.GeneratedAt.After(before) || mapping.GeneratedAt.Equal(before))
 	assert.True(t, mapping.GeneratedAt.Before(after) || mapping.GeneratedAt.Equal(after))
+}
+
+// ---------------------------------------------------------------------------
+// F164 WS-00-164-06: Capability classification and write-tool policy tests
+// ---------------------------------------------------------------------------
+
+func TestToolMapping_CapabilityValidation(t *testing.T) {
+	tests := []struct {
+		name      string
+		tool      contract.ToolMapping
+		wantError string
+	}{
+		{
+			name: "valid read capability",
+			tool: contract.ToolMapping{
+				MCPToolName:  "sdp_scout",
+				CLICommand:   "scout",
+				Description:  "Quick recon",
+				ParityStatus: contract.ParityFull,
+				Capability:   contract.ToolCapabilityRead,
+			},
+			wantError: "",
+		},
+		{
+			name: "valid write capability",
+			tool: contract.ToolMapping{
+				MCPToolName:  "sdp_beads_create",
+				CLICommand:   "bd create",
+				Description:  "Create bead",
+				ParityStatus: contract.ParityFull,
+				Capability:   contract.ToolCapabilityWrite,
+			},
+			wantError: "",
+		},
+		{
+			name: "invalid capability",
+			tool: contract.ToolMapping{
+				MCPToolName:  "sdp_test",
+				CLICommand:   "test",
+				Description:  "test",
+				ParityStatus: contract.ParityFull,
+				Capability:   "execute",
+			},
+			wantError: "capability must be",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := contract.NewBuilder().AddTool(tt.tool).Build()
+			if tt.wantError == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantError)
+			}
+		})
+	}
+}
+
+func TestMapping_GetToolsByCapability(t *testing.T) {
+	mapping, err := contract.NewBuilder().
+		AddTool(contract.ToolMapping{
+			MCPToolName:  "sdp_scout",
+			CLICommand:   "scout",
+			Description:  "Quick recon",
+			ParityStatus: contract.ParityFull,
+			Capability:   contract.ToolCapabilityRead,
+		}).
+		AddTool(contract.ToolMapping{
+			MCPToolName:  "sdp_beads_create",
+			CLICommand:   "bd create",
+			Description:  "Create bead",
+			ParityStatus: contract.ParityFull,
+			Capability:   contract.ToolCapabilityWrite,
+		}).
+		AddTool(contract.ToolMapping{
+			MCPToolName:  "sdp_beads_close",
+			CLICommand:   "bd close",
+			Description:  "Close bead",
+			ParityStatus: contract.ParityFull,
+			Capability:   contract.ToolCapabilityWrite,
+		}).
+		Build()
+
+	require.NoError(t, err)
+
+	readTools := mapping.GetToolsByCapability(contract.ToolCapabilityRead)
+	assert.Len(t, readTools, 1)
+	assert.Equal(t, "sdp_scout", readTools[0].MCPToolName)
+
+	writeTools := mapping.GetToolsByCapability(contract.ToolCapabilityWrite)
+	assert.Len(t, writeTools, 2)
+}
+
+func TestMapping_GetWriteTools(t *testing.T) {
+	mapping, err := contract.NewBuilder().
+		AddTool(contract.ToolMapping{
+			MCPToolName:  "sdp_scout",
+			CLICommand:   "scout",
+			Description:  "Quick recon",
+			ParityStatus: contract.ParityFull,
+			Capability:   contract.ToolCapabilityRead,
+		}).
+		AddTool(contract.ToolMapping{
+			MCPToolName:  "sdp_beads_create",
+			CLICommand:   "bd create",
+			Description:  "Create bead",
+			ParityStatus: contract.ParityFull,
+			Capability:   contract.ToolCapabilityWrite,
+		}).
+		Build()
+
+	require.NoError(t, err)
+
+	writeTools := mapping.GetWriteTools()
+	assert.Len(t, writeTools, 1)
+	assert.Equal(t, "sdp_beads_create", writeTools[0].MCPToolName)
+}
+
+func TestMapping_GetReadTools(t *testing.T) {
+	mapping, err := contract.NewBuilder().
+		AddTool(contract.ToolMapping{
+			MCPToolName:  "sdp_scout",
+			CLICommand:   "scout",
+			Description:  "Quick recon",
+			ParityStatus: contract.ParityFull,
+			Capability:   contract.ToolCapabilityRead,
+		}).
+		Build()
+
+	require.NoError(t, err)
+
+	readTools := mapping.GetReadTools()
+	assert.Len(t, readTools, 1)
+	assert.Equal(t, "sdp_scout", readTools[0].MCPToolName)
+}
+
+func TestMapping_AmbiguousToolNames(t *testing.T) {
+	_, err := contract.NewBuilder().
+		AddTool(contract.ToolMapping{
+			MCPToolName:  "sdp_scout",
+			CLICommand:   "scout",
+			Description:  "Scout v1",
+			ParityStatus: contract.ParityFull,
+			Capability:   contract.ToolCapabilityRead,
+		}).
+		AddTool(contract.ToolMapping{
+			MCPToolName:  "sdp-scout",
+			CLICommand:   "scout2",
+			Description:  "Scout v2",
+			ParityStatus: contract.ParityFull,
+			Capability:   contract.ToolCapabilityRead,
+		}).
+		Build()
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "ambiguous tool name")
+}
+
+func TestInferToolCapability(t *testing.T) {
+	tests := []struct {
+		name     string
+		toolName string
+		cliCmd   string
+		want     string
+	}{
+		{"create is write", "sdp_beads_create", "bd create", contract.ToolCapabilityWrite},
+		{"close is write", "sdp_beads_close", "bd close", contract.ToolCapabilityWrite},
+		{"update is write", "sdp_beads_update", "bd update", contract.ToolCapabilityWrite},
+		{"delete is write", "sdp_beads_delete", "bd delete", contract.ToolCapabilityWrite},
+		{"scout is read", "sdp_scout", "scout", contract.ToolCapabilityRead},
+		{"metrics is read", "sdp_metrics", "metrics", contract.ToolCapabilityRead},
+		{"dispatch is read", "sdp_dispatch", "dispatch route", contract.ToolCapabilityRead},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := contract.InferToolCapability(tt.toolName, tt.cliCmd)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }

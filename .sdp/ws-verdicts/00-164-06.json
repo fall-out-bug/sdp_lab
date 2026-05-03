@@ -1,0 +1,57 @@
+{
+  "ws_id": "00-164-06",
+  "feature_id": "F164",
+  "verdict": "PASS",
+  "timestamp": "2026-05-03T13:50:00Z",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {
+      "ac": "SDP-controlled MCP/write tools are classified as read or write capable.",
+      "met": true,
+      "evidence": "internal/mcp/tools.go:14 and internal/mcp/tools.go:38 define the hardcoded tool capability policy; internal/mcp/contract/mapping.go:57 carries capability in mapping contracts."
+    },
+    {
+      "ac": "Duplicate or ambiguous tool names fail validation.",
+      "met": true,
+      "evidence": "internal/mcp/contract/mapping.go:270 rejects normalized ambiguous names; internal/mcp/contract/mapping_test.go:192 covers ambiguous tool names."
+    },
+    {
+      "ac": "Untrusted MCP resource or tool-description text cannot authorize a write call.",
+      "met": true,
+      "evidence": "internal/mcp/server.go:639 gates write handlers through trusted_authorization; .pi/extensions/sdp.ts:59 blocks write-capable adapter commands without trustedAuthorization."
+    },
+    {
+      "ac": "Read-then-write chains require trusted authorization for the write step.",
+      "met": true,
+      "evidence": "internal/mcp/tools.go:132 validates read-then-write chains; internal/mcp/tools_test.go:1084 covers the rejected and allowed chain cases."
+    },
+    {
+      "ac": "Tests use mock/sandbox traces and do not depend on arbitrary third-party MCP server behavior.",
+      "met": true,
+      "evidence": "internal/mcp/tools_test.go:694, internal/mcp/tools_test.go:764, internal/mcp/tools_test.go:1084 use mock executors and in-memory policy traces only."
+    },
+    {
+      "ac": "go test ./internal/mcp/... passes.",
+      "met": true,
+      "evidence": "local test run: go test ./internal/mcp/... && go vet ./internal/mcp/... && go run ./cmd/sdp manifest validate"
+    }
+  ],
+  "existing_work_summary": "Pre-existing MCP server and mapping contract exposed SDP tools and resources, but did not classify write capability or gate write-capable MCP calls on trusted authorization.",
+  "changed_files": [
+    "internal/mcp/tools.go",
+    "internal/mcp/tools_test.go",
+    "internal/mcp/server.go",
+    "internal/mcp/server_test.go",
+    "internal/mcp/contract/mapping.go",
+    "internal/mcp/contract/mapping_test.go",
+    "docs/reference/sdp-mcp.md",
+    ".pi/extensions/sdp.ts",
+    "schema/contracts/cli-mcp-mapping.json"
+  ],
+  "tdd_cycles": 2
+}

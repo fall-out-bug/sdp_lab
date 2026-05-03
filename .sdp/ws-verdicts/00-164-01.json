@@ -1,0 +1,46 @@
+{
+  "ws_id": "00-164-01",
+  "feature_id": "F164",
+  "verdict": "PASS",
+  "commit": "a8a11cb6028093939103108aa5e059c1de8e34a0",
+  "timestamp": "2026-05-03T11:25:00Z",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {
+      "ac": "Threat model names F164 ownership, scope, actors, trust boundaries, and non-goals.",
+      "met": true,
+      "evidence": "f164-prompt-injection-threat-model.md contains: Owner line (line 6), Decision Authority section (line 8), Product Boundary with explicit in-scope/out-of-scope (line 59), Actors section (line 84), Trust boundaries table with Trusted/Untrusted columns (line 114-120), Non-Goals section (line 404)."
+    },
+    {
+      "ac": "Corpus spec includes direct, indirect, jailbreak, extraction, tool-use, evidence, MCP, context, and supply-chain cases.",
+      "met": true,
+      "evidence": "f164-prompt-injection-test-cases.md defines 18 cases (PI-001 through PI-018) covering all required classes: direct_override (PI-001), role_play_jailbreak (PI-002), prompt_extraction (PI-003), repo_indirect (PI-004), pr_diff_indirect (PI-005), ci_log_indirect (PI-006), beads_poisoning (PI-007), workstream_poisoning (PI-008), evidence_forgery (PI-009), cross_agent_handoff (PI-010), mcp_resource_injection (PI-011), context_poisoning (PI-012), prompt_bundle_supply_chain (PI-013), external_doc_injection (PI-014), qa_uat_override (PI-015), mcp_tool_description_poisoning (PI-016), multi_vector_pr_handoff (PI-017), benign_security_doc_control (PI-018)."
+    },
+    {
+      "ac": "First-baseline measurement rules classify each case as untested, fail, prompt-only pass, or deterministic-gate pass.",
+      "met": true,
+      "evidence": "f164-prompt-injection-threat-model.md Baseline Exposure section (line 50-53) defines the four classification categories: untested, fail, pass only by prompt behavior, pass by deterministic gate. Test Verification Semantics section defines authoritative layers (static, mock_trace, live, human) per case. Corpus schema includes authoritative_layer field. Actual baseline run is explicitly out of scope per WS-01."
+    },
+    {
+      "ac": "Socratic review evidence records GLM, Kimi, and MiniMax critic/judge outcomes with zero unresolved blocking findings, or a provider failure plus maintainer acceptance per the spec.",
+      "met": true,
+      "evidence": "docs/reviews/2026-05-03-f164-prompt-injection-spec-interrogate-evidence.json confirms: critic_providers [zai/glm-5.1, kimi-coding/k2p6, minimax/MiniMax-M2.7], judge round 2 all PASS, provider_failures [], open_questions_count 0, interrogate_verdict PASS. Review report at docs/reviews/2026-05-03-f164-prompt-injection-spec-interrogate.md documents resolution of all blocking round 1 findings."
+    },
+    {
+      "ac": "go run ./cmd/sdp-protocol-check --format json --strict-beads reports no new F164 workstream hygiene errors.",
+      "met": true,
+      "evidence": "Ran go run ./cmd/sdp-protocol-check --format json --strict-beads at commit a8a11cb. Output contains only pre-existing warnings for features F083-F163 (F133, F135, F145-F147, F161, F163). Zero warnings reference F164 or 00-164 workstream files."
+    },
+    {
+      "ac": "No runtime hardening is claimed beyond the reviewed spec boundary.",
+      "met": true,
+      "evidence": "Threat model Non-Goals section (line 404) explicitly disclaims prompt-injection-proof claims. Rollout section (line 377) stages changes as advisory before blocking. No Go source code changes exist for F164 — only docs/security/ and docs/reviews/ artifacts. Threat model explicitly separates 'Required in this feature' from 'Follow-on or later hardening'."
+    }
+  ],
+  "existing_work_summary": "WS 00-164-01 defines the F164 prompt-injection threat model, corpus spec, and baseline measurement contract. The threat model (docs/security/f164-prompt-injection-threat-model.md) covers ownership, decision authority, actors, trust boundaries, attack classes (13 classes), phase tool policy, security invariants, evidence/gate semantics, MCP boundaries, observability, containment, and rollout stages. The corpus spec (docs/security/f164-prompt-injection-test-cases.md) defines 18 test cases (PI-001 through PI-018) with full schema, case table, detailed scenarios, benign controls, and pass/fail bar. Socratic review completed across 2 rounds with all 3 providers (GLM, Kimi, MiniMax) passing judge round 2 with zero unresolved blocking findings. Protocol check passes with no F164 errors. All six acceptance criteria are satisfied by existing artifacts."
+}

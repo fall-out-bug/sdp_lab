@@ -70,22 +70,37 @@ func TestToolRegistration(t *testing.T) {
 }
 
 func TestRepoPathResolution(t *testing.T) {
-	srv := NewServer(ServerConfig{RepoRoot: "/default"})
+	root := t.TempDir()
+	srv := NewServer(ServerConfig{RepoRoot: root})
 
 	tests := []struct {
 		name     string
 		toolPath string
 		want     string
 	}{
-		{"empty tool path falls back to server default", "", "/default"},
-		{"tool path overrides default", "/override", "/override"},
-		{"relative tool path is preserved", "./subdir", "./subdir"},
+		{"empty tool path falls back to server default", "", root},
+		{"relative tool path resolves under default", "./subdir", filepath.Join(root, "subdir")},
+		{"nested relative path resolves under default", "docs", filepath.Join(root, "docs")},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := srv.repoPath(tt.toolPath)
+			got, err := srv.repoPath(tt.toolPath)
+			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestRepoPathResolutionRejectsEscapes(t *testing.T) {
+	root := t.TempDir()
+	srv := NewServer(ServerConfig{RepoRoot: root})
+
+	for _, path := range []string{"../outside", "/etc/passwd"} {
+		t.Run(path, func(t *testing.T) {
+			_, err := srv.repoPath(path)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "escapes repository root")
 		})
 	}
 }
@@ -112,8 +127,8 @@ const expectedPromptCount = 5
 
 func TestProtocolConsistency_ToolSurfaceIsStable(t *testing.T) {
 	// Create two independent servers and verify both register the same tools.
-	srv1 := NewServer(ServerConfig{RepoRoot: "."})
-	srv2 := NewServer(ServerConfig{RepoRoot: "."})
+	srv1 := NewServer(ServerConfig{RepoRoot: t.TempDir(), TrustedWriteAuthorization: true})
+	srv2 := NewServer(ServerConfig{RepoRoot: t.TempDir(), TrustedWriteAuthorization: true})
 
 	// The MCP SDK does not expose a public tool-list API from MCPServer.
 	// We verify stability indirectly: the server must have registered all
@@ -151,10 +166,10 @@ func TestProtocolConsistency_ToolSurfaceIsStable(t *testing.T) {
 		}, map[string]interface{}{}},
 		{"sdp_bootstrap", func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			return srv1.handleBootstrap(ctx, req)
-		}, map[string]interface{}{}},
+		}, map[string]interface{}{"trusted_authorization": true}},
 		{"sdp_index_build", func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			return srv1.handleIndexBuild(ctx, req)
-		}, map[string]interface{}{}},
+		}, map[string]interface{}{"trusted_authorization": true}},
 		{"sdp_index_query", func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			return srv1.handleIndexQuery(ctx, req)
 		}, map[string]interface{}{"query": "test"}},
@@ -169,10 +184,10 @@ func TestProtocolConsistency_ToolSurfaceIsStable(t *testing.T) {
 		}, map[string]interface{}{"task": "test"}},
 		{"sdp_beads_create", func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			return srv1.handleBeadsCreate(ctx, req)
-		}, map[string]interface{}{"title": "test"}},
+		}, map[string]interface{}{"title": "test", "trusted_authorization": true}},
 		{"sdp_beads_close", func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			return srv1.handleBeadsClose(ctx, req)
-		}, map[string]interface{}{"id": "WS-1"}},
+		}, map[string]interface{}{"id": "WS-1", "trusted_authorization": true}},
 		{"sdp_beads_list", func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			return srv1.handleBeadsList(ctx, req)
 		}, map[string]interface{}{}},
@@ -324,11 +339,11 @@ func TestProtocolConsistency_ErrorFormatConsistency(t *testing.T) {
 		},
 		{
 			"sdp_beads_create_missing_title",
-			mcp.CallToolRequest{Params: mcp.CallToolParams{Name: "sdp_beads_create", Arguments: map[string]interface{}{}}},
+			mcp.CallToolRequest{Params: mcp.CallToolParams{Name: "sdp_beads_create", Arguments: map[string]interface{}{"trusted_authorization": true}}},
 		},
 		{
 			"sdp_beads_close_missing_id",
-			mcp.CallToolRequest{Params: mcp.CallToolParams{Name: "sdp_beads_close", Arguments: map[string]interface{}{}}},
+			mcp.CallToolRequest{Params: mcp.CallToolParams{Name: "sdp_beads_close", Arguments: map[string]interface{}{"trusted_authorization": true}}},
 		},
 	}
 

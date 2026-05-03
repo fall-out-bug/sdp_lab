@@ -1,0 +1,57 @@
+{
+  "ws_id": "00-164-02",
+  "feature_id": "F164",
+  "verdict": "PASS",
+  "timestamp": "2026-05-03T12:02:00Z",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {
+      "ac": "A corpus schema captures case id, class, surface, trust source, allowed/forbidden tools, expected behavior, forbidden behavior, authoritative layer, and evidence expectation.",
+      "met": true,
+      "evidence": "schema/prompt-injection-corpus.schema.json:7"
+    },
+    {
+      "ac": "Minimum provenance fields are defined for tool result, human approval, policy decision, and model judgment.",
+      "met": true,
+      "evidence": "internal/evals/pi_corpus.go:123"
+    },
+    {
+      "ac": "PromptOps schema extension decision is explicit: extend existing schema, create dedicated PI schema, or both.",
+      "met": true,
+      "evidence": "internal/evals/pi_corpus.go:212"
+    },
+    {
+      "ac": "Static validation rejects malformed cases and missing trust/tool/evidence fields.",
+      "met": true,
+      "evidence": "internal/evals/pi_corpus_test.go:40"
+    },
+    {
+      "ac": "Static validation enforces at least one benign control case and at least one supply-chain case.",
+      "met": true,
+      "evidence": "internal/evals/pi_corpus_test.go:234"
+    },
+    {
+      "ac": "A fixture proves keyword-block-only classification fails validation when benign controls are absent or mislabeled.",
+      "met": true,
+      "evidence": "internal/evals/pi_corpus_test.go:334"
+    },
+    {
+      "ac": "go test ./internal/evals && go test -tags sdp_experimental ./cmd/sdp-eval passes.",
+      "met": true,
+      "evidence": "local test run: go test ./internal/evals && go test -tags sdp_experimental ./cmd/sdp-eval"
+    }
+  ],
+  "existing_work_summary": "Pre-existing cmd/sdp-eval is gated by sdp_experimental build tags. Initial WS02 implementation existed on feature branch; review found allowed_tools empty-array semantics and schema enforcement gaps.",
+  "changed_files": [
+    "schema/prompt-injection-corpus.schema.json",
+    "internal/evals/pi_corpus.go",
+    "internal/evals/pi_corpus_test.go",
+    "docs/workstreams/backlog/00-164-02.md"
+  ],
+  "tdd_cycles": 2
+}

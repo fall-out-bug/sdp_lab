@@ -1,0 +1,57 @@
+{
+  "ws_id": "00-164-05",
+  "feature_id": "F164",
+  "verdict": "PASS",
+  "timestamp": "2026-05-03T12:58:00Z",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {
+      "ac": "Security/review/build-oriented prompt surfaces document trusted instruction versus untrusted content handling",
+      "met": true,
+      "evidence": "F164 note added to prompts/agents/security.md:11, prompts/agents/reviewer.md:9, prompts/skills/review/SKILL.md:20, prompts/skills/build/SKILL.md:21, .agents/skills/review.md:20, .agents/skills/build.md:20, .pi/APPEND_SYSTEM.md:5, docs/reference/skills.md:181. All surfaces document trusted instruction vs untrusted content handling."
+    },
+    {
+      "ac": "Hardened patterns preserve existing prompt installation unless a decision record accepts a breaking change",
+      "met": true,
+      "evidence": "All changes are additive F164 note blocks and extended PromptOps checks; no existing format, schema, or output shape was modified. Preserves existing prompt installation."
+    },
+    {
+      "ac": "PromptOps checks include prompt-injection-specific concerns or link to the F164 corpus schema",
+      "met": true,
+      "evidence": "PromptOps expert in prompts/skills/review/SKILL.md:88 and .agents/skills/review.md: extended with PI-specific checks (a) PI-013 supply-chain check, (b) trusted/untrusted content handling documentation, (c) benign controls processing. All review SKILLs reference docs/security/f164-prompt-injection-test-cases.md."
+    },
+    {
+      "ac": "A grep or eval check fails if active prompt surfaces claim prompt-only protection is a security boundary",
+      "met": true,
+      "evidence": "scripts/prompt-injection-check.sh: PI-013 grep/eval check created. Local checks: default active prompt surfaces pass; synthetic bad phrase fails with exit 1; correct advisory and negated security-boundary statements pass. PI-013 check also embedded in PromptOps expert task descriptions."
+    },
+    {
+      "ac": "Benign security documentation and tests with injection-like strings remain processable as data through the 00-164-03 mock cases",
+      "met": true,
+      "evidence": "All 8 scope files explicitly state benign controls (security docs, test fixtures with injection-like strings) are processable as data without blocking. F164 notes reference 00-164-03 context (PI-018 benign security doc control)."
+    },
+    {
+      "ac": "Existing adapter/prompt install validation still passes or the workstream records a decision for any breaking change",
+      "met": true,
+      "evidence": "go run ./cmd/sdp manifest validate passed for sdp.manifest.yaml. No schema changes, no output format changes, no breaking changes to any surface. Addition-only changes."
+    }
+  ],
+  "existing_work_summary": "F164 threat model (f164-prompt-injection-threat-model.md) and test cases (f164-prompt-injection-test-cases.md) already existed with PI-001 through PI-018. No prior F164-05 prompt hardening was present in the 8 scope files.",
+  "changed_files": [
+    "prompts/agents/security.md",
+    "prompts/agents/reviewer.md",
+    "prompts/skills/review/SKILL.md",
+    "prompts/skills/build/SKILL.md",
+    ".agents/skills/review.md",
+    ".agents/skills/build.md",
+    ".pi/APPEND_SYSTEM.md",
+    "docs/reference/skills.md",
+    "scripts/prompt-injection-check.sh"
+  ],
+  "tdd_cycles": 0
+}

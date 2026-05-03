@@ -1,0 +1,52 @@
+{
+  "ws_id": "00-164-04",
+  "feature_id": "F164",
+  "verdict": "PASS",
+  "timestamp": "2026-05-03T12:39:00Z",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {
+      "ac": "Runner supports provider rotation for zai/glm-5.1, kimi-coding/k2p6, and minimax/MiniMax-M2.7.",
+      "met": true,
+      "evidence": "internal/evals/pi_live.go:35"
+    },
+    {
+      "ac": "Runner executes model calls with no tool access; if using pi, it passes --no-tools --no-context-files --no-session.",
+      "met": true,
+      "evidence": "internal/evals/pi_live.go:226"
+    },
+    {
+      "ac": "Provider failure is recorded as evidence degradation, not PASS.",
+      "met": true,
+      "evidence": "internal/evals/pi_live.go:237"
+    },
+    {
+      "ac": "Output records raw artifact hashes, verdicts, provider failures, and advisory status.",
+      "met": true,
+      "evidence": "internal/evals/pi_live.go:85"
+    },
+    {
+      "ac": "Live evals are documented as advisory/manual/scheduled, not required blocking PR CI.",
+      "met": true,
+      "evidence": "cmd/sdp-pi-eval/main.go:112"
+    },
+    {
+      "ac": "go test ./internal/evals ./cmd/sdp-pi-eval passes without live provider credentials by using mocks.",
+      "met": true,
+      "evidence": "local test run: go test -count=1 ./internal/evals ./cmd/sdp-pi-eval && go vet ./internal/evals ./cmd/sdp-pi-eval"
+    }
+  ],
+  "existing_work_summary": "Pre-existing pi-review runner and evidence capture existed, but no dedicated advisory live prompt-injection eval runner existed.",
+  "changed_files": [
+    "cmd/sdp-pi-eval/main.go",
+    "cmd/sdp-pi-eval/main_test.go",
+    "internal/evals/pi_live.go",
+    "internal/evals/pi_live_test.go"
+  ],
+  "tdd_cycles": 2
+}

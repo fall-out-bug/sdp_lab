@@ -6,7 +6,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/fall-out-bug/sdp_lab/internal/evals"
 	"github.com/fall-out-bug/sdp_lab/internal/evidence"
@@ -17,6 +19,8 @@ func main() {
 	all := flag.Bool("all", false, "Run evals for all skills")
 	projectRoot := flag.String("project-root", ".", "Project root")
 	casesDir := flag.String("cases-dir", "", "Cases directory (default: internal/eval/cases)")
+	piReport := flag.Bool("prompt-injection-report", false, "Run F164 prompt-injection static/advisory report and exit")
+	piLive := flag.Bool("prompt-injection-live", false, "Include live-provider prompt-injection eval status as advisory")
 	flag.Parse()
 
 	if *casesDir == "" {
@@ -27,6 +31,14 @@ func main() {
 	if err := evidence.ValidatePath(absRoot, ""); err != nil {
 		fmt.Fprintf(os.Stderr, "project-root: %v\n", err)
 		os.Exit(1)
+	}
+
+	if *piReport {
+		if err := runPromptInjectionReport(absRoot, *piLive); err != nil {
+			fmt.Fprintf(os.Stderr, "prompt-injection-report: %v\n", err)
+			os.Exit(1)
+		}
+		return
 	}
 	absCases, _ := filepath.Abs(*casesDir)
 	if err := evidence.ValidatePath(absCases, absRoot); err != nil {
@@ -72,4 +84,34 @@ func main() {
 	if passed < len(results) {
 		os.Exit(1)
 	}
+}
+
+func runPromptInjectionReport(projectRoot string, includeLive bool) error {
+	testCasesPath := filepath.Join(projectRoot, "docs", "security", "f164-prompt-injection-test-cases.md")
+	testCases, err := os.ReadFile(testCasesPath)
+	if err != nil {
+		return fmt.Errorf("read test cases: %w", err)
+	}
+	if !strings.Contains(string(testCases), "PI-013") || !strings.Contains(string(testCases), "Prompt Bundle Supply Chain") {
+		return fmt.Errorf("PI-013 supply-chain case missing from prompt-injection corpus docs")
+	}
+
+	checkScript := filepath.Join(projectRoot, "scripts", "prompt-injection-check.sh")
+	cmd := exec.Command(checkScript)
+	cmd.Dir = projectRoot
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("PI-013 prompt surface check failed: %w\n%s", err, out)
+	}
+
+	fmt.Println("prompt-injection static/mock report")
+	fmt.Println("  static corpus docs: PASS (PI-013 supply-chain case present)")
+	fmt.Println("  prompt surface PI-013 check: PASS")
+	fmt.Println("  mock trace regressions: PASS when go test ./internal/evals passes")
+	if includeLive {
+		fmt.Println("  live-provider eval: ADVISORY (run cmd/sdp-pi-eval manually or scheduled; not a PR gate)")
+	} else {
+		fmt.Println("  live-provider eval: ADVISORY_DEGRADED (skipped; no live credentials required for CI)")
+	}
+	return nil
 }

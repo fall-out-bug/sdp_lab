@@ -91,7 +91,7 @@ sync-pi-package:
 	@echo "Syncing pi-sdp-harness package..."
 	@mkdir -p pi-sdp-harness/{extensions,skills,prompts,themes}
 	@cp -r .pi/extensions/* pi-sdp-harness/extensions/
-	@cp -r .pi/skills/* pi-sdp-harness/skills/
+	@if [ -d .pi/skills ] && find .pi/skills -mindepth 1 -maxdepth 1 | grep -q .; then cp -r .pi/skills/* pi-sdp-harness/skills/; fi
 	@cp -r .pi/prompts/* pi-sdp-harness/prompts/
 	@echo "Synced: extensions, skills, prompts"
 	@echo "Version: $$(jq -r .version pi-sdp-harness/package.json)"

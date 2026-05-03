@@ -1,0 +1,60 @@
+{
+  "ws_id": "00-164-07",
+  "feature_id": "F164",
+  "verdict": "PASS",
+  "timestamp": "2026-05-03T14:03:00Z",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {
+      "ac": "Static/mock checks are available through an explicit command suitable for CI.",
+      "met": true,
+      "evidence": "scripts/check-prompt-injection-corpus.sh:1"
+    },
+    {
+      "ac": "Live-provider evals are excluded from blocking PR CI by default.",
+      "met": true,
+      "evidence": ".github/workflows/prompt-injection-corpus.yml:25 and scripts/check-prompt-injection-corpus.sh:25"
+    },
+    {
+      "ac": "CI/report output distinguishes blocking static/mock failures from advisory live-provider findings.",
+      "met": true,
+      "evidence": "scripts/check-prompt-injection-corpus.sh:11 and cmd/sdp-eval/main.go:89"
+    },
+    {
+      "ac": "Advisory-to-blocking transition requires a decision record and baseline trend evidence.",
+      "met": true,
+      "evidence": "docs/security/f164-prompt-injection-threat-model.md:412 and docs/reviews/2026-05-03-f164-prompt-injection-spec-interrogate.md:79"
+    },
+    {
+      "ac": "Documentation tells maintainers what to do when advisory PI findings appear.",
+      "met": true,
+      "evidence": "docs/security/f164-prompt-injection-threat-model.md:404"
+    },
+    {
+      "ac": "Supply-chain prompt bundle checks from PI-013 are included in static/advisory reporting.",
+      "met": true,
+      "evidence": "cmd/sdp-eval/main.go:95 and docs/security/f164-prompt-injection-test-cases.md:223"
+    },
+    {
+      "ac": "CI integration can proceed without live-provider credentials; live eval is skipped or marked advisory-degraded.",
+      "met": true,
+      "evidence": "cmd/sdp-eval/main_test.go:71 and local run: scripts/check-prompt-injection-corpus.sh"
+    }
+  ],
+  "existing_work_summary": "Pre-existing skill-eval CI covered general evals. F164 had static/mock/live PI components but no dedicated advisory CI wrapper or workflow.",
+  "changed_files": [
+    ".github/workflows/prompt-injection-corpus.yml",
+    "scripts/check-prompt-injection-corpus.sh",
+    "cmd/sdp-eval/main.go",
+    "cmd/sdp-eval/main_test.go",
+    "docs/security/f164-prompt-injection-test-cases.md",
+    "docs/security/f164-prompt-injection-threat-model.md",
+    "docs/reviews/2026-05-03-f164-prompt-injection-spec-interrogate.md"
+  ],
+  "tdd_cycles": 1
+}

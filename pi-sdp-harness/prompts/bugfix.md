@@ -37,7 +37,7 @@ git status  # MUST show "up to date with origin"
 
 ## Quick Reference
 
-**Input:** P1/P2 issue  
+**Input:** P1/P2 issue
 **Output:** Bug fixed + tests + pushed to origin
 
 | Aspect | Hotfix | Bugfix |
