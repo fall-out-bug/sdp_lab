@@ -1,0 +1,34 @@
+{
+  "interrogate_verdict": "PASS",
+  "artifact_paths": [
+    "docs/security/f164-prompt-injection-threat-model.md",
+    "docs/security/f164-prompt-injection-test-cases.md"
+  ],
+  "feature_id": "F164",
+  "mode": "socratic",
+  "rounds_completed": 2,
+  "critic_providers": [
+    "zai/glm-5.1",
+    "kimi-coding/k2p6",
+    "minimax/MiniMax-M2.7"
+  ],
+  "judge_providers_round_2": [
+    "zai/glm-5.1",
+    "kimi-coding/k2p6",
+    "minimax/MiniMax-M2.7"
+  ],
+  "provider_failures": [],
+  "round_1_verdict": "REWORK",
+  "round_2_verdicts": {
+    "zai/glm-5.1": "PASS",
+    "kimi-coding/k2p6": "PASS",
+    "minimax/MiniMax-M2.7": "PASS"
+  },
+  "open_questions_count": 0,
+  "new_contradictions": [],
+  "scope_creep": [
+    "Observability and MCP multi-vector coverage were added because critic findings showed they were required for a testable product security spec."
+  ],
+  "report_path": "docs/reviews/2026-05-03-f164-prompt-injection-spec-interrogate.md",
+  "report_summary": "The F164 prompt-injection threat model and corpus spec passed second-round Socratic judge review across GLM, Kimi, and MiniMax."
+}

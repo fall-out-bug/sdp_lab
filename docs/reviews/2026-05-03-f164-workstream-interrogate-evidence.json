@@ -1,0 +1,28 @@
+{
+  "interrogate_verdict": "PASS",
+  "artifact_paths": [
+    "docs/workstreams/backlog/00-164-01.md",
+    "docs/workstreams/backlog/00-164-02.md",
+    "docs/workstreams/backlog/00-164-03.md",
+    "docs/workstreams/backlog/00-164-04.md",
+    "docs/workstreams/backlog/00-164-05.md",
+    "docs/workstreams/backlog/00-164-06.md",
+    "docs/workstreams/backlog/00-164-07.md"
+  ],
+  "feature_id": "F164",
+  "mode": "socratic",
+  "critic_providers": [
+    "zai/glm-5.1",
+    "kimi-coding/k2p6",
+    "minimax/MiniMax-M2.7"
+  ],
+  "judge_results": {
+    "zai/glm-5.1": "PASS",
+    "minimax/MiniMax-M2.7": "PASS",
+    "kimi-coding/k2p6": "PASS_AFTER_TARGETED_FIXES"
+  },
+  "provider_failures": [],
+  "open_questions_count": 0,
+  "report_path": "docs/reviews/2026-05-03-f164-workstream-interrogate.md",
+  "report_summary": "F164 workstreams passed Socratic review after narrowing scope files, fixing dependencies, and clarifying PI-013 and sizing."
+}

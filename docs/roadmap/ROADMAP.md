@@ -114,6 +114,7 @@ Post-F150 v3 lane (post-IIP-council, 2026-04-27) — see [docs/roadmap/2026-04-2
 - `F158` — Go Import-Path Contamination Decision (highest unaddressed structural risk; blocks F156 / F157 active status)
 - `F159` — Competitive Positioning Artifact (vs Copilot Workspace, CodeRabbit, GitLab Duo, Tabnine, Factory)
 - `F160` — Procurement / Compliance Install Profile (SOC2 stance, SLA template, no-egress mode)
+- `F164` — Prompt Injection Hardening and Red-Team Corpus (SDP-specific threat model, corpus, static/mock/live evals, prompt hardening, MCP/write-tool checks, advisory CI)
 
 Deferred (no work until ICP signal): Enterprise Delivery Governance product family; Russian sovereign model adapters (sub-track of EDG); `sdp-pr-gate` implementation track (gated on committed pilot per Wedge B gate).
 

@@ -1,0 +1,113 @@
+name: Pi Harness Check
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - '.pi/**'
+      - 'pi-sdp-harness/**'
+      - 'sdp.manifest.yaml'
+      - 'scripts/check-pi-harness.sh'
+      - '.github/workflows/pi-harness-check.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - '.pi/**'
+      - 'pi-sdp-harness/**'
+      - 'sdp.manifest.yaml'
+      - 'scripts/check-pi-harness.sh'
+      - '.github/workflows/pi-harness-check.yml'
+  workflow_dispatch: {}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check Pi harness consistency
+        run: |
+          set -euo pipefail
+          ./scripts/check-pi-harness.sh
+
+      - name: Validate extension TypeScript syntax
+        run: |
+          set -euo pipefail
+          # Basic sanity: each .ts must have valid structure
+          for ext in .pi/extensions/*.ts; do
+            echo "Checking: $ext"
+            # Must have export default
+            grep -q 'export default function' "$ext" || {
+              echo "ERROR: $ext missing export default function"
+              exit 1
+            }
+            # Must not have unclosed braces (crude check)
+            OPEN=$(grep -o '{' "$ext" | wc -l)
+            CLOSE=$(grep -o '}' "$ext" | wc -l)
+            # Allow for object literals in strings
+            if [ "$OPEN" -lt "$CLOSE" ] || [ "$OPEN" -gt "$((CLOSE + 5))" ]; then
+              echo "WARN: $ext may have unbalanced braces (open=$OPEN close=$CLOSE)"
+            fi
+          done
+          echo "All extensions pass basic validation"
+
+      - name: Validate JSON theme
+        run: |
+          set -euo pipefail
+          for theme in .pi/themes/*.json; do
+            echo "Validating: $theme"
+            python3 -c "import json; json.load(open('$theme'))"
+          done
+
+      - name: Validate settings.json references exist
+        run: |
+          set -euo pipefail
+          # Check all paths in settings.json exist
+          jq -r '.extensions[] // empty' .pi/settings.json | while read -r path; do
+            fullpath=".pi/$path"
+            if [ ! -f "$fullpath" ]; then
+              echo "ERROR: settings.json references missing file: $fullpath"
+              exit 1
+            fi
+          done
+          jq -r '.skills[] // empty' .pi/settings.json | while read -r path; do
+            # Skills can be relative paths
+            if [[ "$path" == ../* ]]; then
+              if [ ! -d "$path" ]; then
+                echo "ERROR: settings.json references missing skill dir: $path"
+                exit 1
+              fi
+            elif [ ! -d ".pi/$path" ]; then
+              echo "ERROR: settings.json references missing skill dir: .pi/$path"
+              exit 1
+            fi
+          done
+          echo "All settings.json references valid"
+
+      - name: Check pi-sdp-harness package.json
+        run: |
+          set -euo pipefail
+          if [ -f pi-sdp-harness/package.json ]; then
+            # Validate package.json has pi keyword
+            if ! jq -e '.keywords | contains(["pi-package"])' pi-sdp-harness/package.json > /dev/null; then
+              echo "ERROR: pi-sdp-harness/package.json missing 'pi-package' keyword"
+              exit 1
+            fi
+            # Validate pi manifest exists
+            if ! jq -e '.pi' pi-sdp-harness/package.json > /dev/null; then
+              echo "ERROR: pi-sdp-harness/package.json missing 'pi' manifest"
+              exit 1
+            fi
+            echo "Package manifest valid"
+          else
+            echo "WARN: pi-sdp-harness/package.json not found"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Pi Harness Check" >> $GITHUB_STEP_SUMMARY
+          echo "- Extensions: $(ls .pi/extensions/*.ts 2>/dev/null | wc -l)" >> $GITHUB_STEP_SUMMARY
+          echo "- Skills: $(ls .pi/skills/*/SKILL.md 2>/dev/null | wc -l)" >> $GITHUB_STEP_SUMMARY
+          echo "- Prompts: $(ls .pi/prompts/*.md 2>/dev/null | wc -l)" >> $GITHUB_STEP_SUMMARY
+          echo "- Themes: $(ls .pi/themes/*.json 2>/dev/null | wc -l)" >> $GITHUB_STEP_SUMMARY

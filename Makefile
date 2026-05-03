@@ -85,3 +85,17 @@ install-hooks:
 # Passes if stayed-cheap >= 40%, fails otherwise.
 f145-demo:
 	@./scripts/f145-demo.sh
+
+# Sync .pi/ resources into pi-sdp-harness/ package for distribution
+sync-pi-package:
+	@echo "Syncing pi-sdp-harness package..."
+	@mkdir -p pi-sdp-harness/{extensions,skills,prompts,themes}
+	@cp -r .pi/extensions/* pi-sdp-harness/extensions/
+	@cp -r .pi/skills/* pi-sdp-harness/skills/
+	@cp -r .pi/prompts/* pi-sdp-harness/prompts/
+	@echo "Synced: extensions, skills, prompts"
+	@echo "Version: $$(jq -r .version pi-sdp-harness/package.json)"
+
+# Validate Pi harness consistency with sdp.manifest.yaml
+check-pi-harness:
+	@./scripts/check-pi-harness.sh

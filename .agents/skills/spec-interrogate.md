@@ -1,7 +1,7 @@
 ---
 name: spec-interrogate
-description: Validate a spec through context-stripped questioning before planning or implementation begins.
-version: 1.0.0
+description: Use when a spec or plan needs clean-context Socratic criticism before planning or implementation.
+version: 1.1.0
 tags:
   - discovery
   - spec
@@ -12,6 +12,10 @@ compatibility:
   - opencode
   - cursor
   - codex
+  - pi
+changes:
+  - "1.1.0: Add pi-backed Socratic critic/judge protocol, rubrics, provider rotation, and evidence contract"
+  - "1.0.0: Initial public skill for spec hardening with auditable report and evidence contract"
 ---
 
 # spec-interrogate
@@ -19,230 +23,24 @@ compatibility:
 ## Purpose
 
 Pressure-test a text artifact before the next delivery step.
-The interrogator gets only the artifact, with no chat history, beads context, or author explanation. That strips proximity bias and exposes what the future implementer still cannot infer from the document alone.
+The interrogator receives only the artifact, selected rubrics, and invocation parameters. No chat history, beads context, author explanation, tools, or repository context.
+
+This is not a gate. It produces evidence for the author and for downstream tooling. Policy decisions about whether work may pass a stage belong to `sdp-gate`.
 
 ## Use When
 
-- Before `sdp phase plan` for non-trivial Discovery output.
-- Before committing to a risky architecture or API plan.
-- When a spec looks coherent to the author, but may still hide undefined terms, missing failure paths, or scope leaks.
+- Before turning a non-trivial spec into a plan or implementation task.
+- Before using a SpecKit artifact as a contract for `sdp-trace`, `sdp-gate`, or another downstream component.
+- When the author is too close to the document and may be relying on unstated context.
 
-Do not use this skill for code review, implementation, or general research. Use `@review`, `@build`, or `@research` for those jobs.
-
-## Roles
-
-**Author** owns the artifact and makes edits.
-
-**Interrogator** is a fresh agent. It receives only the artifact and invocation parameters. It does not edit, negotiate scope, or invent product decisions. It only challenges what the artifact fails to make explicit.
+Do not use this for code review, implementation, or general research.
 
 ## Inputs
 
-| Parameter | Default | Meaning |
-|---|---|---|
-| `artifact-path` | required | Path to the spec, plan, design doc, or schema under review |
-| `--mode` | `socratic` | Interrogation mode |
-| `--questions` | `5` | Max questions per round in `socratic` mode |
-| `--rounds` | `5` | Max rounds in `socratic` mode |
-| `--feature-id` | optional | Feature identifier for SDP traces |
-| `--evidence-path` | `.sdp/evidence/spec-interrogate.json` | Machine-readable result |
-| `--report-path` | `.sdp/reports/spec-interrogate.md` | Human-readable blocking report |
-
-## Common Contract
-
-Every mode must produce both outputs:
-
-1. **Human report** at `report-path`
-2. **Evidence JSON** at `evidence-path`
-
-### Report Requirements
-
-The report is mandatory for `PASS`, `REWORK`, and `ABORT`.
-It must contain:
-
-- artifact path and mode
-- short summary of what was tested
-- ordered list of unresolved questions or vulnerabilities
-- explicit verdict
-- next action for the author
-
-For `PASS`, the unresolved list is empty.
-For `REWORK` and `ABORT`, the unresolved list is the canonical handoff artifact. Stdout is only a transport, not the source of truth.
-
-### Evidence Requirements
-
-The JSON file must reference the report and preserve the blocking questions in structured form:
-
-```json
-{
-  "interrogate_verdict": "PASS",
-  "artifact_path": "docs/discovery/my-feature/validation.md",
-  "feature_id": "F042",
-  "mode": "socratic",
-  "rounds_completed": 2,
-  "max_rounds": 5,
-  "open_questions_count": 0,
-  "open_questions": [],
-  "report_path": ".sdp/reports/spec-interrogate.md",
-  "report_summary": "No unresolved implementation-blocking questions remain."
-}
-```
-
-Each `open_questions[]` item must contain:
-
-```json
-{
-  "id": "Q1",
-  "type": "scope-ambiguity",
-  "impact": "plan-blocking",
-  "question": "What is the fallback behavior when the upstream model call times out?"
-}
-```
-
-`open_questions_count` is the count of unresolved items in the final report, not the total number ever raised.
-
-## Question Taxonomy
-
-Prioritize questions that block planning or implementation:
-
-1. `why` — why this decision exists
-2. `undefined-term` — a key term appears but is not defined
-3. `missing-error-path` — failure behavior is unspecified
-4. `scope-ambiguity` — ownership or boundary is unclear
-5. `unstated-assumption` — the author relies on context not present in the artifact
-
-Do not spend rounds on style, formatting, or taste unless they hide meaning.
-
-## Protocol (mode `socratic`)
-
-Use this when the author can iteratively revise the artifact.
-
-### Steps
-
-1. Interrogator reads only the artifact and parameters.
-2. It asks up to `N` high-impact questions.
-3. Author updates the artifact. The answer is the edit, not a chat reply.
-4. Interrogator re-reads the updated artifact and checks whether the blocking questions are resolved.
-5. Repeat until convergence or `--rounds` is exhausted.
-
-### Verdict Rules
-
-- `PASS`: final round finds `0` unresolved questions
-- `REWORK`: round limit reached and unresolved questions remain
-- `ABORT`: author explicitly stops the process
-
-### Accounting Rules
-
-- `rounds_completed` = actual rounds performed
-- `max_rounds` = configured cap
-- `open_questions_count` = unresolved questions after the final artifact revision
-
-## Protocol (mode `cold-read`)
-
-Use this for a cheap first pass.
-
-### Steps
-
-1. Interrogator reads the artifact once.
-2. It writes three sections to the report:
-   - `What I believe this artifact says`
-   - `What I still cannot infer`
-   - `What I would refuse to assume`
-3. It converts every unresolved inference into `open_questions[]`.
-
-### Verdict Rules
-
-- `PASS`: the summary is coherent and `open_questions_count = 0`
-- `REWORK`: any unresolved inference remains
-- `ABORT`: author explicitly stops after the report
-
-### Accounting Rules
-
-- `rounds_completed = 1`
-- `max_rounds = 1`
-
-## Protocol (mode `adversarial`)
-
-Use this for security, reliability, or abuse-case review of the artifact itself.
-
-### Steps
-
-1. Interrogator reads the artifact once.
-2. It lists concrete failure modes, trust-boundary gaps, abuse vectors, and mitigation holes.
-3. Every unresolved issue becomes an `open_questions[]` item with `impact = plan-blocking` unless the gap is explicitly minor.
-
-### Verdict Rules
-
-- `PASS`: no unresolved blocking vulnerabilities or failure-mode gaps
-- `REWORK`: any unresolved vulnerability or mitigation gap remains
-- `ABORT`: author explicitly stops after the report
-
-### Accounting Rules
-
-- `rounds_completed = 1`
-- `max_rounds = 1`
-
-## Protocol (mode `impl-test`)
-
-Use this when the real question is: "Could another agent implement this without hallucinating?"
-
-### Steps
-
-1. Interrogator tries to outline a minimal implementation plan using only the artifact.
-2. For each step it cannot ground in the artifact, it records the missing dependency as an `open_questions[]` item.
-3. The report must separate:
-   - `Grounded implementation steps`
-   - `Steps that would require invented assumptions`
-
-### Verdict Rules
-
-- `PASS`: a minimal implementation outline can be produced with `0` invented assumptions
-- `REWORK`: any implementation step would require invented assumptions
-- `ABORT`: author explicitly stops after the report
-
-### Accounting Rules
-
-- `rounds_completed = 1`
-- `max_rounds = 1`
-
-## SDP Integration
-
-This is an agent-discipline precondition before emitting the Plan gate. It is not tooling enforcement. The agent must run `@spec-interrogate` and respect a `REWORK` verdict before invoking `sdp phase plan`.
-
-### Discovery -> Plan
-
-```bash
-@spec-interrogate docs/discovery/<slug>/validation.md --feature-id <F>
-# writes:
-#   .sdp/evidence/spec-interrogate.json
-#   .sdp/reports/spec-interrogate.md
-
-# only after PASS:
-sdp phase plan --feature-id <F> --strict --evidence-path .sdp/evidence/plan.json
-```
-
-If the verdict is `REWORK`, do not call `sdp phase plan`. Resume Discovery using the unresolved questions from `report-path`.
-
-### Plan -> Build
-
-```bash
-@spec-interrogate docs/plans/<feature>-design.md --feature-id <F> --mode adversarial
-```
-
-## Skip Rules
-
-Skip only when one of these is true:
-
-- trivial change or one-line bugfix
-- direct Delivery task with no Discovery artifact
-- explicit `--skip-interrogate` decision documented in beads
-
-If skipped, the reason must be explicit. "Felt unnecessary" is not a valid reason.
-
-## Invocation Contract
-
 ```bash
 @spec-interrogate <artifact-path> \
-  [--mode MODE] \
+  [--mode socratic|cold-read|adversarial|impl-test] \
+  [--rubrics RUBRIC_LIST_OR_FILE] \
   [--questions N] \
   [--rounds M] \
   [--feature-id F] \
@@ -250,20 +48,178 @@ If skipped, the reason must be explicit. "Felt unnecessary" is not a valid reaso
   [--report-path PATH]
 ```
 
-Examples:
+Defaults:
+
+- `--mode socratic`
+- `--questions 12`
+- `--rounds 3`
+- `--rubrics default`
+- `--evidence-path .sdp/evidence/spec-interrogate.json`
+- `--report-path .sdp/reports/spec-interrogate.md`
+
+## Rubrics
+
+Use the full selected rubric set in one critic pass. Do not split one round into one subagent per rubric unless the artifact is too large for a single model context.
+
+Default rubrics:
+
+- problem and goal
+- system boundary and non-goals
+- roles and actors
+- primary scenarios
+- assumptions and dependencies
+- edge cases and failure behavior
+- security and access
+- observability and metrics
+- testability and acceptance
+- rollout, migration, and backward compatibility
+- open questions and risks
+
+Tailor the rubric set only by removing irrelevant categories or adding domain-critical ones. Record the final rubric set in evidence.
+
+## Roles
+
+**Author** owns the artifact and edits it.
+
+**Critic** is a fresh model invocation. It asks Socratic questions grouped by rubric. The critic MUST NOT propose solutions, write patches, choose product behavior, or rewrite the artifact.
+
+**Judge** is a different fresh model invocation. It compares the original artifact, revised artifact, critic questions, and author resolution notes. The judge does not rewrite the spec and does not suggest new solutions.
+
+## Provider Policy
+
+Use `pi` with clean context:
 
 ```bash
-# default iterative hardening
-@spec-interrogate docs/discovery/my-feature/validation.md --feature-id F042
-
-# cheap first-pass sanity check
-@spec-interrogate docs/plans/arch-decision.md --mode cold-read
-
-# risky plan before implementation
-@spec-interrogate docs/plans/auth-redesign.md --mode adversarial --report-path .sdp/reports/auth-redesign-interrogate.md
+pi --provider <provider> --model <model> --no-tools --no-context-files --no-session -p "<prompt>"
 ```
 
-## Acceptance Boundaries
+provider rotation is required:
 
-This skill works only with text artifacts such as `md`, `txt`, and schema docs.
-Do not apply it directly to code. If the thing under review is executable code, use `@review`.
+- critic providers rotate between rounds: `zai/glm-5.1`, `kimi-coding/k2p6`, `minimax/MiniMax-M2.7`
+- the next critic round must not reuse the previous critic provider
+- the judge provider must differ from the current critic provider
+- if a provider fails, record the failure and use the next provider; do not hide degraded coverage
+
+## Protocol (mode `socratic`)
+
+1. Save the original artifact snapshot or hash.
+2. Select rubrics and critic provider.
+3. Invoke the critic with only the artifact, rubrics, and output schema.
+4. Require critic output as questions only.
+5. Author edits the artifact. Chat answers do not count unless reflected in the artifact.
+6. Author writes resolution notes per question: `resolved`, `rejected`, or `deferred`, with rationale.
+7. Invoke the judge with original artifact, revised artifact, critic questions, and resolution notes.
+8. If blocking contradictions remain, repeat with a different critic provider.
+9. Stop when exit criteria are met or `--rounds` is exhausted.
+
+## Critic Output
+
+The critic output must be a JSON object:
+
+```json
+{
+  "role": "critic",
+  "critic_provider": "zai/glm-5.1",
+  "rubrics": ["problem and goal"],
+  "questions": [
+    {
+      "id": "Q1",
+      "rubric": "problem and goal",
+      "severity": "blocking",
+      "artifact_ref": "section heading or line reference",
+      "question": "What observable CTO question does this spec answer?",
+      "why_it_matters": "Without this, acceptance cannot distinguish telemetry from governance.",
+      "cannot_verify_until_answered": "Whether the component answers degradation over time."
+    }
+  ]
+}
+```
+
+Allowed severities: `blocking`, `major`, `minor`.
+
+Reject critic output that contains fixes, patches, rewritten text, implementation plans, policy verdicts, or "you should..." recommendations. Re-run with a stricter prompt if needed.
+
+## Judge Output
+
+The judge output must be a JSON object:
+
+```json
+{
+  "role": "judge",
+  "judge_provider": "kimi-coding/k2p6",
+  "critic_provider": "zai/glm-5.1",
+  "items": [
+    {
+      "question_id": "Q1",
+      "status": "resolved",
+      "evidence_ref": "revised artifact section heading or line reference",
+      "assessment": "The revised artifact states the CTO-facing degradation question and acceptance evidence."
+    }
+  ],
+  "new_contradictions": [],
+  "scope_creep": [],
+  "verdict": "PASS"
+}
+```
+
+Allowed item statuses: `resolved`, `partially_resolved`, `unresolved`, `new_contradiction`, `scope_creep`.
+
+Allowed verdicts:
+
+- `PASS`: no blocking unresolved items and no new contradictions
+- `REWORK`: blocking or major unresolved items remain
+- `ABORT`: author stops the process or model coverage is too degraded to trust
+
+## Evidence Contract
+
+Every run writes a report and evidence JSON. Stdout is not the system of record.
+
+```json
+{
+  "interrogate_verdict": "REWORK",
+  "artifact_path": "specs/001-sdp-trace-time-series-evidence-substrate/spec.md",
+  "feature_id": "F163",
+  "mode": "socratic",
+  "rounds_completed": 1,
+  "max_rounds": 3,
+  "rubrics": ["problem and goal", "system boundary and non-goals"],
+  "critic_provider": "zai/glm-5.1",
+  "judge_provider": "kimi-coding/k2p6",
+  "provider_failures": [],
+  "open_questions_count": 2,
+  "open_questions": [],
+  "new_contradictions": [],
+  "scope_creep": [],
+  "report_path": ".sdp/reports/spec-interrogate.md",
+  "report_summary": "Two major questions remain unresolved."
+}
+```
+
+The report must include artifact path, rubrics, providers, critic questions, author resolution notes, judge conclusion, explicit verdict, and next action.
+
+## Exit Criteria
+
+Stop with `PASS` only when:
+
+- no `blocking` question is unresolved
+- no `major` question is unresolved unless it is explicitly deferred with owner and rationale
+- the judge reports no new contradictions
+- scope creep is absent or intentionally accepted by the author
+
+Stop with `REWORK` when the round cap is hit with unresolved blocking or major issues.
+
+## Other Modes
+
+`cold-read`, `adversarial`, and `impl-test` are single-pass variants. They still use clean-context `pi`, rubrics when relevant, evidence JSON, and the same not a gate boundary.
+
+## Anti-Patterns
+
+- Passing chat history or repository context to critic or judge.
+- Letting the critic propose fixes.
+- Treating `PASS` as permission to merge or deploy.
+- Hiding provider failures.
+- Counting a chat answer as resolved when the artifact did not change.
+
+## Acceptance Boundary
+
+This skill works only with text artifacts: specs, plans, design docs, schemas, and SpecKit files. If the target is executable code, use review tooling instead.
