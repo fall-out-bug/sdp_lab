@@ -1,0 +1,66 @@
+{
+  "interrogate_verdict": "PASS",
+  "artifact_path": "docs/plans/2026-05-03-f165-indirect-prompt-injection-through-task-data-design.md",
+  "feature_id": "F165",
+  "mode": "socratic",
+  "rounds_completed": 2,
+  "rubrics": [
+    "problem and goal",
+    "SDP surface mapping",
+    "trust boundary correctness",
+    "safety and cyber-policy compliance",
+    "testability and acceptance",
+    "product UX",
+    "DX and maintainability",
+    "residual risk and non-goals",
+    "feature identity and scope",
+    "deterministic test design",
+    "evidence sufficiency",
+    "workstream decomposition readiness",
+    "Beads queue state risk"
+  ],
+  "provider_failures": [
+    {
+      "provider": "zai/glm-5.1",
+      "round": 0,
+      "failure": "first invocation form with file mention produced no stdout before timeout and was discarded"
+    }
+  ],
+  "reviews": [
+    {
+      "round": 1,
+      "critic_provider": "minimax/MiniMax-M2.7",
+      "judge_provider": "kimi-coding/k2p6",
+      "critic_questions": 12,
+      "blocking_questions": 4,
+      "judge_verdict": "PASS",
+      "unresolved_questions": []
+    },
+    {
+      "round": 2,
+      "critic_provider": "zai/glm-5.1",
+      "judge_provider": "minimax/MiniMax-M2.7",
+      "critic_questions": 15,
+      "blocking_questions": 7,
+      "judge_verdict": "REWORK",
+      "unresolved_questions": [
+        "F165-Q015"
+      ]
+    },
+    {
+      "round": "2b",
+      "critic_provider": "zai/glm-5.1",
+      "judge_provider": "kimi-coding/k2p6",
+      "critic_questions": 1,
+      "blocking_questions": 0,
+      "judge_verdict": "PASS",
+      "unresolved_questions": []
+    }
+  ],
+  "open_questions_count": 0,
+  "open_questions": [],
+  "new_contradictions": [],
+  "scope_creep": [],
+  "report_path": "docs/reviews/2026-05-03-f165-design-spec-interrogate.md",
+  "report_summary": "MiniMax and GLM critics raised blocking design questions. Kimi and MiniMax judges accepted the revised design after two rounds plus one point judgment. No unresolved blocking or major questions remain."
+}
