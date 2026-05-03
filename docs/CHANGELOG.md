@@ -1190,6 +1190,29 @@ issues resolved.
 ## 2026-05-03
 
 ### Commits
+- `6e1b4922` fix(pi-skills): resolve skill parsing warnings and collisions (2026-05-03)
+
+### Changed Files
+- `.agents/skills/build/SKILL.md`
+- `.agents/skills/review/SKILL.md`
+- `.pi/README.md`
+- `.pi/skills/architect/SKILL.md`
+- `.pi/skills/deployer/SKILL.md`
+- `.pi/skills/devops/SKILL.md`
+- `.pi/skills/implementer/SKILL.md`
+- `.pi/skills/orchestrator/SKILL.md`
+- `.pi/skills/planner/SKILL.md`
+- `.pi/skills/prompts-skills`
+- `.pi/skills/qa/SKILL.md`
+- `.pi/skills/reviewer/SKILL.md`
+- `.pi/skills/security/SKILL.md`
+- `.pi/skills/spec-reviewer/SKILL.md`
+- `.pi/skills/sre/SKILL.md`
+- `.pi/skills/tech-lead/SKILL.md`
+
+
+
+### Commits
 - `aab4a68a` fix(pi): make skills and agents readable by pi harness (2026-05-03)
 
 ### Changed Files
