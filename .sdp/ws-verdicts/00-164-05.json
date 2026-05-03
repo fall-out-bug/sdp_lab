@@ -28,7 +28,7 @@
     {
       "ac": "A grep or eval check fails if active prompt surfaces claim prompt-only protection is a security boundary",
       "met": true,
-      "evidence": "scripts/prompt-injection-check.sh: PI-013 grep/eval check created. Local checks: default active prompt surfaces pass; synthetic bad phrase fails with exit 1; correct advisory counter-example passes. PI-013 check also embedded in PromptOps expert task descriptions."
+      "evidence": "scripts/prompt-injection-check.sh: PI-013 grep/eval check created. Local checks: default active prompt surfaces pass; synthetic bad phrase fails with exit 1; correct advisory and negated security-boundary statements pass. PI-013 check also embedded in PromptOps expert task descriptions."
     },
     {
       "ac": "Benign security documentation and tests with injection-like strings remain processable as data through the 00-164-03 mock cases",
