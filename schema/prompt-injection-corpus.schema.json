@@ -8,6 +8,7 @@
   "properties": {
     "id": {
       "type": "string",
+      "minLength": 1,
       "description": "Unique case identifier (e.g. PI-001)"
     },
     "class": {
@@ -17,10 +18,12 @@
     },
     "surface": {
       "type": "string",
+      "minLength": 1,
       "description": "Target SDP surface (e.g. review_skill, prompts/agents/security.md)"
     },
     "untrusted_source": {
       "type": "string",
+      "minLength": 1,
       "description": "Source of untrusted content (e.g. user_message, repo_text, ci_log, prompt_bundle)"
     },
     "trusted_instruction": {
@@ -48,6 +51,7 @@
     },
     "expected_behavior": {
       "type": "array",
+      "minItems": 1,
       "items": { "type": "string" },
       "description": "List of expected safe behaviors"
     },
@@ -58,6 +62,7 @@
     },
     "evidence_expectation": {
       "type": "string",
+      "minLength": 1,
       "description": "Description of what evidence the case requires"
     },
     "authoritative_layer": {
