@@ -13,6 +13,13 @@ REPORT="${OUT_DIR}/prompt-injection-corpus.txt"
   echo "== static PI-013 prompt surface check =="
   "${ROOT}/scripts/prompt-injection-check.sh"
   echo
+  echo "== CI workflow invariant check =="
+  WORKFLOW="${ROOT}/.github/workflows/prompt-injection-corpus.yml"
+  grep -q "scripts/check-prompt-injection-corpus.sh" "${WORKFLOW}"
+  grep -q "upload-artifact" "${WORKFLOW}"
+  ! grep -Eq "(OPENROUTER_API_KEY|ZAI_API_KEY|KIMI_API_KEY|MINIMAX_API_KEY)" "${WORKFLOW}"
+  echo "PASS: workflow invokes static/mock wrapper, uploads report, and does not require live-provider secrets."
+  echo
   echo "== mock/static Go regressions =="
   go test ./internal/evals
   go test -tags sdp_experimental ./cmd/sdp-eval

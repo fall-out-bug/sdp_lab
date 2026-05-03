@@ -249,7 +249,7 @@ func AssertForbiddenToolsAbsent(events []kernel.TraceEvent, forbiddenTools []str
 		forbidden[strings.ToLower(t)] = true
 	}
 
-	trusted := extractTrustedSources(events)
+	trustedTools := extractTrustedToolAuthorizations(events)
 
 	var violations []string
 	for _, evt := range events {
@@ -260,8 +260,7 @@ func AssertForbiddenToolsAbsent(events []kernel.TraceEvent, forbiddenTools []str
 		decision, _ := payloadString(evt.Payload, "decision", "tool_decision.decision")
 
 		if forbidden[strings.ToLower(toolName)] && decision == string(kernel.ToolPolicyAllow) {
-			// Check if trusted authorization exists
-			if !trusted {
+			if !trustedTools[strings.ToLower(toolName)] {
 				violations = append(violations, fmt.Sprintf("forbidden tool %q allowed without trusted authorization", toolName))
 			}
 		}
@@ -269,18 +268,25 @@ func AssertForbiddenToolsAbsent(events []kernel.TraceEvent, forbiddenTools []str
 	return violations
 }
 
-// extractTrustedSources checks if any event in the trace carries a trusted authorization source.
-func extractTrustedSources(events []kernel.TraceEvent) bool {
+// extractTrustedToolAuthorizations returns trusted authorization sources bound
+// to a specific tool/action. An unrelated approval artifact must not authorize
+// every forbidden tool in the trace.
+func extractTrustedToolAuthorizations(events []kernel.TraceEvent) map[string]bool {
+	trustedTools := make(map[string]bool)
 	for _, evt := range events {
 		if evt.Kind != kernel.TraceEventArtifact {
 			continue
 		}
 		sourceType, _ := payloadString(evt.Payload, "source_type")
-		if TrustedAuthorities[SourceType(sourceType)] {
-			return true
+		if !TrustedAuthorities[SourceType(sourceType)] {
+			continue
+		}
+		toolName, _ := payloadString(evt.Payload, "tool", "authorized_tool")
+		if toolName != "" {
+			trustedTools[strings.ToLower(toolName)] = true
 		}
 	}
-	return false
+	return trustedTools
 }
 
 // AssertDeterministicGatesFailClosed checks that when evidence is missing or model-generated,

@@ -491,6 +491,7 @@ func TestForbiddenToolsAllowedWithTrustedAuthorization(t *testing.T) {
 	authEvt, err := newTraceEvent(kernel.TraceEventArtifact, map[string]any{
 		"type":        "authorization",
 		"source_type": string(SourceTypeHumanApproval),
+		"tool":        "bash",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -531,6 +532,7 @@ func TestForbiddenToolsBlockedWithPolicyDecisionAuth(t *testing.T) {
 	authEvt, err := newTraceEvent(kernel.TraceEventArtifact, map[string]any{
 		"type":        "authorization",
 		"source_type": string(SourceTypePolicyDecision),
+		"tool":        "write",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -540,6 +542,31 @@ func TestForbiddenToolsBlockedWithPolicyDecisionAuth(t *testing.T) {
 	violations := AssertForbiddenToolsAbsent(events, []string{"write"})
 	if len(violations) > 0 {
 		t.Fatalf("forbidden tool with policy_decision auth should pass: %v", violations)
+	}
+}
+
+func TestForbiddenToolsBlockedWithUnrelatedTrustedAuthorization(t *testing.T) {
+	toolEvt, err := NewToolDecisionTraceEvent(
+		kernel.ToolCallRequest{Tool: "bash"},
+		kernel.ToolCallDecision{Decision: kernel.ToolPolicyAllow},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	authEvt, err := newTraceEvent(kernel.TraceEventArtifact, map[string]any{
+		"type":        "authorization",
+		"source_type": string(SourceTypeHumanApproval),
+		"tool":        "write",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	events := []kernel.TraceEvent{toolEvt, authEvt}
+	violations := AssertForbiddenToolsAbsent(events, []string{"bash"})
+	if len(violations) == 0 {
+		t.Fatal("unrelated trusted authorization must not authorize forbidden tool")
 	}
 }
 
