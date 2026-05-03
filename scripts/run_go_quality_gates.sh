@@ -50,7 +50,7 @@ run_container_quality_gates() {
     exit 1
   fi
 
-  mkdir -p "$ROOT/.cache/go-build" "$ROOT/.cache/go-mod" "$ROOT/.cache/go"
+  mkdir -p "$ROOT/.cache/go-build" "$ROOT/.cache/go-mod" "$ROOT/.cache/go" "$ROOT/.cache/go-config" "$ROOT/.cache/golangci-lint"
 
   echo "==> Container toolchain mode"
   echo "==> Docker image: ${DOCKER_IMAGE}"
@@ -61,6 +61,10 @@ run_container_quality_gates() {
     -e GOCACHE=/workspace/.cache/go-build \
     -e GOMODCACHE=/workspace/.cache/go-mod \
     -e GOPATH=/workspace/.cache/go \
+    -e HOME=/workspace \
+    -e XDG_CACHE_HOME=/workspace/.cache \
+    -e XDG_CONFIG_HOME=/workspace/.cache/go-config \
+    -e GOTELEMETRY=off \
     -v "$ROOT:/workspace" \
     -w /workspace \
     "$DOCKER_IMAGE" \
