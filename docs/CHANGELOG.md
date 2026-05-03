@@ -1190,6 +1190,34 @@ issues resolved.
 ## 2026-05-03
 
 ### Commits
+- `aab4a68a` fix(pi): make skills and agents readable by pi harness (2026-05-03)
+
+### Changed Files
+- `.pi/README.md`
+- `.pi/settings.json`
+- `.pi/skills/architect.md`
+- `.pi/skills/deployer.md`
+- `.pi/skills/devops.md`
+- `.pi/skills/implementer.md`
+- `.pi/skills/orchestrator.md`
+- `.pi/skills/planner.md`
+- `.pi/skills/prompts-skills`
+- `.pi/skills/qa.md`
+- `.pi/skills/reviewer.md`
+- `.pi/skills/security.md`
+- `.pi/skills/spec-reviewer.md`
+- `.pi/skills/sre.md`
+- `.pi/skills/tech-lead.md`
+- `.sdp/generated/.codex/skills/build.md`
+- `.sdp/generated/.codex/skills/delivery-loop.md`
+- `.sdp/generated/.opencode/skill/build.md`
+- `.sdp/generated/.opencode/skill/delivery-loop.md`
+- `.sdp/generated/.pi/skills/build/SKILL.md`
+- `.sdp/generated/.pi/skills/delivery-loop/SKILL.md`
+
+
+
+### Commits
 - `c099b84c` docs: enforce scoped completion in agent skills (2026-05-03)
 
 ### Changed Files
