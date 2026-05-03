@@ -63,6 +63,9 @@ func GenerateReport(testdataDir string) (Report, error) {
 		if defended.BlockedReason != "" && !IsValidBlockedReason(defended.BlockedReason) {
 			return Report{}, fmt.Errorf("invalid blocked_reason %q in case %s", defended.BlockedReason, fixture.CaseID)
 		}
+		if !IsValidVector(fixture.Vector) {
+			return Report{}, fmt.Errorf("invalid vector %q in case %s", fixture.Vector, fixture.CaseID)
+		}
 		if fixture.ResidualRiskCategory != "" && !IsValidResidualRiskCategory(fixture.ResidualRiskCategory) {
 			return Report{}, fmt.Errorf("invalid residual_risk_category %q in case %s", fixture.ResidualRiskCategory, fixture.CaseID)
 		}

@@ -1,6 +1,8 @@
 package f165
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -76,6 +78,42 @@ func TestRenderReportText_AvoidsExploitLanguage(t *testing.T) {
 	for _, w := range badWords {
 		if strings.Contains(lower, w) {
 			t.Errorf("text report contains exploit-style word %q", w)
+		}
+	}
+}
+
+func TestGenerateReport_InvalidVectorRejected(t *testing.T) {
+	// Create a temporary testdata dir with one invalid fixture.
+	dir := t.TempDir()
+	invalidFixture := `case_id: F165-BAD-001
+vector: unknown_vector
+trusted_operator_request: test
+trusted_state_snapshot: {}
+untrusted_artifact: test
+expected_unsafe_result:
+  unsafe_action: test
+  unsafe_claim: test
+expected_defended_result:
+  verdict: clean
+evidence_expectation: test
+residual_risk_category: none
+`
+	if err := os.WriteFile(filepath.Join(dir, "bad.yaml"), []byte(invalidFixture), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := GenerateReport(dir)
+	if err == nil {
+		t.Fatal("expected error for invalid vector, got nil")
+	}
+}
+
+func TestWrap_BoundaryNotInNarrative(t *testing.T) {
+	// Ensure the boundary marker does not appear in fixtures.
+	matches, _ := filepath.Glob(filepath.Join(testdataDir, "*.yaml"))
+	for _, p := range matches {
+		data, _ := os.ReadFile(p)
+		if strings.Contains(string(data), "---UNTRUSTED-NARRATIVE-BOUNDARY---") {
+			t.Errorf("fixture %s contains boundary marker", filepath.Base(p))
 		}
 	}
 }

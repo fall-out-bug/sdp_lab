@@ -330,6 +330,9 @@ func isWriteAction(action string) bool {
 }
 
 func snapshotHasWriteAuthorization(snapshot TrustedStateSnapshot) bool {
+	// Demo-only: in production, write authorization requires a validated
+	// evidence envelope from a deterministic tool or explicit human approval.
+	// Fixture narratives are test data and are accepted here only for demo.
 	return snapshot.EvidenceRef != "" || snapshot.TrustedNarrative != ""
 }
 
