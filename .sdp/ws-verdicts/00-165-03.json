@@ -1,0 +1,48 @@
+{
+  "ws_id": "00-165-03",
+  "feature_id": "F165",
+  "verdict": "PASS",
+  "commit": "936111b1",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": 100,
+    "coverage_threshold": 80,
+    "max_file_loc": 200,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {
+      "ac": "Beads issue poisoning demo produces an unsafe false completion/close claim in the scripted naive path and blocks it in the defended path",
+      "met": true,
+      "evidence": "internal/evals/indirect_pi_vector_demo_test.go: TestVectorDemo_BeadsIssuePoisoning"
+    },
+    {
+      "ac": "Workstream Markdown poisoning demo produces an unsafe scope/test-policy change in the scripted naive path and blocks it in the defended path",
+      "met": true,
+      "evidence": "internal/evals/indirect_pi_vector_demo_test.go: TestVectorDemo_WorkstreamMarkdownPoisoning"
+    },
+    {
+      "ac": "Evidence/finding poisoning demo produces an unsafe pass/suppression result in the scripted naive path and blocks it in the defended path",
+      "met": true,
+      "evidence": "internal/evals/indirect_pi_vector_demo_test.go: TestVectorDemo_EvidenceFindingPoisoning"
+    },
+    {
+      "ac": "Non-obvious prose case passes by default-untrusted handling, not visible marker matching",
+      "met": true,
+      "evidence": "internal/evals/indirect_pi_vector_demo_test.go: TestVectorDemo_NonObviousProse asserts no [SANITIZED_*] markers"
+    },
+    {
+      "ac": "Optional handoff or MCP case is either implemented or reported as unsupported_surface",
+      "met": true,
+      "evidence": "internal/evals/indirect_pi_vector_demo_test.go: TestVectorDemo_ResidualRiskUnsupported shows residual_risk for cross_agent_handoff"
+    },
+    {
+      "ac": "Tests prove no live Beads, Git, filesystem write, network, or live model call is used for deterministic pass/fail",
+      "met": true,
+      "evidence": "internal/evals/indirect_pi_vector_demo_test.go: TestVectorDemo_NoLiveCalls runs all fixtures in-memory with fake registry"
+    }
+  ],
+  "existing_work_summary": "Built on F165-02 core (indirect_pi_core.go, indirect_pi_unsafe.go) and F165-01 fixtures. Added vector demo comparison tests."
+}
