@@ -467,6 +467,29 @@ sdp-doc-sync --mode check --strict
 
 **Integration tests:** Use `t.Skip()` or `testing.Short()` so integration tests skip in CI. CI runs `go test -short ./...`. Never delete integration tests to fix flakiness — skip them instead.
 
+## Pi Harness Known Issues
+
+### "Unknown error" on large write/bash payloads
+
+**Symptom:** `write` or `bash` with heredoc/large output fails with "An unknown error occurred".
+
+**Root cause:** Pi harness has a payload size limit for tool call serialization. Files > ~500 bytes trigger this.
+
+**Workaround:**
+- For existing files: use `edit` (small delta) instead of `write` (full rewrite)
+- For new files > 500 bytes: use `bash` with `echo 'content' >> file` in chunks, or `cat << 'EOF' > file` only if < 500 bytes
+- Never retry the same failing tool — switch to a different tool immediately
+
+**Settings fix:** Increase provider timeout in `.pi/settings.json`:
+```json
+"retry": {
+  "provider": {
+    "timeoutMs": 120000,
+    "maxRetries": 2
+  }
+}
+```
+
 ## Landing the Plane (Session Completion)
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
