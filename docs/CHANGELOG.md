@@ -1190,6 +1190,16 @@ issues resolved.
 ## 2026-05-03
 
 ### Commits
+- `38ac0cb2` Revert "config(pi): increase provider timeout, document harness payload workaround" (2026-05-03)
+
+### Changed Files
+- `.beads/issues.jsonl`
+- `.pi/settings.json`
+- `AGENTS.md`
+
+
+
+### Commits
 - `6e1b4922` fix(pi-skills): resolve skill parsing warnings and collisions (2026-05-03)
 
 ### Changed Files
