@@ -28,27 +28,34 @@ const (
 
 	// ParityForward indicates forward-compatible surface (reserved for future use).
 	ParityForward = "forward"
+
+	// ToolCapabilityRead indicates a tool does not intentionally mutate external state.
+	ToolCapabilityRead = "read"
+
+	// ToolCapabilityWrite indicates a tool can mutate files, queues, issues, or other external state.
+	ToolCapabilityWrite = "write"
 )
 
 // Mapping represents the complete CLI-to-MCP mapping contract.
 type Mapping struct {
-	SpecVersion      string          `json:"spec_version"`
-	CLIRegistryHash  string          `json:"cli_registry_hash"`
-	SkillCatalogHash string          `json:"skill_catalog_hash"`
-	GeneratedAt      time.Time       `json:"generated_at"`
-	Tools            []ToolMapping   `json:"tools"`
+	SpecVersion      string            `json:"spec_version"`
+	CLIRegistryHash  string            `json:"cli_registry_hash"`
+	SkillCatalogHash string            `json:"skill_catalog_hash"`
+	GeneratedAt      time.Time         `json:"generated_at"`
+	Tools            []ToolMapping     `json:"tools"`
 	Resources        []ResourceMapping `json:"resources"`
 	Prompts          []PromptMapping   `json:"prompts"`
 }
 
 // ToolMapping maps a CLI command to an MCP tool.
 type ToolMapping struct {
-	MCPToolName    string            `json:"mcp_tool_name"`
-	CLICommand     string            `json:"cli_command"`
-	Description    string            `json:"description"`
+	MCPToolName    string             `json:"mcp_tool_name"`
+	CLICommand     string             `json:"cli_command"`
+	Description    string             `json:"description"`
 	Parameters     []ParameterMapping `json:"parameters"`
-	ParityStatus   string            `json:"parity_status"`
-	SourceLocation string            `json:"source_location,omitempty"`
+	ParityStatus   string             `json:"parity_status"`
+	Capability     string             `json:"capability"`
+	SourceLocation string             `json:"source_location,omitempty"`
 }
 
 // ResourceMapping maps CLI output to an MCP resource.
@@ -64,13 +71,13 @@ type ResourceMapping struct {
 
 // PromptMapping maps a skill intent to an MCP prompt.
 type PromptMapping struct {
-	MCPPromptName string           `json:"mcp_prompt_name"`
-	IntentModel   string           `json:"intent_model"`
-	Description   string           `json:"description"`
+	MCPPromptName string            `json:"mcp_prompt_name"`
+	IntentModel   string            `json:"intent_model"`
+	Description   string            `json:"description"`
 	Arguments     []ArgumentMapping `json:"arguments"`
-	ResourcesUsed []string         `json:"resources_used"`
-	ParityStatus  string           `json:"parity_status"`
-	SkillFiles    []string         `json:"skill_files,omitempty"`
+	ResourcesUsed []string          `json:"resources_used"`
+	ParityStatus  string            `json:"parity_status"`
+	SkillFiles    []string          `json:"skill_files,omitempty"`
 }
 
 // ParameterMapping maps a CLI flag to an MCP tool parameter.
@@ -98,10 +105,10 @@ type RegistrySnapshot struct {
 
 // CommandEntry represents a single CLI command entry.
 type CommandEntry struct {
-	Name        string            `json:"name"`
-	Flags       []FlagEntry       `json:"flags"`
-	Source      string            `json:"source"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
+	Name     string            `json:"name"`
+	Flags    []FlagEntry       `json:"flags"`
+	Source   string            `json:"source"`
+	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
 // FlagEntry represents a CLI flag definition.
@@ -168,6 +175,9 @@ func (b *Builder) WithSkillSnapshot(snapshot *SkillCatalogSnapshot) *Builder {
 
 // AddTool adds a tool mapping to the contract.
 func (b *Builder) AddTool(tool ToolMapping) *Builder {
+	if tool.Capability == "" {
+		tool.Capability = InferToolCapability(tool.MCPToolName, tool.CLICommand)
+	}
 	b.mapping.Tools = append(b.mapping.Tools, tool)
 	return b
 }
@@ -232,8 +242,9 @@ func (m *Mapping) Validate() error {
 		return fmt.Errorf("generated_at is required")
 	}
 
-	// Validate tool names are unique
+	// Validate tool names are unique and unambiguous after normalization.
 	toolNames := make(map[string]bool)
+	normalizedToolNames := make(map[string]string)
 	for _, tool := range m.Tools {
 		if tool.MCPToolName == "" {
 			return fmt.Errorf("tool mcp_tool_name is required")
@@ -247,10 +258,18 @@ func (m *Mapping) Validate() error {
 		if tool.ParityStatus == "" {
 			return fmt.Errorf("tool %s: parity_status is required", tool.MCPToolName)
 		}
+		if tool.Capability != ToolCapabilityRead && tool.Capability != ToolCapabilityWrite {
+			return fmt.Errorf("tool %s: capability must be %q or %q", tool.MCPToolName, ToolCapabilityRead, ToolCapabilityWrite)
+		}
 		if toolNames[tool.MCPToolName] {
 			return fmt.Errorf("duplicate tool name: %s", tool.MCPToolName)
 		}
 		toolNames[tool.MCPToolName] = true
+		normalizedName := normalizeToolIdentity(tool.MCPToolName)
+		if existing, ok := normalizedToolNames[normalizedName]; ok {
+			return fmt.Errorf("ambiguous tool name: %s conflicts with %s", tool.MCPToolName, existing)
+		}
+		normalizedToolNames[normalizedName] = tool.MCPToolName
 	}
 
 	// Validate resource URIs are unique
@@ -304,6 +323,38 @@ func (m *Mapping) Validate() error {
 	return nil
 }
 
+// InferToolCapability returns the default capability for known SDP MCP tools.
+func InferToolCapability(mcpToolName, cliCommand string) string {
+	name := strings.ToLower(strings.TrimSpace(mcpToolName))
+	command := strings.ToLower(strings.TrimSpace(cliCommand))
+	if strings.Contains(name, "create") ||
+		strings.Contains(name, "close") ||
+		strings.Contains(name, "update") ||
+		strings.Contains(name, "delete") ||
+		strings.Contains(name, "build") ||
+		strings.Contains(name, "bootstrap") ||
+		strings.Contains(name, "write") ||
+		strings.Contains(command, "create") ||
+		strings.Contains(command, "close") ||
+		strings.Contains(command, "update") ||
+		strings.Contains(command, "delete") ||
+		strings.Contains(command, "build") ||
+		strings.Contains(command, "bootstrap") {
+		return ToolCapabilityWrite
+	}
+	return ToolCapabilityRead
+}
+
+func normalizeToolIdentity(name string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(name) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
 // SaveToFile saves the mapping contract to a JSON file.
 func (m *Mapping) SaveToFile(path string) error {
 	data, err := json.MarshalIndent(m, "", "  ")
@@ -334,12 +385,22 @@ func LoadFromFile(path string) (*Mapping, error) {
 	if err := json.Unmarshal(data, &mapping); err != nil {
 		return nil, fmt.Errorf("unmarshal mapping: %w", err)
 	}
+	mapping.ApplyDefaults()
 
 	if err := mapping.Validate(); err != nil {
 		return nil, fmt.Errorf("validate mapping: %w", err)
 	}
 
 	return &mapping, nil
+}
+
+// ApplyDefaults backfills fields added after the initial contract version.
+func (m *Mapping) ApplyDefaults() {
+	for i := range m.Tools {
+		if m.Tools[i].Capability == "" {
+			m.Tools[i].Capability = InferToolCapability(m.Tools[i].MCPToolName, m.Tools[i].CLICommand)
+		}
+	}
 }
 
 // computeHash computes a SHA256 hash of a serializable object.
@@ -391,6 +452,27 @@ func (m *Mapping) GetToolsByParityStatus(status string) []ToolMapping {
 		}
 	}
 	return result
+}
+
+// GetToolsByCapability retrieves tools filtered by capability (read or write).
+func (m *Mapping) GetToolsByCapability(capability string) []ToolMapping {
+	var result []ToolMapping
+	for _, tool := range m.Tools {
+		if tool.Capability == capability {
+			result = append(result, tool)
+		}
+	}
+	return result
+}
+
+// GetWriteTools returns all write-capable tools.
+func (m *Mapping) GetWriteTools() []ToolMapping {
+	return m.GetToolsByCapability(ToolCapabilityWrite)
+}
+
+// GetReadTools returns all read-only tools.
+func (m *Mapping) GetReadTools() []ToolMapping {
+	return m.GetToolsByCapability(ToolCapabilityRead)
 }
 
 // GetResourcesByParityStatus retrieves resources filtered by parity status.

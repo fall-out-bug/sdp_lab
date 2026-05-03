@@ -77,6 +77,11 @@
           "enum": ["full", "partial", "deprecated", "forward"],
           "description": "Parity status with CLI implementation"
         },
+        "capability": {
+          "type": "string",
+          "enum": ["read", "write"],
+          "description": "Whether this MCP tool is read-only or write-capable. Write-capable tools require trusted authorization outside untrusted MCP resource or tool-description text."
+        },
         "source_location": {
           "type": "string",
           "description": "Source file where CLI command is defined (e.g., 'cmd/sdp/cmd_scout.go')"

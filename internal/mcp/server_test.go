@@ -151,10 +151,10 @@ func TestProtocolConsistency_ToolSurfaceIsStable(t *testing.T) {
 		}, map[string]interface{}{}},
 		{"sdp_bootstrap", func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			return srv1.handleBootstrap(ctx, req)
-		}, map[string]interface{}{}},
+		}, map[string]interface{}{"trusted_authorization": true}},
 		{"sdp_index_build", func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			return srv1.handleIndexBuild(ctx, req)
-		}, map[string]interface{}{}},
+		}, map[string]interface{}{"trusted_authorization": true}},
 		{"sdp_index_query", func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			return srv1.handleIndexQuery(ctx, req)
 		}, map[string]interface{}{"query": "test"}},
@@ -169,10 +169,10 @@ func TestProtocolConsistency_ToolSurfaceIsStable(t *testing.T) {
 		}, map[string]interface{}{"task": "test"}},
 		{"sdp_beads_create", func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			return srv1.handleBeadsCreate(ctx, req)
-		}, map[string]interface{}{"title": "test"}},
+		}, map[string]interface{}{"title": "test", "trusted_authorization": true}},
 		{"sdp_beads_close", func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			return srv1.handleBeadsClose(ctx, req)
-		}, map[string]interface{}{"id": "WS-1"}},
+		}, map[string]interface{}{"id": "WS-1", "trusted_authorization": true}},
 		{"sdp_beads_list", func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			return srv1.handleBeadsList(ctx, req)
 		}, map[string]interface{}{}},
@@ -324,11 +324,11 @@ func TestProtocolConsistency_ErrorFormatConsistency(t *testing.T) {
 		},
 		{
 			"sdp_beads_create_missing_title",
-			mcp.CallToolRequest{Params: mcp.CallToolParams{Name: "sdp_beads_create", Arguments: map[string]interface{}{}}},
+			mcp.CallToolRequest{Params: mcp.CallToolParams{Name: "sdp_beads_create", Arguments: map[string]interface{}{"trusted_authorization": true}}},
 		},
 		{
 			"sdp_beads_close_missing_id",
-			mcp.CallToolRequest{Params: mcp.CallToolParams{Name: "sdp_beads_close", Arguments: map[string]interface{}{}}},
+			mcp.CallToolRequest{Params: mcp.CallToolParams{Name: "sdp_beads_close", Arguments: map[string]interface{}{"trusted_authorization": true}}},
 		},
 	}
 
