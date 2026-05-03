@@ -1,0 +1,50 @@
+{
+  "ws_id": "00-164-05",
+  "feature_id": "F164",
+  "verdict": "PASS",
+  "commit": "beea5804",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": null,
+    "coverage_threshold": null,
+    "max_file_loc": null,
+    "build_ok": true,
+    "vet_ok": true,
+    "prompt_injection_check_pass": true,
+    "manifest_validate": "not_available_in_harness"
+  },
+  "ac_evidence": [
+    {
+      "ac": "Security/review/build-oriented prompt surfaces document trusted instruction versus untrusted content handling",
+      "met": true,
+      "evidence": "F164 note added to prompts/agents/security.md:11, prompts/agents/reviewer.md:9, prompts/skills/review/SKILL.md:20, prompts/skills/build/SKILL.md:21, .agents/skills/review.md:20, .agents/skills/build.md:20, .pi/APPEND_SYSTEM.md:5, docs/reference/skills.md:181. All surfaces document trusted instruction vs untrusted content handling."
+    },
+    {
+      "ac": "Hardened patterns preserve existing prompt installation unless a decision record accepts a breaking change",
+      "met": true,
+      "evidence": "All changes are additive F164 note blocks and extended PromptOps checks; no existing format, schema, or output shape was modified. Preserves existing prompt installation."
+    },
+    {
+      "ac": "PromptOps checks include prompt-injection-specific concerns or link to the F164 corpus schema",
+      "met": true,
+      "evidence": "PromptOps expert in prompts/skills/review/SKILL.md:88 and .agents/skills/review.md: extended with PI-specific checks (a) PI-013 supply-chain check, (b) trusted/untrusted content handling documentation, (c) benign controls processing. All review SKILLs reference docs/security/f164-prompt-injection-test-cases.md."
+    },
+    {
+      "ac": "A grep or eval check fails if active prompt surfaces claim prompt-only protection is a security boundary",
+      "met": true,
+      "evidence": "scripts/prompt-injection-check.sh: PI-013 grep/eval check created. Patterns tested: prompt.isolation.is.a.security.control, prompt.only.protection.is.sufficient, etc. Counter-example (correct advisory) handled. Check passes on all 8 scope files. PI-013 check also embedded in PromptOps expert task descriptions."
+    },
+    {
+      "ac": "Benign security documentation and tests with injection-like strings remain processable as data through the 00-164-03 mock cases",
+      "met": true,
+      "evidence": "All 8 scope files explicitly state benign controls (security docs, test fixtures with injection-like strings) are processable as data without blocking. F164 notes reference 00-164-03 context (PI-018 benign security doc control)."
+    },
+    {
+      "ac": "Existing adapter/prompt install validation still passes or the workstream records a decision for any breaking change",
+      "met": true,
+      "evidence": "sdp manifest validate (not available in this harness; harness uses pi, not the SDP CLI). No schema changes, no output format changes, no breaking changes to any surface. Addition-only changes."
+    }
+  ],
+  "existing_work_summary": "F164 threat model (f164-prompt-injection-threat-model.md) and test cases (f164-prompt-injection-test-cases.md) already existed with PI-001 through PI-018. No prior F164-05 prompt hardening was present in the 8 scope files."
+}
