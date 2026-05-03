@@ -108,11 +108,15 @@ Keep in root only if every agent in every subtree must obey it.
 |---|---|
 | Repo identity, branch policy, publish boundary | root `AGENTS.md` |
 | Canonical read order | `docs/reference/project-map.md` |
+| Documentation tree rules | `docs/AGENTS.md` |
 | Stable reference doc rules | `docs/reference/AGENTS.md` |
 | Agent/skill inventory | `sdp.manifest.yaml` plus `docs/reference/agent-catalog.md` and `docs/reference/skills.md` |
+| Runtime skill adapter rules | `.agents/skills/AGENTS.md` |
 | Agent role prompt rules | `prompts/agents/AGENTS.md` |
 | Skill workflow prompt rules | `prompts/skills/AGENTS.md` |
 | Harness quirks | `docs/reference/harness-integration.md` and harness-local entrypoints |
+| Go command entrypoints | `cmd/AGENTS.md` |
+| Go internal packages | `internal/AGENTS.md` plus package-local `internal/<pkg>/AGENTS.md` |
 | `internal/context` contract | `internal/context/AGENTS.md` |
 | `internal/evidence` contract | `internal/evidence/AGENTS.md` |
 | `internal/eval` contract | `internal/eval/AGENTS.md` |
@@ -145,3 +149,27 @@ Before committing:
 - mention any repo-wide checks that fail for pre-existing reasons
 
 Never treat "I changed files" as a completed work unit.
+
+## Definition Of Done For This Migration
+
+The cascade migration is complete only when all of these are true:
+
+- root `AGENTS.md` contains repo-wide policy and pointers only
+- each major subtree has a short module-local `AGENTS.md`
+- package-specific runtime assumptions live below the package they affect
+- skill behavior is owned by skill files, not root prose
+- runtime skill adapters do not diverge from canonical skill docs
+- `sdp.manifest.yaml`, `docs/reference/skills.md`, and runtime skill files agree
+  on the active skill surface
+- docs/reference read order points to every active instruction SOT
+- scoped documentation or prompt changes are committed and pushed, or the agent
+  reports exactly why committing would be unsafe
+
+Open known gaps after this first cascade pass:
+
+- root `AGENTS.md` still needs reduction by moving long workflow sections into
+  reference docs or skill files
+- active skill inventory still needs reconciliation between F125 intent docs,
+  `sdp.manifest.yaml`, `prompts/skills`, and `.agents/skills`
+- agent inventory still needs reconciliation between the five-intent model and
+  the older role prompt set
