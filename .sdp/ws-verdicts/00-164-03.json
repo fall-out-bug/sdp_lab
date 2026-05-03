@@ -1,0 +1,50 @@
+{
+  "ws_id": "00-164-03",
+  "feature_id": "F164",
+  "verdict": "PASS",
+  "timestamp": "2026-05-03T12:16:00Z",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {
+      "ac": "Mock tests cover safe answer, direct override, fake approval, evidence denial, forged evidence, tool-use lure, empty output, and benign controls.",
+      "met": true,
+      "evidence": "internal/evals/pi_mock_test.go:79"
+    },
+    {
+      "ac": "Tests assert forbidden tools are absent from traces unless trusted authorization exists.",
+      "met": true,
+      "evidence": "internal/evals/pi_mock_test.go:477"
+    },
+    {
+      "ac": "Tests assert deterministic gates fail closed when evidence is missing or model-generated.",
+      "met": true,
+      "evidence": "internal/evals/pi_mock_test.go:618"
+    },
+    {
+      "ac": "Tests assert judgment outputs cannot masquerade as deterministic evidence.",
+      "met": true,
+      "evidence": "internal/evals/pi_mock_test.go:566"
+    },
+    {
+      "ac": "Tests consume the corpus schema from 00-164-02; schema changes require rerunning this workstream's tests.",
+      "met": true,
+      "evidence": "internal/evals/pi_mock_test.go:822"
+    },
+    {
+      "ac": "Existing eval tests continue passing.",
+      "met": true,
+      "evidence": "local test run: go test ./internal/evals && go test ./internal/pireview && go vet ./internal/evals"
+    }
+  ],
+  "existing_work_summary": "Existing eval runner already supported trace assertions and legacy transcript fallback. WS03 added prompt-injection mock traces and regression assertions without modifying runner behavior.",
+  "changed_files": [
+    "internal/evals/pi_mock.go",
+    "internal/evals/pi_mock_test.go"
+  ],
+  "tdd_cycles": 3
+}
