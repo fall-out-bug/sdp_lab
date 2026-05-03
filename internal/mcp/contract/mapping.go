@@ -323,7 +323,8 @@ func (m *Mapping) Validate() error {
 	return nil
 }
 
-// InferToolCapability returns the default capability for known SDP MCP tools.
+// InferToolCapability returns a best-effort default for legacy contracts that
+// predate explicit capability. New contracts should set Capability explicitly.
 func InferToolCapability(mcpToolName, cliCommand string) string {
 	name := strings.ToLower(strings.TrimSpace(mcpToolName))
 	command := strings.ToLower(strings.TrimSpace(cliCommand))

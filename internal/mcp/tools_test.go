@@ -1492,6 +1492,16 @@ func TestToolPolicy_ValidateChain_MultipleWritesAllNeedAuth(t *testing.T) {
 	assert.Contains(t, err.Error(), "trusted authorization")
 }
 
+func TestToolPolicy_ValidateChain_UnknownToolFailsClosed(t *testing.T) {
+	policy := DefaultToolPolicy()
+
+	err := policy.ValidateChain([]ChainCall{
+		{ToolName: "unknown_write_tool", Source: "trusted"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown tool")
+}
+
 // TestSecurity_WriteToolAuth_UntrustedResourceText verifies that untrusted
 // MCP resource text cannot authorize a write call through the tool handlers.
 func TestSecurity_WriteToolAuth_UntrustedResourceText(t *testing.T) {
@@ -1576,8 +1586,8 @@ func TestSecurity_WriteToolAuth_ReadToolsDontRequireAuth(t *testing.T) {
 
 	// These tools should work without trusted_authorization
 	readTools := []struct {
-		name string
-		args map[string]interface{}
+		name    string
+		args    map[string]interface{}
 		handler func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error)
 	}{
 		{"sdp_scout", map[string]interface{}{}, srv.handleScout},

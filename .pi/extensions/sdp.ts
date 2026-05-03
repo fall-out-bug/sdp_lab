@@ -51,7 +51,7 @@ function isWriteCommand(binary: string, args: string[]): boolean {
     return /^(create|update|close|reopen|delete|archive)\b/.test(command);
   }
   if (binary === "sdp") {
-    return /^(bootstrap|apply|publish|deploy|ship|index build|mcp generate-mapping|manifest write|doctor fix)\b/.test(command);
+    return /(^|\s)(bootstrap|apply|publish|deploy|ship|index build|mcp generate-mapping|manifest write|doctor fix)\b/.test(command);
   }
   return false;
 }

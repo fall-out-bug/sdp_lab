@@ -135,6 +135,9 @@ func (tp *ToolPolicy) AuthorizeWrite(toolName, source string) error {
 // inducing an unauthorized write call.
 func (tp *ToolPolicy) ValidateChain(calls []ChainCall) error {
 	for i, call := range calls {
+		if !tp.IsRead(call.ToolName) && !tp.IsWrite(call.ToolName) {
+			return fmt.Errorf("unknown tool %q in chain", call.ToolName)
+		}
 		if !tp.IsWrite(call.ToolName) {
 			continue
 		}
