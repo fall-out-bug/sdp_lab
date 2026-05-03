@@ -73,8 +73,9 @@ jobs:
           jq -r '.skills[] // empty' .pi/settings.json | while read -r path; do
             # Skills can be relative paths
             if [[ "$path" == ../* ]]; then
-              if [ ! -d "$path" ]; then
-                echo "ERROR: settings.json references missing skill dir: $path"
+              fullpath=".pi/$path"
+              if [ ! -d "$fullpath" ]; then
+                echo "ERROR: settings.json references missing skill dir: $fullpath"
                 exit 1
               fi
             elif [ ! -d ".pi/$path" ]; then
