@@ -1190,6 +1190,24 @@ issues resolved.
 ## 2026-05-03
 
 ### Commits
+- `c099b84c` docs: enforce scoped completion in agent skills (2026-05-03)
+
+### Changed Files
+- `.agents/skills/AGENTS.md`
+- `.agents/skills/build/SKILL.md`
+- `.agents/skills/delivery-loop/SKILL.md`
+- `AGENTS.md`
+- `docs/reference/agent-instruction-cascade.md`
+- `internal/workstream/skill_lint.go`
+- `internal/workstream/skill_lint_test.go`
+- `prompts/skills/AGENTS.md`
+- `prompts/skills/build/SKILL.md`
+- `prompts/skills/delivery-loop/SKILL.md`
+- `scripts/lint-skills.sh`
+
+
+
+### Commits
 - `1995dc4c` F164: harden prompt-injection defenses (2026-05-03)
 
 ### Changed Files
