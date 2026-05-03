@@ -1187,3 +1187,19 @@ issues resolved.
 - `scripts/sdp-publish.sh`
 - `sdp.manifest.yaml`
 
+## 2026-05-03
+
+### Commits
+- `541d3705` docs: define agent instruction cascade (2026-05-03)
+
+### Changed Files
+- `AGENTS.md`
+- `docs/reference/AGENTS.md`
+- `docs/reference/README.md`
+- `docs/reference/agent-instruction-cascade.md`
+- `docs/reference/project-map.md`
+- `docs/reference/skill-authoring.md`
+- `docs/reference/skills.md`
+- `prompts/agents/AGENTS.md`
+- `prompts/skills/AGENTS.md`
+
