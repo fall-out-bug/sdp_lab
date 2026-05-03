@@ -147,4 +147,3 @@ func printSummary(run *evals.LiveEvalRun, feature string) {
 	fmt.Printf("\nAdvisory: Live evals are advisory/manual/scheduled. They are NOT required blocking PR CI.\n")
 	fmt.Printf("Manifest: %s\n", filepath.Join(run.ArtifactDir, "eval-run.json"))
 }
-

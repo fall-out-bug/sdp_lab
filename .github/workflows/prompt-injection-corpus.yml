@@ -7,6 +7,7 @@ on:
       - 'schema/prompt-injection-corpus.schema.json'
       - 'internal/evals/pi_*'
       - 'cmd/sdp-eval/**'
+      - 'cmd/sdp-pi-eval/**'
       - 'scripts/check-prompt-injection-corpus.sh'
       - 'scripts/prompt-injection-check.sh'
       - 'prompts/**'

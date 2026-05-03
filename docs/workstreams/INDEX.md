@@ -141,7 +141,7 @@
 | Feature | Description | Workstreams | Status | Priority |
 |---------|-------------|-------------|--------|----------|
 | **F163** | Socratic spec interrogation for sdp-trace pilot — clean-context `pi` critic/judge protocol for SpecKit artifacts | 00-163-01 | In Progress | P1 |
-| **F164** | Prompt Injection Hardening and Red-Team Corpus — SDP-specific threat model, corpus, static/mock/live evals, prompt hardening, MCP/write-tool checks, advisory CI | 00-164-01 ... 00-164-07 | Backlog | P1 |
+| **F164** | Prompt Injection Hardening and Red-Team Corpus — SDP-specific threat model, corpus, static/mock/live evals, prompt hardening, MCP/write-tool checks, advisory CI | 00-164-01 ... 00-164-07 | In Progress | P1 |
 
 > **Beads:** `F163=sdplab-n7a9`, `F164=sdplab-9wxx`
 > **Boundary:** this produces evidence for spec readiness; it is not a process gate. Gate policy remains owned by downstream gate tooling.

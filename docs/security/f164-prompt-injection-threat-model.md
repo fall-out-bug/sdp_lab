@@ -47,10 +47,11 @@ Current exposed surfaces include:
 | `.pi/extensions/sdp.ts` | local adapter | broad write-tool confirmation policy | PI-007, PI-011 |
 | `internal/architect/security` | component-local | SDP-wide reuse boundary | reuse only, not coverage |
 
-No completed F164 red-team baseline exists yet. F164-01 must record the first
-baseline run: which corpus cases are currently untested, fail, pass only by prompt
-behavior, or pass by deterministic gate. Risk reduction is measured against that
-baseline, not by document existence alone.
+No completed F164 red-team baseline run exists yet. F164-01 records the baseline
+measurement contract: the run must classify which corpus cases are currently
+untested, fail, pass only by prompt behavior, or pass by deterministic gate. The
+first concrete baseline run is owned by a later execution step or follow-up.
+Risk reduction is measured against that baseline, not by document existence alone.
 
 Worst plausible product consequence: an untrusted repo/PR/issue/log artifact causes
 an agent to report a false pass, suppress a finding, close or mutate a Beads issue,

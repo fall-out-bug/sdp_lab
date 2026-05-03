@@ -33,7 +33,18 @@ jobs:
       - name: Validate extension TypeScript syntax
         run: |
           set -euo pipefail
-          # Basic sanity: each .ts must have valid structure
+          # Parse/bundle extensions with a real TypeScript parser. External Pi
+          # runtime modules are provided by the harness at runtime.
+          npx --yes esbuild@0.25.0 .pi/extensions/*.ts pi-sdp-harness/extensions/*.ts \
+            --bundle \
+            --platform=node \
+            --format=esm \
+            --outdir=/tmp/pi-extension-check \
+            --external:@mariozechner/pi-coding-agent \
+            --external:@mariozechner/pi-tui \
+            --external:typebox
+
+          # Basic structure sanity in addition to parser validation.
           for ext in .pi/extensions/*.ts; do
             echo "Checking: $ext"
             # Must have export default

@@ -16,6 +16,7 @@ REPORT="${OUT_DIR}/prompt-injection-corpus.txt"
   echo "== CI workflow invariant check =="
   WORKFLOW="${ROOT}/.github/workflows/prompt-injection-corpus.yml"
   grep -q "scripts/check-prompt-injection-corpus.sh" "${WORKFLOW}"
+  grep -q "cmd/sdp-pi-eval" "${WORKFLOW}"
   grep -q "upload-artifact" "${WORKFLOW}"
   ! grep -Eq "(OPENROUTER_API_KEY|ZAI_API_KEY|KIMI_API_KEY|MINIMAX_API_KEY)" "${WORKFLOW}"
   echo "PASS: workflow invokes static/mock wrapper, uploads report, and does not require live-provider secrets."
@@ -23,6 +24,7 @@ REPORT="${OUT_DIR}/prompt-injection-corpus.txt"
   echo "== mock/static Go regressions =="
   go test ./internal/evals
   go test -tags sdp_experimental ./cmd/sdp-eval
+  go test -tags sdp_experimental ./cmd/sdp-pi-eval
   echo
   echo "== sdp-eval static/advisory report =="
   go run -tags sdp_experimental ./cmd/sdp-eval --prompt-injection-report --project-root "${ROOT}"

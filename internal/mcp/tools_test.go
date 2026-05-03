@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -61,7 +62,18 @@ func (m *mockExecutor) RunCustom(_ context.Context, binary string, args ...strin
 
 // newTestServer creates a Server with a mock executor for testing.
 func newTestServer() (*Server, *mockExecutor) {
-	srv := NewServer(ServerConfig{RepoRoot: "/test/repo"})
+	repoRoot := filepath.Join(os.TempDir(), "sdp-mcp-test-repo")
+	_ = os.MkdirAll(repoRoot, 0o755)
+	srv := NewServer(ServerConfig{RepoRoot: repoRoot, TrustedWriteAuthorization: true})
+	mock := &mockExecutor{}
+	srv.executor = mock
+	return srv, mock
+}
+
+func newUntrustedTestServer() (*Server, *mockExecutor) {
+	repoRoot := filepath.Join(os.TempDir(), "sdp-mcp-test-repo")
+	_ = os.MkdirAll(repoRoot, 0o755)
+	srv := NewServer(ServerConfig{RepoRoot: repoRoot, TrustedWriteAuthorization: false})
 	mock := &mockExecutor{}
 	srv.executor = mock
 	return srv, mock
@@ -86,19 +98,20 @@ func TestHandleScout_HappyPath(t *testing.T) {
 	assert.Contains(t, result.Content[0].(mcp.TextContent).Text, "languages")
 
 	// Verify correct CLI invocation with --output for artifact persistence
-	assert.Equal(t, []string{"scout", "--format", "json", "--output", "/test/repo/.sdp", "/test/repo"}, mock.lastArgs)
+	assert.Equal(t, []string{"scout", "--format", "json", "--output", filepath.Join(srv.config.RepoRoot, ".sdp"), srv.config.RepoRoot}, mock.lastArgs)
 }
 
 func TestHandleScout_CustomFormat(t *testing.T) {
 	srv, mock := newTestServer()
 	mock.response = []byte("Scout Report\n---\n...")
+	customPath := filepath.Join(srv.config.RepoRoot, "custom")
 
 	req := mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
 			Name: "sdp_scout",
 			Arguments: map[string]interface{}{
 				"format": "text",
-				"path":   "/custom/path",
+				"path":   "custom",
 			},
 		},
 	}
@@ -106,7 +119,7 @@ func TestHandleScout_CustomFormat(t *testing.T) {
 	result, err := srv.handleScout(context.Background(), req)
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
-	assert.Equal(t, []string{"scout", "--format", "text", "--output", "/custom/path/.sdp", "/custom/path"}, mock.lastArgs)
+	assert.Equal(t, []string{"scout", "--format", "text", "--output", filepath.Join(customPath, ".sdp"), customPath}, mock.lastArgs)
 }
 
 func TestHandleScout_Error(t *testing.T) {
@@ -142,7 +155,7 @@ func TestHandleMetrics_HappyPath(t *testing.T) {
 	result, err := srv.handleMetrics(context.Background(), req)
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
-	assert.Equal(t, []string{"metrics", "--format", "json", "--output", "/test/repo/.sdp/metrics", "/test/repo"}, mock.lastArgs)
+	assert.Equal(t, []string{"metrics", "--format", "json", "--output", filepath.Join(srv.config.RepoRoot, ".sdp", "metrics"), srv.config.RepoRoot}, mock.lastArgs)
 }
 
 func TestHandleMetrics_Error(t *testing.T) {
@@ -175,7 +188,7 @@ func TestHandleSpec_HappyPath(t *testing.T) {
 	result, err := srv.handleSpec(context.Background(), req)
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
-	assert.Equal(t, []string{"spec", "--format", "json", "--category", "api", "--output", "/test/repo/.sdp/specs", "/test/repo"}, mock.lastArgs)
+	assert.Equal(t, []string{"spec", "--format", "json", "--category", "api", "--output", filepath.Join(srv.config.RepoRoot, ".sdp", "specs"), srv.config.RepoRoot}, mock.lastArgs)
 }
 
 func TestHandleSpec_AllCategory(t *testing.T) {
@@ -195,7 +208,7 @@ func TestHandleSpec_AllCategory(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
 	// "all" should not pass --category flag
-	assert.Equal(t, []string{"spec", "--format", "json", "--output", "/test/repo/.sdp/specs", "/test/repo"}, mock.lastArgs)
+	assert.Equal(t, []string{"spec", "--format", "json", "--output", filepath.Join(srv.config.RepoRoot, ".sdp", "specs"), srv.config.RepoRoot}, mock.lastArgs)
 }
 
 func TestHandleSpec_WithEnrich(t *testing.T) {
@@ -294,7 +307,7 @@ func TestHandleBootstrap_NoVerify(t *testing.T) {
 }
 
 func TestHandleBootstrap_RequiresTrustedAuthorization(t *testing.T) {
-	srv, mock := newTestServer()
+	srv, mock := newUntrustedTestServer()
 	mock.response = []byte(`{}`)
 
 	result, err := srv.handleBootstrap(context.Background(), mcp.CallToolRequest{
@@ -302,7 +315,7 @@ func TestHandleBootstrap_RequiresTrustedAuthorization(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
-	assert.Contains(t, result.Content[0].(mcp.TextContent).Text, "trusted_authorization")
+	assert.Contains(t, result.Content[0].(mcp.TextContent).Text, "trusted write authorization")
 	assert.Empty(t, mock.calls)
 }
 
@@ -393,18 +406,18 @@ func TestHandleIndexBuild_HappyPath(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.False(t, result.IsError)
-	assert.Equal(t, []string{"index", "build", "--format", "json", "/test/repo"}, mock.lastArgs)
+	assert.Equal(t, []string{"index", "build", "--format", "json", srv.config.RepoRoot}, mock.lastArgs)
 }
 
 func TestHandleIndexBuild_RequiresTrustedAuthorization(t *testing.T) {
-	srv, mock := newTestServer()
+	srv, mock := newUntrustedTestServer()
 
 	result, err := srv.handleIndexBuild(context.Background(), mcp.CallToolRequest{
 		Params: mcp.CallToolParams{Name: "sdp_index_build", Arguments: map[string]interface{}{}},
 	})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
-	assert.Contains(t, result.Content[0].(mcp.TextContent).Text, "trusted_authorization")
+	assert.Contains(t, result.Content[0].(mcp.TextContent).Text, "trusted write authorization")
 	assert.Empty(t, mock.calls)
 }
 
@@ -692,7 +705,7 @@ func TestHandleBeadsCreate_PriorityZero(t *testing.T) {
 }
 
 func TestHandleBeadsCreate_RequiresTrustedAuthorization(t *testing.T) {
-	srv, mock := newTestServer()
+	srv, mock := newUntrustedTestServer()
 
 	result, err := srv.handleBeadsCreate(context.Background(), mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
@@ -705,7 +718,7 @@ func TestHandleBeadsCreate_RequiresTrustedAuthorization(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
-	assert.Contains(t, result.Content[0].(mcp.TextContent).Text, "trusted_authorization")
+	assert.Contains(t, result.Content[0].(mcp.TextContent).Text, "trusted write authorization")
 	assert.Empty(t, mock.calls)
 }
 
@@ -762,7 +775,7 @@ func TestHandleBeadsClose_HappyPath(t *testing.T) {
 }
 
 func TestHandleBeadsClose_RequiresTrustedAuthorization(t *testing.T) {
-	srv, mock := newTestServer()
+	srv, mock := newUntrustedTestServer()
 
 	result, err := srv.handleBeadsClose(context.Background(), mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
@@ -774,7 +787,7 @@ func TestHandleBeadsClose_RequiresTrustedAuthorization(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
-	assert.Contains(t, result.Content[0].(mcp.TextContent).Text, "trusted_authorization")
+	assert.Contains(t, result.Content[0].(mcp.TextContent).Text, "trusted write authorization")
 	assert.Empty(t, mock.calls)
 }
 
@@ -918,12 +931,8 @@ func TestSecurity_PathTraversal_PassedToCLI(t *testing.T) {
 
 			result, err := srv.handleScout(context.Background(), req)
 			require.NoError(t, err)
-			assert.False(t, result.IsError)
-
-			// The key assertion: the MCP server passes the path directly to
-			// the CLI without interpretation. The CLI is the security boundary.
-			assert.Contains(t, mock.lastArgs, path,
-				"path traversal string should be passed to CLI verbatim")
+			assert.True(t, result.IsError)
+			assert.Contains(t, result.Content[0].(mcp.TextContent).Text, "escapes repository root")
 		})
 	}
 }
@@ -1166,14 +1175,14 @@ func TestArtifactPath_CreatesParentDir(t *testing.T) {
 // path when provided.
 func TestArtifactPath_CustomToolPath(t *testing.T) {
 	tmpDir := t.TempDir()
-	srv := NewServer(ServerConfig{RepoRoot: "/default/repo"})
+	srv := NewServer(ServerConfig{RepoRoot: tmpDir})
 
-	path, err := srv.artifactPath(tmpDir, ".sdp/scout.json")
+	path, err := srv.artifactPath("custom", ".sdp/scout.json")
 	require.NoError(t, err)
-	assert.Equal(t, tmpDir+"/.sdp/scout.json", path)
+	assert.Equal(t, filepath.Join(tmpDir, "custom", ".sdp", "scout.json"), path)
 
 	// Verify .sdp/ was created under the custom path, not the default
-	info, statErr := os.Stat(tmpDir + "/.sdp")
+	info, statErr := os.Stat(filepath.Join(tmpDir, "custom", ".sdp"))
 	require.NoError(t, statErr)
 	assert.True(t, info.IsDir())
 }
@@ -1505,7 +1514,7 @@ func TestToolPolicy_ValidateChain_UnknownToolFailsClosed(t *testing.T) {
 // TestSecurity_WriteToolAuth_UntrustedResourceText verifies that untrusted
 // MCP resource text cannot authorize a write call through the tool handlers.
 func TestSecurity_WriteToolAuth_UntrustedResourceText(t *testing.T) {
-	srv, mock := newTestServer()
+	srv, mock := newUntrustedTestServer()
 
 	// Simulate an attacker trying to use resource text to close a bead
 	result, err := srv.handleBeadsClose(context.Background(), mcp.CallToolRequest{
@@ -1519,7 +1528,7 @@ func TestSecurity_WriteToolAuth_UntrustedResourceText(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
-	assert.Contains(t, result.Content[0].(mcp.TextContent).Text, "trusted_authorization")
+	assert.Contains(t, result.Content[0].(mcp.TextContent).Text, "trusted write authorization")
 	// The executor should NOT have been called
 	assert.Empty(t, mock.calls)
 }
@@ -1547,7 +1556,7 @@ func TestSecurity_WriteToolAuth_TrustedUserCanWrite(t *testing.T) {
 // TestSecurity_WriteToolAuth_BootstrapRequiresAuth verifies that bootstrap
 // (a write tool that writes files) requires trusted authorization.
 func TestSecurity_WriteToolAuth_BootstrapRequiresAuth(t *testing.T) {
-	srv, mock := newTestServer()
+	srv, mock := newUntrustedTestServer()
 
 	result, err := srv.handleBootstrap(context.Background(), mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
@@ -1557,14 +1566,14 @@ func TestSecurity_WriteToolAuth_BootstrapRequiresAuth(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
-	assert.Contains(t, result.Content[0].(mcp.TextContent).Text, "trusted_authorization")
+	assert.Contains(t, result.Content[0].(mcp.TextContent).Text, "trusted write authorization")
 	assert.Empty(t, mock.calls)
 }
 
 // TestSecurity_WriteToolAuth_IndexBuildRequiresAuth verifies that index build
 // (a write tool that creates an index DB) requires trusted authorization.
 func TestSecurity_WriteToolAuth_IndexBuildRequiresAuth(t *testing.T) {
-	srv, mock := newTestServer()
+	srv, mock := newUntrustedTestServer()
 
 	result, err := srv.handleIndexBuild(context.Background(), mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
@@ -1574,7 +1583,7 @@ func TestSecurity_WriteToolAuth_IndexBuildRequiresAuth(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
-	assert.Contains(t, result.Content[0].(mcp.TextContent).Text, "trusted_authorization")
+	assert.Contains(t, result.Content[0].(mcp.TextContent).Text, "trusted write authorization")
 	assert.Empty(t, mock.calls)
 }
 

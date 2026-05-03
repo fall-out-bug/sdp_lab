@@ -70,22 +70,37 @@ func TestToolRegistration(t *testing.T) {
 }
 
 func TestRepoPathResolution(t *testing.T) {
-	srv := NewServer(ServerConfig{RepoRoot: "/default"})
+	root := t.TempDir()
+	srv := NewServer(ServerConfig{RepoRoot: root})
 
 	tests := []struct {
 		name     string
 		toolPath string
 		want     string
 	}{
-		{"empty tool path falls back to server default", "", "/default"},
-		{"tool path overrides default", "/override", "/override"},
-		{"relative tool path is preserved", "./subdir", "./subdir"},
+		{"empty tool path falls back to server default", "", root},
+		{"relative tool path resolves under default", "./subdir", filepath.Join(root, "subdir")},
+		{"nested relative path resolves under default", "docs", filepath.Join(root, "docs")},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := srv.repoPath(tt.toolPath)
+			got, err := srv.repoPath(tt.toolPath)
+			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestRepoPathResolutionRejectsEscapes(t *testing.T) {
+	root := t.TempDir()
+	srv := NewServer(ServerConfig{RepoRoot: root})
+
+	for _, path := range []string{"../outside", "/etc/passwd"} {
+		t.Run(path, func(t *testing.T) {
+			_, err := srv.repoPath(path)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "escapes repository root")
 		})
 	}
 }
@@ -112,8 +127,8 @@ const expectedPromptCount = 5
 
 func TestProtocolConsistency_ToolSurfaceIsStable(t *testing.T) {
 	// Create two independent servers and verify both register the same tools.
-	srv1 := NewServer(ServerConfig{RepoRoot: "."})
-	srv2 := NewServer(ServerConfig{RepoRoot: "."})
+	srv1 := NewServer(ServerConfig{RepoRoot: t.TempDir(), TrustedWriteAuthorization: true})
+	srv2 := NewServer(ServerConfig{RepoRoot: t.TempDir(), TrustedWriteAuthorization: true})
 
 	// The MCP SDK does not expose a public tool-list API from MCPServer.
 	// We verify stability indirectly: the server must have registered all

@@ -40,6 +40,8 @@ PATTERNS=(
   "prompt[- ]isolation is a security control"
   "prompt boundary.*security control"
   "security control.*prompt[- ]isolation"
+  "prompt[- ]only isolation.*security (boundary|control)"
+  "security (boundary|control).*prompt[- ]only isolation"
   "instruction[- ]isolation is the security control"
   "isolated prompt as a security boundary"
 
@@ -58,7 +60,7 @@ echo ""
 
 for pattern in "${PATTERNS[@]}"; do
   # Grep returns 0 (match) or 1 (no match). We only care about matches.
-  matches=$(grep -rEi "$pattern" "${SCOPE[@]}" 2>/dev/null | grep -Eiv "(must[ -]+not|do[ -]+not|don't|cannot|can't|never|is[[:space:]]+not|are[[:space:]]+not|not).*security (control|boundary)" || true)
+  matches=$(grep -rEi "$pattern" "${SCOPE[@]}" 2>/dev/null | grep -Eiv "(must[ -]+not|do[ -]+not|don't|cannot|can't|never|is[[:space:]]+not|are[[:space:]]+not|not|no[[:space:]]+prompt surface claims).*security (control|boundary)" || true)
   if [ -n "$matches" ]; then
     echo "FAIL: Found claim that prompt-only isolation is a security boundary:"
     echo "$matches"
