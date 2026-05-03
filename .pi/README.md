@@ -9,20 +9,30 @@ This directory configures [Pi](https://pi.dev) as a first-class harness for the 
   settings.json      # Pi settings: model, skills, prompts, extensions
   extensions/
     sdp.ts           # SDP integration: tools, commands, status, footer
-  prompts/           # Generated prompt templates from sdp.manifest.yaml
+  prompts/           # Generated command templates from sdp.manifest.yaml
+  skills/            # Skills + agents for Pi (Agent Skills standard)
+    prompts-skills/  # Symlink → ../../prompts/skills (structured skills)
+    *.md             # Flat agent skills (architect, reviewer, security, ...)
 ```
 
 ## What It Does
 
 ### 1. Skills Discovery
-Skills are loaded from `prompts/skills/` (canonical Agent Skills standard):
+Skills are loaded from `.pi/skills/` (canonical Agent Skills standard):
 
+**Workflow skills** (structured, via `prompts-skills` symlink):
 - `beads` — Task tracker integration
 - `feature`, `build`, `ship`, `review` — Delivery loop
 - `discovery`, `design` — Discovery phase
 - `debug`, `bugfix`, `hotfix` — Incident response
 - `protocol-consistency`, `go-modern` — Quality gates
 - …and 20+ more
+
+**Agent skills** (flat `.md` files):
+- `architect`, `planner`, `implementer` — Design & build
+- `reviewer`, `qa`, `security` — Quality & review
+- `devops`, `sre`, `deployer` — Operations
+- `orchestrator`, `tech-lead`, `spec-reviewer` — Coordination
 
 ### 2. Prompt Templates
 `.pi/prompts/` contains generated command templates:

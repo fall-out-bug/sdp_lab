@@ -19,7 +19,7 @@
   "followUpMode": "one-at-a-time",
   "enableSkillCommands": true,
   "skills": [
-    "../prompts/skills"
+    "./skills"
   ],
   "prompts": [
     "./prompts"

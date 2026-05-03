@@ -233,6 +233,12 @@ Whole-loop wallclock ceiling: 72h. Phase budgets: build=4h, codex=2h.
 
 **Never create PR with red tests.** `./scripts/run_go_quality_gates.sh` must be green **locally** before `gh pr create`. Not after.
 
+**Every edit cycle must end in a scoped commit before push.** After @build/@fix
+subagents return, inspect `git status --short`, stage only files owned by the
+current WS/finding/write plan, commit, then push. Never use `git add .`; it can
+capture unrelated user or agent changes. If unrelated dirty files exist, leave
+them unstaged and record them in checkpoint/handoff.
+
 **Codex must run tests.** The codex prompt MUST include "run ./scripts/run_go_quality_gates.sh and report failures". Never send codex a code-only review prompt.
 
 **Codex output must be structured.** Codex is invoked with a JSON output contract so findings can be deduped across non-deterministic runs.
