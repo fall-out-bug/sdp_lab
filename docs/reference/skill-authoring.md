@@ -91,6 +91,23 @@ Execution steps. If >5 steps -- break into subsections.
 
 Do not duplicate common rules (beads rules, git workflow) -- reference `AGENTS.md`.
 
+## Boundary With AGENTS.md
+
+Skills own executable workflows: triggers, preconditions, steps, outputs, stop
+conditions, and recovery behavior.
+
+Do not put module facts in a skill:
+
+- package API contracts
+- allowed or forbidden internal imports
+- runtime assumptions for one subtree
+- provider credentials for one package
+- local gates that apply only under one directory
+
+Put those facts in the nearest module-local `AGENTS.md` instead. Root `AGENTS.md`
+owns repo-wide policy only. See [agent-instruction-cascade.md](agent-instruction-cascade.md)
+for the full layering model.
+
 ## Length limit
 
 Per [ADR-007 `docs/decisions/007-skill-length-limit.md`](../decisions/007-skill-length-limit.md) target length is ≤100 lines. Exceptions (`llm-council.md`, ~330 lines) are acceptable if the skill really requires tables/protocols. If exceeded -- check if details can be moved to a separate reference doc.

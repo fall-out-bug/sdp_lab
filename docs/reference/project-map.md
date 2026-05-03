@@ -84,6 +84,7 @@ Use one source per question.
 | What is the canonical happy path from intake to delivery? | [canonical-happy-path.md](canonical-happy-path.md) |
 | What is the canonical operator loop? | [canonical-happy-path.md](canonical-happy-path.md), [docs/SDP_OPERATOR_WORKFLOW.md](../SDP_OPERATOR_WORKFLOW.md) |
 | What agents and skills are on the happy path? | [agent-catalog.md](agent-catalog.md), [skills.md](skills.md) |
+| How do root, module, skill, command, and harness instructions compose? | [agent-instruction-cascade.md](agent-instruction-cascade.md) |
 | What is ready or blocked right now? | `bd ready` and `bd show` are authoritative; `docs/workstreams/INDEX.md` is only the planning summary |
 | What work exists in backlog form? | `docs/workstreams/backlog/` is canonical backlog; `.beads-sdp-mapping.jsonl` is helper data, not full historical coverage |
 | How does an operator execute a feature? | [docs/SDP_OPERATOR_WORKFLOW.md](../SDP_OPERATOR_WORKFLOW.md), [docs/REAL_FEATURE_TO_PR_RUNBOOK.md](../REAL_FEATURE_TO_PR_RUNBOOK.md) |
@@ -134,9 +135,10 @@ If you are new to this repo, read in this order:
 1. [AGENTS.md](../../AGENTS.md)
 2. [docs/reference/project-map.md](project-map.md)
 3. [docs/reference/canonical-happy-path.md](canonical-happy-path.md)
-4. [docs/roadmap/ROADMAP.md](../roadmap/ROADMAP.md)
-5. [docs/workstreams/INDEX.md](../workstreams/INDEX.md)
-6. [docs/SDP_OPERATOR_WORKFLOW.md](../SDP_OPERATOR_WORKFLOW.md)
+4. [docs/reference/agent-instruction-cascade.md](agent-instruction-cascade.md)
+5. [docs/roadmap/ROADMAP.md](../roadmap/ROADMAP.md)
+6. [docs/workstreams/INDEX.md](../workstreams/INDEX.md)
+7. [docs/SDP_OPERATOR_WORKFLOW.md](../SDP_OPERATOR_WORKFLOW.md)
 
 If you are new to SDP but not to this repo, use this shorter decision:
 

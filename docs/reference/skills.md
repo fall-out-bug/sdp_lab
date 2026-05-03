@@ -12,6 +12,9 @@ This document defines the public SDP skill surface and the internal or condition
 
 Skills are the guided control surface over the canonical stage model.
 They are not a second workflow separate from board state, Beads, CLI, PR, or `QA/UAT`.
+Skills own executable workflows, not module-local runtime facts. Package contracts,
+dependency rules, and local gates belong in module-local `AGENTS.md` files per
+[agent-instruction-cascade.md](agent-instruction-cascade.md).
 
 Mode note:
 

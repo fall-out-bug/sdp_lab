@@ -9,7 +9,8 @@ Start here:
 3. [canonical-happy-path.md](canonical-happy-path.md) — one stable description of Toolkit Evaluation, Local Mode, Operator Mode, and board-to-delivery flow
 4. [agent-catalog.md](agent-catalog.md) — default agent ownership across the canonical loop
 5. [skills.md](skills.md) — public and internal skill surface
-6. [commands.md](commands.md) — command reference
+6. [agent-instruction-cascade.md](agent-instruction-cascade.md) — how root, module, skill, command, and harness instructions compose
+7. [commands.md](commands.md) — command reference
 
 ## Quick Find
 
@@ -21,6 +22,7 @@ Start here:
 | Adopt SDP in another repo | [../QUICKSTART.md](../QUICKSTART.md) |
 | Canonical loop and default agents | [canonical-happy-path.md](canonical-happy-path.md), [agent-catalog.md](agent-catalog.md) |
 | Canonical skill surface | [skills.md](skills.md) |
+| Agent instruction layering | [agent-instruction-cascade.md](agent-instruction-cascade.md) |
 | Commands | [commands.md](commands.md) |
 | Quality gates | [quality-gates.md](quality-gates.md) |
 | External model review gate | [pi-review-spec.md](pi-review-spec.md) |
@@ -44,5 +46,6 @@ This directory should answer stable questions such as:
 
 - what the canonical loop is
 - which agent or skill owns which stage
+- how root and module-local agent instructions cascade
 - which command or config surface is current
 - which terms have precise meaning
