@@ -1,31 +1,33 @@
 {
   "feature": "F165",
   "verdict": "APPROVED",
-  "timestamp": "2026-05-03T22:45:00Z",
-  "round": 2,
+  "round": 4,
+  "timestamp": "2026-05-03T21:00:00Z",
   "reviewers": {
     "glm": {
       "verdict": "PASS",
-      "findings": []
+      "findings": [],
+      "notes": "Round 4 completed via zai/glm-5.1 with no P0/P1 findings."
+    },
+    "kimi": {
+      "verdict": "DEGRADED",
+      "findings": [],
+      "notes": "Round 4 kimi-coding/k2p6 timed out; quorum was satisfied by GLM and MiniMax."
     },
     "minimax": {
       "verdict": "PASS",
-      "findings": []
+      "findings": [],
+      "notes": "Round 4 completed via minimax/MiniMax-M2.7 with no P0/P1 findings."
     },
     "codex": {
       "verdict": "PASS",
-      "findings": []
+      "findings": [],
+      "notes": "Maintainer review verified the round-2 P1 findings were fixed and deterministic gates pass."
     }
   },
+  "p0_count": 0,
+  "p1_count": 0,
   "finding_ids": [],
   "blocking_ids": [],
-  "synthesis": {
-    "conflicts": [],
-    "rubber_stamps": [],
-    "adversarial_blindspots": [
-      "Live GLM/Kimi/MiniMax advisory review is deferred by docs/reviews/2026-05-03-f165-advisory-review.md; deterministic tests and CI are the merge gate for this PR.",
-      "F165 remains an advisory demo/eval surface, not a delivery gate verdict or production prompt-injection firewall."
-    ]
-  },
-  "summary": "F165 Indirect Prompt Injection Through SDP Task Data — APPROVED on round 2. PR #148 implements five scoped workstreams: fixture schema and corpus, normalize/parse/wrap/validate core, deterministic vector demos, advisory report CLI, and closeout documentation. GitHub review threads are empty, CI required checks are green, protocol check reports no F165 errors, and no blocking findings remain."
+  "summary": "APPROVED: PI review round 4 reached quorum 2/3 with GLM and MiniMax, zero P0/P1 findings. Round-2 P1 findings were fixed in core tests, vector demo tests, closed-set constants, and ws-verdict evidence paths. Remaining model notes are advisory P2/P3 and do not block merge."
 }

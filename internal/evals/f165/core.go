@@ -34,6 +34,20 @@ type ValidateResult struct {
 	Violations         []string
 }
 
+func DefendCase(c Case) ValidateResult {
+	normalized := Normalize(c.UntrustedArtifact)
+	parsed := Parse(normalized, c.Vector)
+	if parsed.ParseError {
+		return ValidateResult{
+			Verdict:       "blocked",
+			BlockedReason: BlockedReasonParseError,
+			Violations:    []string{"parse error: " + parsed.ParseErrorReason},
+		}
+	}
+	wrapped := Wrap(parsed, normalized)
+	return Validate(wrapped, c.TrustedStateSnapshot, c.ExpectedUnsafeResult.UnsafeAction, c.ExpectedUnsafeResult.UnsafeClaim)
+}
+
 func Normalize(input string) NormalizeResult {
 	var result NormalizeResult
 	var stripped strings.Builder
@@ -320,6 +334,8 @@ func actionInScope(action string, scope []string) bool {
 }
 
 func isWriteAction(action string) bool {
+	// Intentionally conservative for F165: task-data should not authorize
+	// even CLI-shaped write candidates without trusted state or evidence.
 	for _, t := range strings.Fields(strings.ToLower(action)) {
 		switch t {
 		case "write", "edit", "create", "delete", "push", "merge", "close", "bd", "git", "gh", "curl", "wget", "ssh":

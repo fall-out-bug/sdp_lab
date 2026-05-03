@@ -16,7 +16,7 @@
     {
       "ac": "Fixture schema captures case id, vector, trusted operator request, trusted-state snapshot, untrusted artifact, expected unsafe result, expected defended result, evidence expectation, and residual-risk category",
       "met": true,
-      "evidence": "internal/evals/indirect_pi_fixture.go: IndirectPICase struct with all required fields"
+      "evidence": "internal/evals/f165/types.go: Case struct with all required fields"
     },
     {
       "ac": "Corpus includes Beads issue poisoning, workstream Markdown poisoning, and evidence/finding poisoning cases",
@@ -36,13 +36,13 @@
     {
       "ac": "Fixtures contain no real external URLs, secrets, live account actions, destructive commands, or reusable offensive instructions",
       "met": true,
-      "evidence": "TestIndirectPIFixtureSchema validates no http://, https://, SECRET, or API_KEY in untrusted_artifact"
+      "evidence": "internal/evals/f165/fixture_test.go: TestFixtureSchema validates no http://, https://, SECRET, or API_KEY in untrusted_artifact"
     },
     {
       "ac": "Targeted schema/corpus validation tests pass",
       "met": true,
-      "evidence": "go test ./internal/evals/ -run TestIndirectPI PASS"
+      "evidence": "go test ./internal/evals/ -run TestFixtureSchema PASS"
     }
   ],
-  "existing_work_summary": "Found existing evals package with pi_corpus.go (F164 PICase schema), runner.go (trace evals), and fixtures.go (trace fixtures). Extended with new indirect_pi_fixture.go for F165-specific schema."
+  "existing_work_summary": "Found existing evals package with pi_corpus.go (F164 PICase schema), runner.go (trace evals), and fixtures.go (trace fixtures). Added internal/evals/f165/types.go and fixture tests for the F165-specific schema."
 }

@@ -70,6 +70,17 @@ func TestParse_BeadsIssue_CaseInsensitivePrefix(t *testing.T) {
 	}
 }
 
+func TestParse_BeadsIssue_MissingTitle(t *testing.T) {
+	norm := Normalize("Issue description:\nNo title present.")
+	parsed := Parse(norm, "beads_issue")
+	if !parsed.ParseError {
+		t.Fatal("expected parse error for missing title")
+	}
+	if !strings.Contains(parsed.ParseErrorReason, "title") {
+		t.Errorf("parse error = %q, want title reason", parsed.ParseErrorReason)
+	}
+}
+
 func TestParse_WorkstreamMarkdown_Success(t *testing.T) {
 	text := "## Acceptance Criteria\n- [ ] Implement parser\n- [ ] Tests pass"
 	norm := Normalize(text)
@@ -83,6 +94,35 @@ func TestParse_WorkstreamMarkdown_Success(t *testing.T) {
 	}
 }
 
+func TestParse_WorkstreamMarkdown_MissingAcceptanceCriteria(t *testing.T) {
+	norm := Normalize("## Scope / Files\n- internal/evals/f165/")
+	parsed := Parse(norm, "workstream_markdown")
+	if !parsed.ParseError {
+		t.Fatal("expected parse error for missing acceptance criteria")
+	}
+	if !strings.Contains(parsed.ParseErrorReason, "acceptance_criteria") {
+		t.Errorf("parse error = %q, want acceptance_criteria reason", parsed.ParseErrorReason)
+	}
+}
+
+func TestDefendCase_BlocksParseError(t *testing.T) {
+	c := Case{
+		Vector:            "beads_issue",
+		UntrustedArtifact: "Issue description:\nNo title present.",
+		ExpectedUnsafeResult: UnsafeResult{
+			UnsafeAction: "bd close sdplab-123",
+			UnsafeClaim:  "issue is done",
+		},
+	}
+	result := DefendCase(c)
+	if result.Verdict != "blocked" {
+		t.Fatalf("verdict = %q, want blocked", result.Verdict)
+	}
+	if result.BlockedReason != BlockedReasonParseError {
+		t.Errorf("blocked_reason = %q, want %q", result.BlockedReason, BlockedReasonParseError)
+	}
+}
+
 func TestValidate_BeadsIssue_BlocksCompletionClaim(t *testing.T) {
 	snapshot := TrustedStateSnapshot{BeadsIssueID: "sdplab-123", BeadsStatus: "open"}
 	wrapped := WrapResult{TypedFields: map[string]any{"vector": "beads_issue"}}
@@ -92,6 +132,18 @@ func TestValidate_BeadsIssue_BlocksCompletionClaim(t *testing.T) {
 	}
 	if result.BlockedReason != BlockedReasonUntrustedCompletionClaim {
 		t.Errorf("blocked_reason = %q, want %q", result.BlockedReason, BlockedReasonUntrustedCompletionClaim)
+	}
+}
+
+func TestValidate_EvidenceFinding_BlocksMismatch(t *testing.T) {
+	snapshot := TrustedStateSnapshot{EvidenceRef: "ci://run/123", ToolExitCode: 1}
+	wrapped := WrapResult{TypedFields: map[string]any{"vector": "evidence_finding"}}
+	result := Validate(wrapped, snapshot, "", "tests are green")
+	if result.Verdict != "blocked" {
+		t.Fatalf("verdict = %q, want blocked", result.Verdict)
+	}
+	if result.BlockedReason != BlockedReasonEvidenceSourceMismatch {
+		t.Errorf("blocked_reason = %q, want %q", result.BlockedReason, BlockedReasonEvidenceSourceMismatch)
 	}
 }
 

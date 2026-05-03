@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -12,9 +13,9 @@ import (
 )
 
 type Report struct {
-	Meta    ReportMeta `json:"meta"`
+	Meta    ReportMeta   `json:"meta"`
 	Cases   []ReportCase `json:"cases"`
-	Summary string     `json:"summary"`
+	Summary string       `json:"summary"`
 }
 
 type ReportMeta struct {
@@ -56,10 +57,7 @@ func GenerateReport(testdataDir string) (Report, error) {
 			return Report{}, fmt.Errorf("unmarshal %s: %w", p, err)
 		}
 		naive := NewUnsafeDemoRunner().RunCase(fixture)
-		norm := Normalize(fixture.UntrustedArtifact)
-		parsed := Parse(norm, fixture.Vector)
-		wrapped := Wrap(parsed, norm)
-		defended := Validate(wrapped, fixture.TrustedStateSnapshot, fixture.ExpectedUnsafeResult.UnsafeAction, fixture.ExpectedUnsafeResult.UnsafeClaim)
+		defended := DefendCase(fixture)
 		if defended.BlockedReason != "" && !IsValidBlockedReason(defended.BlockedReason) {
 			return Report{}, fmt.Errorf("invalid blocked_reason %q in case %s", defended.BlockedReason, fixture.CaseID)
 		}
@@ -89,6 +87,9 @@ func GenerateReport(testdataDir string) (Report, error) {
 			residual++
 		}
 	}
+	sort.Slice(cases, func(i, j int) bool {
+		return cases[i].CaseID < cases[j].CaseID
+	})
 	summary := fmt.Sprintf(
 		"F165 evaluated %d task-data vectors. Defenses blocked %d, confirmed %d clean, and classified %d as residual risk. "+
 			"This is an advisory demo report, not a delivery gate verdict.",

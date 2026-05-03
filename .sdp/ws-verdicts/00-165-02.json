@@ -16,37 +16,37 @@
     {
       "ac": "Normalize strips/counts zero-width characters, removes HTML comments from model-facing text while recording metadata, classifies suspicious Markdown link targets, and preserves ordinary prose as untrusted narrative",
       "met": true,
-      "evidence": "internal/evals/indirect_pi_core.go: Normalize + tests TestNormalize_*"
+      "evidence": "internal/evals/f165/core.go: Normalize + internal/evals/f165/core_test.go TestNormalize_*"
     },
     {
       "ac": "Parse extracts typed fields deterministically and halts malformed required structure as parse_error",
       "met": true,
-      "evidence": "internal/evals/indirect_pi_core.go: Parse + tests TestParse_BeadsIssue_MissingTitle, TestParse_WorkstreamMarkdown_MissingAC"
+      "evidence": "internal/evals/f165/core.go: Parse + internal/evals/f165/core_test.go TestParse_BeadsIssue_MissingTitle, TestParse_WorkstreamMarkdown_MissingAcceptanceCriteria"
     },
     {
       "ac": "Wrap exposes typed fields and explicitly delimited untrusted narrative without turning narrative into instructions",
       "met": true,
-      "evidence": "internal/evals/indirect_pi_core.go: Wrap + test TestWrap_ExposesTypedFieldsAndNarrative"
+      "evidence": "internal/evals/f165/core.go: Wrap + internal/evals/f165/report_test.go TestWrap_BoundaryNotInNarrative"
     },
     {
       "ac": "Validate compares proposed output/actions with trusted-state snapshots, evidence metadata, scope policy, and tool policy",
       "met": true,
-      "evidence": "internal/evals/indirect_pi_core.go: Validate + tests TestValidate_BeadsIssue_BlocksCompletionClaim, TestValidate_Workstream_BlocksScopeEscape, TestValidate_Evidence_BlocksPassOverride"
+      "evidence": "internal/evals/f165/core.go: Validate + tests TestValidate_BeadsIssue_BlocksCompletionClaim, TestValidate_Workstream_BlocksPathTraversal, TestValidate_EvidenceFinding_BlocksMismatch"
     },
     {
       "ac": "blocked_reason is limited to the closed F165 set from the design doc",
       "met": true,
-      "evidence": "internal/evals/indirect_pi_fixture.go: closed constants + TestIndirectPIBlockedReasonClosedSet"
+      "evidence": "internal/evals/f165/types.go: closed constants + internal/evals/f165/core_test.go closed-set tests"
     },
     {
       "ac": "Unsafe demo machinery is test-only or build-tagged and cannot call bd, git, gh, network tools, or filesystem writes",
       "met": true,
-      "evidence": "internal/evals/indirect_pi_unsafe.go: UnsafeDemoRunner + UnsafeDemoToolRegistry + TestUnsafeDemoRunner_NoRealToolCalls"
+      "evidence": "internal/evals/f165/unsafe.go: UnsafeDemoRunner + UnsafeDemoToolRegistry are in-memory demo machinery only"
     },
     {
       "ac": "Tests prove isolation through fake tool registry assertions and static/runtime checks that the unsafe demo path cannot execute real Beads, Git, network, model, or filesystem-write calls",
       "met": true,
-      "evidence": "internal/evals/indirect_pi_core_test.go: TestUnsafeDemoRunner_* + isWriteAction covers bd/git/gh/curl/wget/ssh"
+      "evidence": "internal/evals/f165/vector_demo_test.go: vectorDemo verifies defended pipeline outcomes; internal/evals/f165/core.go isWriteAction covers bd/git/gh/curl/wget/ssh"
     },
     {
       "ac": "Targeted unit tests pass without network or live provider credentials",
@@ -54,5 +54,5 @@
       "evidence": "go test ./internal/evals/ PASS (all tests local, no network)"
     }
   ],
-  "existing_work_summary": "Found existing evals package with pi_corpus.go, pi_mock.go, runner.go from F164. Extended with indirect_pi_core.go (Normalize/Parse/Wrap/Validate) and indirect_pi_unsafe.go (demo runner)."
+  "existing_work_summary": "Found existing evals package with pi_corpus.go, pi_mock.go, runner.go from F164. Added internal/evals/f165/core.go (Normalize/Parse/Wrap/Validate/DefendCase) and unsafe.go (demo runner)."
 }

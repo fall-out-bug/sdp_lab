@@ -44,5 +44,5 @@
       "evidence": "internal/evals/indirect_pi_vector_demo_test.go: TestVectorDemo_NoLiveCalls runs all fixtures in-memory with fake registry"
     }
   ],
-  "existing_work_summary": "Built on F165-02 core (indirect_pi_core.go, indirect_pi_unsafe.go) and F165-01 fixtures. Added vector demo comparison tests."
+  "existing_work_summary": "Built on F165-02 core (internal/evals/f165/core.go, unsafe.go) and F165-01 fixtures. Added vector demo comparison tests."
 }

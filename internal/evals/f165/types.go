@@ -3,15 +3,15 @@ package f165
 // Case represents one indirect prompt-injection demo case.
 // It is defensive-only: no real exploit payloads, no live service targets.
 type Case struct {
-	CaseID                 string           `yaml:"case_id" json:"case_id"`
-	Vector                 string           `yaml:"vector" json:"vector"`
-	TrustedOperatorRequest string           `yaml:"trusted_operator_request" json:"trusted_operator_request"`
+	CaseID                 string               `yaml:"case_id" json:"case_id"`
+	Vector                 string               `yaml:"vector" json:"vector"`
+	TrustedOperatorRequest string               `yaml:"trusted_operator_request" json:"trusted_operator_request"`
 	TrustedStateSnapshot   TrustedStateSnapshot `yaml:"trusted_state_snapshot" json:"trusted_state_snapshot"`
-	UntrustedArtifact      string           `yaml:"untrusted_artifact" json:"untrusted_artifact"`
-	ExpectedUnsafeResult   UnsafeResult     `yaml:"expected_unsafe_result" json:"expected_unsafe_result"`
-	ExpectedDefendedResult DefendedResult   `yaml:"expected_defended_result" json:"expected_defended_result"`
-	EvidenceExpectation    string           `yaml:"evidence_expectation" json:"evidence_expectation"`
-	ResidualRiskCategory   string           `yaml:"residual_risk_category" json:"residual_risk_category"`
+	UntrustedArtifact      string               `yaml:"untrusted_artifact" json:"untrusted_artifact"`
+	ExpectedUnsafeResult   UnsafeResult         `yaml:"expected_unsafe_result" json:"expected_unsafe_result"`
+	ExpectedDefendedResult DefendedResult       `yaml:"expected_defended_result" json:"expected_defended_result"`
+	EvidenceExpectation    string               `yaml:"evidence_expectation" json:"evidence_expectation"`
+	ResidualRiskCategory   string               `yaml:"residual_risk_category" json:"residual_risk_category"`
 }
 
 type TrustedStateSnapshot struct {
@@ -38,9 +38,9 @@ type DefendedResult struct {
 }
 
 const (
-	BlockedReasonUntrustedCompletionClaim        = "untrusted_completion_claim"
-	BlockedReasonScopePolicyConflict             = "scope_policy_conflict"
-	BlockedReasonEvidenceSourceMismatch          = "evidence_source_mismatch"
+	BlockedReasonUntrustedCompletionClaim         = "untrusted_completion_claim"
+	BlockedReasonScopePolicyConflict              = "scope_policy_conflict"
+	BlockedReasonEvidenceSourceMismatch           = "evidence_source_mismatch"
 	BlockedReasonWriteWithoutTrustedAuthorization = "write_without_trusted_authorization"
 	BlockedReasonParseError                       = "parse_error"
 	BlockedReasonPolicyConflict                   = "policy_conflict"
@@ -54,8 +54,8 @@ const (
 	ResidualRiskNotTested          = "not_tested"
 )
 
-var ValidVectors = []string{"beads_issue", "workstream_markdown", "evidence_finding", "cross_agent_handoff", "mcp_resource"}
-var ValidVerdicts = []string{"blocked", "clean", "residual_risk"}
+var validVectors = [...]string{"beads_issue", "workstream_markdown", "evidence_finding", "cross_agent_handoff", "mcp_resource"}
+var validVerdicts = [...]string{"blocked", "clean", "residual_risk"}
 
 func IsValidBlockedReason(r string) bool {
 	switch r {
@@ -76,7 +76,7 @@ func IsValidResidualRiskCategory(c string) bool {
 }
 
 func IsValidVector(v string) bool {
-	for _, valid := range ValidVectors {
+	for _, valid := range validVectors {
 		if v == valid {
 			return true
 		}
@@ -85,7 +85,7 @@ func IsValidVector(v string) bool {
 }
 
 func IsValidVerdict(v string) bool {
-	for _, valid := range ValidVerdicts {
+	for _, valid := range validVerdicts {
 		if v == valid {
 			return true
 		}
