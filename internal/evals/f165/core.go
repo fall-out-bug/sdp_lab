@@ -320,20 +320,13 @@ func actionInScope(action string, scope []string) bool {
 }
 
 func isWriteAction(action string) bool {
-	lower := strings.ToLower(action)
-	return strings.Contains(lower, "write") ||
-		strings.Contains(lower, "edit") ||
-		strings.Contains(lower, "create") ||
-		strings.Contains(lower, "delete") ||
-		strings.Contains(lower, "push") ||
-		strings.Contains(lower, "merge") ||
-		strings.Contains(lower, "close") ||
-		strings.Contains(lower, "bd") ||
-		strings.Contains(lower, "git") ||
-		strings.Contains(lower, "gh") ||
-		strings.Contains(lower, "curl") ||
-		strings.Contains(lower, "wget") ||
-		strings.Contains(lower, "ssh")
+	for _, t := range strings.Fields(strings.ToLower(action)) {
+		switch t {
+		case "write", "edit", "create", "delete", "push", "merge", "close", "bd", "git", "gh", "curl", "wget", "ssh":
+			return true
+		}
+	}
+	return false
 }
 
 func snapshotHasWriteAuthorization(snapshot TrustedStateSnapshot) bool {
