@@ -1,0 +1,48 @@
+{
+  "ws_id": "00-165-01",
+  "feature_id": "F165",
+  "verdict": "PASS",
+  "commit": "308200d0",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": 100.0,
+    "coverage_threshold": 80,
+    "max_file_loc": 150,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {
+      "ac": "Fixture schema captures case id, vector, trusted operator request, trusted-state snapshot, untrusted artifact, expected unsafe result, expected defended result, evidence expectation, and residual-risk category",
+      "met": true,
+      "evidence": "internal/evals/f165/types.go: Case struct with all required fields"
+    },
+    {
+      "ac": "Corpus includes Beads issue poisoning, workstream Markdown poisoning, and evidence/finding poisoning cases",
+      "met": true,
+      "evidence": "internal/evals/testdata/indirect_pi/{beads_issue_poisoning,workstream_markdown_poisoning,evidence_finding_poisoning}.yaml"
+    },
+    {
+      "ac": "Corpus includes at least one non-obvious prose fixture that does not rely on visible [SANITIZED_*] markers",
+      "met": true,
+      "evidence": "internal/evals/testdata/indirect_pi/nonobvious_prose.yaml (F165-VEC-004)"
+    },
+    {
+      "ac": "Corpus includes at least one unsupported_surface, partial_coverage, or not_tested residual-risk case",
+      "met": true,
+      "evidence": "internal/evals/testdata/indirect_pi/residual_risk_unsupported.yaml (F165-VEC-005)"
+    },
+    {
+      "ac": "Fixtures contain no real external URLs, secrets, live account actions, destructive commands, or reusable offensive instructions",
+      "met": true,
+      "evidence": "internal/evals/f165/fixture_test.go: TestFixtureSchema validates no http://, https://, SECRET, or API_KEY in untrusted_artifact"
+    },
+    {
+      "ac": "Targeted schema/corpus validation tests pass",
+      "met": true,
+      "evidence": "go test ./internal/evals/ -run TestFixtureSchema PASS"
+    }
+  ],
+  "existing_work_summary": "Found existing evals package with pi_corpus.go (F164 PICase schema), runner.go (trace evals), and fixtures.go (trace fixtures). Added internal/evals/f165/types.go and fixture tests for the F165-specific schema."
+}

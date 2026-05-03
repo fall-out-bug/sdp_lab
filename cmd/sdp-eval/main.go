@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/fall-out-bug/sdp_lab/internal/evals"
+	"github.com/fall-out-bug/sdp_lab/internal/evals/f165"
 	"github.com/fall-out-bug/sdp_lab/internal/evidence"
 )
 
@@ -21,6 +22,8 @@ func main() {
 	casesDir := flag.String("cases-dir", "", "Cases directory (default: internal/eval/cases)")
 	piReport := flag.Bool("prompt-injection-report", false, "Run F164 prompt-injection static/advisory report and exit")
 	piLive := flag.Bool("prompt-injection-live", false, "Include live-provider prompt-injection eval status as advisory")
+	indirectPIReport := flag.Bool("indirect-pi-report", false, "Run F165 indirect prompt-injection demo report and exit")
+	indirectPIJSON := flag.Bool("indirect-pi-json", false, "Emit F165 report as JSON (default: text)")
 	flag.Parse()
 
 	if *casesDir == "" {
@@ -36,6 +39,14 @@ func main() {
 	if *piReport {
 		if err := runPromptInjectionReport(absRoot, *piLive); err != nil {
 			fmt.Fprintf(os.Stderr, "prompt-injection-report: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	if *indirectPIReport {
+		if err := runIndirectPIReport(absRoot, *indirectPIJSON); err != nil {
+			fmt.Fprintf(os.Stderr, "indirect-pi-report: %v\n", err)
 			os.Exit(1)
 		}
 		return
@@ -84,6 +95,24 @@ func main() {
 	if passed < len(results) {
 		os.Exit(1)
 	}
+}
+
+func runIndirectPIReport(projectRoot string, asJSON bool) error {
+	testdataDir := filepath.Join(projectRoot, "internal", "evals", "testdata", "indirect_pi")
+	report, err := f165.GenerateReport(testdataDir)
+	if err != nil {
+		return fmt.Errorf("generate F165 report: %w", err)
+	}
+	if asJSON {
+		data, err := f165.RenderReportJSON(report)
+		if err != nil {
+			return fmt.Errorf("render JSON: %w", err)
+		}
+		fmt.Println(string(data))
+		return nil
+	}
+	fmt.Println(f165.RenderReportText(report))
+	return nil
 }
 
 func runPromptInjectionReport(projectRoot string, includeLive bool) error {

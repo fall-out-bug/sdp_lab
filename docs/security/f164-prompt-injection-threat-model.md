@@ -450,6 +450,15 @@ Maintainers should handle prompt-injection CI output as follows:
 - PI-013 detection is performed by CI/static validation comparing prompt bundle
   manifest hashes and policy-sensitive prompt diffs against expected generated output.
 
+## Related Work
+
+- **F165** — Indirect Prompt Injection Through SDP Task Data. Day-12 defensive demo
+  pack covering Beads issue poisoning, workstream Markdown poisoning, and
+  evidence/finding poisoning. F165 uses the F164 trust model and extends it with
+  deterministic Normalize/Parse/Wrap/Validate core, fixture corpus, and advisory
+  reporting. See `docs/reviews/2026-05-03-f165-advisory-review.md` and
+  `internal/evals/testdata/indirect_pi/`.
+
 ## Remaining Open Questions
 
 - What exact schema extension should represent prompt-injection findings: extend

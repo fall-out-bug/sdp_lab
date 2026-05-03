@@ -1,0 +1,34 @@
+{
+  "interrogate_verdict": "PASS",
+  "artifact_path": "docs/workstreams/backlog/00-165-00.md",
+  "feature_id": "F165",
+  "mode": "socratic",
+  "rounds_completed": 1,
+  "rubrics": [
+    "decomposition correctness",
+    "dependency graph",
+    "Beads/workstream linkage",
+    "safety and cyber-policy wording",
+    "executable leaf clarity",
+    "testability",
+    "scope boundaries",
+    "hidden assumptions"
+  ],
+  "provider_failures": [],
+  "reviews": [
+    {
+      "round": 1,
+      "critic_provider": "kimi-coding/k2p6",
+      "judge_provider": "minimax/MiniMax-M2.7",
+      "critic_questions": 15,
+      "judge_verdict": "PASS",
+      "unresolved_questions": []
+    }
+  ],
+  "open_questions_count": 0,
+  "open_questions": [],
+  "new_contradictions": [],
+  "scope_creep": [],
+  "report_path": "docs/reviews/2026-05-03-f165-workstreams-spec-interrogate.md",
+  "report_summary": "Kimi raised 15 workstream/Beads plan questions. The plan was revised, and MiniMax judged all questions resolved with no new contradictions or scope creep."
+}

@@ -1,57 +1,33 @@
 {
-  "feature": "F123",
+  "feature": "F165",
   "verdict": "APPROVED",
-  "timestamp": "2026-04-16T12:00:00Z",
-  "round": 2,
+  "round": 4,
+  "timestamp": "2026-05-03T21:00:00Z",
   "reviewers": {
-    "qa": {
+    "glm": {
       "verdict": "PASS",
       "findings": [],
-      "summary": "71/71 spec tests pass, 2456/2456 full suite. Coverage 90.8%. All round-1 fixes verified."
+      "notes": "Round 4 completed via zai/glm-5.1 with no P0/P1 findings."
     },
-    "security": {
-      "verdict": "PASS",
+    "kimi": {
+      "verdict": "DEGRADED",
       "findings": [],
-      "summary": "Secret redaction correct. 10MB file guard. Depth limit 20. No network calls. Enrichment is stub-only."
+      "notes": "Round 4 kimi-coding/k2p6 timed out; quorum was satisfied by GLM and MiniMax."
     },
-    "devops": {
+    "minimax": {
       "verdict": "PASS",
       "findings": [],
-      "summary": "Build clean, go vet clean, go mod tidy clean. CLI help accurate. WS docs status: done."
+      "notes": "Round 4 completed via minimax/MiniMax-M2.7 with no P0/P1 findings."
     },
-    "sre": {
+    "codex": {
       "verdict": "PASS",
       "findings": [],
-      "summary": "Context cancellation wired. Warnings field collects errors. File size guard. No goroutine leaks."
-    },
-    "techlead": {
-      "verdict": "PASS",
-      "findings": [],
-      "summary": "Modern Go idioms (slices, Cut, any). Generic diffInvMap. All files <= 200 LOC. Clean architecture."
-    },
-    "docs": {
-      "verdict": "PASS",
-      "findings": [],
-      "summary": "WS status updated to done. CLI help updated with all categories and flags. Verdicts complete."
-    },
-    "promptops": {
-      "verdict": "PASS",
-      "findings": [],
-      "checks": [
-        {"check_id": "language-agnostic", "status": "pass", "note": "Types are language-neutral; Go extractors are v1 scope"},
-        {"check_id": "no-phantom-cli", "status": "pass", "note": "sdp spec fully wired in main.go with real implementation"},
-        {"check_id": "no-handoff-lists", "status": "pass", "note": "Zero TODO/FIXME/handoff strings in spec package"},
-        {"check_id": "skill-size", "status": "pass", "note": "No new skills added by F123"}
-      ],
-      "summary": "CLI interface clean and backward-compatible. No phantom references."
+      "notes": "Maintainer review verified the round-2 P1 findings were fixed and deterministic gates pass."
     }
   },
+  "p0_count": 0,
+  "p1_count": 0,
   "finding_ids": [],
   "blocking_ids": [],
-  "synthesis": {
-    "conflicts": [],
-    "rubber_stamps": [],
-    "adversarial_blindspots": ["Redundant directory walks (6x) accepted as tracked debt — would exceed 200 LOC to fix"]
-  },
-  "summary": "F123 Toolkit Spec Recovery — APPROVED on round-2. All 7 roles PASS with zero findings. 3 WS implemented: deterministic extraction, invariants+SLA, enrichment+diff. 90.8% coverage. Zero P0/P1/P2 findings remaining."
+  "summary": "APPROVED: PI review round 4 reached quorum 2/3 with GLM and MiniMax, zero P0/P1 findings. Round-2 P1 findings were fixed in core tests, vector demo tests, closed-set constants, and ws-verdict evidence paths. Remaining model notes are advisory P2/P3 and do not block merge."
 }
