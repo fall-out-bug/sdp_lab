@@ -1190,6 +1190,51 @@ issues resolved.
 ## 2026-05-03
 
 ### Commits
+- `bdcbf74d` F165: Indirect Prompt Injection Through SDP Task Data (#148) (2026-05-04)
+
+### Changed Files
+- `.beads-sdp-mapping.jsonl`
+- `.sdp/review_verdict.json`
+- `.sdp/ws-verdicts/00-165-01.json`
+- `.sdp/ws-verdicts/00-165-02.json`
+- `.sdp/ws-verdicts/00-165-03.json`
+- `.sdp/ws-verdicts/00-165-04.json`
+- `.sdp/ws-verdicts/00-165-05.json`
+- `cmd/sdp-eval/main.go`
+- `cmd/sdp-eval/main_test.go`
+- `docs/plans/2026-05-03-f165-indirect-prompt-injection-through-task-data-design.md`
+- `docs/reviews/2026-05-03-f165-advisory-review.md`
+- `docs/reviews/2026-05-03-f165-design-spec-interrogate-evidence.json`
+- `docs/reviews/2026-05-03-f165-design-spec-interrogate.md`
+- `docs/reviews/2026-05-03-f165-workstreams-spec-interrogate-evidence.json`
+- `docs/reviews/2026-05-03-f165-workstreams-spec-interrogate.md`
+- `docs/roadmap/ROADMAP.md`
+- `docs/security/f164-prompt-injection-threat-model.md`
+- `docs/workstreams/INDEX.md`
+- `docs/workstreams/backlog/00-165-00.md`
+- `docs/workstreams/backlog/00-165-01.md`
+- `docs/workstreams/backlog/00-165-02.md`
+- `docs/workstreams/backlog/00-165-03.md`
+- `docs/workstreams/backlog/00-165-04.md`
+- `docs/workstreams/backlog/00-165-05.md`
+- `internal/evals/f165/core.go`
+- `internal/evals/f165/core_test.go`
+- `internal/evals/f165/fixture_test.go`
+- `internal/evals/f165/report.go`
+- `internal/evals/f165/report_test.go`
+- `internal/evals/f165/types.go`
+- `internal/evals/f165/unsafe.go`
+- `internal/evals/f165/vector_demo_test.go`
+- `internal/evals/testdata/indirect_pi/beads_issue_poisoning.yaml`
+- `internal/evals/testdata/indirect_pi/evidence_finding_poisoning.yaml`
+- `internal/evals/testdata/indirect_pi/nonobvious_prose.yaml`
+- `internal/evals/testdata/indirect_pi/residual_risk_unsupported.yaml`
+- `internal/evals/testdata/indirect_pi/workstream_markdown_poisoning.yaml`
+- `schema/indirect-pi-corpus.schema.json`
+
+
+
+### Commits
 - `38ac0cb2` Revert "config(pi): increase provider timeout, document harness payload workaround" (2026-05-03)
 
 ### Changed Files
