@@ -68,6 +68,77 @@ func TestMainRunsBehaviorSuite(t *testing.T) {
 	}
 }
 
+func TestMainIndirectPIReportText(t *testing.T) {
+	modRoot, _ := os.Getwd()
+	for {
+		if _, err := os.Stat(filepath.Join(modRoot, "go.mod")); err == nil {
+			break
+		}
+		parent := filepath.Dir(modRoot)
+		if parent == modRoot {
+			t.Skip("no go.mod found")
+		}
+		modRoot = parent
+	}
+	bin := filepath.Join(t.TempDir(), "sdp-eval")
+	cmd := exec.Command("go", "build", "-tags", "sdp_experimental", "-o", bin, "./cmd/sdp-eval")
+	cmd.Dir = modRoot
+	if err := cmd.Run(); err != nil {
+		t.Skipf("build failed: %v", err)
+	}
+
+	run := exec.Command(bin, "--indirect-pi-report", "--project-root", ".")
+	run.Dir = modRoot
+	out, err := run.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected indirect-pi report to pass, got %v: %s", err, out)
+	}
+	s := string(out)
+	if !strings.Contains(s, "F165 Indirect Prompt Injection Report") {
+		t.Fatalf("report missing header: %s", s)
+	}
+	if !strings.Contains(s, "F165-VEC-001") {
+		t.Fatalf("report missing case F165-VEC-001: %s", s)
+	}
+	if !strings.Contains(s, "advisory demo report") {
+		t.Fatalf("report missing advisory disclaimer: %s", s)
+	}
+}
+
+func TestMainIndirectPIReportJSON(t *testing.T) {
+	modRoot, _ := os.Getwd()
+	for {
+		if _, err := os.Stat(filepath.Join(modRoot, "go.mod")); err == nil {
+			break
+		}
+		parent := filepath.Dir(modRoot)
+		if parent == modRoot {
+			t.Skip("no go.mod found")
+		}
+		modRoot = parent
+	}
+	bin := filepath.Join(t.TempDir(), "sdp-eval")
+	cmd := exec.Command("go", "build", "-tags", "sdp_experimental", "-o", bin, "./cmd/sdp-eval")
+	cmd.Dir = modRoot
+	if err := cmd.Run(); err != nil {
+		t.Skipf("build failed: %v", err)
+	}
+
+	run := exec.Command(bin, "--indirect-pi-report", "--indirect-pi-json", "--project-root", ".")
+	run.Dir = modRoot
+	out, err := run.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected indirect-pi json report to pass, got %v: %s", err, out)
+	}
+	s := string(out)
+	if !strings.Contains(s, `"feature_id": "F165"`) {
+		t.Fatalf("json report missing feature_id: %s", s)
+	}
+	if !strings.Contains(s, `"case_id": "F165-VEC-001"`) {
+		t.Fatalf("json report missing case_id: %s", s)
+	}
+}
+
 func TestMainPromptInjectionReportSkipsLiveByDefault(t *testing.T) {
 	modRoot, _ := os.Getwd()
 	for {

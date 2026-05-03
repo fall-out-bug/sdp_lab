@@ -1,0 +1,53 @@
+{
+  "ws_id": "00-165-04",
+  "feature_id": "F165",
+  "verdict": "PASS",
+  "commit": "c0c4996c",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "coverage_pct": 100,
+    "coverage_threshold": 80,
+    "max_file_loc": 200,
+    "build_ok": true,
+    "vet_ok": true
+  },
+  "ac_evidence": [
+    {
+      "ac": "Report emits typed fields: case_id, verdict, blocked_reason, trusted_evidence_ref, and residual_risk_category",
+      "met": true,
+      "evidence": "internal/evals/indirect_pi_report.go: ReportCase struct with typed fields"
+    },
+    {
+      "ac": "Report narrative is marked non-authoritative and cannot authorize Beads, Git, PR, CI, or filesystem mutation",
+      "met": true,
+      "evidence": "internal/evals/indirect_pi_report.go: Meta.Disclaimer + TestGenerateIndirectPIReport_NarrativeNonAuthoritative"
+    },
+    {
+      "ac": "Report schema or validation states that F165 verdicts are advisory demo verdicts, not delivery gate verdicts",
+      "met": true,
+      "evidence": "internal/evals/indirect_pi_report.go: Disclaimer contains 'advisory demo verdicts' and rejects ci:pass/qa:pass/review:pass"
+    },
+    {
+      "ac": "Report shows naive result, defended result, defense trigger, evidence reference, and residual risk for every case",
+      "met": true,
+      "evidence": "internal/evals/indirect_pi_report.go: ReportCase + RenderReportText"
+    },
+    {
+      "ac": "Report includes a concise operator-facing summary that avoids exploit-style language",
+      "met": true,
+      "evidence": "internal/evals/indirect_pi_report_test.go: TestRenderReportText_AvoidsExploitLanguage"
+    },
+    {
+      "ac": "Output validation rejects unknown blocked_reason and residual-risk category values",
+      "met": true,
+      "evidence": "internal/evals/indirect_pi_report.go: GenerateIndirectPIReport validates closed sets"
+    },
+    {
+      "ac": "Targeted CLI/report tests pass without live providers or network",
+      "met": true,
+      "evidence": "cmd/sdp-eval/main_test.go: TestMainIndirectPIReportText + TestMainIndirectPIReportJSON PASS"
+    }
+  ],
+  "existing_work_summary": "Extended cmd/sdp-eval with --indirect-pi-report and --indirect-pi-json flags. Added indirect_pi_report.go with GenerateIndirectPIReport and renderers."
+}
