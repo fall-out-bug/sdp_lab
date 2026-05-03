@@ -474,21 +474,24 @@ sdp-doc-sync --mode check --strict
 1. **File issues for remaining work** — `bd create` for anything that needs follow-up
 2. **Run quality gates** (if code changed) — tests, build, vet
 3. **Update issue status** — после merge закрой `bd close`; если PR ещё открыт, issue остаётся claimed / `in_progress`
-4. **PUSH TO REMOTE** — this is MANDATORY:
+4. **Commit scoped changes** — stage only files owned by the current task. Never use `git add .` while unrelated dirty files exist. If unrelated changes are present, leave them unstaged and mention them in the handoff.
+5. **PUSH TO REMOTE** — this is MANDATORY:
    ```bash
    git pull --rebase
    scripts/beads_transport.sh export
    git push
    git status  # MUST show "up to date with origin"
    ```
-5. **Verify** — all changes committed AND pushed
-6. **Hand off** — provide context for next session
+6. **Verify** — all scoped changes committed AND pushed
+7. **Hand off** — provide context for next session
 
 **CRITICAL RULES:**
 - Work is NOT complete until `git push` succeeds
+- Edited files are not work. A scoped commit plus push is work.
 - NEVER stop before pushing — that leaves work stranded locally
 - NEVER say "ready to push when you are" — YOU must push
 - If push fails, resolve and retry until it succeeds
+- If push is unsafe because the branch contains pre-existing commits or unrelated dirty files, commit your scoped changes first, then report the exact blocker. Do not hide behind dirty worktree ambiguity.
 
 ## sdp-orchestrate (oneshot outer loop)
 

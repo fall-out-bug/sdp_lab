@@ -31,4 +31,7 @@ Different harnesses read different shapes:
 - Intent skills must not diverge from published structured skills.
 - If a runtime file is only an adapter, keep it thin and point to the canonical
   owner.
+- Runtime skills must preserve completion discipline from canonical skills:
+  scoped staging, commit, push or exact blocker. Never add `git add .` to skill
+  instructions.
 - Keep `README.md` aligned with the actual filesystem and manifest state.

@@ -170,8 +170,9 @@ for skill_file in "$SKILLS_DIR"/*.md; do
 
     filename="$(basename "$skill_file")"
 
-    # Skip README.md — it is documentation, not a skill
+    # Skip module docs — they are documentation/agent contracts, not skills.
     [[ "$filename" == "README.md" ]] && continue
+    [[ "$filename" == "AGENTS.md" ]] && continue
 
     ((SKILL_COUNT++)) || true
     rel_path=".agents/skills/${filename}"

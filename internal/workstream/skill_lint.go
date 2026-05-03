@@ -58,8 +58,8 @@ func ValidateSkills(projectRoot string) (SkillLintResult, error) {
 		if !strings.HasSuffix(name, ".md") {
 			continue
 		}
-		// README.md is documentation, not a skill.
-		if strings.EqualFold(name, "README.md") {
+		// README.md and AGENTS.md are documentation/agent contracts, not skills.
+		if strings.EqualFold(name, "README.md") || strings.EqualFold(name, "AGENTS.md") {
 			continue
 		}
 

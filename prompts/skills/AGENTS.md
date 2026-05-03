@@ -31,6 +31,10 @@ explicitly marked as harness-specific.
 
 - Keep workflows executable and bounded.
 - State refusal, blocker, and stop conditions explicitly.
+- State completion criteria explicitly: verification run, scoped staging, commit,
+  push or exact blocker.
+- Never instruct agents to use `git add .`; enumerate scoped files from the write
+  plan or command output.
 - Do not duplicate Beads, branch, or publish policy unless the skill changes how
   that policy is applied.
 - Deprecated skills must route to the canonical intent or replacement skill.

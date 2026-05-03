@@ -145,7 +145,11 @@ Before committing:
 
 - stage only files owned by the current task
 - leave pre-existing unrelated dirty files untouched
+- never use `git add .` while unrelated dirty files exist
 - run the cheapest relevant verification
+- create a scoped commit before reporting completion
+- push the scoped commit, unless doing so would also push pre-existing unrelated
+  commits; in that case report the exact blocker
 - mention any repo-wide checks that fail for pre-existing reasons
 
 Never treat "I changed files" as a completed work unit.

@@ -207,6 +207,25 @@ func TestValidateSkillsSkipsReadme(t *testing.T) {
 	}
 }
 
+func TestValidateSkillsSkipsAgentsContract(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, ".agents", "skills")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("# Agent Contract\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	result, err := ValidateSkills(root)
+	if err != nil {
+		t.Fatalf("ValidateSkills error: %v", err)
+	}
+	if len(result.Issues) != 0 {
+		t.Fatalf("AGENTS.md should be ignored, got issues: %+v", result.Issues)
+	}
+}
+
 func makeSkillProject(t *testing.T, filename, content string) string {
 	t.Helper()
 	root := t.TempDir()

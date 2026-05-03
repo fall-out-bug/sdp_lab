@@ -110,10 +110,17 @@ sdp guard activate 00-067-01
 3. **Commit and STOP:**
 ```bash
 sdp guard deactivate
-git add .
+git status --short
+# Stage only files owned by this workstream/write plan.
+# Never use `git add .`; it can capture unrelated user or agent changes.
+git add <scoped-file> [<scoped-file> ...]
 git commit -m "feat(<feature-id>): <ws-id> - {title}"
 # STOP. Orchestrator continues to next WS if any.
 ```
+
+If unrelated dirty files exist, leave them unstaged and mention them in the
+handoff. Do not revert or stash unrelated changes unless the operator explicitly
+asks.
 
 3b. **Evidence and checkpoint** (after `sdp-orchestrate --advance` when running as part of @oneshot):
 ```bash
@@ -129,6 +136,15 @@ mkdir -p .sdp/ws-verdicts
 **Required fields:** `existing_work_summary` — one line summary of pre-existing code/tests found before implementation. **Output must validate against** `schema/ws-verdict.schema.json` ([ws-verdict.schema.json](../../schema/ws-verdict.schema.json)).
 
 Evidence lifecycle (create/patch `.sdp/evidence/*.json`) is orchestrator or post-build CLI responsibility.
+
+5. **Completion check:**
+   - Verify the commit exists with `git log --oneline -1`.
+   - Verify no scoped files remain unstaged or uncommitted.
+   - If this skill is running outside an orchestrator that will push, push the
+     branch and verify `git status --short --branch` shows no ahead commit.
+   - If push is unsafe because the branch contains pre-existing commits or
+     unrelated dirty files, report that blocker explicitly. Never claim the build
+     is complete on edited-but-uncommitted files.
 
 ---
 
