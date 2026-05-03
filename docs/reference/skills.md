@@ -178,6 +178,8 @@ The public happy path through intents:
 
 **Dimensions:** code (default), architecture, security, performance, readiness, reality
 
+> **F164 note:** Security dimension review must cover PI-specific attack classes (PI-001 through PI-018 covering review surfaces) per `docs/security/f164-prompt-injection-test-cases.md`. No delivery gate passes from model self-report alone; evidence must come from tool results.
+
 **Use when:**
 - PR ready for engineering review
 - Before merging to main
