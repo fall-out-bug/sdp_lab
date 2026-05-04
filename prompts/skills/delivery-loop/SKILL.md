@@ -207,6 +207,16 @@ PHASE 4: CLOSEOUT
   8. Archive: `mv .sdp/checkpoints/${FEATURE}.json .sdp/archive/delivered/${FEATURE}-$(date -u +%Y%m%dT%H%M%SZ).json`
   9. Release lock
 
+  Prompt-injection/review-finding closeout rule:
+    - Close P0/P1 review-finding beads only after the fixing commit is merged,
+      the exact failed vector has a regression test or documented deterministic
+      evidence, and re-review reports no P0/P1.
+    - `sdp-pi-review` provider degradation is not itself a code blocker when
+      deterministic gates are green and quorum or maintainer override is recorded,
+      but it must be mentioned in the compact review verdict.
+    - Do not commit raw `.sdp/runs/pi-review/*` telemetry unless a workstream
+      explicitly requires it.
+
 WHOLE-LOOP BUDGET
   72h hard ceiling (runaway detector only — not a delivery SLO).
   On ceiling: write `phase_status: "exhausted"`, post PR comment summarizing state, exit non-zero.

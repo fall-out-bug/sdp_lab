@@ -1,12 +1,13 @@
 ---
 name: deploy
 description: "DEPRECATED: Use @ship instead. Deployment orchestration. Creates PR to main (after @oneshot) or merges for release."
-version: 5.0.0
+version: 5.1.0
 deprecated: true
 deprecated_in_favor_of: ship
 deprecation_version: "5.0.0"
 removal_version: "8.0.0"
 changes:
+  - "5.1.0: Mirror @ship PI review and worktree merge cleanup checks"
   - "5.0.0: DEPRECATED - Renamed to @ship"
   - "4.0.0: Compress to ~150 lines (P2 remediation)"
 ---
@@ -31,7 +32,7 @@ When user invokes `@deploy F{XX}`:
 
 ### Mode 1: PR to Master (default)
 
-**Pre-flight:** Check `.sdp/review_verdict.json` — verdict must be APPROVED. Verify `git branch --show-current` is feature branch. `bd list --status open` — no P0/P1. Run quality gates (AGENTS.md).
+**Pre-flight:** Check `.sdp/review_verdict.json` — verdict must be APPROVED and compact. Verify `git branch --show-current` is feature branch. `bd list --status open` — no P0/P1 for the feature/review round. Run quality gates (AGENTS.md). For prompt/agent/skill/eval/model-call changes, confirm PI review has no P0/P1; provider degradation must be explicitly recorded, not silently treated as PASS.
 
 **Steps:** Push feature branch. Base branch: `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|.*/||'` (or `main`). `gh pr create --base {base} --head feature/F{XX}-xxx --title "feat(F{XX}): ..." --body "..."`. Do not hardcode `master`.
 
@@ -107,6 +108,8 @@ Before ANY git: verify `pwd`, `git branch --show-current`.
 | P0/P1 open | Fix before deploy |
 | CI failing | Quality gates locally |
 | Push rejected | Pull and retry |
+| `gh pr merge --delete-branch` cannot delete local branch | Merge may still have succeeded; verify PR state, then remove the feature worktree and delete the local branch from another worktree |
+| Review verdict is huge or contains full provider prompts | Replace with compact schema-valid verdict before deploy; do not commit raw `.sdp/runs/pi-review/*` telemetry by default |
 
 ---
 
