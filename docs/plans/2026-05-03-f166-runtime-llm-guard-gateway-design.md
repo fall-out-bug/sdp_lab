@@ -23,6 +23,47 @@ evidence rules without introducing a provider proxy control plane. Post-MVP, SDP
 may compare against specialist scanners such as gitleaks-style entropy/rule engines
 for broader coverage.
 
+## Fit-Spike Verdict: OSS Gateway Substrate
+
+Date: 2026-05-04
+Workstream: 00-166-05
+Beads: sdplab-q6yb
+
+Decision: build forward on SDP's thin Go shim over `llmguard`. Do not adopt
+LiteLLM, Instawork `llm-proxy`, or Grepture as an F166 runtime dependency.
+
+| Option | Evidence | Fit |
+|---|---|---|
+| LiteLLM | Local no-secret smoke against a fake OpenAI-compatible upstream passed. Current docs position it as a proxy/server and SDK for 100+ providers, routing, spend tracking, virtual keys, guardrails, caching, and observability. | Best reference for OpenAI-compatible provider mapping and model naming. Too heavy as an SDP dependency: Python runtime, broad gateway control plane, and more product surface than F166 needs. |
+| Instawork `llm-proxy` | Local clone built cleanly and its Go test suite passed. README scope is OpenAI, Anthropic, and Gemini with streaming, logging, health, experimental limits, and circuit breaker behavior. | Good Go substrate mechanically, weak product fit. It lacks first-class Kimi/Moonshot, MiniMax, Z.ai, and SDP guard/audit provenance. Extending it is close to maintaining a fork. |
+| Grepture-style security proxy | Public material matches the hot-path redaction/blocking problem and advertises open-source proxy/source availability. GitHub org currently exposes TypeScript proxy/sdk under AGPL-3.0. | Useful security-reference shape, poor dependency fit for SDP: TypeScript runtime, AGPL constraints, and external product semantics around traces/evals/dashboard. |
+| SDP thin shim | Already uses `internal/llmguard`, synchronous redacted audit, fake-provider tests, and the existing `cmd/sdp-llm-gateway` demo surface. | Best fit. Add only the missing OpenAI-compatible live mapping/presets needed by SDP while keeping guard/audit/rate-limit as the invariant. |
+
+References:
+
+- LiteLLM docs: https://docs.litellm.ai/
+- Instawork `llm-proxy`: https://github.com/Instawork/llm-proxy
+- Grepture: https://grepture.com/
+- Grepture GitHub org: https://github.com/grepture
+
+Chosen direction:
+
+- Keep `internal/llmguard` as the product center.
+- Make `cmd/sdp-llm-gateway` speak a minimal OpenAI-compatible
+  `/v1/chat/completions` shape for live usage.
+- Add provider presets for OpenAI-compatible endpoints that SDP actually needs:
+  OpenAI, OpenRouter, Moonshot/Kimi, MiniMax, and Z.ai.
+- Keep LiteLLM as the compatibility oracle for request/response behavior, not a
+  dependency.
+- Do not fork Instawork `llm-proxy`; the provider delta and security/audit delta
+  are too large for the amount of code reused.
+- Do not adopt Grepture; copy the product lesson, not the runtime.
+
+The UX reason is blunt: operators need one local command that blocks/redacts and
+records SDP evidence, not a second gateway product to configure. The DX reason is
+equally strong: a thin Go mapping keeps tests fakeable and keeps F167 security
+verdict integration inside the same guard vocabulary.
+
 ## Problem
 
 F164 made prompt-injection risk measurable. It did not put an enforcement boundary
@@ -353,6 +394,7 @@ Allowed response:
   "event_id": "uuid",
   "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
 }
+```
 
 ## Risks
 
