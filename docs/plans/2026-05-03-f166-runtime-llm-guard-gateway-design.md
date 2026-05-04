@@ -809,6 +809,40 @@ Implementation tests for 00-166-07 must use fake upstreams:
 - Audit evidence records harness, endpoint surface, model, verdict, stream mode,
   and upstream-called state without raw secrets.
 
+## Implementation Workstream Split
+
+Date: 2026-05-04
+Workstreams: 00-166-08, 00-166-09
+Beads: sdplab-lhn5, sdplab-dtu6
+
+F166 is split into two executable implementation leaves so Pi agents can work
+without ambiguous ownership:
+
+| Workstream | Owns | Must not own |
+|---|---|---|
+| `00-166-08` | `sdp-llm-gateway` HTTP surfaces for Codex `/v1/responses` SSE and Pi `/v1/chat/completions` streaming, fake upstream harness tests, protocol-shaped blocked responses, stream-mode audit fields. | Local classifier internals, chunker, classifier JSON parser, reducer implementation. |
+| `00-166-09` | Local classifier config, loopback endpoint validation, chunker, local classifier client, strict JSON parser, reducer, classifier audit fields, fake classifier endpoint tests. It may introduce `internal/localmodel/` for the loopback OpenAI-compatible classifier client. | Codex/Pi HTTP endpoint behavior, Responses SSE mapping, Chat Completions streaming mapping. |
+
+Shared invariant for both leaves: deterministic scanner remains first, no raw
+secret-bearing request crosses upstream egress, and audit evidence never contains
+raw prompts, raw provider output, raw classifier chunks, or raw secrets.
+
+Recommended execution order:
+
+1. `00-166-08` first, with classifier hook treated as disabled or stubbed. This
+   makes Codex/Pi routing usable through deterministic guard and fake upstreams.
+2. `00-166-09` second, wiring the classifier into the already working gateway
+   guard path without changing endpoint protocol semantics.
+
+If both are assigned concurrently, file ownership must stay explicit:
+
+- Gateway worker: `cmd/sdp-llm-gateway/`, endpoint DTOs, HTTP tests.
+- Classifier worker: `internal/llmguard/` classifier/chunker/reducer files and
+  local endpoint tests.
+- Shared `internal/llmguard` types require coordination; do not rewrite the
+  existing scanner/redactor/gateway contracts unless the workstream explicitly
+  says why.
+
 ## Demo HTTP Schema
 
 The optional demo proxy accepts a simplified envelope, not raw provider-specific

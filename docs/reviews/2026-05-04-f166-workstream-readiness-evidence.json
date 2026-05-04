@@ -1,0 +1,39 @@
+{
+  "schema_version": "f166.workstream-readiness.v1",
+  "feature_id": "F166",
+  "date": "2026-05-04",
+  "verdict": "ready_for_pi_agent_handoff",
+  "ready_leaf": {
+    "workstream_id": "00-166-08",
+    "beads_id": "sdplab-lhn5",
+    "title": "Codex and Pi gateway surfaces implementation"
+  },
+  "blocked_leaf": {
+    "workstream_id": "00-166-09",
+    "beads_id": "sdplab-dtu6",
+    "blocked_on": ["00-166-08", "00-166-06"],
+    "title": "local chunked classifier implementation"
+  },
+  "closed_planning_leaves": [
+    "00-166-06",
+    "00-166-07"
+  ],
+  "superseded_beads": [
+    {
+      "beads_id": "sdplab-fzbw",
+      "replacement_workstream": "00-166-08"
+    }
+  ],
+  "pi_review": {
+    "command": "go run ./cmd/sdp-pi-review --scope working-tree --feature F166 --test-command \"go run ./cmd/sdp-protocol-check --format json\" --model-timeout 5m --write-verdict --round 4",
+    "verdict": "APPROVED",
+    "p0_count": 0,
+    "p1_count": 0,
+    "reviewer_quorum": "3/3",
+    "note": "Raw .sdp/runs/pi-review telemetry was intentionally not committed."
+  },
+  "protocol_check": {
+    "command": "go run ./cmd/sdp-protocol-check --format json",
+    "status": "passed_with_existing_repo_warnings"
+  }
+}
