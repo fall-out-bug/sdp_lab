@@ -1,0 +1,63 @@
+{
+  "schema_version": "f166.gateway-compatibility.v1",
+  "feature_id": "F166",
+  "workstream_id": "00-166-07",
+  "beads_id": "sdplab-n7jj",
+  "date": "2026-05-04",
+  "verdict": "gateway_viable_with_two_required_openai_compatible_surfaces",
+  "codex": {
+    "config_surface": "model_providers.<id>.base_url with wire_api=responses",
+    "observed_path": "/v1/responses",
+    "observed_accept": "text/event-stream",
+    "required_stream_terminal_event": "response.completed",
+    "smoke_result": "fake_non_stream_json_response_retried_then_failed_before_response_completed"
+  },
+  "pi": {
+    "config_surface": "~/.pi/agent/models.json custom provider",
+    "provider_api": "openai-completions",
+    "observed_path": "/v1/chat/completions",
+    "observed_stream": true,
+    "observed_stream_options_include_usage": true,
+    "smoke_result": "fake_provider_accepted_request_shape"
+  },
+  "required_gateway_surfaces": [
+    "openai_responses_sse",
+    "openai_chat_completions_streaming"
+  ],
+  "security_invariants": [
+    "guard_before_upstream_egress",
+    "blocked_input_returns_harness_shaped_safe_response_without_upstream_call",
+    "no_raw_streaming_output_before_output_guard_policy",
+    "audit_without_raw_prompts_or_raw_secrets"
+  ],
+  "test_plan": {
+    "codex_responses_blocked": {
+      "scenario": "secret-bearing POST /v1/responses",
+      "expected": "blocked locally, no upstream call, SSE stream terminates with response.completed"
+    },
+    "codex_responses_clean": {
+      "scenario": "clean POST /v1/responses",
+      "expected": "upstream called, guarded SSE stream terminates with response.completed"
+    },
+    "pi_streaming_blocked": {
+      "scenario": "secret-bearing streaming POST /v1/chat/completions",
+      "expected": "blocked locally, no upstream call, response shape matches the request stream flag"
+    },
+    "pi_streaming_clean": {
+      "scenario": "clean streaming POST /v1/chat/completions",
+      "expected": "upstream called, valid Chat Completions stream returned"
+    },
+    "audit_completeness": {
+      "expected": "harness, endpoint_surface, model, verdict_state, stream mode, and upstream_called present; raw prompts and raw secrets absent"
+    }
+  },
+  "pi_review": {
+    "command": "go run ./cmd/sdp-pi-review --scope working-tree --feature F166 --test-command \"go test ./internal/workstream ./internal/pireview ./cmd/sdp-pi-review\" --model-timeout 4m --write-verdict --round 7",
+    "verdict": "APPROVED",
+    "p0_count": 0,
+    "p1_count": 0,
+    "advisory_findings": 9,
+    "reviewer_quorum": "2/3",
+    "note": "Raw .sdp/runs/pi-review telemetry was intentionally not committed."
+  }
+}

@@ -692,6 +692,123 @@ generated or clearly marked invalid where possible, while still matching detecti
 patterns. AWS/OpenAI/GitHub examples must use non-routable test values; card-like
 numbers use standard test numbers only.
 
+## Codex And Pi Harness Compatibility
+
+Date: 2026-05-04
+Workstream: 00-166-07
+Beads: sdplab-n7jj
+
+Decision: Codex and Pi can be routed through the SDP gateway only if the gateway
+implements the wire protocols each harness actually uses. The existing simplified
+demo envelope is not enough for live harness traffic.
+
+Local fake-endpoint smoke produced this compatibility boundary:
+
+| Harness | Configuration path | Observed request | Required gateway surface |
+|---|---|---|---|
+| Codex | Custom `model_providers.<id>.base_url` with `wire_api = "responses"` and an API key env var | `POST /v1/responses`, `Accept: text/event-stream`, Responses-shaped JSON body | OpenAI Responses API facade with SSE events and terminal `response.completed` |
+| Pi | `~/.pi/agent/models.json` custom provider with `api: "openai-completions"` and dummy `apiKey` | `POST /v1/chat/completions`, `stream: true`, `stream_options.include_usage: true` | OpenAI Chat Completions streaming facade |
+
+Compatibility conclusion:
+
+- Codex is viable behind `sdp-llm-gateway`, but the gateway must implement
+  `/v1/responses` streaming semantics. A plain JSON response is not enough;
+  Codex retries and fails when the stream closes before `response.completed`.
+- Pi is viable behind `sdp-llm-gateway` via a custom `models.json` provider.
+  Pi sends Chat Completions requests with `stream: true`; the gateway must handle
+  streaming Chat Completions even when the upstream provider is fake or local.
+- The first production target is not broad provider parity. It is two
+  harness-facing compatibility surfaces that preserve F166 guard/audit behavior.
+
+Required harness-facing endpoints:
+
+1. `POST /v1/responses`
+   - Parse the Responses request enough to extract model, instructions, input,
+     metadata, and provider-relevant options.
+   - Run deterministic scanner and, when configured, local chunked classifier
+     before upstream egress.
+   - For blocked input, emit a valid Responses-shaped safe assistant response
+     stream that terminates with `response.completed`; do not call upstream.
+   - For allowed input, call the configured upstream and preserve a valid
+     Responses SSE stream to the harness.
+
+2. `POST /v1/chat/completions`
+   - Parse Chat Completions messages, model, metadata, `stream`, and
+     `stream_options`.
+   - Run deterministic scanner and optional local chunked classifier before
+     upstream egress.
+   - For blocked input, emit either a valid non-stream ChatCompletion or a valid
+     Chat Completions SSE stream matching the caller's `stream` flag; do not call
+     upstream.
+   - For allowed input, proxy to the configured upstream and preserve usage data
+     when available.
+
+Guard policy is endpoint-agnostic:
+
+- `input_blocked`: return a harness-shaped safe response with `event_id` and no
+  upstream call.
+- `input_redacted`: send only redacted text upstream and record redaction counts,
+  not raw spans.
+- `clean_allowed`: call upstream and record model, harness, endpoint surface, and
+  usage/cost state.
+- `classifier_incomplete`: strict mode returns a harness-shaped block before
+  upstream egress; demo mode may continue only when deterministic scanner found
+  no high-severity finding.
+
+Streaming is the hard part. The gateway must not blindly forward raw provider
+chunks before output guard policy can inspect them. F166 accepts a conservative
+first implementation: buffer provider output until completion, scan the combined
+assistant text, then emit a harness-shaped stream. That increases latency, but it
+keeps the security invariant understandable. True token-by-token output scanning
+can be a later optimization once deterministic tests prove chunk boundary
+behavior.
+
+Audit events for both surfaces must include:
+
+- `harness`: `codex`, `pi`, or `unknown_openai_compatible`
+- `endpoint_surface`: `responses` or `chat_completions`
+- requested model and upstream model
+- `verdict_state`
+- deterministic finding counts by category/severity
+- classifier enabled/completeness/chunk count, when used
+- upstream-called yes/no
+- stream mode requested and stream mode returned
+- `event_id`, correlation metadata, feature/workstream/beads identifiers
+
+Audit events must not contain raw prompts, raw provider output, raw secrets, or
+unredacted classifier chunks.
+
+Tool calls and structured outputs are not first-class in the first compatibility
+slice. If a harness sends tool-call or structured-output options, the gateway may
+pass them through only after input guard policy succeeds, and it must still apply
+output guard before releasing assistant content. Unsupported tool-call streaming
+shapes must return a clear harness-shaped error rather than partial raw output.
+For this slice, output guard covers assistant text content. Guarding tool-call
+arguments, tool results, and structured-output fields is a post-MVP extension
+unless the implementation can normalize those fields into the same text scan
+without weakening streaming safety.
+
+F167 dependency: F167 Security Verdict Gate (`sdplab-xe5c`) consumes gateway
+guard evidence after F166 emits it. The F166/F167 interface is `GuardEvent` plus
+safe audit evidence: F166 emits guard verdict state, findings, stream mode, and
+upstream-called state; F167 applies severity-based block/warn/escalate policy and
+writes the runtime security verdict. See `docs/workstreams/backlog/00-167-01.md`
+and `docs/workstreams/backlog/00-167-02.md` for the gate contract workstreams.
+
+Implementation tests for 00-166-07 must use fake upstreams:
+
+- Codex-style `/v1/responses` clean request reaches upstream and receives a valid
+  SSE completion.
+- Codex-style `/v1/responses` secret-bearing request is blocked locally and never
+  reaches upstream.
+- Pi-style `/v1/chat/completions` clean streaming request reaches upstream and
+  receives a valid Chat Completions stream.
+- Pi-style `/v1/chat/completions` secret-bearing streaming request is blocked
+  locally and receives a valid stream or non-stream response matching request
+  mode.
+- Audit evidence records harness, endpoint surface, model, verdict, stream mode,
+  and upstream-called state without raw secrets.
+
 ## Demo HTTP Schema
 
 The optional demo proxy accepts a simplified envelope, not raw provider-specific
@@ -753,4 +870,7 @@ F166 is ready for implementation when:
 - MVP test corpus and known misses are explicit
 - no claim is made that SDP now has a full generic LLM gateway
 - the spec-interrogate report has no unresolved blocking questions, or unresolved
-  questions are explicitly deferred with owner and rationale
+  questions are explicitly deferred with owner and rationale. Current F166
+  interrogation evidence:
+  `docs/reviews/2026-05-04-f166-local-classifier-spec-interrogate.md` and
+  `docs/reviews/2026-05-04-f166-codex-pi-gateway-compatibility.md`.
