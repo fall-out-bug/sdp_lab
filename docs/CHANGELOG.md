@@ -1449,6 +1449,37 @@ issues resolved.
 ## 2026-05-04
 
 ### Commits
+- `0b164516` F166: Runtime LLM Guard Gateway (2026-05-04)
+
+### Changed Files
+- `.sdp/checkpoints/F166.json`
+- `cmd/sdp-llm-gateway/main.go`
+- `cmd/sdp-llm-gateway/main_test.go`
+- `docs/plans/2026-05-03-f166-runtime-llm-guard-gateway-design.md`
+- `docs/reviews/2026-05-03-f166-implementation-workstreams-review-evidence.json`
+- `docs/reviews/2026-05-03-f166-implementation-workstreams-review.md`
+- `docs/reviews/2026-05-03-f166-llm-guard-spec-interrogate-evidence.json`
+- `docs/reviews/2026-05-03-f166-llm-guard-spec-interrogate.md`
+- `docs/reviews/2026-05-03-f166-workstream-review-evidence.json`
+- `docs/reviews/2026-05-03-f166-workstream-review.md`
+- `docs/roadmap/ROADMAP.md`
+- `docs/workstreams/INDEX.md`
+- `docs/workstreams/backlog/00-166-01.md`
+- `docs/workstreams/backlog/00-166-02.md`
+- `docs/workstreams/backlog/00-166-03.md`
+- `docs/workstreams/backlog/00-166-04.md`
+- `internal/llmguard/gateway.go`
+- `internal/llmguard/gateway_test.go`
+- `internal/llmguard/redactor.go`
+- `internal/llmguard/redactor_test.go`
+- `internal/llmguard/scanner.go`
+- `internal/llmguard/scanner_test.go`
+- `internal/llmguard/types.go`
+- `internal/llmguard/types_test.go`
+
+
+
+### Commits
 - `032a0946` Merge F167 security verdict gate design docs (2026-05-04)
 - `88476997` docs: harden F167 review findings (2026-05-04)
 - `0c4dfb48` docs: design F167 security verdict gate (2026-05-04)
