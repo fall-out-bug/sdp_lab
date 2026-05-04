@@ -1,0 +1,111 @@
+{
+  "feature_id": "F167",
+  "review_date": "2026-05-04",
+  "review_type": "pi-review-plus-socratic",
+  "pi_review": {
+    "command": "go run ./cmd/sdp-pi-review --scope working-tree --feature F167 --test-command \"go test ./internal/workstream ./internal/pireview ./cmd/sdp-pi-review\" --model-timeout 3m --write-verdict",
+    "run_id": "pireview-1f95c3d9cc5c-1777871978716",
+    "run_json_sha256": "51cdc78df57632525dfb98aad43e5c514dd5ea524c481894036ce92efc01ac29",
+    "artifact_retention": "raw .sdp pi-review artifacts were inspected locally and not committed because the failed-provider error embedded the full model prompt and absolute paths",
+    "verdict_file": "transient .sdp/review_verdict.json",
+    "verdict_sha256": "5c540dcf281ff28da6e3d2c49c5b720024fed07626e4b430a472fb5f38c16d3a",
+    "verdict": "APPROVED",
+    "p0_count": 0,
+    "p1_count": 0,
+    "advisory_findings_count": 14,
+    "model_results": [
+      {
+        "slot": "zai",
+        "provider": "zai",
+        "model": "glm-5.1",
+        "status": "ok"
+      },
+      {
+        "slot": "kimi",
+        "provider": "kimi-coding",
+        "model": "k2p6",
+        "status": "failed"
+      },
+      {
+        "slot": "minimax",
+        "provider": "minimax",
+        "model": "MiniMax-M2.7",
+        "status": "ok"
+      }
+    ]
+  },
+  "pi_review_round_2": {
+    "command": "go run ./cmd/sdp-pi-review --scope branch --base origin/main --feature F167 --test-command \"go test ./internal/workstream ./internal/pireview ./cmd/sdp-pi-review\" --model-timeout 3m --write-verdict",
+    "run_id": "pireview-e863d9081aef-1777873663309",
+    "artifact_retention": "raw .sdp pi-review artifacts were inspected locally and not committed because provider errors can embed the full model prompt and absolute paths",
+    "verdict_file": "transient .sdp/review_verdict.json",
+    "verdict_sha256": "ab6cb4c669d0c089759309d5f3c82b16adef49caeffad72c5403537385812f37",
+    "verdict": "APPROVED",
+    "p0_count": 0,
+    "p1_count": 0,
+    "advisory_findings_count": 2,
+    "model_results": [
+      {
+        "slot": "zai",
+        "provider": "zai",
+        "model": "glm-5.1",
+        "status": "ok"
+      },
+      {
+        "slot": "kimi",
+        "provider": "kimi-coding",
+        "model": "k2p6",
+        "status": "failed"
+      },
+      {
+        "slot": "minimax",
+        "provider": "minimax",
+        "model": "MiniMax-M2.7",
+        "status": "ok"
+      }
+    ]
+  },
+  "socratic_review": {
+    "mode": "socratic",
+    "critic_provider": "zai/glm-5.1",
+    "judge_provider": "minimax/MiniMax-M2.7",
+    "critic_questions": 11,
+    "blocking_questions": 2,
+    "major_questions": 5,
+    "minor_questions": 4,
+    "resolved_questions": 11,
+    "new_contradictions": [],
+    "scope_creep": [],
+    "verdict": "PASS"
+  },
+  "socratic_review_round_2": {
+    "mode": "socratic",
+    "critic_provider": "minimax/MiniMax-M2.7",
+    "judge_provider": "zai/glm-5.1",
+    "critic_questions": 10,
+    "blocking_questions": 2,
+    "major_questions": 6,
+    "minor_questions": 2,
+    "resolved_questions": 10,
+    "new_contradictions": [],
+    "scope_creep": [],
+    "verdict": "PASS"
+  },
+  "artifact_hashes_after_revision": {
+    "docs/drafts/f167-security-verdict-gate-design.md": "2b01607e6c7a155230bf503a1205e0e49e73d94d0cd11779cc271230b7fabc20",
+    "docs/workstreams/backlog/00-167-01.md": "46e5288c5c5cc2c140e296ec953148723cdbaedbbb7116544640081e4924f1f6",
+    "docs/workstreams/backlog/00-167-02.md": "d645cca9de8678fd87e5552fbcdd79d13cee99d8fb24feff802e5a8d0c27db84",
+    "docs/workstreams/backlog/00-167-03.md": "e60157a2f84dde4da3aaf988195a62ef65d7a2488d81d1e522bffe29a733ae8d",
+    "docs/workstreams/backlog/00-167-04.md": "599513cadf6c420f5ba569f07c6da5e2103c9b8cdba6c233ab1e371d2fbf9ed3"
+  },
+  "provider_failures": [
+    {
+      "surface": "pi-review",
+      "provider": "kimi-coding",
+      "model": "k2p6",
+      "impact": "coverage_degraded_not_blocking_for_design_review"
+    }
+  ],
+  "report_path": "docs/reviews/2026-05-04-f167-spec-workstreams-review.md",
+  "report_summary": "F167 design and workstreams passed two Socratic judge rounds after resolving Build pre-transition boundary, escalation recovery, sanitizer scope, deterministic gate inputs, malformed verdict validation, raw-secret negative tests, F164 boundary, and evidence semantics. pi-review approved twice with degraded Kimi coverage."
+}
