@@ -34,6 +34,11 @@ type GuardEvent struct {
 	EstimatedCostUSD     *float64          `json:"estimated_cost_usd,omitempty"`
 	ProviderErrorClass   string            `json:"provider_error_class,omitempty"`
 	ProviderErrorExcerpt string            `json:"provider_error_excerpt,omitempty"`
+	Harness         string `json:"harness,omitempty"`
+	EndpointSurface string `json:"endpoint_surface,omitempty"`
+	StreamRequested bool   `json:"stream_requested"`
+	StreamReturned  bool   `json:"stream_returned"`
+	UpstreamCalled  bool   `json:"upstream_called"`
 }
 
 type ChatRequest = modelgateway.ChatRequest
@@ -147,12 +152,15 @@ func (e *CostEstimator) Estimate(model string, usage *TokenUsageAudit) CostResul
 
 // Provenance carries SDP call-site metadata for audit records.
 type Provenance struct {
-	CorrelationID string
-	FeatureID     string
-	WsID          string
-	BeadsID       string
-	SessionID     string
-	EvidenceRef   string
+	CorrelationID   string
+	FeatureID       string
+	WsID            string
+	BeadsID         string
+	SessionID       string
+	EvidenceRef     string
+	Harness         string
+	EndpointSurface string
+	StreamRequested bool
 }
 
 // Verdict is the result of a guarded Chat call.
@@ -214,15 +222,18 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 
 	// Build the audit event skeleton
 	event := GuardEvent{
-		EventID:       eventID,
-		CorrelationID: prov.CorrelationID,
-		FeatureID:     prov.FeatureID,
-		WsID:          prov.WsID,
-		BeadsID:       prov.BeadsID,
-		SessionID:     prov.SessionID,
-		EvidenceRef:   prov.EvidenceRef,
-		Timestamp:     now,
-		Model:         string(req.Model),
+		EventID:         eventID,
+		CorrelationID:   prov.CorrelationID,
+		FeatureID:       prov.FeatureID,
+		WsID:            prov.WsID,
+		BeadsID:         prov.BeadsID,
+		SessionID:       prov.SessionID,
+		EvidenceRef:     prov.EvidenceRef,
+		Timestamp:       now,
+		Model:           string(req.Model),
+		Harness:         prov.Harness,
+		EndpointSurface: prov.EndpointSurface,
+		StreamRequested: prov.StreamRequested,
 	}
 
 	// Scan input
@@ -237,6 +248,7 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 		}
 		if g.policy.StrictBudgetMode {
 			event.VerdictState = VerdictScanBudgetExceeded
+			event.UpstreamCalled = false
 			if err := g.writeAudit(ctx, event); err != nil {
 				return nil, &Verdict{State: VerdictAuditFailed, EventID: eventID}, fmt.Errorf("audit write failed: %w", err)
 			}
@@ -252,6 +264,7 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 		case InputActionBlock:
 			event.VerdictState = VerdictInputBlocked
 			event.InputFindings = redactFindings(inputSecrets)
+			event.UpstreamCalled = false
 			if err := g.writeAudit(ctx, event); err != nil {
 				return nil, &Verdict{State: VerdictAuditFailed, EventID: eventID}, fmt.Errorf("audit write failed: %w", err)
 			}
@@ -291,6 +304,7 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 		event.ProviderErrorClass = errClass
 		event.ProviderErrorExcerpt = errExcerpt
 		event.InputFindings = redactFindings(inputResult.Findings)
+		event.UpstreamCalled = true
 
 		if err := g.writeAudit(ctx, event); err != nil {
 			return nil, &Verdict{State: VerdictAuditFailed, EventID: eventID}, fmt.Errorf("audit write failed: %w", err)
@@ -314,6 +328,7 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 		event.VerdictState = VerdictOutputBlocked
 		event.OutputFindings = redactFindings(outputResult.Findings)
 		event.InputFindings = redactFindings(inputResult.Findings)
+		event.UpstreamCalled = true
 		if event.RedactionSummary == nil {
 			event.RedactionSummary = &RedactionSummary{}
 		}
@@ -354,6 +369,7 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 	event.OutputFindings = redactFindings(outputResult.Findings)
 	event.TokenUsage = usage
 	event.CostStatus = costResult.Status
+	event.UpstreamCalled = true
 	if costResult.Status == "estimated" {
 		cost := costResult.Cost
 		event.EstimatedCostUSD = &cost
