@@ -1449,6 +1449,26 @@ issues resolved.
 ## 2026-05-04
 
 ### Commits
+- `032a0946` Merge F167 security verdict gate design docs (2026-05-04)
+- `88476997` docs: harden F167 review findings (2026-05-04)
+- `0c4dfb48` docs: design F167 security verdict gate (2026-05-04)
+
+### Changed Files
+- `.beads-sdp-mapping.jsonl`
+- `.sdp/log/events.jsonl`
+- `docs/drafts/f167-security-verdict-gate-design.md`
+- `docs/reviews/2026-05-04-f167-spec-workstreams-review-evidence.json`
+- `docs/reviews/2026-05-04-f167-spec-workstreams-review.md`
+- `docs/roadmap/ROADMAP.md`
+- `docs/workstreams/INDEX.md`
+- `docs/workstreams/backlog/00-167-01.md`
+- `docs/workstreams/backlog/00-167-02.md`
+- `docs/workstreams/backlog/00-167-03.md`
+- `docs/workstreams/backlog/00-167-04.md`
+
+
+
+### Commits
 - `70c8cdf3` Revert "docs(AGENTS): add operational lessons from F165 session" (2026-05-04)
 
 ### Changed Files
