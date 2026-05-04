@@ -1,7 +1,7 @@
 # sdp_lab Roadmap — Agent Platform + Trust Lane
 
 > **Status: CANONICAL (active roadmap)** — this is the current source of truth. Other files in `docs/roadmap/` are supporting context; see [docs/roadmap/README.md](README.md).
-> **Updated:** 2026-04-27 (post-IIP-council; F151-F160 added)
+> **Updated:** 2026-05-04 (F167 security verdict gate scaffold added)
 > **Repo naming:** GitHub repo is `sdp_lab`; Go module path is `github.com/fall-out-bug/sdp_lab`; historical workstreams and bead IDs may still use `sdp_dev` as a legacy label for the same codebase
 > **Direction:** Reusable agent platform (`kernel`, `adapters`, `augmentation`, `evals`) with standards-based trust and evidence as a secondary lane
 
@@ -116,6 +116,7 @@ Post-F150 v3 lane (post-IIP-council, 2026-04-27) — see [docs/roadmap/2026-04-2
 - `F160` — Procurement / Compliance Install Profile (SOC2 stance, SLA template, no-egress mode)
 - `F164` — Prompt Injection Hardening and Red-Team Corpus (SDP-specific threat model, corpus, static/mock/live evals, prompt hardening, MCP/write-tool checks, advisory CI)
 - `F165` — Indirect Prompt Injection Through SDP Task Data (Day-12 defensive demo pack for Beads/workstream/evidence task-data poisoning with deterministic unsafe/defended outcomes)
+- `F167` — Security Verdict Gate (Day-14 runtime security review gate after green tests, with blocking Critical/High verdicts and compact audit evidence)
 
 Deferred (no work until ICP signal): Enterprise Delivery Governance product family; Russian sovereign model adapters (sub-track of EDG); `sdp-pr-gate` implementation track (gated on committed pilot per Wedge B gate).
 
