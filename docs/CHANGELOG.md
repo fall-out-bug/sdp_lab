@@ -1449,6 +1449,24 @@ issues resolved.
 ## 2026-05-04
 
 ### Commits
+- `d5880fba` F166: finalize gateway workstreams (2026-05-04)
+
+### Changed Files
+- `.beads-sdp-mapping.jsonl`
+- `.beads/interactions.jsonl`
+- `.beads/issues.jsonl`
+- `docs/plans/2026-05-03-f166-runtime-llm-guard-gateway-design.md`
+- `docs/reviews/2026-05-04-f166-workstream-readiness-evidence.json`
+- `docs/reviews/2026-05-04-f166-workstream-readiness.md`
+- `docs/roadmap/ROADMAP.md`
+- `docs/workstreams/INDEX.md`
+- `docs/workstreams/backlog/00-166-06.md`
+- `docs/workstreams/backlog/00-166-08.md`
+- `docs/workstreams/backlog/00-166-09.md`
+
+
+
+### Commits
 - `dedc03b9` F161: filter pi-review diff packet (2026-05-04)
 
 ### Changed Files
