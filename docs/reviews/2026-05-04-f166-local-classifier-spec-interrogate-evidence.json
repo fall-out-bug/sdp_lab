@@ -1,0 +1,50 @@
+{
+  "review_type": "pi-review-plus-socratic",
+  "feature_id": "F166",
+  "workstream_id": "00-166-06",
+  "artifact_path": "docs/plans/2026-05-03-f166-runtime-llm-guard-gateway-design.md",
+  "review_verdict": "PASS",
+  "pi_review": {
+    "final_run_id": "pireview-8cbd0ae9e78f-1777889148973",
+    "final_verdict": "APPROVED",
+    "p0_count": 0,
+    "p1_count": 0,
+    "total_findings": 12,
+    "models_succeeded": 2,
+    "models_total": 3,
+    "provider_failures": [
+      {
+        "provider": "kimi-coding",
+        "model": "k2p6",
+        "status": "failed"
+      }
+    ],
+    "raw_artifact_retention": "raw .sdp/runs/pi-review telemetry inspected locally and not committed"
+  },
+  "socratic_review": {
+    "critic_provider": "zai/glm-5.1",
+    "judge_provider": "minimax/MiniMax-M2.7",
+    "questions_total": 12,
+    "blocking_questions": 4,
+    "major_questions": 7,
+    "minor_questions": 1,
+    "resolved_questions": 12,
+    "new_contradictions": [],
+    "scope_creep": [],
+    "judge_verdict": "PASS"
+  },
+  "applied_findings": [
+    "classifier JSON example corrected",
+    "input advisory verdict state defined",
+    "local endpoint trust boundary made loopback-only",
+    "classifier prompt-injection hardening added",
+    "boundary-window chunk pass added",
+    "bounded concurrency and total timeout added",
+    "partial-failure policy clarified",
+    "classifier audit fields and excerpt cap added",
+    "F166 workstream mappings completed",
+    "00-166-06 acceptance criteria unchecked until implementation evidence exists"
+  ],
+  "report_path": "docs/reviews/2026-05-04-f166-local-classifier-spec-interrogate.md",
+  "report_summary": "F166 local chunked classifier spec passed Socratic judge review and final pi-review after resolving trust-boundary, classifier prompt-injection, cross-chunk, deterministic-test, latency, confidence, and audit gaps."
+}

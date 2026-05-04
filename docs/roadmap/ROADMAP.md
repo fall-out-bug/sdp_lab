@@ -116,7 +116,7 @@ Post-F150 v3 lane (post-IIP-council, 2026-04-27) — see [docs/roadmap/2026-04-2
 - `F160` — Procurement / Compliance Install Profile (SOC2 stance, SLA template, no-egress mode)
 - `F164` — Prompt Injection Hardening and Red-Team Corpus (SDP-specific threat model, corpus, static/mock/live evals, prompt hardening, MCP/write-tool checks, advisory CI)
 - `F165` — Indirect Prompt Injection Through SDP Task Data (Day-12 defensive demo pack for Beads/workstream/evidence task-data poisoning with deterministic unsafe/defended outcomes)
-- `F166` — Runtime LLM Guard Gateway (core-first Go guard/audit layer for SDP model calls: input/output secret checks, redaction/blocking, token/cost evidence, deterministic corpus)
+- `F166` — Runtime LLM Guard Gateway (core-first Go guard/audit layer for SDP model calls: input/output secret checks, local chunked classifier, redaction/blocking, token/cost evidence, deterministic corpus)
 - `F167` — Security Verdict Gate (Day-14 runtime security step after green tests and before commit/promotion-ready state, with gateway sanitation, blocking Critical/High findings, warning Medium/Low findings, escalation on provider/sanitizer/evidence failure, and demo evidence)
 
 Deferred (no work until ICP signal): Enterprise Delivery Governance product family; Russian sovereign model adapters (sub-track of EDG); `sdp-pr-gate` implementation track (gated on committed pilot per Wedge B gate).
