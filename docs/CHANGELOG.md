@@ -1449,6 +1449,14 @@ issues resolved.
 ## 2026-05-04
 
 ### Commits
+- `70c8cdf3` Revert "docs(AGENTS): add operational lessons from F165 session" (2026-05-04)
+
+### Changed Files
+- `AGENTS.md`
+
+
+
+### Commits
 - `819b0568` docs(AGENTS): add operational lessons from F165 session (2026-05-04)
 
 ### Changed Files
