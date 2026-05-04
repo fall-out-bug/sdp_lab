@@ -1449,6 +1449,22 @@ issues resolved.
 ## 2026-05-04
 
 ### Commits
+- `8fc3542f` F166: specify Codex and Pi gateway compatibility (2026-05-04)
+
+### Changed Files
+- `.beads-sdp-mapping.jsonl`
+- `.beads/interactions.jsonl`
+- `.beads/issues.jsonl`
+- `docs/plans/2026-05-03-f166-runtime-llm-guard-gateway-design.md`
+- `docs/reviews/2026-05-04-f166-codex-pi-gateway-compatibility-evidence.json`
+- `docs/reviews/2026-05-04-f166-codex-pi-gateway-compatibility.md`
+- `docs/roadmap/ROADMAP.md`
+- `docs/workstreams/INDEX.md`
+- `docs/workstreams/backlog/00-166-07.md`
+
+
+
+### Commits
 - `6c75c476` F166: specify local chunked classifier (2026-05-04)
 
 ### Changed Files
