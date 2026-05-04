@@ -1449,6 +1449,21 @@ issues resolved.
 ## 2026-05-04
 
 ### Commits
+- `dedc03b9` F161: filter pi-review diff packet (2026-05-04)
+
+### Changed Files
+- `.beads-sdp-mapping.jsonl`
+- `.beads/interactions.jsonl`
+- `.beads/issues.jsonl`
+- `docs/roadmap/ROADMAP.md`
+- `docs/workstreams/INDEX.md`
+- `docs/workstreams/backlog/00-161-05.md`
+- `internal/pireview/context.go`
+- `internal/pireview/pireview_test.go`
+
+
+
+### Commits
 - `8fc3542f` F166: specify Codex and Pi gateway compatibility (2026-05-04)
 
 ### Changed Files
