@@ -1,0 +1,79 @@
+{
+  "ws_id": "00-166-09",
+  "feature_id": "F166",
+  "verdict": "PASS",
+  "commit": "77fd0b88",
+  "timestamp": "2026-05-04T17:00:00Z",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true,
+    "coverage_pct": 88.5,
+    "coverage_threshold": 80,
+    "max_file_loc": 186
+  },
+  "ac_evidence": [
+    {
+      "ac": "Config accepts any loopback OpenAI-compatible classifier endpoint, model, timeout, total timeout, chunk size, overlap, max chunks, max parallel chunks, confidence threshold, and strict/demo mode.",
+      "met": true,
+      "evidence": "ClassifierConfig in internal/llmguard/types.go:132-148; DefaultClassifierConfig in types.go:151-165"
+    },
+    {
+      "ac": "Non-loopback classifier URLs fail config validation at gateway startup unless an explicit future enterprise trust mode is added.",
+      "met": true,
+      "evidence": "validateLoopback in internal/llmguard/classifier.go:93-117; TestClassifierClient_LoopbackValidation in classifier_test.go:114-152"
+    },
+    {
+      "ac": "Chunker preserves stable global byte offsets, structural splitting order, configured overlap, source message metadata, and deterministic chunk ids.",
+      "met": true,
+      "evidence": "Chunk and Chunker in internal/llmguard/chunker.go:14-116; TestChunker_SplitAndOverlap in classifier_test.go:66-112"
+    },
+    {
+      "ac": "Chunker generates synthetic boundary-window chunks for every adjacent normal-chunk pair using configured overlap bytes, assigns stable global offsets, and reducer completeness requires those boundary chunks.",
+      "met": true,
+      "evidence": "Chunker.Split boundary generation in chunker.go:55-73; boundaryWindow in chunker.go:150-158"
+    },
+    {
+      "ac": "Fake local classifier endpoint receives one request per chunk with tools disabled and the chunk wrapped as untrusted data.",
+      "met": true,
+      "evidence": "buildClassifierPrompt in classifier.go:138-143; TestClassifierClient_ClassifyChunk in classifier_test.go:154-191"
+    },
+    {
+      "ac": "Classifier parser accepts only the documented JSON schema and known enum values; malformed JSON/tool-call-shaped output follows classifier_incomplete policy.",
+      "met": true,
+      "evidence": "parseClassifierJSON in classifier.go:146-187; TestClassifierClient_MalformedJSON, UnknownAction, OutOfBoundsSpan in classifier_test.go:193-254"
+    },
+    {
+      "ac": "Reducer escalates block over redact over needs_review over allow, merges and bounds-checks spans, and cannot weaken deterministic high-severity blocks.",
+      "met": true,
+      "evidence": "Reducer.ReduceVerdict in reducer.go:28-85; TestReducer_BlockEscalation, CannotWeakenDeterministicBlock, MergeSpans in classifier_test.go:256-350"
+    },
+    {
+      "ac": "Timeout/error behavior matches spec: strict mode fails closed before upstream egress; demo mode may continue deterministic-only only when the deterministic scanner found no high-severity finding.",
+      "met": true,
+      "evidence": "TestGateway_ClassifierStrictIncomplete in classifier_test.go:414-441; TestReducer_StrictModeIncomplete, DemoModeNeedsReview in classifier_test.go:286-304"
+    },
+    {
+      "ac": "Audit records classifier enabled/completeness, model/endpoint kind, chunk count, failed chunk ids, reducer verdict, and no raw prompt chunks or secrets.",
+      "met": true,
+      "evidence": "GuardEvent classifier fields in gateway.go:30-51; TestGateway_ClassifierBlock audit assertions in classifier_test.go:370-412; TestAudit_NoRawPrompt in classifier_test.go:510-530"
+    },
+    {
+      "ac": "Tests cover fake local endpoint calls, multi-chunk prompts, boundary overlap, global span preservation, reducer escalation, timeout/error paths, and malformed classifier JSON.",
+      "met": true,
+      "evidence": "classifier_test.go:66-530 covering all paths"
+    }
+  ],
+  "existing_work_summary": "Found internal/localmodel/client.go with Ollama /api/generate client. No chunker, classifier, or reducer existed. Gateway.Chat had deterministic scanner only.",
+  "changed_files": [
+    "internal/llmguard/types.go",
+    "internal/llmguard/gateway.go",
+    "internal/llmguard/chunker.go",
+    "internal/llmguard/classifier.go",
+    "internal/llmguard/classifier_orchestrator.go",
+    "internal/llmguard/reducer.go",
+    "internal/llmguard/classifier_test.go"
+  ],
+  "tdd_cycles": 4
+}
