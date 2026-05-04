@@ -3,6 +3,7 @@ package pireview
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -302,8 +303,120 @@ func TestRunModelPanelAttemptsFallbackAfterTimeout(t *testing.T) {
 	if results[0].Provider != "openrouter" {
 		t.Fatalf("provider = %q, want openrouter", results[0].Provider)
 	}
+	if results[0].Error != "" {
+		t.Fatalf("fallback success should clear primary error, got %q", results[0].Error)
+	}
 	if fr.calls != 2 {
 		t.Fatalf("calls = %d, want primary + fallback", fr.calls)
+	}
+}
+
+type leakingErrorRunner struct{}
+
+func (leakingErrorRunner) Output(context.Context, string, string, ...string) ([]byte, error) {
+	return nil, nil
+}
+
+func (leakingErrorRunner) Run(context.Context, string, string, ...string) error {
+	return nil
+}
+
+func (leakingErrorRunner) CombinedOutput(_ context.Context, _ string, _ string, args ...string) ([]byte, error) {
+	return nil, fmt.Errorf("pi %s: %w", strings.Join(args, " "), context.DeadlineExceeded)
+}
+
+type killedAfterContextRunner struct{}
+
+func (killedAfterContextRunner) Output(context.Context, string, string, ...string) ([]byte, error) {
+	return nil, nil
+}
+
+func (killedAfterContextRunner) Run(context.Context, string, string, ...string) error {
+	return nil
+}
+
+func (killedAfterContextRunner) CombinedOutput(ctx context.Context, _ string, _ string, _ ...string) ([]byte, error) {
+	<-ctx.Done()
+	return nil, errors.New("signal: killed")
+}
+
+func TestInvokePiSanitizesPromptFromError(t *testing.T) {
+	runner := leakingErrorRunner{}
+	r := &Runner{
+		cfg: Config{
+			ProjectRoot:  t.TempDir(),
+			Scope:        ScopeWorkingTree,
+			ModelTimeout: time.Second,
+			Runner:       runner,
+		},
+		runner: runner,
+	}
+
+	_, err := r.invokePi(context.Background(), ReviewerSlot{
+		Slot:     "zai",
+		Provider: "zai",
+		Model:    "glm",
+		Role:     "reviewer",
+	}, &ContextPacket{
+		ReviewedFiles: []string{"main.go"},
+		UnifiedDiff:   "+ const token = \"SECRET_TOKEN_123\"",
+	}, &TestEvidence{})
+
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded wrapper, got %v", err)
+	}
+	if strings.Contains(err.Error(), "SECRET_TOKEN_123") || strings.Contains(err.Error(), "-p") {
+		t.Fatalf("error leaked prompt or raw pi args: %s", err)
+	}
+	if unwrapped := errors.Unwrap(err); unwrapped != context.DeadlineExceeded {
+		t.Fatalf("unwrap should expose only sanitized classification, got %v", unwrapped)
+	}
+	if !strings.Contains(err.Error(), "prompt_bytes=") {
+		t.Fatalf("error should include prompt size for debugging: %s", err)
+	}
+}
+
+func TestInvokePiClassifiesCommandContextKillAsTimeout(t *testing.T) {
+	runner := killedAfterContextRunner{}
+	r := &Runner{
+		cfg: Config{
+			ProjectRoot:  t.TempDir(),
+			Scope:        ScopeWorkingTree,
+			ModelTimeout: 10 * time.Millisecond,
+			Runner:       runner,
+		},
+		runner: runner,
+	}
+
+	_, err := r.invokePi(context.Background(), ReviewerSlot{
+		Slot:     "zai",
+		Provider: "zai",
+		Model:    "glm",
+		Role:     "reviewer",
+	}, &ContextPacket{}, &TestEvidence{})
+
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded wrapper, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "timeout") {
+		t.Fatalf("error should classify context kill as timeout: %s", err)
+	}
+}
+
+func TestEffectiveSlotTimeoutUsesKimiFloor(t *testing.T) {
+	r := &Runner{cfg: Config{ProjectRoot: t.TempDir(), Scope: ScopeWorkingTree, ModelTimeout: 3 * time.Minute, Runner: &fakeRunner{}}}
+
+	kimiTimeout := r.effectiveSlotTimeout(ReviewerSlot{Slot: "kimi", Provider: "kimi-coding", Model: "k2p6"})
+	if kimiTimeout != kimiModelTimeoutFloor {
+		t.Fatalf("kimi timeout = %s, want %s", kimiTimeout, kimiModelTimeoutFloor)
+	}
+
+	zaiTimeout := r.effectiveSlotTimeout(ReviewerSlot{Slot: "zai", Provider: "zai", Model: "glm-5.1"})
+	if zaiTimeout != 3*time.Minute {
+		t.Fatalf("zai timeout = %s, want 3m", zaiTimeout)
 	}
 }
 
@@ -351,7 +464,9 @@ func TestInvokePiUsesPiPrintContract(t *testing.T) {
 		Provider: "kimi-coding",
 		Model:    "k2p6",
 		Role:     "reviewer",
-	}, &ContextPacket{}, &TestEvidence{})
+	}, &ContextPacket{
+		UnifiedDiff: "+ const token = \"SECRET_TOKEN_123\"",
+	}, &TestEvidence{})
 	if err != nil {
 		t.Fatalf("invokePi: %v", err)
 	}
@@ -370,6 +485,16 @@ func TestInvokePiUsesPiPrintContract(t *testing.T) {
 	}
 	if len(call.args) > 0 && call.args[0] == "run" {
 		t.Fatalf("pi invocation must not use removed run subcommand: %v", call.args)
+	}
+	promptArg := call.args[len(call.args)-1]
+	if !strings.HasPrefix(promptArg, "@") {
+		t.Fatalf("prompt must be passed as @file, got %q", promptArg)
+	}
+	if strings.Contains(got, "SECRET_TOKEN_123") {
+		t.Fatalf("pi args leaked raw prompt: %v", call.args)
+	}
+	if _, err := os.Stat(strings.TrimPrefix(promptArg, "@")); !os.IsNotExist(err) {
+		t.Fatalf("temp prompt file should be removed, stat error = %v", err)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -263,7 +264,6 @@ func (r *Runner) runModelPanel(ctx context.Context, runID string, pkt *ContextPa
 		}
 
 		output, err := r.invokePi(ctx, slot, pkt, evidence)
-		result.LatencyMs = time.Since(start).Milliseconds()
 
 		if err != nil {
 			result.Status = "failed"
@@ -274,6 +274,7 @@ func (r *Runner) runModelPanel(ctx context.Context, runID string, pkt *ContextPa
 				fbOutput, fbErr := r.invokeFallback(ctx, slot, pkt, evidence)
 				if fbErr == nil {
 					result.Status = "ok"
+					result.Error = ""
 					result.ArtifactPath = writeModelArtifact(r.cfg.ProjectRoot, runID, slot.Slot, fbOutput)
 					result.Provider = "openrouter"
 					result.Model = fallbackModel(slot)
@@ -293,6 +294,7 @@ func (r *Runner) runModelPanel(ctx context.Context, runID string, pkt *ContextPa
 			}
 		}
 
+		result.LatencyMs = time.Since(start).Milliseconds()
 		results = append(results, result)
 	}
 
@@ -301,30 +303,123 @@ func (r *Runner) runModelPanel(ctx context.Context, runID string, pkt *ContextPa
 
 // invokePi calls the local pi binary with the review context.
 func (r *Runner) invokePi(ctx context.Context, slot ReviewerSlot, pkt *ContextPacket, evidence *TestEvidence) (string, error) {
-	reviewPrompt := buildReviewPrompt(slot, pkt, evidence)
-	modelCtx, cancel := context.WithTimeout(ctx, r.cfg.effectiveModelTimeout())
-	defer cancel()
-	out, err := r.runner.CombinedOutput(modelCtx, r.cfg.ProjectRoot,
-		"pi", "--provider", slot.Provider, "--model", slot.Model,
-		"--no-tools", "--no-context-files", "--no-session", "-p", reviewPrompt)
-	if err != nil {
-		return "", fmt.Errorf("pi run %s/%s: %w", slot.Provider, slot.Model, err)
-	}
-	return string(out), nil
+	return r.invokePiProvider(ctx, slot, slot.Provider, slot.Model, false, pkt, evidence)
 }
 
 // invokeFallback attempts OpenRouter when a primary provider fails.
 func (r *Runner) invokeFallback(ctx context.Context, slot ReviewerSlot, pkt *ContextPacket, evidence *TestEvidence) (string, error) {
+	return r.invokePiProvider(ctx, slot, "openrouter", fallbackModel(slot), true, pkt, evidence)
+}
+
+func (r *Runner) invokePiProvider(
+	ctx context.Context,
+	slot ReviewerSlot,
+	provider string,
+	model string,
+	fallback bool,
+	pkt *ContextPacket,
+	evidence *TestEvidence,
+) (string, error) {
 	reviewPrompt := buildReviewPrompt(slot, pkt, evidence)
-	modelCtx, cancel := context.WithTimeout(ctx, r.cfg.effectiveModelTimeout())
+	promptArg, cleanup, err := writePromptTemp(reviewPrompt)
+	if err != nil {
+		return "", fmt.Errorf("pi prompt temp file: %w", err)
+	}
+	defer cleanup()
+
+	modelCtx, cancel := context.WithTimeout(ctx, r.effectiveSlotTimeout(slot))
 	defer cancel()
 	out, err := r.runner.CombinedOutput(modelCtx, r.cfg.ProjectRoot,
-		"pi", "--provider", "openrouter", "--model", fallbackModel(slot),
-		"--no-tools", "--no-context-files", "--no-session", "-p", reviewPrompt)
+		"pi", "--provider", provider, "--model", model,
+		"--no-tools", "--no-context-files", "--no-session", "-p", promptArg)
 	if err != nil {
-		return "", fmt.Errorf("openrouter fallback: %w", err)
+		return "", newPiInvokeError(provider, model, len(reviewPrompt), fallback, classifyPiError(modelCtx, err))
 	}
 	return string(out), nil
+}
+
+func writePromptTemp(prompt string) (string, func(), error) {
+	f, err := os.CreateTemp("", "sdp-pi-review-*.prompt.md")
+	if err != nil {
+		return "", func() {}, err
+	}
+	cleanup := func() {
+		_ = os.Remove(f.Name())
+	}
+
+	if _, err := f.WriteString(prompt); err != nil {
+		_ = f.Close()
+		cleanup()
+		return "", func() {}, err
+	}
+	if err := f.Close(); err != nil {
+		cleanup()
+		return "", func() {}, err
+	}
+
+	return "@" + f.Name(), cleanup, nil
+}
+
+func classifyPiError(ctx context.Context, err error) error {
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return context.DeadlineExceeded
+	}
+	if errors.Is(err, context.Canceled) {
+		return context.Canceled
+	}
+	return nil
+}
+
+const kimiModelTimeoutFloor = 6 * time.Minute
+
+func (r *Runner) effectiveSlotTimeout(slot ReviewerSlot) time.Duration {
+	timeout := r.cfg.effectiveModelTimeout()
+	if slot.Slot != "kimi" && !strings.HasPrefix(slot.Provider, "kimi") {
+		return timeout
+	}
+	if timeout < kimiModelTimeoutFloor {
+		return kimiModelTimeoutFloor
+	}
+	return timeout
+}
+
+type piInvokeError struct {
+	provider    string
+	model       string
+	promptBytes int
+	fallback    bool
+	err         error
+}
+
+func newPiInvokeError(provider, model string, promptBytes int, fallback bool, err error) error {
+	return &piInvokeError{
+		provider:    provider,
+		model:       model,
+		promptBytes: promptBytes,
+		fallback:    fallback,
+		err:         err,
+	}
+}
+
+func (e *piInvokeError) Error() string {
+	phase := "pi run"
+	if e.fallback {
+		phase = "openrouter fallback"
+	}
+	reason := "provider_error"
+	if errors.Is(e.err, context.DeadlineExceeded) {
+		reason = "timeout"
+	} else if errors.Is(e.err, context.Canceled) {
+		reason = "canceled"
+	}
+	return fmt.Sprintf("%s %s/%s failed: %s (prompt_bytes=%d)", phase, e.provider, e.model, reason, e.promptBytes)
+}
+
+func (e *piInvokeError) Unwrap() error {
+	return e.err
 }
 
 func fallbackModel(slot ReviewerSlot) string {
