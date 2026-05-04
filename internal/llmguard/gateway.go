@@ -207,7 +207,14 @@ type ChatResponse struct {
 }
 
 // NewGateway creates a guarded gateway wrapping a provider.
+// Panics if provider or auditSink is nil — fail fast at construction time.
 func NewGateway(provider Provider, policy Policy, auditSink AuditSink) *Gateway {
+	if provider == nil {
+		panic("llmguard: provider must not be nil")
+	}
+	if auditSink == nil {
+		panic("llmguard: auditSink must not be nil")
+	}
 	return &Gateway{
 		provider: provider,
 		policy:   policy,
@@ -248,7 +255,9 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 		}
 		if g.policy.StrictBudgetMode {
 			event.VerdictState = VerdictScanBudgetExceeded
-			g.writeAudit(ctx, event)
+			if err := g.writeAudit(ctx, event); err != nil {
+				return nil, &Verdict{State: VerdictAuditFailed, EventID: eventID}, fmt.Errorf("audit write failed: %w", err)
+			}
 			return nil, verdict, nil
 		}
 		// Non-strict: advisory, continue
@@ -261,7 +270,9 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 		case InputActionBlock:
 			event.VerdictState = VerdictInputBlocked
 			event.InputFindings = redactFindings(inputSecrets)
-			g.writeAudit(ctx, event)
+			if err := g.writeAudit(ctx, event); err != nil {
+				return nil, &Verdict{State: VerdictAuditFailed, EventID: eventID}, fmt.Errorf("audit write failed: %w", err)
+			}
 			return nil, &Verdict{
 				State:         VerdictInputBlocked,
 				EventID:       eventID,
@@ -280,7 +291,7 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 	}
 
 	// Call provider
-	resp, err := g.provider.Chat(ctx, convertRequest(req))
+	resp, err := g.provider.Chat(ctx, req)
 	if err != nil {
 		// Provider error — scan and redact error message
 		errClass := classifyProviderError(err)
@@ -298,7 +309,9 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 		event.ProviderErrorExcerpt = errExcerpt
 		event.InputFindings = redactFindings(inputResult.Findings)
 
-		g.writeAudit(ctx, event)
+		if err := g.writeAudit(ctx, event); err != nil {
+			return nil, &Verdict{State: VerdictAuditFailed, EventID: eventID}, fmt.Errorf("audit write failed: %w", err)
+		}
 		return nil, &Verdict{
 			State:             VerdictProviderErrorAfterInputPass,
 			EventID:           eventID,
@@ -322,7 +335,9 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 		if event.RedactionSummary == nil {
 			event.RedactionSummary = &RedactionSummary{}
 		}
-		g.writeAudit(ctx, event)
+		if err := g.writeAudit(ctx, event); err != nil {
+			return nil, &Verdict{State: VerdictAuditFailed, EventID: eventID}, fmt.Errorf("audit write failed: %w", err)
+		}
 		return nil, &Verdict{
 			State:          VerdictOutputBlocked,
 			EventID:        eventID,
@@ -387,10 +402,10 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 	}, nil
 }
 
-// writeAudit writes to the audit sink. Errors are logged but not propagated here;
-// the Chat method handles audit failures explicitly.
-func (g *Gateway) writeAudit(ctx context.Context, event GuardEvent) {
-	_ = g.audit.WriteGuardEvent(ctx, event)
+// writeAudit writes to the audit sink. Returns error if audit fails,
+// so callers can return VerdictAuditFailed for fail-closed behavior.
+func (g *Gateway) writeAudit(ctx context.Context, event GuardEvent) error {
+	return g.audit.WriteGuardEvent(ctx, event)
 }
 
 // --- helpers ---
@@ -507,8 +522,3 @@ func findSubstring(s, sub string) bool {
 	return false
 }
 
-// convertRequest converts a llmguard.ChatRequest to a provider-compatible request.
-// This is a simple adapter — the provider interface accepts the same shape.
-func convertRequest(req *ChatRequest) *ChatRequest {
-	return req
-}

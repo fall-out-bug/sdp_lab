@@ -100,11 +100,10 @@ func TestGateway_CleanAllowed(t *testing.T) {
 
 	// Verify audit event
 	var event GuardEvent
-	if err := json.Unmarshal(audit.Bytes()[:len(audit.Bytes())-1], &event); err != nil {
-		// Try line-by-line
-		lines := bytes.Split(audit.Bytes(), []byte("\n"))
-		if len(lines) > 0 && len(lines[0]) > 0 {
-			json.Unmarshal(lines[0], &event)
+	lines := bytes.Split(audit.Bytes(), []byte("\n"))
+	if len(lines) > 0 && len(lines[0]) > 0 {
+		if err := json.Unmarshal(lines[0], &event); err != nil {
+			t.Fatalf("audit unmarshal: %v", err)
 		}
 	}
 	if event.VerdictState != VerdictCleanAllowed {
@@ -284,7 +283,9 @@ func TestGateway_CostUnknown(t *testing.T) {
 	// Check audit for unknown pricing
 	lines := bytes.Split(audit.Bytes(), []byte("\n"))
 	var event GuardEvent
-	json.Unmarshal(lines[0], &event)
+	if err := json.Unmarshal(lines[0], &event); err != nil {
+		t.Fatalf("audit unmarshal: %v", err)
+	}
 	if event.CostStatus != "unknown_pricing" {
 		t.Errorf("expected unknown_pricing, got %s", event.CostStatus)
 	}
@@ -322,6 +323,83 @@ func TestGateway_AllowedWithOutputFindings(t *testing.T) {
 
 // --- Audit leakage test ---
 
+func TestGateway_ScanBudgetExceeded_Strict(t *testing.T) {
+	policy := DefaultPolicy()
+	policy.MaxInputBytes = 10
+	policy.StrictBudgetMode = true
+
+	gw := NewGateway(
+		&fakeProvider{response: &providerResponse{id: "x", model: "m", content: "x"}},
+		policy,
+		NewJSONLAuditSink(&bytes.Buffer{}),
+	)
+
+	resp, verdict, err := gw.Chat(context.Background(), &ChatRequest{
+		Model:    "test-model",
+		Messages: []ChatMessage{{Role: "user", Content: "this is way longer than ten bytes"}},
+	}, testProv())
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp != nil {
+		t.Error("budget exceeded should not return response in strict mode")
+	}
+	if verdict.State != VerdictScanBudgetExceeded {
+		t.Errorf("expected scan_budget_exceeded, got %s", verdict.State)
+	}
+}
+
+func TestGateway_ScanBudgetExceeded_Advisory(t *testing.T) {
+	policy := DefaultPolicy()
+	policy.MaxInputBytes = 10
+	policy.StrictBudgetMode = false
+
+	gw := NewGateway(
+		&fakeProvider{response: &providerResponse{
+			id: "resp-1", model: "test-model", content: "OK",
+			usage: &TokenUsageAudit{PromptTokens: 1, CompletionTokens: 1, TotalTokens: 2},
+		}},
+		policy,
+		NewJSONLAuditSink(&bytes.Buffer{}),
+	)
+
+	resp, verdict, err := gw.Chat(context.Background(), &ChatRequest{
+		Model:    "test-model",
+		Messages: []ChatMessage{{Role: "user", Content: "this is way longer than ten bytes"}},
+	}, testProv())
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp == nil {
+		t.Error("non-strict budget exceeded should return response")
+	}
+	if verdict.State != VerdictCleanAllowed {
+		t.Errorf("expected clean_allowed in advisory mode, got %s", verdict.State)
+	}
+}
+
+func TestGateway_NilProviderPanics(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic with nil provider")
+		}
+	}()
+	NewGateway(nil, DefaultPolicy(), NewJSONLAuditSink(&bytes.Buffer{}))
+}
+
+func TestGateway_NilAuditSinkPanics(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic with nil audit sink")
+		}
+	}()
+	NewGateway(&fakeProvider{response: &providerResponse{id: "x", model: "m", content: "x"}}, DefaultPolicy(), nil)
+}
+
+// --- Audit leakage test ---
+
 func TestGateway_AuditNoRawSecrets(t *testing.T) {
 	corpus := []struct {
 		name    string
@@ -344,10 +422,11 @@ func TestGateway_AuditNoRawSecrets(t *testing.T) {
 				NewJSONLAuditSink(audit),
 			)
 
-			gw.Chat(context.Background(), &ChatRequest{
+			_, _, err := gw.Chat(context.Background(), &ChatRequest{
 				Model:    "test-model",
 				Messages: []ChatMessage{{Role: "user", Content: tc.content}},
 			}, testProv())
+			_ = err
 
 			auditStr := audit.String()
 			if strings.Contains(auditStr, "AKIA") && tc.name == "aws_key" {

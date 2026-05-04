@@ -1,9 +1,5 @@
 package llmguard
 
-import (
-	"strings"
-)
-
 // Redactor replaces matched findings in text with placeholders.
 type Redactor struct {
 	// UseTypedPlaceholders controls whether to use type-specific placeholders
@@ -63,34 +59,12 @@ func RedactWithUntyped(text string, findings []Finding) string {
 	return result
 }
 
-// ContainsRawSecret checks if text contains any of the raw secrets from findings.
-// This is used in tests to verify that redacted output does not leak secrets.
-func ContainsRawSecret(redactedText string, findings []Finding) bool {
-	for _, f := range findings {
-		// We can't recover the raw secret from a finding (by design),
-		// but we can check if the redacted placeholder is present.
-		// If any placeholder is missing, something went wrong.
-		placeholder := RedactedPlaceholder(f.Type)
-		if !strings.Contains(redactedText, placeholder) &&
-			!strings.Contains(redactedText, UntypedPlaceholder) {
-			return true
-		}
-	}
-	return false
-}
-
 func (r *Redactor) placeholder(ft FindingType) string {
 	if r.UseTypedPlaceholders {
 		return RedactedPlaceholder(ft)
 	}
 	return UntypedPlaceholder
 }
-
-type byPosDesc []Finding
-
-func (a byPosDesc) Len() int           { return len(a) }
-func (a byPosDesc) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a byPosDesc) Less(i, j int) bool { return a[i].SpanStart > a[j].SpanStart }
 
 func sortFindingsByPosDesc(f []Finding) {
 	// Simple insertion sort, fine for the small N of findings.

@@ -37,7 +37,9 @@ func TestDemo_CleanRequest(t *testing.T) {
 	}
 
 	var resp demoAllowedResponse
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
 	if resp.VerdictState != "clean_allowed" {
 		t.Errorf("expected clean_allowed, got %s", resp.VerdictState)
 	}
@@ -63,7 +65,9 @@ func TestDemo_BlockedInput(t *testing.T) {
 	}
 
 	var resp demoBlockedResponse
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
 	if resp.VerdictState != "input_blocked" {
 		t.Errorf("expected input_blocked, got %s", resp.VerdictState)
 	}

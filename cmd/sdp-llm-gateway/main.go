@@ -21,6 +21,14 @@ import (
 	"github.com/fall-out-bug/sdp_lab/internal/llmguard"
 )
 
+// writeJSON is a helper that writes a JSON response. Errors on write are logged
+// but not propagated — the response header is already sent.
+func writeJSON(w http.ResponseWriter, v interface{}) {
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		log.Printf("json encode error: %v", err)
+	}
+}
+
 // --- Rate limiter ---
 
 type rateLimiter struct {
@@ -134,7 +142,7 @@ func (h *demoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !h.limiter.allow(ip) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusTooManyRequests)
-		json.NewEncoder(w).Encode(map[string]string{
+		writeJSON(w, map[string]string{
 			"error": "rate limit exceeded",
 		})
 		return
@@ -145,7 +153,7 @@ func (h *demoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
+		writeJSON(w, map[string]string{
 			"error": "invalid request body",
 		})
 		return
@@ -174,7 +182,7 @@ func (h *demoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(demoErrorResponse{
+		writeJSON(w, demoErrorResponse{
 			Error:   err.Error(),
 			EventID: verdict.EventID,
 		})
@@ -188,7 +196,7 @@ func (h *demoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		for i, f := range verdict.InputFindings {
 			findings[i] = demoFinding{Type: string(f.Type), Severity: string(f.Severity)}
 		}
-		json.NewEncoder(w).Encode(demoBlockedResponse{
+		writeJSON(w, demoBlockedResponse{
 			VerdictState: string(verdict.State),
 			Warning:      "request blocked by input guard",
 			Findings:     findings,
@@ -201,7 +209,7 @@ func (h *demoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		for i, f := range verdict.OutputFindings {
 			findings[i] = demoFinding{Type: string(f.Type), Severity: string(f.Severity)}
 		}
-		json.NewEncoder(w).Encode(demoBlockedResponse{
+		writeJSON(w, demoBlockedResponse{
 			VerdictState: string(verdict.State),
 			Warning:      "response blocked by output guard",
 			Findings:     findings,
@@ -210,7 +218,7 @@ func (h *demoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	case llmguard.VerdictAuditFailed:
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(demoErrorResponse{
+		writeJSON(w, demoErrorResponse{
 			Error:   "audit write failed",
 			EventID: verdict.EventID,
 		})
@@ -237,7 +245,7 @@ func (h *demoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if verdict.State == llmguard.VerdictRedactedAllowed {
 			warning = "input was redacted before provider call"
 		}
-		json.NewEncoder(w).Encode(demoAllowedResponse{
+		writeJSON(w, demoAllowedResponse{
 			VerdictState: string(verdict.State),
 			Message:      msg,
 			EventID:      verdict.EventID,
