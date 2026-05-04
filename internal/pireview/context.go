@@ -34,7 +34,7 @@ func BuildContextPacket(ctx context.Context, cfg Config) (*ContextPacket, error)
 		return nil, fmt.Errorf("context: scope: %w", err)
 	}
 
-	diff, err := resolveDiff(ctx, cfg, status)
+	diff, err := resolveDiff(ctx, cfg, status, reviewedFiles)
 	if err != nil {
 		return nil, fmt.Errorf("context: diff: %w", err)
 	}
@@ -181,44 +181,52 @@ func branchDiffFiles(ctx context.Context, cfg Config) ([]string, error) {
 }
 
 // resolveDiff returns the unified diff for the scope.
-func resolveDiff(ctx context.Context, cfg Config, status string) (string, error) {
+func resolveDiff(ctx context.Context, cfg Config, status string, reviewedFiles []string) (string, error) {
 	switch cfg.Scope {
 	case ScopeAuto:
 		if status != "" {
-			return workingTreeDiff(ctx, cfg)
+			return workingTreeDiff(ctx, cfg, reviewedFiles)
 		}
 		if cfg.BaseRef != "" {
-			return branchDiff(ctx, cfg)
+			return branchDiff(ctx, cfg, reviewedFiles)
 		}
 		return "", nil
 
 	case ScopeWorkingTree:
-		return workingTreeDiff(ctx, cfg)
+		return workingTreeDiff(ctx, cfg, reviewedFiles)
 
 	case ScopeBranch:
-		return branchDiff(ctx, cfg)
+		return branchDiff(ctx, cfg, reviewedFiles)
 
 	default:
 		return "", nil
 	}
 }
 
-func workingTreeDiff(ctx context.Context, cfg Config) (string, error) {
-	out, err := cfg.Runner.CombinedOutput(ctx, cfg.ProjectRoot, "git", "diff", "HEAD")
+func workingTreeDiff(ctx context.Context, cfg Config, reviewedFiles []string) (string, error) {
+	if len(reviewedFiles) == 0 {
+		return "", nil
+	}
+	args := append([]string{"diff", "HEAD", "--"}, reviewedFiles...)
+	out, err := cfg.Runner.CombinedOutput(ctx, cfg.ProjectRoot, "git", args...)
 	if err != nil {
 		// diff against empty tree when no commits exist
-		out2, err2 := cfg.Runner.CombinedOutput(ctx, cfg.ProjectRoot, "git", "diff", "--cached")
+		args = append([]string{"diff", "--cached", "--"}, reviewedFiles...)
+		out2, err2 := cfg.Runner.CombinedOutput(ctx, cfg.ProjectRoot, "git", args...)
 		if err2 != nil {
-			return strings.TrimSpace(string(out)), nil
+			return "", fmt.Errorf("git diff HEAD: %w; git diff --cached: %w", err, err2)
 		}
 		return strings.TrimSpace(string(out2)), nil
 	}
 	return strings.TrimSpace(string(out)), nil
 }
 
-func branchDiff(ctx context.Context, cfg Config) (string, error) {
-	out, err := cfg.Runner.CombinedOutput(ctx, cfg.ProjectRoot,
-		"git", "diff", cfg.BaseRef+"...HEAD")
+func branchDiff(ctx context.Context, cfg Config, reviewedFiles []string) (string, error) {
+	if len(reviewedFiles) == 0 {
+		return "", nil
+	}
+	args := append([]string{"diff", cfg.BaseRef + "...HEAD", "--"}, reviewedFiles...)
+	out, err := cfg.Runner.CombinedOutput(ctx, cfg.ProjectRoot, "git", args...)
 	if err != nil {
 		return "", fmt.Errorf("git diff %s...HEAD: %w", cfg.BaseRef, err)
 	}

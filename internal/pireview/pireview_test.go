@@ -83,8 +83,8 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			name: "missing project root",
 			cfg: Config{
-				Scope:   ScopeAuto,
-				Runner:  runner,
+				Scope:  ScopeAuto,
+				Runner: runner,
 			},
 			wantErr: true,
 		},
@@ -247,11 +247,11 @@ func TestBuildContextPacket_ValidatesConfig(t *testing.T) {
 func TestBuildContextPacket_BranchScope(t *testing.T) {
 	runner := &fakeRunner{
 		responses: map[string][]byte{
-			"git rev-parse --abbrev-ref HEAD": []byte("feature/F161-test\n"),
-			"git rev-parse HEAD":              []byte("abc123def456\n"),
-			"git status --porcelain --untracked-files=all":          []byte(""),
-			"git diff --name-only main...HEAD": []byte("foo.go\nbar.go\n"),
-			"git diff main...HEAD":            []byte("diff content here"),
+			"git rev-parse --abbrev-ref HEAD":              []byte("feature/F161-test\n"),
+			"git rev-parse HEAD":                           []byte("abc123def456\n"),
+			"git status --porcelain --untracked-files=all": []byte(""),
+			"git diff --name-only main...HEAD":             []byte("foo.go\nbar.go\n"),
+			"git diff main...HEAD -- bar.go foo.go":        []byte("diff content here"),
 		},
 	}
 
@@ -283,10 +283,10 @@ func TestBuildContextPacket_BranchScope(t *testing.T) {
 func TestBuildContextPacket_WorkingTreeScope(t *testing.T) {
 	runner := &fakeRunner{
 		responses: map[string][]byte{
-			"git rev-parse --abbrev-ref HEAD": []byte("main\n"),
-			"git rev-parse HEAD":              []byte("deadbeef\n"),
-			"git status --porcelain --untracked-files=all":          []byte(" M internal/pireview/context.go\nA  internal/pireview/evidence.go\n"),
-			"git diff HEAD":                   []byte("diff --git a/context.go b/context.go\n+new line\n"),
+			"git rev-parse --abbrev-ref HEAD":                                             []byte("main\n"),
+			"git rev-parse HEAD":                                                          []byte("deadbeef\n"),
+			"git status --porcelain --untracked-files=all":                                []byte(" M internal/pireview/context.go\nA  internal/pireview/evidence.go\n"),
+			"git diff HEAD -- internal/pireview/context.go internal/pireview/evidence.go": []byte("diff --git a/context.go b/context.go\n+new line\n"),
 		},
 	}
 
@@ -308,5 +308,108 @@ func TestBuildContextPacket_WorkingTreeScope(t *testing.T) {
 	}
 	if pkt.ReviewedFiles[1] != "internal/pireview/evidence.go" {
 		t.Errorf("ReviewedFiles[1] = %q", pkt.ReviewedFiles[1])
+	}
+}
+
+func TestBuildContextPacket_FiltersSkippedFilesFromDiff(t *testing.T) {
+	runner := &fakeRunner{
+		responses: map[string][]byte{
+			"git rev-parse --abbrev-ref HEAD":               []byte("main\n"),
+			"git rev-parse HEAD":                            []byte("deadbeef\n"),
+			"git status --porcelain --untracked-files=all":  []byte(" M internal/pireview/context.go\n M .beads/issues.jsonl\n"),
+			"git diff HEAD -- internal/pireview/context.go": []byte("diff --git a/internal/pireview/context.go b/internal/pireview/context.go\n+new line\n"),
+		},
+	}
+
+	cfg := Config{
+		ProjectRoot: t.TempDir(),
+		Scope:       ScopeWorkingTree,
+		Runner:      runner,
+	}
+
+	pkt, err := BuildContextPacket(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("BuildContextPacket() error: %v", err)
+	}
+	if strings.Contains(pkt.UnifiedDiff, ".beads/issues.jsonl") {
+		t.Fatalf("UnifiedDiff includes skipped beads file: %s", pkt.UnifiedDiff)
+	}
+	if len(pkt.ReviewedFiles) != 1 || pkt.ReviewedFiles[0] != "internal/pireview/context.go" {
+		t.Fatalf("ReviewedFiles = %v, want only internal/pireview/context.go", pkt.ReviewedFiles)
+	}
+	for _, call := range runner.calls {
+		if call.name == "git" && strings.Join(call.args, " ") == "diff HEAD" {
+			t.Fatalf("unfiltered git diff was called: %#v", call)
+		}
+	}
+}
+
+func TestBuildContextPacket_BranchScopeFiltersSkippedFilesFromDiff(t *testing.T) {
+	runner := &fakeRunner{
+		responses: map[string][]byte{
+			"git rev-parse --abbrev-ref HEAD":                      []byte("feature/F161-test\n"),
+			"git rev-parse HEAD":                                   []byte("abc123def456\n"),
+			"git status --porcelain --untracked-files=all":         []byte(""),
+			"git diff --name-only main...HEAD":                     []byte("internal/pireview/context.go\n.beads/issues.jsonl\n"),
+			"git diff main...HEAD -- internal/pireview/context.go": []byte("diff --git a/internal/pireview/context.go b/internal/pireview/context.go\n+new line\n"),
+		},
+	}
+
+	cfg := Config{
+		ProjectRoot: t.TempDir(),
+		Scope:       ScopeBranch,
+		BaseRef:     "main",
+		Runner:      runner,
+	}
+
+	pkt, err := BuildContextPacket(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("BuildContextPacket() error: %v", err)
+	}
+	if strings.Contains(pkt.UnifiedDiff, ".beads/issues.jsonl") {
+		t.Fatalf("UnifiedDiff includes skipped beads file: %s", pkt.UnifiedDiff)
+	}
+	if pkt.UnifiedDiff != "diff --git a/internal/pireview/context.go b/internal/pireview/context.go\n+new line" {
+		t.Fatalf("UnifiedDiff = %q, want expected filtered diff", pkt.UnifiedDiff)
+	}
+	if len(pkt.ReviewedFiles) != 1 || pkt.ReviewedFiles[0] != "internal/pireview/context.go" {
+		t.Fatalf("ReviewedFiles = %v, want only internal/pireview/context.go", pkt.ReviewedFiles)
+	}
+	for _, call := range runner.calls {
+		if call.name == "git" && strings.Join(call.args, " ") == "diff main...HEAD" {
+			t.Fatalf("unfiltered git diff was called: %#v", call)
+		}
+	}
+}
+
+func TestBuildContextPacket_AllFilesSkippedProducesEmptyDiff(t *testing.T) {
+	runner := &fakeRunner{
+		responses: map[string][]byte{
+			"git rev-parse --abbrev-ref HEAD":              []byte("main\n"),
+			"git rev-parse HEAD":                           []byte("deadbeef\n"),
+			"git status --porcelain --untracked-files=all": []byte(" M .beads/issues.jsonl\n"),
+		},
+	}
+
+	cfg := Config{
+		ProjectRoot: t.TempDir(),
+		Scope:       ScopeWorkingTree,
+		Runner:      runner,
+	}
+
+	pkt, err := BuildContextPacket(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("BuildContextPacket() error: %v", err)
+	}
+	if len(pkt.ReviewedFiles) != 0 {
+		t.Fatalf("ReviewedFiles = %v, want empty", pkt.ReviewedFiles)
+	}
+	if pkt.UnifiedDiff != "" {
+		t.Fatalf("UnifiedDiff = %q, want empty", pkt.UnifiedDiff)
+	}
+	for _, call := range runner.calls {
+		if call.name == "git" && strings.HasPrefix(strings.Join(call.args, " "), "diff ") {
+			t.Fatalf("git diff should not be called when all files are skipped: %#v", call)
+		}
 	}
 }

@@ -114,6 +114,7 @@ Post-F150 v3 lane (post-IIP-council, 2026-04-27) — see [docs/roadmap/2026-04-2
 - `F158` — Go Import-Path Contamination Decision (highest unaddressed structural risk; blocks F156 / F157 active status)
 - `F159` — Competitive Positioning Artifact (vs Copilot Workspace, CodeRabbit, GitLab Duo, Tabnine, Factory)
 - `F160` — Procurement / Compliance Install Profile (SOC2 stance, SLA template, no-egress mode)
+- `F161` — pi-review external review gate (deterministic context packet, local `pi` model panel with Kimi/ZAI/MiniMax coverage, compact verdicts, telemetry, and Beads findings)
 - `F164` — Prompt Injection Hardening and Red-Team Corpus (SDP-specific threat model, corpus, static/mock/live evals, prompt hardening, MCP/write-tool checks, advisory CI)
 - `F165` — Indirect Prompt Injection Through SDP Task Data (Day-12 defensive demo pack for Beads/workstream/evidence task-data poisoning with deterministic unsafe/defended outcomes)
 - `F166` — Runtime LLM Guard Gateway (core-first Go guard/audit layer for SDP model calls: input/output secret checks, local chunked classifier, Codex/Pi harness compatibility, redaction/blocking, token/cost evidence, deterministic corpus)
