@@ -1,0 +1,77 @@
+{
+  "ws_id": "00-166-08",
+  "feature_id": "F166",
+  "verdict": "PASS",
+  "commit": "497566b3",
+  "timestamp": "2026-05-04T16:30:00Z",
+  "quality_gates": {
+    "tests_pass": true,
+    "lint_clean": true,
+    "build_ok": true,
+    "vet_ok": true,
+    "coverage_pct": 92.3,
+    "coverage_threshold": 80,
+    "max_file_loc": 186
+  },
+  "ac_evidence": [
+    {
+      "ac": "Pre-work check records whether internal/llmguard/gateway.go already supports buffered output scanning for streaming-shaped responses; if not, the workstream adds a buffered streaming wrapper before endpoint routes release assistant output.",
+      "met": true,
+      "evidence": "internal/llmguard/streaming.go:21-110 StreamingGateway.ChatStream buffers upstream output via Gateway.Chat, scans it, then emits harness-shaped chunks"
+    },
+    {
+      "ac": "POST /v1/responses accepts a Codex-style Responses request, runs guard policy before upstream egress, and emits valid SSE with terminal response.completed.",
+      "met": true,
+      "evidence": "cmd/sdp-llm-gateway/main.go:365-454 handleResponses; TestCodex_CleanInput and TestCodex_BlockedInput in main_test.go:233-304"
+    },
+    {
+      "ac": "Codex-style blocked input returns a Responses-shaped safe stream and never calls the fake upstream.",
+      "met": true,
+      "evidence": "TestCodex_BlockedInput in main_test.go:233-279; audit shows upstream_called=false"
+    },
+    {
+      "ac": "Codex-style clean input calls the fake upstream exactly once and preserves a valid Responses SSE shape back to the client.",
+      "met": true,
+      "evidence": "TestCodex_CleanInput in main_test.go:281-304; audit shows upstream_called=true"
+    },
+    {
+      "ac": "POST /v1/chat/completions accepts a Pi-style request with stream: true and stream_options.include_usage: true.",
+      "met": true,
+      "evidence": "cmd/sdp-llm-gateway/main.go:275-363 handleChatCompletions; chatCompletionRequest schema includes Stream and StreamOptions"
+    },
+    {
+      "ac": "Pi-style blocked input returns a valid Chat Completions response matching the request stream mode and never calls the fake upstream.",
+      "met": true,
+      "evidence": "TestPi_BlockedInput in main_test.go:306-343; audit shows upstream_called=false"
+    },
+    {
+      "ac": "Pi-style clean input calls the fake upstream exactly once and returns a valid Chat Completions stream.",
+      "met": true,
+      "evidence": "TestPi_CleanInput in main_test.go:345-385; audit shows upstream_called=true"
+    },
+    {
+      "ac": "Streaming output follows the F166 conservative policy: buffer upstream output, scan assistant text, then emit harness-shaped output; do not raw-pass provider chunks before output guard.",
+      "met": true,
+      "evidence": "internal/llmguard/streaming.go:45-110 StreamingGateway.ChatStream calls gw.Chat (which already scans output) before emitting any chunks"
+    },
+    {
+      "ac": "Audit events include harness, endpoint surface, requested model, upstream model, verdict state, stream requested/returned, upstream-called yes/no, feature/workstream/beads metadata, and no raw secrets.",
+      "met": true,
+      "evidence": "TestAudit_Completeness in main_test.go:421-469; GuardEvent extended with harness/endpoint_surface/stream_requested/stream_returned/upstream_called in gateway.go:30-51"
+    },
+    {
+      "ac": "CI tests use fake upstreams only and do not require live provider keys.",
+      "met": true,
+      "evidence": "All tests use echoProvider and disclosureProvider structs in main_test.go; no env vars or API keys referenced"
+    }
+  ],
+  "existing_work_summary": "Found cmd/sdp-llm-gateway with legacy POST / demo handler, internal/llmguard.Gateway with non-streaming Chat, Scanner, Redactor, and audit sinks. No streaming or OpenAI-compatible surfaces existed.",
+  "changed_files": [
+    "internal/llmguard/gateway.go",
+    "internal/llmguard/streaming.go",
+    "internal/llmguard/streaming_test.go",
+    "cmd/sdp-llm-gateway/main.go",
+    "cmd/sdp-llm-gateway/main_test.go"
+  ],
+  "tdd_cycles": 3
+}
