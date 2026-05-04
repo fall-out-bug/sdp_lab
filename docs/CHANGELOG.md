@@ -1449,6 +1449,19 @@ issues resolved.
 ## 2026-05-04
 
 ### Commits
+- `ef1b7d53` F166: record gateway substrate decision (2026-05-04)
+
+### Changed Files
+- `.beads-sdp-mapping.jsonl`
+- `.beads/interactions.jsonl`
+- `.beads/issues.jsonl`
+- `docs/plans/2026-05-03-f166-runtime-llm-guard-gateway-design.md`
+- `docs/workstreams/INDEX.md`
+- `docs/workstreams/backlog/00-166-05.md`
+
+
+
+### Commits
 - `0b164516` F166: Runtime LLM Guard Gateway (2026-05-04)
 
 ### Changed Files
