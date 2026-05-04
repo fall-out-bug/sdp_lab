@@ -467,6 +467,43 @@ sdp-doc-sync --mode check --strict
 
 **Integration tests:** Use `t.Skip()` or `testing.Short()` so integration tests skip in CI. CI runs `go test -short ./...`. Never delete integration tests to fix flakiness — skip them instead.
 
+## Operational Lessons (Hard-Won)
+
+### Pi Harness Payload Limit
+
+`write` and `bash` with heredoc fail with **"An unknown error occurred"** when payload exceeds ~500–800 bytes. This is a system-level harness bug, not a timeout or settings issue.
+
+**Workaround:**
+- For existing files: always use `edit` (small delta) instead of `write` (full rewrite)
+- For new files > 500 bytes: use `bash` with `echo 'content' >> file` in chunks, or write via multiple small `edit` calls on an empty file
+- **Never retry the same failing tool** — switch to a different tool immediately. No analysis, no commentary.
+
+### Never Commit to Main Directly
+
+All changes go through feature branches. Committing to `main` directly pollutes history and blocks clean PR review. If you accidentally commit to `main`, revert immediately and move work to the correct feature branch.
+
+### Subagent Fallback
+
+`sdp_subagent` may return "No result provided" silently. When this happens:
+1. Do not retry the same call
+2. Fall back to manual inline review (read code → emit findings → fix → re-verify)
+3. Do not stop or ask the user
+
+### Package Naming on Conflicts
+
+When a new type conflicts with an existing one in the same package (e.g., `ValidateResult`), do **not** add a prefix (`IndirectPIValidateResult`). Extract a subpackage immediately (`internal/evals/f165/`). Prefix bloat is tech debt.
+
+### Parser Case-Sensitivity
+
+`strings.HasPrefix(strings.ToLower(line), prefix)` followed by `strings.TrimPrefix(line, prefix)` is a bug — the trimmed prefix uses original case, which may not match. Use `strings.Index(strings.ToLower(line), prefix) + slice` instead, or trim both cases explicitly. Test with mixed-case input.
+
+### Tool Failure Protocol
+
+If any tool (`write`, `bash`, `edit`, `read`) fails with "unknown error":
+1. Try a **different** tool class (e.g., `bash` failed → try `edit`)
+2. If all tools fail on the same file, check disk space and file permissions
+3. If still stuck, report the exact error and file path concisely — no philosophical commentary
+
 ## Landing the Plane (Session Completion)
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
