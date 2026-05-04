@@ -143,8 +143,10 @@
 | **F163** | Socratic spec interrogation for sdp-trace pilot — clean-context `pi` critic/judge protocol for SpecKit artifacts | 00-163-01 | In Progress | P1 |
 | **F164** | Prompt Injection Hardening and Red-Team Corpus — SDP-specific threat model, corpus, static/mock/live evals, prompt hardening, MCP/write-tool checks, advisory CI | 00-164-01 ... 00-164-07 | In Progress | P1 |
 | **F165** | Indirect Prompt Injection Through SDP Task Data — Day-12 defensive demo pack for Beads/workstream/evidence task-data poisoning with deterministic unsafe/defended outcomes | 00-165-00 ... 00-165-05 | Backlog | P1 |
+| **F167** | Security Verdict Gate — Day-14 runtime security step after green tests and before commit/promotion-ready state, with gateway sanitation, blocking Critical/High findings, warning Medium/Low findings, and demo evidence | 00-167-01 ... 00-167-04 | Backlog | P1 |
 
-> **Beads:** `F163=sdplab-n7a9`, `F164=sdplab-9wxx`, `F165=sdplab-28xb`
+> **Beads:** `F163=sdplab-n7a9`, `F164=sdplab-9wxx`, `F165=sdplab-28xb`, `F167=sdplab-xe5c`
+> **F167 DAG:** `01 → 02 → 03 → 04`
 > **Boundary:** this produces evidence for spec readiness; it is not a process gate. Gate policy remains owned by downstream gate tooling.
 
 ### Phase Product Documentation And Adoption Clarity

@@ -1,0 +1,67 @@
+{
+  "feature_id": "F167",
+  "review_date": "2026-05-04",
+  "review_type": "pi-review-plus-socratic",
+  "pi_review": {
+    "command": "go run ./cmd/sdp-pi-review --scope working-tree --feature F167 --test-command \"go test ./internal/workstream ./internal/pireview ./cmd/sdp-pi-review\" --model-timeout 3m --write-verdict",
+    "run_id": "pireview-1f95c3d9cc5c-1777871978716",
+    "run_json_sha256": "51cdc78df57632525dfb98aad43e5c514dd5ea524c481894036ce92efc01ac29",
+    "artifact_retention": "raw .sdp pi-review artifacts were inspected locally and not committed because the failed-provider error embedded the full model prompt and absolute paths",
+    "verdict_file": "transient .sdp/review_verdict.json",
+    "verdict_sha256": "5c540dcf281ff28da6e3d2c49c5b720024fed07626e4b430a472fb5f38c16d3a",
+    "verdict": "APPROVED",
+    "p0_count": 0,
+    "p1_count": 0,
+    "advisory_findings_count": 14,
+    "model_results": [
+      {
+        "slot": "zai",
+        "provider": "zai",
+        "model": "glm-5.1",
+        "status": "ok"
+      },
+      {
+        "slot": "kimi",
+        "provider": "kimi-coding",
+        "model": "k2p6",
+        "status": "failed"
+      },
+      {
+        "slot": "minimax",
+        "provider": "minimax",
+        "model": "MiniMax-M2.7",
+        "status": "ok"
+      }
+    ]
+  },
+  "socratic_review": {
+    "mode": "socratic",
+    "critic_provider": "zai/glm-5.1",
+    "judge_provider": "minimax/MiniMax-M2.7",
+    "critic_questions": 11,
+    "blocking_questions": 2,
+    "major_questions": 5,
+    "minor_questions": 4,
+    "resolved_questions": 11,
+    "new_contradictions": [],
+    "scope_creep": [],
+    "verdict": "PASS"
+  },
+  "artifact_hashes_after_revision": {
+    "docs/drafts/f167-security-verdict-gate-design.md": "60ff17d54c820e1adda0db7169a26e2f87c99039819e5d860e819a00476d1cba",
+    "docs/workstreams/backlog/00-167-01.md": "2a1841ad60d91202abe476121e313c922de7a1b8efab283b5934d734b6545161",
+    "docs/workstreams/backlog/00-167-02.md": "430ab10531a7fa9ff9131898445dc142fe1186300ef7ec7101f98dc2fdcebd5b",
+    "docs/workstreams/backlog/00-167-03.md": "66dd64b989752a34b6ae3b5a84bfcc1a24ed2353894cddac7a7dae2b6c96b84f",
+    "docs/workstreams/backlog/00-167-04.md": "c4a95cc0e27cacac018b92442cfc24c1cd54242395626bb8f104c41c9b5d67f2"
+  },
+  "provider_failures": [
+    {
+      "surface": "pi-review",
+      "provider": "kimi-coding",
+      "model": "k2p6",
+      "impact": "coverage_degraded_not_blocking_for_design_review"
+    }
+  ],
+  "report_path": "docs/reviews/2026-05-04-f167-spec-workstreams-review.md",
+  "report_summary": "F167 design and workstreams passed Socratic judge review after resolving Build pre-transition boundary, escalation recovery, sanitizer scope, test-double, and evidence semantics. pi-review approved with advisory findings and degraded Kimi coverage."
+}
