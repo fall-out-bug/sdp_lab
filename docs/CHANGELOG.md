@@ -1446,3 +1446,11 @@ issues resolved.
 - `prompts/agents/AGENTS.md`
 - `prompts/skills/AGENTS.md`
 
+## 2026-05-04
+
+### Commits
+- `819b0568` docs(AGENTS): add operational lessons from F165 session (2026-05-04)
+
+### Changed Files
+- `AGENTS.md`
+
