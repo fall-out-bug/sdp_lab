@@ -60,6 +60,16 @@ Never skip these checks:
 | Stale (>7 days idle) | `git worktree list`, remind user |
 | End of session | Report active worktrees, suggest cleanup |
 
+After a PR merge, clean up from a different worktree if the feature branch is
+currently checked out. `gh pr merge --delete-branch` may delete the remote branch
+but fail to delete the local branch when that branch is still attached to an
+open worktree. Verify with `git ls-remote --heads origin <branch>` and then run
+`git worktree remove <path>` followed by `git branch -d <branch>`.
+
+Never infer delivery state from an open worktree alone. Confirm PR state via
+GitHub and Beads state via `bd`; stale worktrees are cleanup debt, not evidence
+that a feature is still unmerged.
+
 ## Conflict Prevention
 
 - One worktree per branch — never share a branch across worktrees.
