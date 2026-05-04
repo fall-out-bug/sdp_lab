@@ -1449,6 +1449,21 @@ issues resolved.
 ## 2026-05-04
 
 ### Commits
+- `6c75c476` F166: specify local chunked classifier (2026-05-04)
+
+### Changed Files
+- `.beads-sdp-mapping.jsonl`
+- `.beads/issues.jsonl`
+- `docs/plans/2026-05-03-f166-runtime-llm-guard-gateway-design.md`
+- `docs/reviews/2026-05-04-f166-local-classifier-spec-interrogate-evidence.json`
+- `docs/reviews/2026-05-04-f166-local-classifier-spec-interrogate.md`
+- `docs/roadmap/ROADMAP.md`
+- `docs/workstreams/INDEX.md`
+- `docs/workstreams/backlog/00-166-06.md`
+
+
+
+### Commits
 - `ef1b7d53` F166: record gateway substrate decision (2026-05-04)
 
 ### Changed Files
