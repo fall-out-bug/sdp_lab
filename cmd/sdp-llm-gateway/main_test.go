@@ -190,7 +190,16 @@ func TestDemo_OutputBlocked(t *testing.T) {
 		t.Fatalf("expected 200, got %d", w.Code)
 	}
 
-	// The response should be blocked or allowed based on the finding severity
+	var resp demoBlockedResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if resp.VerdictState != string(llmguard.VerdictOutputBlocked) {
+		t.Fatalf("expected output_blocked, got %s", resp.VerdictState)
+	}
+	if len(resp.Findings) == 0 {
+		t.Fatal("expected output findings")
+	}
 }
 
 // disclosureProvider returns text that looks like prompt disclosure.

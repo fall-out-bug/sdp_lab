@@ -215,24 +215,16 @@ func TestScan_Base64EncodedSecret(t *testing.T) {
 
 func TestScan_SplitSecret(t *testing.T) {
 	s := testScanner()
-	// Split OpenAI key in same message with short separator
-	text := "first part is sk-proj- and the rest is abc123def456ghi789jkl012mno345pqr"
+	// Split OpenAI key in same message with short ASCII non-alphanumeric separator.
+	text := `my key is sk-" + "proj-abc123def456ghi789jkl012mno345pqr`
 	result := s.Scan(text)
 
-	// This may or may not be caught depending on implementation;
-	// the test verifies the scan path is exercised
 	for _, f := range result.Findings {
-		if f.Type == FindingOpenAIKey {
-			// Found via split or raw, both acceptable
+		if f.Type == FindingOpenAIKey && f.ScanMode == ScanModeSplitJoined {
 			return
 		}
 	}
-	// Split detection is best-effort; if no finding, check traces for attempt
-	for _, tr := range result.Traces {
-		if tr.Mode == ScanModeSplitJoined {
-			return // scan was attempted
-		}
-	}
+	t.Fatalf("expected split-joined OpenAI key finding, got findings=%v traces=%v", result.Findings, result.Traces)
 }
 
 func TestScan_CleanPrompt(t *testing.T) {

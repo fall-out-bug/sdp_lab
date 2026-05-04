@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/fall-out-bug/sdp_lab/internal/llmguard"
+	"github.com/fall-out-bug/sdp_lab/internal/modelgateway"
 )
 
 // writeJSON is a helper that writes a JSON response. Errors on write are logged
@@ -32,10 +33,10 @@ func writeJSON(w http.ResponseWriter, v interface{}) {
 // --- Rate limiter ---
 
 type rateLimiter struct {
-	mu       sync.Mutex
-	limits   map[string]*bucket
-	rate     int           // requests per minute
-	window   time.Duration
+	mu     sync.Mutex
+	limits map[string]*bucket
+	rate   int // requests per minute
+	window time.Duration
 }
 
 type bucket struct {
@@ -73,9 +74,9 @@ func (rl *rateLimiter) allow(ip string) bool {
 // --- Request/Response schemas ---
 
 type demoRequest struct {
-	Model    string             `json:"model"`
-	Messages []demoMessage      `json:"messages"`
-	Metadata *demoMetadata      `json:"metadata,omitempty"`
+	Model    string        `json:"model"`
+	Messages []demoMessage `json:"messages"`
+	Metadata *demoMetadata `json:"metadata,omitempty"`
 }
 
 type demoMessage struct {
@@ -91,10 +92,10 @@ type demoMetadata struct {
 }
 
 type demoBlockedResponse struct {
-	VerdictState string              `json:"verdict_state"`
-	Warning      string              `json:"warning"`
-	Findings     []demoFinding       `json:"findings"`
-	EventID      string              `json:"event_id"`
+	VerdictState string        `json:"verdict_state"`
+	Warning      string        `json:"warning"`
+	Findings     []demoFinding `json:"findings"`
+	EventID      string        `json:"event_id"`
 }
 
 type demoFinding struct {
@@ -103,11 +104,11 @@ type demoFinding struct {
 }
 
 type demoAllowedResponse struct {
-	VerdictState string         `json:"verdict_state"`
-	Message      *demoMessage   `json:"message,omitempty"`
-	EventID      string         `json:"event_id"`
-	Usage        *demoUsage     `json:"usage,omitempty"`
-	Warning      string         `json:"warning,omitempty"`
+	VerdictState string       `json:"verdict_state"`
+	Message      *demoMessage `json:"message,omitempty"`
+	EventID      string       `json:"event_id"`
+	Usage        *demoUsage   `json:"usage,omitempty"`
+	Warning      string       `json:"warning,omitempty"`
 }
 
 type demoUsage struct {
@@ -162,7 +163,7 @@ func (h *demoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Build llmguard request
 	messages := make([]llmguard.ChatMessage, len(req.Messages))
 	for i, m := range req.Messages {
-		messages[i] = llmguard.ChatMessage{Role: m.Role, Content: m.Content}
+		messages[i] = llmguard.ChatMessage{Role: modelgateway.MessageRole(m.Role), Content: m.Content}
 	}
 
 	prov := &llmguard.Provenance{}
@@ -174,7 +175,7 @@ func (h *demoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, verdict, err := h.gateway.Chat(r.Context(), &llmguard.ChatRequest{
-		Model:    req.Model,
+		Model:    modelgateway.ModelID(req.Model),
 		Messages: messages,
 	}, prov)
 
@@ -228,7 +229,7 @@ func (h *demoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		var msg *demoMessage
 		if resp != nil {
-			msg = &demoMessage{Role: resp.Message.Role, Content: resp.Message.Content}
+			msg = &demoMessage{Role: string(resp.Message.Role), Content: resp.Message.Content}
 		}
 		var usage *demoUsage
 		if resp != nil && resp.Usage != nil {

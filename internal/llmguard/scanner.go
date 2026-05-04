@@ -138,8 +138,8 @@ func (s *Scanner) scanRaw(text string) ([]Finding, []ScanTrace) {
 				digits := stripNonDigits(matched)
 				if !luhnValid(digits) {
 					traces = append(traces, ScanTrace{
-						Mode:    ScanModeRaw,
-						Matched: false,
+						Mode:            ScanModeRaw,
+						Matched:         false,
 						RedactedExcerpt: shortExcerpt(matched, 20),
 					})
 					continue
@@ -243,58 +243,51 @@ func (s *Scanner) scanSplitJoined(text string) ([]Finding, []ScanTrace) {
 		// Find all occurrences of the prefix
 		prefixLocs := findAllSubstring(text, pp.prefix)
 		for _, pLoc := range prefixLocs {
-			// Look at text after the prefix to see if continuation follows within separator budget
 			afterPrefix := text[pLoc+len(pp.prefix):]
-			// Allow up to 16 non-alphanumeric separator bytes
 			sepCount := 0
-			contStart := 0
+			contStart := -1
 			for i, ch := range []byte(afterPrefix) {
+				if isAlphanumeric(ch) || ch == '_' || ch == '-' {
+					contStart = i
+					break
+				}
 				if !isAlphanumeric(ch) {
 					sepCount++
 					if sepCount > 16 {
-						contStart = i
 						break
 					}
-					continue
 				}
-				contStart = i
-				break
+			}
+			if contStart < 0 || sepCount > 16 {
+				continue
 			}
 
-			// Check if the combined prefix + continuation matches the full pattern
-			fullCandidate := text[pLoc:] 
-			if contStart > 0 && contStart < len(afterPrefix) {
-				// Find the extent of the continuation (alphanumeric + some chars)
-				end := findAlphaRunEnd(afterPrefix, contStart)
-				if end > contStart {
-					fullCandidate = text[pLoc : pLoc+len(pp.prefix)+end]
-				}
+			end := findAlphaRunEnd(afterPrefix, contStart)
+			if end <= contStart {
+				continue
+			}
+			continuation := afterPrefix[contStart:end]
+			joinedCandidate := pp.prefix + continuation
+			if !pp.fullRule.MatchString(joinedCandidate) {
+				continue
 			}
 
-			if pp.fullRule.MatchString(fullCandidate) && len(fullCandidate) > len(pp.prefix)+1 {
-				loc := pp.fullRule.FindStringIndex(fullCandidate)
-				if loc != nil {
-					absStart := pLoc + loc[0]
-					absEnd := pLoc + loc[1]
-					// Check separator budget between prefix and continuation
-					if absEnd-absStart > len(pp.prefix) {
-						findings = append(findings, Finding{
-							Type:      pp.ruleType,
-							Severity:  SeverityHigh,
-							SpanStart: absStart,
-							SpanEnd:   absEnd,
-							Redacted:  replaceMatch(text, absStart, absEnd, RedactedPlaceholder(pp.ruleType)),
-							ScanMode:  ScanModeSplitJoined,
-						})
-						traces = append(traces, ScanTrace{
-							Mode:            ScanModeSplitJoined,
-							CandidatesTried: 1,
-							Matched:         true,
-							RedactedExcerpt: RedactedPlaceholder(pp.ruleType),
-						})
-					}
-				}
-			}
+			absStart := pLoc
+			absEnd := pLoc + len(pp.prefix) + end
+			findings = append(findings, Finding{
+				Type:      pp.ruleType,
+				Severity:  SeverityHigh,
+				SpanStart: absStart,
+				SpanEnd:   absEnd,
+				Redacted:  replaceMatch(text, absStart, absEnd, RedactedPlaceholder(pp.ruleType)),
+				ScanMode:  ScanModeSplitJoined,
+			})
+			traces = append(traces, ScanTrace{
+				Mode:            ScanModeSplitJoined,
+				CandidatesTried: 1,
+				Matched:         true,
+				RedactedExcerpt: RedactedPlaceholder(pp.ruleType),
+			})
 		}
 	}
 

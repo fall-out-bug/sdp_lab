@@ -9,38 +9,37 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fall-out-bug/sdp_lab/internal/modelgateway"
 	"github.com/google/uuid"
 )
 
 // GuardEvent is the JSONL audit record for a guarded LLM call.
 type GuardEvent struct {
-	EventID             string           `json:"event_id"`
-	CorrelationID       string           `json:"correlation_id,omitempty"`
-	FeatureID           string           `json:"feature_id,omitempty"`
-	WsID                string           `json:"ws_id,omitempty"`
-	BeadsID             string           `json:"beads_id,omitempty"`
-	SessionID           string           `json:"session_id,omitempty"`
-	EvidenceRef         string           `json:"evidence_ref,omitempty"`
-	Timestamp           time.Time        `json:"timestamp"`
-	ProviderID          string           `json:"provider_id,omitempty"`
-	Model               string           `json:"model,omitempty"`
-	VerdictState        VerdictState     `json:"verdict_state"`
-	InputFindings       []Finding        `json:"input_findings,omitempty"`
-	OutputFindings      []Finding        `json:"output_findings,omitempty"`
-	RedactionSummary    *RedactionSummary `json:"redaction_summary,omitempty"`
-	TokenUsage          *TokenUsageAudit `json:"token_usage,omitempty"`
-	CostStatus          string           `json:"cost_status,omitempty"`
-	EstimatedCostUSD    *float64         `json:"estimated_cost_usd,omitempty"`
-	ProviderErrorClass  string           `json:"provider_error_class,omitempty"`
-	ProviderErrorExcerpt string          `json:"provider_error_excerpt,omitempty"`
+	EventID              string            `json:"event_id"`
+	CorrelationID        string            `json:"correlation_id,omitempty"`
+	FeatureID            string            `json:"feature_id,omitempty"`
+	WsID                 string            `json:"ws_id,omitempty"`
+	BeadsID              string            `json:"beads_id,omitempty"`
+	SessionID            string            `json:"session_id,omitempty"`
+	EvidenceRef          string            `json:"evidence_ref,omitempty"`
+	Timestamp            time.Time         `json:"timestamp"`
+	ProviderID           string            `json:"provider_id,omitempty"`
+	Model                string            `json:"model,omitempty"`
+	VerdictState         VerdictState      `json:"verdict_state"`
+	InputFindings        []Finding         `json:"input_findings,omitempty"`
+	OutputFindings       []Finding         `json:"output_findings,omitempty"`
+	RedactionSummary     *RedactionSummary `json:"redaction_summary,omitempty"`
+	TokenUsage           *TokenUsageAudit  `json:"token_usage,omitempty"`
+	CostStatus           string            `json:"cost_status,omitempty"`
+	EstimatedCostUSD     *float64          `json:"estimated_cost_usd,omitempty"`
+	ProviderErrorClass   string            `json:"provider_error_class,omitempty"`
+	ProviderErrorExcerpt string            `json:"provider_error_excerpt,omitempty"`
 }
 
-// TokenUsageAudit mirrors token usage for audit records.
-type TokenUsageAudit struct {
-	PromptTokens     int `json:"prompt_tokens"`
-	CompletionTokens int `json:"completion_tokens"`
-	TotalTokens      int `json:"total_tokens"`
-}
+type ChatRequest = modelgateway.ChatRequest
+type ChatResponse = modelgateway.ChatResponse
+type ChatMessage = modelgateway.Message
+type TokenUsageAudit = modelgateway.TokenUsage
 
 // RedactionSummary summarizes what was redacted.
 type RedactionSummary struct {
@@ -158,13 +157,13 @@ type Provenance struct {
 
 // Verdict is the result of a guarded Chat call.
 type Verdict struct {
-	State             VerdictState
-	EventID           string
-	InputFindings     []Finding
-	OutputFindings    []Finding
-	RedactionSummary  *RedactionSummary
+	State              VerdictState
+	EventID            string
+	InputFindings      []Finding
+	OutputFindings     []Finding
+	RedactionSummary   *RedactionSummary
 	ProviderErrorClass string
-	ProviderErrorText string
+	ProviderErrorText  string
 }
 
 // Gateway wraps a provider with input/output guard.
@@ -180,30 +179,7 @@ type Gateway struct {
 // Provider is the minimal interface needed for wrapping.
 // Matches modelgateway.Provider.Chat contract.
 type Provider interface {
-	Chat(ctx context.Context, req *ChatRequest) (*ChatResponse, error)
-}
-
-// ChatRequest mirrors modelgateway.ChatRequest for the guard boundary.
-// The gateway accepts this shape to avoid importing modelgateway directly
-// in the core llmguard package, keeping the dependency one-way.
-type ChatRequest struct {
-	Model    string                 `json:"model"`
-	Messages []ChatMessage          `json:"messages"`
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
-}
-
-// ChatMessage is a single message in a chat request.
-type ChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-// ChatResponse mirrors modelgateway.ChatResponse for the guard boundary.
-type ChatResponse struct {
-	ID      string        `json:"id"`
-	Model   string        `json:"model"`
-	Message ChatMessage   `json:"message"`
-	Usage   *TokenUsageAudit `json:"usage,omitempty"`
+	Chat(ctx context.Context, req *modelgateway.ChatRequest) (*modelgateway.ChatResponse, error)
 }
 
 // NewGateway creates a guarded gateway wrapping a provider.
@@ -227,6 +203,12 @@ func NewGateway(provider Provider, policy Policy, auditSink AuditSink) *Gateway 
 
 // Chat executes a guarded chat completion.
 func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) (*ChatResponse, *Verdict, error) {
+	if req == nil {
+		return nil, nil, fmt.Errorf("llmguard: request must not be nil")
+	}
+	if prov == nil {
+		prov = &Provenance{}
+	}
 	eventID := uuid.New().String()
 	now := time.Now()
 
@@ -240,7 +222,7 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 		SessionID:     prov.SessionID,
 		EvidenceRef:   prov.EvidenceRef,
 		Timestamp:     now,
-		Model:         req.Model,
+		Model:         string(req.Model),
 	}
 
 	// Scan input
@@ -285,7 +267,7 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 			req = redactRequest(req, redactedText)
 			event.RedactionSummary = &RedactionSummary{
 				InputRedactions: len(inputSecrets),
-				Types:          findingTypes(inputSecrets),
+				Types:           findingTypes(inputSecrets),
 			}
 		}
 	}
@@ -296,13 +278,14 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 		// Provider error — scan and redact error message
 		errClass := classifyProviderError(err)
 		errText := err.Error()
-		errExcerpt := shortExcerpt(errText, 200)
 
 		// Scan provider error for secrets
 		errScan := g.scanner.Scan(errText)
+		redactedErrText := errText
 		if len(errScan.Findings) > 0 {
-			errExcerpt = RedactWithUntyped(errExcerpt, errScan.Findings)
+			redactedErrText = RedactWithUntyped(errText, errScan.Findings)
 		}
+		errExcerpt := shortExcerpt(redactedErrText, 200)
 
 		event.VerdictState = VerdictProviderErrorAfterInputPass
 		event.ProviderErrorClass = errClass
@@ -313,10 +296,10 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 			return nil, &Verdict{State: VerdictAuditFailed, EventID: eventID}, fmt.Errorf("audit write failed: %w", err)
 		}
 		return nil, &Verdict{
-			State:             VerdictProviderErrorAfterInputPass,
-			EventID:           eventID,
+			State:              VerdictProviderErrorAfterInputPass,
+			EventID:            eventID,
 			ProviderErrorClass: errClass,
-			ProviderErrorText: errExcerpt,
+			ProviderErrorText:  errExcerpt,
 		}, err
 	}
 
@@ -325,10 +308,9 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 	outputResult := g.scanner.ScanOutput(outputText)
 
 	// Check output findings
-	outputSecrets := filterSecretFindings(outputResult.Findings)
 	outputSuspicious := filterSuspiciousOutputFindings(outputResult.Findings)
 
-	if len(outputSecrets) > 0 && g.policy.OutputAction == OutputActionBlock {
+	if len(outputResult.Findings) > 0 && g.policy.OutputAction == OutputActionBlock {
 		event.VerdictState = VerdictOutputBlocked
 		event.OutputFindings = redactFindings(outputResult.Findings)
 		event.InputFindings = redactFindings(inputResult.Findings)
@@ -364,7 +346,7 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 			TotalTokens:      resp.Usage.TotalTokens,
 		}
 	}
-	costResult := g.cost.Estimate(req.Model, usage)
+	costResult := g.cost.Estimate(string(req.Model), usage)
 
 	// Build final event
 	event.VerdictState = state
@@ -386,18 +368,11 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 	}
 
 	// Build response
-	guardResp := &ChatResponse{
-		ID:      resp.ID,
-		Model:   resp.Model,
-		Message: ChatMessage{Role: resp.Message.Role, Content: resp.Message.Content},
-		Usage:   usage,
-	}
-
-	return guardResp, &Verdict{
-		State:          state,
-		EventID:        eventID,
-		InputFindings:  inputResult.Findings,
-		OutputFindings: outputResult.Findings,
+	return resp, &Verdict{
+		State:            state,
+		EventID:          eventID,
+		InputFindings:    inputResult.Findings,
+		OutputFindings:   outputResult.Findings,
 		RedactionSummary: event.RedactionSummary,
 	}, nil
 }
@@ -448,10 +423,10 @@ func redactFindings(findings []Finding) []Finding {
 	result := make([]Finding, len(findings))
 	for i, f := range findings {
 		result[i] = Finding{
-			Type:      f.Type,
-			Severity:  f.Severity,
-			ScanMode:  f.ScanMode,
-			Redacted:  RedactedPlaceholder(f.Type),
+			Type:     f.Type,
+			Severity: f.Severity,
+			ScanMode: f.ScanMode,
+			Redacted: RedactedPlaceholder(f.Type),
 		}
 	}
 	return result
@@ -461,7 +436,7 @@ func redactRequest(req *ChatRequest, redactedText string) *ChatRequest {
 	// Rebuild messages with single redacted content
 	newReq := *req
 	newReq.Messages = []ChatMessage{
-		{Role: "user", Content: redactedText},
+		{Role: modelgateway.RoleUser, Content: redactedText},
 	}
 	return &newReq
 }
@@ -521,4 +496,3 @@ func findSubstring(s, sub string) bool {
 	}
 	return false
 }
-
