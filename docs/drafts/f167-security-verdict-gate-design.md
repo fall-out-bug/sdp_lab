@@ -50,6 +50,11 @@ delimited as data before reviewer invocation. The LLM reviewer is not a trusted
 security boundary. Its output becomes one input to a deterministic gate that also
 checks sanitizer status, test evidence, schema validity, and severity mapping.
 
+The interface to F164 is document-level in this feature: F167 references the
+named F164 attack classes and trust-boundary definitions. No generated F164 data
+contract is consumed in F167. If F164 later ships a machine-readable taxonomy,
+binding F167 to that taxonomy is a separate follow-up.
+
 ## User Experience
 
 The operator should see one compact result:
@@ -94,7 +99,10 @@ commit/promotion-ready state derived from that transition.
 
 This means `promotion-ready` for F167 is not a new Beads status. It is the
 agentloop pre-transition boundary after Build has produced passing test evidence
-and before SDP records the work as ready for the next delivery stage.
+and before SDP records the work as ready for the next delivery stage. In
+operator terms: the work is not allowed to leave Build as review-ready until
+the security gate records `pass` or `warn`, or a human-approved escalation
+override is recorded.
 
 The gate decision maps severities as:
 
@@ -107,6 +115,17 @@ The gate decision maps severities as:
 
 Provider failure, malformed model output, missing test evidence, or sanitizer
 failure is not a pass. It escalates.
+
+Deterministic gate inputs are:
+
+- test evidence status: only `passed` allows reviewer invocation
+- sanitizer status: `blocked_before_provider` blocks or escalates before provider egress
+- sanitizer evidence validity: missing or invalid evidence escalates
+- reviewer output schema validity: malformed output escalates
+- severity mapping: Critical/High blocks, Medium/Low warns, clean passes
+
+The reviewer can discover issues, but it cannot bypass deterministic checks.
+`blocked_before_provider` can stop the gate even if no reviewer verdict exists.
 
 The gate is synchronous for the Build completion transition. If a future runtime
 makes security review asynchronous, the transition must remain pending until the
@@ -142,6 +161,10 @@ Actionable findings may store file path, line range, secret class, hash, and
 suggested remediation. They must not store the raw matched value or full line
 content when the line contains a redacted secret. Hashes use SHA-256 to match
 existing evidence conventions.
+
+Evidence should include pattern-class reason codes such as `private_key`,
+`auth_header`, `connection_string`, `known_token`, or `pii_email`. It must not
+include provider-specific regex internals or raw matched values.
 
 ## Security Prompt
 
@@ -185,6 +208,14 @@ Reviewer stubs in tests must return fixed structured verdict fixtures, including
 malformed output and provider failure fixtures. Gate tests must not depend on
 live provider behavior.
 
+Validation ownership:
+
+- `00-167-01` owns the verdict schema and parser contract.
+- `00-167-03` owns invoking that parser in the gate and escalating malformed
+  output.
+- Structurally valid but semantically weak model output is handled by severity
+  mapping and demo ground-truth tests; it is not treated as malformed.
+
 ## Day-14 Demo Scenarios
 
 The demo pack should run three sanitized tasks:
@@ -206,12 +237,22 @@ verdict. A fourth optional control may cover adversarial diff text that tries to
 suppress the security reviewer; this is reported as residual risk unless F164
 coverage already provides a deterministic defense.
 
+Ground truth must be written in the fixture before the gate run and reviewed in
+the final evidence report. The demo is allowed to be dogfood/self-authored, but
+post-hoc ground-truth edits after observing gate output must be called out as
+invalid evidence.
+
 ## Workstream DAG
 
 - `00-167-01` defines the contract.
 - `00-167-02` depends on `00-167-01` and adds gateway sanitation/audit.
-- `00-167-03` depends on `00-167-01` and `00-167-02` and integrates the gate.
+- `00-167-03` depends on `00-167-02` and integrates the gate.
 - `00-167-04` depends on `00-167-03` and produces the Day-14 evidence pack.
+
+This DAG is intentionally linear because each step consumes a concrete contract
+from the previous step. If implementation reveals a contract change in an
+earlier workstream, downstream work must update the design/workstream artifact
+before continuing rather than silently adapting code.
 
 ## Acceptance
 

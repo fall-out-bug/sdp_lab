@@ -11,8 +11,11 @@ F167 design and workstreams are now good enough to proceed to implementation
 planning.
 
 - `pi-review`: APPROVED, 0 P0, 0 P1, 14 advisory findings.
+- Branch-scope `pi-review` after the first revision: APPROVED, 0 P0, 0 P1, 2 advisory findings.
 - Socratic judge: PASS, 11/11 critic questions resolved, no new contradictions,
   no scope creep.
+- Second Socratic judge: PASS, 10/10 new critic questions resolved, no new
+  contradictions, no scope creep.
 - Provider coverage degraded: Kimi failed during `pi-review`; Zai and MiniMax
   succeeded. This is acceptable for design hardening evidence, not a delivery
   gate.
@@ -32,6 +35,21 @@ Result:
 - Verdict: `APPROVED`
 - Findings: 0 P0, 0 P1, 14 total advisory findings
 - Models: 2/3 succeeded
+
+Second branch-scope command:
+
+```bash
+go run ./cmd/sdp-pi-review --scope branch --base origin/main --feature F167 --test-command "go test ./internal/workstream ./internal/pireview ./cmd/sdp-pi-review" --model-timeout 3m --write-verdict
+```
+
+Result:
+
+- Run: `pireview-e863d9081aef-1777873663309`
+- Scope: branch, 10 files reviewed
+- Verdict: `APPROVED`
+- Findings: 0 P0, 0 P1, 2 total advisory findings
+- Models: 2/3 succeeded
+- Applied finding: fixed stale DAG text in the design doc.
 
 Useful advisory findings applied:
 
@@ -72,6 +90,28 @@ The critic raised 11 questions:
 | Q9 | minor | `missed` finding definition unclear | Resolved: ground-truth expected findings required. |
 | Q10 | minor | Contract workstream touched implementation scope | Resolved: `internal/agentloop` removed from `00-167-01`. |
 | Q11 | minor | Reusable sanitizer vs narrow rollout unclear | Resolved: reusable interface, F167-only integration. |
+
+Judge result: PASS.
+
+## Socratic Review Round 2
+
+Critic provider: `minimax/MiniMax-M2.7`
+Judge provider: `zai/glm-5.1`
+
+The second critic raised 10 questions:
+
+| ID | Severity | Topic | Resolution |
+|---|---|---|---|
+| Q1 | blocking | Malformed verdict validation ownership | Resolved: `00-167-01` owns schema/parser; `00-167-03` invokes parser and escalates malformed output. |
+| Q2 | blocking | Deterministic gate inputs unclear | Resolved: test evidence, sanitizer status/evidence, schema validity, and severity mapping are explicit gate inputs. |
+| Q3 | major | Operator-visible escalation test missing | Resolved: `00-167-03` now requires pending-decision/human-gate surface tests. |
+| Q4 | major | Linear DAG change-control unclear | Resolved: design now requires downstream artifact updates before continuing after contract changes. |
+| Q5 | major | F164/F167 interface unclear | Resolved: F164 interface is document-level only; machine-readable binding is future work. |
+| Q6 | major | Raw-secret negative tests missing | Resolved: `00-167-02` now requires tests proving no raw secret appears in evidence, findings, logs, or model-bound prompts. |
+| Q7 | major | Promotion-ready too implementation-level | Resolved: design now states the operator-visible rule: work cannot leave Build as review-ready until pass/warn or human-approved escalation. |
+| Q8 | major | Ground-truth demo rationalization risk | Resolved: ground truth must be committed before demo execution; post-run edits invalidate evidence. |
+| Q9 | minor | Redaction/block reason codes unclear | Resolved: pattern-class reason codes added. |
+| Q10 | minor | Provider failure simulation unclear | Resolved: existing fixed provider-failure fixtures and no-live-provider test mandate judged adequate. |
 
 Judge result: PASS.
 
