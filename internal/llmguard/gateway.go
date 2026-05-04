@@ -39,6 +39,19 @@ type GuardEvent struct {
 	StreamRequested bool   `json:"stream_requested"`
 	StreamReturned  bool   `json:"stream_returned"`
 	UpstreamCalled  bool   `json:"upstream_called"`
+	// Classifier audit fields.
+	ClassifierEnabled          bool     `json:"classifier_enabled,omitempty"`
+	ClassifierEndpointKind     string   `json:"classifier_endpoint_kind,omitempty"`
+	ClassifierModel            string   `json:"classifier_model,omitempty"`
+	ClassifierTimeoutMs        int      `json:"classifier_timeout_ms,omitempty"`
+	ChunkCount                 int      `json:"chunk_count,omitempty"`
+	ClassifiedChunkCount       int      `json:"classified_chunk_count,omitempty"`
+	FailedChunkIDs             []string `json:"failed_chunk_ids,omitempty"`
+	ClassifierComplete         bool     `json:"classifier_complete,omitempty"`
+	ClassifierFinalAction      string   `json:"classifier_final_action,omitempty"`
+	ClassifierCategories       []string `json:"classifier_categories,omitempty"`
+	ClassifierErrorClass       string   `json:"classifier_error_class,omitempty"`
+	ClassifierRedactionSpanCount int    `json:"classifier_redaction_span_count,omitempty"`
 }
 
 type ChatRequest = modelgateway.ChatRequest
@@ -176,12 +189,13 @@ type Verdict struct {
 
 // Gateway wraps a provider with input/output guard.
 type Gateway struct {
-	provider Provider
-	policy   Policy
-	scanner  *Scanner
-	redactor *Redactor
-	audit    AuditSink
-	cost     *CostEstimator
+	provider   Provider
+	policy     Policy
+	scanner    *Scanner
+	redactor   *Redactor
+	audit      AuditSink
+	cost       *CostEstimator
+	classifier *ClassifierOrchestrator
 }
 
 // Provider is the minimal interface needed for wrapping.
@@ -199,7 +213,7 @@ func NewGateway(provider Provider, policy Policy, auditSink AuditSink) *Gateway 
 	if auditSink == nil {
 		panic("llmguard: auditSink must not be nil")
 	}
-	return &Gateway{
+	gw := &Gateway{
 		provider: provider,
 		policy:   policy,
 		scanner:  NewScannerFromPolicy(policy),
@@ -207,6 +221,13 @@ func NewGateway(provider Provider, policy Policy, auditSink AuditSink) *Gateway 
 		audit:    auditSink,
 		cost:     NewCostEstimator(policy.ModelPricing),
 	}
+	if policy.Classifier != nil && policy.Classifier.Enabled {
+		co, err := NewClassifierOrchestrator(*policy.Classifier)
+		if err == nil {
+			gw.classifier = co
+		}
+	}
+	return gw
 }
 
 // Chat executes a guarded chat completion.
@@ -283,6 +304,64 @@ func (g *Gateway) Chat(ctx context.Context, req *ChatRequest, prov *Provenance) 
 				Types:           findingTypes(inputSecrets),
 			}
 		}
+	}
+
+	// Run classifier if enabled and deterministic scanner did not block.
+	classifierState := VerdictCleanAllowed
+	var classifierSpans []SuggestedSpan
+	var failedChunkIDs []string
+	if g.classifier != nil && (len(inputSecrets) == 0 || g.policy.InputAction == InputActionRedact) {
+		var detBlocked bool
+		if len(inputSecrets) > 0 && g.policy.InputAction == InputActionBlock {
+			detBlocked = true
+		}
+		cs, spans, _, failed, _ := g.classifier.ClassifyPrompt(ctx, inputText, detBlocked)
+		classifierState = cs
+		classifierSpans = spans
+		failedChunkIDs = failed
+		// Populate classifier audit fields.
+		event.ClassifierEnabled = true
+		event.ClassifierModel = g.classifier.cfg.Model
+		event.ClassifierTimeoutMs = g.classifier.cfg.TimeoutMs
+		event.ChunkCount = len(classifierSpans) // approximate; better from chunker
+		if g.classifier.chunker != nil {
+			chunks, _ := g.classifier.chunker.Split(inputText)
+			event.ChunkCount = len(chunks)
+		}
+		event.ClassifiedChunkCount = event.ChunkCount - len(failedChunkIDs)
+		event.FailedChunkIDs = failedChunkIDs
+		event.ClassifierComplete = len(failedChunkIDs) == 0
+		event.ClassifierFinalAction = string(classifierState)
+		if len(classifierSpans) > 0 {
+			event.ClassifierRedactionSpanCount = len(classifierSpans)
+		}
+	}
+
+	// If classifier demands block and deterministic did not already block, honor it.
+	if classifierState == VerdictInputBlocked && len(inputSecrets) == 0 {
+		event.VerdictState = VerdictInputBlocked
+		event.UpstreamCalled = false
+		if err := g.writeAudit(ctx, event); err != nil {
+			return nil, &Verdict{State: VerdictAuditFailed, EventID: eventID}, fmt.Errorf("audit write failed: %w", err)
+		}
+		return nil, &Verdict{
+			State:         VerdictInputBlocked,
+			EventID:       eventID,
+			InputFindings: nil, // classifier findings are not deterministic findings
+		}, nil
+	}
+
+	// If classifier incomplete in strict mode, fail closed.
+	if classifierState == VerdictClassifierIncomplete && g.classifier != nil && g.classifier.cfg.StrictMode {
+		event.VerdictState = VerdictClassifierIncomplete
+		event.UpstreamCalled = false
+		if err := g.writeAudit(ctx, event); err != nil {
+			return nil, &Verdict{State: VerdictAuditFailed, EventID: eventID}, fmt.Errorf("audit write failed: %w", err)
+		}
+		return nil, &Verdict{
+			State:   VerdictClassifierIncomplete,
+			EventID: eventID,
+		}, nil
 	}
 
 	// Call provider

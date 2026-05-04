@@ -25,6 +25,12 @@ const (
 	VerdictAuditFailed VerdictState = "audit_failed"
 	// VerdictScanBudgetExceeded means scanner budget was exhausted.
 	VerdictScanBudgetExceeded VerdictState = "scan_budget_exceeded"
+	// VerdictClassifierAdvisoryAllowed means classifier found advisory risk but demo mode allows continuation.
+	VerdictClassifierAdvisoryAllowed VerdictState = "classifier_advisory_allowed"
+	// VerdictClassifierIncomplete means classifier failed to produce a complete verdict.
+	VerdictClassifierIncomplete VerdictState = "classifier_incomplete"
+	// VerdictNeedsReview means classifier found uncertain risk requiring operator review.
+	VerdictNeedsReview VerdictState = "needs_review"
 )
 
 // FindingSeverity classifies how serious a finding is.
@@ -125,6 +131,41 @@ type Policy struct {
 	StrictBudgetMode bool `json:"strict_budget_mode"`
 	// ModelPricing maps model IDs to per-token pricing in USD.
 	ModelPricing map[string]ModelPricing `json:"model_pricing,omitempty"`
+	// Classifier is optional local LLM classifier config. Nil means disabled.
+	Classifier *ClassifierConfig `json:"classifier,omitempty"`
+}
+
+// ClassifierConfig configures the optional local LLM classifier layer.
+type ClassifierConfig struct {
+	Enabled                bool   `json:"enabled"`
+	BaseURL                string `json:"base_url"`
+	Model                  string `json:"model"`
+	APIKeyEnv              string `json:"api_key_env,omitempty"`
+	TimeoutMs              int    `json:"timeout_ms"`
+	TotalTimeoutMs         int    `json:"total_timeout_ms"`
+	MaxChunkBytes          int    `json:"max_chunk_bytes"`
+	OverlapBytes           int    `json:"overlap_bytes"`
+	MaxClassifierChunks    int    `json:"max_classifier_chunks"`
+	MaxParallelChunks      int    `json:"max_parallel_chunks"`
+	BlockConfidenceThreshold float64 `json:"block_confidence_threshold"`
+	StrictMode             bool   `json:"strict_mode"`
+}
+
+// DefaultClassifierConfig returns a safe default classifier config.
+func DefaultClassifierConfig() ClassifierConfig {
+	return ClassifierConfig{
+		Enabled:                false,
+		BaseURL:                "http://127.0.0.1:11434/v1",
+		Model:                  "qwen2.5-coder:7b",
+		TimeoutMs:              3000,
+		TotalTimeoutMs:         10000,
+		MaxChunkBytes:          12000,
+		OverlapBytes:           512,
+		MaxClassifierChunks:    64,
+		MaxParallelChunks:      4,
+		BlockConfidenceThreshold: 0.75,
+		StrictMode:             true,
+	}
 }
 
 // ModelPricing holds per-token cost data for a model.
