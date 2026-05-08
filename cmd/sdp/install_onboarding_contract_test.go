@@ -59,6 +59,23 @@ func TestOnboardingDocsPreferRepoLocalCLIUntilPathIsTrusted(t *testing.T) {
 	}
 }
 
+func TestOnboardingDocsUsePublicInstallerSurface(t *testing.T) {
+	for _, path := range []string{
+		"README.md",
+		"docs/QUICKSTART.md",
+		"docs/runbooks/onboarding-downstream-repo.md",
+		"scripts/install.sh",
+	} {
+		doc := readRepoFile(t, path)
+		if !strings.Contains(doc, "raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh") {
+			t.Fatalf("%s should reference the public sdp installer URL", path)
+		}
+		if strings.Contains(doc, "raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh") {
+			t.Fatalf("%s should not send downstream users to the lab installer URL", path)
+		}
+	}
+}
+
 func readRepoFile(t *testing.T, rel string) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)

@@ -33,7 +33,7 @@ The `sdp_lab` repo is the research workspace where SDP is built. You do not need
 Run this from the root of the repo where you want SDP installed:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
 ```
 
 The installer:
@@ -50,7 +50,7 @@ Environment overrides:
 ```bash
 SDP_HARNESS=claude-code,opencode \
 SDP_TARGET=/path/to/repo \
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
 export PATH="/path/to/repo/.sdp/bin:$PATH"
 ```
 

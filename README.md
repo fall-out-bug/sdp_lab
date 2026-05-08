@@ -86,7 +86,7 @@ go build -tags "sqlite_fts5" ./...
 Run in the root of your downstream repo (requires `git` and `go`):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
 ```
 
 Local-source install while working inside this repo:

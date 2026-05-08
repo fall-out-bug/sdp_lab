@@ -14,7 +14,7 @@
 From your target repo root:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
 ```
 
 What happens: clones `sdp_lab` (shallow) to get the canonical manifest and prompts, builds `./.sdp/bin/sdp` unless explicitly allowed to trust a PATH binary, runs `sdp init --harness=auto`,
@@ -83,7 +83,7 @@ Do not edit harness adapter files directly — `sdp doctor` flags drift.
 Re-run the installer — it pulls latest `sdp_lab` and regenerates adapters:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
 ./.sdp/bin/sdp init --update
 ```
 

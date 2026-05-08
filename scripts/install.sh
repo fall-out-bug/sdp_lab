@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # F141-03: one-shot SDP installer for downstream repos.
-# Usage: curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
 #
 # Environment overrides:
 #   SDP_REPO    GitHub repo slug (default: fall-out-bug/sdp_lab)
