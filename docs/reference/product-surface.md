@@ -175,7 +175,7 @@ SDP is not a good first choice for:
 These are useful building blocks, but they are not the first thing to sell or demo:
 
 - `sdp-orchestrate`, `sdp-ci-loop`, `sdp-guard`, `sdp-doc-sync`, `sdp-ready`
-- `sdp manifest validate`, `sdp manifest parity`, `sdp generate-adapters`, `sdp doctor adapters`
+- `manifest validate`, `manifest parity`, `generate-adapters`, `doctor adapters`
 - K8s/deploy scripts and legacy swarm paths
 - internal design docs under `docs/plans/` and `docs/archive/`
 

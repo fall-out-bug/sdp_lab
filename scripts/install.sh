@@ -145,23 +145,22 @@ if [[ "$SDP_BIN" != "$LOCAL_SDP" ]]; then
 fi
 
 echo "→ verifying repo-local sdp"
-VERIFY_HELP="$("$LOCAL_SDP" --help 2>&1)"
-case "$VERIFY_HELP" in
-  *"sdp manifest validate"*) ;;
-  *)
-    echo "error: repo-local sdp does not expose 'manifest validate': $LOCAL_SDP" >&2
-    exit 1
-    ;;
-esac
-case "$VERIFY_HELP" in
-  *"sdp scout "*) ;;
-  *)
-    echo "error: repo-local sdp does not expose 'scout': $LOCAL_SDP" >&2
-    exit 1
-    ;;
-esac
-"$LOCAL_SDP" manifest validate --manifest "$TARGET_ABS/sdp.manifest.yaml" --repo-root "$TARGET_ABS" >/dev/null
-"$LOCAL_SDP" doctor adapters --manifest "$TARGET_ABS/sdp.manifest.yaml" --out "$TARGET_ABS/.sdp/generated" >/dev/null
+if ! "$LOCAL_SDP" manifest validate --help >/dev/null 2>&1; then
+  echo "error: repo-local sdp does not expose 'manifest validate': $LOCAL_SDP" >&2
+  exit 1
+fi
+if ! "$LOCAL_SDP" scout --help >/dev/null 2>&1; then
+  echo "error: repo-local sdp does not expose 'scout': $LOCAL_SDP" >&2
+  exit 1
+fi
+if ! "$LOCAL_SDP" manifest validate --manifest "$TARGET_ABS/sdp.manifest.yaml" --repo-root "$TARGET_ABS" >/dev/null; then
+  echo "error: repo-local manifest validation failed: $LOCAL_SDP" >&2
+  exit 1
+fi
+if ! "$LOCAL_SDP" doctor adapters --manifest "$TARGET_ABS/sdp.manifest.yaml" --out "$TARGET_ABS/.sdp/generated" >/dev/null; then
+  echo "error: repo-local adapter verification failed: $LOCAL_SDP" >&2
+  exit 1
+fi
 
 echo "✓ SDP installed in $TARGET_ABS"
 echo "✓ repo-local binary: $LOCAL_SDP"

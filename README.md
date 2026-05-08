@@ -95,7 +95,7 @@ Local-source install while working inside this repo:
 SDP_SOURCE_DIR="$PWD" SDP_TARGET=/path/to/myrepo bash scripts/install.sh
 ```
 
-The installer clones `sdp_lab` to bring in the canonical manifest and prompts, builds a repo-local `./.sdp/bin/sdp` unless you explicitly allow PATH reuse, runs `sdp init --harness=auto`, verifies the repo-local CLI, and writes `sdp.lock`. No manual file copying.
+The installer clones `sdp_lab` to bring in the canonical manifest and prompts, builds a repo-local `./.sdp/bin/sdp` unless you explicitly allow PATH reuse, runs `init --harness=auto` through the installer binary, verifies the repo-local CLI, and writes `sdp.lock`. No manual file copying.
 
 ### What you get
 
@@ -117,10 +117,10 @@ All 25 commands and 30 skills are declared in `sdp.manifest.yaml` as the single 
 Install only the harnesses you use:
 
 ```bash
-sdp init --harness=claude-code,opencode
-sdp init --harness=auto           # detect by existing dirs
-sdp init --harness=all            # all five harnesses
-sdp init --harness=auto --target=/path/to/myrepo
+./.sdp/bin/sdp init --harness=claude-code,opencode
+./.sdp/bin/sdp init --harness=auto           # detect by existing dirs
+./.sdp/bin/sdp init --harness=all            # all five harnesses
+./.sdp/bin/sdp init --harness=auto --target=/path/to/myrepo
 ```
 
 `--harness=auto` installs all harnesses if no harness dirs exist yet.
@@ -142,7 +142,7 @@ export PATH="$PWD/.sdp/bin:$PATH"
 command -v sdp
 ```
 
-`sdp.lock` pins the SDP version used at install time. `sdp doctor adapters` fails if installed adapters diverge from the manifest — safe to run in CI or as a pre-commit hook. If `sdp manifest` or `sdp scout` says the command is missing, the shell is using an older global `sdp`; run `./.sdp/bin/sdp ...` or fix `PATH`.
+`sdp.lock` pins the SDP version used at install time. `./.sdp/bin/sdp doctor adapters` fails if installed adapters diverge from the manifest — safe to run in CI or as a pre-commit hook. If `sdp manifest` or `sdp scout` says the command is missing, the shell is using an older global `sdp`; run `./.sdp/bin/sdp ...` or fix `PATH`.
 
 ### Customize without forking
 
@@ -164,7 +164,7 @@ Onboarding runbook: [`docs/runbooks/onboarding-downstream-repo.md`](docs/runbook
 **SDP Toolkit (installable product):**
 
 - multi-harness install from `sdp.manifest.yaml`
-- `sdp scout`, `sdp metrics`, `sdp index`, `sdp spec`, `sdp bootstrap`
+- `scout`, `metrics`, `index`, `spec`, `bootstrap`
 
 **Operator Mode (default Toolkit happy path):**
 
@@ -175,7 +175,7 @@ Onboarding runbook: [`docs/runbooks/onboarding-downstream-repo.md`](docs/runbook
 **Operator tooling (available in formula tap):**
 
 - `sdp-orchestrate`, `sdp-ci-loop`, `sdp-guard`, `sdp-doc-sync`, `sdp-ready`
-- `sdp manifest validate`, `sdp manifest parity`, `sdp generate-adapters`, `sdp doctor adapters`
+- `manifest validate`, `manifest parity`, `generate-adapters`, `doctor adapters`
 
 **Lab / research (not in formula):**
 

@@ -41,7 +41,7 @@ The installer:
 1. clones the `sdp_lab` source repo to get the canonical manifest and prompts
 2. ignores any existing `sdp` on `PATH` unless `SDP_TRUST_PATH_SDP=1`
 3. builds `cmd/sdp` with the `sqlite_fts5` tag
-4. runs `sdp init --harness auto` through the chosen installer binary
+4. runs `init --harness auto` through the chosen installer binary
 5. writes `sdp.manifest.yaml`, `prompts/`, generated harness adapter dirs, `.sdp/generated/`, and `sdp.lock`
 6. verifies the repo-local CLI and leaves it at `./.sdp/bin/sdp`
 
@@ -131,7 +131,7 @@ For brownfield agent setup, preview generated artifacts before writing:
 **Operator tooling (available in formula tap):**
 
 - `sdp-orchestrate`, `sdp-ci-loop`, `sdp-guard`, `sdp-doc-sync`, `sdp-ready`
-- `sdp manifest parity`, `sdp generate-adapters`, `sdp doctor adapters`
+- `manifest parity`, `generate-adapters`, `doctor adapters`
 
 **Lab / research (not in formula):**
 
@@ -151,10 +151,10 @@ Canonical map: [reference/product-surface.md](reference/product-surface.md)
 The manifest supports four harness names:
 
 ```bash
-sdp init --harness all
-sdp init --harness auto
-sdp init --harness claude-code,opencode
-sdp init --harness cursor,codex --target /path/to/repo
+./.sdp/bin/sdp init --harness all
+./.sdp/bin/sdp init --harness auto
+./.sdp/bin/sdp init --harness claude-code,opencode
+./.sdp/bin/sdp init --harness cursor,codex --target /path/to/repo
 ```
 
 `auto` detects existing harness directories. If none exist, it installs all four.
@@ -162,8 +162,8 @@ sdp init --harness cursor,codex --target /path/to/repo
 Generated adapters are owned by the manifest. Do not edit generated harness files directly. Change `sdp.manifest.yaml`, then regenerate:
 
 ```bash
-sdp generate-adapters --write
-sdp doctor adapters
+./.sdp/bin/sdp generate-adapters --write
+./.sdp/bin/sdp doctor adapters
 ```
 
 ## Limits

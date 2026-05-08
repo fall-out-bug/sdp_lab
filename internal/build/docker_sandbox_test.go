@@ -42,9 +42,7 @@ func TestDockerSandbox_Available(t *testing.T) {
 }
 
 func TestDockerSandbox_Creation(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("docker not available")
-	}
+	skipIfNoDocker(t)
 
 	cfg := DockerSandboxConfig{
 		Image:        "golang:1.22",
@@ -80,9 +78,7 @@ func TestDockerSandbox_Creation(t *testing.T) {
 }
 
 func TestDockerSandbox_DefaultImage(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("docker not available")
-	}
+	skipIfNoDocker(t)
 
 	cfg := DockerSandboxConfig{} // No image specified.
 	sb, err := NewDockerSandbox(cfg)
@@ -195,9 +191,7 @@ func TestDockerSandbox_BuildFailure(t *testing.T) {
 }
 
 func TestDockerSandbox_ResourceLimits(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("docker not available")
-	}
+	skipIfNoDocker(t)
 
 	cfg := DockerSandboxConfig{
 		Image:        "golang:1.22",
@@ -263,9 +257,7 @@ func TestDockerSandbox_ResourceLimits(t *testing.T) {
 }
 
 func TestDockerSandbox_AllowNetwork(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("docker not available")
-	}
+	skipIfNoDocker(t)
 
 	cfg := DockerSandboxConfig{
 		Image:        "golang:1.22",
@@ -288,9 +280,7 @@ func TestDockerSandbox_AllowNetwork(t *testing.T) {
 }
 
 func TestDockerSandbox_CGOMount(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("docker not available")
-	}
+	skipIfNoDocker(t)
 
 	cfg := DockerSandboxConfig{
 		Image: "golang:1.22",
@@ -317,9 +307,7 @@ func TestDockerSandbox_CGOMount(t *testing.T) {
 }
 
 func TestDockerSandbox_CleanupIdempotent(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("docker not available")
-	}
+	skipIfNoDocker(t)
 
 	cfg := DockerSandboxConfig{Image: "golang:1.22"}
 	sb, err := NewDockerSandbox(cfg)
@@ -337,9 +325,7 @@ func TestDockerSandbox_CleanupIdempotent(t *testing.T) {
 }
 
 func TestDockerSandbox_BuildDockerArgs_MountPath(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("docker not available")
-	}
+	skipIfNoDocker(t)
 
 	cfg := DockerSandboxConfig{Image: "golang:1.22"}
 	sb, err := NewDockerSandbox(cfg)
@@ -400,9 +386,7 @@ func TestDockerSandbox_ContextCancellation(t *testing.T) {
 }
 
 func TestDockerSandbox_SandboxInterface(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("docker not available")
-	}
+	skipIfNoDocker(t)
 
 	// Verify DockerSandbox implements the Sandbox interface.
 	cfg := DockerSandboxConfig{Image: "golang:1.22"}
