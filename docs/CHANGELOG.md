@@ -1593,6 +1593,28 @@ issues resolved.
 ## 2026-05-08
 
 ### Commits
+- `8c65d744` fix(onboarding): align repo surface promises (2026-05-08)
+
+### Changed Files
+- `.goreleaser.yml`
+- `README.md`
+- `cmd/sdp/.snapshots/main-usage.snap`
+- `cmd/sdp/.snapshots/unknown-command.snap`
+- `cmd/sdp/install_onboarding_contract_test.go`
+- `cmd/sdp/main.go`
+- `cmd/sdp/main_test.go`
+- `docs/QUICKSTART.md`
+- `docs/reference/maturity-matrix.md`
+- `docs/reference/product-surface.md`
+- `docs/reference/project-map.md`
+- `docs/reference/release-surface.md`
+- `docs/runbooks/onboarding-downstream-repo.md`
+- `scripts/check-public-metadata.sh`
+- `scripts/check-release-surface.sh`
+
+
+
+### Commits
 - `bf02e2e8` fix(onboarding): align sdp_lab installer surface (2026-05-08)
 
 ### Changed Files
