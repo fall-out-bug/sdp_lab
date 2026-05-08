@@ -1593,6 +1593,105 @@ issues resolved.
 ## 2026-05-08
 
 ### Commits
+- `bf02e2e8` fix(onboarding): align sdp_lab installer surface (2026-05-08)
+
+### Changed Files
+- `.claude/agents/reviewer.md`
+- `.claude/agents/security.md`
+- `.codex/skills/build.md`
+- `.codex/skills/delivery-loop.md`
+- `.codex/skills/deploy.md`
+- `.codex/skills/discovery.md`
+- `.codex/skills/idea.md`
+- `.codex/skills/prototype.md`
+- `.codex/skills/reality.md`
+- `.codex/skills/review.md`
+- `.codex/skills/ship.md`
+- `.codex/skills/spec-interrogate.md`
+- `.codex/skills/ux.md`
+- `.cursor/rules/submit-to-swarm.mdc`
+- `.opencode/skill/build.md`
+- `.opencode/skill/delivery-loop.md`
+- `.opencode/skill/deploy.md`
+- `.opencode/skill/discovery.md`
+- `.opencode/skill/idea.md`
+- `.opencode/skill/prototype.md`
+- `.opencode/skill/reality.md`
+- `.opencode/skill/review.md`
+- `.opencode/skill/ship.md`
+- `.opencode/skill/spec-interrogate.md`
+- `.opencode/skill/ux.md`
+- `.pi/skills/architect/SKILL.md`
+- `.pi/skills/beads/SKILL.md`
+- `.pi/skills/bugfix/SKILL.md`
+- `.pi/skills/build/SKILL.md`
+- `.pi/skills/ci-triage/SKILL.md`
+- `.pi/skills/debug/SKILL.md`
+- `.pi/skills/delivery-loop/SKILL.md`
+- `.pi/skills/deploy/SKILL.md`
+- `.pi/skills/deployer/SKILL.md`
+- `.pi/skills/design/SKILL.md`
+- `.pi/skills/devops/SKILL.md`
+- `.pi/skills/discovery/SKILL.md`
+- `.pi/skills/feature/SKILL.md`
+- `.pi/skills/go-modern/SKILL.md`
+- `.pi/skills/guard/SKILL.md`
+- `.pi/skills/hotfix/SKILL.md`
+- `.pi/skills/idea/SKILL.md`
+- `.pi/skills/implementer/SKILL.md`
+- `.pi/skills/init/SKILL.md`
+- `.pi/skills/issue/SKILL.md`
+- `.pi/skills/oneshot/SKILL.md`
+- `.pi/skills/orchestrator/SKILL.md`
+- `.pi/skills/planner/SKILL.md`
+- `.pi/skills/protocol-consistency/SKILL.md`
+- `.pi/skills/prototype/SKILL.md`
+- `.pi/skills/qa/SKILL.md`
+- `.pi/skills/reality-check/SKILL.md`
+- `.pi/skills/reality/SKILL.md`
+- `.pi/skills/review/SKILL.md`
+- `.pi/skills/reviewer/SKILL.md`
+- `.pi/skills/security/SKILL.md`
+- `.pi/skills/ship/SKILL.md`
+- `.pi/skills/spec-interrogate/SKILL.md`
+- `.pi/skills/spec-reviewer/SKILL.md`
+- `.pi/skills/sre/SKILL.md`
+- `.pi/skills/strataudit/SKILL.md`
+- `.pi/skills/tdd/SKILL.md`
+- `.pi/skills/tech-lead/SKILL.md`
+- `.pi/skills/think/SKILL.md`
+- `.pi/skills/ux/SKILL.md`
+- `.pi/skills/verify-workstream/SKILL.md`
+- `.pi/skills/vision/SKILL.md`
+- `.sdp/generated/.codex/skills/idea.md`
+- `.sdp/generated/.opencode/skill/idea.md`
+- `.sdp/generated/.pi/skills/architect/SKILL.md`
+- `.sdp/generated/.pi/skills/deployer/SKILL.md`
+- `.sdp/generated/.pi/skills/devops/SKILL.md`
+- `.sdp/generated/.pi/skills/idea/SKILL.md`
+- `.sdp/generated/.pi/skills/implementer/SKILL.md`
+- `.sdp/generated/.pi/skills/orchestrator/SKILL.md`
+- `.sdp/generated/.pi/skills/planner/SKILL.md`
+- `.sdp/generated/.pi/skills/qa/SKILL.md`
+- `.sdp/generated/.pi/skills/reviewer/SKILL.md`
+- `.sdp/generated/.pi/skills/security/SKILL.md`
+- `.sdp/generated/.pi/skills/spec-reviewer/SKILL.md`
+- `.sdp/generated/.pi/skills/sre/SKILL.md`
+- `.sdp/generated/.pi/skills/tech-lead/SKILL.md`
+- `README.md`
+- `cmd/sdp/install_onboarding_contract_test.go`
+- `docs/QUICKSTART.md`
+- `docs/reference/product-surface.md`
+- `docs/runbooks/onboarding-downstream-repo.md`
+- `internal/adapters/generate.go`
+- `internal/adapters/generate_test.go`
+- `prompts/skills/idea/SKILL.md`
+- `scripts/check-public-metadata.sh`
+- `scripts/install.sh`
+
+
+
+### Commits
 - `6cf6008e` fix(onboarding): verify repo-local sdp binary (#152) (2026-05-08)
 
 ### Changed Files
