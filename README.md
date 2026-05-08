@@ -39,7 +39,7 @@ The formula does **not** include:
 - research/benchmark binaries (`sdp-cascade-replay`, `sdp-decompose-bench`, etc.)
 - ChangePassport (`sdp-pr-gate`) — separate product surface, not yet implemented
 
-Operator tooling (`sdp-orchestrate`, `sdp-guard`, `sdp-ci-loop`, `sdp-evidence`, etc.) is available via an opt-in formula tap.
+Operator tooling (`sdp-orchestrate`, `sdp-guard`, `sdp-ci-loop`, `sdp-evidence`, etc.) is included in the release build, but it is not the first-run promise.
 
 Full inventory: [`docs/reference/maturity-matrix.md`](docs/reference/maturity-matrix.md)
 
@@ -86,7 +86,7 @@ go build -tags "sqlite_fts5" ./...
 Run in the root of your downstream repo (requires `git` and `go`):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
 ```
 
 Local-source install while working inside this repo:
@@ -99,7 +99,7 @@ The installer clones `sdp_lab` to bring in the canonical manifest and prompts, b
 
 ### What you get
 
-30 skills · 25 commands · 12 agents — installed into the harness dirs detected in your repo (`.claude/`, `.opencode/`, `.codex/`, `.cursor/`, `.pi/`).
+30 skills · 25 commands · 12 agents declared in `sdp.manifest.yaml`, rendered into the native surfaces each harness supports (`.claude/`, `.opencode/`, `.codex/`, `.cursor/`, `.pi/`).
 
 Parity snapshot (full table: [`docs/reference/harness-parity-matrix.md`](docs/reference/harness-parity-matrix.md)):
 
@@ -172,7 +172,7 @@ Onboarding runbook: [`docs/runbooks/onboarding-downstream-repo.md`](docs/runbook
 - evidence, protocol, adapter, and documentation checks
 - StratAudit reports
 
-**Operator tooling (available in formula tap):**
+**Operator tooling (included in the release build, not the first-run promise):**
 
 - `sdp-orchestrate`, `sdp-ci-loop`, `sdp-guard`, `sdp-doc-sync`, `sdp-ready`
 - `manifest validate`, `manifest parity`, `generate-adapters`, `doctor adapters`

@@ -52,6 +52,7 @@ func TestGenerate_OutputFiles(t *testing.T) {
 		".codex/skills/build.md",
 		".cursor/rules/build.mdc",
 		".pi/skills/build/SKILL.md",
+		".pi/skills/implementer/SKILL.md",
 		".pi/prompts/build.md",
 	}
 	for _, path := range want {

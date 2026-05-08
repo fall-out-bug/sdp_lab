@@ -8,7 +8,7 @@
 # Checks:
 #   1. Template URLs with unreplaced placeholders (OWNER/REPO, YOUR_ORG)
 #   2. Invalid/malformed GitHub URLs
-#   3. Legacy download URL patterns (sdp_dev repo in release URLs)
+#   3. Legacy release download URL patterns (sdp_lab repo in release URLs)
 #   4. Homepage/repository URL consistency
 #
 # Usage:
@@ -56,7 +56,7 @@ check_templates() {
   done
 }
 
-# --- Check 2: Legacy distribution URLs referencing sdp_lab repo ---
+# --- Check 2: Legacy release URLs referencing sdp_lab repo ---
 check_legacy_downloads() {
   for f in "${USER_FACING_FILES[@]}"; do
     [ -f "$f" ] || continue
@@ -68,9 +68,9 @@ check_legacy_downloads() {
       local key="$f:$lineno"
       if [ -z "${seen_lines[$key]:-}" ]; then
         seen_lines[$key]=1
-        FINDINGS+=("legacy-url:$f:$lineno:download URL references sdp_lab repo (should be sdp)")
+        FINDINGS+=("legacy-url:$f:$lineno:release download URL references sdp_lab repo (should be sdp)")
       fi
-    done < <(grep -nE '(releases/download|raw\.githubusercontent\.com)/[^[:space:]]*fall-out-bug/sdp_lab|fall-out-bug/sdp_lab[^[:space:]]*/releases/download' "$f" 2>/dev/null || true)
+    done < <(grep -nE 'releases/download/[^[:space:]]*fall-out-bug/sdp_lab|fall-out-bug/sdp_lab[^[:space:]]*/releases/download' "$f" 2>/dev/null || true)
     unset seen_lines
   done
 }

@@ -33,7 +33,7 @@ The `sdp_lab` repo is the research workspace where SDP is built. You do not need
 Run this from the root of the repo where you want SDP installed:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
 ```
 
 The installer:
@@ -50,7 +50,7 @@ Environment overrides:
 ```bash
 SDP_HARNESS=claude-code,opencode \
 SDP_TARGET=/path/to/repo \
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
 export PATH="/path/to/repo/.sdp/bin:$PATH"
 ```
 
@@ -85,7 +85,7 @@ If `sdp manifest validate` or `sdp scout` says the command is missing, you are r
 
 ## First Useful Run
 
-Run read-only toolkit commands first. They show SDP's value without changing your repo:
+Run low-risk toolkit commands first. `scout`, `metrics`, and `spec` only inspect the repo; `index build` writes a local `.sdp/index.db` cache.
 
 ```bash
 ./.sdp/bin/sdp scout --format text .
@@ -119,7 +119,7 @@ For brownfield agent setup, preview generated artifacts before writing:
 
 **SDP Toolkit (stable, ships in formula):**
 
-- multi-harness manifest/adapters: 30 skills, 25 commands, 12 agents
+- multi-harness manifest/adapters: 30 skills, 25 commands, 12 agents rendered into each harness's native surface
 - toolkit commands: `scout`, `metrics`, `index`, `spec`, `bootstrap`
 
 **Operator Mode (default Toolkit happy path):**
@@ -128,7 +128,7 @@ For brownfield agent setup, preview generated artifacts before writing:
 - evidence/schema/protocol checks
 - StratAudit reports
 
-**Operator tooling (available in formula tap):**
+**Operator tooling (included in the release build, not the first-run promise):**
 
 - `sdp-orchestrate`, `sdp-ci-loop`, `sdp-guard`, `sdp-doc-sync`, `sdp-ready`
 - `manifest parity`, `generate-adapters`, `doctor adapters`
@@ -148,16 +148,16 @@ Canonical map: [reference/product-surface.md](reference/product-surface.md)
 
 ## Configure Harnesses
 
-The manifest supports four harness names:
+The manifest supports five harness names:
 
 ```bash
 ./.sdp/bin/sdp init --harness all
 ./.sdp/bin/sdp init --harness auto
 ./.sdp/bin/sdp init --harness claude-code,opencode
-./.sdp/bin/sdp init --harness cursor,codex --target /path/to/repo
+./.sdp/bin/sdp init --harness cursor,codex,pi --target /path/to/repo
 ```
 
-`auto` detects existing harness directories. If none exist, it installs all four.
+`auto` detects existing harness directories. If none exist, it installs all five.
 
 Generated adapters are owned by the manifest. Do not edit generated harness files directly. Change `sdp.manifest.yaml`, then regenerate:
 

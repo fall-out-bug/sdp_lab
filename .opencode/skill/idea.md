@@ -163,16 +163,16 @@ Skip deep-dive cycles, move directly to @design.
 ## Few-Shot Examples
 
 **Good — productive 3-question cycle (answers chain):**
-- Q1: What is the core mission of this feature?  
-  A: "Let users reset password via email when they forget it."  
-- Q2: How does this align with PRODUCT_VISION.md?  
-  A: "Vision says 'self-service account recovery'; this is the main path."  
-- Q3: Who are the primary users?  
-  A: "End users who forgot password; support team (fewer tickets)."  
+- Q1: What is the core mission of this feature?
+  A: "Let users reset password via email when they forget it."
+- Q2: How does this align with PRODUCT_VISION.md?
+  A: "Vision says 'self-service account recovery'; this is the main path."
+- Q3: Who are the primary users?
+  A: "End users who forgot password; support team (fewer tickets)."
 → Trigger: Continue (next cycle: problem/pain) or Skip to @design.
 
 **Bad — single yes/no question:**
-- Q: Do you need authentication? A: "Yes."  
+- Q: Do you need authentication? A: "Yes."
 Reason: No exploration. Each answer should inform the next question.
 
 **Bad — TMI upfront (offer shortcut):**
@@ -183,7 +183,38 @@ User writes 500+ chars: "I need a full auth system with OAuth, MFA, session mana
 
 ---
 
-## Recovery
+## Write Plan (F101)
+
+Before creating the intent file or beads task, emit a write plan:
+
+1. **Enumerate** — List every file the skill will CREATE / MODIFY / DELETE with a one-line reason (intent file, beads task, event log).
+2. **Flags:**
+   - `--dry-run` — Emit write plan only. Do NOT create, modify, or delete any file.
+   - `--yes` — Skip confirmation prompt. Execute immediately. Intended for CI/non-interactive.
+3. **Confirm** — Present the plan to the user and wait for explicit approval (unless `--yes`).
+4. **Log** — Append write plan event to `.sdp/log/events.jsonl` (**sanitize file paths** before logging: strip newlines, ensure valid JSON escaping):
+   ```json
+   {"spec_version":"v1.0","event_id":"<uuid>","timestamp":"<ISO-8601>","source":{"system":"sdp-lab","component":"idea"},"event_type":"decision.made","payload":{"decision_type":"write_plan","plan":[{"path":"...","action":"CREATE|MODIFY|DELETE","reason":"..."}]},"context":{"feature_id":"<F-id if known>","workstream_id":"<ws-id if applicable>"}}
+   ```
+   Include context fields only when the ID is known at plan time. Omit unavailable fields rather than inventing placeholders.
+   > **Note:** Phase 1 uses prompt-level write boundaries (CLI out of scope). Aligns with `schema/contracts/orchestration-event.schema.json` via `event_type: "decision.made"`. Phase 2 CLI will emit natively.
+
+**Output format:**
+```
+WRITE PLAN for @idea <feature>:
+  CREATE: docs/intent/{task_id}.json — Machine-readable intent spec
+  CREATE: beads task — Feature tracking issue
+  MODIFY: .sdp/log/events.jsonl — Write plan event log
+
+Proceed? [y/n]
+```
+
+**Modes:**
+- No flag: Show plan → Confirm → Execute
+- `--dry-run`: Show plan → STOP
+- `--yes`: Show plan → Execute immediately (no prompt)
+
+---
 
 | Symptom | Fix |
 |---------|-----|

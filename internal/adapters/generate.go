@@ -381,9 +381,9 @@ func generateCursor(m *manifest.Manifest, enabled map[manifest.Harness]bool, rep
 	return nil
 }
 
-// generatePi emits Agent Skills and prompt templates in Pi's native project
-// layout. Pi auto-loads .pi/skills/<name>/SKILL.md as skills and
-// .pi/prompts/<name>.md as slash prompt templates.
+// generatePi emits skills, agent prompts, and command prompts in Pi's native
+// project layout. Pi auto-loads .pi/skills/<name>/SKILL.md as callable skills
+// and .pi/prompts/<name>.md as slash prompt templates.
 func generatePi(m *manifest.Manifest, enabled map[manifest.Harness]bool, repoRoot string, out map[string][]byte) error {
 	if !enabled[manifest.HarnessPi] {
 		return nil
@@ -409,6 +409,29 @@ func generatePi(m *manifest.Manifest, enabled map[manifest.Harness]bool, repoRoo
 			return err
 		}
 		out[".pi/skills/"+s.Name+"/SKILL.md"] = data
+	}
+
+	agents := make([]manifest.Agent, len(m.Agents))
+	copy(agents, m.Agents)
+	sort.Slice(agents, func(i, j int) bool { return agents[i].Name < agents[j].Name })
+
+	for _, a := range agents {
+		ih := itemHarnesses(a.Harnesses, enabled)
+		if !ih[manifest.HarnessPi] {
+			continue
+		}
+		item := renderItem{
+			Name:    a.Name,
+			Summary: a.Summary,
+			Role:    a.Role,
+			Path:    a.SystemPromptPath,
+			Body:    wrapBodyWithMarker(readBody(repoRoot, a.SystemPromptPath), a.SystemPromptPath),
+		}
+		data, err := render(tmplPiSkill, item)
+		if err != nil {
+			return err
+		}
+		out[".pi/skills/"+a.Name+"/SKILL.md"] = data
 	}
 
 	cmds := make([]manifest.Command, len(m.Commands))

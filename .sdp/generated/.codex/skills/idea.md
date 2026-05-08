@@ -163,16 +163,16 @@ Skip deep-dive cycles, move directly to @design.
 ## Few-Shot Examples
 
 **Good — productive 3-question cycle (answers chain):**
-- Q1: What is the core mission of this feature?  
-  A: "Let users reset password via email when they forget it."  
-- Q2: How does this align with PRODUCT_VISION.md?  
-  A: "Vision says 'self-service account recovery'; this is the main path."  
-- Q3: Who are the primary users?  
-  A: "End users who forgot password; support team (fewer tickets)."  
+- Q1: What is the core mission of this feature?
+  A: "Let users reset password via email when they forget it."
+- Q2: How does this align with PRODUCT_VISION.md?
+  A: "Vision says 'self-service account recovery'; this is the main path."
+- Q3: Who are the primary users?
+  A: "End users who forgot password; support team (fewer tickets)."
 → Trigger: Continue (next cycle: problem/pain) or Skip to @design.
 
 **Bad — single yes/no question:**
-- Q: Do you need authentication? A: "Yes."  
+- Q: Do you need authentication? A: "Yes."
 Reason: No exploration. Each answer should inform the next question.
 
 **Bad — TMI upfront (offer shortcut):**

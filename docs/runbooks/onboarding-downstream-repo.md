@@ -14,11 +14,11 @@
 From your target repo root:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
 ```
 
 What happens: clones `sdp_lab` (shallow) to get the canonical manifest and prompts, builds `./.sdp/bin/sdp` unless explicitly allowed to trust a PATH binary, runs `init --harness=auto` through the installer binary,
-detects existing harness dirs (installs all four if none found), writes generated adapters plus `sdp.lock`, verifies the repo-local CLI, and prints the PATH export command.
+detects existing harness dirs (installs all five if none found), writes generated adapters plus `sdp.lock`, verifies the repo-local CLI, and prints the PATH export command.
 
 Override vars: `SDP_HARNESS=claude-code,opencode`, `SDP_TARGET=/path/to/repo`, `SDP_SOURCE_DIR=/path/to/sdp_lab` for local-source testing.
 
@@ -37,7 +37,7 @@ Both `./.sdp/bin/sdp` commands must exit 0. After the `export`, `command -v sdp`
 
 ## 4. First useful commands
 
-Start with read-only repo analysis:
+Start with low-risk repo analysis. `index build` writes a local `.sdp/index.db` cache; the other commands below only inspect the repo unless you pass an output directory.
 
 ```bash
 ./.sdp/bin/sdp scout --format text .
@@ -61,8 +61,9 @@ Preview delivery setup without changing code:
 | OpenCode | `opencode run sdp build` |
 | Codex CLI | `codex skill build` |
 | Cursor | command palette → `build` |
+| Pi | `/build` |
 
-All four invoke the same SDP `build` skill contract.
+All five invoke the same SDP `build` skill contract.
 
 The installer does not configure model keys. Keep credentials in the harness/provider you use.
 
@@ -83,7 +84,7 @@ Do not edit harness adapter files directly — `./.sdp/bin/sdp doctor adapters` 
 Re-run the installer — it pulls latest `sdp_lab` and regenerates adapters:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
 ./.sdp/bin/sdp init --update
 ```
 

@@ -68,7 +68,7 @@ func TestOnboardingDocsPreferRepoLocalCLIUntilPathIsTrusted(t *testing.T) {
 	}
 }
 
-func TestOnboardingDocsUsePublicInstallerSurface(t *testing.T) {
+func TestOnboardingDocsUseSDPLabInstallerSurface(t *testing.T) {
 	for _, path := range []string{
 		"README.md",
 		"docs/QUICKSTART.md",
@@ -77,11 +77,11 @@ func TestOnboardingDocsUsePublicInstallerSurface(t *testing.T) {
 	} {
 		t.Run(path, func(t *testing.T) {
 			doc := readRepoFile(t, path)
-			if !strings.Contains(doc, "raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh") {
-				t.Fatalf("%s should reference the public sdp installer URL", path)
+			if strings.Contains(doc, "raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh") {
+				t.Fatalf("%s should not make sdp_lab onboarding depend on the public sdp mirror", path)
 			}
-			if strings.Contains(doc, "raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh") {
-				t.Fatalf("%s should not send downstream users to the lab installer URL", path)
+			if !strings.Contains(doc, "raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh") {
+				t.Fatalf("%s should reference the sdp_lab installer URL", path)
 			}
 		})
 	}

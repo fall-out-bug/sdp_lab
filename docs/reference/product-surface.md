@@ -221,7 +221,7 @@ Default commands:
 ./.sdp/bin/sdp bootstrap --dry-run --mode brownfield .
 ```
 
-This path is low-risk because it reads the repo and writes only when you explicitly run bootstrap without `--dry-run`.
+This path is low-risk because the analysis commands inspect the repo and `index build` writes only a local `.sdp/index.db` cache. Bootstrap writes project artifacts only when you run it without `--dry-run`.
 
 ### 3. Run Operator Mode (Default Toolkit Happy Path)
 
@@ -264,7 +264,7 @@ The default Homebrew formula installs the `sdp` binary. It does NOT install:
 - experimental binaries (`sdp-harness`, `sdp-a2a`, `sdp-strataudit`, `sdp-mcp`)
 - research/benchmark binaries (`sdp-cascade-replay`, `sdp-confidence-replay`, `sdp-decompose-bench`, `sdp-microfirst-bench`, `sdp-bd-suggest`, `sdp-ft-*`)
 
-Operator tooling binaries (`sdp-orchestrate`, `sdp-guard`, `sdp-ci-loop`, `sdp-evidence`, etc.) are available via an opt-in formula tap (F150-08).
+Operator tooling binaries (`sdp-orchestrate`, `sdp-guard`, `sdp-ci-loop`, `sdp-evidence`, etc.) are included in the release build, but they are not the first-run promise.
 
 Exclusion mechanism: GoReleaser allowlist (`.goreleaser.yml`). Build tags (`sdp_experimental`) for compile isolation. See [maturity-matrix.md](maturity-matrix.md) for the full inventory.
 

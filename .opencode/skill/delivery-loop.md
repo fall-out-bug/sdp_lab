@@ -209,6 +209,16 @@ PHASE 4: CLOSEOUT
   8. Archive: `mv .sdp/checkpoints/${FEATURE}.json .sdp/archive/delivered/${FEATURE}-$(date -u +%Y%m%dT%H%M%SZ).json`
   9. Release lock
 
+  Prompt-injection/review-finding closeout rule:
+    - Close P0/P1 review-finding beads only after the fixing commit is merged,
+      the exact failed vector has a regression test or documented deterministic
+      evidence, and re-review reports no P0/P1.
+    - `sdp-pi-review` provider degradation is not itself a code blocker when
+      deterministic gates are green and quorum or maintainer override is recorded,
+      but it must be mentioned in the compact review verdict.
+    - Do not commit raw `.sdp/runs/pi-review/*` telemetry unless a workstream
+      explicitly requires it.
+
 WHOLE-LOOP BUDGET
   72h hard ceiling (runaway detector only — not a delivery SLO).
   On ceiling: write `phase_status: "exhausted"`, post PR comment summarizing state, exit non-zero.
@@ -232,6 +242,12 @@ Whole-loop wallclock ceiling: 72h. Phase budgets: build=4h, codex=2h.
 **Resolve or explicitly defer P3 with operator signoff.** (Renamed from "Never skip P3".) All findings from @review block the loop inside cycles 1–4. At cycle 5 the operator may defer remaining P3 — but only by manually pasting the `file:line: description` list into a new bead. Plain confirmation prompts are disallowed.
 
 **Never create PR with red tests.** `./scripts/run_go_quality_gates.sh` must be green **locally** before `gh pr create`. Not after.
+
+**Every edit cycle must end in a scoped commit before push.** After @build/@fix
+subagents return, inspect `git status --short`, stage only files owned by the
+current WS/finding/write plan, commit, then push. Never use `git add .`; it can
+capture unrelated user or agent changes. If unrelated dirty files exist, leave
+them unstaged and record them in checkpoint/handoff.
 
 **Codex must run tests.** The codex prompt MUST include "run ./scripts/run_go_quality_gates.sh and report failures". Never send codex a code-only review prompt.
 
