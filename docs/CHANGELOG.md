@@ -1590,3 +1590,23 @@ issues resolved.
 ### Changed Files
 - `AGENTS.md`
 
+## 2026-05-08
+
+### Commits
+- `6cf6008e` fix(onboarding): verify repo-local sdp binary (#152) (2026-05-08)
+
+### Changed Files
+- `.beads/issues.jsonl`
+- `.sdp/review_verdict.json`
+- `README.md`
+- `cmd/sdp/install_onboarding_contract_test.go`
+- `docs/QUICKSTART.md`
+- `docs/reference/product-surface.md`
+- `docs/reviews/2026-05-08-f149-onboarding-pi-review-ledger.md`
+- `docs/runbooks/onboarding-downstream-repo.md`
+- `docs/workstreams/backlog/00-149-01.md`
+- `internal/build/docker_sandbox.go`
+- `internal/build/docker_sandbox_test.go`
+- `internal/build/pipeline_test.go`
+- `scripts/install.sh`
+
