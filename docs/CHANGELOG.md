@@ -1593,6 +1593,23 @@ issues resolved.
 ## 2026-05-08
 
 ### Commits
+- `9bebb192` fix(onboarding): adjudicate pi review findings (2026-05-08)
+
+### Changed Files
+- `.sdp/review_verdict.json`
+- `cmd/sdp/install_onboarding_contract_test.go`
+- `docs/QUICKSTART.md`
+- `docs/reference/2026-02-13-f067-migration-guide.md`
+- `docs/reference/maturity-matrix.md`
+- `docs/reference/project-map.md`
+- `docs/reviews/2026-05-08-f149-onboarding-pi-review-ledger.md`
+- `docs/runbooks/onboarding-downstream-repo.md`
+- `scripts/check-public-metadata.sh`
+- `scripts/check-release-surface.sh`
+
+
+
+### Commits
 - `8c65d744` fix(onboarding): align repo surface promises (2026-05-08)
 
 ### Changed Files
