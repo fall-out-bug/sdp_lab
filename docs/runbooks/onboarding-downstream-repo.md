@@ -14,42 +14,43 @@
 From your target repo root:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
-export PATH="$PWD/.sdp/bin:$PATH"
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
 ```
 
-What happens: clones `sdp_lab` (shallow) to get the canonical manifest and prompts, uses a compatible `sdp` from `PATH` or builds `./.sdp/bin/sdp`, runs `sdp init --harness=auto`,
-detects existing harness dirs (installs all four if none found), writes generated adapters plus `sdp.lock`, and prints the PATH export command.
+What happens: clones `sdp_lab` (shallow) to get the canonical manifest and prompts, builds `./.sdp/bin/sdp` unless explicitly allowed to trust a PATH binary, runs `init --harness=auto` through the installer binary,
+detects existing harness dirs (installs all four if none found), writes generated adapters plus `sdp.lock`, verifies the repo-local CLI, and prints the PATH export command.
 
 Override vars: `SDP_HARNESS=claude-code,opencode`, `SDP_TARGET=/path/to/repo`, `SDP_SOURCE_DIR=/path/to/sdp_lab` for local-source testing.
 
 ## 3. Verify install
 
 ```bash
-sdp manifest validate     # manifest well-formed
-sdp doctor adapters       # no drift
-test -x .sdp/bin/sdp      # repo-local CLI exists
+./.sdp/bin/sdp manifest validate     # manifest well-formed
+./.sdp/bin/sdp doctor adapters       # no drift
+test -x .sdp/bin/sdp                # repo-local CLI exists
 ls .claude/ .opencode/ .codex/ .cursor/   # dirs present
+export PATH="$PWD/.sdp/bin:$PATH"
+command -v sdp
 ```
 
-Both commands must exit 0.
+Both `./.sdp/bin/sdp` commands must exit 0. After the `export`, `command -v sdp` must point at this repo's `.sdp/bin/sdp`.
 
 ## 4. First useful commands
 
 Start with read-only repo analysis:
 
 ```bash
-sdp scout --format text .
-sdp metrics --format markdown .
-sdp index build --format text .
-sdp spec --format text .
+./.sdp/bin/sdp scout --format text .
+./.sdp/bin/sdp metrics --format markdown .
+./.sdp/bin/sdp index build --format text .
+./.sdp/bin/sdp spec --format text .
 ```
 
 Preview delivery setup without changing code:
 
 ```bash
-sdp build "Add a small feature with tests" --dry-run --format text
-sdp bootstrap --dry-run --mode brownfield .
+./.sdp/bin/sdp build "Add a small feature with tests" --dry-run --format text
+./.sdp/bin/sdp bootstrap --dry-run --mode brownfield .
 ```
 
 ## 5. First harness command
@@ -69,23 +70,24 @@ The installer does not configure model keys. Keep credentials in the harness/pro
 
 ```bash
 $EDITOR sdp.manifest.yaml          # edit inventory
-sdp generate-adapters --write      # regenerate adapter files
-sdp doctor adapters                # verify no drift
+./.sdp/bin/sdp generate-adapters --write      # regenerate adapter files
+./.sdp/bin/sdp doctor adapters                # verify no drift
 git add sdp.manifest.yaml .claude/ .opencode/ .codex/ .cursor/
 git commit -m "chore: update SDP adapters"
 ```
 
-Do not edit harness adapter files directly — `sdp doctor` flags drift.
+Do not edit harness adapter files directly — `./.sdp/bin/sdp doctor adapters` flags drift.
 
 ## 7. Update SDP
 
 Re-run the installer — it pulls latest `sdp_lab` and regenerates adapters:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
+./.sdp/bin/sdp init --update
 ```
 
-Or if `sdp` is on PATH: `sdp init --update` (keeps existing manifest, regenerates adapters).
+Or if `command -v sdp` points at this repo's `.sdp/bin/sdp`: `sdp init --update` (keeps existing manifest, regenerates adapters).
 
 Commit `sdp.lock` to pin the version for your team.
 
@@ -93,11 +95,12 @@ Commit `sdp.lock` to pin the version for your team.
 
 | Symptom | Fix |
 |---|---|
-| `sdp doctor`: adapter diverges from manifest | `sdp generate-adapters --write` then commit |
+| `sdp doctor`: adapter diverges from manifest | `./.sdp/bin/sdp generate-adapters --write` then commit |
 | `sdp doctor`: orphan file not in manifest | Add entry to `sdp.manifest.yaml` or delete orphan |
-| No harness dirs after install | `sdp init --harness=claude-code` (explicit) |
+| No harness dirs after install | `./.sdp/bin/sdp init --harness=claude-code` (explicit) |
 | `sdp` binary not on PATH after install | `export PATH="$PWD/.sdp/bin:$PATH"` from the target repo root |
-| Installer finds an old `sdp` binary | Re-run the installer; it validates `init --harness` and falls back to the branch build when the PATH binary is stale |
+| `sdp manifest` or `sdp scout` says no such command | You are running an older global `sdp`; use `./.sdp/bin/sdp ...` or check `command -v sdp` after the PATH export |
+| Installer finds an old `sdp` binary | Re-run the installer; it ignores PATH binaries by default and falls back to the branch build unless `SDP_TRUST_PATH_SDP=1` |
 | `warning: manifest load failed` | Install used empty template; add entries to `sdp.manifest.yaml` |
 
 ---

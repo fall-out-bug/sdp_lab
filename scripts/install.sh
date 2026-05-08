@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # F141-03: one-shot SDP installer for downstream repos.
-# Usage: curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
 #
 # Environment overrides:
 #   SDP_REPO    GitHub repo slug (default: fall-out-bug/sdp_lab)
@@ -39,6 +39,8 @@ esac
 echo "→ platform: $OS/$ARCH"
 
 supports_current_init() {
+  # This is only the opt-in PATH reuse precheck. It must stay non-mutating;
+  # the installer validates the copied repo-local binary functionally below.
   "$1" init --help 2>&1 | grep -q -- "--harness"
 }
 
@@ -144,6 +146,31 @@ if [[ "$SDP_BIN" != "$LOCAL_SDP" ]]; then
   chmod 755 "$LOCAL_SDP"
 fi
 
+echo "→ verifying repo-local sdp"
+if ! "$LOCAL_SDP" manifest validate --help >/dev/null 2>&1; then
+  echo "error: repo-local sdp does not expose 'manifest validate': $LOCAL_SDP" >&2
+  exit 1
+fi
+if ! "$LOCAL_SDP" scout --help >/dev/null 2>&1; then
+  echo "error: repo-local sdp does not expose 'scout': $LOCAL_SDP" >&2
+  exit 1
+fi
+if ! "$LOCAL_SDP" manifest validate --manifest "$TARGET_ABS/sdp.manifest.yaml" --repo-root "$TARGET_ABS" >/dev/null; then
+  echo "error: repo-local manifest validation failed: $LOCAL_SDP" >&2
+  exit 1
+fi
+if ! "$LOCAL_SDP" doctor adapters --manifest "$TARGET_ABS/sdp.manifest.yaml" --out "$TARGET_ABS/.sdp/generated" >/dev/null; then
+  echo "error: repo-local adapter verification failed: $LOCAL_SDP" >&2
+  exit 1
+fi
+
 echo "✓ SDP installed in $TARGET_ABS"
 echo "✓ repo-local binary: $LOCAL_SDP"
+echo "✓ repo-local CLI verified: $LOCAL_SDP"
+if command -v sdp >/dev/null 2>&1; then
+  ACTIVE_SDP="$(command -v sdp)"
+  if [[ "$ACTIVE_SDP" != "$LOCAL_SDP" ]]; then
+    echo "→ current shell resolves 'sdp' to: $ACTIVE_SDP"
+  fi
+fi
 echo "→ for this shell: export PATH=\"$BIN_DIR:\$PATH\""

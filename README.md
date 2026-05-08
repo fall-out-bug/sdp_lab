@@ -87,17 +87,15 @@ Run in the root of your downstream repo (requires `git` and `go`):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
-export PATH="$PWD/.sdp/bin:$PATH"
 ```
 
 Local-source install while working inside this repo:
 
 ```bash
 SDP_SOURCE_DIR="$PWD" SDP_TARGET=/path/to/myrepo bash scripts/install.sh
-export PATH="/path/to/myrepo/.sdp/bin:$PATH"
 ```
 
-The installer clones `sdp_lab` to bring in the canonical manifest and prompts, uses a compatible `sdp` from `PATH` or builds a repo-local `./.sdp/bin/sdp`, runs `sdp init --harness=auto`, and writes `sdp.lock`. No manual file copying.
+The installer clones `sdp_lab` to bring in the canonical manifest and prompts, builds a repo-local `./.sdp/bin/sdp` unless you explicitly allow PATH reuse, runs `init --harness=auto` through the installer binary, verifies the repo-local CLI, and writes `sdp.lock`. No manual file copying.
 
 ### What you get
 
@@ -119,10 +117,10 @@ All 25 commands and 30 skills are declared in `sdp.manifest.yaml` as the single 
 Install only the harnesses you use:
 
 ```bash
-sdp init --harness=claude-code,opencode
-sdp init --harness=auto           # detect by existing dirs
-sdp init --harness=all            # all five harnesses
-sdp init --harness=auto --target=/path/to/myrepo
+./.sdp/bin/sdp init --harness=claude-code,opencode
+./.sdp/bin/sdp init --harness=auto           # detect by existing dirs
+./.sdp/bin/sdp init --harness=all            # all five harnesses
+./.sdp/bin/sdp init --harness=auto --target=/path/to/myrepo
 ```
 
 `--harness=auto` installs all harnesses if no harness dirs exist yet.
@@ -131,16 +129,20 @@ sdp init --harness=auto --target=/path/to/myrepo
 
 ```bash
 # Validate manifest is well-formed
-sdp manifest validate
+./.sdp/bin/sdp manifest validate
 
 # Re-generate adapter files from manifest
-sdp generate-adapters --write
+./.sdp/bin/sdp generate-adapters --write
 
 # Check for drift (adapter files out of sync with manifest)
-sdp doctor adapters
+./.sdp/bin/sdp doctor adapters
+
+# Optional shell convenience after local verification
+export PATH="$PWD/.sdp/bin:$PATH"
+command -v sdp
 ```
 
-`sdp.lock` pins the SDP version used at install time. `sdp doctor adapters` fails if installed adapters diverge from the manifest — safe to run in CI or as a pre-commit hook.
+`sdp.lock` pins the SDP version used at install time. `./.sdp/bin/sdp doctor adapters` fails if installed adapters diverge from the manifest — safe to run in CI or as a pre-commit hook. If `sdp manifest` or `sdp scout` says the command is missing, the shell is using an older global `sdp`; run `./.sdp/bin/sdp ...` or fix `PATH`.
 
 ### Customize without forking
 
@@ -149,7 +151,7 @@ The canonical inventory is `sdp.manifest.yaml`. Generated adapter files land in 
 **Do not edit harness adapter files directly** — `sdp doctor` will flag the drift. Instead:
 
 1. Edit `sdp.manifest.yaml` (and/or templates in `internal/adapters/templates/<harness>/`)
-2. Run `sdp generate-adapters --write`
+2. Run `./.sdp/bin/sdp generate-adapters --write`
 3. Commit both the manifest change and the regenerated adapters
 
 Overlay system (per-repo customization without touching the manifest) is planned for F142+. For now, the workflow is: edit manifest → regenerate → commit.
@@ -162,7 +164,7 @@ Onboarding runbook: [`docs/runbooks/onboarding-downstream-repo.md`](docs/runbook
 **SDP Toolkit (installable product):**
 
 - multi-harness install from `sdp.manifest.yaml`
-- `sdp scout`, `sdp metrics`, `sdp index`, `sdp spec`, `sdp bootstrap`
+- `scout`, `metrics`, `index`, `spec`, `bootstrap`
 
 **Operator Mode (default Toolkit happy path):**
 
@@ -173,7 +175,7 @@ Onboarding runbook: [`docs/runbooks/onboarding-downstream-repo.md`](docs/runbook
 **Operator tooling (available in formula tap):**
 
 - `sdp-orchestrate`, `sdp-ci-loop`, `sdp-guard`, `sdp-doc-sync`, `sdp-ready`
-- `sdp manifest validate`, `sdp manifest parity`, `sdp generate-adapters`, `sdp doctor adapters`
+- `manifest validate`, `manifest parity`, `generate-adapters`, `doctor adapters`
 
 **Lab / research (not in formula):**
 

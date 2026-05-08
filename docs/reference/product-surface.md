@@ -175,7 +175,7 @@ SDP is not a good first choice for:
 These are useful building blocks, but they are not the first thing to sell or demo:
 
 - `sdp-orchestrate`, `sdp-ci-loop`, `sdp-guard`, `sdp-doc-sync`, `sdp-ready`
-- `sdp manifest validate`, `sdp manifest parity`, `sdp generate-adapters`, `sdp doctor adapters`
+- `manifest validate`, `manifest parity`, `generate-adapters`, `doctor adapters`
 - K8s/deploy scripts and legacy swarm paths
 - internal design docs under `docs/plans/` and `docs/archive/`
 
@@ -214,11 +214,11 @@ Use this when the immediate job is understanding or preparing a brownfield repo.
 Default commands:
 
 ```bash
-sdp scout --format text .
-sdp metrics --format markdown .
-sdp index build --format text .
-sdp spec --format text .
-sdp bootstrap --dry-run --mode brownfield .
+./.sdp/bin/sdp scout --format text .
+./.sdp/bin/sdp metrics --format markdown .
+./.sdp/bin/sdp index build --format text .
+./.sdp/bin/sdp spec --format text .
+./.sdp/bin/sdp bootstrap --dry-run --mode brownfield .
 ```
 
 This path is low-risk because it reads the repo and writes only when you explicitly run bootstrap without `--dry-run`.
