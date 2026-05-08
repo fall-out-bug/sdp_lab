@@ -144,6 +144,32 @@ if [[ "$SDP_BIN" != "$LOCAL_SDP" ]]; then
   chmod 755 "$LOCAL_SDP"
 fi
 
+echo "→ verifying repo-local sdp"
+VERIFY_HELP="$("$LOCAL_SDP" --help 2>&1)"
+case "$VERIFY_HELP" in
+  *"sdp manifest validate"*) ;;
+  *)
+    echo "error: repo-local sdp does not expose 'manifest validate': $LOCAL_SDP" >&2
+    exit 1
+    ;;
+esac
+case "$VERIFY_HELP" in
+  *"sdp scout "*) ;;
+  *)
+    echo "error: repo-local sdp does not expose 'scout': $LOCAL_SDP" >&2
+    exit 1
+    ;;
+esac
+"$LOCAL_SDP" manifest validate --manifest "$TARGET_ABS/sdp.manifest.yaml" --repo-root "$TARGET_ABS" >/dev/null
+"$LOCAL_SDP" doctor adapters --manifest "$TARGET_ABS/sdp.manifest.yaml" --out "$TARGET_ABS/.sdp/generated" >/dev/null
+
 echo "✓ SDP installed in $TARGET_ABS"
 echo "✓ repo-local binary: $LOCAL_SDP"
+echo "✓ repo-local CLI verified: $LOCAL_SDP"
+if command -v sdp >/dev/null 2>&1; then
+  ACTIVE_SDP="$(command -v sdp)"
+  if [[ "$ACTIVE_SDP" != "$LOCAL_SDP" ]]; then
+    echo "→ current shell resolves 'sdp' to: $ACTIVE_SDP"
+  fi
+fi
 echo "→ for this shell: export PATH=\"$BIN_DIR:\$PATH\""

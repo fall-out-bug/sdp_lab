@@ -86,18 +86,16 @@ go build -tags "sqlite_fts5" ./...
 Run in the root of your downstream repo (requires `git` and `go`):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
-export PATH="$PWD/.sdp/bin:$PATH"
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
 ```
 
 Local-source install while working inside this repo:
 
 ```bash
 SDP_SOURCE_DIR="$PWD" SDP_TARGET=/path/to/myrepo bash scripts/install.sh
-export PATH="/path/to/myrepo/.sdp/bin:$PATH"
 ```
 
-The installer clones `sdp_lab` to bring in the canonical manifest and prompts, uses a compatible `sdp` from `PATH` or builds a repo-local `./.sdp/bin/sdp`, runs `sdp init --harness=auto`, and writes `sdp.lock`. No manual file copying.
+The installer clones `sdp_lab` to bring in the canonical manifest and prompts, builds a repo-local `./.sdp/bin/sdp` unless you explicitly allow PATH reuse, runs `sdp init --harness=auto`, verifies the repo-local CLI, and writes `sdp.lock`. No manual file copying.
 
 ### What you get
 
@@ -131,16 +129,20 @@ sdp init --harness=auto --target=/path/to/myrepo
 
 ```bash
 # Validate manifest is well-formed
-sdp manifest validate
+./.sdp/bin/sdp manifest validate
 
 # Re-generate adapter files from manifest
-sdp generate-adapters --write
+./.sdp/bin/sdp generate-adapters --write
 
 # Check for drift (adapter files out of sync with manifest)
-sdp doctor adapters
+./.sdp/bin/sdp doctor adapters
+
+# Optional shell convenience after local verification
+export PATH="$PWD/.sdp/bin:$PATH"
+command -v sdp
 ```
 
-`sdp.lock` pins the SDP version used at install time. `sdp doctor adapters` fails if installed adapters diverge from the manifest — safe to run in CI or as a pre-commit hook.
+`sdp.lock` pins the SDP version used at install time. `sdp doctor adapters` fails if installed adapters diverge from the manifest — safe to run in CI or as a pre-commit hook. If `sdp manifest` or `sdp scout` says the command is missing, the shell is using an older global `sdp`; run `./.sdp/bin/sdp ...` or fix `PATH`.
 
 ### Customize without forking
 
@@ -149,7 +151,7 @@ The canonical inventory is `sdp.manifest.yaml`. Generated adapter files land in 
 **Do not edit harness adapter files directly** — `sdp doctor` will flag the drift. Instead:
 
 1. Edit `sdp.manifest.yaml` (and/or templates in `internal/adapters/templates/<harness>/`)
-2. Run `sdp generate-adapters --write`
+2. Run `./.sdp/bin/sdp generate-adapters --write`
 3. Commit both the manifest change and the regenerated adapters
 
 Overlay system (per-repo customization without touching the manifest) is planned for F142+. For now, the workflow is: edit manifest → regenerate → commit.

@@ -13,8 +13,8 @@ import (
 
 func TestNewDefaultPipeline(t *testing.T) {
 	cfg := BuildConfig{
-		Idea:    "add auth middleware",
-		Sandbox: "none",
+		Idea:     "add auth middleware",
+		Sandbox:  "none",
 		RepoPath: t.TempDir(),
 	}
 
@@ -47,15 +47,15 @@ func TestNewDefaultPipeline_InvalidSandbox(t *testing.T) {
 
 func TestNewDefaultPipeline_Docker(t *testing.T) {
 	cfg := BuildConfig{
-		Idea:    "test",
-		Sandbox: "docker",
+		Idea:     "test",
+		Sandbox:  "docker",
 		RepoPath: t.TempDir(),
 	}
 
 	p, err := NewDefaultPipeline(cfg)
 	if err != nil {
 		// Docker not available on this system — that is acceptable.
-		if strings.Contains(err.Error(), "command not found") {
+		if dockerUnavailableError(err) {
 			t.Skipf("docker not available: %v", err)
 		}
 		t.Fatalf("NewDefaultPipeline: %v", err)
@@ -79,9 +79,9 @@ func TestNewDefaultPipeline_TestcontainersStub(t *testing.T) {
 
 func TestDryRun(t *testing.T) {
 	cfg := BuildConfig{
-		Idea:    "refactor auth module",
-		Sandbox: "none",
-		RunID:   "test-dry-run",
+		Idea:     "refactor auth module",
+		Sandbox:  "none",
+		RunID:    "test-dry-run",
 		RepoPath: t.TempDir(),
 	}
 
@@ -118,11 +118,11 @@ func TestRun_DispatchesAndCollects(t *testing.T) {
 	writeGoFile(t, dir)
 
 	cfg := BuildConfig{
-		Idea:     "add a simple feature",
-		Sandbox:  "none",
-		RunID:    "test-run-001",
+		Idea:      "add a simple feature",
+		Sandbox:   "none",
+		RunID:     "test-run-001",
 		OutputDir: filepath.Join(dir, ".sdp", "evidence", "test-run-001"),
-		RepoPath: dir,
+		RepoPath:  dir,
 	}
 
 	p, err := NewDefaultPipeline(cfg)
@@ -273,10 +273,10 @@ func TestBuildResult_EndedAtAfterStartedAt(t *testing.T) {
 	writeGoFile(t, dir)
 
 	cfg := BuildConfig{
-		Idea:     "test timing",
-		Sandbox:  "none",
-		RunID:    "test-timing",
-		RepoPath: dir,
+		Idea:      "test timing",
+		Sandbox:   "none",
+		RunID:     "test-timing",
+		RepoPath:  dir,
 		OutputDir: filepath.Join(dir, ".sdp", "evidence", "test-timing"),
 	}
 
@@ -529,7 +529,7 @@ func TestNewSandbox(t *testing.T) {
 		s, err := NewSandbox("docker", false)
 		if err != nil {
 			// Docker not available — expected on some systems.
-			if !strings.Contains(err.Error(), "command not found") {
+			if !dockerUnavailableError(err) {
 				t.Errorf("unexpected error: %v", err)
 			}
 			return
@@ -538,6 +538,11 @@ func TestNewSandbox(t *testing.T) {
 			t.Errorf("type = %q, want %q", got, "*build.DockerSandbox")
 		}
 	})
+}
+
+func dockerUnavailableError(err error) bool {
+	msg := err.Error()
+	return strings.Contains(msg, "command not found") || strings.Contains(msg, "daemon unavailable")
 }
 
 func TestRun_ContextCancellation(t *testing.T) {

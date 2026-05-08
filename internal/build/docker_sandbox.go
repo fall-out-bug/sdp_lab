@@ -36,10 +36,13 @@ type DockerSandboxConfig struct {
 }
 
 // NewDockerSandbox creates a DockerSandbox with the given configuration.
-// Returns an error if the docker binary is not found on PATH.
+// Returns an error if the docker binary or daemon is unavailable.
 func NewDockerSandbox(cfg DockerSandboxConfig) (*DockerSandbox, error) {
 	if _, err := exec.LookPath("docker"); err != nil {
 		return nil, fmt.Errorf("docker: command not found (install Docker or use --sandbox=none)")
+	}
+	if !dockerAvailable() {
+		return nil, fmt.Errorf("docker: daemon unavailable (start Docker or use --sandbox=none)")
 	}
 
 	image := cfg.Image

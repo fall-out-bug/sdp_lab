@@ -23,6 +23,9 @@ func skipIfNoDocker(t *testing.T) {
 	if _, err := exec.LookPath("docker"); err != nil {
 		t.Skip("docker not available")
 	}
+	if !dockerAvailable() {
+		t.Skip("docker daemon not available")
+	}
 }
 
 func TestDockerSandbox_Available(t *testing.T) {
@@ -93,13 +96,7 @@ func TestDockerSandbox_DefaultImage(t *testing.T) {
 
 func TestDockerSandbox_NotAvailable(t *testing.T) {
 	// This test verifies the error message when docker is not on PATH.
-	// We temporarily modify PATH to simulate docker being unavailable.
-	if dockerAvailable() {
-		// Cannot easily test this when docker IS available without modifying
-		// global state, so we just verify the factory function handles the case.
-		t.Log("docker is available; skipping not-available simulation")
-		return
-	}
+	t.Setenv("PATH", t.TempDir())
 
 	_, err := NewDockerSandbox(DockerSandboxConfig{})
 	if err == nil {
@@ -204,8 +201,8 @@ func TestDockerSandbox_ResourceLimits(t *testing.T) {
 
 	cfg := DockerSandboxConfig{
 		Image:        "golang:1.22",
-		CPUQuota:     50000,  // 50ms CPU quota per 100ms period.
-		MemoryMB:     256,    // 256 MB memory limit.
+		CPUQuota:     50000, // 50ms CPU quota per 100ms period.
+		MemoryMB:     256,   // 256 MB memory limit.
 		AllowNetwork: false,
 		CGO:          false,
 	}

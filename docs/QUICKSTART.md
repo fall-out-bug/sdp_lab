@@ -33,25 +33,24 @@ The `sdp_lab` repo is the research workspace where SDP is built. You do not need
 Run this from the root of the repo where you want SDP installed:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
-export PATH="$PWD/.sdp/bin:$PATH"
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
 ```
 
 The installer:
 
 1. clones the `sdp_lab` source repo to get the canonical manifest and prompts
-2. uses `sdp` from `PATH` only if it supports the current `init --harness` contract
-3. otherwise builds `cmd/sdp` with the `sqlite_fts5` tag
-4. runs `sdp init --harness auto`
+2. ignores any existing `sdp` on `PATH` unless `SDP_TRUST_PATH_SDP=1`
+3. builds `cmd/sdp` with the `sqlite_fts5` tag
+4. runs `sdp init --harness auto` through the chosen installer binary
 5. writes `sdp.manifest.yaml`, `prompts/`, generated harness adapter dirs, `.sdp/generated/`, and `sdp.lock`
-6. leaves a repo-local binary at `./.sdp/bin/sdp`
+6. verifies the repo-local CLI and leaves it at `./.sdp/bin/sdp`
 
 Environment overrides:
 
 ```bash
 SDP_HARNESS=claude-code,opencode \
 SDP_TARGET=/path/to/repo \
-curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/install.sh | bash
 export PATH="/path/to/repo/.sdp/bin:$PATH"
 ```
 
@@ -59,7 +58,6 @@ If you are already inside this repo and want the local binary:
 
 ```bash
 SDP_SOURCE_DIR="$PWD" SDP_TARGET=/path/to/your/repo bash scripts/install.sh
-export PATH="/path/to/your/repo/.sdp/bin:$PATH"
 ```
 
 ## Verify
@@ -67,8 +65,10 @@ export PATH="/path/to/your/repo/.sdp/bin:$PATH"
 From the target repo:
 
 ```bash
-sdp manifest validate
-sdp doctor adapters
+./.sdp/bin/sdp manifest validate
+./.sdp/bin/sdp doctor adapters
+export PATH="$PWD/.sdp/bin:$PATH"
+command -v sdp
 ```
 
 Expected result:
@@ -79,28 +79,31 @@ Expected result:
 - `sdp.lock` exists
 - `.sdp/bin/sdp` exists
 - one or more harness dirs exist: `.claude/`, `.opencode/`, `.codex/`, `.cursor/`, `.pi/`
+- after the `export`, `command -v sdp` points at the target repo's `.sdp/bin/sdp`
+
+If `sdp manifest validate` or `sdp scout` says the command is missing, you are running an older global `sdp`. Use `./.sdp/bin/sdp ...` or move `$PWD/.sdp/bin` before the global binary in `PATH`.
 
 ## First Useful Run
 
 Run read-only toolkit commands first. They show SDP's value without changing your repo:
 
 ```bash
-sdp scout --format text .
-sdp metrics --format markdown .
-sdp index build --format text .
-sdp spec --format text .
+./.sdp/bin/sdp scout --format text .
+./.sdp/bin/sdp metrics --format markdown .
+./.sdp/bin/sdp index build --format text .
+./.sdp/bin/sdp spec --format text .
 ```
 
 Then preview the delivery-planning surface:
 
 ```bash
-sdp build "Add a small feature with tests" --dry-run --format text
+./.sdp/bin/sdp build "Add a small feature with tests" --dry-run --format text
 ```
 
 For brownfield agent setup, preview generated artifacts before writing:
 
 ```bash
-sdp bootstrap --dry-run --mode brownfield .
+./.sdp/bin/sdp bootstrap --dry-run --mode brownfield .
 ```
 
 ## Choose A Path
