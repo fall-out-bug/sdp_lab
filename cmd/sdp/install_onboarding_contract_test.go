@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -10,7 +11,7 @@ import (
 
 func TestInstallerVerifiesRepoLocalCLI(t *testing.T) {
 	script := readRepoFile(t, "scripts/install.sh")
-	for _, want := range []string{
+	for i, want := range []string{
 		`"$LOCAL_SDP" manifest validate --help`,
 		`"$LOCAL_SDP" scout --help`,
 		`"$LOCAL_SDP" manifest validate --manifest "$TARGET_ABS/sdp.manifest.yaml" --repo-root "$TARGET_ABS"`,
@@ -18,7 +19,7 @@ func TestInstallerVerifiesRepoLocalCLI(t *testing.T) {
 		"repo-local CLI verified",
 		"current shell resolves 'sdp' to:",
 	} {
-		t.Run(want, func(t *testing.T) {
+		t.Run(fmt.Sprintf("installer-check-%02d", i+1), func(t *testing.T) {
 			if !strings.Contains(script, want) {
 				t.Fatalf("installer should contain %q", want)
 			}
@@ -33,12 +34,12 @@ func TestOnboardingDocsPreferRepoLocalCLIUntilPathIsTrusted(t *testing.T) {
 		"docs/runbooks/onboarding-downstream-repo.md",
 	} {
 		doc := readRepoFile(t, path)
-		for _, want := range []string{
+		for i, want := range []string{
 			"./.sdp/bin/sdp manifest validate",
 			"./.sdp/bin/sdp doctor adapters",
 			"command -v sdp",
 		} {
-			t.Run(path+" "+want, func(t *testing.T) {
+			t.Run(fmt.Sprintf("%s/local-cli-%02d", path, i+1), func(t *testing.T) {
 				if !strings.Contains(doc, want) {
 					t.Fatalf("%s should contain %q", path, want)
 				}
@@ -52,13 +53,13 @@ func TestOnboardingDocsPreferRepoLocalCLIUntilPathIsTrusted(t *testing.T) {
 		"docs/reference/product-surface.md",
 	} {
 		doc := readRepoFile(t, path)
-		for _, want := range []string{
+		for i, want := range []string{
 			"./.sdp/bin/sdp scout --format text .",
 			"./.sdp/bin/sdp metrics --format markdown .",
 			"./.sdp/bin/sdp index build --format text .",
 			"./.sdp/bin/sdp spec --format text .",
 		} {
-			t.Run(path+" "+want, func(t *testing.T) {
+			t.Run(fmt.Sprintf("%s/toolbox-%02d", path, i+1), func(t *testing.T) {
 				if !strings.Contains(doc, want) {
 					t.Fatalf("%s should contain %q", path, want)
 				}

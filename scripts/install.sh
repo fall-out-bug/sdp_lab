@@ -39,6 +39,8 @@ esac
 echo "→ platform: $OS/$ARCH"
 
 supports_current_init() {
+  # This is only the opt-in PATH reuse precheck. It must stay non-mutating;
+  # the installer validates the copied repo-local binary functionally below.
   "$1" init --help 2>&1 | grep -q -- "--harness"
 }
 

@@ -3,7 +3,7 @@
 Date: 2026-05-08
 PR: https://github.com/fall-out-bug/sdp_lab/pull/152
 Primary issue: `sdplab-wwkn`
-Pi review finding issue: `sdplab-i21n`
+Pi review finding issues: `sdplab-i21n`, `sdplab-m034`
 
 Raw `.sdp/runs/pi-review/*` telemetry was inspected locally and is not committed.
 
@@ -14,3 +14,6 @@ Raw `.sdp/runs/pi-review/*` telemetry was inspected locally and is not committed
 | R3 | P2 | installer | kimi | Installer capability checks depended on root help-text substrings. | accepted_fixed | `scripts/install.sh` now probes `manifest validate --help` and `scout --help`, then runs functional `manifest validate` and `doctor adapters` checks with explicit failure messages. |
 | R4 | P3 | tests | zai | Contract tests stopped at the first missing string. | accepted_fixed | `cmd/sdp/install_onboarding_contract_test.go` now uses subtests for each checked path or string. |
 | R5 | P3 | tests | zai | Docker tests used mixed Docker availability guards. | accepted_fixed | Docker sandbox tests now consistently call `skipIfNoDocker(t)` for Docker-dependent cases. |
+| R6 | P0 | public surface | minimax | Public `fall-out-bug/sdp` installer can drift from this repo-local installer after the PR merges. | unresolved_blocker | Current public raw URL returns an older release installer, while `scripts/sdp-publish.sh --dry-run` includes `scripts/install.sh`. This branch is not buyer-safe until the PR lands and the publish workflow updates `fall-out-bug/sdp`. |
+| R7 | P2 | installer | zai | `supports_current_init` still uses a help-text grep for opt-in PATH reuse. | accepted_narrower | The precheck is intentionally non-mutating because functional `sdp init` would write target files. `scripts/install.sh` now documents that trade-off inline; functional verification remains on the repo-local binary after install. |
+| R8 | P2 | tests | zai | Contract test subtest names used long checked strings. | accepted_fixed | `cmd/sdp/install_onboarding_contract_test.go` now uses stable short subtest names and keeps the checked string in the failure message. |

@@ -1,33 +1,87 @@
 {
-  "feature": "F165",
-  "verdict": "APPROVED",
-  "round": 4,
-  "timestamp": "2026-05-03T21:00:00Z",
+  "feature": "F149",
+  "verdict": "CHANGES_REQUESTED",
+  "round": 2,
+  "timestamp": "2026-05-08T12:24:46Z",
+  "reviewer_runtime": "pi",
   "reviewers": {
-    "glm": {
-      "verdict": "PASS",
-      "findings": [],
-      "notes": "Round 4 completed via zai/glm-5.1 with no P0/P1 findings."
+    "qa": {
+      "verdict": "FAIL",
+      "findings": [
+        "sdplab-m034"
+      ],
+      "notes": "Public installer URL currently serves an older fall-out-bug/sdp script. This branch is not buyer-safe until the sdp_lab PR lands and scripts/sdp-publish.sh updates fall-out-bug/sdp."
     },
-    "kimi": {
-      "verdict": "DEGRADED",
-      "findings": [],
-      "notes": "Round 4 kimi-coding/k2p6 timed out; quorum was satisfied by GLM and MiniMax."
-    },
-    "minimax": {
+    "security": {
       "verdict": "PASS",
-      "findings": [],
-      "notes": "Round 4 completed via minimax/MiniMax-M2.7 with no P0/P1 findings."
+      "findings": []
     },
-    "codex": {
+    "devops": {
       "verdict": "PASS",
-      "findings": [],
-      "notes": "Maintainer review verified the round-2 P1 findings were fixed and deterministic gates pass."
+      "findings": []
+    },
+    "sre": {
+      "verdict": "PASS",
+      "findings": []
+    },
+    "techlead": {
+      "verdict": "PASS",
+      "findings": []
+    },
+    "docs": {
+      "verdict": "PASS",
+      "findings": []
+    },
+    "promptops": {
+      "verdict": "PASS",
+      "findings": []
     }
   },
-  "p0_count": 0,
+  "p0_count": 1,
   "p1_count": 0,
-  "finding_ids": [],
-  "blocking_ids": [],
-  "summary": "APPROVED: PI review round 4 reached quorum 2/3 with GLM and MiniMax, zero P0/P1 findings. Round-2 P1 findings were fixed in core tests, vector demo tests, closed-set constants, and ws-verdict evidence paths. Remaining model notes are advisory P2/P3 and do not block merge."
+  "finding_ids": [
+    "sdplab-i21n",
+    "sdplab-m034"
+  ],
+  "blocking_ids": [
+    "sdplab-m034"
+  ],
+  "summary": "CHANGES_REQUESTED: code/docs/test cleanup is done, but public installer mirror drift remains unresolved until post-merge publish to fall-out-bug/sdp.",
+  "model_panel": [
+    {
+      "slot": "zai",
+      "provider": "zai",
+      "model": "glm-5.1",
+      "role": "reviewer",
+      "status": "ok"
+    },
+    {
+      "slot": "kimi",
+      "provider": "kimi-coding",
+      "model": "k2p6",
+      "role": "reviewer",
+      "status": "failed"
+    },
+    {
+      "slot": "minimax",
+      "provider": "minimax",
+      "model": "MiniMax-M2.7",
+      "role": "reviewer",
+      "status": "ok"
+    }
+  ],
+  "findings_detail": [
+    {
+      "priority": "P0",
+      "title": "Public installer mirror drift blocks buyer-safe onboarding",
+      "file": "scripts/install.sh",
+      "start_line": 3,
+      "end_line": 11,
+      "reviewer": "minimax",
+      "rationale": "The branch intentionally points downstream users at https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh, but that public URL currently serves an older release installer. The source branch installer must be published to fall-out-bug/sdp after this PR merges.",
+      "suggested_fix": "After merging PR #152 to sdp_lab main, run scripts/sdp-publish.sh and verify the public raw installer matches the repo-local onboarding installer.",
+      "dedupe_key": "P0:scripts/install.sh:public installer mirror drift blocks buyer-safe onboarding",
+      "bead_id": "sdplab-m034"
+    }
+  ]
 }
