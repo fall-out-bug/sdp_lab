@@ -9,7 +9,7 @@
 #   1. Template URLs with unreplaced placeholders (OWNER/REPO, YOUR_ORG)
 #   2. Invalid/malformed GitHub URLs
 #   3. Legacy release download URL patterns (public sdp repo in sdp_lab install/release URLs)
-#   4. Homepage/repository URL consistency
+#   4. Installer raw URL consistency
 #
 # Usage:
 #   scripts/check-public-metadata.sh              # human-readable output
@@ -94,24 +94,15 @@ check_malformed_urls() {
   done
 }
 
-# --- Check 4: Homepage/repository URL consistency ---
+# --- Check 4: Installer raw URL consistency ---
 check_url_consistency() {
-  local manifest="sdp.manifest.yaml"
-  [ -f "$manifest" ] || return
-
-  # Extract canonical URLs from manifest if they exist
-  local manifest_urls
-  manifest_urls=$(grep -E 'homepage|repository|download' "$manifest" 2>/dev/null || true)
-
-  # For now, check that README references the correct repos
   for f in "${USER_FACING_FILES[@]}"; do
     [ -f "$f" ] || continue
-    # Check for raw.githubusercontent.com URLs pointing to wrong repo
     while IFS= read -r match; do
       [ -z "$match" ] && continue
       local lineno="${match%%:*}"
-      FINDINGS+=("url-drift:$f:$lineno:raw content URL may point to wrong repo")
-    done < <(grep -n 'raw\.githubusercontent\.com/fall-out-bug/sdp_lab/' "$f" 2>/dev/null | grep -v 'install\.sh' || true)
+      FINDINGS+=("url-drift:$f:$lineno:installer URL references public sdp mirror; sdp_lab onboarding must install from sdp_lab")
+    done < <(grep -n 'raw\.githubusercontent\.com/fall-out-bug/sdp/main/scripts/install\.sh' "$f" 2>/dev/null || true)
   done
 }
 

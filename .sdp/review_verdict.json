@@ -1,14 +1,13 @@
 {
   "feature": "F149",
   "verdict": "APPROVED",
-  "round": 3,
-  "timestamp": "2026-05-08T12:52:17Z",
+  "round": 4,
+  "timestamp": "2026-05-08T15:35:21Z",
   "reviewer_runtime": "pi",
   "reviewers": {
     "qa": {
       "verdict": "PASS",
-      "findings": [],
-      "notes": "Onboarding docs and installer contract are internally consistent for this sdp_lab PR. Public sdp mirror drift is tracked as post-merge publish work, not a pre-merge blocker."
+      "findings": []
     },
     "security": {
       "verdict": "PASS",
@@ -42,7 +41,7 @@
     "sdplab-m034"
   ],
   "blocking_ids": [],
-  "summary": "APPROVED: PR #152 fixes repo-local onboarding verification and stale PATH documentation. The public sdp installer publish remains tracked in sdplab-m034 and must run after merge because the public installer clones sdp_lab main.",
+  "summary": "APPROVED: glm-5.1, k2p6, and MiniMax-M2.7 all completed. No P0/P1 findings. Advisory onboarding/release-surface findings were adjudicated in docs/reviews/2026-05-08-f149-onboarding-pi-review-ledger.md; accepted items were fixed, and non-actionable items were covered by existing snapshot tests or scoped out as historical plan material.",
   "model_panel": [
     {
       "slot": "zai",
@@ -56,7 +55,7 @@
       "provider": "kimi-coding",
       "model": "k2p6",
       "role": "reviewer",
-      "status": "failed"
+      "status": "ok"
     },
     {
       "slot": "minimax",
@@ -68,16 +67,15 @@
   ],
   "findings_detail": [
     {
-      "priority": "P0",
-      "title": "Public installer mirror drift must be resolved after sdp_lab merge",
-      "file": "scripts/install.sh",
-      "start_line": 3,
-      "end_line": 15,
-      "reviewer": "minimax",
-      "rationale": "The public installer URL can only become true after this sdp_lab PR lands, because the installer defaults to cloning fall-out-bug/sdp_lab main. Publishing the branch to fall-out-bug/sdp before merge would still clone the old sdp_lab main. This is a post-merge release gate, not a blocker for merging the source PR.",
-      "suggested_fix": "After merging PR #152 to sdp_lab main, run scripts/sdp-publish.sh, verify the public raw installer matches scripts/install.sh, and then close sdplab-m034.",
-      "dedupe_key": "P0:scripts/install.sh:public installer mirror drift after sdp_lab merge",
-      "bead_id": "sdplab-m034"
+      "priority": "P2",
+      "title": "No blocking onboarding findings remain after round 4 adjudication",
+      "file": "docs/reviews/2026-05-08-f149-onboarding-pi-review-ledger.md",
+      "start_line": 20,
+      "end_line": 27,
+      "reviewer": "maintainer",
+      "rationale": "Round 4 produced advisory findings only. The actionable documentation and release-surface items were fixed; snapshot-test and historical-plan items were adjudicated as non-blocking with deterministic evidence.",
+      "suggested_fix": "None. Keep raw .sdp/runs/pi-review telemetry local unless a workstream explicitly asks to commit it.",
+      "dedupe_key": "P2:docs/reviews/2026-05-08-f149-onboarding-pi-review-ledger.md:round-4-adjudicated"
     }
   ]
 }

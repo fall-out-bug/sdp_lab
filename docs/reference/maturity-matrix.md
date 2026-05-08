@@ -64,10 +64,15 @@
 
 | Binary | Maturity | Surface | Owner | Notes |
 |--------|----------|---------|-------|-------|
-| `sdp-control` | GA (deprecated) | retired | platform | DEPRECATED. Use `sdp` instead. Prints deprecation warning on start. |
 | `sdp-dispatch` | Beta | lab-only | platform | Dispatch layer. Development routing only. |
 | `sdp-up` | GA | lab-only | platform | Project bootstrap (profile provisioning). Lab setup only. |
 | `gt-adapter` | GA | lab-only | platform | Guard/convoy test adapter. Internal development tool. |
+
+### Retired
+
+| Binary | Maturity | Surface | Owner | Notes |
+|--------|----------|---------|-------|-------|
+| `sdp-control` | GA (deprecated) | retired | platform | DEPRECATED. Use `sdp` instead. Prints deprecation warning on start. |
 
 ### Experimental / Research (not in formula)
 
@@ -301,7 +306,7 @@ Experimental and lab-only binaries are intentionally absent from GoReleaser.
 | `.goreleaser.yml` build IDs | Defines which cmd/ binaries are built and archived | Active |
 | Build tags (`sdp_experimental`) | Compile-time isolation for experimental/lab-only cmd/ binaries. Files have `//go:build sdp_experimental` at top. Default `go build ./...` excludes them. | Active (F150-04) |
 | Lab-only binary exclusion | Binaries not in GoReleaser are not built for release | Active (implicit) |
-| `scripts/check-release-surface.sh` | Validates release manifest consistency + detects experimental drift (checks 5-7) | Active |
+| `scripts/check-release-surface.sh` | Validates release manifest consistency + detects experimental drift | Active |
 | Internal package import graph | Stable packages (executor, architect, discovery) import some experimental packages (llmclient, glob, agentloop) — these internal packages cannot be build-tagged. Isolation is enforced at cmd/ level only. | Documented (F150-04) |
 
 ### How Isolation Works (F150-04)
@@ -345,7 +350,7 @@ These packages remain in the default build. Their isolation is the cmd/ binary e
 | stable | 1 (`sdp`) | Main CLI, all product subcommands |
 | tooling | 15 | Operator/developer tooling binaries |
 | local-only | 3 | Diagnostic/review binaries compiled locally, excluded from release |
-| lab-only | 4 | Development and test tools |
+| lab-only | 3 | Development and test tools; retired `sdp-control` is counted separately |
 | experimental | 6 | Research tools |
 | research/benchmark | 9 | Benchmarks and fine-tune tooling |
 | retired | 1 (`sdp-control`) | Deprecated, use `sdp` |
@@ -439,4 +444,4 @@ Both gates must pass for a PR to merge.
 | 2026-04-26 | F079-01: Added missing CLI binaries (sdp-healthcheck, sdp-mcp, sdp-session-audit), updated counts |
 | 2026-04-27 | F150-02 (sdplab-8rk7): Full inventory of all 37 cmd/ binaries, classification by release surface (stable/tooling/lab-only/experimental/retired/future). Added cmd/sdp subcommand classification. Added missing internal packages (40 new entries). Added GoReleaser build target audit. Added exclusion mechanisms section. Added formula default install surface definition. |
 | 2026-04-27 | F150-06 (sdplab-q2cb): Added coverage targets by maturity tier. Happy-path >= 80%, GA >= 60%, Beta >= 50% (advisory), Experimental exempt. Added happy-path surface table and package-to-tier mapping. |
-| 2026-04-27 | F150-04 (sdplab-5r4x): Experimental code isolation from release builds. Added `sdp_experimental` build tags to 18 experimental/lab-only cmd/ binaries. Updated `.goreleaser.yml` to include `sdp` + 15 tooling binaries (removed `sdp-eval`). Added drift detection checks 5-7 to `scripts/check-release-surface.sh`. Documented isolation layers and packages-not-tagged rationale. |
+| 2026-04-27 | F150-04 (sdplab-5r4x): Experimental code isolation from release builds. Added `sdp_experimental` build tags to 18 experimental/lab-only cmd/ binaries. Updated `.goreleaser.yml` to include `sdp` + 15 tooling binaries (removed `sdp-eval`). Added release-surface drift detection to `scripts/check-release-surface.sh`. Documented isolation layers and packages-not-tagged rationale. |

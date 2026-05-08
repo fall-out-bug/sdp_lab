@@ -27,7 +27,7 @@ Do not use this doc as your main onboarding path if your real goal is:
 - give SDP your IDE and keys
 - start greenfield delivery or brownfield adoption
 
-For that path, go straight to [../QUICKSTART.md](../QUICKSTART.md). Today that quickstart covers `Claude Code`, `OpenCode`, `Codex`, and `Cursor`.
+For that path, go straight to [../QUICKSTART.md](../QUICKSTART.md). Today that quickstart covers `Claude Code`, `OpenCode`, `Codex`, `Cursor`, and `Pi`.
 
 ## Main Components
 

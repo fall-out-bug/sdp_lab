@@ -8,10 +8,11 @@
 #   1. sdp.manifest.yaml version matches GoReleaser tag conventions
 #   2. All GoReleaser builds reference existing main paths
 #   3. Archive name templates include version
-#   4. Download URL pattern is consistent
-#   5. No experimental binaries in GoReleaser build targets
-#   6. Experimental cmd/ binaries have sdp_experimental build tag
-#   7. No untagged cmd/ binaries that should be experimental
+#   4. Version drift check passes
+#   5. Public metadata drift check passes
+#   6. Experimental and local-only binaries are excluded from GoReleaser
+#   7. Experimental cmd/ binaries have sdp_experimental build tag
+#   8. Default-build cmd/ binaries do not carry the experimental build tag
 #
 # Usage:
 #   scripts/check-release-surface.sh              # human-readable output
@@ -137,7 +138,7 @@ check_metadata_drift() {
   fi
 }
 
-# --- Check 5: No experimental binaries in GoReleaser build targets (F150-04) ---
+# --- Check 6: No experimental binaries in GoReleaser build targets (F150-04) ---
 # These binaries are classified experimental/lab-only and must NOT appear in .goreleaser.yml.
 EXPERIMENTAL_BINARIES=(
   "sdp-control"
@@ -183,7 +184,7 @@ check_experimental_excluded_from_goreleaser() {
   done
 }
 
-# --- Check 6: Experimental cmd/ binaries have sdp_experimental build tag (F150-04) ---
+# --- Check 7: Experimental cmd/ binaries have sdp_experimental build tag (F150-04) ---
 check_experimental_build_tags() {
   for binary in "${EXPERIMENTAL_BINARIES[@]}"; do
     local cmd_dir="cmd/${binary}"
@@ -213,7 +214,7 @@ check_experimental_build_tags() {
   done
 }
 
-# --- Check 7: Stable binaries do NOT have experimental build tag (F150-04) ---
+# --- Check 8: Default-build binaries do NOT have experimental build tag (F150-04) ---
 STABLE_BINARIES=(
   "sdp"
   "sdp-evidence"
@@ -233,12 +234,12 @@ STABLE_BINARIES=(
   "sdp-omc-guard"
 )
 
-check_stable_no_experimental_tag() {
-  for binary in "${STABLE_BINARIES[@]}"; do
+check_default_build_no_experimental_tag() {
+  for binary in "${STABLE_BINARIES[@]}" "${LOCAL_ONLY_BINARIES[@]}"; do
     local main_file="cmd/${binary}/main.go"
     if [ -f "$main_file" ]; then
       if head -3 "$main_file" | grep -q 'sdp_experimental'; then
-        FINDINGS+=("error:${main_file}:stable binary has sdp_experimental build tag — should not be tagged")
+        FINDINGS+=("error:${main_file}:default-build binary has sdp_experimental build tag — should not be tagged")
       else
         OK_COUNT=$((OK_COUNT + 1))
       fi
@@ -254,7 +255,7 @@ check_version_drift
 check_metadata_drift
 check_experimental_excluded_from_goreleaser
 check_experimental_build_tags
-check_stable_no_experimental_tag
+check_default_build_no_experimental_tag
 
 # --- Output ---
 TOTAL=${#FINDINGS[@]}

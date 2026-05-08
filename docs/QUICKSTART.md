@@ -26,7 +26,7 @@ The `sdp_lab` repo is the research workspace where SDP is built. You do not need
 | Git | 2.30+ | Clone/install and repo analysis |
 | Go | 1.26+ | Build the `sdp` CLI from source |
 | macOS, Linux, or WSL | - | Native Windows is not supported in v1 |
-| One AI harness | optional | Claude Code, OpenCode, Codex, or Cursor if you want generated commands |
+| One AI harness | optional | Claude Code, OpenCode, Codex, Cursor, or Pi if you want generated commands |
 
 ## Install
 

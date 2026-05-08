@@ -7,7 +7,7 @@
 
 - `git` and `go` 1.26+ on PATH
 - macOS, Linux, or WSL (Windows native not supported in v1)
-- optional: Claude Code, OpenCode, Codex, or Cursor if you want harness commands
+- optional: Claude Code, OpenCode, Codex, Cursor, or Pi if you want harness commands
 
 ## 2. Install
 

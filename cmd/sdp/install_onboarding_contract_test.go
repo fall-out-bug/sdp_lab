@@ -97,8 +97,14 @@ func TestOnboardingDocsDeclareAllHarnesses(t *testing.T) {
 	} {
 		t.Run(path, func(t *testing.T) {
 			doc := readRepoFile(t, path)
-			if strings.Contains(doc, "Claude Code, OpenCode, Codex, and Cursor") {
-				t.Fatalf("%s should include Pi when naming the supported harness set", path)
+			staleHarnessLists := []string{
+				"Claude Code, OpenCode, Codex, and Cursor",
+				"Claude Code, OpenCode, Codex, or Cursor",
+			}
+			for _, stale := range staleHarnessLists {
+				if strings.Contains(doc, stale) {
+					t.Fatalf("%s should include Pi when naming the supported harness set", path)
+				}
 			}
 			if !strings.Contains(doc, "Pi") && !strings.Contains(doc, ".pi/") {
 				t.Fatalf("%s should mention the Pi harness surface", path)
