@@ -22,11 +22,26 @@ The release surface is the set of files, URLs, and metadata that must be consist
 
 | Binary | Main Path | OS/Arch |
 |--------|-----------|---------|
+| sdp | `./cmd/sdp` | linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64 |
 | sdp-evidence | `./cmd/sdp-evidence` | linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64 |
 | sdp-guard | `./cmd/sdp-guard` | linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 |
 | sdp-orchestrate | `./cmd/sdp-orchestrate` | linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 |
+| sdp-orchestrate-daemon | `./cmd/sdp-orchestrate-daemon` | linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 |
 | sdp-ci-loop | `./cmd/sdp-ci-loop` | linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 |
-| sdp-eval | `./cmd/sdp-eval` | linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 |
+| sdp-doc-sync | `./cmd/sdp-doc-sync` | linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 |
+| sdp-beads-bridge | `./cmd/sdp-beads-bridge` | linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 |
+| sdp-gh-findings-sync | `./cmd/sdp-gh-findings-sync` | linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 |
+| sdp-ready | `./cmd/sdp-ready` | linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 |
+| sdp-protocol-check | `./cmd/sdp-protocol-check` | linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 |
+| sdp-ws-verdict-validate | `./cmd/sdp-ws-verdict-validate` | linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 |
+| sdp-healthcheck | `./cmd/sdp-healthcheck` | linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 |
+| sdp-export | `./cmd/sdp-export` | linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 |
+| sdp-session-audit | `./cmd/sdp-session-audit` | linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 |
+| sdp-omc-guard | `./cmd/sdp-omc-guard` | linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 |
+
+Local-only diagnostic binaries such as `sdp-llm-gateway`, `sdp-pi-eval`, and
+`sdp-pi-review` are intentionally absent from GoReleaser. They may compile from
+source during lab work, but they are not release artifacts.
 
 ### Signatures
 

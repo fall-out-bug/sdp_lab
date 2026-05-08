@@ -87,6 +87,59 @@ func TestOnboardingDocsUseSDPLabInstallerSurface(t *testing.T) {
 	}
 }
 
+func TestOnboardingDocsDeclareAllHarnesses(t *testing.T) {
+	for _, path := range []string{
+		"README.md",
+		"docs/QUICKSTART.md",
+		"docs/runbooks/onboarding-downstream-repo.md",
+		"docs/reference/product-surface.md",
+		"docs/reference/project-map.md",
+	} {
+		t.Run(path, func(t *testing.T) {
+			doc := readRepoFile(t, path)
+			if strings.Contains(doc, "Claude Code, OpenCode, Codex, and Cursor") {
+				t.Fatalf("%s should include Pi when naming the supported harness set", path)
+			}
+			if !strings.Contains(doc, "Pi") && !strings.Contains(doc, ".pi/") {
+				t.Fatalf("%s should mention the Pi harness surface", path)
+			}
+		})
+	}
+}
+
+func TestUserFacingDocsDoNotPointInstallToPublicSDPRelease(t *testing.T) {
+	for _, path := range []string{
+		"README.md",
+		"docs/QUICKSTART.md",
+		"docs/runbooks/onboarding-downstream-repo.md",
+	} {
+		t.Run(path, func(t *testing.T) {
+			doc := readRepoFile(t, path)
+			if strings.Contains(doc, "github.com/fall-out-bug/sdp/releases/download") {
+				t.Fatalf("%s should not make sdp_lab install or release examples depend on public sdp releases", path)
+			}
+		})
+	}
+}
+
+func TestCustomizeDocsSeparateGeneratedCacheFromLiveInstall(t *testing.T) {
+	for _, path := range []string{
+		"README.md",
+		"docs/QUICKSTART.md",
+		"docs/runbooks/onboarding-downstream-repo.md",
+	} {
+		t.Run(path, func(t *testing.T) {
+			doc := readRepoFile(t, path)
+			if !strings.Contains(doc, "./.sdp/bin/sdp generate-adapters --write") {
+				t.Fatalf("%s should document generated-cache refresh", path)
+			}
+			if !strings.Contains(doc, "./.sdp/bin/sdp init --update") {
+				t.Fatalf("%s should document live harness adapter refresh via init --update", path)
+			}
+		})
+	}
+}
+
 func readRepoFile(t *testing.T, rel string) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)

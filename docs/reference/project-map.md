@@ -52,7 +52,7 @@ SDP is organized into seven product layers. See [`product-surface.md`](product-s
 **What ships today (SDP Toolkit + Toolbox):**
 
 - `sdp` CLI with stable subcommands: `scout`, `metrics`, `index`, `spec`, `bootstrap`, `init`, `manifest`, `generate-adapters`, `doctor`
-- multi-harness adapter install for Claude Code, OpenCode, Codex, and Cursor
+- multi-harness adapter install for Claude Code, OpenCode, Codex, Cursor, and Pi
 - Operator Mode as the default Toolkit happy path (stateful orchestration)
 
 **Product direction (not yet shipped):**

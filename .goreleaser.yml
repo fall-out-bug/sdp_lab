@@ -221,6 +221,8 @@ builds:
   #   sdp-control (retired), sdp-dispatch (lab-only), sdp-up (lab-only),
   #   gt-adapter (lab-only), sdp-harness (experimental), sdp-a2a (experimental),
   #   sdp-eval (experimental), sdp-strataudit (experimental), sdp-mcp (experimental),
+  #   sdp-llm-gateway (local-only), sdp-pi-eval (local-only),
+  #   sdp-pi-review (local-only),
   #   sdp-cascade-replay (research), sdp-confidence-replay (research),
   #   sdp-decompose-bench (research), sdp-microfirst-bench (research),
   #   sdp-bd-suggest (research), sdp-ft-baseline (research),

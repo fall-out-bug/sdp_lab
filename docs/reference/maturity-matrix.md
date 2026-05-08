@@ -17,7 +17,8 @@
 | Classification | Meaning | In GoReleaser formula? |
 |---|---|---|
 | **stable** | Ships in the default Homebrew formula. User-facing product surface. | Yes (primary build) |
-| **tooling** | Operator and developer tooling. Ships in formula but not the first-run promise. | Yes (primary or opt-in) |
+| **tooling** | Operator and developer tooling. Ships in formula but not the first-run promise. | Yes |
+| **local-only** | Review, demo, or diagnostic tooling compiled in local source builds but not shipped by GoReleaser. | No |
 | **lab-only** | Used only inside sdp_lab development. Not shipped in the formula. | No |
 | **experimental** | Research/benchmark tool. Not shipped in the formula. | No |
 | **retired** | Deprecated and slated for removal or replaced by `sdp` subcommands. | No |
@@ -51,6 +52,14 @@
 | `sdp-session-audit` | Beta | tooling | platform | Session audit trail. |
 | `sdp-healthcheck` | GA | tooling | platform | Health check endpoint. |
 
+### Local-Only Diagnostic Tooling (not in formula)
+
+| Binary | Maturity | Surface | Owner | Notes |
+|--------|----------|---------|-------|-------|
+| `sdp-llm-gateway` | Beta | local-only | platform | Local guarded-call demo gateway for F166-style gateway work; not the production model gateway. |
+| `sdp-pi-eval` | Beta | local-only | eval | Prompt-injection eval runner. |
+| `sdp-pi-review` | Beta | local-only | review | Multi-model PR/review runner. |
+
 ### Lab-Only (not in formula)
 
 | Binary | Maturity | Surface | Owner | Notes |
@@ -66,7 +75,7 @@
 |--------|----------|---------|-------|-------|
 | `sdp-harness` | Experimental | experimental | platform | AgentLoop session-based harness. Requires LiveGateway (F106). |
 | `sdp-a2a` | Beta | experimental | platform | Agent-to-agent protocol server. Research. |
-| `sdp-eval` | Beta | experimental | platform | Eval runner. GoReleaser build target but research-oriented. |
+| `sdp-eval` | Beta | experimental | platform | Eval runner. Research-oriented and intentionally excluded from GoReleaser. |
 | `sdp-strataudit` | GA | experimental | platform | Strategic LLM audit. Standalone research tool. |
 | `sdp-mcp` | Beta | experimental | platform | MCP (Model Context Protocol) server. |
 | `sdp-tower` (sdp tower) | Beta | experimental | platform | Tower orchestration layer. |
@@ -205,6 +214,8 @@ These packages are imported by binaries in the GoReleaser build config or by `cm
 | `internal/trace` | Beta | stable | platform | sdp (telemetry) | Trace primitives |
 | `internal/healthcheck` | GA | stable | platform | sdp-healthcheck | Health check logic |
 | `internal/sessionaudit` | Beta | stable | platform | sdp-session-audit | Session audit |
+| `internal/llmguard` | Beta | local-only | platform | sdp-llm-gateway | Guarded-call demo gateway core |
+| `internal/pireview` | Beta | local-only | review | sdp-pi-review | Multi-model review orchestration |
 | `internal/common` | GA | stable | platform | multiple | Common utilities |
 | `internal/kernel` | GA | stable | platform | executor | Execution kernel primitives |
 | `internal/runtime` | GA | stable | platform | multiple | Runtime utilities |
@@ -333,21 +344,22 @@ These packages remain in the default build. Their isolation is the cmd/ binary e
 |---|---|---|
 | stable | 1 (`sdp`) | Main CLI, all product subcommands |
 | tooling | 15 | Operator/developer tooling binaries |
+| local-only | 3 | Diagnostic/review binaries compiled locally, excluded from release |
 | lab-only | 4 | Development and test tools |
 | experimental | 6 | Research tools |
 | research/benchmark | 9 | Benchmarks and fine-tune tooling |
 | retired | 1 (`sdp-control`) | Deprecated, use `sdp` |
 | future | 1 (`sdp-pr-gate`) | Product direction, no code |
-| **Total binaries** | **37** | |
+| **Inventory rows** | **39** | Includes the future `sdp-pr-gate` namespace; `cmd/sdp-watch` is test-only and is not a binary |
 
 ### By Maturity
 
 | Maturity | Count | Percentage |
 |----------|-------|------------|
-| GA | 47 | 60% |
-| Beta | 15 | 19% |
-| Experimental | 16 | 21% |
-| **Total components** | **78** | **100%** |
+| GA | 47 | 57% |
+| Beta | 20 | 24% |
+| Experimental | 16 | 19% |
+| **Total components** | **83** | **100%** |
 
 ### Formula Default Install Surface
 
@@ -359,7 +371,7 @@ The formula should NOT install by default:
 - Experimental binaries (`sdp-harness`, `sdp-a2a`, `sdp-strataudit`, `sdp-mcp`)
 - Research/benchmark binaries (`sdp-cascade-replay`, `sdp-confidence-replay`, `sdp-decompose-bench`, `sdp-microfirst-bench`, `sdp-bd-suggest`, `sdp-ft-*`)
 
-Opt-in mechanism: operator tooling binaries available via separate formula tap or build tag (deferred to F150-08).
+Operator tooling is included in the release build but is not the first-run promise. Local-only, lab-only, experimental, and research binaries are excluded from the GoReleaser allowlist.
 
 ## Coverage Targets by Maturity (F150-06)
 

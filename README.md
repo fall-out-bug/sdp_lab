@@ -131,8 +131,11 @@ Install only the harnesses you use:
 # Validate manifest is well-formed
 ./.sdp/bin/sdp manifest validate
 
-# Re-generate adapter files from manifest
+# Re-generate the .sdp/generated cache from manifest
 ./.sdp/bin/sdp generate-adapters --write
+
+# Re-install live harness adapter files from manifest/cache
+./.sdp/bin/sdp init --update
 
 # Check for drift (adapter files out of sync with manifest)
 ./.sdp/bin/sdp doctor adapters
@@ -146,15 +149,16 @@ command -v sdp
 
 ### Customize without forking
 
-The canonical inventory is `sdp.manifest.yaml`. Generated adapter files land in harness dirs (`.claude/commands/`, `.opencode/`, `.codex/`, `.cursor/rules/`).
+The canonical inventory is `sdp.manifest.yaml`. Generated adapter files land in `.sdp/generated/`; `sdp init --update` installs them into harness dirs (`.claude/commands/`, `.opencode/`, `.codex/`, `.cursor/rules/`, `.pi/`).
 
 **Do not edit harness adapter files directly** — `sdp doctor` will flag the drift. Instead:
 
 1. Edit `sdp.manifest.yaml` (and/or templates in `internal/adapters/templates/<harness>/`)
 2. Run `./.sdp/bin/sdp generate-adapters --write`
-3. Commit both the manifest change and the regenerated adapters
+3. Run `./.sdp/bin/sdp init --update` to refresh live harness files
+4. Commit the manifest, `.sdp/generated/`, and regenerated harness adapter files
 
-Overlay system (per-repo customization without touching the manifest) is planned for F142+. For now, the workflow is: edit manifest → regenerate → commit.
+Overlay system (per-repo customization without touching the manifest) is planned for F142+. For now, the workflow is: edit manifest → regenerate cache → install adapters → commit.
 
 Full design: [`docs/plans/2026-04-25-f141-multi-harness-install-bootstrap-design.md`](docs/plans/2026-04-25-f141-multi-harness-install-bootstrap-design.md)  
 Onboarding runbook: [`docs/runbooks/onboarding-downstream-repo.md`](docs/runbooks/onboarding-downstream-repo.md)
@@ -192,7 +196,7 @@ Full map: [`docs/reference/product-surface.md`](docs/reference/product-surface.m
 
 ## Harness Support Today
 
-- generated adapter install supports `Claude Code`, `OpenCode`, `Codex`, and `Cursor`
+- generated adapter install supports `Claude Code`, `OpenCode`, `Codex`, `Cursor`, and `Pi`
 - MCP integration is documented separately in [`docs/reference/installation.md`](docs/reference/installation.md)
 - model keys and provider credentials stay in the harness/provider you choose; the installer does not collect them
 
@@ -226,6 +230,9 @@ Standalone binaries:
 - `cmd/sdp-doc-sync/` — docs consistency + changelog automation
 - `cmd/sdp-strataudit/` — stratified audit / trace explorer (F117)
 - `cmd/sdp-a2a/` — agent-to-agent communication server
+- `cmd/sdp-llm-gateway/` — local demo gateway for guarded model calls; not the production model gateway
+- `cmd/sdp-pi-eval/` — local prompt-injection eval runner
+- `cmd/sdp-pi-review/` — local multi-model PR/review runner
 - `cmd/sdp-control/` — control plane CLI
 - `cmd/sdp-ws-verdict-validate/` — workstream verdict validation
 - `cmd/sdp-gh-findings-sync/` — sync GitHub findings into local Beads queue
@@ -254,20 +261,20 @@ Standalone binary for validating and inspecting evidence envelopes. No K8s depen
 
 ### Install
 
-**From GitHub Releases** (after tagging e.g. `v0.1.0`):
+**From GitHub Releases** (after tagging):
 
 ```bash
 # Linux amd64
-curl -sSL https://github.com/fall-out-bug/sdp/releases/download/v0.1.0/sdp-evidence_0.1.0_linux_amd64.tar.gz | tar xz -C /usr/local/bin
+curl -sSL https://github.com/fall-out-bug/sdp_lab/releases/download/<tag>/sdp-evidence_<version>_linux_amd64.tar.gz | tar xz -C /usr/local/bin
 
 # macOS (darwin/arm64)
-curl -sSL https://github.com/fall-out-bug/sdp/releases/download/v0.1.0/sdp-evidence_0.1.0_darwin_arm64.tar.gz | tar xz -C /usr/local/bin
+curl -sSL https://github.com/fall-out-bug/sdp_lab/releases/download/<tag>/sdp-evidence_<version>_darwin_arm64.tar.gz | tar xz -C /usr/local/bin
 ```
 
 **From source:**
 
 ```bash
-go install ./cmd/sdp-evidence@latest
+go install github.com/fall-out-bug/sdp_lab/cmd/sdp-evidence@latest
 ```
 
 ### Usage

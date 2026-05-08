@@ -28,7 +28,7 @@ Override vars: `SDP_HARNESS=claude-code,opencode`, `SDP_TARGET=/path/to/repo`, `
 ./.sdp/bin/sdp manifest validate     # manifest well-formed
 ./.sdp/bin/sdp doctor adapters       # no drift
 test -x .sdp/bin/sdp                # repo-local CLI exists
-ls .claude/ .opencode/ .codex/ .cursor/   # dirs present
+ls .claude/ .opencode/ .codex/ .cursor/ .pi/   # dirs present
 export PATH="$PWD/.sdp/bin:$PATH"
 command -v sdp
 ```
@@ -71,9 +71,10 @@ The installer does not configure model keys. Keep credentials in the harness/pro
 
 ```bash
 $EDITOR sdp.manifest.yaml          # edit inventory
-./.sdp/bin/sdp generate-adapters --write      # regenerate adapter files
+./.sdp/bin/sdp generate-adapters --write      # refresh .sdp/generated cache
+./.sdp/bin/sdp init --update                  # refresh live harness dirs
 ./.sdp/bin/sdp doctor adapters                # verify no drift
-git add sdp.manifest.yaml .claude/ .opencode/ .codex/ .cursor/
+git add sdp.manifest.yaml .sdp/generated/ .claude/ .opencode/ .codex/ .cursor/ .pi/
 git commit -m "chore: update SDP adapters"
 ```
 
@@ -96,7 +97,7 @@ Commit `sdp.lock` to pin the version for your team.
 
 | Symptom | Fix |
 |---|---|
-| `sdp doctor`: adapter diverges from manifest | `./.sdp/bin/sdp generate-adapters --write` then commit |
+| `sdp doctor`: adapter diverges from manifest | `./.sdp/bin/sdp generate-adapters --write`, then `./.sdp/bin/sdp init --update`, then commit |
 | `sdp doctor`: orphan file not in manifest | Add entry to `sdp.manifest.yaml` or delete orphan |
 | No harness dirs after install | `./.sdp/bin/sdp init --harness=claude-code` (explicit) |
 | `sdp` binary not on PATH after install | `export PATH="$PWD/.sdp/bin:$PATH"` from the target repo root |

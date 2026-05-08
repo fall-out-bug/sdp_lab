@@ -160,15 +160,23 @@ EXPERIMENTAL_BINARIES=(
   "sdp-ft-validate"
 )
 
+# These local diagnostic binaries compile from source for lab/review work but are
+# intentionally not release artifacts.
+LOCAL_ONLY_BINARIES=(
+  "sdp-llm-gateway"
+  "sdp-pi-eval"
+  "sdp-pi-review"
+)
+
 check_experimental_excluded_from_goreleaser() {
   if [ ! -f ".goreleaser.yml" ]; then
     return
   fi
 
-  for binary in "${EXPERIMENTAL_BINARIES[@]}"; do
+  for binary in "${EXPERIMENTAL_BINARIES[@]}" "${LOCAL_ONLY_BINARIES[@]}"; do
     # Check if binary appears as a build ID or main path in goreleaser
     if grep -qE "(^  - id: ${binary}|main: \./cmd/${binary})" .goreleaser.yml; then
-      FINDINGS+=("drift:.goreleaser.yml:experimental binary '${binary}' found in release build config — must be excluded")
+      FINDINGS+=("drift:.goreleaser.yml:non-release binary '${binary}' found in release build config — must be excluded")
     else
       OK_COUNT=$((OK_COUNT + 1))
     fi

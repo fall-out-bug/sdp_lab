@@ -56,8 +56,15 @@ Other:
 Scout commands:
   sdp scout [--format json|text|card] [--output DIR] <repo-path>
 
+Metrics commands:
+  sdp metrics [--format json|text|markdown] [--output DIR] <repo-path>
+
 Spec commands:
   sdp spec [--format json|text] [--category api|rules|invariants|sla] [--output DIR] [--enrich] [--diff] <repo-path>
+
+Architect commands:
+  sdp architect analyze <repo-path> [--tier 1|2|3] [--format json|text|mermaid] [--output FILE]
+  sdp architect c4 <repo-path> [--level 1|2|3] [--output DIR]
 
 Index commands:
   sdp index build [--format json|text] <repo-path>
@@ -81,7 +88,7 @@ Install and adapter commands:
   sdp init [--harness <list>] [--target <dir>] [--manifest <path>] [--update]
   sdp manifest validate [--manifest <path>] [--schema <path>]
   sdp manifest parity [--write]
-  sdp generate-adapters [--manifest <path>] [--out <dir>] [--check]
+  sdp generate-adapters [--manifest <path>] [--out <dir>] [--check|--write|--diff]
 
 Coverage commands:
   sdp coverage-scan [--path DIR] [--threshold PCT] [--format text|json] [--skip-test] [--package PATTERN] [--coverprofile FILE]
@@ -95,3 +102,6 @@ Telemetry commands:
   sdp telemetry span-start --kind <kind> --name <name>
   sdp telemetry span-end --span-id <id>
   sdp telemetry daemon
+
+Tower commands:
+  sdp tower [--addr <host:port>]   Start local control tower UI/server

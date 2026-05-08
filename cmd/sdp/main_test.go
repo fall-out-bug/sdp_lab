@@ -59,6 +59,29 @@ func TestMainHelpExitsZeroAndListsInstallCommands(t *testing.T) {
 	}
 }
 
+func TestMainHelpListsImplementedProductCommands(t *testing.T) {
+	binPath := buildTestBinary(t)
+	cmd := exec.Command(binPath, "--help")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("expected --help to exit 0, got %v\n%s", err, out.String())
+	}
+	output := out.String()
+	for _, want := range []string{
+		"sdp metrics",
+		"sdp architect analyze",
+		"sdp coverage-scan",
+		"sdp skills augment",
+		"sdp tower",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected help to contain implemented command %q, got:\n%s", want, output)
+		}
+	}
+}
+
 func TestCardUsage(t *testing.T) {
 	binPath := buildTestBinary(t)
 	cmd := exec.Command(binPath, "card")

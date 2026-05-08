@@ -11,7 +11,7 @@ You are installing **SDP Toolkit** — the installable developer surface. It is 
 SDP Toolkit installs a repo-local harness surface:
 
 - `sdp.manifest.yaml` — source of truth for skills, commands, agents, and harness adapters
-- generated adapter files for Claude Code, OpenCode, Codex, and Cursor
+- generated adapter files for Claude Code, OpenCode, Codex, Cursor, and Pi
 - `sdp.lock` — installed SDP version pin
 - optional `.sdp/` outputs from scout, metrics, index, specs, evidence, and later operator runs
 
@@ -163,8 +163,13 @@ Generated adapters are owned by the manifest. Do not edit generated harness file
 
 ```bash
 ./.sdp/bin/sdp generate-adapters --write
+./.sdp/bin/sdp init --update
 ./.sdp/bin/sdp doctor adapters
 ```
+
+`generate-adapters --write` refreshes `.sdp/generated/`. `init --update`
+refreshes the live harness directories from the manifest without overwriting an
+existing `sdp.manifest.yaml`.
 
 ## Limits
 

@@ -97,7 +97,7 @@ SDP is not a good first choice for:
 
 - `telemetry` -- Telemetry init/span/daemon (Beta, opt-in by design)
 
-### Operator Tooling (available in formula or opt-in tap)
+### Operator Tooling (included in release build, not first-run promise)
 
 | Binary | Maturity | What it is good for |
 |--------|----------|---------------------|
@@ -116,6 +116,17 @@ SDP is not a good first choice for:
 | `sdp-omc-guard` | Beta | OhMyOpenCode pre-tool-call guard |
 | `sdp-session-audit` | Beta | Session audit trail |
 | `sdp-healthcheck` | GA | Health check endpoint |
+
+### Local-Only Diagnostic Tooling (not in formula)
+
+These binaries are useful during lab work and review hardening. They are not part
+of the first-run Toolkit promise and are not in the GoReleaser allowlist.
+
+| Binary | Maturity | What it is |
+|--------|----------|------------|
+| `sdp-llm-gateway` | Beta | Local demo gateway for guarded model calls; not the production model gateway |
+| `sdp-pi-eval` | Beta | Prompt-injection eval runner |
+| `sdp-pi-review` | Beta | Multi-model PR/review runner |
 
 ### Lab-Only (not in formula)
 
@@ -160,7 +171,7 @@ SDP is not a good first choice for:
 
 | Surface | Status | What it is good for |
 |---|---|---|
-| Multi-harness install | Beta | Installing SDP skills, commands, and agents into Claude Code, OpenCode, Codex, and Cursor from `sdp.manifest.yaml`. |
+| Multi-harness install | Beta | Installing SDP skills, commands, and agents into Claude Code, OpenCode, Codex, Cursor, and Pi from `sdp.manifest.yaml`. |
 | Toolkit scout | GA | Fast map of an unfamiliar repository. |
 | Toolkit metrics | GA | Git-derived process health: churn, hotspots, bus-factor-style risk, review/process signals. |
 | Toolkit index | GA | Persistent codebase memory and symbol/query support. |
