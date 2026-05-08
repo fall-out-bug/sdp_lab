@@ -1,16 +1,14 @@
 {
   "feature": "F149",
-  "verdict": "CHANGES_REQUESTED",
-  "round": 2,
-  "timestamp": "2026-05-08T12:24:46Z",
+  "verdict": "APPROVED",
+  "round": 3,
+  "timestamp": "2026-05-08T12:52:17Z",
   "reviewer_runtime": "pi",
   "reviewers": {
     "qa": {
-      "verdict": "FAIL",
-      "findings": [
-        "sdplab-m034"
-      ],
-      "notes": "Public installer URL currently serves an older fall-out-bug/sdp script. This branch is not buyer-safe until the sdp_lab PR lands and scripts/sdp-publish.sh updates fall-out-bug/sdp."
+      "verdict": "PASS",
+      "findings": [],
+      "notes": "Onboarding docs and installer contract are internally consistent for this sdp_lab PR. Public sdp mirror drift is tracked as post-merge publish work, not a pre-merge blocker."
     },
     "security": {
       "verdict": "PASS",
@@ -37,16 +35,14 @@
       "findings": []
     }
   },
-  "p0_count": 1,
+  "p0_count": 0,
   "p1_count": 0,
   "finding_ids": [
     "sdplab-i21n",
     "sdplab-m034"
   ],
-  "blocking_ids": [
-    "sdplab-m034"
-  ],
-  "summary": "CHANGES_REQUESTED: code/docs/test cleanup is done, but public installer mirror drift remains unresolved until post-merge publish to fall-out-bug/sdp.",
+  "blocking_ids": [],
+  "summary": "APPROVED: PR #152 fixes repo-local onboarding verification and stale PATH documentation. The public sdp installer publish remains tracked in sdplab-m034 and must run after merge because the public installer clones sdp_lab main.",
   "model_panel": [
     {
       "slot": "zai",
@@ -73,14 +69,14 @@
   "findings_detail": [
     {
       "priority": "P0",
-      "title": "Public installer mirror drift blocks buyer-safe onboarding",
+      "title": "Public installer mirror drift must be resolved after sdp_lab merge",
       "file": "scripts/install.sh",
       "start_line": 3,
-      "end_line": 11,
+      "end_line": 15,
       "reviewer": "minimax",
-      "rationale": "The branch intentionally points downstream users at https://raw.githubusercontent.com/fall-out-bug/sdp/main/scripts/install.sh, but that public URL currently serves an older release installer. The source branch installer must be published to fall-out-bug/sdp after this PR merges.",
-      "suggested_fix": "After merging PR #152 to sdp_lab main, run scripts/sdp-publish.sh and verify the public raw installer matches the repo-local onboarding installer.",
-      "dedupe_key": "P0:scripts/install.sh:public installer mirror drift blocks buyer-safe onboarding",
+      "rationale": "The public installer URL can only become true after this sdp_lab PR lands, because the installer defaults to cloning fall-out-bug/sdp_lab main. Publishing the branch to fall-out-bug/sdp before merge would still clone the old sdp_lab main. This is a post-merge release gate, not a blocker for merging the source PR.",
+      "suggested_fix": "After merging PR #152 to sdp_lab main, run scripts/sdp-publish.sh, verify the public raw installer matches scripts/install.sh, and then close sdplab-m034.",
+      "dedupe_key": "P0:scripts/install.sh:public installer mirror drift after sdp_lab merge",
       "bead_id": "sdplab-m034"
     }
   ]
