@@ -158,7 +158,7 @@ func (r *Runner) Run(ctx context.Context) (*ReviewRun, *Verdict, error) {
 
 	runID := fmt.Sprintf("pireview-%s-%d", hashString(pkt.Branch + pkt.UnifiedDiff)[:12], time.Now().UnixMilli())
 	runDir := filepath.Join(r.cfg.ProjectRoot, ".sdp", "runs", "pi-review", runID)
-	if err := os.MkdirAll(runDir, 0o755); err != nil {
+	if err := ensurePrivateDir(runDir); err != nil {
 		return nil, nil, fmt.Errorf("run %s: mkdir: %w", runID, err)
 	}
 
@@ -220,17 +220,17 @@ func (r *Runner) Run(ctx context.Context) (*ReviewRun, *Verdict, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("run %s: marshal context: %w", runID, err)
 	}
-	if err := os.WriteFile(filepath.Join(runDir, "context.json"), ctxJSON, 0o644); err != nil {
+	if err := writePrivateFile(filepath.Join(runDir, "context.json"), ctxJSON); err != nil {
 		return nil, nil, fmt.Errorf("run %s: write context: %w", runID, err)
 	}
-	if err := os.WriteFile(filepath.Join(runDir, "context.diff"), []byte(pkt.UnifiedDiff), 0o644); err != nil {
+	if err := writePrivateFile(filepath.Join(runDir, "context.diff"), []byte(pkt.UnifiedDiff)); err != nil {
 		return nil, nil, fmt.Errorf("run %s: write diff: %w", runID, err)
 	}
 	evJSON, err := json.MarshalIndent(evidence, "", "  ")
 	if err != nil {
 		return nil, nil, fmt.Errorf("run %s: marshal evidence: %w", runID, err)
 	}
-	if err := os.WriteFile(filepath.Join(runDir, "test-evidence.json"), evJSON, 0o644); err != nil {
+	if err := writePrivateFile(filepath.Join(runDir, "test-evidence.json"), evJSON); err != nil {
 		return nil, nil, fmt.Errorf("run %s: write evidence: %w", runID, err)
 	}
 
@@ -269,27 +269,40 @@ func (r *Runner) runModelPanel(ctx context.Context, runID string, pkt *ContextPa
 			result.Status = "failed"
 			result.Error = err.Error()
 			result.ArtifactPath = modelArtifactPath(r.cfg.ProjectRoot, runID, slot.Slot)
-			if slot.Required && ctx.Err() == nil {
-				// Try OpenRouter fallback for required slots
-				fbOutput, fbErr := r.invokeFallback(ctx, slot, pkt, evidence)
-				if fbErr == nil {
-					result.Status = "ok"
-					result.ArtifactPath = writeModelArtifact(r.cfg.ProjectRoot, runID, slot.Slot, fbOutput)
-					result.Provider = "openrouter"
-					result.Model = fallbackModel(slot)
-				} else {
-					result.Error = fmt.Sprintf("%s; fallback failed: %v", result.Error, fbErr)
-				}
-			}
 		} else {
 			artifactPath := writeModelArtifact(r.cfg.ProjectRoot, runID, slot.Slot, output)
 			if artifactPath == "" {
 				result.Status = "failed"
 				result.Error = "artifact write failed"
 				result.ArtifactPath = modelArtifactPath(r.cfg.ProjectRoot, runID, slot.Slot)
+			} else if err := validateModelOutput(output); err != nil {
+				result.Status = "failed"
+				result.Error = err.Error()
+				result.ArtifactPath = artifactPath
 			} else {
 				result.Status = "ok"
 				result.ArtifactPath = artifactPath
+			}
+		}
+		if result.Status != "ok" && slot.Required && ctx.Err() == nil {
+			// Try OpenRouter fallback for required slots.
+			fbOutput, fbErr := r.invokeFallback(ctx, slot, pkt, evidence)
+			if fbErr == nil {
+				artifactPath := writeModelArtifact(r.cfg.ProjectRoot, runID, slot.Slot, fbOutput)
+				if artifactPath == "" {
+					result.Error = fmt.Sprintf("%s; fallback artifact write failed", result.Error)
+				} else if err := validateModelOutput(fbOutput); err != nil {
+					result.ArtifactPath = artifactPath
+					result.Error = fmt.Sprintf("%s; fallback unusable: %v", result.Error, err)
+				} else {
+					result.Status = "ok"
+					result.ArtifactPath = artifactPath
+					result.Error = ""
+					result.Provider = "openrouter"
+					result.Model = fallbackModel(slot)
+				}
+			} else {
+				result.Error = fmt.Sprintf("%s; fallback failed: %v", result.Error, fbErr)
 			}
 		}
 
@@ -470,6 +483,22 @@ func parseFindingsFromOutput(output string, slot string) []Finding {
 	return findings
 }
 
+func validateModelOutput(output string) error {
+	if strings.TrimSpace(output) == "" {
+		return fmt.Errorf("model output is empty")
+	}
+	start := strings.Index(output, "[")
+	end := strings.LastIndex(output, "]")
+	if start < 0 || end < 0 || end <= start {
+		return fmt.Errorf("model output does not contain a JSON findings array")
+	}
+	var raw []map[string]any
+	if err := json.Unmarshal([]byte(output[start:end+1]), &raw); err != nil {
+		return fmt.Errorf("model output findings array is unparseable: %w", err)
+	}
+	return nil
+}
+
 // dedupeFindings removes duplicate findings based on dedupe key.
 func dedupeFindings(findings []Finding) []Finding {
 	seen := make(map[string]bool)
@@ -557,13 +586,27 @@ func buildVerdict(feature string, round int, findings []Finding, models []ModelR
 func writeModelArtifact(projectRoot, runID, slot string, output string) string {
 	path := modelArtifactPath(projectRoot, runID, slot)
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := ensurePrivateDir(dir); err != nil {
 		return ""
 	}
-	if err := os.WriteFile(path, []byte(output), 0o644); err != nil {
+	if err := writePrivateFile(path, []byte(output)); err != nil {
 		return ""
 	}
 	return path
+}
+
+func ensurePrivateDir(path string) error {
+	if err := os.MkdirAll(path, 0o700); err != nil {
+		return err
+	}
+	return os.Chmod(path, 0o700)
+}
+
+func writePrivateFile(path string, data []byte) error {
+	if err := ensurePrivateDir(filepath.Dir(path)); err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o600)
 }
 
 func modelArtifactPath(projectRoot, runID, slot string) string {

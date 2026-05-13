@@ -2,6 +2,8 @@ package pireview
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -166,6 +168,9 @@ func TestShouldSkipFile(t *testing.T) {
 		{"binary.exe", true},
 		{"src/main.go", false},
 		{"package-lock.json", true},
+		{".sdp/config.yml", true},
+		{".sdp/config.yaml", true},
+		{".sdp/runs/pi-review/run.json", true},
 	}
 
 	for _, tc := range tests {
@@ -175,6 +180,27 @@ func TestShouldSkipFile(t *testing.T) {
 				t.Errorf("shouldSkipFile(%q) = %v, want %v", tc.path, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestLoadProjectRulesExcludesSensitiveSDPConfig(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte("agent rules"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, ".sdp"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".sdp", "config.yml"), []byte("token: secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	rules := loadProjectRules(root)
+	if _, ok := rules["AGENTS.md"]; !ok {
+		t.Fatalf("expected AGENTS.md to be loaded")
+	}
+	if _, ok := rules[".sdp/config.yml"]; ok {
+		t.Fatalf(".sdp/config.yml content must not be loaded into provider-bound rules")
 	}
 }
 
@@ -411,5 +437,59 @@ func TestBuildContextPacket_AllFilesSkippedProducesEmptyDiff(t *testing.T) {
 		if call.name == "git" && strings.HasPrefix(strings.Join(call.args, " "), "diff ") {
 			t.Fatalf("git diff should not be called when all files are skipped: %#v", call)
 		}
+	}
+}
+
+func TestBuildContextPacket_AutoScopeFailsWhenOnlyIgnoredTelemetryChanged(t *testing.T) {
+	runner := &fakeRunner{
+		responses: map[string][]byte{
+			"git rev-parse --abbrev-ref HEAD":              []byte("feature/F168\n"),
+			"git rev-parse HEAD":                           []byte("deadbeef\n"),
+			"git status --porcelain --untracked-files=all": []byte("?? .sdp/runs/pi-review/run/models/zai.json\n"),
+		},
+	}
+
+	cfg := Config{
+		ProjectRoot: t.TempDir(),
+		Scope:       ScopeAuto,
+		Runner:      runner,
+	}
+
+	_, err := BuildContextPacket(context.Background(), cfg)
+	if err == nil {
+		t.Fatal("expected auto scope to fail when only ignored telemetry changed")
+	}
+	if !strings.Contains(err.Error(), "no reviewable files") {
+		t.Fatalf("error = %v, want clear no reviewable files error", err)
+	}
+}
+
+func TestBuildContextPacket_AutoScopeFallsBackToBranchDiffWhenTelemetryIgnored(t *testing.T) {
+	runner := &fakeRunner{
+		responses: map[string][]byte{
+			"git rev-parse --abbrev-ref HEAD":                     []byte("feature/F168\n"),
+			"git rev-parse HEAD":                                  []byte("deadbeef\n"),
+			"git status --porcelain --untracked-files=all":        []byte("?? .sdp/runs/pi-review/run/models/zai.json\n"),
+			"git diff --name-only main...HEAD":                    []byte("internal/pireview/runner.go\n"),
+			"git diff main...HEAD -- internal/pireview/runner.go": []byte("diff --git a/internal/pireview/runner.go b/internal/pireview/runner.go\n+new line\n"),
+		},
+	}
+
+	cfg := Config{
+		ProjectRoot: t.TempDir(),
+		Scope:       ScopeAuto,
+		BaseRef:     "main",
+		Runner:      runner,
+	}
+
+	pkt, err := BuildContextPacket(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("BuildContextPacket() error: %v", err)
+	}
+	if len(pkt.ReviewedFiles) != 1 || pkt.ReviewedFiles[0] != "internal/pireview/runner.go" {
+		t.Fatalf("ReviewedFiles = %v, want branch diff file", pkt.ReviewedFiles)
+	}
+	if !strings.Contains(pkt.UnifiedDiff, "internal/pireview/runner.go") {
+		t.Fatalf("UnifiedDiff = %q, want branch diff", pkt.UnifiedDiff)
 	}
 }

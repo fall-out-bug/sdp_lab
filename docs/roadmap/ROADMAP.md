@@ -119,6 +119,7 @@ Post-F150 v3 lane (post-IIP-council, 2026-04-27) — see [docs/roadmap/2026-04-2
 - `F165` — Indirect Prompt Injection Through SDP Task Data (Day-12 defensive demo pack for Beads/workstream/evidence task-data poisoning with deterministic unsafe/defended outcomes)
 - `F166` — Runtime LLM Guard Gateway (core-first Go guard/audit layer for SDP model calls: input/output secret checks, local chunked classifier, Codex/Pi harness compatibility, gateway surfaces, redaction/blocking, token/cost evidence, deterministic corpus)
 - `F167` — Security Verdict Gate (Day-14 runtime security step after green tests and before commit/promotion-ready state, with gateway sanitation, blocking Critical/High findings, warning Medium/Low findings, escalation on provider/sanitizer/evidence failure, and demo evidence)
+- `F168` — Onboarding Quality Taxonomy (honest first-run promise map plus deterministic/model-review quality axes for modern Go, complexity, spec drift, work-without-spec, CleanCode, CleanArchitecture, Security, DX, UX, and docs completeness)
 
 Deferred (no work until ICP signal): Enterprise Delivery Governance product family; Russian sovereign model adapters (sub-track of EDG); `sdp-pr-gate` implementation track (gated on committed pilot per Wedge B gate).
 

@@ -28,11 +28,11 @@ func CollectTestEvidence(ctx context.Context, cfg Config) (*TestEvidence, error)
 	out, exitCode := runTestCommand(ctx, cfg.ProjectRoot, cmd)
 	duration := time.Since(start)
 
-	if err := os.MkdirAll(artifactDir, 0o755); err != nil {
+	if err := ensurePrivateDir(artifactDir); err != nil {
 		return nil, fmt.Errorf("evidence: mkdir: %w", err)
 	}
 
-	if err := os.WriteFile(artifactPath, []byte(out), 0o644); err != nil {
+	if err := writePrivateFile(artifactPath, []byte(out)); err != nil {
 		return nil, fmt.Errorf("evidence: write artifact: %w", err)
 	}
 

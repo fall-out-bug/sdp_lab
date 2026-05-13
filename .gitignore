@@ -54,6 +54,7 @@ bin/
 # Execution state
 .oneshot/
 .sdp/archive/
+.sdp/runs/
 .sdp/locks/*.lock
 .sdp/checkpoints/*.stop
 

@@ -109,7 +109,17 @@ func resolveScope(ctx context.Context, cfg Config, status string) ([]string, err
 	switch cfg.Scope {
 	case ScopeAuto:
 		if status != "" {
-			return workingTreeFiles(status)
+			files, err := workingTreeFiles(status)
+			if err != nil {
+				return nil, err
+			}
+			if len(files) > 0 {
+				return files, nil
+			}
+			if cfg.BaseRef != "" {
+				return branchDiffFiles(ctx, cfg)
+			}
+			return nil, fmt.Errorf("scope auto: working tree has changes but no reviewable files after ignore rules; set --base to review branch diff or use a non-ignored scope")
 		}
 		if cfg.BaseRef != "" {
 			return branchDiffFiles(ctx, cfg)
@@ -185,6 +195,13 @@ func resolveDiff(ctx context.Context, cfg Config, status string, reviewedFiles [
 	switch cfg.Scope {
 	case ScopeAuto:
 		if status != "" {
+			statusFiles, err := workingTreeFiles(status)
+			if err != nil {
+				return "", err
+			}
+			if len(statusFiles) == 0 && cfg.BaseRef != "" {
+				return branchDiff(ctx, cfg, reviewedFiles)
+			}
 			return workingTreeDiff(ctx, cfg, reviewedFiles)
 		}
 		if cfg.BaseRef != "" {

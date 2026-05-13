@@ -180,19 +180,24 @@ func TestWriteModelArtifact(t *testing.T) {
 	if string(data) != output {
 		t.Errorf("artifact content = %q, want %q", string(data), output)
 	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat artifact: %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0o600 {
+		t.Errorf("artifact mode = %o, want 600", got)
+	}
 }
 
-func TestRunner_Run_WithFakes(t *testing.T) {
+func TestRunner_Run_EmptyModelOutputEscalates(t *testing.T) {
 	dir := t.TempDir()
-
-	modelOutput := `[{"priority":"P2","title":"minor style","file":"main.go","start_line":10,"rationale":"naming"}]`
 
 	fr := &fakeRunner{
 		responses: map[string][]byte{
 			"git rev-parse --abbrev-ref HEAD":              []byte("feature/F161\n"),
 			"git rev-parse HEAD":                           []byte("abc123\n"),
 			"git status --porcelain --untracked-files=all": []byte(" M main.go\n"),
-			"git diff HEAD":                                []byte("+new code\n"),
+			"git diff HEAD -- main.go":                     []byte("+new code\n"),
 		},
 	}
 
@@ -212,8 +217,7 @@ func TestRunner_Run_WithFakes(t *testing.T) {
 		t.Fatalf("NewRunner() error: %v", err)
 	}
 
-	// fakeRunner returns nil,nil for unmapped pi keys,
-	// so pi "succeeds" with empty output, quorum passes.
+	// fakeRunner returns nil,nil for unmapped pi keys, so pi exits with empty output.
 	run, verdict, err := r.Run(context.Background())
 	if err != nil {
 		t.Fatalf("Run() error: %v", err)
@@ -224,9 +228,17 @@ func TestRunner_Run_WithFakes(t *testing.T) {
 	if verdict == nil {
 		t.Fatal("verdict should not be nil")
 	}
-	// With empty model output, no findings, quorum passes → APPROVED
-	if verdict.Verdict != "APPROVED" {
-		t.Errorf("Verdict = %q, want APPROVED", verdict.Verdict)
+	if verdict.Verdict != "ESCALATED" {
+		t.Errorf("Verdict = %q, want ESCALATED", verdict.Verdict)
+	}
+	if len(run.Models) != 1 {
+		t.Fatalf("models = %d, want 1", len(run.Models))
+	}
+	if run.Models[0].Status == "ok" {
+		t.Fatalf("empty model output counted as ok: %#v", run.Models[0])
+	}
+	if !strings.Contains(run.Models[0].Error, "model output is empty") {
+		t.Fatalf("model error = %q, want empty output error", run.Models[0].Error)
 	}
 
 	// Verify artifacts were written
@@ -236,7 +248,6 @@ func TestRunner_Run_WithFakes(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, ".sdp", "runs", "pi-review", run.RunID, "test-evidence.json")); err != nil {
 		t.Errorf("test-evidence.json not written: %v", err)
 	}
-	_ = modelOutput
 }
 
 type blockingRunner struct{}

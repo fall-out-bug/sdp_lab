@@ -98,7 +98,10 @@ func main() {
 
 func persistRun(root string, run *pireview.ReviewRun) error {
 	dir := filepath.Join(root, ".sdp", "runs", "pi-review", run.RunID)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	if err := os.Chmod(dir, 0o700); err != nil {
 		return err
 	}
 
@@ -107,7 +110,7 @@ func persistRun(root string, run *pireview.ReviewRun) error {
 		return err
 	}
 
-	return os.WriteFile(filepath.Join(dir, "run.json"), data, 0o644)
+	return os.WriteFile(filepath.Join(dir, "run.json"), data, 0o600)
 }
 
 func writeVerdictFile(root string, verdict *pireview.Verdict) error {
