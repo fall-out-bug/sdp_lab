@@ -1,6 +1,7 @@
 # SDP Quality Gates
 
-**Binary pass/fail criteria** for workstream completion and quality assurance.
+Quality gates describe **what SDP can verify deterministically today** and what
+is only advisory evidence until tooling exists.
 
 > **Note (WS-067-05: AC7):** This document contains Python-specific examples (pytest, mypy, ruff) for illustration purposes. SDP is primarily a Go project. For Go, use equivalent tools:
 > - `pytest` → `go test`
@@ -14,11 +15,44 @@
 
 ## Overview
 
-Quality gates are **MUST PASS** criteria. Each gate has:
-- ✅ **PASS** - Criteria met, workstream approved
-- ❌ **FAIL** - Criteria not met, must fix before completion
-- 🔧 **Measurement** - How to check the criterion
-- 📋 **Example** - What pass/fail looks like
+Quality gate states are explicit. Do not collapse missing or partial evidence
+into green checks.
+
+- **pass** - Criteria met by a deterministic command.
+- **fail** - Criteria violated by a deterministic command.
+- **evidence_only** - Evidence exists, but the axis is not a blocking gate or is
+  only partially covered.
+- **not_assessed** - The repo has no selected tool, formula, or CI job for this
+  axis.
+- **cannot_verify** - The axis is in scope, but required context is unavailable
+  in the current run.
+
+Each gate has:
+- **State** - One of the states above.
+- **Measurement** - How to check the criterion.
+- **Failure semantics** - Whether the result blocks merge or remains evidence.
+- **Example** - What the result means.
+
+## Deterministic Quality Matrix (F168-03)
+
+This matrix is intentionally narrower than the desired quality taxonomy. It
+records current deterministic coverage without pretending that missing tools are
+green.
+
+| Axis | Current state | Deterministic evidence | Merge semantics |
+|---|---|---|---|
+| Go build/test/vet/lint | pass/fail | `./scripts/run_go_quality_gates.sh` and CI `build-test` | Blocking |
+| Coverage baseline delta | pass/fail | CI `coverage-gate` compares total coverage against `.sdp/metrics/coverage.txt` | Blocking when total coverage drops by more than 2pp |
+| Maturity-tier coverage | evidence_only | CI `coverage-gate` and `scripts/quality-metrics.sh` report per-package tier misses | Advisory during rollout |
+| Test/code ratio | evidence_only | `scripts/quality-metrics.sh` local report | Local evidence only; not wired into CI |
+| Cognitive complexity | not_assessed | Root `.golangci.yml` does not enable `gocognit` or `gocyclo` | No gate until the linter config and thresholds are selected |
+| CRAP score | not_assessed | No CRAP formula/tool is selected for Go in this repo | No gate until a formula and implementation are selected |
+| Modern Go hygiene | evidence_only | `go vet` and `golangci-lint` run, but root lint config disables `staticcheck`, `gosimple`, and `ineffassign` | Partial evidence only; do not call this a full modern-Go gate |
+| Spec drift | evidence_only | `sdp-protocol-check`, `sdp-doc-sync`, and repo consistency checks emit findings | Advisory except for version/public metadata drift |
+| Work without spec/workstream | cannot_verify outside PR/checkpoint context | `scope-gate` verifies checkpoint workstreams when `.sdp/checkpoints/*.json` is present in PR diff | Blocking only when checkpoint evidence exists; otherwise absence of evidence is not approval |
+
+`scripts/quality-metrics.sh` prints this same state vocabulary before running
+local metric checks so the local report and this reference page use one contract.
 
 ---
 

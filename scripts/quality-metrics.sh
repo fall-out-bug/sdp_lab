@@ -15,6 +15,63 @@ set -e
 echo "=== Quality Metrics Check (Tiered Coverage) ==="
 echo ""
 
+print_assessment() {
+    local axis="$1"
+    local state="$2"
+    local detail="$3"
+    printf '  %-28s %-15s %s\n' "$axis" "$state" "$detail"
+}
+
+has_linter_token() {
+    local token="$1"
+    [ -f .golangci.yml ] && grep -Eq "^[[:space:]]*-[[:space:]]*${token}\$|^[[:space:]]*${token}:" .golangci.yml
+}
+
+echo "0. Deterministic Quality Matrix"
+echo "--------------------------------"
+print_assessment "go_build_test_vet_lint" "evidence_only" "covered by run_go_quality_gates.sh/CI build-test, not by this script"
+print_assessment "coverage_baseline_delta" "evidence_only" "covered by CI coverage-gate; this script checks package tiers only"
+print_assessment "maturity_tier_coverage" "evidence_only" "checked below from go test -cover per package"
+print_assessment "test_code_ratio" "evidence_only" "checked below as local evidence; not wired into CI"
+
+if has_linter_token "gocognit" || has_linter_token "gocyclo"; then
+    print_assessment "cognitive_complexity" "evidence_only" "linter token found in root .golangci.yml; verify CI wiring before treating as blocking"
+else
+    print_assessment "cognitive_complexity" "not_assessed" "root .golangci.yml does not enable gocognit/gocyclo thresholds"
+fi
+
+print_assessment "crap_score" "not_assessed" "no selected Go CRAP formula/tool is configured"
+
+if command -v go >/dev/null 2>&1; then
+    print_assessment "modern_go" "evidence_only" "go vet/golangci evidence exists; staticcheck/gosimple/ineffassign are disabled in root config"
+else
+    print_assessment "modern_go" "cannot_verify" "go toolchain not available"
+fi
+
+if [ -d docs/workstreams ] && [ -f docs/workstreams/INDEX.md ]; then
+    print_assessment "spec_drift" "evidence_only" "protocol/doc consistency tools own this; this script does not run them"
+else
+    print_assessment "spec_drift" "cannot_verify" "workstream docs are unavailable"
+fi
+
+BASE_REF="${SDP_BASE_REF:-origin/main}"
+if git rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then
+    CHANGED_FILES="$(git diff --name-only "$BASE_REF"...HEAD 2>/dev/null || true)"
+    if echo "$CHANGED_FILES" | grep -q '^\.sdp/checkpoints/.*\.json$'; then
+        print_assessment "work_without_spec" "evidence_only" "checkpoint files changed; CI scope-gate is the authority"
+    else
+        print_assessment "work_without_spec" "cannot_verify" "no checkpoint evidence in diff against ${BASE_REF}"
+    fi
+else
+    print_assessment "work_without_spec" "cannot_verify" "base ref ${BASE_REF} is unavailable"
+fi
+
+echo ""
+
+if [ "${SDP_QUALITY_MATRIX_ONLY:-0}" = "1" ]; then
+    exit 0
+fi
+
 # --- Tier definitions ---
 # Happy-path packages: GA packages on the canonical happy-path surface
 HAPPY_PATH_PKGS="internal/scout internal/metrics internal/index internal/bootstrap internal/control internal/orchestrate internal/cli internal/manifest internal/evidence internal/guard internal/discovery internal/build"
@@ -64,7 +121,20 @@ for pkg in $(go list ./internal/... 2>/dev/null | sort); do
         continue
     fi
 
-    coverage=$(go test $GO_TAGS -cover "$pkg" 2>/dev/null | grep -oP 'coverage:\s*\K[0-9.]+')
+    coverage_output=$(go test $GO_TAGS -cover "$pkg" 2>/dev/null || true)
+    coverage=$(printf '%s\n' "$coverage_output" | awk '
+        /coverage:/ {
+            for (i = 1; i <= NF; i++) {
+                if ($i == "coverage:") {
+                    pct = $(i + 1)
+                    gsub(/%/, "", pct)
+                    if (pct ~ /^[0-9]+(\.[0-9]+)?$/) {
+                        print pct
+                    }
+                }
+            }
+        }
+    ' | tail -n 1)
     if [ -n "$coverage" ]; then
         if (( $(echo "$coverage < $target" | bc -l) )); then
             status_icon="FAIL"

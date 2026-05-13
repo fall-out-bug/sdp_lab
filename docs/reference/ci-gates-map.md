@@ -49,6 +49,26 @@ required-checks ◄───────────────┴──┘
 | Auto-Attestation | `auto-attestation` | Yes | Required | `go run ./internal/evidence/cmd/auto-attest --branch <branch>` |
 | Required Checks | `required-checks` | Yes | Required | Verify all gate jobs pass |
 
+## Deterministic Quality Matrix
+
+CI and local scripts must use explicit assessment states. Missing tooling is not
+a pass.
+
+| Axis | CI/local source | State when evidence exists | State when evidence is missing | Current enforcement |
+|---|---|---|---|---|
+| Go build/test/vet/lint | `build-test`, `./scripts/run_go_quality_gates.sh` | `pass` / `fail` | `cannot_verify` if the command cannot run | Blocking in CI |
+| Coverage baseline delta | `coverage-gate` | `pass` / `fail` | `cannot_verify` when `.sdp/metrics/coverage.txt` is absent | Blocking in CI |
+| Maturity-tier coverage | `coverage-gate`, `scripts/quality-metrics.sh` | `evidence_only` | `cannot_verify` when coverage cannot be collected | Advisory |
+| Test/code ratio | `scripts/quality-metrics.sh` | `evidence_only` | `cannot_verify` when package files cannot be read | Local evidence only |
+| Cognitive complexity | Not wired in root `.golangci.yml` | N/A | `not_assessed` | Not enforced |
+| CRAP score | No selected Go CRAP tool/formula | N/A | `not_assessed` | Not enforced |
+| Modern Go hygiene | `go vet`, `golangci-lint`; `staticcheck`, `gosimple`, `ineffassign` disabled in root config | `evidence_only` | `not_assessed` for disabled modern-Go linters | Partial evidence only |
+| Spec drift | `consistency-gate` commands | `evidence_only` for advisory findings; `pass` / `fail` for version/public metadata drift | `cannot_verify` if commands cannot run | Mixed: blocking only for version/public metadata drift |
+| Work without spec/workstream | `scope-gate` with PR checkpoint files | `pass` / `fail` when checkpoint workstreams are present | `cannot_verify` outside PR/checkpoint context | Blocking only when checkpoint evidence exists |
+
+`not_assessed`, `cannot_verify`, and `evidence_only` are intentional quality
+states. They must not be rendered as green merge checks.
+
 ## Gate Details
 
 ### build-test
@@ -145,6 +165,11 @@ required-checks ◄───────────────┴──┘
 - **Local reproduce**: `go test -tags sqlite_fts5 -coverprofile=cover.out ./... && go tool cover -func=cover.out | grep total`
 - **Output**: Coverage percentage in stdout; per-package tier results; `cov.out` locally.
 - **Baseline**: `.sdp/metrics/coverage.txt` (auto-updated on push to main)
+- **Related local evidence**: `scripts/quality-metrics.sh` reports the same
+  maturity tiers and an explicit matrix for non-covered axes. This script is not
+  currently invoked by CI, so its output is evidence-only unless a workflow wires
+  it into a blocking job. Use `SDP_QUALITY_MATRIX_ONLY=1
+  scripts/quality-metrics.sh` when you only need the assessment-state matrix.
 
 #### Coverage Tier Policy
 
