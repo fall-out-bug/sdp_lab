@@ -64,15 +64,22 @@ Preview delivery setup without changing code:
 
 ## 5. First harness command
 
-| Harness | Command |
-|---|---|
-| Claude Code | `/build` |
-| OpenCode | `opencode run sdp build` |
-| Codex CLI | `codex skill build` |
-| Cursor | command palette → `build` |
-| Pi | `/build` |
+These are harness commands, not `sdp` CLI subcommands. Use a real workstream ID
+only when you are operating a Beads-backed queue; otherwise stay with the local
+read-only and `--dry-run` commands above.
 
-All five invoke the same SDP `build` skill contract.
+| Harness | Primary form | Runtime status |
+|---|---|---|
+| Claude Code | `claude -p "/build 00-XXX-YY"` | Stable primary |
+| OpenCode | `opencode run --dir "$PWD" --agent implementer "@build 00-XXX-YY"` | Experimental; requires `--agent implementer` |
+| Cursor | `agent -p "@build 00-XXX-YY"` | Secondary validator only; primary dispatch untested |
+| Codex | Use repo instructions plus generated `.codex/` prompts | Adapter surface present; autonomous dispatch not the primary path |
+| Pi | Use generated `.pi/` skills/prompts for review or validation | Experimental; autonomous dispatch pending bundle evidence |
+
+Static adapter generation does not mean all harnesses are equivalent runtime
+workers. Treat Claude Code as the primary path today, OpenCode as experimental
+with the explicit implementer agent, and Cursor/Codex/Pi as validation or
+manual-assist surfaces until dispatch evidence says otherwise.
 
 The installer does not configure model keys. Keep credentials in the harness/provider you use.
 

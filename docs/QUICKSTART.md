@@ -83,7 +83,7 @@ Expected result:
 
 - manifest validation exits 0
 - adapter doctor reports 0 drifts
-- manifest output reports the SDP inventory, currently 30 skills, 25 commands, and 12 agents
+- manifest output reports the SDP inventory; treat `sdp.manifest.yaml` as the source of truth for counts
 - `sdp.lock` exists
 - `.sdp/bin/sdp` exists
 - one or more harness dirs exist: `.claude/`, `.opencode/`, `.codex/`, `.cursor/`, `.pi/`
@@ -139,6 +139,8 @@ The `@`/`/` prefix is the harness entrypoint marker:
 | Claude Code | `claude -p "/build 00-XXX-YY"` | Stable primary |
 | OpenCode | `opencode run --dir "$PWD" --agent implementer "@build 00-XXX-YY"` | Experimental; requires `--agent implementer` |
 | Cursor | `agent -p "@build 00-XXX-YY"` | Secondary validator only; primary dispatch untested |
+| Codex | Use repo instructions plus generated `.codex/` prompts | Adapter surface present; autonomous dispatch is not the primary path |
+| Pi | Use generated `.pi/` skills/prompts for review or validation | Experimental; autonomous dispatch pending bundle evidence |
 
 ```bash
 # Claude Code
@@ -149,6 +151,10 @@ opencode run --dir "$PWD" --agent implementer "@build 00-XXX-YY"
 
 # Cursor
 agent -p "@build 00-XXX-YY"
+
+# Codex / Pi
+# Use generated prompts/skills as validation or manual-assist surfaces until
+# runtime dispatch evidence is recorded.
 ```
 
 Use real IDs from your workstream/feature context. `00-XXX-YY` is a placeholder
@@ -193,7 +199,7 @@ Skill and agent map: [reference/agent-skill-entry-map.md](reference/agent-skill-
 
 **SDP Toolkit (stable, ships in formula):**
 
-- static multi-harness adapter files: 30 skills, 25 commands, 12 agents rendered where the harness has an adapter surface
+- static multi-harness adapter files rendered from `sdp.manifest.yaml` where the harness has an adapter surface
 - first-run toolkit commands: `scout`, `metrics`, `index build`, `spec`, `bootstrap --dry-run`
 - install/support commands: `init`, `manifest`, `generate-adapters`, `doctor`
 

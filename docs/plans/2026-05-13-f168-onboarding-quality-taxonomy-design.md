@@ -42,6 +42,9 @@ state, and a visible evidence state.
   against actual CLI/help/code behavior.
 - Route model review through independent planes: requirements, CleanCode,
   CleanArchitecture, Security, DX, UX, and docs completeness.
+- Calibrate onboarding against explicit reader lenses: new developer, CTO or
+  architect, and cold-start agent, each across zero-knowledge, experienced, and
+  multi-harness variants.
 
 ## Non-Goals
 
@@ -142,6 +145,21 @@ must be verified in each implementation slice before fixing.
 
 Dependencies: `01 -> {02,03,04,05}; {02,03,04,05} -> 06 -> 07 -> 08`.
 
+## Reader-Lens Calibration
+
+F168 review must not use one generic "new user" persona. The calibration run
+must cover this matrix:
+
+| Lens | Zero-knowledge variant | Experienced variant | Multi-harness variant |
+|---|---|---|---|
+| Developer trying SDP | Can install, verify, and explain what changed without knowing SDP vocabulary | Can map SDP onto Claude/OpenCode/Cursor habits without stale command paths | Can distinguish static adapter parity from runtime dispatch readiness |
+| CTO or architect | Can state the business risk reduced and the first-session proof | Can judge whether SDP is an overlay above existing tools, not another IDE | Can decide rollout order across harnesses without assuming equivalence |
+| Agent entering cold | Can describe repo purpose, stable surfaces, and limits from canonical docs | Can choose the right skill/command path for a developer request | Can report harness strengths and gaps without overclaiming |
+
+Blocking evidence for F168-08: any row that cannot be tested or answered must be
+recorded as `not_assessed` or a follow-up finding. It cannot be hidden inside a
+general onboarding pass.
+
 ## Acceptance Bar
 
 F168 is not complete until:
@@ -153,4 +171,6 @@ F168 is not complete until:
 - raw review telemetry is not a normal tracked artifact;
 - changed code can be traced to a live workstream/spec or is explicitly flagged
   as work-without-spec;
+- the developer, CTO, and cold-start agent reader lenses above have explicit
+  test evidence or explicit gaps;
 - the final calibration run records unresolved gaps instead of hiding them.

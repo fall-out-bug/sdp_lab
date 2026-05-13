@@ -54,6 +54,7 @@ bin/
 # Execution state
 .oneshot/
 .sdp/archive/
+.sdp/reviews/
 .sdp/runs/
 .codex-subagents/
 .sdp/locks/*.lock

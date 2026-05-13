@@ -268,6 +268,104 @@ func TestBuildReviewPrompt_UntrustedBoundaryAndRedaction(t *testing.T) {
 	}
 }
 
+func TestSanitizeContextPacketForEgress_RedactsProviderAndArtifactContext(t *testing.T) {
+	pkt := &ContextPacket{
+		Branch:      "feature/F168",
+		GitStatus:   " M main.go",
+		UnifiedDiff: "diff --git a/main.go b/main.go\n+api_key: diff-secret\n+token := \"ghp_AbCdEfGhIjKlMnOpQrStUv\"",
+		FileContents: map[string]string{
+			"main.go": "password: file-secret\naccess_token=gho_AbCdEfGhIjKlMnOpQrStUv",
+		},
+		ProjectRules: map[string]string{
+			"AGENTS.md": "private_key: rule-secret",
+		},
+		BeadContext: "secret: bead-secret",
+		FileHashes:  map[string]string{"main.go": "original-hash"},
+		ReviewedFiles: []string{
+			"main.go",
+		},
+	}
+
+	safePkt, redactions := SanitizeContextPacketForEgress(pkt)
+	if safePkt == nil {
+		t.Fatal("expected sanitized packet")
+	}
+	if safePkt.FileHashes["main.go"] != "original-hash" {
+		t.Fatalf("file hash changed: %v", safePkt.FileHashes)
+	}
+
+	marshaled := safePkt.UnifiedDiff + "\n" + safePkt.FileContents["main.go"] + "\n" + safePkt.ProjectRules["AGENTS.md"] + "\n" + safePkt.BeadContext
+	for _, secret := range []string{"diff-secret", "ghp_AbCdEfGhIjKlMnOpQrStUv", "file-secret", "gho_AbCdEfGhIjKlMnOpQrStUv", "rule-secret", "bead-secret"} {
+		if strings.Contains(marshaled, secret) {
+			t.Fatalf("sanitized packet leaked %q: %s", secret, marshaled)
+		}
+	}
+	if redactions["secret_assignment"] < 4 {
+		t.Fatalf("secret_assignment redactions = %d, want at least 4", redactions["secret_assignment"])
+	}
+	if redactions["secret_like_token"] < 2 {
+		t.Fatalf("secret_like_token redactions = %d, want at least 2", redactions["secret_like_token"])
+	}
+}
+
+func TestRunner_Run_PersistsSanitizedContextArtifacts(t *testing.T) {
+	dir := t.TempDir()
+	base := &fakeRunner{
+		responses: map[string][]byte{
+			"git rev-parse --abbrev-ref HEAD":              []byte("feature/F168\n"),
+			"git rev-parse HEAD":                           []byte("abc123\n"),
+			"git status --porcelain --untracked-files=all": []byte(" M main.go\n"),
+			"git diff HEAD -- main.go":                     []byte("+api_key: diff-secret\n+token := \"ghp_AbCdEfGhIjKlMnOpQrStUv\"\n"),
+		},
+	}
+	fr := contextSanitizingRunner{
+		fakeRunner:  base,
+		modelOutput: `[{"priority":"P3","title":"ok","file":"main.go"}]`,
+	}
+	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte("password: file-secret\n"), 0o600); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	r, err := NewRunner(Config{
+		ProjectRoot:  dir,
+		Scope:        ScopeWorkingTree,
+		Runner:       fr,
+		Feature:      "F168",
+		ModelTimeout: time.Second,
+	}, []ReviewerSlot{{Slot: "zai", Provider: "zai", Model: "glm", Role: "reviewer", Required: true}})
+	if err != nil {
+		t.Fatalf("NewRunner() error: %v", err)
+	}
+
+	run, _, err := r.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	contextPath := filepath.Join(dir, ".sdp", "runs", "pi-review", run.RunID, "context.json")
+	contextDiffPath := filepath.Join(dir, ".sdp", "runs", "pi-review", run.RunID, "context.diff")
+	contextData, err := os.ReadFile(contextPath)
+	if err != nil {
+		t.Fatalf("read context: %v", err)
+	}
+	diffData, err := os.ReadFile(contextDiffPath)
+	if err != nil {
+		t.Fatalf("read diff: %v", err)
+	}
+	combined := string(contextData) + "\n" + string(diffData)
+	for _, secret := range []string{"diff-secret", "ghp_AbCdEfGhIjKlMnOpQrStUv", "file-secret"} {
+		if strings.Contains(combined, secret) {
+			t.Fatalf("persisted artifacts leaked %q: %s", secret, combined)
+		}
+	}
+	if !strings.Contains(combined, "[REDACTED]") {
+		t.Fatalf("persisted artifacts did not record redaction marker")
+	}
+	if len(run.Context.Redactions) == 0 {
+		t.Fatalf("expected redaction counts in run context")
+	}
+}
+
 func TestRunner_Run_EmptyModelOutputEscalates(t *testing.T) {
 	dir := t.TempDir()
 
@@ -357,6 +455,18 @@ func (secretOutputRunner) Run(context.Context, string, string, ...string) error 
 
 func (r secretOutputRunner) CombinedOutput(context.Context, string, string, ...string) ([]byte, error) {
 	return []byte(r.output), nil
+}
+
+type contextSanitizingRunner struct {
+	*fakeRunner
+	modelOutput string
+}
+
+func (r contextSanitizingRunner) CombinedOutput(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
+	if name == "pi" {
+		return []byte(r.modelOutput), nil
+	}
+	return r.fakeRunner.CombinedOutput(ctx, dir, name, args...)
 }
 
 func TestRunModelPanel_EmptyJSONArrayFails(t *testing.T) {

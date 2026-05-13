@@ -112,7 +112,15 @@ The installer clones `sdp_lab` to bring in the canonical manifest and prompts, b
 
 ### What you get
 
-30 skills · 25 commands · 12 agents declared in `sdp.manifest.yaml`, rendered into the native surfaces each harness supports (`.claude/`, `.opencode/`, `.codex/`, `.cursor/`, `.pi/`).
+The skills, commands, and agents declared in `sdp.manifest.yaml` are rendered
+into the native surfaces each harness supports (`.claude/`, `.opencode/`,
+`.codex/`, `.cursor/`, `.pi/`).
+
+This is static adapter coverage. It proves files are generated from one
+manifest; it does not prove each harness is ready for autonomous SDP dispatch.
+Claude Code is the stable primary harness today. OpenCode requires
+`--agent implementer`; Cursor, Codex, and Pi are validation/manual-assist
+surfaces unless their runtime readiness row says otherwise.
 
 Parity snapshot (full table: [`docs/reference/harness-parity-matrix.md`](docs/reference/harness-parity-matrix.md)):
 
@@ -123,7 +131,7 @@ Parity snapshot (full table: [`docs/reference/harness-parity-matrix.md`](docs/re
 | `deploy` | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `review` | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-All 25 commands and 30 skills are declared in `sdp.manifest.yaml` as the single source of truth.
+`sdp.manifest.yaml` is the single source of truth for the current command, skill, and agent counts.
 
 ### Selective install
 

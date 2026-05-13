@@ -48,6 +48,7 @@ type RunContext struct {
 	RulesSHA256        string            `json:"rules_sha256"`
 	TestEvidenceSHA256 string            `json:"test_evidence_sha256,omitempty"`
 	FileHashes         map[string]string `json:"file_hashes"`
+	Redactions         map[string]int    `json:"redactions,omitempty"`
 }
 
 // ModelResult mirrors schema pi-review-run modelRun.
@@ -169,8 +170,10 @@ func (r *Runner) Run(ctx context.Context) (*ReviewRun, *Verdict, error) {
 		return nil, nil, fmt.Errorf("run %s: evidence: %w", runID, err)
 	}
 
+	egressPkt, redactions := SanitizeContextPacketForEgress(pkt)
+
 	// Run model panel
-	modelResults := r.runModelPanel(ctx, runID, pkt, evidence)
+	modelResults := r.runModelPanel(ctx, runID, egressPkt, evidence)
 
 	// Check quorum: at least one required reviewer must succeed
 	requiredOK := 0
@@ -211,20 +214,21 @@ func (r *Runner) Run(ctx context.Context) (*ReviewRun, *Verdict, error) {
 			DiffSHA256:  hashString(pkt.UnifiedDiff),
 			RulesSHA256: hashString(rulesContent(pkt.ProjectRules)),
 			FileHashes:  pkt.FileHashes,
+			Redactions:  redactions,
 		},
 		TestEvidence: *evidence,
 		Models:       modelResults,
 	}
 
 	// Persist context and evidence artifacts
-	ctxJSON, err := json.MarshalIndent(pkt, "", "  ")
+	ctxJSON, err := json.MarshalIndent(egressPkt, "", "  ")
 	if err != nil {
 		return nil, nil, fmt.Errorf("run %s: marshal context: %w", runID, err)
 	}
 	if err := writePrivateFile(filepath.Join(runDir, "context.json"), ctxJSON); err != nil {
 		return nil, nil, fmt.Errorf("run %s: write context: %w", runID, err)
 	}
-	if err := writePrivateFile(filepath.Join(runDir, "context.diff"), []byte(pkt.UnifiedDiff)); err != nil {
+	if err := writePrivateFile(filepath.Join(runDir, "context.diff"), []byte(egressPkt.UnifiedDiff)); err != nil {
 		return nil, nil, fmt.Errorf("run %s: write diff: %w", runID, err)
 	}
 	evJSON, err := json.MarshalIndent(evidence, "", "  ")
@@ -237,10 +241,10 @@ func (r *Runner) Run(ctx context.Context) (*ReviewRun, *Verdict, error) {
 
 	// Update context hash with actual artifact content
 	run.Context.SHA256 = hashString(string(ctxJSON))
-	run.Context.DiffSHA256 = hashString(pkt.UnifiedDiff)
+	run.Context.DiffSHA256 = hashString(egressPkt.UnifiedDiff)
 
 	// Build verdict
-	verdict := buildVerdict(r.cfg.Feature, run.Round, findings, modelResults, pkt, requiredOK, requiredTotal)
+	verdict := buildVerdict(r.cfg.Feature, run.Round, findings, modelResults, egressPkt, requiredOK, requiredTotal)
 
 	run.VerdictRef = ArtifactRef{
 		Path:   fmt.Sprintf(".sdp/review_verdict.json"),
@@ -358,9 +362,7 @@ func fallbackModel(slot ReviewerSlot) string {
 
 // buildReviewPrompt constructs the prompt for the model reviewer.
 func buildReviewPrompt(slot ReviewerSlot, pkt *ContextPacket, evidence *TestEvidence) string {
-	safeDiff := sanitizeForPrompt(pkt.UnifiedDiff)
-	safeFiles := sanitizeStringMap(pkt.FileContents)
-	safeRules := sanitizeStringMap(pkt.ProjectRules)
+	egressPkt, _ := SanitizeContextPacketForEgress(pkt)
 
 	var b strings.Builder
 	b.WriteString("You are an expert code reviewer.\n")
@@ -376,9 +378,9 @@ func buildReviewPrompt(slot ReviewerSlot, pkt *ContextPacket, evidence *TestEvid
 		b.WriteString(fmt.Sprintf("- %s\n", f))
 	}
 
-	if len(pkt.FileContents) > 0 {
+	if len(egressPkt.FileContents) > 0 {
 		b.WriteString("\n## File Contents\n--- BEGIN FILES ---\n")
-		for f, content := range safeFiles {
+		for f, content := range egressPkt.FileContents {
 			b.WriteString(fmt.Sprintf("\n### %s\n", f))
 			b.WriteString(content)
 			b.WriteString("\n")
@@ -386,23 +388,23 @@ func buildReviewPrompt(slot ReviewerSlot, pkt *ContextPacket, evidence *TestEvid
 		b.WriteString("--- END FILES ---\n")
 	}
 
-	if len(pkt.ProjectRules) > 0 {
+	if len(egressPkt.ProjectRules) > 0 {
 		b.WriteString("\n## Project Rules\n--- BEGIN RULES ---\n")
-		for name, content := range safeRules {
+		for name, content := range egressPkt.ProjectRules {
 			b.WriteString(fmt.Sprintf("\n### %s\n%s\n", name, content))
 		}
 		b.WriteString("--- END RULES ---\n")
 	}
 
-	if pkt.BeadContext != "" {
+	if egressPkt.BeadContext != "" {
 		b.WriteString("\n## Bead Context\n--- BEGIN BEADS ---\n")
-		b.WriteString(sanitizeForPrompt(pkt.BeadContext))
+		b.WriteString(egressPkt.BeadContext)
 		b.WriteString("\n--- END BEADS ---\n")
 	}
 
 	b.WriteString("\n## Diff\n")
 	b.WriteString("--- BEGIN DIFF ---\n")
-	b.WriteString(safeDiff)
+	b.WriteString(egressPkt.UnifiedDiff)
 	b.WriteString("\n--- END DIFF ---\n")
 
 	b.WriteString("\n## Test Evidence\n")
@@ -431,20 +433,73 @@ var (
 	secretAssignmentPattern = regexp.MustCompile(`(?i)(?m)^(\s*[+-]?\s*[A-Za-z0-9._-]*(?:api[-_]?token|api[-_]?key|access[-_]?token|password|private[-_]?key|secret)\s*[:=]\s*)(.+)$`)
 )
 
+// SanitizeContextPacketForEgress returns a provider- and artifact-safe context
+// packet. File hashes remain original so the run can still prove selected scope.
+func SanitizeContextPacketForEgress(pkt *ContextPacket) (*ContextPacket, map[string]int) {
+	if pkt == nil {
+		return nil, nil
+	}
+	redactions := map[string]int{}
+	out := *pkt
+	out.UnifiedDiff = sanitizeForEgress(pkt.UnifiedDiff, redactions)
+	out.BeadContext = sanitizeForEgress(pkt.BeadContext, redactions)
+	out.FileContents = sanitizeMapForEgress(pkt.FileContents, redactions)
+	out.ProjectRules = sanitizeMapForEgress(pkt.ProjectRules, redactions)
+	return &out, compactRedactions(redactions)
+}
+
 func sanitizeForPrompt(in string) string {
-	out := strings.TrimRight(in, "\n")
-	out = genericSecretPattern.ReplaceAllString(out, "[REDACTED]")
-	out = secretAssignmentPattern.ReplaceAllString(out, "$1[REDACTED]")
-	return out
+	return sanitizeForEgress(strings.TrimRight(in, "\n"), nil)
 }
 
 func sanitizeStringMap(in map[string]string) map[string]string {
+	return sanitizeMapForEgress(in, nil)
+}
+
+func sanitizeMapForEgress(in map[string]string, redactions map[string]int) map[string]string {
 	if len(in) == 0 {
 		return in
 	}
 	out := make(map[string]string, len(in))
 	for key, value := range in {
-		out[key] = sanitizeForPrompt(value)
+		out[key] = sanitizeForEgress(value, redactions)
+	}
+	return out
+}
+
+func sanitizeForEgress(in string, redactions map[string]int) string {
+	out := strings.TrimRight(in, "\n")
+	out = genericSecretPattern.ReplaceAllStringFunc(out, func(string) string {
+		incrementRedaction(redactions, "secret_like_token")
+		return "[REDACTED]"
+	})
+	out = secretAssignmentPattern.ReplaceAllStringFunc(out, func(match string) string {
+		parts := secretAssignmentPattern.FindStringSubmatch(match)
+		if len(parts) < 2 {
+			incrementRedaction(redactions, "secret_assignment")
+			return "[REDACTED]"
+		}
+		incrementRedaction(redactions, "secret_assignment")
+		return parts[1] + "[REDACTED]"
+	})
+	return out
+}
+
+func incrementRedaction(redactions map[string]int, class string) {
+	if redactions != nil {
+		redactions[class]++
+	}
+}
+
+func compactRedactions(redactions map[string]int) map[string]int {
+	if len(redactions) == 0 {
+		return nil
+	}
+	out := make(map[string]int, len(redactions))
+	for class, count := range redactions {
+		if count > 0 {
+			out[class] = count
+		}
 	}
 	return out
 }
