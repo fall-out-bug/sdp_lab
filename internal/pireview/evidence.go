@@ -11,24 +11,32 @@ import (
 )
 
 // CollectTestEvidence runs the configured test command and captures deterministic evidence.
-func CollectTestEvidence(ctx context.Context, cfg Config) (*TestEvidence, error) {
+func CollectTestEvidence(ctx context.Context, cfg Config, runDir string) (*TestEvidence, error) {
+	if runDir == "" {
+		runDir = filepath.Join(cfg.ProjectRoot, ".sdp", "runs", "pi-review", "manual")
+	}
+	artifactPath := filepath.Join(runDir, "test-output.txt")
+
 	cmd, err := resolveTestCommand(cfg)
 	if err != nil {
+		if err := ensurePrivateDir(runDir); err != nil {
+			return nil, fmt.Errorf("evidence: mkdir: %w", err)
+		}
+		if err := writePrivateFile(artifactPath, []byte(err.Error()+"\n")); err != nil {
+			return nil, fmt.Errorf("evidence: write skipped artifact: %w", err)
+		}
 		return &TestEvidence{
 			Status:       "skipped",
 			SkipReason:   err.Error(),
-			ArtifactPath: "",
+			ArtifactPath: artifactPath,
 		}, nil
 	}
-
-	artifactDir := filepath.Join(cfg.ProjectRoot, ".sdp", "runs", "pi-review")
-	artifactPath := filepath.Join(artifactDir, "test-output.txt")
 
 	start := time.Now()
 	out, exitCode := runTestCommand(ctx, cfg.ProjectRoot, cmd)
 	duration := time.Since(start)
 
-	if err := ensurePrivateDir(artifactDir); err != nil {
+	if err := ensurePrivateDir(runDir); err != nil {
 		return nil, fmt.Errorf("evidence: mkdir: %w", err)
 	}
 

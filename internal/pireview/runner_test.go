@@ -217,15 +217,27 @@ func TestWriteModelArtifact(t *testing.T) {
 func TestValidateModelOutput_RejectsEmptyArray(t *testing.T) {
 	if err := validateModelOutput("[]"); err == nil {
 		t.Fatal("expected error for empty findings array")
-	} else if !strings.Contains(err.Error(), "findings array is empty") {
+	} else if !strings.Contains(err.Error(), "clean reviews must use reviewer object") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateModelOutput_AcceptsExplicitCleanReviewObject(t *testing.T) {
+	output := `{"verdict":"PASS","findings":[],"notes":"reviewed changed files; no findings"}`
+	if err := validateModelOutput(output); err != nil {
+		t.Fatalf("validateModelOutput() error: %v", err)
+	}
+
+	findings := parseFindingsFromOutput(output, "zai")
+	if len(findings) != 0 {
+		t.Fatalf("expected 0 findings for explicit clean review, got %d", len(findings))
 	}
 }
 
 func TestValidateModelOutput_RejectsGarbage(t *testing.T) {
 	if err := validateModelOutput("No JSON here"); err == nil {
 		t.Fatal("expected error for non-JSON output")
-	} else if !strings.Contains(err.Error(), "does not contain a JSON findings array") {
+	} else if !strings.Contains(err.Error(), "does not contain a JSON reviewer object or findings array") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -320,7 +332,7 @@ func TestRunner_Run_PersistsSanitizedContextArtifacts(t *testing.T) {
 	}
 	fr := contextSanitizingRunner{
 		fakeRunner:  base,
-		modelOutput: `[{"priority":"P3","title":"ok","file":"main.go"}]`,
+		modelOutput: `{"verdict":"PASS","findings":[{"priority":"P3","title":"ok","file":"main.go"}]}`,
 	}
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte("password: file-secret\n"), 0o600); err != nil {
 		t.Fatalf("write file: %v", err)
@@ -492,6 +504,33 @@ func TestRunModelPanel_EmptyJSONArrayFails(t *testing.T) {
 	}
 	if !strings.Contains(results[0].Error, "findings array is empty") {
 		t.Fatalf("model error = %q, want empty-array failure", results[0].Error)
+	}
+}
+
+func TestRunModelPanel_ExplicitCleanReviewObjectSucceeds(t *testing.T) {
+	output := `{"verdict":"PASS","findings":[],"notes":"reviewed changed files"}`
+	r := &Runner{
+		cfg: Config{
+			ProjectRoot:  t.TempDir(),
+			Scope:        ScopeWorkingTree,
+			ModelTimeout: time.Second,
+			Runner:       secretOutputRunner{output: output},
+		},
+		runner: secretOutputRunner{output: output},
+		slots: []ReviewerSlot{
+			{Slot: "zai", Provider: "zai", Model: "glm-5.1", Role: "reviewer", Required: true},
+		},
+	}
+
+	results := r.runModelPanel(context.Background(), "run-clean-object", &ContextPacket{}, &TestEvidence{})
+	if len(results) != 1 {
+		t.Fatalf("got %d result(s), want 1", len(results))
+	}
+	if results[0].Status != "ok" {
+		t.Fatalf("status = %q, error = %q, want ok", results[0].Status, results[0].Error)
+	}
+	if findings := synthesizeFindings(results); len(findings) != 0 {
+		t.Fatalf("expected 0 findings, got %d", len(findings))
 	}
 }
 

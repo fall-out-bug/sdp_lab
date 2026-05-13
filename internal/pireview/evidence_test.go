@@ -64,7 +64,8 @@ func TestResolveTestCommand_NoProject(t *testing.T) {
 
 func TestCollectTestEvidence_Skipped(t *testing.T) {
 	cfg := Config{ProjectRoot: t.TempDir()}
-	evidence, err := CollectTestEvidence(context.Background(), cfg)
+	runDir := filepath.Join(cfg.ProjectRoot, ".sdp", "runs", "pi-review", "test-run")
+	evidence, err := CollectTestEvidence(context.Background(), cfg, runDir)
 	if err != nil {
 		t.Fatalf("CollectTestEvidence() error: %v", err)
 	}
@@ -74,18 +75,24 @@ func TestCollectTestEvidence_Skipped(t *testing.T) {
 	if evidence.SkipReason == "" {
 		t.Error("SkipReason should not be empty")
 	}
+	if evidence.ArtifactPath == "" {
+		t.Fatal("ArtifactPath should not be empty")
+	}
+	if _, err := os.Stat(evidence.ArtifactPath); err != nil {
+		t.Fatalf("expected skipped artifact to exist: %v", err)
+	}
 }
 
 func TestCollectTestEvidence_ExplicitCommand(t *testing.T) {
 	dir := t.TempDir()
-	artifactDir := filepath.Join(dir, ".sdp", "runs", "pi-review")
+	artifactDir := filepath.Join(dir, ".sdp", "runs", "pi-review", "run-123")
 
 	cfg := Config{
 		ProjectRoot: dir,
 		TestCommand: "echo hello",
 	}
 
-	evidence, err := CollectTestEvidence(context.Background(), cfg)
+	evidence, err := CollectTestEvidence(context.Background(), cfg, artifactDir)
 	if err != nil {
 		t.Fatalf("CollectTestEvidence() error: %v", err)
 	}
