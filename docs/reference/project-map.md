@@ -28,6 +28,7 @@ Do not use this doc as your main onboarding path if your real goal is:
 - start greenfield delivery or brownfield adoption
 
 For that path, go straight to [../QUICKSTART.md](../QUICKSTART.md). Today that quickstart covers `Claude Code`, `OpenCode`, `Codex`, `Cursor`, and `Pi`.
+If you are unsure which path applies, start with [../START_HERE.md](../START_HERE.md).
 
 ## Main Components
 
@@ -83,6 +84,9 @@ Use one source per question.
 | What repo owns this file? | [docs/MULTI-REPO-WORKFLOW.md](../MULTI-REPO-WORKFLOW.md) |
 | What belongs in `sdp_lab` vs `sdp`? | [docs/architecture/REPO-BOUNDARY.md](../architecture/REPO-BOUNDARY.md) |
 | How do I adopt SDP in another repo? | [../QUICKSTART.md](../QUICKSTART.md) |
+| What should I read first if I do not know my path? | [../START_HERE.md](../START_HERE.md) |
+| What commands exist and which are stable? | [commands.md](commands.md) |
+| How do skills, agents, aliases, and manifests fit together? | [agent-skill-entry-map.md](agent-skill-entry-map.md) |
 | What is the canonical happy path from intake to delivery? | [canonical-happy-path.md](canonical-happy-path.md) |
 | What is the canonical operator loop? | [canonical-happy-path.md](canonical-happy-path.md), [docs/SDP_OPERATOR_WORKFLOW.md](../SDP_OPERATOR_WORKFLOW.md) |
 | What agents and skills are on the happy path? | [agent-catalog.md](agent-catalog.md), [skills.md](skills.md) |
@@ -144,9 +148,11 @@ If you are new to this repo, read in this order:
 
 If you are new to SDP but not to this repo, use this shorter decision:
 
-1. "I want to use SDP in my own repo" -> [../QUICKSTART.md](../QUICKSTART.md)
-2. "I want to work on SDP platform internals" -> keep reading this file
-3. "I am a dev agent entering cold" -> [../../AGENTS.md](../../AGENTS.md), then this file
+1. "I do not know which path fits" -> [../START_HERE.md](../START_HERE.md)
+2. "I want to use SDP in my own repo" -> [../QUICKSTART.md](../QUICKSTART.md)
+3. "I want to understand commands or skills" -> [commands.md](commands.md), then [agent-skill-entry-map.md](agent-skill-entry-map.md)
+4. "I want to work on SDP platform internals" -> keep reading this file
+5. "I am a dev agent entering cold" -> [../../AGENTS.md](../../AGENTS.md), then this file
 
 If you are touching protocol artifacts in `sdp/`, read these before changing anything:
 

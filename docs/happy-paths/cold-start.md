@@ -2,6 +2,12 @@
 
 > **Ситуация:** Новый проект, новая сессия агента — никакого контекста. Как начать без хаоса?
 
+> **Status:** operator/lab recipe, not the friendly first-run Toolkit path.
+> If you are trying SDP in your own repo for the first time, start with
+> [../START_HERE.md](../START_HERE.md) and [../QUICKSTART.md](../QUICKSTART.md).
+> Commands such as `sdp-up` and `sdp-harness` are lab/operator surfaces, not the
+> first thing an external user should run.
+
 Cold start = первые действия агента в неизвестном или свежем контексте.
 
 ---

@@ -53,6 +53,7 @@ Full inventory: [`docs/reference/maturity-matrix.md`](docs/reference/maturity-ma
 - the `sdp` repo is now a distilled distribution/mirror surface, not the upstream source of truth
 
 If your goal is to **use SDP inside your own project**, start with [docs/QUICKSTART.md](docs/QUICKSTART.md).
+If you are unsure where to start, use [docs/START_HERE.md](docs/START_HERE.md).
 
 ## Clone
 
@@ -72,7 +73,10 @@ go build -tags "sqlite_fts5" ./...
 
 | Goal | Start here |
 |---|---|
+| **I am not sure which SDP path I need** | **[docs/START_HERE.md](docs/START_HERE.md)** |
 | **Install SDP Toolkit into your repo** | **[Install in 30 seconds](#install-in-30-seconds)** below, or [docs/QUICKSTART.md](docs/QUICKSTART.md) |
+| See the command map | [`docs/reference/commands.md`](docs/reference/commands.md) |
+| See the skill and agent map | [`docs/reference/agent-skill-entry-map.md`](docs/reference/agent-skill-entry-map.md) |
 | Understand what SDP is good at today | [`docs/reference/product-surface.md`](docs/reference/product-surface.md) |
 | Understand component maturity (GA/Beta/Experimental) | [`docs/reference/maturity-matrix.md`](docs/reference/maturity-matrix.md) |
 | Understand what `sdp_lab` is and what lives here | [`docs/reference/project-map.md`](docs/reference/project-map.md) |

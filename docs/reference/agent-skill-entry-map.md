@@ -23,16 +23,15 @@ memorize every manifest entry before asking for useful work.
 
 ## What The Numbers Mean
 
-`sdp.manifest.yaml` is the canonical inventory. At the time of this document it
-declares:
+`sdp.manifest.yaml` is the canonical machine inventory. At the time of this
+document it declares:
 
-- 5 human intents: understand, build, fix, review, operate
 - 30 manifest skills under `skills:`
 - 12 agent prompts under `agents:`
 
-The five intents are the menu. The 30 skills are executable workflows and
-legacy-compatible surfaces. The 12 agent prompts are role prompts for focused
-work, review, and specialist judgment.
+The five intents are the human menu, not manifest rows. The 30 manifest skills
+are executable workflows and legacy-compatible surfaces. The 12 agent prompts
+are role prompts for focused work, review, and specialist judgment.
 
 Do not update this document as the source of truth for counts. Update
 `sdp.manifest.yaml`, then verify the generated and adapter surfaces.
@@ -43,7 +42,7 @@ Do not update this document as the source of truth for counts. Update
 |---|---|
 | `sdp.manifest.yaml` | Single inventory for generated skills, commands, agents, and harness metadata |
 | `prompts/skills/` | Structured skill source, one directory per skill with `SKILL.md` |
-| `.agents/skills/` | Flat skill source for OpenCode, Cursor, Kimi, and harnesses without plugin discovery |
+| `.agents/skills/` | Runtime aliases and stubs for OpenCode, Cursor, Kimi, Pi, and harnesses without plugin discovery |
 | `prompts/agents/` | Canonical agent prompt source |
 
 If these disagree, treat it as drift. Do not paper over the mismatch in docs.

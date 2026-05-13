@@ -2,6 +2,12 @@
 
 > **Ситуация:** Новый проект с нуля. Ни кода, ни структуры, ни SDP. Как запустить?
 
+> **Status:** operator/lab recipe, not the friendly first-run Toolkit path.
+> If you are evaluating SDP from a fresh repo, start with
+> [../START_HERE.md](../START_HERE.md) and [../QUICKSTART.md](../QUICKSTART.md).
+> This document still uses `sdp-up` and `sdp-harness`, which are not the stable
+> first-run Toolkit promise.
+
 ---
 
 ## Шаг 1: Инициализация проекта

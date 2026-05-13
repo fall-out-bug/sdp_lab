@@ -11,6 +11,9 @@ Use this doc when the question is:
 - what is stable, what is useful tooling, and what is still experimental?
 - what ships in the Homebrew formula?
 
+If you are not sure which path applies, start with
+[../START_HERE.md](../START_HERE.md).
+
 ## Positioning
 
 SDP is a governed AI software delivery harness.

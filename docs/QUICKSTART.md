@@ -4,6 +4,9 @@ Get SDP installed in a repo and run the first useful checks.
 
 Audience: CTOs, architects, and developers evaluating SDP as a structured AI PDLC/SDLC harness layer.
 
+If you are not sure whether you need Toolkit evaluation, repo contribution, or
+Operator Mode, start with [START_HERE.md](START_HERE.md).
+
 ## What You Are Installing
 
 You are installing **SDP Toolkit** — the installable developer surface. It is the `sdp` CLI, installed into your repo.
@@ -123,6 +126,10 @@ For brownfield agent setup, preview generated artifacts before writing:
 | **Local delivery** | You want a lightweight idea-to-change loop in one repo. | `sdp build --dry-run`, then harness-specific commands |
 | **Operator mode** | You need queue-backed delivery, explicit ownership, PR gates, and QA/UAT. | [reference/canonical-happy-path.md](reference/canonical-happy-path.md) |
 | **MCP integration** | You want an AI harness to call SDP tools directly. | [reference/installation.md](reference/installation.md) |
+
+Command map: [reference/commands.md](reference/commands.md)
+
+Skill and agent map: [reference/agent-skill-entry-map.md](reference/agent-skill-entry-map.md)
 
 ## What Works Today
 
