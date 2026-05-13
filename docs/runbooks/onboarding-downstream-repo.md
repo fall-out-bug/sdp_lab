@@ -46,6 +46,15 @@ Start with low-risk repo analysis. `index build` writes a local `.sdp/index.db` 
 ./.sdp/bin/sdp spec --format text .
 ```
 
+After `index build`, use the local cache for follow-up inspection:
+
+```bash
+./.sdp/bin/sdp index query . "auth flow"
+./.sdp/bin/sdp index find . Handler
+./.sdp/bin/sdp index deps . ./internal/api
+./.sdp/bin/sdp index stats .
+```
+
 Preview delivery setup without changing code:
 
 ```bash

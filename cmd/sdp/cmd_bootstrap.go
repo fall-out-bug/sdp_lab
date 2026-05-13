@@ -34,8 +34,8 @@ func runBootstrap(args []string) {
 
 	// Determine subcommand: "status" or repo path.
 	if fs.NArg() < 1 {
-		fmt.Fprintln(os.Stderr, "usage: sdp bootstrap [--dry-run] [--force] [--beads] [--yes] [--auto-curate] [--only TYPES] [--conventions] [--mode greenfield|brownfield] [--preset NAME] <repo-path>")
-		fmt.Fprintln(os.Stderr, "       sdp bootstrap status <repo-path>")
+		fmt.Fprintln(os.Stderr, "usage: sdp bootstrap [--dry-run] [--force] [--beads] [--yes] [--auto-curate] [--format json|text] [--only TYPES] [--conventions] [--mode greenfield|brownfield] [--preset NAME] [--no-verify] <repo-path>")
+		fmt.Fprintln(os.Stderr, "       sdp bootstrap status [--format json|text] <repo-path>")
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "Modes:")
 		fmt.Fprintln(os.Stderr, "  greenfield  Interactive bootstrap for new projects (--preset for non-interactive)")

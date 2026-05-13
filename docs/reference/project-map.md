@@ -51,9 +51,11 @@ SDP is organized into seven product layers. See [`product-surface.md`](product-s
 
 **What ships today (SDP Toolkit + Toolbox):**
 
-- `sdp` CLI with stable subcommands: `scout`, `metrics`, `index`, `spec`, `bootstrap`, `init`, `manifest`, `generate-adapters`, `doctor`
+- first-run `sdp` CLI surface: `scout`, `metrics`, `index build`, `spec`, `bootstrap --dry-run`
+- install/support surface: `init`, `manifest`, `generate-adapters`, `doctor`
+- after `index build`: `index query`, `index find`, `index deps`, and `index stats` reuse the local index cache
 - multi-harness adapter install for Claude Code, OpenCode, Codex, Cursor, and Pi
-- Operator Mode as the default Toolkit happy path (stateful orchestration)
+- Operator Mode as the default Toolkit happy path (stateful orchestration). `architect` is useful here as second-run/operator analysis, not as first-run onboarding.
 
 **Product direction (not yet shipped):**
 

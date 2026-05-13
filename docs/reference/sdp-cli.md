@@ -139,17 +139,18 @@ sdp result ingest --file result.json
 
 ### `sdp orchestrate`
 
-Run orchestration loop for result processing.
+Run the top-level result-processing loop. This is distinct from the standalone `sdp-orchestrate --feature ...` binary, which drives feature/workstream operator runs.
 
 ```
-sdp orchestrate once
+sdp orchestrate <once|loop>
 ```
 
-**Subcommands:** `once`
+**Subcommands:** `once`, `loop`
 
 **Examples:**
 ```bash
 sdp orchestrate once
+sdp orchestrate loop --cycles 3 --interval 30s
 ```
 
 ---
@@ -404,17 +405,22 @@ sdp spec --category api --format json /path/to/repo
 Build and query repository indexes.
 
 ```
-sdp index <build|stats|manifest>
+sdp index <build|refresh|stats|manifest|query|deps|find|rank>
 ```
 
-**Subcommands:** `build`, `stats`, `manifest`
+**Subcommands:** `build`, `refresh`, `stats`, `manifest`, `query`, `deps`, `find`, `rank`
 
 **Examples:**
 ```bash
 sdp index build /path/to/repo
+sdp index query /path/to/repo "auth flow"
+sdp index find /path/to/repo Handler
+sdp index deps /path/to/repo ./internal/api
 sdp index stats /path/to/repo
 sdp index manifest --output ./docs /path/to/repo
 ```
+
+Run `index build` first. `query`, `find`, `deps`, and `stats` read the local `.sdp/index.db` cache.
 
 ---
 
@@ -425,13 +431,16 @@ sdp index manifest --output ./docs /path/to/repo
 Initialize repository with SDP workstreams.
 
 ```
-sdp bootstrap [--dry-run] [--force] [--beads] [--yes] [--auto-curate] [--only TYPES] <repo-path>
+sdp bootstrap [--dry-run] [--force] [--beads] [--yes] [--auto-curate] [--format json|text] [--only TYPES] [--conventions] [--mode greenfield|brownfield] [--preset NAME] [--no-verify] <repo-path>
+sdp bootstrap status [--format json|text] <repo-path>
 ```
 
 **Examples:**
 ```bash
 sdp bootstrap /path/to/repo
-sdp bootstrap --dry-run --only feature,epic /path/to/repo
+sdp bootstrap --dry-run --mode brownfield /path/to/repo
+sdp bootstrap --dry-run --only claude-md,agents-md /path/to/repo
+sdp bootstrap status --format json /path/to/repo
 ```
 
 ---
@@ -544,7 +553,6 @@ The following standalone binaries forward to `sdp <subcommand>` with a deprecati
 | `sdp-harness` | `sdp harness` | v2.0.0 |
 | `sdp-healthcheck` | `sdp healthcheck` | v2.0.0 |
 | `sdp-omc-guard` | `sdp omc-guard` | v2.0.0 |
-| `sdp-orchestrate` | `sdp orchestrate daemon` | v2.0.0 |
 | `sdp-orchestrate-daemon` | `sdp orchestrate daemon` | v2.0.0 |
 | `sdp-protocol-check` | `sdp protocol-check` | v2.0.0 |
 | `sdp-ready` | `sdp ready` | v2.0.0 |

@@ -62,31 +62,38 @@ SDP is not a good first choice for:
 |--------|----------|------------|
 | `sdp` | GA | Main CLI. All product subcommands live here. |
 
-**Stable `sdp` subcommands** (visible in formula help, product promise):
+**First-run stable `sdp` subcommands** (visible in formula help, product promise):
 
 - `scout` -- Fast map of an unfamiliar repository
 - `metrics` -- Git-derived process health: churn, hotspots, bus-factor risk
-- `index` -- Persistent codebase memory and symbol/query support
+- `index build` -- Persistent codebase memory cache
 - `spec` -- Recovering implicit APIs, rules, invariants, and SLAs from code
-- `bootstrap` -- Brownfield-safe generation of agent setup artifacts
+- `bootstrap --dry-run` -- Brownfield-safe preview of agent setup artifacts
+
+**Stable install/support subcommands**:
+
 - `init` -- Initialize SDP in a repo
 - `manifest` -- Manifest validate/parity
 - `generate-adapters` -- Adapter generation
 - `doctor` -- Diagnostic checks
+
+**Second-run toolkit commands**:
+
+- `index query`, `index find`, `index deps`, `index stats` -- Follow-up inspection after `index build`
 - `coverage-scan` -- Coverage scanning
 - `rules` -- Rules update from evidence
 - `skills` -- Skills augment/update
+- `architect` -- C4 architecture analysis for operator/review use, not first-run onboarding
 
 **Operator Mode subcommands** (default Toolkit Happy Path):
 
-- `orchestrate` -- Feature-level orchestration
+- `orchestrate once|loop` -- Top-level result-processing loop
 - `card` -- FeatureCard CRUD
 - `board` -- Board build/show
 - `phase` -- Phase plan/review/eval
 - `build` -- Build planner
 - `deploy` -- Deploy staging/prod/rollback
 - `discover` -- Discovery pipeline (Stage 0)
-- `architect` -- C4 architecture analysis
 - `why`, `next`, `missing`, `approve`, `trace` -- Query/insight commands
 - `status`, `stuck`, `attention` -- Pipeline status
 - `dispatch`, `result`, `intent`, `eval`, `clarify`, `plan`, `approve-plan` -- Pipeline internals
@@ -101,7 +108,7 @@ SDP is not a good first choice for:
 
 | Binary | Maturity | What it is good for |
 |--------|----------|---------------------|
-| `sdp-orchestrate` | GA | Standalone feature-level orchestration binary |
+| `sdp-orchestrate` | GA | Standalone feature/workstream operator driver (`sdp-orchestrate --feature ...`), distinct from `sdp orchestrate once|loop` |
 | `sdp-orchestrate-daemon` | Beta | Daemon variant of orchestrate |
 | `sdp-guard` | GA | Scope enforcement binary |
 | `sdp-ci-loop` | GA | CI feedback loop binary |
@@ -174,9 +181,10 @@ of the first-run Toolkit promise and are not in the GoReleaser allowlist.
 | Multi-harness install | Beta | Installing SDP skills, commands, and agents into Claude Code, OpenCode, Codex, Cursor, and Pi from `sdp.manifest.yaml`. |
 | Toolkit scout | GA | Fast map of an unfamiliar repository. |
 | Toolkit metrics | GA | Git-derived process health: churn, hotspots, bus-factor-style risk, review/process signals. |
-| Toolkit index | GA | Persistent codebase memory and symbol/query support. |
+| Toolkit index | GA | `index build` creates persistent codebase memory; `query`, `find`, `deps`, and `stats` are useful after that first cache exists. |
 | Spec recovery | GA | Recovering implicit APIs, rules, invariants, and SLAs from code. |
 | Bootstrap | GA | Brownfield-safe generation of agent setup artifacts. |
+| Architect | GA | C4 architecture analysis for second-run/operator use; not the first-run onboarding promise. |
 | Beads-backed operator loop | GA inside `sdp_lab` | Durable work graph for feature/workstream execution. |
 | Evidence and protocol checks | GA | Validating evidence, workstream hygiene, adapter parity, and doc drift. |
 | StratAudit | GA | Evidence-backed strategy and architecture audit reports. |
@@ -185,7 +193,7 @@ of the first-run Toolkit promise and are not in the GoReleaser allowlist.
 
 These are useful building blocks, but they are not the first thing to sell or demo:
 
-- `sdp-orchestrate`, `sdp-ci-loop`, `sdp-guard`, `sdp-doc-sync`, `sdp-ready`
+- `sdp-orchestrate --feature`, `sdp-ci-loop`, `sdp-guard`, `sdp-doc-sync`, `sdp-ready`
 - `manifest validate`, `manifest parity`, `generate-adapters`, `doctor adapters`
 - K8s/deploy scripts and legacy swarm paths
 - internal design docs under `docs/plans/` and `docs/archive/`
@@ -213,7 +221,7 @@ Use this when you want to see what SDP installs and what it can inspect.
 
 1. Run the installer from your repo root.
 2. Validate the manifest and generated adapters.
-3. Run `scout`, `metrics`, `index`, and `spec` on the repo.
+3. Run `scout`, `metrics`, `index build`, and `spec` on the repo.
 4. Optionally run `sdp build --dry-run` to see the delivery-planning surface.
 
 Canonical doc: [../QUICKSTART.md](../QUICKSTART.md)
@@ -232,7 +240,7 @@ Default commands:
 ./.sdp/bin/sdp bootstrap --dry-run --mode brownfield .
 ```
 
-This path is low-risk because the analysis commands inspect the repo and `index build` writes only a local `.sdp/index.db` cache. Bootstrap writes project artifacts only when you run it without `--dry-run`.
+This path is low-risk because the analysis commands inspect the repo and `index build` writes only a local `.sdp/index.db` cache. After that first build, use `index query`, `index find`, `index deps`, and `index stats` against the cache. Bootstrap writes project artifacts only when you run it without `--dry-run`.
 
 ### 3. Run Operator Mode (Default Toolkit Happy Path)
 
@@ -275,7 +283,7 @@ The default Homebrew formula installs the `sdp` binary. It does NOT install:
 - experimental binaries (`sdp-harness`, `sdp-a2a`, `sdp-strataudit`, `sdp-mcp`)
 - research/benchmark binaries (`sdp-cascade-replay`, `sdp-confidence-replay`, `sdp-decompose-bench`, `sdp-microfirst-bench`, `sdp-bd-suggest`, `sdp-ft-*`)
 
-Operator tooling binaries (`sdp-orchestrate`, `sdp-guard`, `sdp-ci-loop`, `sdp-evidence`, etc.) are included in the release build, but they are not the first-run promise.
+Operator tooling binaries (`sdp-orchestrate`, `sdp-guard`, `sdp-ci-loop`, `sdp-evidence`, etc.) are included in the release build, but they are not the first-run promise. Use `sdp-orchestrate --feature ...` for feature/workstream operator runs; use `sdp orchestrate once|loop` for the top-level result-processing loop.
 
 Exclusion mechanism: GoReleaser allowlist (`.goreleaser.yml`). Build tags (`sdp_experimental`) for compile isolation. See [maturity-matrix.md](maturity-matrix.md) for the full inventory.
 

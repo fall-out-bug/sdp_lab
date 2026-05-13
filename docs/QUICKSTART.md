@@ -94,6 +94,15 @@ Run low-risk toolkit commands first. `scout`, `metrics`, and `spec` only inspect
 ./.sdp/bin/sdp spec --format text .
 ```
 
+After the first index build, use the cache for follow-up questions:
+
+```bash
+./.sdp/bin/sdp index query . "auth flow"
+./.sdp/bin/sdp index find . Handler
+./.sdp/bin/sdp index deps . ./internal/api
+./.sdp/bin/sdp index stats .
+```
+
 Then preview the delivery-planning surface:
 
 ```bash
@@ -110,7 +119,7 @@ For brownfield agent setup, preview generated artifacts before writing:
 
 | Path | Use when | Start with |
 |---|---|---|
-| **Toolkit evaluation** | You want to inspect an existing repo and recover useful context. | `scout`, `metrics`, `index`, `spec`, `bootstrap --dry-run` |
+| **Toolkit evaluation** | You want to inspect an existing repo and recover useful context. | `scout`, `metrics`, `index build`, `spec`, `bootstrap --dry-run` |
 | **Local delivery** | You want a lightweight idea-to-change loop in one repo. | `sdp build --dry-run`, then harness-specific commands |
 | **Operator mode** | You need queue-backed delivery, explicit ownership, PR gates, and QA/UAT. | [reference/canonical-happy-path.md](reference/canonical-happy-path.md) |
 | **MCP integration** | You want an AI harness to call SDP tools directly. | [reference/installation.md](reference/installation.md) |
@@ -120,7 +129,8 @@ For brownfield agent setup, preview generated artifacts before writing:
 **SDP Toolkit (stable, ships in formula):**
 
 - multi-harness manifest/adapters: 30 skills, 25 commands, 12 agents rendered into each harness's native surface
-- toolkit commands: `scout`, `metrics`, `index`, `spec`, `bootstrap`
+- first-run toolkit commands: `scout`, `metrics`, `index build`, `spec`, `bootstrap --dry-run`
+- install/support commands: `init`, `manifest`, `generate-adapters`, `doctor`
 
 **Operator Mode (default Toolkit happy path):**
 
@@ -130,8 +140,11 @@ For brownfield agent setup, preview generated artifacts before writing:
 
 **Operator tooling (included in the release build, not the first-run promise):**
 
-- `sdp-orchestrate`, `sdp-ci-loop`, `sdp-guard`, `sdp-doc-sync`, `sdp-ready`
+- `sdp-orchestrate --feature` for feature/workstream operator runs
+- `sdp-ci-loop`, `sdp-guard`, `sdp-doc-sync`, `sdp-ready`
 - `manifest parity`, `generate-adapters`, `doctor adapters`
+
+`sdp orchestrate once|loop` is the top-level CLI result-processing loop. It is not the same surface as the standalone `sdp-orchestrate --feature ...` operator driver.
 
 **Lab / research (not in formula):**
 
