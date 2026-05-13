@@ -31,8 +31,13 @@ echo "0. Deterministic Quality Matrix"
 echo "--------------------------------"
 print_assessment "go_build_test_vet_lint" "evidence_only" "covered by run_go_quality_gates.sh/CI build-test, not by this script"
 print_assessment "coverage_baseline_delta" "evidence_only" "covered by CI coverage-gate; this script checks package tiers only"
-print_assessment "maturity_tier_coverage" "evidence_only" "checked below from go test -cover per package"
-print_assessment "test_code_ratio" "evidence_only" "checked below as local evidence; not wired into CI"
+if [ "${SDP_QUALITY_MATRIX_ONLY:-0}" = "1" ]; then
+    print_assessment "maturity_tier_coverage" "evidence_only" "available with --full; default report does not run per-package coverage"
+    print_assessment "test_code_ratio" "evidence_only" "available with --full; default report does not run ratio checks"
+else
+    print_assessment "maturity_tier_coverage" "evidence_only" "checked below from go test -cover per package"
+    print_assessment "test_code_ratio" "evidence_only" "checked below as local evidence; not wired into CI"
+fi
 
 if has_linter_token "gocognit" || has_linter_token "gocyclo"; then
     print_assessment "cognitive_complexity" "evidence_only" "linter token found in root .golangci.yml; verify CI wiring before treating as blocking"

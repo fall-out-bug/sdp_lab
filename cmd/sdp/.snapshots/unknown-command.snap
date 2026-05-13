@@ -59,6 +59,7 @@ Scout commands:
 
 Metrics commands:
   sdp metrics [--format json|text|markdown] [--output DIR] <repo-path>
+  sdp quality [--full]        Show quality-axis states; --full runs coverage and ratio checks
 
 Spec commands:
   sdp spec [--format json|text] [--category api|rules|invariants|sla] [--output DIR] [--enrich] [--diff] <repo-path>

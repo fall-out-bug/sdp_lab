@@ -67,6 +67,8 @@ func main() {
 		runSpec(os.Args[2:])
 	case "metrics":
 		runMetrics(os.Args[2:])
+	case "quality":
+		runQuality(os.Args[2:])
 	case "index":
 		runIndex(os.Args[2:])
 	case "bootstrap":
@@ -159,6 +161,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Metrics commands:")
 	fmt.Fprintln(os.Stderr, "  sdp metrics [--format json|text|markdown] [--output DIR] <repo-path>")
+	fmt.Fprintln(os.Stderr, "  sdp quality [--full]        Show quality-axis states; --full runs coverage and ratio checks")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Spec commands:")
 	fmt.Fprintln(os.Stderr, "  sdp spec [--format json|text] [--category api|rules|invariants|sla] [--output DIR] [--enrich] [--diff] <repo-path>")

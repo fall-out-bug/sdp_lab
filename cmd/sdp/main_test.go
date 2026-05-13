@@ -71,6 +71,7 @@ func TestMainHelpListsImplementedProductCommands(t *testing.T) {
 	output := out.String()
 	for _, want := range []string{
 		"sdp metrics",
+		"sdp quality",
 		"sdp architect analyze",
 		"sdp coverage-scan",
 		"sdp skills augment",
@@ -79,6 +80,30 @@ func TestMainHelpListsImplementedProductCommands(t *testing.T) {
 		if !strings.Contains(output, want) {
 			t.Fatalf("expected help to contain implemented command %q, got:\n%s", want, output)
 		}
+	}
+}
+
+func TestQualityDefaultShowsMatrixOnly(t *testing.T) {
+	binPath := buildTestBinary(t)
+	cmd := exec.Command(binPath, "quality")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("expected quality matrix to exit 0, got %v\n%s", err, out.String())
+	}
+	output := out.String()
+	for _, want := range []string{
+		"Deterministic Quality Matrix",
+		"not_assessed",
+		"cannot_verify",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected quality output to contain %q, got:\n%s", want, output)
+		}
+	}
+	if strings.Contains(output, "Test/Code Ratio Check") {
+		t.Fatalf("default quality output should not run full ratio checks:\n%s", output)
 	}
 }
 

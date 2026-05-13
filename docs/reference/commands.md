@@ -19,7 +19,7 @@ use it for normal work?"
 | Adopt SDP in a repo | `sdp init`, `sdp bootstrap`, `sdp doctor adapters` | Toolkit surface for real users and harness setup. |
 | Understand an unknown repo | `sdp scout`, `sdp metrics`, `sdp index build`, `sdp architect analyze` | Repo analysis and indexing. |
 | Work an SDP feature in `sdp_lab` | `/feature`, `/design`, `/build`, `/review`, `/oneshot` | Harness slash commands and skills, not top-level `sdp` subcommands. |
-| Check backlog/doc consistency | `sdp doctor backlog`, `sdp phase *`, `sdp-protocol-check`, `sdp-doc-sync` | Repo-maintenance surface. |
+| Check quality/backlog/doc consistency | `sdp quality`, `sdp doctor backlog`, `sdp phase *`, `sdp-protocol-check`, `sdp-doc-sync` | `sdp quality` is an sdp_lab-local advisory quality-axis report; repo-maintenance surfaces are not broad downstream promises. |
 | Find ready Beads work | `sdp-ready`, `bd ready`, `bd show <id>` | Beads is the task tracker authority. |
 | Run Go quality gates | `./scripts/run_go_quality_gates.sh` | No Python gates are required by this repo's normal Go flow. |
 | Run model/code review tooling | `sdp-pi-review`, `/review`, `/codereview` | Review evidence, not automatic merge approval. |
@@ -59,6 +59,7 @@ operator analysis.
 |---|---|
 | `sdp scout <repo-path>` | Quick repo map in text, JSON, or card format. |
 | `sdp metrics <repo-path>` | Git-derived process and activity metrics. |
+| `sdp quality [--full]` | sdp_lab-local quality-axis report. Default prints F168 states only; `--full` runs coverage and test/code ratio checks. |
 | `sdp spec <repo-path>` | Extract API/rules/invariants/SLA-oriented spec signals. |
 | `sdp architect analyze <repo-path>` | Tiered architecture analysis. |
 | `sdp architect c4 <repo-path>` | Generate C4-oriented architecture output. |

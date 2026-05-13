@@ -84,6 +84,7 @@ SDP is not a good first choice for:
 
 - `index query`, `index find`, `index deps`, `index stats` -- Follow-up inspection after `index build`
 - `coverage-scan` -- Coverage scanning
+- `quality` -- sdp_lab-local advisory quality-axis report. Default prints F168 evidence states only; `--full` runs lab coverage and ratio checks. Do not present this as a portable downstream Toolkit gate until it no longer depends on `scripts/quality-metrics.sh`.
 - `rules` -- Rules update from evidence
 - `skills` -- Skills augment/update
 - `architect` -- C4 architecture analysis for operator/review use, not first-run onboarding

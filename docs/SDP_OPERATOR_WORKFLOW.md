@@ -99,7 +99,7 @@ Board semantics:
 6. **Open early `draft PR`:** create or re-use the feature `PR` at the first blocking `workstream` or first meaningful change.
 7. **Execute:** use the local operator path unless a workstream explicitly requires swarm or remote infrastructure.
 8. **Record artifacts:** execution must produce `evidence`, `trace`, and `drift` inputs.
-9. **Quality gates:** `sdp quality all`, `go test ./...`, lint, and any workstream-specific verification.
+9. **Quality gates:** `sdp quality --full`, `go test ./...`, lint, and any workstream-specific verification. Use plain `sdp quality` only for the fast F168 state matrix.
 10. **Review loop:** reviewer validates output; any review, CI, or `drift` finding becomes a typed `beads issue` with `source`, linked `feature`, linked `workstream`, `blocking`, and `PR` or artifact reference.
 11. **`QA/UAT`:** after engineering gates are clean, run `QA/UAT` against the `feature` intent. `qa:fail` creates new blocking `beads issue`; `qa:pass` records `UAT evidence`.
 12. **Complete:** `cmd/beads-fsm` moves flow to `verified` and `done`, then `bd close <id> --reason "..."`, `scripts/beads_transport.sh export`.

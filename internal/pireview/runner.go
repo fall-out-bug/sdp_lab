@@ -133,7 +133,7 @@ type ReviewerSlot struct {
 func DefaultSlots() []ReviewerSlot {
 	return []ReviewerSlot{
 		{Slot: "zai", Provider: "zai", Model: "glm-5.1", Role: "reviewer", Required: true},
-		{Slot: "kimi", Provider: "kimi-coding", Model: "k2p6", Role: "reviewer", Required: true},
+		{Slot: "kimi", Provider: "kimi-coding", Model: "kimi-for-coding", Role: "reviewer", Required: true},
 		{Slot: "minimax", Provider: "minimax", Model: "MiniMax-M2.7", Role: "reviewer", Required: true},
 	}
 }

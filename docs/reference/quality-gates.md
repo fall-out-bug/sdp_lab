@@ -3,7 +3,12 @@
 Quality gates describe **what SDP can verify deterministically today** and what
 is only advisory evidence until tooling exists.
 
-> **Note (WS-067-05: AC7):** This document contains Python-specific examples (pytest, mypy, ruff) for illustration purposes. SDP is primarily a Go project. For Go, use equivalent tools:
+> **Legacy examples boundary:** Sections after the F168 deterministic matrix are
+> historical, language-agnostic examples from the early protocol. They are not
+> the current sdp_lab Go gate contract. The current contract is the matrix below,
+> `./scripts/run_go_quality_gates.sh`, CI, and `sdp quality`.
+>
+> This document still contains Python-specific examples (pytest, mypy, ruff) for illustration purposes. SDP is primarily a Go project. For Go, use equivalent tools:
 > - `pytest` → `go test`
 > - `mypy --strict` → `go vet` + static analysis
 > - `ruff` → `golangci-lint`

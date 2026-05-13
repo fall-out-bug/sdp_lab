@@ -58,6 +58,7 @@ func main() {
 		os.Exit(1)
 	}
 	run.Round = *round
+	verdict.Round = *round
 
 	// Persist run telemetry
 	if err := persistRun(projectRoot, run); err != nil {
