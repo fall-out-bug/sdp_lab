@@ -17,16 +17,17 @@ import (
 )
 
 var (
-	tmplClaudeCommand = mustParse("claude-command", "templates/claude-code/command.tmpl")
-	tmplClaudeAgent   = mustParse("claude-agent", "templates/claude-code/agent.tmpl")
-	tmplOpenCodeAgent = mustParse("opencode-agent", "templates/opencode/agent.tmpl")
-	tmplOpenCodeSkill = mustParse("opencode-skill", "templates/opencode/skill.tmpl")
-	tmplCodexSkill    = mustParse("codex-skill", "templates/codex/skill.tmpl")
-	tmplCursorCommand = mustParse("cursor-command", "templates/cursor/command.tmpl")
-	tmplPiSkill       = mustParse("pi-skill", "templates/pi/skill.tmpl")
-	tmplPiPrompt      = mustParse("pi-prompt", "templates/pi/prompt.tmpl")
+	tmplClaudeCommand   = mustParse("claude-command", "templates/claude-code/command.tmpl")
+	tmplClaudeAgent     = mustParse("claude-agent", "templates/claude-code/agent.tmpl")
+	tmplOpenCodeAgent   = mustParse("opencode-agent", "templates/opencode/agent.tmpl")
+	tmplOpenCodeSkill   = mustParse("opencode-skill", "templates/opencode/skill.tmpl")
+	tmplOpenCodeCommand = mustParse("opencode-command", "templates/opencode/command.tmpl")
+	tmplCodexSkill      = mustParse("codex-skill", "templates/codex/skill.tmpl")
+	tmplCursorCommand   = mustParse("cursor-command", "templates/cursor/command.tmpl")
+	tmplPiSkill         = mustParse("pi-skill", "templates/pi/skill.tmpl")
+	tmplPiPrompt        = mustParse("pi-prompt", "templates/pi/prompt.tmpl")
 
-	legacyClaudeSkillRef = regexp.MustCompile(`@?\.claude/skills/([A-Za-z0-9_-]+)/SKILL\.md`)
+	legacyClaudeSkillRef = regexp.MustCompile(`@?\.claude/skills/([A-Za-z0-9_-]+)(?:/(?:SKILL\.md)|\.md)?`)
 )
 
 // renderItem is the template data type passed to all templates.
@@ -105,6 +106,25 @@ func stripFrontmatter(body string) string {
 // harness-neutral-ish, while Pi prompt templates avoid leaking .claude paths.
 func rewriteLegacyClaudeSkillRefsForPi(body string) string {
 	return legacyClaudeSkillRef.ReplaceAllString(body, `$1`)
+}
+
+func rewriteLegacyClaudeSkillRefsForOpenCode(body string) string {
+	return rewriteLegacyClaudeSkillRefsForPi(body)
+}
+
+func rewriteSharedCommandBodyForHarness(body string) string {
+	body = rewriteLegacyClaudeSkillRefsForPi(body)
+	body = strings.ReplaceAll(body, "hooks/pre-build.sh", "scripts/hooks/pre-build.sh")
+	body = strings.ReplaceAll(body, "hooks/post-build.sh", "scripts/hooks/post-build.sh")
+	return trimTrailingWhitespace(body)
+}
+
+func trimTrailingWhitespace(body string) string {
+	lines := strings.Split(strings.TrimSpace(body), "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(line, " \t")
+	}
+	return strings.Join(lines, "\n")
 }
 
 // Generate renders adapter files for all harnesses declared in the manifest.
@@ -267,7 +287,8 @@ func generateClaudeCode(m *manifest.Manifest, enabled map[manifest.Harness]bool,
 	return nil
 }
 
-// generateOpenCode emits .opencode/agent/<name>.json and .opencode/skill/<name>.md
+// generateOpenCode emits .opencode/agent/<name>.json, .opencode/skill/<name>.md,
+// and .opencode/commands/<name>.md.
 func generateOpenCode(m *manifest.Manifest, enabled map[manifest.Harness]bool, repoRoot string, out map[string][]byte) error {
 	if !enabled[manifest.HarnessOpenCode] {
 		return nil
@@ -317,6 +338,31 @@ func generateOpenCode(m *manifest.Manifest, enabled map[manifest.Harness]bool, r
 		}
 		out[".opencode/skill/"+s.Name+".md"] = data
 	}
+
+	cmds := make([]manifest.Command, len(m.Commands))
+	copy(cmds, m.Commands)
+	sort.Slice(cmds, func(i, j int) bool { return cmds[i].Name < cmds[j].Name })
+
+	for _, c := range cmds {
+		ih := itemHarnesses(c.Harnesses, enabled)
+		if !ih[manifest.HarnessOpenCode] {
+			continue
+		}
+		commandBody := rewriteSharedCommandBodyForHarness(wrapBodyWithMarker(stripFrontmatter(readBody(repoRoot, c.Path)), c.Path))
+		item := renderItem{
+			Name:    c.Name,
+			Summary: c.Summary,
+			Type:    c.Type,
+			Path:    c.Path,
+			Body:    commandBody,
+		}
+		data, err := render(tmplOpenCodeCommand, item)
+		if err != nil {
+			return err
+		}
+		out[commandOutputPath(c, manifest.HarnessOpenCode, ".opencode/commands/"+c.Name+".md")] = data
+	}
+
 	return nil
 }
 
@@ -370,7 +416,7 @@ func generateCursor(m *manifest.Manifest, enabled map[manifest.Harness]bool, rep
 			Summary: c.Summary,
 			Type:    c.Type,
 			Path:    c.Path,
-			Body:    stripFrontmatter(readBody(repoRoot, c.Path)),
+			Body:    rewriteSharedCommandBodyForHarness(stripFrontmatter(readBody(repoRoot, c.Path))),
 		}
 		data, err := render(tmplCursorCommand, item)
 		if err != nil {

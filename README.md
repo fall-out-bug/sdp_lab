@@ -13,6 +13,15 @@ Short version:
 
 SDP does not try to replace Codex, Claude Code, Cursor, OpenCode, Copilot, or other coding agents. It adds the delivery contract around them: scope, workstreams, gates, evidence, findings loops, and QA/UAT.
 
+In SDP, a **harness** means the coding-agent runtime a developer uses to talk to
+models and edit code, for example Claude Code, OpenCode, Codex, Cursor, or Pi.
+SDP wraps that runtime with repo-local instructions, adapters, evidence, and
+review discipline.
+
+The problem SDP targets: agent-assisted delivery often produces code without a
+clear scope contract, durable evidence, or an honest record of what was not
+checked. SDP makes those missing delivery controls explicit.
+
 ## Product Layers
 
 SDP is organized into seven product layers. Only the first installable surface ships today.

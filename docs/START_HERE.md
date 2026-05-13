@@ -35,6 +35,60 @@ curl -fsSL https://raw.githubusercontent.com/fall-out-bug/sdp_lab/main/scripts/i
 Use `./.sdp/bin/sdp` until you have verified that `command -v sdp` points to the
 repo-local binary. Older global binaries can make real commands look missing.
 
+## First Harness Command After Install
+
+After install and adapter validation, start with a harness-native entrypoint.
+These are **not** `sdp` CLI commands. They go through installed adapters:
+
+- `/build` is Claude-style harness command syntax.
+- `@build` is the shared harness command syntax used by OpenCode/Cursor.
+
+| Harness | Primary form | Runtime status |
+|---|---|---|
+| Claude Code | `claude -p "/build 00-XXX-YY"` | Stable primary |
+| OpenCode | `opencode run --dir "$PWD" --agent implementer "@build 00-XXX-YY"` | Experimental; requires `--agent implementer` |
+| Cursor | `agent -p "@build 00-XXX-YY"` | Secondary validator only; primary dispatch untested |
+
+`00-XXX-YY` is a **workstream ID** (`00-XXX-YY`) from the operator backlog.
+It is not required for external users using local delivery only.
+
+For operator mode inside `sdp_lab`, find real IDs with:
+
+```bash
+bd ready
+```
+
+```bash
+# Claude Code
+claude -p "/build 00-XXX-YY"
+
+# OpenCode
+opencode run --dir "$PWD" --agent implementer "@build 00-XXX-YY"
+
+# Cursor
+agent -p "@build 00-XXX-YY"
+```
+
+Cursor is currently **secondary** and **untested for SDP dispatch**.
+Use it for independent validation only, not as your primary automation path.
+
+**OpenCode warning:** non-interactive runs require `--agent implementer`; without it,
+`opencode run ...` may return success without making edits.
+
+If you do not yet have a workstream ID, run local delivery without operator
+queue first:
+
+```bash
+./.sdp/bin/sdp build "what you want to change" --dry-run --format text
+```
+
+That keeps you productive before operator mode and Beads-backed workstream
+assignment are in place.
+
+If harness dispatch is not available yet in your environment, do not skip onboarding:
+use the manual checklists in [reference/FALLBACK_MODE.md](reference/FALLBACK_MODE.md),
+then retry with one supported harness.
+
 ## What Is Stable Enough To Try First
 
 Stable first-run Toolkit surface:
@@ -83,5 +137,8 @@ cannot name those, you are still in orientation, not execution.
   stubs.
 - `cmd/sdp/main.go` and `go run ./cmd/sdp --help` are the source of truth for
   the current repo-local CLI.
+- `.cursorrules`, `.opencode/`, `.claude/`, `.pi/`, and `.codex/` are generated
+  adapters. Edit only canonical sources; regenerate adapters instead of editing
+  these directories directly.
 - [reference/product-surface.md](reference/product-surface.md) is the maturity
   boundary: stable Toolkit, Operator Mode, lab-only, and research surfaces.

@@ -55,6 +55,7 @@ bin/
 .oneshot/
 .sdp/archive/
 .sdp/runs/
+.codex-subagents/
 .sdp/locks/*.lock
 .sdp/checkpoints/*.stop
 

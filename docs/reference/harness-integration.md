@@ -32,6 +32,16 @@ CLAUDE.md    AGENTS.md  .cursorrules  .codex/AGENTS.md
 (wrapper)    (native)   (native)      (native)
 ```
 
+## Generated Adapter Safety
+
+- Canonical sources are `prompts/commands/`, `prompts/skills/`, `prompts/agents/`,
+  and `sdp.manifest.yaml`.
+- Generated adapter directories (`.claude/`, `.cursorrules`, `.cursor/`, `.opencode/`,
+  `.pi/`, `.codex/`) are not hand-edited.
+- Update adapter logic in prompt/skill sources, then regenerate with
+  `sdp generate-adapters --write` and `sdp init --update`.
+- Use `sdp doctor adapters` after refresh to verify runtime compatibility.
+
 ## Supported Harnesses
 
 | Harness | Binary | Config file | Skill directories | Status |
@@ -48,6 +58,39 @@ Cursor, Pi, and Kilo. Pi has a green local resource smoke for skills and command
 prompt templates, but dispatch remains experimental until bundle resolution and
 runtime launch evidence land.
 
+## From Adapter Install to First Workflow Command
+
+Use these first commands after onboarding checks pass:
+
+These are harness-native commands, not `sdp` CLI calls.
+
+- `/build` is Claude-style harness syntax.
+- `@build` is OpenCode/Cursor-style harness syntax.
+
+`00-XXX-YY` is a workstream ID placeholder from the operator queue. For local
+delivery users without a queue/workstream, start with local CLI preview first:
+
+```bash
+./.sdp/bin/sdp build "what you want to change" --dry-run --format text
+```
+
+```bash
+# Claude Code
+claude -p "/build 00-XXX-YY"
+
+# OpenCode
+opencode run --dir "$PWD" --agent implementer "@build 00-XXX-YY"
+
+# Cursor
+agent -p "@build 00-XXX-YY"
+```
+
+Use the same command family in your harness for subsequent tasks (`@build`,
+`/build`, `@review`, `@vision`, etc.).
+
+Cursor is intentionally used as a **secondary validator** and is currently
+**untested for primary SDP dispatch**.
+
 ## OpenCode Integration
 
 ### Quick start
@@ -57,6 +100,7 @@ opencode run --dir "$REPO" --agent implementer "prompt text"
 ```
 
 **Always use `--agent implementer`** for batch, CI, and non-interactive dispatch.
+Do not use bare `opencode run` for non-interactive SDP dispatch.
 See [below](#opencode-sisyphus-deadlock) for why.
 
 ### OpenCode Sisyphus Deadlock
@@ -159,6 +203,12 @@ claude -p "implement F127-01" --output-format text
 claude
 ```
 
+### First command
+
+```bash
+claude -p "/build 00-XXX-YY"
+```
+
 ### Sub-agent dispatch
 
 Claude Code uses the native `Task` tool for sub-agent dispatch. SDP's dispatch
@@ -186,6 +236,12 @@ SDP ships `.cursorrules` natively at the project root. Cursor also scans
 ```bash
 # Cursor CLI (agent mode)
 agent -p "implement F127-01"
+```
+
+### First command
+
+```bash
+agent -p "@build 00-XXX-YY"
 ```
 
 ### Status (April 2026)

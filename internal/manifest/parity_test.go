@@ -97,3 +97,25 @@ func TestParityMatrix_OmitsEmptyMCPSection(t *testing.T) {
 		t.Errorf("MCP section should be omitted when empty, got:\n%s", got)
 	}
 }
+
+func TestParityMatrix_DistinguishesStaticParityFromRuntimeReadiness(t *testing.T) {
+	m := &manifest.Manifest{
+		Version:    "1.0.0",
+		SDPVersion: "1.0.0",
+		Harnesses:  []manifest.Harness{manifest.HarnessClaudeCode, manifest.HarnessCursor},
+		Commands: []manifest.Command{
+			{Name: "build", Path: "x.md"},
+		},
+	}
+	got := m.ParityMatrix(fixedTime())
+	for _, want := range []string{
+		"Legend: ✓ static adapter parity",
+		"It does not prove that a harness runtime can dispatch SDP workflows.",
+		"## Runtime Readiness",
+		"| cursor | ⚠ Untested in SDP dispatch | Use only as a secondary validator until dispatch evidence lands |",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q in parity matrix:\n%s", want, got)
+		}
+	}
+}
