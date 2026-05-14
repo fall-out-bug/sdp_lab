@@ -2,6 +2,10 @@
 
 > **Scope:** building, installing, and configuring the `sdp-mcp` MCP server for supported AI coding harnesses.
 > **Tested matrix:** Config formats verified; end-to-end harness testing pending.
+> **First-run note:** this page is not the primary Toolkit onboarding path. For
+> a cold downstream repo, start with [Quickstart](../QUICKSTART.md) and its
+> repo-local `./.sdp/bin/sdp` binary. Use this MCP guide only when you are
+> intentionally wiring MCP tools into a harness.
 
 ---
 

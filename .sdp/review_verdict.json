@@ -1,8 +1,8 @@
 {
   "feature": "F168",
   "verdict": "ESCALATED",
-  "round": 8,
-  "timestamp": "2026-05-13T11:54:35Z",
+  "round": 9,
+  "timestamp": "2026-05-14T05:35:38Z",
   "reviewers": {
     "devops": {
       "verdict": "PASS",
@@ -45,9 +45,9 @@
       "model": "glm-5.1",
       "role": "reviewer",
       "status": "failed",
-      "artifact_path": "/Users/fall_out_bug/projects/vibe_coding/sdp_lab/.sdp/runs/pi-review/pireview-6e3fb5712159-1778673151595/models/zai.json",
-      "latency_ms": 1130,
-      "error": "pi run zai/glm-5.1 failed: pi --provider zai --model glm-5.1 --no-tools --no-context-files --no-session -p [REDACTED_PROMPT]; fallback failed: openrouter fallback failed: pi --provider openrouter --model z-ai/glm-5.1 --no-tools --no-context-files --no-session -p [REDACTED_PROMPT]"
+      "artifact_path": "/Users/fall_out_bug/projects/vibe_coding/sdp_lab/.sdp/runs/pi-review/pireview-6cbcee7e0846-1778736535262/models/zai.json",
+      "latency_ms": 16292,
+      "error": "model output is empty; fallback failed: openrouter fallback failed: pi --provider openrouter --model z-ai/glm-5.1 --no-tools --no-context-files --no-session -p [REDACTED_PROMPT]"
     },
     {
       "slot": "kimi",
@@ -55,8 +55,8 @@
       "model": "kimi-for-coding",
       "role": "reviewer",
       "status": "failed",
-      "artifact_path": "/Users/fall_out_bug/projects/vibe_coding/sdp_lab/.sdp/runs/pi-review/pireview-6e3fb5712159-1778673151595/models/kimi.json",
-      "latency_ms": 1129,
+      "artifact_path": "/Users/fall_out_bug/projects/vibe_coding/sdp_lab/.sdp/runs/pi-review/pireview-6cbcee7e0846-1778736535262/models/kimi.json",
+      "latency_ms": 185256,
       "error": "pi run kimi-coding/kimi-for-coding failed: pi --provider kimi-coding --model kimi-for-coding --no-tools --no-context-files --no-session -p [REDACTED_PROMPT]; fallback failed: openrouter fallback failed: pi --provider openrouter --model moonshotai/kimi-k2.6 --no-tools --no-context-files --no-session -p [REDACTED_PROMPT]"
     },
     {
@@ -65,8 +65,8 @@
       "model": "MiniMax-M2.7",
       "role": "reviewer",
       "status": "failed",
-      "artifact_path": "/Users/fall_out_bug/projects/vibe_coding/sdp_lab/.sdp/runs/pi-review/pireview-6e3fb5712159-1778673151595/models/minimax.json",
-      "latency_ms": 1130,
+      "artifact_path": "/Users/fall_out_bug/projects/vibe_coding/sdp_lab/.sdp/runs/pi-review/pireview-6cbcee7e0846-1778736535262/models/minimax.json",
+      "latency_ms": 10033,
       "error": "pi run minimax/MiniMax-M2.7 failed: pi --provider minimax --model MiniMax-M2.7 --no-tools --no-context-files --no-session -p [REDACTED_PROMPT]; fallback failed: openrouter fallback failed: pi --provider openrouter --model minimax/minimax-m2.7 --no-tools --no-context-files --no-session -p [REDACTED_PROMPT]"
     }
   ]

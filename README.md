@@ -94,6 +94,20 @@ go build -tags "sqlite_fts5" ./...
 | Trust, security guarantees, and limitations | [`docs/reference/trust-guarantees.md`](docs/reference/trust-guarantees.md) |
 | CI gates and local reproduce commands | [`docs/reference/ci-gates-map.md`](docs/reference/ci-gates-map.md) |
 
+## First Proof
+
+For a cold pilot, prove the small thing first:
+
+```bash
+./.sdp/bin/sdp scout --repo .
+./.sdp/bin/sdp metrics --repo .
+./.sdp/bin/sdp doctor
+```
+
+Then read the generated findings before trying orchestration. The first useful
+SDP result is not "the agent changed code"; it is an explicit map of scope,
+evidence, limits, and next actions.
+
 ## Install in 30 seconds
 
 Run in the root of your downstream repo (requires `git` and `go`):

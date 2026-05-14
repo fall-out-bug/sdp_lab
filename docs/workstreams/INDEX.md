@@ -146,7 +146,7 @@
 | **F165** | Indirect Prompt Injection Through SDP Task Data — Day-12 defensive demo pack for Beads/workstream/evidence task-data poisoning with deterministic unsafe/defended outcomes | 00-165-00 ... 00-165-05 | Backlog | P1 |
 | **F166** | Runtime LLM Guard Gateway — core-first Go guard/audit layer for SDP model calls: input/output secret checks, local chunked classifier, Codex/Pi harness compatibility, gateway surfaces, redaction/blocking, token/cost evidence, deterministic corpus | 00-166-01 ... 00-166-09 | In Progress | P1 |
 | **F167** | Security Verdict Gate — Day-14 runtime security step after green tests and before commit/promotion-ready state, with gateway sanitation, blocking Critical/High findings, warning Medium/Low findings, escalation on provider/sanitizer/evidence failure, and demo evidence | 00-167-01 ... 00-167-04 | Backlog | P1 |
-| **F168** | Onboarding Quality Taxonomy — honest first-run promise map plus deterministic/model-review quality axes for Go hygiene, complexity, spec drift, CleanCode, CleanArchitecture, Security, DX, UX, and docs completeness | 00-168-00 ... 00-168-08 | Backlog | P1 |
+| **F168** | Onboarding Quality Taxonomy — honest first-run promise map plus deterministic/model-review quality axes for Go hygiene, complexity, spec drift, CleanCode, CleanArchitecture, Security, DX, UX, and docs completeness | 00-168-00 ... 00-168-08 | Done on branch; PR review pending | P1 |
 
 > **Beads:** `F161=sdplab-tffu`, `F163=sdplab-n7a9`, `F164=sdplab-9wxx`, `F165=sdplab-28xb`, `F166=sdplab-mp83`, `F167=sdplab-xe5c`, `F168=sdplab-o8gk`
 > **F167 DAG:** `01 → 02 → 03 → 04`
@@ -186,14 +186,14 @@
 
 | WS | Title | Status | Beads |
 |----|-------|--------|-------|
-| 00-168-01 | Taxonomy contract and state semantics | Backlog | sdplab-f16801 |
-| 00-168-02 | Onboarding truth audit and promise map | Backlog | sdplab-f16802 |
-| 00-168-03 | Deterministic quality checks matrix | Backlog | sdplab-f16803 |
-| 00-168-04 | Model review planes over pi-review | Backlog | sdplab-f16804 |
-| 00-168-05 | Evidence schema for quality-axis verdicts | Backlog | sdplab-f16805 |
-| 00-168-06 | Operator-facing quality report UX | Backlog | sdplab-f16806 |
-| 00-168-07 | CI/advisory rollout and Beads findings loop | Backlog | sdplab-f16807 |
-| 00-168-08 | End-to-end onboarding quality calibration run | Backlog | sdplab-f16808 |
+| 00-168-01 | Taxonomy contract and state semantics | Done on branch | sdplab-f16801 |
+| 00-168-02 | Onboarding truth audit and promise map | Done on branch | sdplab-f16802 |
+| 00-168-03 | Deterministic quality checks matrix | Done on branch | sdplab-f16803 |
+| 00-168-04 | Model review planes over pi-review | Done on branch | sdplab-f16804 |
+| 00-168-05 | Evidence schema for quality-axis verdicts | Done on branch | sdplab-f16805 |
+| 00-168-06 | Operator-facing quality report UX | Done on branch | sdplab-f16806 |
+| 00-168-07 | CI/advisory rollout and Beads findings loop | Done on branch | sdplab-f16807 |
+| 00-168-08 | End-to-end onboarding quality calibration run | Done on branch | sdplab-f16808 |
 
 ### Phase Product Documentation And Adoption Clarity
 
