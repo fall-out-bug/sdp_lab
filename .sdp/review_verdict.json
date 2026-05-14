@@ -36,6 +36,8 @@
   },
   "p0_count": 0,
   "p1_count": 0,
+  "finding_ids": [],
+  "escalation_issue": "sdplab-o8gk",
   "summary": "ESCALATED: quorum failure (0/3 required reviewers; quorum=2)",
   "reviewer_runtime": "pi",
   "model_panel": [
