@@ -78,10 +78,9 @@ SDP commands execute fast enough to not interrupt developer workflow.
   - `sdp --help`: ≤ 100ms
   - `sdp init`: ≤ 2 seconds (interactive)
   - `sdp doctor`: ≤ 500ms
-  - `sdp quality check`: ≤ 5 seconds
-  - `sdp guard activate`: ≤ 100ms
-  - `sdp guard deactivate`: ≤ 100ms
-  - `sdp verify`: ≤ 3 seconds
+  - `sdp quality`: ≤ 5 seconds
+  - `sdp telemetry consent`: ≤ 500ms
+  - `sdp index query`: ≤ 1 second after index build
 
 - **Measurement Window:** Rolling 24 hours
 - **Measurement Tool:** Telemetry (command_start, command_complete timestamps)
@@ -108,9 +107,9 @@ SDP commands execute reliably without crashes or errors.
 - **Target by Command:**
   - `sdp init`: ≤ 2% (interactive, sensitive to environment)
   - `sdp doctor`: ≤ 1% (readiness checks)
-  - `sdp quality check`: ≤ 10% (expected failures for low quality)
-  - `sdp guard activate/complete`: ≤ 1%
-  - `sdp verify`: ≤ 5%
+  - `sdp quality`: ≤ 10% (expected failures for low quality)
+  - `sdp telemetry consent`: ≤ 1%
+  - `sdp index query`: ≤ 2%
 
 - **Measurement Window:** Rolling 7 days
 - **Measurement Tool:** Telemetry (command_exit_code)
@@ -148,7 +147,7 @@ Understand how developers use SDP without being intrusive.
 ### **Privacy Requirements**
 - **No PII** (personally identifiable information) in telemetry
 - **No code snippets** from user projects
-- **Opt-out mechanism:** `sdp telemetry disable`
+- **Opt-out mechanism:** `sdp telemetry consent none`
 
 **Note:** This is a **directional metric** (higher is better), not a hard SLO.
 
@@ -177,7 +176,7 @@ Developers find SDP useful and recommend it.
 
 1. **Code Coverage**
    - Coverage is a **quality gate**, not an SLO
-   - Measured during `sdp quality check`, not telemetry
+   - Measured during `sdp quality`, not telemetry
 
 2. **Test Pass Rate**
    - Tests failing is **expected** during TDD Red phase
@@ -317,7 +316,7 @@ sdp doctor p95 latency:
 
 **Measurement:**
 ```
-sdp quality check error rate:
+sdp quality error rate:
 - Week 1: 8% ❌ (target: ≤5%)
 - Week 2: 6% ⚠️ (target: ≤5%)
 - Week 3: 4% ✅ (target: ≤5%)

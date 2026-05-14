@@ -53,15 +53,16 @@ type RunContext struct {
 
 // ModelResult mirrors schema pi-review-run modelRun.
 type ModelResult struct {
-	Slot         string      `json:"slot"`
-	Provider     string      `json:"provider"`
-	Model        string      `json:"model"`
-	Role         string      `json:"role"`
-	Status       string      `json:"status"`
-	ArtifactPath string      `json:"artifact_path"`
-	LatencyMs    int64       `json:"latency_ms,omitempty"`
-	Usage        *ModelUsage `json:"usage,omitempty"`
-	Error        string      `json:"error,omitempty"`
+	Slot            string      `json:"slot"`
+	Provider        string      `json:"provider"`
+	Model           string      `json:"model"`
+	Role            string      `json:"role"`
+	Status          string      `json:"status"`
+	AssessmentState string      `json:"assessment_state,omitempty"`
+	ArtifactPath    string      `json:"artifact_path"`
+	LatencyMs       int64       `json:"latency_ms,omitempty"`
+	Usage           *ModelUsage `json:"usage,omitempty"`
+	Error           string      `json:"error,omitempty"`
 }
 
 // ModelUsage tracks token and cost data.
@@ -279,20 +280,24 @@ func (r *Runner) runModelPanel(ctx context.Context, runID string, pkt *ContextPa
 
 		if err != nil {
 			result.Status = "failed"
+			result.AssessmentState = "cannot_verify"
 			result.Error = err.Error()
 			result.ArtifactPath = modelArtifactPath(r.cfg.ProjectRoot, runID, slot.Slot)
 		} else {
 			artifactPath := writeModelArtifact(r.cfg.ProjectRoot, runID, slot.Slot, output)
 			if artifactPath == "" {
 				result.Status = "failed"
+				result.AssessmentState = "cannot_verify"
 				result.Error = "artifact write failed"
 				result.ArtifactPath = modelArtifactPath(r.cfg.ProjectRoot, runID, slot.Slot)
 			} else if err := validateModelOutput(output); err != nil {
 				result.Status = "failed"
+				result.AssessmentState = "cannot_verify"
 				result.Error = err.Error()
 				result.ArtifactPath = artifactPath
 			} else {
 				result.Status = "ok"
+				result.AssessmentState = "assessed"
 				result.ArtifactPath = artifactPath
 			}
 		}
@@ -309,6 +314,7 @@ func (r *Runner) runModelPanel(ctx context.Context, runID string, pkt *ContextPa
 					result.Error = fmt.Sprintf("%s; fallback unusable: %v", result.Error, err)
 				} else {
 					result.Status = "ok"
+					result.AssessmentState = "assessed"
 					result.ArtifactPath = artifactPath
 					result.Error = ""
 					result.Provider = "openrouter"
@@ -400,9 +406,8 @@ func fallbackModel(slot ReviewerSlot) string {
 }
 
 // buildReviewPrompt constructs the prompt for the model reviewer.
+// pkt must already be sanitized by SanitizeContextPacketForEgress.
 func buildReviewPrompt(slot ReviewerSlot, pkt *ContextPacket, evidence *TestEvidence) string {
-	egressPkt, _ := SanitizeContextPacketForEgress(pkt)
-
 	var b strings.Builder
 	b.WriteString("You are an expert code reviewer.\n")
 	b.WriteString(fmt.Sprintf("Review role: %s\n", slot.Role))
@@ -417,9 +422,9 @@ func buildReviewPrompt(slot ReviewerSlot, pkt *ContextPacket, evidence *TestEvid
 		b.WriteString(fmt.Sprintf("- %s\n", f))
 	}
 
-	if len(egressPkt.FileContents) > 0 {
+	if len(pkt.FileContents) > 0 {
 		b.WriteString("\n## File Contents\n--- BEGIN FILES ---\n")
-		for f, content := range egressPkt.FileContents {
+		for f, content := range pkt.FileContents {
 			b.WriteString(fmt.Sprintf("\n### %s\n", f))
 			b.WriteString(content)
 			b.WriteString("\n")
@@ -427,23 +432,23 @@ func buildReviewPrompt(slot ReviewerSlot, pkt *ContextPacket, evidence *TestEvid
 		b.WriteString("--- END FILES ---\n")
 	}
 
-	if len(egressPkt.ProjectRules) > 0 {
+	if len(pkt.ProjectRules) > 0 {
 		b.WriteString("\n## Project Rules\n--- BEGIN RULES ---\n")
-		for name, content := range egressPkt.ProjectRules {
+		for name, content := range pkt.ProjectRules {
 			b.WriteString(fmt.Sprintf("\n### %s\n%s\n", name, content))
 		}
 		b.WriteString("--- END RULES ---\n")
 	}
 
-	if egressPkt.BeadContext != "" {
+	if pkt.BeadContext != "" {
 		b.WriteString("\n## Bead Context\n--- BEGIN BEADS ---\n")
-		b.WriteString(egressPkt.BeadContext)
+		b.WriteString(pkt.BeadContext)
 		b.WriteString("\n--- END BEADS ---\n")
 	}
 
 	b.WriteString("\n## Diff\n")
 	b.WriteString("--- BEGIN DIFF ---\n")
-	b.WriteString(egressPkt.UnifiedDiff)
+	b.WriteString(pkt.UnifiedDiff)
 	b.WriteString("\n--- END DIFF ---\n")
 
 	b.WriteString("\n## Test Evidence\n")
@@ -603,6 +608,11 @@ func validateModelOutput(output string) error {
 	default:
 		return fmt.Errorf("model output verdict %q is unsupported", resp.Verdict)
 	}
+	if strings.EqualFold(resp.Verdict, "FAIL") || strings.EqualFold(resp.Verdict, "CHANGES_REQUESTED") {
+		if len(resp.Findings) == 0 {
+			return fmt.Errorf("model output verdict %q requires at least one finding", resp.Verdict)
+		}
+	}
 	return nil
 }
 
@@ -737,6 +747,13 @@ func buildVerdict(feature string, round int, findings []Finding, models []ModelR
 		}
 		v.Summary = fmt.Sprintf("CHANGES_REQUESTED: %d P0, %d P1, %d total findings", p0, p1, len(findings))
 	} else if requiredOK < requiredQuorum {
+		for role := range v.Reviewers {
+			v.Reviewers[role] = RoleResult{
+				Verdict:  "BLOCKED",
+				Findings: []string{},
+				Notes:    fmt.Sprintf("quorum failure: %d/%d required reviewers succeeded; quorum=%d", requiredOK, requiredTotal, requiredQuorum),
+			}
+		}
 		v.Reviewers["qa"] = RoleResult{
 			Verdict:  "BLOCKED",
 			Findings: []string{},

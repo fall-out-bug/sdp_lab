@@ -24,13 +24,14 @@ checked. SDP makes those missing delivery controls explicit.
 
 ## Product Layers
 
-SDP is organized into seven product layers. Only the first installable surface ships today.
+SDP is organized into seven product layers. The installable CLI exists, but its
+first-run promise is intentionally narrower than the full operator platform.
 
 | # | Layer | What it is | Status |
 |---|---|---|---|
 | 1 | **SDP Lab** | Research workspace (this repo). Where SDP is built and exercised. | Active |
-| 2 | **SDP Toolbox** | Single-purpose repo-inspection utilities (`scout`, `metrics`, `index`, `spec`, `bootstrap`). Freemium funnel for the SDP family. | GA |
-| 3 | **SDP Toolkit** | Installable developer surface. The `sdp` CLI, installed via Homebrew or the install script. | GA |
+| 2 | **SDP Toolbox** | Single-purpose repo-inspection utilities (`scout`, `metrics`, `index`, `spec`, `bootstrap`). Freemium funnel for the SDP family. | Partial: first-run repo inspection is stable |
+| 3 | **SDP Toolkit** | Installable developer surface. The `sdp` CLI, installed via Homebrew or the install script. | GA inside `sdp_lab`; downstream install is still being hardened |
 | 4 | **Operator Mode** | Default Toolkit happy path. Stateful orchestration: features, workstreams, evidence, QA/UAT. | GA inside sdp_lab |
 | 5 | **ChangePassport** (`sdp-pr-gate`) | Merge-readiness product. A separate product surface for PR governance. | Product direction, not yet shipped |
 | 6 | **Enterprise Delivery Governance** | Enterprise governed delivery control plane. | Hypothesis |
@@ -99,8 +100,8 @@ go build -tags "sqlite_fts5" ./...
 For a cold pilot, prove the small thing first:
 
 ```bash
-./.sdp/bin/sdp scout --repo .
-./.sdp/bin/sdp metrics --repo .
+./.sdp/bin/sdp scout --format text .
+./.sdp/bin/sdp metrics --format text .
 ./.sdp/bin/sdp doctor
 ```
 

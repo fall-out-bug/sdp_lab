@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,7 +15,7 @@ func runQuality(args []string) {
 	os.Exit(runQualityWithWriters(args, os.Stdout, os.Stderr))
 }
 
-func runQualityWithWriters(args []string, stdout, stderr *os.File) int {
+func runQualityWithWriters(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("quality", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	full := fs.Bool("full", false, "Run full coverage and test/code ratio checks")

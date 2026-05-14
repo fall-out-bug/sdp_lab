@@ -56,7 +56,7 @@ Scope: SDP integration with Beads for autonomous task tracking and sync
 
 - `Ready(labels []string, limit int) ([]Issue, error)` — `bd ready --label X --json`
 - `Show(id string) (*Issue, error)` — `bd show <id> --json`
-- `Claim(id string) error` — `bd update <id> --status in_progress`
+- `Claim(id string) error` — `bd update <id> --claim`
 - `Close(id string, reason string) error` — `bd close <id> --reason "..."`
 - `Sync(importOnly bool) error` — `bd sync` or `bd sync --import-only`
 - `Create(opts CreateOpts) (string, error)` — `bd create` with typed options

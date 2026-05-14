@@ -148,12 +148,7 @@ jobs:
           if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q '^\.sdp/review_verdict\.json$'; then
             if [ -f .sdp/review_verdict.json ]; then
               echo "Validating review verdict"
-              jq -e '.verdict | test("^(APPROVED|CHANGES_REQUESTED|PARTIALLY_APPROVED|ESCALATED)$")' .sdp/review_verdict.json
-              jq -e '.feature' .sdp/review_verdict.json
-              jq -e '(.finding_ids // []) | type == "array"' .sdp/review_verdict.json
-              if jq -e '.verdict == "ESCALATED"' .sdp/review_verdict.json >/dev/null; then
-                jq -e '.escalation_issue | type == "string" and length > 0' .sdp/review_verdict.json
-              fi
+              go run ./cmd/sdp-review-verdict-validate .sdp/review_verdict.json
             fi
           else
             echo "No review verdict changed — skipping"
@@ -453,9 +448,9 @@ jobs:
           BASE="${{ github.base_ref }}"
           EVIDENCE_VALIDATION_PASSED=$([ "${{ needs.evidence-gate.result }}" = "success" ] && echo true || echo false)
           CHANGED=$(git diff --name-only origin/$BASE...HEAD)
-          EVIDENCE_COUNT=$(echo "$CHANGED" | grep -c '^\.sdp/evidence/' || echo 0)
-          HAS_WS=$(echo "$CHANGED" | grep -c '^docs/workstreams/' || echo 0)
-          HAS_FEATURE=$(echo "$CHANGED" | grep -c '^internal/\|^cmd/' || echo 0)
+          EVIDENCE_COUNT=$(echo "$CHANGED" | grep -c '^\.sdp/evidence/' || true)
+          HAS_WS=$(echo "$CHANGED" | grep -c '^docs/workstreams/' || true)
+          HAS_FEATURE=$(echo "$CHANGED" | grep -c '^internal/\|^cmd/' || true)
 
           # Compute scope_violations_count from checkpoint workstreams
           SCOPE_VIOLATIONS=0
@@ -479,24 +474,14 @@ jobs:
           BEADS_REFERENCED=false
 
           if [ -f .sdp/review_verdict.json ]; then
-            P0_FINDINGS=$(jq -r '
-              if has("p0_findings") then .p0_findings
-              elif (.findings? | type) == "array" then ([.findings[] | select((.priority // .severity // "" | ascii_downcase) == "p0")] | length)
-              else 0 end
-            ' .sdp/review_verdict.json 2>/dev/null || echo 0)
-
-            P1_FINDINGS=$(jq -r '
-              if has("p1_findings") then .p1_findings
-              elif (.findings? | type) == "array" then ([.findings[] | select((.priority // .severity // "" | ascii_downcase) == "p1")] | length)
-              elif (.blocking_ids? | type) == "array" then (.blocking_ids | length)
-              else 0 end
-            ' .sdp/review_verdict.json 2>/dev/null || echo 0)
-
-            P2_FINDINGS=$(jq -r '
-              if has("p2_findings") then .p2_findings
-              elif (.findings? | type) == "array" then ([.findings[] | select((.priority // .severity // "" | ascii_downcase) == "p2")] | length)
-              else 0 end
-            ' .sdp/review_verdict.json 2>/dev/null || echo 0)
+            REVIEW_POLICY=$(go run ./cmd/sdp-review-verdict-validate --format policy-json .sdp/review_verdict.json)
+            P0_FINDINGS=$(echo "$REVIEW_POLICY" | jq -r '.p0_findings')
+            P1_FINDINGS=$(echo "$REVIEW_POLICY" | jq -r '.p1_findings')
+            P2_FINDINGS=$(echo "$REVIEW_POLICY" | jq -r '.p2_findings')
+            REVIEW_ESCALATED=$(echo "$REVIEW_POLICY" | jq -r '.review_escalated')
+            REVIEW_CANNOT_VERIFY=$(echo "$REVIEW_POLICY" | jq -r '.review_cannot_verify')
+            REVIEW_APPROVAL_CAPABLE=$(echo "$REVIEW_POLICY" | jq -r '.approval_capable')
+            REVIEW_MAINTAINER_OVERRIDE=$(echo "$REVIEW_POLICY" | jq -r '.maintainer_override')
 
             VERDICT_FINDINGS_COUNT=$(jq -r '
               if (.finding_ids? | type) == "array" then (.finding_ids | length)
@@ -506,6 +491,11 @@ jobs:
             if [ "$VERDICT_FINDINGS_COUNT" -gt 0 ]; then
               BEADS_REFERENCED=true
             fi
+          else
+            REVIEW_ESCALATED=false
+            REVIEW_CANNOT_VERIFY=false
+            REVIEW_APPROVAL_CAPABLE=true
+            REVIEW_MAINTAINER_OVERRIDE=false
           fi
 
           if git log --format=%s "origin/$BASE...HEAD" | grep -Eq 'sdplab-[a-z0-9]+'; then
@@ -523,6 +513,10 @@ jobs:
             "p0_findings": $P0_FINDINGS,
             "p1_findings": $P1_FINDINGS,
             "p2_findings": $P2_FINDINGS,
+            "review_escalated": $REVIEW_ESCALATED,
+            "review_cannot_verify": $REVIEW_CANNOT_VERIFY,
+            "review_approval_capable": $REVIEW_APPROVAL_CAPABLE,
+            "review_maintainer_override": $REVIEW_MAINTAINER_OVERRIDE,
             "has_feature_changes": $([ "$HAS_FEATURE" -gt 0 ] && echo true || echo false),
             "beads_referenced": $BEADS_REFERENCED,
             "enforcement_mode": "${ENFORCEMENT_MODE}"
@@ -559,6 +553,16 @@ jobs:
             --format raw | tr -d '"')
 
           echo "Enforcement level: $LEVEL"
+
+          REVIEW_APPROVAL_CAPABLE=$(jq -r '.review_approval_capable // true' /tmp/policy-input.json)
+          REVIEW_MAINTAINER_OVERRIDE=$(jq -r '.review_maintainer_override // false' /tmp/policy-input.json)
+          if [ "$REVIEW_APPROVAL_CAPABLE" != "true" ] && [ "$REVIEW_MAINTAINER_OVERRIDE" != "true" ]; then
+            if [ "$LEVEL" = "blocking" ]; then
+              echo "ERROR: review verdict is not approval-capable and no maintainer override is recorded"
+              exit 1
+            fi
+            echo "WARNING: review verdict is not approval-capable and no maintainer override is recorded"
+          fi
 
           if [ "$WARNINGS" != "[]" ] && [ "$WARNINGS" != "" ]; then
             echo "=== Policy Warnings ==="

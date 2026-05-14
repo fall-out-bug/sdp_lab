@@ -14,11 +14,23 @@ func TestResolveTestCommand_Explicit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveTestCommand() error: %v", err)
 	}
-	if len(cmd) != 4 {
-		t.Fatalf("expected 4 args, got %d: %v", len(cmd), cmd)
+	if len(cmd) != 3 {
+		t.Fatalf("expected shell command, got %d args: %v", len(cmd), cmd)
 	}
-	if cmd[0] != "go" || cmd[1] != "test" {
-		t.Errorf("expected go test, got %v", cmd)
+	if cmd[0] != "sh" || cmd[1] != "-c" || cmd[2] != "go test -v ./pkg/..." {
+		t.Errorf("expected sh -c command, got %v", cmd)
+	}
+}
+
+func TestResolveTestCommand_ExplicitPreservesQuotedArguments(t *testing.T) {
+	cfg := Config{TestCommand: `go test -run "Test Foo" ./...`}
+	cmd, err := resolveTestCommand(cfg)
+	if err != nil {
+		t.Fatalf("resolveTestCommand() error: %v", err)
+	}
+	want := []string{"sh", "-c", `go test -run "Test Foo" ./...`}
+	if strings.Join(cmd, "\x00") != strings.Join(want, "\x00") {
+		t.Fatalf("quoted command not preserved: got %v want %v", cmd, want)
 	}
 }
 
@@ -102,8 +114,8 @@ func TestCollectTestEvidence_ExplicitCommand(t *testing.T) {
 	if evidence.ExitCode != 0 {
 		t.Errorf("ExitCode = %d, want 0", evidence.ExitCode)
 	}
-	if evidence.Command != "echo hello" {
-		t.Errorf("Command = %q, want %q", evidence.Command, "echo hello")
+	if evidence.Command != "sh -c echo hello" {
+		t.Errorf("Command = %q, want %q", evidence.Command, "sh -c echo hello")
 	}
 
 	expectedPath := filepath.Join(artifactDir, "test-output.txt")

@@ -34,6 +34,20 @@ deny contains msg if {
 	msg := sprintf("scope violations detected (%d) — code changes outside declared workstream boundary", [input.scope_violations_count])
 }
 
+# Escalated or unverifiable review evidence cannot become green without an
+# explicit maintainer override recorded in the verdict artifact.
+deny contains msg if {
+	input.review_escalated
+	not input.review_maintainer_override
+	msg := "review verdict is ESCALATED — maintainer override is required before merge"
+}
+
+deny contains msg if {
+	input.review_cannot_verify
+	not input.review_maintainer_override
+	msg := "review evidence cannot verify required reviewer panel"
+}
+
 # Feature changes must reference beads issues
 deny contains msg if {
 	input.has_feature_changes

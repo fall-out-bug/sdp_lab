@@ -69,6 +69,10 @@ What remains constrained:
   `kimi-coding/k2p6` setting was corrected before this run; the remaining
   failures are live provider/runtime degradation and empty model output, not
   approval and not product evidence.
+- Follow-up review/fix loop is recorded in
+  `docs/reviews/2026-05-14-f168-review-loop.md`. It fixes invalid first-proof
+  commands, stale phantom quality commands, review-verdict CI policy extraction,
+  and the explicit `cannot_verify` model-panel state.
 
 ## Next Work
 

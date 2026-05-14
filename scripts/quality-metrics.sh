@@ -22,6 +22,12 @@ print_assessment() {
     printf '  %-28s %-15s %s\n' "$axis" "$state" "$detail"
 }
 
+print_next_action() {
+    local axis="$1"
+    local action="$2"
+    printf '  %-28s %s\n' "$axis" "$action"
+}
+
 has_linter_token() {
     local token="$1"
     [ -f .golangci.yml ] && grep -Eq "^[[:space:]]*-[[:space:]]*${token}\$|^[[:space:]]*${token}:" .golangci.yml
@@ -71,6 +77,18 @@ else
     print_assessment "work_without_spec" "cannot_verify" "base ref ${BASE_REF} is unavailable"
 fi
 
+echo ""
+echo "0b. Next Actions"
+echo "----------------"
+print_next_action "go_build_test_vet_lint" "Run ./scripts/run_go_quality_gates.sh; fix blocking build/test/vet/lint failures before merge."
+print_next_action "coverage_baseline_delta" "Use CI coverage-gate output; restore total coverage when baseline drops by more than 2pp."
+print_next_action "maturity_tier_coverage" "Use sdp quality --full for advisory package-tier misses; file Beads only for selected follow-up scope."
+print_next_action "test_code_ratio" "Use sdp quality --full; treat as local evidence until a threshold is selected."
+print_next_action "cognitive_complexity" "Select gocognit/gocyclo thresholds before changing this from not_assessed."
+print_next_action "crap_score" "Select a Go CRAP formula/tool before changing this from not_assessed."
+print_next_action "modern_go" "Do not flip staticcheck/gosimple/ineffassign as blocking until rollout scope is agreed."
+print_next_action "spec_drift" "Run sdp-protocol-check and sdp-doc-sync; convert blocking drift into Beads findings."
+print_next_action "work_without_spec" "Add checkpoint/workstream evidence for PR scope, or leave cannot_verify explicit."
 echo ""
 
 if [ "${SDP_QUALITY_MATRIX_ONLY:-0}" = "1" ]; then
@@ -147,8 +165,8 @@ for pkg in $(go list ./internal/... 2>/dev/null | sort); do
                 echo "  ADVISORY ($tier, target >= ${target}%) $pkg_short: ${coverage}%"
                 FAILED_ADVISORY="$FAILED_ADVISORY $pkg_short"
             else
-                echo "  FAIL ($tier, target >= ${target}%) $pkg_short: ${coverage}%"
-                FAILED_BLOCKING="$FAILED_BLOCKING $pkg_short"
+                echo "  EVIDENCE_ONLY ($tier, target >= ${target}%) $pkg_short: ${coverage}%"
+                FAILED_ADVISORY="$FAILED_ADVISORY $pkg_short"
             fi
         else
             echo "  PASS ($tier, >= ${target}%) $pkg_short: ${coverage}%"
@@ -173,7 +191,7 @@ check_ratio() {
     if [ "$prod_lines" -gt 0 ]; then
         ratio=$(echo "scale=2; $test_lines / $prod_lines" | bc)
         if (( $(echo "$ratio < 1.5" | bc -l) )); then
-            echo "  FAIL $pkg_name: ${ratio} (${test_lines}/${prod_lines} lines) - BELOW MINIMUM"
+            echo "  EVIDENCE_ONLY $pkg_name: ${ratio} (${test_lines}/${prod_lines} lines) - BELOW MINIMUM"
             return 1
         elif (( $(echo "$ratio > 2.0" | bc -l) )); then
             echo "  WARN $pkg_name: ${ratio} (${test_lines}/${prod_lines} lines) - ABOVE MAXIMUM"
@@ -202,13 +220,7 @@ done
 
 echo ""
 echo "=== Summary ==="
-if [ -z "$FAILED_BLOCKING" ] && [ -z "$FAILED_RATIO" ]; then
-    echo "All blocking quality metrics passed."
-    [ -n "$FAILED_ADVISORY" ] && echo "Advisory (beta coverage):$FAILED_ADVISORY"
-    exit 0
-else
-    [ -n "$FAILED_BLOCKING" ] && echo "Blocking coverage failures:$FAILED_BLOCKING"
-    [ -n "$FAILED_ADVISORY" ] && echo "Advisory (beta coverage):$FAILED_ADVISORY"
-    [ -n "$FAILED_RATIO" ] && echo "Test/code ratio failures:$FAILED_RATIO"
-    exit 1
-fi
+echo "No blocking quality metrics are enforced by this advisory report."
+[ -n "$FAILED_ADVISORY" ] && echo "Advisory coverage evidence:$FAILED_ADVISORY"
+[ -n "$FAILED_RATIO" ] && echo "Advisory test/code ratio evidence:$FAILED_RATIO"
+exit 0

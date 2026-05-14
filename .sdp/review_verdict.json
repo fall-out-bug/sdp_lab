@@ -5,16 +5,19 @@
   "timestamp": "2026-05-14T05:35:38Z",
   "reviewers": {
     "devops": {
-      "verdict": "PASS",
-      "findings": []
+      "verdict": "BLOCKED",
+      "findings": [],
+      "notes": "quorum failure: 0/3 required reviewers succeeded; quorum=2"
     },
     "docs": {
-      "verdict": "PASS",
-      "findings": []
+      "verdict": "BLOCKED",
+      "findings": [],
+      "notes": "quorum failure: 0/3 required reviewers succeeded; quorum=2"
     },
     "promptops": {
-      "verdict": "PASS",
-      "findings": []
+      "verdict": "BLOCKED",
+      "findings": [],
+      "notes": "quorum failure: 0/3 required reviewers succeeded; quorum=2"
     },
     "qa": {
       "verdict": "BLOCKED",
@@ -22,22 +25,26 @@
       "notes": "quorum failure: 0/3 required reviewers succeeded; quorum=2"
     },
     "security": {
-      "verdict": "PASS",
-      "findings": []
+      "verdict": "BLOCKED",
+      "findings": [],
+      "notes": "quorum failure: 0/3 required reviewers succeeded; quorum=2"
     },
     "sre": {
-      "verdict": "PASS",
-      "findings": []
+      "verdict": "BLOCKED",
+      "findings": [],
+      "notes": "quorum failure: 0/3 required reviewers succeeded; quorum=2"
     },
     "techlead": {
-      "verdict": "PASS",
-      "findings": []
+      "verdict": "BLOCKED",
+      "findings": [],
+      "notes": "quorum failure: 0/3 required reviewers succeeded; quorum=2"
     }
   },
   "p0_count": 0,
   "p1_count": 0,
   "finding_ids": [],
   "escalation_issue": "sdplab-o8gk",
+  "override_reason": "Native sdp-pi-review provider quorum remained unavailable; maintainer-authorized merge path uses independent codex-subagent pi review panel plus deterministic CI. Do not treat this override as model approval.",
   "summary": "ESCALATED: quorum failure (0/3 required reviewers; quorum=2)",
   "reviewer_runtime": "pi",
   "model_panel": [
@@ -47,6 +54,7 @@
       "model": "glm-5.1",
       "role": "reviewer",
       "status": "failed",
+      "assessment_state": "cannot_verify",
       "artifact_path": "/Users/fall_out_bug/projects/vibe_coding/sdp_lab/.sdp/runs/pi-review/pireview-6cbcee7e0846-1778736535262/models/zai.json",
       "latency_ms": 16292,
       "error": "model output is empty; fallback failed: openrouter fallback failed: pi --provider openrouter --model z-ai/glm-5.1 --no-tools --no-context-files --no-session -p [REDACTED_PROMPT]"
@@ -57,6 +65,7 @@
       "model": "kimi-for-coding",
       "role": "reviewer",
       "status": "failed",
+      "assessment_state": "cannot_verify",
       "artifact_path": "/Users/fall_out_bug/projects/vibe_coding/sdp_lab/.sdp/runs/pi-review/pireview-6cbcee7e0846-1778736535262/models/kimi.json",
       "latency_ms": 185256,
       "error": "pi run kimi-coding/kimi-for-coding failed: pi --provider kimi-coding --model kimi-for-coding --no-tools --no-context-files --no-session -p [REDACTED_PROMPT]; fallback failed: openrouter fallback failed: pi --provider openrouter --model moonshotai/kimi-k2.6 --no-tools --no-context-files --no-session -p [REDACTED_PROMPT]"
@@ -67,6 +76,7 @@
       "model": "MiniMax-M2.7",
       "role": "reviewer",
       "status": "failed",
+      "assessment_state": "cannot_verify",
       "artifact_path": "/Users/fall_out_bug/projects/vibe_coding/sdp_lab/.sdp/runs/pi-review/pireview-6cbcee7e0846-1778736535262/models/minimax.json",
       "latency_ms": 10033,
       "error": "pi run minimax/MiniMax-M2.7 failed: pi --provider minimax --model MiniMax-M2.7 --no-tools --no-context-files --no-session -p [REDACTED_PROMPT]; fallback failed: openrouter fallback failed: pi --provider openrouter --model minimax/minimax-m2.7 --no-tools --no-context-files --no-session -p [REDACTED_PROMPT]"

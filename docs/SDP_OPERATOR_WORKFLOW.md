@@ -30,7 +30,7 @@ flowchart TD
     subgraph beads [Beads]
         Ready[bd ready]
         Show[bd show id]
-        Claim[bd update id --status in_progress]
+        Claim[bd update id --claim]
         Close[bd close id --reason]
         Export[scripts/beads_transport.sh export]
     end
@@ -45,9 +45,9 @@ flowchart TD
     end
 
     subgraph quality [Quality Gates]
-        SDP[sdp quality all]
-        Tests[go test ./...]
-        Lint[golangci-lint]
+        SDP[sdp quality --full advisory report]
+        Tests[./scripts/run_go_quality_gates.sh]
+        Lint[CI required checks]
     end
 
     subgraph evidence [Evidence]
@@ -94,12 +94,12 @@ Board semantics:
 1. **Shape `feature`:** confirm linked `workstream` and acceptance are clear enough to execute.
 2. **Find ready work:** `bd ready` (`bd ready` is authoritative for executable work; roadmap/index are not a substitute for the live queue)
 3. **Get context:** `bd show <id>`
-4. **Claim:** `bd update <id> --status in_progress`
+4. **Claim:** `bd update <id> --claim`
 5. **Preflight:** `git pull`, `scripts/beads_transport.sh fetch`, confirm branch and linked `PR` state.
 6. **Open early `draft PR`:** create or re-use the feature `PR` at the first blocking `workstream` or first meaningful change.
 7. **Execute:** use the local operator path unless a workstream explicitly requires swarm or remote infrastructure.
 8. **Record artifacts:** execution must produce `evidence`, `trace`, and `drift` inputs.
-9. **Quality gates:** `sdp quality --full`, `go test ./...`, lint, and any workstream-specific verification. Use plain `sdp quality` only for the fast F168 state matrix.
+9. **Quality gates:** `./scripts/run_go_quality_gates.sh`, CI required checks, and any workstream-specific verification. Use `sdp quality` for the fast F168 state matrix and `sdp quality --full` for the local advisory evidence report; neither replaces the blocking Go/CI gates.
 10. **Review loop:** reviewer validates output; any review, CI, or `drift` finding becomes a typed `beads issue` with `source`, linked `feature`, linked `workstream`, `blocking`, and `PR` or artifact reference.
 11. **`QA/UAT`:** after engineering gates are clean, run `QA/UAT` against the `feature` intent. `qa:fail` creates new blocking `beads issue`; `qa:pass` records `UAT evidence`.
 12. **Complete:** `cmd/beads-fsm` moves flow to `verified` and `done`, then `bd close <id> --reason "..."`, `scripts/beads_transport.sh export`.
@@ -135,9 +135,9 @@ If none of those are true, stay on the local path.
 
 ## Quality Gates
 
-- `make quality` or `sdp quality all` — SDP plugin checks
-- `go test ./...` — unit and integration tests
-- `golangci-lint run` — lint
+- `./scripts/run_go_quality_gates.sh` — build, tests, vet, and lint
+- CI required checks — remote merge gate
+- `sdp quality --full` — local advisory quality-axis evidence; not a merge gate by itself
 
 ## Evidence
 

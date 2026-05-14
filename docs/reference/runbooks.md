@@ -135,11 +135,11 @@ sdp session repair
 # Check what's blocking
 cat docs/workstreams/backlog/<ws-id>.md | grep depends_on
 
-# Complete blocking workstreams first
-sdp apply --ws <blocking-ws-id>
+# Complete blocking workstreams first through the repo execution loop
+go run ./cmd/sdp-orchestrate --feature <FXXX> --next-action
 
-# Alternative: view dependency graph
-sdp plan --graph
+# Alternative: inspect live executable queue
+bd ready
 ```
 
 ### DEP002: Circular Dependency
@@ -217,17 +217,18 @@ go test ./...
 
 **Recovery:**
 ```bash
-# View drift details
-sdp drift detect
+# View protocol and docs drift details
+go run ./cmd/sdp-protocol-check --format json
 
-# Generate detailed report
-sdp drift report --output=drift.md
+# Generate docs consistency report
+go run ./cmd/sdp-doc-sync --mode check --strict
 
 # Decide: update code or update docs
 # Make changes
 
 # Verify drift resolved
-sdp drift detect
+go run ./cmd/sdp-protocol-check --format json
+go run ./cmd/sdp-doc-sync --mode check --strict
 ```
 
 ## Runtime Recovery (RUNTIME)
@@ -267,10 +268,11 @@ sdp drift detect
 **Recovery:**
 ```bash
 # Run diagnostics
-sdp doctor --deep
+sdp doctor all
 
-# Gather logs
-sdp log show > error-log.txt
+# Gather local git and environment evidence
+git status --short --branch > error-log.txt
+sdp doctor all >> error-log.txt
 
 # Report issue with:
 # - Error message
@@ -280,22 +282,20 @@ sdp log show > error-log.txt
 
 ## Diagnostics Tools
 
-### sdp diagnose
+### Diagnostics commands
 
-Use `sdp diagnose` to get help with specific error codes:
+Use the active `sdp` commands plus repo checks to diagnose failures:
 
 ```bash
-# Show all error classes
-sdp diagnose --list-classes
+# Show available SDP commands
+sdp --help
 
-# Show all error codes
-sdp diagnose --list-codes
+# Check repo-local readiness
+sdp doctor all
 
-# Get recovery steps for specific error
-sdp diagnose ENV001
-
-# Get JSON output for tooling
-sdp diagnose VAL001 --json
+# Check protocol and docs consistency
+go run ./cmd/sdp-protocol-check --format json
+go run ./cmd/sdp-doc-sync --mode check --strict
 ```
 
 ### sdp doctor
@@ -306,8 +306,8 @@ Use `sdp doctor` to check environment health:
 # Standard check
 sdp doctor
 
-# Include drift detection
-sdp doctor --drift
+# Include adapter and backlog checks
+sdp doctor all
 ```
 
 ### sdp quality
@@ -315,11 +315,11 @@ sdp doctor --drift
 Use `sdp quality` to check code quality:
 
 ```bash
-# Run all quality checks
+# Fast F168 quality-state matrix
 sdp quality
 
-# Verbose output
-sdp quality --verbose
+# Full local advisory evidence output
+sdp quality --full
 ```
 
 ## Recovery Drill Checklist
@@ -329,9 +329,9 @@ For maintainers, run this checklist monthly:
 1. [ ] Verify `sdp doctor` passes in clean environment
 2. [ ] Test recovery from corrupted session
 3. [ ] Verify evidence chain repair works
-4. [ ] Test drift detection and resolution
+4. [ ] Test protocol/docs drift detection and resolution
 5. [ ] Verify quality gates work correctly
-6. [ ] Test diagnose command for all error classes
+6. [ ] Test diagnostics commands for active error classes
 
 ## MTTR Target
 

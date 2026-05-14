@@ -1,7 +1,7 @@
 # SDP Product Surface
 
 Status: canonical user-facing product map
-Updated: 2026-04-27
+Updated: 2026-05-14
 Workstream: 00-150-02 (F150-02, sdplab-8rk7)
 
 Use this doc when the question is:

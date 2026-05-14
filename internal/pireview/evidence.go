@@ -62,7 +62,7 @@ func CollectTestEvidence(ctx context.Context, cfg Config, runDir string) (*TestE
 // resolveTestCommand determines which test command to run.
 func resolveTestCommand(cfg Config) ([]string, error) {
 	if cfg.TestCommand != "" {
-		return strings.Fields(cfg.TestCommand), nil
+		return []string{"sh", "-c", cfg.TestCommand}, nil
 	}
 
 	// Detect based on project files

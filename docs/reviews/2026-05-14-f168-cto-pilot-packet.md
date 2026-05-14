@@ -24,8 +24,8 @@ acceptance criterion, a reviewable diff, and a known rollback path.
 Run:
 
 ```bash
-./.sdp/bin/sdp scout --repo .
-./.sdp/bin/sdp metrics --repo .
+./.sdp/bin/sdp scout --format text .
+./.sdp/bin/sdp metrics --format text .
 ./.sdp/bin/sdp doctor
 ./.sdp/bin/sdp quality
 ```
@@ -77,7 +77,8 @@ manifest. It does not prove that each harness is ready for autonomous dispatch.
 
 ## Current F168 Evidence
 
-- `sdp quality` prints the deterministic quality-axis matrix.
+- `sdp quality` prints the deterministic quality-axis matrix and next actions
+  for each axis.
 - Cognitive complexity, CRAP, and Maintainability Index remain
   `not_assessed`.
 - Work-without-spec is `cannot_verify` outside checkpoint/PR evidence.

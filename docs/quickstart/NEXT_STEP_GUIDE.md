@@ -35,7 +35,7 @@ Schema: `schema/contracts/beads-queue-view.schema.json`
   "next_action": {
     "recommended": "Start sdplab-abc",
     "reason": "sdplab-abc has the highest priority among ready issues",
-    "command": "bd update sdplab-abc --status in_progress"
+    "command": "bd update sdplab-abc --claim"
   }
 }
 ```
@@ -53,7 +53,7 @@ Schema: `schema/contracts/beads-instructions.schema.json`
       "step": 1,
       "action": "Claim the issue sdplab-abc",
       "reason": "sdplab-abc has the highest priority",
-      "command": "bd update sdplab-abc --status in_progress"
+      "command": "bd update sdplab-abc --claim"
     }
   ]
 }
