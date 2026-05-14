@@ -369,7 +369,7 @@ Harness без авто-discovery (Kimi, Codex CLI, Copilot, Zed, Warp и др.)
 
 ### Agents — canonical path
 
-`prompts/agents/` — 13 агентских промптов: architect, deployer, devops, implementer, orchestrator, planner, qa, reviewer, security, spec-reviewer, sre, tech-lead.
+`prompts/agents/` — 12 агентских промптов: architect, deployer, devops, implementer, orchestrator, planner, qa, reviewer, security, spec-reviewer, sre, tech-lead.
 
 Tracked symlinks: `.claude/agents` и `.opencode/agents` → `../prompts/agents` (F128-06).
 
@@ -379,10 +379,10 @@ Tracked symlinks: `.claude/agents` и `.opencode/agents` → `../prompts/agents`
 
 | Path | Count | Format | Consumed by |
 |---|---|---|---|
-| `prompts/skills/<name>/SKILL.md` | 28 | Claude plugin format (директория + SKILL.md) | Claude Code (via `.claude/skills` symlink → `../prompts/skills`), Claude plugin system |
-| `.agents/skills/*.md` | 43 | Плоский inline markdown с YAML frontmatter | OpenCode (`.agents/skills/` native), Cursor (`.cursor/skills` symlink), harness без plugin discovery |
+| `prompts/skills/<name>/SKILL.md` | 30 | Claude plugin format (директория + SKILL.md) | Claude Code (via `.claude/skills` symlink → `../prompts/skills`), Claude plugin system |
+| `.agents/skills/*.md` | 45 | Плоский inline markdown с YAML frontmatter | OpenCode (`.agents/skills/` native), Cursor (`.cursor/skills` symlink), harness без plugin discovery |
 
-`.claude/skills → ../prompts/skills` (F128-21, 2026-04-21): команды в `prompts/commands/*.md` и агенты ссылаются на plugin-формат `@.claude/skills/<name>/SKILL.md`. Flat-формат `.agents/skills/*.md` остаётся каноническим источником для OpenCode/Cursor/Kimi.
+`.claude/skills → ../prompts/skills` (F128-21, 2026-04-21): команды в `prompts/commands/*.md` и агенты ссылаются на plugin-формат `@.claude/skills/<name>/SKILL.md`. Flat-формат `.agents/skills/*.md` остаётся каноническим источником для OpenCode/Cursor/Kimi; flat-only skills such as `llm-council` and `parallel-dispatch` are indexed in `.agents/skills/index.json` until F138-03 consolidation moves them into one canonical format.
 
 Консолидация в один канонический формат — [F138-03 Canonical Skill Consolidation](docs/plans/2026-04-16-f127-multi-harness-modernization-design.md) (`sdplab-yocw.3`). До завершения migration harness должен проверять обе локации.
 

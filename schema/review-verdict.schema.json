@@ -267,10 +267,12 @@
     "modelRun": {
       "type": "object",
       "required": [
+        "slot",
         "provider",
         "model",
         "role",
-        "status"
+        "status",
+        "assessment_state"
       ],
       "properties": {
         "slot": {
@@ -298,7 +300,19 @@
             "skipped"
           ]
         },
+        "assessment_state": {
+          "type": "string",
+          "enum": [
+            "assessed",
+            "not_assessed",
+            "cannot_verify"
+          ],
+          "description": "Evidence state for this model slot. Provider/runtime failures are cannot_verify, not green evidence."
+        },
         "artifact_path": {
+          "type": "string"
+        },
+        "error": {
           "type": "string"
         },
         "latency_ms": {

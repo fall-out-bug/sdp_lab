@@ -4,6 +4,14 @@ Get SDP installed in a repo and run the first useful checks.
 
 Audience: CTOs, architects, and developers evaluating SDP as a structured AI PDLC/SDLC harness layer.
 
+In this guide, a **harness** means the coding-agent runtime your team uses to
+interact with models and edit code, for example Claude Code, OpenCode, Codex,
+Cursor, or Pi. SDP installs repo-local adapters around those runtimes; it does
+not replace them.
+
+If you are not sure whether you need Toolkit evaluation, repo contribution, or
+Operator Mode, start with [START_HERE.md](START_HERE.md).
+
 ## What You Are Installing
 
 You are installing **SDP Toolkit** — the installable developer surface. It is the `sdp` CLI, installed into your repo.
@@ -75,7 +83,7 @@ Expected result:
 
 - manifest validation exits 0
 - adapter doctor reports 0 drifts
-- manifest output reports the SDP inventory, currently 30 skills, 25 commands, and 12 agents
+- manifest output reports the SDP inventory; treat `sdp.manifest.yaml` as the source of truth for counts
 - `sdp.lock` exists
 - `.sdp/bin/sdp` exists
 - one or more harness dirs exist: `.claude/`, `.opencode/`, `.codex/`, `.cursor/`, `.pi/`
@@ -94,6 +102,15 @@ Run low-risk toolkit commands first. `scout`, `metrics`, and `spec` only inspect
 ./.sdp/bin/sdp spec --format text .
 ```
 
+After the first index build, use the cache for follow-up questions:
+
+```bash
+./.sdp/bin/sdp index query . "auth flow"
+./.sdp/bin/sdp index find . Handler
+./.sdp/bin/sdp index deps . ./internal/api
+./.sdp/bin/sdp index stats .
+```
+
 Then preview the delivery-planning surface:
 
 ```bash
@@ -106,21 +123,89 @@ For brownfield agent setup, preview generated artifacts before writing:
 ./.sdp/bin/sdp bootstrap --dry-run --mode brownfield .
 ```
 
+## From Install to Harness Commands
+
+The installed CLI (`./.sdp/bin/sdp`) is the install/support surface.
+To execute SDP workflows, jump to your harness-specific command surface:
+
+The command forms below are harness commands and are not part of the `sdp` CLI.
+The `@`/`/` prefix is the harness entrypoint marker:
+
+- `@build` (OpenCode/Cursor): harness command syntax.
+- `/build` (Claude Code): slash-command syntax.
+
+| Harness | Primary form | Runtime status |
+|---|---|---|
+| Claude Code | `claude -p "/build 00-XXX-YY"` | Stable primary |
+| OpenCode | `opencode run --dir "$PWD" --agent implementer "@build 00-XXX-YY"` | Experimental; requires `--agent implementer` |
+| Cursor | `agent -p "@build 00-XXX-YY"` | Secondary validator only; primary dispatch untested |
+| Codex | Use repo instructions plus generated `.codex/` prompts | Adapter surface present; autonomous dispatch is not the primary path |
+| Pi | Use generated `.pi/` skills/prompts for review or validation | Experimental; autonomous dispatch pending bundle evidence |
+
+```bash
+# Claude Code
+claude -p "/build 00-XXX-YY"
+
+# OpenCode
+opencode run --dir "$PWD" --agent implementer "@build 00-XXX-YY"
+
+# Cursor
+agent -p "@build 00-XXX-YY"
+
+# Codex / Pi
+# Use generated prompts/skills as validation or manual-assist surfaces until
+# runtime dispatch evidence is recorded.
+```
+
+Use real IDs from your workstream/feature context. `00-XXX-YY` is a placeholder
+for a real workstream ID.
+
+Inside `sdp_lab` operator mode, find ready workstream IDs with:
+
+```bash
+bd ready
+```
+
+Cursor is a **secondary validator only** and remains **untested** for primary SDP
+dispatch.
+
+If you do not have an internal workstream yet (external user flow), use local
+delivery first and skip harness dispatch:
+
+```bash
+./.sdp/bin/sdp build "what you want to change" --dry-run --format text
+```
+
+Then convert that local plan into `docs/workstreams/...` only when you are ready for
+operator-mode execution.
+
+**OpenCode warning:** always use non-interactive `--agent implementer`.
+Without it, `opencode run ...` can exit successfully without applying edits.
+
 ## Choose A Path
 
 | Path | Use when | Start with |
 |---|---|---|
-| **Toolkit evaluation** | You want to inspect an existing repo and recover useful context. | `scout`, `metrics`, `index`, `spec`, `bootstrap --dry-run` |
+| **Toolkit evaluation** | You want to inspect an existing repo and recover useful context. | `scout`, `metrics`, `index build`, `spec`, `bootstrap --dry-run` |
 | **Local delivery** | You want a lightweight idea-to-change loop in one repo. | `sdp build --dry-run`, then harness-specific commands |
 | **Operator mode** | You need queue-backed delivery, explicit ownership, PR gates, and QA/UAT. | [reference/canonical-happy-path.md](reference/canonical-happy-path.md) |
 | **MCP integration** | You want an AI harness to call SDP tools directly. | [reference/installation.md](reference/installation.md) |
+
+Command map: [reference/commands.md](reference/commands.md)
+
+Skill and agent map: [reference/agent-skill-entry-map.md](reference/agent-skill-entry-map.md)
 
 ## What Works Today
 
 **SDP Toolkit (stable, ships in formula):**
 
-- multi-harness manifest/adapters: 30 skills, 25 commands, 12 agents rendered into each harness's native surface
-- toolkit commands: `scout`, `metrics`, `index`, `spec`, `bootstrap`
+- static multi-harness adapter files rendered from `sdp.manifest.yaml` where the harness has an adapter surface
+- first-run toolkit commands: `scout`, `metrics`, `index build`, `spec`, `bootstrap --dry-run`
+- install/support commands: `init`, `manifest`, `generate-adapters`, `doctor`
+
+Static adapter parity is not runtime dispatch readiness. Claude Code is the
+stable primary harness today; OpenCode, Cursor, Codex, and Pi have explicit
+runtime limits. See [reference/harness-parity-matrix.md](reference/harness-parity-matrix.md).
 
 **Operator Mode (default Toolkit happy path):**
 
@@ -130,8 +215,11 @@ For brownfield agent setup, preview generated artifacts before writing:
 
 **Operator tooling (included in the release build, not the first-run promise):**
 
-- `sdp-orchestrate`, `sdp-ci-loop`, `sdp-guard`, `sdp-doc-sync`, `sdp-ready`
+- `sdp-orchestrate --feature` for feature/workstream operator runs
+- `sdp-ci-loop`, `sdp-guard`, `sdp-doc-sync`, `sdp-ready`
 - `manifest parity`, `generate-adapters`, `doctor adapters`
+
+`sdp orchestrate once|loop` is the top-level CLI result-processing loop. It is not the same surface as the standalone `sdp-orchestrate --feature ...` operator driver.
 
 **Lab / research (not in formula):**
 
@@ -159,7 +247,8 @@ The manifest supports five harness names:
 
 `auto` detects existing harness directories. If none exist, it installs all five.
 
-Generated adapters are owned by the manifest. Do not edit generated harness files directly. Change `sdp.manifest.yaml`, then regenerate:
+Generated adapters are owned by the manifest. Do not edit generated harness files
+directly. Change `sdp.manifest.yaml`, then regenerate:
 
 ```bash
 ./.sdp/bin/sdp generate-adapters --write
@@ -170,6 +259,19 @@ Generated adapters are owned by the manifest. Do not edit generated harness file
 `generate-adapters --write` refreshes `.sdp/generated/`. `init --update`
 refreshes the live harness directories from the manifest without overwriting an
 existing `sdp.manifest.yaml`.
+
+Safe adapter update sequence:
+
+```bash
+./.sdp/bin/sdp manifest validate
+./.sdp/bin/sdp generate-adapters --check
+./.sdp/bin/sdp init --update
+./.sdp/bin/sdp doctor adapters
+```
+
+If `generate-adapters --check` reports changes, fix source prompts and run
+`generate-adapters --write` after manifest changes. Do not patch generated files
+by hand.
 
 ## Limits
 

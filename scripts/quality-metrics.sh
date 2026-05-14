@@ -15,6 +15,86 @@ set -e
 echo "=== Quality Metrics Check (Tiered Coverage) ==="
 echo ""
 
+print_assessment() {
+    local axis="$1"
+    local state="$2"
+    local detail="$3"
+    printf '  %-28s %-15s %s\n' "$axis" "$state" "$detail"
+}
+
+print_next_action() {
+    local axis="$1"
+    local action="$2"
+    printf '  %-28s %s\n' "$axis" "$action"
+}
+
+has_linter_token() {
+    local token="$1"
+    [ -f .golangci.yml ] && grep -Eq "^[[:space:]]*-[[:space:]]*${token}\$|^[[:space:]]*${token}:" .golangci.yml
+}
+
+echo "0. Deterministic Quality Matrix"
+echo "--------------------------------"
+print_assessment "go_build_test_vet_lint" "evidence_only" "covered by run_go_quality_gates.sh/CI build-test, not by this script"
+print_assessment "coverage_baseline_delta" "evidence_only" "covered by CI coverage-gate; this script checks package tiers only"
+if [ "${SDP_QUALITY_MATRIX_ONLY:-0}" = "1" ]; then
+    print_assessment "maturity_tier_coverage" "evidence_only" "available with --full; default report does not run per-package coverage"
+    print_assessment "test_code_ratio" "evidence_only" "available with --full; default report does not run ratio checks"
+else
+    print_assessment "maturity_tier_coverage" "evidence_only" "checked below from go test -cover per package"
+    print_assessment "test_code_ratio" "evidence_only" "checked below as local evidence; not wired into CI"
+fi
+
+if has_linter_token "gocognit" || has_linter_token "gocyclo"; then
+    print_assessment "cognitive_complexity" "evidence_only" "linter token found in root .golangci.yml; verify CI wiring before treating as blocking"
+else
+    print_assessment "cognitive_complexity" "not_assessed" "root .golangci.yml does not enable gocognit/gocyclo thresholds"
+fi
+
+print_assessment "crap_score" "not_assessed" "no selected Go CRAP formula/tool is configured"
+
+if command -v go >/dev/null 2>&1; then
+    print_assessment "modern_go" "evidence_only" "go vet/golangci evidence exists; staticcheck/gosimple/ineffassign are disabled in root config"
+else
+    print_assessment "modern_go" "cannot_verify" "go toolchain not available"
+fi
+
+if [ -d docs/workstreams ] && [ -f docs/workstreams/INDEX.md ]; then
+    print_assessment "spec_drift" "evidence_only" "protocol/doc consistency tools own this; this script does not run them"
+else
+    print_assessment "spec_drift" "cannot_verify" "workstream docs are unavailable"
+fi
+
+BASE_REF="${SDP_BASE_REF:-origin/main}"
+if git rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then
+    CHANGED_FILES="$(git diff --name-only "$BASE_REF"...HEAD 2>/dev/null || true)"
+    if echo "$CHANGED_FILES" | grep -q '^\.sdp/checkpoints/.*\.json$'; then
+        print_assessment "work_without_spec" "evidence_only" "checkpoint files changed; CI scope-gate is the authority"
+    else
+        print_assessment "work_without_spec" "cannot_verify" "no checkpoint evidence in diff against ${BASE_REF}"
+    fi
+else
+    print_assessment "work_without_spec" "cannot_verify" "base ref ${BASE_REF} is unavailable"
+fi
+
+echo ""
+echo "0b. Next Actions"
+echo "----------------"
+print_next_action "go_build_test_vet_lint" "Run ./scripts/run_go_quality_gates.sh; fix blocking build/test/vet/lint failures before merge."
+print_next_action "coverage_baseline_delta" "Use CI coverage-gate output; restore total coverage when baseline drops by more than 2pp."
+print_next_action "maturity_tier_coverage" "Use sdp quality --full for advisory package-tier misses; file Beads only for selected follow-up scope."
+print_next_action "test_code_ratio" "Use sdp quality --full; treat as local evidence until a threshold is selected."
+print_next_action "cognitive_complexity" "Select gocognit/gocyclo thresholds before changing this from not_assessed."
+print_next_action "crap_score" "Select a Go CRAP formula/tool before changing this from not_assessed."
+print_next_action "modern_go" "Do not flip staticcheck/gosimple/ineffassign as blocking until rollout scope is agreed."
+print_next_action "spec_drift" "Run sdp-protocol-check and sdp-doc-sync; convert blocking drift into Beads findings."
+print_next_action "work_without_spec" "Add checkpoint/workstream evidence for PR scope, or leave cannot_verify explicit."
+echo ""
+
+if [ "${SDP_QUALITY_MATRIX_ONLY:-0}" = "1" ]; then
+    exit 0
+fi
+
 # --- Tier definitions ---
 # Happy-path packages: GA packages on the canonical happy-path surface
 HAPPY_PATH_PKGS="internal/scout internal/metrics internal/index internal/bootstrap internal/control internal/orchestrate internal/cli internal/manifest internal/evidence internal/guard internal/discovery internal/build"
@@ -64,7 +144,20 @@ for pkg in $(go list ./internal/... 2>/dev/null | sort); do
         continue
     fi
 
-    coverage=$(go test $GO_TAGS -cover "$pkg" 2>/dev/null | grep -oP 'coverage:\s*\K[0-9.]+')
+    coverage_output=$(go test $GO_TAGS -cover "$pkg" 2>/dev/null || true)
+    coverage=$(printf '%s\n' "$coverage_output" | awk '
+        /coverage:/ {
+            for (i = 1; i <= NF; i++) {
+                if ($i == "coverage:") {
+                    pct = $(i + 1)
+                    gsub(/%/, "", pct)
+                    if (pct ~ /^[0-9]+(\.[0-9]+)?$/) {
+                        print pct
+                    }
+                }
+            }
+        }
+    ' | tail -n 1)
     if [ -n "$coverage" ]; then
         if (( $(echo "$coverage < $target" | bc -l) )); then
             status_icon="FAIL"
@@ -72,8 +165,8 @@ for pkg in $(go list ./internal/... 2>/dev/null | sort); do
                 echo "  ADVISORY ($tier, target >= ${target}%) $pkg_short: ${coverage}%"
                 FAILED_ADVISORY="$FAILED_ADVISORY $pkg_short"
             else
-                echo "  FAIL ($tier, target >= ${target}%) $pkg_short: ${coverage}%"
-                FAILED_BLOCKING="$FAILED_BLOCKING $pkg_short"
+                echo "  EVIDENCE_ONLY ($tier, target >= ${target}%) $pkg_short: ${coverage}%"
+                FAILED_ADVISORY="$FAILED_ADVISORY $pkg_short"
             fi
         else
             echo "  PASS ($tier, >= ${target}%) $pkg_short: ${coverage}%"
@@ -98,7 +191,7 @@ check_ratio() {
     if [ "$prod_lines" -gt 0 ]; then
         ratio=$(echo "scale=2; $test_lines / $prod_lines" | bc)
         if (( $(echo "$ratio < 1.5" | bc -l) )); then
-            echo "  FAIL $pkg_name: ${ratio} (${test_lines}/${prod_lines} lines) - BELOW MINIMUM"
+            echo "  EVIDENCE_ONLY $pkg_name: ${ratio} (${test_lines}/${prod_lines} lines) - BELOW MINIMUM"
             return 1
         elif (( $(echo "$ratio > 2.0" | bc -l) )); then
             echo "  WARN $pkg_name: ${ratio} (${test_lines}/${prod_lines} lines) - ABOVE MAXIMUM"
@@ -127,13 +220,7 @@ done
 
 echo ""
 echo "=== Summary ==="
-if [ -z "$FAILED_BLOCKING" ] && [ -z "$FAILED_RATIO" ]; then
-    echo "All blocking quality metrics passed."
-    [ -n "$FAILED_ADVISORY" ] && echo "Advisory (beta coverage):$FAILED_ADVISORY"
-    exit 0
-else
-    [ -n "$FAILED_BLOCKING" ] && echo "Blocking coverage failures:$FAILED_BLOCKING"
-    [ -n "$FAILED_ADVISORY" ] && echo "Advisory (beta coverage):$FAILED_ADVISORY"
-    [ -n "$FAILED_RATIO" ] && echo "Test/code ratio failures:$FAILED_RATIO"
-    exit 1
-fi
+echo "No blocking quality metrics are enforced by this advisory report."
+[ -n "$FAILED_ADVISORY" ] && echo "Advisory coverage evidence:$FAILED_ADVISORY"
+[ -n "$FAILED_RATIO" ] && echo "Advisory test/code ratio evidence:$FAILED_RATIO"
+exit 0

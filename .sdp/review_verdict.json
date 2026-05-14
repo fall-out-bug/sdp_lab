@@ -1,81 +1,85 @@
 {
-  "feature": "F149",
-  "verdict": "APPROVED",
-  "round": 4,
-  "timestamp": "2026-05-08T15:35:21Z",
-  "reviewer_runtime": "pi",
+  "feature": "F168",
+  "verdict": "ESCALATED",
+  "round": 9,
+  "timestamp": "2026-05-14T05:35:38Z",
   "reviewers": {
-    "qa": {
-      "verdict": "PASS",
-      "findings": []
-    },
-    "security": {
-      "verdict": "PASS",
-      "findings": []
-    },
     "devops": {
-      "verdict": "PASS",
-      "findings": []
-    },
-    "sre": {
-      "verdict": "PASS",
-      "findings": []
-    },
-    "techlead": {
-      "verdict": "PASS",
-      "findings": []
+      "verdict": "BLOCKED",
+      "findings": [],
+      "notes": "quorum failure: 0/3 required reviewers succeeded; quorum=2"
     },
     "docs": {
-      "verdict": "PASS",
-      "findings": []
+      "verdict": "BLOCKED",
+      "findings": [],
+      "notes": "quorum failure: 0/3 required reviewers succeeded; quorum=2"
     },
     "promptops": {
-      "verdict": "PASS",
-      "findings": []
+      "verdict": "BLOCKED",
+      "findings": [],
+      "notes": "quorum failure: 0/3 required reviewers succeeded; quorum=2"
+    },
+    "qa": {
+      "verdict": "BLOCKED",
+      "findings": [],
+      "notes": "quorum failure: 0/3 required reviewers succeeded; quorum=2"
+    },
+    "security": {
+      "verdict": "BLOCKED",
+      "findings": [],
+      "notes": "quorum failure: 0/3 required reviewers succeeded; quorum=2"
+    },
+    "sre": {
+      "verdict": "BLOCKED",
+      "findings": [],
+      "notes": "quorum failure: 0/3 required reviewers succeeded; quorum=2"
+    },
+    "techlead": {
+      "verdict": "BLOCKED",
+      "findings": [],
+      "notes": "quorum failure: 0/3 required reviewers succeeded; quorum=2"
     }
   },
   "p0_count": 0,
   "p1_count": 0,
-  "finding_ids": [
-    "sdplab-i21n",
-    "sdplab-m034"
-  ],
-  "blocking_ids": [],
-  "summary": "APPROVED: glm-5.1, k2p6, and MiniMax-M2.7 all completed. No P0/P1 findings. Advisory onboarding/release-surface findings were adjudicated in docs/reviews/2026-05-08-f149-onboarding-pi-review-ledger.md; accepted items were fixed, and non-actionable items were covered by existing snapshot tests or scoped out as historical plan material.",
+  "finding_ids": [],
+  "escalation_issue": "sdplab-o8gk",
+  "override_reason": "Native sdp-pi-review provider quorum remained unavailable; maintainer-authorized merge path uses independent codex-subagent pi review panel plus deterministic CI. Do not treat this override as model approval.",
+  "summary": "ESCALATED: quorum failure (0/3 required reviewers; quorum=2)",
+  "reviewer_runtime": "pi",
   "model_panel": [
     {
       "slot": "zai",
       "provider": "zai",
       "model": "glm-5.1",
       "role": "reviewer",
-      "status": "ok"
+      "status": "failed",
+      "assessment_state": "cannot_verify",
+      "artifact_path": "/Users/fall_out_bug/projects/vibe_coding/sdp_lab/.sdp/runs/pi-review/pireview-6cbcee7e0846-1778736535262/models/zai.json",
+      "latency_ms": 16292,
+      "error": "model output is empty; fallback failed: openrouter fallback failed: pi --provider openrouter --model z-ai/glm-5.1 --no-tools --no-context-files --no-session -p [REDACTED_PROMPT]"
     },
     {
       "slot": "kimi",
       "provider": "kimi-coding",
-      "model": "k2p6",
+      "model": "kimi-for-coding",
       "role": "reviewer",
-      "status": "ok"
+      "status": "failed",
+      "assessment_state": "cannot_verify",
+      "artifact_path": "/Users/fall_out_bug/projects/vibe_coding/sdp_lab/.sdp/runs/pi-review/pireview-6cbcee7e0846-1778736535262/models/kimi.json",
+      "latency_ms": 185256,
+      "error": "pi run kimi-coding/kimi-for-coding failed: pi --provider kimi-coding --model kimi-for-coding --no-tools --no-context-files --no-session -p [REDACTED_PROMPT]; fallback failed: openrouter fallback failed: pi --provider openrouter --model moonshotai/kimi-k2.6 --no-tools --no-context-files --no-session -p [REDACTED_PROMPT]"
     },
     {
       "slot": "minimax",
       "provider": "minimax",
       "model": "MiniMax-M2.7",
       "role": "reviewer",
-      "status": "ok"
-    }
-  ],
-  "findings_detail": [
-    {
-      "priority": "P2",
-      "title": "No blocking onboarding findings remain after round 4 adjudication",
-      "file": "docs/reviews/2026-05-08-f149-onboarding-pi-review-ledger.md",
-      "start_line": 20,
-      "end_line": 27,
-      "reviewer": "maintainer",
-      "rationale": "Round 4 produced advisory findings only. The actionable documentation and release-surface items were fixed; snapshot-test and historical-plan items were adjudicated as non-blocking with deterministic evidence.",
-      "suggested_fix": "None. Keep raw .sdp/runs/pi-review telemetry local unless a workstream explicitly asks to commit it.",
-      "dedupe_key": "P2:docs/reviews/2026-05-08-f149-onboarding-pi-review-ledger.md:round-4-adjudicated"
+      "status": "failed",
+      "assessment_state": "cannot_verify",
+      "artifact_path": "/Users/fall_out_bug/projects/vibe_coding/sdp_lab/.sdp/runs/pi-review/pireview-6cbcee7e0846-1778736535262/models/minimax.json",
+      "latency_ms": 10033,
+      "error": "pi run minimax/MiniMax-M2.7 failed: pi --provider minimax --model MiniMax-M2.7 --no-tools --no-context-files --no-session -p [REDACTED_PROMPT]; fallback failed: openrouter fallback failed: pi --provider openrouter --model minimax/minimax-m2.7 --no-tools --no-context-files --no-session -p [REDACTED_PROMPT]"
     }
   ]
 }

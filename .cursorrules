@@ -9,19 +9,20 @@ workstreams, quality gates, evidence, and review before ship.
 - New product or unclear scope:
   use `@vision`, `@feature`, `@idea`, `@design`
 - Existing codebase analysis:
-  use `@understand`, `@scout`, `@architect`, `@reality`, `@metrics`
+  use `@reality` / `@reality-check` for harness review, or the repo-local CLI:
+  `./.sdp/bin/sdp scout ...`, `./.sdp/bin/sdp metrics ...`, `./.sdp/bin/sdp architect ...`
 - Execute scoped work:
   use `@build` for one workstream, `@oneshot` for end-to-end execution
 - Bugs and regressions:
-  use `@fix`, `@bugfix`, `@hotfix`, `@issue`, `@debug`
+  use `@bugfix`, `@hotfix`, `@issue`, `@debug`
 - Review and verification:
   use `@review`, `@verify-workstream`, `@ci-triage`
 - Release and operations:
-  use `@operate`, `@deploy`
+  use `@ship` or `@deploy`
 - Complex decisions:
-  use `@llm-council`
+  use `@design`, `@review`, or a manual council pass from `docs/reference/FALLBACK_MODE.md`
 - Parallel work:
-  use `@git-worktree`, `@parallel-dispatch`
+  use fallback checklists unless your Cursor runtime has proven subagent dispatch
 
 ## Working Rules
 

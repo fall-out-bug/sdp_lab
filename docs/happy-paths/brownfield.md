@@ -2,6 +2,13 @@
 
 > **Ситуация:** Существующий проект (legacy или активный). Хочешь добавить фичу или встроить SDP в процесс. С чего начать?
 
+> **Status:** operator/lab recipe, not the friendly first-run Toolkit path.
+> For a safe first run in an existing repo, start with
+> [../START_HERE.md](../START_HERE.md) and [../QUICKSTART.md](../QUICKSTART.md):
+> install, verify, run `scout`, `metrics`, `index build`, `spec`, then
+> `bootstrap --dry-run`. This document still contains lab/operator commands such
+> as `sdp-up` and `sdp-harness`.
+
 ---
 
 ## Шаг 1: Аудит существующего кода

@@ -67,8 +67,8 @@ Error codes follow the pattern: `{CLASS}{NUMBER}` (e.g., `ENV001`, `PROTO002`)
 | VAL004 | Linting failed | Fix linting errors reported by linter |
 | VAL005 | Type mismatch | Verify types match expected signatures |
 | VAL006 | Quality gate failed | Review quality gate output for specific failures |
-| VAL007 | Drift detected between code and documentation | Run `sdp drift detect` for details and sync |
-| VAL008 | Edit scope violation | Stay within workstream scope or use `sdp guard deactivate` |
+| VAL007 | Drift detected between code and documentation | Run `sdp-protocol-check` and `sdp-doc-sync` for details and sync |
+| VAL008 | Edit scope violation | Stay within workstream scope or stop and re-scope the workstream |
 
 ## Runtime Errors (RUNTIME001-RUNTIME099)
 
@@ -133,13 +133,13 @@ jsonStr, _ := errors.ToJSON(err)
 ### Protocol Errors
 1. Verify input format matches specification
 2. Check YAML frontmatter syntax
-3. Run `sdp parse` to validate workstream files
+3. Run `sdp-protocol-check` to validate workstream files
 4. Review PROTOCOL.md for correct format
 
 ### Dependency Errors
 1. Check workstream dependencies in backlog files
 2. Complete blocking workstreams first
-3. Use `sdp apply --ws` for single workstream
+3. Use `sdp-orchestrate --feature <FXXX> --next-action` or the repo `/build <ws-id>` path for a single executable workstream
 4. Review collision detection output
 
 ### Validation Errors
@@ -147,7 +147,7 @@ jsonStr, _ := errors.ToJSON(err)
 2. Increase test coverage
 3. Split large files
 4. Fix linting errors
-5. Run `sdp drift detect` to sync code and docs
+5. Run `sdp-protocol-check` and `sdp-doc-sync --mode check --strict` to sync code and docs
 
 ### Runtime Errors
 1. Retry with exponential backoff

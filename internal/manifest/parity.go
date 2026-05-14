@@ -20,7 +20,10 @@ func (m *Manifest) ParityMatrix(now time.Time) string {
 	b.WriteString("# Harness Parity Matrix\n\n")
 	fmt.Fprintf(&b, "Generated: %s · manifest version `%s` · sdp_version `%s`\n\n",
 		now.UTC().Format("2006-01-02"), m.Version, m.SDPVersion)
-	b.WriteString("Legend: ✓ supported · — not declared · ⚠ intentional gap (see notes)\n\n")
+	b.WriteString("Legend: ✓ static adapter parity · — not declared · ⚠ intentional gap (see notes)\n\n")
+	b.WriteString("This matrix verifies generated adapter files and manifest coverage only. ")
+	b.WriteString("It does not prove that a harness runtime can dispatch SDP workflows. ")
+	b.WriteString("Use the Runtime Readiness section for execution status.\n\n")
 
 	manifestHarnesses := m.Harnesses
 	if len(manifestHarnesses) == 0 {
@@ -28,6 +31,7 @@ func (m *Manifest) ParityMatrix(now time.Time) string {
 	}
 	cols := filterHarnesses(allHarnesses, manifestHarnesses)
 
+	writeRuntimeReadinessSection(&b, cols)
 	writeSection(&b, "Commands", cols, commandRows(m.Commands, cols))
 	writeSection(&b, "Skills", cols, skillRows(m.Skills, cols))
 	writeSection(&b, "Agents", cols, agentRows(m.Agents, cols))
@@ -42,6 +46,37 @@ func (m *Manifest) ParityMatrix(now time.Time) string {
 		b.WriteString("\n")
 	}
 	return b.String()
+}
+
+func writeRuntimeReadinessSection(b *strings.Builder, cols []Harness) {
+	b.WriteString("## Runtime Readiness\n\n")
+	b.WriteString("Runtime readiness is manually curated policy emitted by the generator so ")
+	b.WriteString("`sdp manifest parity --check` can still verify this document. It separates ")
+	b.WriteString("static adapter parity from dispatch evidence.\n\n")
+	b.WriteString("| Harness | Runtime Dispatch Status | Current Limitation |\n")
+	b.WriteString("|---|---|---|\n")
+	for _, h := range cols {
+		status, limitation := runtimeReadiness(h)
+		fmt.Fprintf(b, "| %s | %s | %s |\n", h, status, limitation)
+	}
+	b.WriteString("\n")
+}
+
+func runtimeReadiness(h Harness) (string, string) {
+	switch h {
+	case HarnessClaudeCode:
+		return "✅ Stable primary", "Full command path and `/build` style flow in use"
+	case HarnessOpenCode:
+		return "⚠ Experimental", "Non-interactive `opencode run` must use `--agent implementer`"
+	case HarnessCursor:
+		return "⚠ Untested in SDP dispatch", "Use only as a secondary validator until dispatch evidence lands"
+	case HarnessCodex:
+		return "⚠ Sandbox constraints", "Edits are reliable, but `git`/shell actions are restricted in runtime"
+	case HarnessPi:
+		return "⚠ Experimental", "Resource smoke green, but autonomous dispatch pending F162 launch evidence"
+	default:
+		return "not_assessed", "No runtime readiness policy recorded"
+	}
 }
 
 type matrixRow struct {

@@ -13,15 +13,25 @@ Short version:
 
 SDP does not try to replace Codex, Claude Code, Cursor, OpenCode, Copilot, or other coding agents. It adds the delivery contract around them: scope, workstreams, gates, evidence, findings loops, and QA/UAT.
 
+In SDP, a **harness** means the coding-agent runtime a developer uses to talk to
+models and edit code, for example Claude Code, OpenCode, Codex, Cursor, or Pi.
+SDP wraps that runtime with repo-local instructions, adapters, evidence, and
+review discipline.
+
+The problem SDP targets: agent-assisted delivery often produces code without a
+clear scope contract, durable evidence, or an honest record of what was not
+checked. SDP makes those missing delivery controls explicit.
+
 ## Product Layers
 
-SDP is organized into seven product layers. Only the first installable surface ships today.
+SDP is organized into seven product layers. The installable CLI exists, but its
+first-run promise is intentionally narrower than the full operator platform.
 
 | # | Layer | What it is | Status |
 |---|---|---|---|
 | 1 | **SDP Lab** | Research workspace (this repo). Where SDP is built and exercised. | Active |
-| 2 | **SDP Toolbox** | Single-purpose repo-inspection utilities (`scout`, `metrics`, `index`, `spec`, `bootstrap`). Freemium funnel for the SDP family. | GA |
-| 3 | **SDP Toolkit** | Installable developer surface. The `sdp` CLI, installed via Homebrew or the install script. | GA |
+| 2 | **SDP Toolbox** | Single-purpose repo-inspection utilities (`scout`, `metrics`, `index`, `spec`, `bootstrap`). Freemium funnel for the SDP family. | Partial: first-run repo inspection is stable |
+| 3 | **SDP Toolkit** | Installable developer surface. The `sdp` CLI, installed via Homebrew or the install script. | GA inside `sdp_lab`; downstream install is still being hardened |
 | 4 | **Operator Mode** | Default Toolkit happy path. Stateful orchestration: features, workstreams, evidence, QA/UAT. | GA inside sdp_lab |
 | 5 | **ChangePassport** (`sdp-pr-gate`) | Merge-readiness product. A separate product surface for PR governance. | Product direction, not yet shipped |
 | 6 | **Enterprise Delivery Governance** | Enterprise governed delivery control plane. | Hypothesis |
@@ -53,6 +63,7 @@ Full inventory: [`docs/reference/maturity-matrix.md`](docs/reference/maturity-ma
 - the `sdp` repo is now a distilled distribution/mirror surface, not the upstream source of truth
 
 If your goal is to **use SDP inside your own project**, start with [docs/QUICKSTART.md](docs/QUICKSTART.md).
+If you are unsure where to start, use [docs/START_HERE.md](docs/START_HERE.md).
 
 ## Clone
 
@@ -72,7 +83,10 @@ go build -tags "sqlite_fts5" ./...
 
 | Goal | Start here |
 |---|---|
+| **I am not sure which SDP path I need** | **[docs/START_HERE.md](docs/START_HERE.md)** |
 | **Install SDP Toolkit into your repo** | **[Install in 30 seconds](#install-in-30-seconds)** below, or [docs/QUICKSTART.md](docs/QUICKSTART.md) |
+| See the command map | [`docs/reference/commands.md`](docs/reference/commands.md) |
+| See the skill and agent map | [`docs/reference/agent-skill-entry-map.md`](docs/reference/agent-skill-entry-map.md) |
 | Understand what SDP is good at today | [`docs/reference/product-surface.md`](docs/reference/product-surface.md) |
 | Understand component maturity (GA/Beta/Experimental) | [`docs/reference/maturity-matrix.md`](docs/reference/maturity-matrix.md) |
 | Understand what `sdp_lab` is and what lives here | [`docs/reference/project-map.md`](docs/reference/project-map.md) |
@@ -80,6 +94,20 @@ go build -tags "sqlite_fts5" ./...
 | Adopt SDP in a greenfield or brownfield project | [`docs/QUICKSTART.md`](docs/QUICKSTART.md), then [`docs/runbooks/onboarding-downstream-repo.md`](docs/runbooks/onboarding-downstream-repo.md) |
 | Trust, security guarantees, and limitations | [`docs/reference/trust-guarantees.md`](docs/reference/trust-guarantees.md) |
 | CI gates and local reproduce commands | [`docs/reference/ci-gates-map.md`](docs/reference/ci-gates-map.md) |
+
+## First Proof
+
+For a cold pilot, prove the small thing first:
+
+```bash
+./.sdp/bin/sdp scout --format text .
+./.sdp/bin/sdp metrics --format text .
+./.sdp/bin/sdp doctor
+```
+
+Then read the generated findings before trying orchestration. The first useful
+SDP result is not "the agent changed code"; it is an explicit map of scope,
+evidence, limits, and next actions.
 
 ## Install in 30 seconds
 
@@ -99,7 +127,15 @@ The installer clones `sdp_lab` to bring in the canonical manifest and prompts, b
 
 ### What you get
 
-30 skills · 25 commands · 12 agents declared in `sdp.manifest.yaml`, rendered into the native surfaces each harness supports (`.claude/`, `.opencode/`, `.codex/`, `.cursor/`, `.pi/`).
+The skills, commands, and agents declared in `sdp.manifest.yaml` are rendered
+into the native surfaces each harness supports (`.claude/`, `.opencode/`,
+`.codex/`, `.cursor/`, `.pi/`).
+
+This is static adapter coverage. It proves files are generated from one
+manifest; it does not prove each harness is ready for autonomous SDP dispatch.
+Claude Code is the stable primary harness today. OpenCode requires
+`--agent implementer`; Cursor, Codex, and Pi are validation/manual-assist
+surfaces unless their runtime readiness row says otherwise.
 
 Parity snapshot (full table: [`docs/reference/harness-parity-matrix.md`](docs/reference/harness-parity-matrix.md)):
 
@@ -110,7 +146,7 @@ Parity snapshot (full table: [`docs/reference/harness-parity-matrix.md`](docs/re
 | `deploy` | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `review` | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-All 25 commands and 30 skills are declared in `sdp.manifest.yaml` as the single source of truth.
+`sdp.manifest.yaml` is the single source of truth for the current command, skill, and agent counts.
 
 ### Selective install
 

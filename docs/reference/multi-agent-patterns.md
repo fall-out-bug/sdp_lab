@@ -260,7 +260,7 @@ the other directly.
 | Beads queue | Any agent creating work | `beads:task-agent`, human reviewers | New issue created |
 | Review findings bus | reviewer, qa, security | orchestrator (collects blocking findings) | Finding filed (P0/P1/P2) |
 | Evidence bus | implementer (tool outputs) | `EvidenceAccumulator` in agentloop FSM | `file_modified`, `test_passed`, `tool_error` |
-| Drift events | `sdp drift detect` | orchestrator, human | Workstream-code mismatch detected |
+| Drift events | `sdp-protocol-check` / `sdp-doc-sync` | orchestrator, human | Workstream-code mismatch detected |
 
 **Concrete SDP scenario -- beads as event bus:**
 

@@ -3,9 +3,23 @@
 
 # Harness Parity Matrix
 
-Generated: 2026-04-29 · manifest version `1.0.0` · sdp_version `1.0.0`
+Generated: 2026-05-13 · manifest version `1.0.0` · sdp_version `1.0.0`
 
-Legend: ✓ supported · — not declared · ⚠ intentional gap (see notes)
+Legend: ✓ static adapter parity · — not declared · ⚠ intentional gap (see notes)
+
+This matrix verifies generated adapter files and manifest coverage only. It does not prove that a harness runtime can dispatch SDP workflows. Use the Runtime Readiness section for execution status.
+
+## Runtime Readiness
+
+Runtime readiness is manually curated policy emitted by the generator so `sdp manifest parity --check` can still verify this document. It separates static adapter parity from dispatch evidence.
+
+| Harness | Runtime Dispatch Status | Current Limitation |
+|---|---|---|
+| claude-code | ✅ Stable primary | Full command path and `/build` style flow in use |
+| opencode | ⚠ Experimental | Non-interactive `opencode run` must use `--agent implementer` |
+| codex | ⚠ Sandbox constraints | Edits are reliable, but `git`/shell actions are restricted in runtime |
+| cursor | ⚠ Untested in SDP dispatch | Use only as a secondary validator until dispatch evidence lands |
+| pi | ⚠ Experimental | Resource smoke green, but autonomous dispatch pending F162 launch evidence |
 
 ## Commands
 

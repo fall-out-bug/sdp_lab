@@ -58,6 +58,7 @@ func main() {
 		os.Exit(1)
 	}
 	run.Round = *round
+	verdict.Round = *round
 
 	// Persist run telemetry
 	if err := persistRun(projectRoot, run); err != nil {
@@ -98,7 +99,10 @@ func main() {
 
 func persistRun(root string, run *pireview.ReviewRun) error {
 	dir := filepath.Join(root, ".sdp", "runs", "pi-review", run.RunID)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	if err := os.Chmod(dir, 0o700); err != nil {
 		return err
 	}
 
@@ -107,12 +111,15 @@ func persistRun(root string, run *pireview.ReviewRun) error {
 		return err
 	}
 
-	return os.WriteFile(filepath.Join(dir, "run.json"), data, 0o644)
+	return os.WriteFile(filepath.Join(dir, "run.json"), data, 0o600)
 }
 
 func writeVerdictFile(root string, verdict *pireview.Verdict) error {
 	dir := filepath.Join(root, ".sdp")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	if err := os.Chmod(dir, 0o700); err != nil {
 		return err
 	}
 
@@ -121,7 +128,11 @@ func writeVerdictFile(root string, verdict *pireview.Verdict) error {
 		return err
 	}
 
-	return os.WriteFile(filepath.Join(dir, "review_verdict.json"), data, 0o644)
+	path := filepath.Join(dir, "review_verdict.json")
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return err
+	}
+	return os.Chmod(path, 0o600)
 }
 
 func createBeadFindings(root, feature string, round int, findings []pireview.Finding) []string {

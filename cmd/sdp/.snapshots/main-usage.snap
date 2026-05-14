@@ -20,6 +20,7 @@ Result commands:
 
 Orchestrate commands:
   sdp orchestrate once
+  sdp orchestrate loop [--cycles N] [--interval DURATION]
 
 Query commands (require beads/dual mode):
   sdp why <card-id>           Show why a card is blocked
@@ -58,6 +59,7 @@ Scout commands:
 
 Metrics commands:
   sdp metrics [--format json|text|markdown] [--output DIR] <repo-path>
+  sdp quality [--full]        Show quality-axis states; --full runs coverage and ratio checks
 
 Spec commands:
   sdp spec [--format json|text] [--category api|rules|invariants|sla] [--output DIR] [--enrich] [--diff] <repo-path>
@@ -68,12 +70,17 @@ Architect commands:
 
 Index commands:
   sdp index build [--format json|text] <repo-path>
-  sdp index stats <repo-path>
-  sdp index manifest [--output DIR] <repo-path>
+  sdp index refresh [--format json|text] <repo-path>
+  sdp index stats [--db PATH] <repo-path>
+  sdp index manifest [--output DIR] [--db PATH] <repo-path>
+  sdp index query [--format json|text] [--limit N] [--db PATH] <repo-path> <query>
+  sdp index deps [--reverse] [--depth N] [--db PATH] <repo-path> <module>
+  sdp index find [--regex] [--limit N] [--db PATH] <repo-path> <term>
+  sdp index rank [--db PATH] <repo-path>
 
 Bootstrap commands:
-  sdp bootstrap [--dry-run] [--force] [--beads] [--yes] [--auto-curate] [--only TYPES] <repo-path>
-  sdp bootstrap status <repo-path>
+  sdp bootstrap [--dry-run] [--force] [--beads] [--yes] [--auto-curate] [--format json|text] [--only TYPES] [--conventions] [--mode greenfield|brownfield] [--preset NAME] [--no-verify] <repo-path>
+  sdp bootstrap status [--format json|text] <repo-path>
 
 Rules commands:
   sdp rules update <repo-path> [--source-evidence=<dir>] [--manifest=<file>] [--format json|text]

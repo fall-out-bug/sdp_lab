@@ -91,7 +91,7 @@ type TestEvidence struct {
 const (
 	defaultSizeBudget = 512 * 1024 // 512 KiB
 	maxFileSize       = 64 * 1024  // 64 KiB per file content
-	ruleFiles         = "AGENTS.md,CLAUDE.md,.codex/AGENTS.md,.sdp/config.yml"
+	ruleFiles         = "AGENTS.md,CLAUDE.md,.codex/AGENTS.md"
 )
 
 // fileSHA256 returns the hex-encoded SHA-256 of the file at path.
@@ -185,6 +185,9 @@ func isBinaryFile(path string) bool {
 // shouldSkipFile returns true for files that should not be reviewed.
 func shouldSkipFile(path string) bool {
 	base := filepath.Base(path)
+	if path == ".sdp/config.yml" || path == ".sdp/config.yaml" {
+		return true
+	}
 	// Skip hidden files (except .go which is valid)
 	if strings.HasPrefix(base, ".") && !strings.HasPrefix(base, ".go") {
 		return true

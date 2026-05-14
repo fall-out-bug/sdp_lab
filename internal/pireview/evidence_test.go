@@ -14,11 +14,23 @@ func TestResolveTestCommand_Explicit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveTestCommand() error: %v", err)
 	}
-	if len(cmd) != 4 {
-		t.Fatalf("expected 4 args, got %d: %v", len(cmd), cmd)
+	if len(cmd) != 3 {
+		t.Fatalf("expected shell command, got %d args: %v", len(cmd), cmd)
 	}
-	if cmd[0] != "go" || cmd[1] != "test" {
-		t.Errorf("expected go test, got %v", cmd)
+	if cmd[0] != "sh" || cmd[1] != "-c" || cmd[2] != "go test -v ./pkg/..." {
+		t.Errorf("expected sh -c command, got %v", cmd)
+	}
+}
+
+func TestResolveTestCommand_ExplicitPreservesQuotedArguments(t *testing.T) {
+	cfg := Config{TestCommand: `go test -run "Test Foo" ./...`}
+	cmd, err := resolveTestCommand(cfg)
+	if err != nil {
+		t.Fatalf("resolveTestCommand() error: %v", err)
+	}
+	want := []string{"sh", "-c", `go test -run "Test Foo" ./...`}
+	if strings.Join(cmd, "\x00") != strings.Join(want, "\x00") {
+		t.Fatalf("quoted command not preserved: got %v want %v", cmd, want)
 	}
 }
 
@@ -64,7 +76,8 @@ func TestResolveTestCommand_NoProject(t *testing.T) {
 
 func TestCollectTestEvidence_Skipped(t *testing.T) {
 	cfg := Config{ProjectRoot: t.TempDir()}
-	evidence, err := CollectTestEvidence(context.Background(), cfg)
+	runDir := filepath.Join(cfg.ProjectRoot, ".sdp", "runs", "pi-review", "test-run")
+	evidence, err := CollectTestEvidence(context.Background(), cfg, runDir)
 	if err != nil {
 		t.Fatalf("CollectTestEvidence() error: %v", err)
 	}
@@ -74,18 +87,24 @@ func TestCollectTestEvidence_Skipped(t *testing.T) {
 	if evidence.SkipReason == "" {
 		t.Error("SkipReason should not be empty")
 	}
+	if evidence.ArtifactPath == "" {
+		t.Fatal("ArtifactPath should not be empty")
+	}
+	if _, err := os.Stat(evidence.ArtifactPath); err != nil {
+		t.Fatalf("expected skipped artifact to exist: %v", err)
+	}
 }
 
 func TestCollectTestEvidence_ExplicitCommand(t *testing.T) {
 	dir := t.TempDir()
-	artifactDir := filepath.Join(dir, ".sdp", "runs", "pi-review")
+	artifactDir := filepath.Join(dir, ".sdp", "runs", "pi-review", "run-123")
 
 	cfg := Config{
 		ProjectRoot: dir,
 		TestCommand: "echo hello",
 	}
 
-	evidence, err := CollectTestEvidence(context.Background(), cfg)
+	evidence, err := CollectTestEvidence(context.Background(), cfg, artifactDir)
 	if err != nil {
 		t.Fatalf("CollectTestEvidence() error: %v", err)
 	}
@@ -95,8 +114,8 @@ func TestCollectTestEvidence_ExplicitCommand(t *testing.T) {
 	if evidence.ExitCode != 0 {
 		t.Errorf("ExitCode = %d, want 0", evidence.ExitCode)
 	}
-	if evidence.Command != "echo hello" {
-		t.Errorf("Command = %q, want %q", evidence.Command, "echo hello")
+	if evidence.Command != "sh -c echo hello" {
+		t.Errorf("Command = %q, want %q", evidence.Command, "sh -c echo hello")
 	}
 
 	expectedPath := filepath.Join(artifactDir, "test-output.txt")

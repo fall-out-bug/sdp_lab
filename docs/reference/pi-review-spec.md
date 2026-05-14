@@ -93,7 +93,7 @@ Recommended slots:
 | Slot | Purpose | Required |
 |---|---|---|
 | `zai` | broad correctness and maintainability review using `zai/glm-5.1` | yes |
-| `kimi` | adversarial code review and missed-edge search using `kimi-coding/k2p6` | yes |
+| `kimi` | adversarial code review and missed-edge search using `kimi-coding/kimi-for-coding` | yes |
 | `minimax` | independent implementation-risk review using `minimax/MiniMax-M2.7` | yes |
 | `openrouter-fallback` | only if ZAI, Kimi, or MiniMax fails or times out | no |
 
@@ -120,6 +120,17 @@ Each actionable finding must include:
 - concise rationale
 - suggested fix direction
 - dedupe key stable across line shifts where possible
+
+Reviewer output contract:
+
+```json
+{"verdict":"PASS","findings":[],"notes":"reviewed the supplied scope"}
+```
+
+For a failing review, `findings` contains SDP-priority objects. A bare empty
+array (`[]`) is not accepted as review evidence because it does not prove the
+model understood the verdict contract. Legacy non-empty findings arrays are
+accepted only as backward-compatible finding payloads.
 
 ## Verdict Contract
 

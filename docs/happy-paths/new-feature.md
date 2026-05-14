@@ -2,6 +2,12 @@
 
 > **Ситуация:** Проект работает. SDP настроен. У тебя есть идея новой фичи. С чего начать?
 
+> **Status:** operator/lab recipe, not the friendly first-run Toolkit path.
+> If you have not already installed and verified SDP, start with
+> [../START_HERE.md](../START_HERE.md) and [../QUICKSTART.md](../QUICKSTART.md).
+> This document assumes an operator setup with Beads and `sdp-harness`; it should
+> not be treated as the default external onboarding path.
+
 ---
 
 ## Полный путь

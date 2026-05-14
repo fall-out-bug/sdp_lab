@@ -114,6 +114,14 @@
           "additionalProperties": {
             "$ref": "#/$defs/sha256"
           }
+        },
+        "redactions": {
+          "type": "object",
+          "description": "Counts of provider-bound context redactions by class before context artifacts or prompts are persisted.",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1
+          }
         }
       },
       "additionalProperties": false
