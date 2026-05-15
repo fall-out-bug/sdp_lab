@@ -1,7 +1,8 @@
 # Skill Authoring -- SDP Multi-Harness
 
 > **Audience:** Authors creating a new SDP skill.
-> **Canonical location:** `.agents/skills/<name>.md` (multi-harness; see `.agents/skills/README.md`).
+> **Canonical structured source:** `prompts/skills/<name>/SKILL.md` (manifest-backed).
+> **Runtime alias surface:** `.agents/skills/<name>.md` for harnesses that read flat skills.
 > **Policy source:** F127-03 (`docs/plans/2026-04-16-f127-multi-harness-modernization-design.md`).
 
 ## Why a policy
@@ -11,16 +12,27 @@ SDP-skills must work identically in all major harnesses (Claude Code, OpenCode, 
 - versionable (semver → breaking changes are visible);
 - portable between harnesses without modifications.
 
-## File location
+## File Location
 
-**Canonical:** `.agents/skills/<skill-name>.md`.
+**Canonical structured source:** `prompts/skills/<skill-name>/SKILL.md`.
+
+This is the path listed in `sdp.manifest.yaml`, published to the public `sdp`
+repo when protocol artifacts are exported, and used by generated adapters.
+
+**Runtime alias/stub surface:** `.agents/skills/<skill-name>.md`.
+
+Flat `.agents/skills/*.md` files serve harnesses that discover flat skills
+directly, especially OpenCode/Cursor/Kimi-style loaders. Keep the alias/stub in
+sync with the structured source when changing behavior.
 
 **Do not** put real files in:
 - `skills/` (removed in F128; no longer exists);
-- `.claude/skills/` (symlink to `.agents/skills/`);
-- `prompts/skills/<name>/SKILL.md` (published artifacts: edit the source in `.agents/skills/` and publish to the public `sdp` repo via `scripts/sdp-publish.sh`).
+- `.claude/skills/` (symlink/adapted surface for harness loading);
+- generated adapter directories such as `.sdp/generated/`, `.codex/`, `.opencode/`, or `.pi/`.
 
-Filename is `<kebab-case>.md`, matches `name:` in frontmatter.
+For structured skills, the directory is `<kebab-case>/` and frontmatter
+`name:` matches the directory. For flat aliases, the filename is
+`<kebab-case>.md` and matches `name:`.
 
 ## YAML Frontmatter -- required
 
