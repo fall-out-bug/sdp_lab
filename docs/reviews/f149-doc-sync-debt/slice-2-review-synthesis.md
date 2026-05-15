@@ -33,10 +33,10 @@ go run ./cmd/sdp-protocol-check --format json --strict
 ## Accepted Findings And Disposition
 
 - F147 initially looked misleading because INDEX said `Done` while all nine
-  workstreams use one historical anchor. Fixed by changing status to
-  `Done (historical; leaf Beads not preserved)` and adding an INDEX note that
-  `sdplab-itzf` is not a 1:1 implementation map.
-- Requirements review requested that the F147 historical-anchor rationale be
+  workstreams used one synthetic historical anchor. Follow-up verification found
+  the real closed leaf Beads `sdplab-rp3u.1` through `sdplab-rp3u.9`; the docs
+  were corrected to use those IDs and the synthetic anchor was superseded.
+- Requirements review requested that the F147 historical mapping rationale be
   visible beyond the resolution note. Fixed in the INDEX note and per-workstream
   Beads text.
 - DX review flagged generic `Done` vs `Shipped` ambiguity. Fixed F145/F146/F147
@@ -45,4 +45,3 @@ go run ./cmd/sdp-protocol-check --format json --strict
 ## Slice 2 Verdict
 
 APPROVED after revision.
-

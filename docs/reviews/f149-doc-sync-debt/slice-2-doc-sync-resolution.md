@@ -60,11 +60,10 @@ Buckets:
 
 - Replaced F145 and F146 placeholder Beads text with their existing mapped leaf
   `sdplab-*` IDs from `.beads-sdp-mapping.jsonl`.
-- Created `sdplab-itzf` as a single historical anchor for F147 because the F147
-  workstreams were merged in `d08e716c` with placeholder mapping text and no leaf
-  Beads issues are discoverable in the current DB. INDEX now labels F147 as
-  historical with leaf Beads not preserved; `sdplab-itzf` is not a 1:1
-  implementation map and does not make F147 work newly executable.
+- Replaced F147 placeholder text with historical leaf Beads `sdplab-rp3u.1`
+  through `sdplab-rp3u.9`, discovered during follow-up verification after the
+  initial review. The temporary synthetic anchor `sdplab-itzf` was superseded
+  and is not used in the documentation.
 
 ## Final Evidence
 

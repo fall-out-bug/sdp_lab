@@ -118,10 +118,10 @@
 | **F144** | Inference Confidence & Quality Control — generic `confidence.Checker` (self-check / N-sample / constraint), per-call-site profiles, replay metrics | (no ws files yet — see `sdplab-5i4q` regression) | Done (PR #131) | P1 |
 | **F145** | Multi-Provider Dispatch Matrix & Confidence-Driven Cascade — escalation policy, 5 providers, heuristic short-circuit, replay corpus | 00-145-01 ... 00-145-14 | Done (historical) | P1 |
 | **F146** | Inference Decomposition Framework — pipeline pattern (Stage chain + 3 stitchers Enum/JSON/TOON), per-stage F144/F145 composition, ws-verdict adapter, A/B bench vs monolithic | 00-146-01 ... 00-146-06 | Done (historical) | P1 |
-| **F147** | MicroFirst Inference Tier — deterministic micro-classifiers with escalation only when confidence is insufficient | 00-147-01 ... 00-147-09 | Done (historical; leaf Beads not preserved) | P1 |
+| **F147** | MicroFirst Inference Tier — deterministic micro-classifiers with escalation only when confidence is insufficient | 00-147-01 ... 00-147-09 | Done (historical) | P1 |
 
-> **Source:** [F144 design](../plans/2026-04-26-f144-inference-confidence-design.md) · [F146 design](../plans/2026-04-26-f146-inference-decomposition-design.md) · [F147 design](../plans/2026-04-27-f147-microfirst-tier-design.md) · **Beads:** `sdplab-92uu` (F144 series, closed), `sdplab-ldmq` (F145 epic), `sdplab-vrnw` (F146 epic), `sdplab-itzf` (F147 historical anchor)
-> **Historical note:** F145/F146/F147 were already merged before this F149 cleanup. F147 uses one historical anchor because its leaf Beads were not preserved in the current DB; do not treat `sdplab-itzf` as a 1:1 implementation map.
+> **Source:** [F144 design](../plans/2026-04-26-f144-inference-confidence-design.md) · [F146 design](../plans/2026-04-26-f146-inference-decomposition-design.md) · [F147 design](../plans/2026-04-27-f147-microfirst-tier-design.md) · **Beads:** `sdplab-92uu` (F144 series, closed), `sdplab-ldmq` (F145 epic), `sdplab-vrnw` (F146 epic), `sdplab-rp3u` (F147 epic)
+> **Historical note:** F145/F146/F147 were already merged before this F149 cleanup. Their workstream files now point at the historical leaf Beads found in the current DB.
 > **F146 DAG:** `01 → 02 → 03 → {04 ‖ 05} → 06` (parallel 04+05 after 03)
 > **Composition:** F144 = quality-of-one-answer (gate per inference); F145 = provider-of-one-request (cascade between models); F146 = work-split-of-one-task (decomposed pipeline). Three orthogonal axes — F146 stages can opt-in F144 confidence and F145 cascade per-stage.
 
