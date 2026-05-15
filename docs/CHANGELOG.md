@@ -1751,6 +1751,15 @@ issues resolved.
 ## 2026-05-15
 
 ### Commits
+- `9c7e601e` chore(beads): close F149 doc-sync debt (2026-05-15)
+
+### Changed Files
+- `.beads/interactions.jsonl`
+- `.beads/issues.jsonl`
+
+
+
+### Commits
 - `59f9ccbf` chore(beads): close F168 harness skill follow-up (2026-05-15)
 
 ### Changed Files
