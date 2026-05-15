@@ -449,6 +449,11 @@ Checks include:
 
 Documentation automation for changelog and consistency checks:
 
+After F149-02, strict doc-sync findings are blocking in CI. Do not describe
+`sdp-doc-sync --mode check --strict` failures as "known repo-wide debt" unless a
+new reviewed PR explicitly changes the tool or CI contract and names the
+advisory class.
+
 ```bash
 sdp-doc-sync --mode check                 # Validate docs consistency (protocol + links)
 sdp-doc-sync --mode check --strict        # Treat docs drift as errors

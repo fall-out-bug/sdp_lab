@@ -147,10 +147,10 @@ states. They must not be rendered as green merge checks.
 ### consistency-gate
 - **Owner**: platform
 - **Triggers**: Every PR
-- **Steps**: Advisory findings from `python3 scripts/check_repo_consistency.py --strict-ac --json`, `go run ./cmd/sdp-protocol-check --format json`, `go run ./cmd/sdp-doc-sync --mode check --format json`, and `go run ./cmd/sdp-protocol-check --lint-skills --format json`; blocking drift checks from `scripts/check-version-drift.sh --json` and `scripts/check-public-metadata.sh --json`.
+- **Steps**: Advisory findings from `python3 scripts/check_repo_consistency.py --strict-ac --json`, `go run ./cmd/sdp-protocol-check --format json`, and `go run ./cmd/sdp-protocol-check --lint-skills --format json`; blocking drift checks from `go run ./cmd/sdp-doc-sync --mode check --format json --strict`, `scripts/check-version-drift.sh --json`, and `scripts/check-public-metadata.sh --json`.
 - **Never skipped**
-- **Failure semantics**: Blocks merge on version drift or public metadata drift. Repository consistency, protocol-check, doc-sync, and skill-lint findings are written as advisory artifacts while historical backlog/doc drift is reconciled.
-- **Local reproduce**: `scripts/check-version-drift.sh --json && scripts/check-public-metadata.sh --json`; advisory: `python3 scripts/check_repo_consistency.py --strict-ac --json`
+- **Failure semantics**: Blocks merge on strict doc-sync drift, version drift, or public metadata drift. Repository consistency, protocol-check, and skill-lint findings are written as advisory artifacts.
+- **Local reproduce**: `go run ./cmd/sdp-doc-sync --mode check --strict && scripts/check-version-drift.sh --json && scripts/check-public-metadata.sh --json`; advisory: `python3 scripts/check_repo_consistency.py --strict-ac --json`
 - **Output schema**: JSON findings file
 - **Artifact path**: `.sdp/findings/*.json` (uploaded as CI artifact)
 
