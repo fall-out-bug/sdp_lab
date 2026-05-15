@@ -1,7 +1,8 @@
 # Skill Authoring -- SDP Multi-Harness
 
 > **Audience:** Authors creating a new SDP skill.
-> **Canonical location:** `.agents/skills/<name>.md` (multi-harness; see `.agents/skills/README.md`).
+> **Canonical structured source:** `prompts/skills/<name>/SKILL.md` (manifest-backed).
+> **Runtime alias surface:** `.agents/skills/<name>.md` for harnesses that read flat skills.
 > **Policy source:** F127-03 (`docs/plans/2026-04-16-f127-multi-harness-modernization-design.md`).
 
 ## Why a policy
@@ -11,16 +12,27 @@ SDP-skills must work identically in all major harnesses (Claude Code, OpenCode, 
 - versionable (semver → breaking changes are visible);
 - portable between harnesses without modifications.
 
-## File location
+## File Location
 
-**Canonical:** `.agents/skills/<skill-name>.md`.
+**Canonical structured source:** `prompts/skills/<skill-name>/SKILL.md`.
+
+This is the path listed in `sdp.manifest.yaml`, published to the public `sdp`
+repo when protocol artifacts are exported, and used by generated adapters.
+
+**Runtime alias/stub surface:** `.agents/skills/<skill-name>.md`.
+
+Flat `.agents/skills/*.md` files serve harnesses that discover flat skills
+directly, especially OpenCode/Cursor/Kimi-style loaders. Keep the alias/stub in
+sync with the structured source when changing behavior.
 
 **Do not** put real files in:
 - `skills/` (removed in F128; no longer exists);
-- `.claude/skills/` (symlink to `.agents/skills/`);
-- `prompts/skills/<name>/SKILL.md` (published artifacts: edit the source in `.agents/skills/` and publish to the public `sdp` repo via `scripts/sdp-publish.sh`).
+- `.claude/skills/` (symlink/adapted surface for harness loading);
+- generated adapter directories such as `.sdp/generated/`, `.codex/`, `.opencode/`, or `.pi/`.
 
-Filename is `<kebab-case>.md`, matches `name:` in frontmatter.
+For structured skills, the directory is `<kebab-case>/` and frontmatter
+`name:` matches the directory. For flat aliases, the filename is
+`<kebab-case>.md` and matches `name:`.
 
 ## YAML Frontmatter -- required
 
@@ -49,6 +61,7 @@ compatibility:
 requires_mcp: []           # list of MCP servers if skill expects MCP-tools
 requires_cli: []           # list of CLI binaries on PATH (sdp, bd, gh, …)
 tags: [discovery, review]  # free tags for search
+tool_risk_classes: [perception, analysis]
 ```
 
 | Field | When to specify |
@@ -57,6 +70,11 @@ tags: [discovery, review]  # free tags for search
 | `requires_mcp` | If skill expects a specific MCP server (e.g., `beads`, `claude-api`). Empty array = no requirements. |
 | `requires_cli` | CLI binaries without which the skill will not run (example: `[sdp, bd]`). |
 | `tags` | For lint/search/marketplace indexing. |
+| `tool_risk_classes` | Side-effect classes used by the skill. Use the vocabulary in [harness-risk-and-evidence.md](harness-risk-and-evidence.md). |
+
+`compatibility` is a runtime claim only after the harness has dispatch evidence.
+Before that, treat it as intended portability and report runtime coverage as
+`not_assessed_runtime` for that harness.
 
 ## Body structure (recommended)
 
@@ -75,13 +93,26 @@ compatibility: [claude-code, opencode, cursor, codex]
 
 ## Use When
 - bullet-list of situations when to apply
-- and when NOT to apply (anti-patterns)
+
+## Do Not Use When
+- common false triggers and anti-patterns
 
 ## Inputs / Outputs
 What skill expects on input (context, files, args), what it returns.
 
 ## Process
 Execution steps. If >5 steps -- break into subsections.
+
+## Verification
+How the agent proves the skill did what it claims. Prefer deterministic evidence:
+tests, lint output, schema validation, file existence, Beads/GitHub state, or
+captured runtime logs.
+
+## Degraded Evidence
+How the skill reports missing or partial evidence. Use
+`not_assessed`, `timeout`, `empty_output`, `off_task`, `unavailable_cli`,
+`not_assessed_runtime`, or `manual_gate_only` rather than collapsing unknowns
+into pass.
 
 ## References
 - related skills
@@ -90,6 +121,8 @@ Execution steps. If >5 steps -- break into subsections.
 ```
 
 Do not duplicate common rules (beads rules, git workflow) -- reference `AGENTS.md`.
+Use [harness-risk-and-evidence.md](harness-risk-and-evidence.md) for shared
+tool-risk classes and degraded-evidence vocabulary.
 
 ## Boundary With AGENTS.md
 
