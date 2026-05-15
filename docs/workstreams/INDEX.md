@@ -116,11 +116,12 @@
 | Feature | Description | Workstreams | Status | Priority |
 |---------|-------------|-------------|--------|----------|
 | **F144** | Inference Confidence & Quality Control — generic `confidence.Checker` (self-check / N-sample / constraint), per-call-site profiles, replay metrics | (no ws files yet — see `sdplab-5i4q` regression) | Done (PR #131) | P1 |
-| **F145** | Multi-Provider Dispatch Matrix & Confidence-Driven Cascade — escalation policy, 5 providers, heuristic short-circuit, replay corpus | (no ws files yet — see `sdplab-5i4q` regression) | In Progress | P1 |
-| **F146** | Inference Decomposition Framework — pipeline pattern (Stage chain + 3 stitchers Enum/JSON/TOON), per-stage F144/F145 composition, ws-verdict adapter, A/B bench vs monolithic | 00-146-01 ... 00-146-06 | Backlog | P1 |
-| **F147** | MicroFirst Inference Tier — deterministic micro-classifiers with escalation only when confidence is insufficient | 00-147-01 ... 00-147-09 | Backlog | P1 |
+| **F145** | Multi-Provider Dispatch Matrix & Confidence-Driven Cascade — escalation policy, 5 providers, heuristic short-circuit, replay corpus | 00-145-01 ... 00-145-14 | Done (historical) | P1 |
+| **F146** | Inference Decomposition Framework — pipeline pattern (Stage chain + 3 stitchers Enum/JSON/TOON), per-stage F144/F145 composition, ws-verdict adapter, A/B bench vs monolithic | 00-146-01 ... 00-146-06 | Done (historical) | P1 |
+| **F147** | MicroFirst Inference Tier — deterministic micro-classifiers with escalation only when confidence is insufficient | 00-147-01 ... 00-147-09 | Done (historical; leaf Beads not preserved) | P1 |
 
-> **Source:** [F144 design](../plans/2026-04-26-f144-inference-confidence-design.md) · [F146 design](../plans/2026-04-26-f146-inference-decomposition-design.md) · [F147 design](../plans/2026-04-27-f147-microfirst-tier-design.md) · **Beads:** `sdplab-92uu` (F144 series, closed), `sdplab-ldmq` (F145 epic), `sdplab-vrnw` (F146 epic)
+> **Source:** [F144 design](../plans/2026-04-26-f144-inference-confidence-design.md) · [F146 design](../plans/2026-04-26-f146-inference-decomposition-design.md) · [F147 design](../plans/2026-04-27-f147-microfirst-tier-design.md) · **Beads:** `sdplab-92uu` (F144 series, closed), `sdplab-ldmq` (F145 epic), `sdplab-vrnw` (F146 epic), `sdplab-itzf` (F147 historical anchor)
+> **Historical note:** F145/F146/F147 were already merged before this F149 cleanup. F147 uses one historical anchor because its leaf Beads were not preserved in the current DB; do not treat `sdplab-itzf` as a 1:1 implementation map.
 > **F146 DAG:** `01 → 02 → 03 → {04 ‖ 05} → 06` (parallel 04+05 after 03)
 > **Composition:** F144 = quality-of-one-answer (gate per inference); F145 = provider-of-one-request (cascade between models); F146 = work-split-of-one-task (decomposed pipeline). Three orthogonal axes — F146 stages can opt-in F144 confidence and F145 cascade per-stage.
 
@@ -131,6 +132,8 @@
 | **F135** | Happy vibecode path — idea → prototype with evidence-backed deploy gate | (no ws files; closed via direct PRs #115–#118) | Shipped | P1 |
 | **F141** | Multi-harness install bootstrap & adapter parity — `sdp.manifest.yaml` → adapter generator → `sdp init`/curl\|bash → `sdp doctor adapters` | (no ws files; closed via direct commits on `feature/F141-multi-harness-install-bootstrap`) | Shipped | P2 |
 | **F142** | Workstream coverage gap — picker hardening, ws backfill for orphans, `sdp doctor backlog` gate, INDEX maintenance | 00-101-02, 00-133-01, 00-082-01, 00-083-01, 00-084-01, 00-085-01 (backfilled scaffolds) | In progress | P2 |
+| **F131** | Workflow Skill Provisioning — per-stack workflow skill templates generated during bootstrap | 00-131-01 ... 00-131-03 | Backlog | P2 |
+| **F133** | Local model dispatch — route low-complexity coding to local Ollama when enabled | 00-133-01 | Backlog | P3 |
 
 > **Source:** [F141 design](../plans/2026-04-25-f141-multi-harness-install-bootstrap-design.md) · **Beads:** `sdplab-o4sp` (F141, closed), `sdplab-85ji` (F142, open)
 > **Coverage gap closes when:** every open beads feature has either a matching ws file or non-zero `dependency_count`; enforced by `sdp doctor backlog` (F142-05) and `scripts/deliver-pick.sh` v2 (F142-04).
@@ -202,6 +205,16 @@
 |---------|-------------|-------------|--------|----------|
 | **F149** | Product docs rebaseline — install/setup, feature map, multiple happy paths, ready/tooling/experimental boundaries, strict doc-sync debt retirement | 00-149-01 ... 00-149-02 | In Progress | P1 |
 | **F150** | Product layering and release readiness — layer taxonomy, release surface, module path migration, experimental isolation, coverage policy, telemetry consent, formula rehearsal, and debt ledger | 00-150-01 ... 00-150-10 | Done | P1 |
+| **F151** | `sdp-pr-gate` design v1 — schema, evidence provider API, decision record, override, GitHub App flow, and pilot measurement plan | 00-151-01 ... 00-151-06 | Backlog | P2 |
+| **F152** | Pricing Hypothesis — Operator Mode and sdp-pr-gate pricing/discovery instruments | 00-152-01 ... 00-152-03 | Backlog | P2 |
+| **F153** | SDP Brand Architecture — family map, naming policy, and trademark/domain check | 00-153-01 ... 00-153-03 | In Progress | P2 |
+| **F154** | Shared Substrates v1 — semver contracts for evidence, policy, model gateway, context, and eval cores | 00-154-01 ... 00-154-05 | Backlog | P2 |
+| **F155** | Evidence Persistence Architecture — storage backend decision, retention, backup, and privacy posture | 00-155-01 | Backlog | P3 |
+| **F156** | `arch-snap` IIP Hypothesis — promotion gate before active implementation | 00-156-01 | Backlog | P3 |
+| **F157** | `doc-tracer` IIP Hypothesis — promotion gate before active implementation | 00-157-01 | Backlog | P3 |
+| **F158** | Go Import-Path Contamination Decision — namespace decision blocking IIP promotion | 00-158-01 | Backlog | P3 |
+| **F159** | Competitive Positioning Artifact — positioning and battle card | 00-159-01 | Backlog | P3 |
+| **F160** | Procurement / Compliance Install Profile — regulated-industry install posture | 00-160-01 | Backlog | P3 |
 
 > **Source:** [product-surface.md](../reference/product-surface.md), [strict doc-sync debt retirement](../plans/2026-05-15-f149-doc-sync-debt-retirement-design.md) · **Beads:** `sdplab-s1rn`, `sdplab-t5k3`
 > **F150 Source:** [F150 Design](../plans/2026-04-27-f150-product-layering-release-readiness-design.md) · **Beads:** `sdplab-nyr0`

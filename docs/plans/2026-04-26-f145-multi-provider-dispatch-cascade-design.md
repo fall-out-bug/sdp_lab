@@ -16,7 +16,7 @@ SDP `dispatch` слой имеет три задокументированных
 
 Router думает что выбрал `composer-2-fast`, харнесс запускается с дефолтом из конфига. Routing-решения не реализуются.
 
-**1.2 Provider-каркас полупустой.** `Provider` interface ([harness.go:21](../../internal/dispatch/harness/harness.go)) задуман как абстракция над rate-limit-aware вендором, но **единственная реализация — `ZAIProvider`** с захардкоженными `glm-5/glm-4.7` и `CheckLimits` возвращающим stub. Anthropic/OpenAI/Cursor/Kimi/Ollama как `Provider` не существуют. `LocalConfig` для Ollama живёт отдельным хардкодом в [internal/dispatch/local.go](../../internal/dispatch/local.go), не интегрирован с общим `Provider`-каркасом.
+**1.2 Provider-каркас полупустой.** `Provider` interface ([harness.go:21](../../internal/dispatch/harness/harness.go)) задуман как абстракция над rate-limit-aware вендором, но **единственная реализация — `ZAIProvider`** с захардкоженными `glm-5/glm-4.7` и `CheckLimits` возвращающим stub. Anthropic/OpenAI/Cursor/Kimi/Ollama как `Provider` не существуют. Historical note: old `LocalConfig`/`local.go` was removed by the F145 cleanup; current local dispatch code lives in [internal/dispatch/ollama_client.go](../../internal/dispatch/ollama_client.go) and harness/provider files.
 
 **1.3 Routing single-shot, без confidence loop.** `Router.Route` ранжирует модели **upfront** по prior'ам и выбирает одну. `DispatchingInvoker.Fallback` срабатывает **только на ошибках** (packet load fail, routing fail, invoker missing). Если cheap модель ответила, но плохо — никто не эскалирует.
 

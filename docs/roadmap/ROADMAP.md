@@ -549,6 +549,9 @@ This roadmap focuses active strategy phases. Full feature coverage is maintained
 
 - **F130** — AI Harness Config Auto-Provisioning (00-130-01 ... 00-130-10). SDP analyzes any repo at any lifecycle stage and generates harness-ready config files (CLAUDE.md sections, .cursorrules, AGENTS.md language rules, codex.yaml) from actual codebase patterns. Pipeline: Scout/Index/SpecRecovery → pattern extractor → rules generator → harness adapter → bootstrap integration. go-patterns.md (2026-04-18) is the reference output format. Depends on F120, F122, F123, F124, F127.
 - **F131** — Workflow Skill Provisioning (00-F131-01 ... 00-F131-03). SDP generates workflow skill files (bug-fix, research, feature-delivery) tailored to a repo's tech stack during bootstrap. Extends F130 harness adapter with per-language skill templates. Manual examples shipped 2026-04-18. Depends on F130, F127.
+- **F133** — Local model dispatch (00-133-01). Route low-complexity coding tasks to local Ollama when explicitly enabled, with cloud fallback and no default behavior change.
+- **F135** — Happy vibecode path (00-135-01). Idea-to-prototype bridge with evidence-backed deploy gate; shipped through direct PRs before complete backlog normalization.
+- **F163** — Socratic spec interrogation for sdp-trace pilot (00-163-01). Clean-context critic/judge protocol for SpecKit artifacts.
 
 ### Layer Rollout Matrix (Vision Alignment)
 
