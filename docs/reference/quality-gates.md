@@ -53,7 +53,8 @@ green.
 | Cognitive complexity | not_assessed | Root `.golangci.yml` does not enable `gocognit` or `gocyclo` | No gate until the linter config and thresholds are selected |
 | CRAP score | not_assessed | No CRAP formula/tool is selected for Go in this repo | No gate until a formula and implementation are selected |
 | Modern Go hygiene | evidence_only | `go vet` and `golangci-lint` run, but root lint config disables `staticcheck`, `gosimple`, and `ineffassign` | Partial evidence only; do not call this a full modern-Go gate |
-| Spec drift | evidence_only | `sdp-protocol-check`, `sdp-doc-sync`, and repo consistency checks emit findings | Advisory except for version/public metadata drift |
+| Doc consistency drift | pass/fail | `sdp-doc-sync --mode check --strict` locally and in CI | Blocking |
+| Protocol/repo consistency drift | evidence_only | `sdp-protocol-check` and repo consistency checks emit findings | Advisory except for version/public metadata drift |
 | Work without spec/workstream | cannot_verify outside PR/checkpoint context | `scope-gate` verifies checkpoint workstreams when `.sdp/checkpoints/*.json` is present in PR diff | Blocking only when checkpoint evidence exists; otherwise absence of evidence is not approval |
 
 `scripts/quality-metrics.sh` prints this same state vocabulary before running
