@@ -200,10 +200,10 @@
 
 | Feature | Description | Workstreams | Status | Priority |
 |---------|-------------|-------------|--------|----------|
-| **F149** | Product docs rebaseline — install/setup, feature map, multiple happy paths, ready/tooling/experimental boundaries | 00-149-01 | In Progress | P1 |
+| **F149** | Product docs rebaseline — install/setup, feature map, multiple happy paths, ready/tooling/experimental boundaries, strict doc-sync debt retirement | 00-149-01 ... 00-149-02 | In Progress | P1 |
 | **F150** | Product layering and release readiness — layer taxonomy, release surface, module path migration, experimental isolation, coverage policy, telemetry consent, formula rehearsal, and debt ledger | 00-150-01 ... 00-150-10 | Done | P1 |
 
-> **Source:** [product-surface.md](../reference/product-surface.md) · **Beads:** `sdplab-s1rn`
+> **Source:** [product-surface.md](../reference/product-surface.md), [strict doc-sync debt retirement](../plans/2026-05-15-f149-doc-sync-debt-retirement-design.md) · **Beads:** `sdplab-s1rn`, `sdplab-t5k3`
 > **F150 Source:** [F150 Design](../plans/2026-04-27-f150-product-layering-release-readiness-design.md) · **Beads:** `sdplab-nyr0`
 > **F150 DAG:** `01 → {02,07,09}; 02 → {03,04,05,06,08}; {03,04} → 08; {03,04,05,06,07,08,09} → 10`
 
