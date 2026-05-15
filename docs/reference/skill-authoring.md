@@ -49,6 +49,7 @@ compatibility:
 requires_mcp: []           # list of MCP servers if skill expects MCP-tools
 requires_cli: []           # list of CLI binaries on PATH (sdp, bd, gh, …)
 tags: [discovery, review]  # free tags for search
+tool_risk_classes: [perception, analysis]
 ```
 
 | Field | When to specify |
@@ -57,6 +58,11 @@ tags: [discovery, review]  # free tags for search
 | `requires_mcp` | If skill expects a specific MCP server (e.g., `beads`, `claude-api`). Empty array = no requirements. |
 | `requires_cli` | CLI binaries without which the skill will not run (example: `[sdp, bd]`). |
 | `tags` | For lint/search/marketplace indexing. |
+| `tool_risk_classes` | Side-effect classes used by the skill. Use the vocabulary in [harness-risk-and-evidence.md](harness-risk-and-evidence.md). |
+
+`compatibility` is a runtime claim only after the harness has dispatch evidence.
+Before that, treat it as intended portability and report runtime coverage as
+`not_assessed_runtime` for that harness.
 
 ## Body structure (recommended)
 
@@ -75,13 +81,26 @@ compatibility: [claude-code, opencode, cursor, codex]
 
 ## Use When
 - bullet-list of situations when to apply
-- and when NOT to apply (anti-patterns)
+
+## Do Not Use When
+- common false triggers and anti-patterns
 
 ## Inputs / Outputs
 What skill expects on input (context, files, args), what it returns.
 
 ## Process
 Execution steps. If >5 steps -- break into subsections.
+
+## Verification
+How the agent proves the skill did what it claims. Prefer deterministic evidence:
+tests, lint output, schema validation, file existence, Beads/GitHub state, or
+captured runtime logs.
+
+## Degraded Evidence
+How the skill reports missing or partial evidence. Use
+`not_assessed`, `timeout`, `empty_output`, `off_task`, `unavailable_cli`,
+`not_assessed_runtime`, or `manual_gate_only` rather than collapsing unknowns
+into pass.
 
 ## References
 - related skills
@@ -90,6 +109,8 @@ Execution steps. If >5 steps -- break into subsections.
 ```
 
 Do not duplicate common rules (beads rules, git workflow) -- reference `AGENTS.md`.
+Use [harness-risk-and-evidence.md](harness-risk-and-evidence.md) for shared
+tool-risk classes and degraded-evidence vocabulary.
 
 ## Boundary With AGENTS.md
 

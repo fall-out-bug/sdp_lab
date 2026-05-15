@@ -109,6 +109,17 @@ Rules:
   huge provider error text or full prompts into the verdict, replace it with a
   compact verdict that preserves model status, P0/P1 counts, and override reason.
 
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "The reviewer returned nothing, so there were no findings." | Empty, timed-out, or off-task output is degraded evidence, not PASS. |
+| "All reviewers used the same strong model, so the panel is strong." | Multi-plane review and model-family diversity are separate. For trust-sensitive work, record missing diversity as `not_assessed_runtime`. |
+| "The adapter files exist, so the harness is supported." | Static parity is not runtime dispatch evidence. Mark runtime coverage `not_assessed_runtime` until the harness loads and runs the surface. |
+| "Network access means the reviewer verified the current docs." | Network permission is not evidence. Cite the source or mark the claim unverified. |
+| "Rubber-stamp roles are harmless." | They are acceptable only when explicitly recorded as shallow coverage; do not blend them into a full green verdict. |
+| "A compact maintainer note can hide provider failure." | It may justify accepting degraded coverage, but the degraded state must remain visible. |
+
 ## Write Plan (F101)
 
 Before writing review output files (verdict, findings), emit a write plan:

@@ -146,11 +146,11 @@
 | **F165** | Indirect Prompt Injection Through SDP Task Data — Day-12 defensive demo pack for Beads/workstream/evidence task-data poisoning with deterministic unsafe/defended outcomes | 00-165-00 ... 00-165-05 | Backlog | P1 |
 | **F166** | Runtime LLM Guard Gateway — core-first Go guard/audit layer for SDP model calls: input/output secret checks, local chunked classifier, Codex/Pi harness compatibility, gateway surfaces, redaction/blocking, token/cost evidence, deterministic corpus | 00-166-01 ... 00-166-09 | In Progress | P1 |
 | **F167** | Security Verdict Gate — Day-14 runtime security step after green tests and before commit/promotion-ready state, with gateway sanitation, blocking Critical/High findings, warning Medium/Low findings, escalation on provider/sanitizer/evidence failure, and demo evidence | 00-167-01 ... 00-167-04 | Backlog | P1 |
-| **F168** | Onboarding Quality Taxonomy — honest first-run promise map plus deterministic/model-review quality axes for Go hygiene, complexity, spec drift, CleanCode, CleanArchitecture, Security, DX, UX, and docs completeness | 00-168-00 ... 00-168-08 | Done on branch; PR review pending | P1 |
+| **F168** | Onboarding Quality Taxonomy — honest first-run promise map plus deterministic/model-review quality axes for Go hygiene, complexity, spec drift, CleanCode, CleanArchitecture, Security, DX, UX, and docs completeness | 00-168-00 ... 00-168-09 | Done on branch; PR review pending | P1 |
 
 > **Beads:** `F161=sdplab-tffu`, `F163=sdplab-n7a9`, `F164=sdplab-9wxx`, `F165=sdplab-28xb`, `F166=sdplab-mp83`, `F167=sdplab-xe5c`, `F168=sdplab-o8gk`
 > **F167 DAG:** `01 → 02 → 03 → 04`
-> **F168 DAG:** `01 → {02,03,04,05}; {02,03,04,05} → 06 → 07 → 08`
+> **F168 DAG:** `01 → {02,03,04,05}; {02,03,04,05} → 06 → 07 → 08 → 09`
 > **Boundary:** this produces evidence for spec readiness; it is not a process gate. Gate policy remains owned by downstream gate tooling.
 
 #### F161 Workstreams
@@ -194,6 +194,7 @@
 | 00-168-06 | Operator-facing quality report UX | Done on branch | sdplab-f16806 |
 | 00-168-07 | CI/advisory rollout and Beads findings loop | Done on branch | sdplab-f16807 |
 | 00-168-08 | End-to-end onboarding quality calibration run | Done on branch | sdplab-f16808 |
+| 00-168-09 | Harness and skill operating discipline phase 1 | Done on branch | sdplab-4cxu |
 
 ### Phase Product Documentation And Adoption Clarity
 

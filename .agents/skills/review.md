@@ -54,6 +54,17 @@ gates are green, no P0/P1 remain, and `.sdp/review_verdict.json` records a
 compact maintainer note. Never commit raw `.sdp/runs/pi-review/*` telemetry by
 default.
 
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "The reviewer returned nothing, so there were no findings." | Empty, timed-out, or off-task output is degraded evidence, not PASS. |
+| "All reviewers used the same strong model, so the panel is strong." | Multi-plane review and model-family diversity are separate. For trust-sensitive work, record missing diversity as `not_assessed_runtime`. |
+| "The adapter files exist, so the harness is supported." | Static parity is not runtime dispatch evidence. Mark runtime coverage `not_assessed_runtime` until the harness loads and runs the surface. |
+| "Network access means the reviewer verified the current docs." | Network permission is not evidence. Cite the source or mark the claim unverified. |
+| "Rubber-stamp roles are harmless." | They are acceptable only when explicitly recorded as shallow coverage; do not blend them into a full green verdict. |
+| "A compact maintainer note can hide provider failure." | It may justify accepting degraded coverage, but the degraded state must remain visible. |
+
 ## Routing Rules
 
 Dimension based on: (1) Diff size: small (<50 lines) → code only, large → multiple dimensions.

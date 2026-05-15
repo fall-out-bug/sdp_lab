@@ -38,6 +38,17 @@ Continuation is the orchestrator's job (@oneshot / sdp orchestrate).
 5. **MODERN GO FOR GO CODE** — When touched files are Go, load `@go-modern` and prefer safe stdlib modernizations before inventing helpers.
 6. **PI FINDINGS NEED REGRESSION TESTS** — For prompt-injection or review-finding fixes, add a deterministic regression test for the exact failed vector before closing the finding bead.
 
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "The change is small enough to skip the workstream." | Small changes still need an executable owner. If no WS exists, stop and create or request one. |
+| "I can test at the end." | Late testing hides which slice introduced the failure. Use the narrowest relevant test before and after behavior changes. |
+| "The model says it verified this." | Model prose is not evidence. Use tool output, file state, schema validation, or Beads/GitHub state. |
+| "Prompt instructions are enough to prevent unsafe actions." | Prompt-only boundaries are not security boundaries. Runtime support is `not_assessed_runtime` unless dispatch evidence proves enforcement. |
+| "One broad review after implementation is enough." | Trust-sensitive changes need selected review planes, and degraded evidence must remain visible. |
+| "Unrelated cleanup will leave the repo better." | Cleanup is in scope only when required by the WS or explicitly accepted in the write plan. |
+
 ---
 
 ## Git Safety
